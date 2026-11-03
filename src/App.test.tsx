@@ -19,6 +19,18 @@ function memoryStore(initial: Progress = emptyProgress()): ProgressStore & { sav
 }
 
 describe('App', () => {
+  it('starts a session on the unit the learner picks', async () => {
+    const user = userEvent.setup();
+    render(<App store={memoryStore()} now={now} />);
+
+    await user.click(await screen.findByText('Behavioural and scenarios'));
+    const practiceButtons = screen.getAllByRole('button', { name: 'Practice this unit' });
+    // Units are listed in order; behavioural is the tenth of eleven.
+    await user.click(practiceButtons[9]!);
+
+    expect(screen.getByRole('heading', { name: /worked across the whole stack/ })).toBeInTheDocument();
+  });
+
   it('runs a "say it" card with its follow-ups and reschedules it', async () => {
     const user = userEvent.setup();
     const store = memoryStore();

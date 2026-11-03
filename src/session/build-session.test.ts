@@ -57,8 +57,15 @@ describe('buildSession', () => {
 
   it('reviews the soonest cards in practice mode when nothing is due', () => {
     const progress = reviewed(['a', 'b', 'c', 'd', 'e'], TODAY);
-    const session = buildSession(CARDS, NO_MCQS, progress, TODAY, true);
+    const session = buildSession(CARDS, NO_MCQS, progress, TODAY, { practice: true });
     expect(session.filter((exercise) => exercise.kind === 'say')).toHaveLength(5);
+  });
+
+  it('can introduce new cards past the daily limit when the learner picks a unit', () => {
+    const progress = reviewed(['a', 'b', 'c', 'd', 'e'], TODAY);
+    const unitCards = CARDS.slice(5);
+    const session = buildSession(unitCards, NO_MCQS, progress, TODAY, { ignoreNewLimit: true });
+    expect(session.filter((exercise) => exercise.kind === 'say').map((exercise) => exercise.cardId)).toEqual(['f', 'g']);
   });
 
   it('rotates the check between traps and track questions across visits', () => {

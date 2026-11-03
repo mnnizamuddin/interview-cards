@@ -23,19 +23,27 @@ export function planToday(cards: readonly Card[], progress: Progress, today: Day
   };
 }
 
+export type SessionOptions = {
+  /** With nothing due and no new card left, review the cards that come due soonest instead. */
+  practice?: boolean;
+  /** Ignore the daily limit of new cards, for a unit the learner chose themselves. */
+  ignoreNewLimit?: boolean;
+};
+
 /**
- * Builds today's session: due reviews first, then new cards up to the daily limit, five cards at
- * most. Each card is a "say it" exercise followed by one quick check. With nothing due and no new
- * card left, `practice` reviews the cards that come due soonest instead.
+ * Builds a session from `cards`: due reviews first, then new cards up to the daily limit, five
+ * cards at most. Each card is a "say it" exercise followed by one quick check. Pass all cards for
+ * the daily session, or one unit's cards for a unit session.
  */
 export function buildSession(
   cards: readonly Card[],
   mcqsByCard: ReadonlyMap<string, readonly Mcq[]>,
   progress: Progress,
   today: DayKey,
-  practice = false,
+  { practice = false, ignoreNewLimit = false }: SessionOptions = {},
 ): Exercise[] {
-  let picked = [...dueCards(cards, progress, today), ...newCards(cards, progress, today)].slice(0, CARDS_PER_SESSION);
+  const fresh = newCards(cards, progress, today, ignoreNewLimit ? CARDS_PER_SESSION : undefined);
+  let picked = [...dueCards(cards, progress, today), ...fresh].slice(0, CARDS_PER_SESSION);
   if (picked.length === 0 && practice) {
     picked = soonestCards(cards, progress).slice(0, CARDS_PER_SESSION);
   }
@@ -54,8 +62,9 @@ function dueCards(cards: readonly Card[], progress: Progress, today: DayKey): Ca
     .toSorted((a, b) => progress.cards[a.id]!.dueDay.localeCompare(progress.cards[b.id]!.dueDay));
 }
 
-function newCards(cards: readonly Card[], progress: Progress, today: DayKey): Card[] {
-  const allowed = Math.max(0, progress.settings.newCardsPerDay - dayStats(progress, today).newCards);
+/** Unseen cards in learning order, up to `limit`, or what is left of today's allowance by default. */
+function newCards(cards: readonly Card[], progress: Progress, today: DayKey, limit?: number): Card[] {
+  const allowed = limit ?? Math.max(0, progress.settings.newCardsPerDay - dayStats(progress, today).newCards);
   return cards.filter((card) => progress.cards[card.id] === undefined).slice(0, allowed);
 }
 

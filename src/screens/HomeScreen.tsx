@@ -36,6 +36,7 @@ export function HomeScreen({
   today,
   plan,
   onStart,
+  onStartUnit,
   onImport,
 }: {
   units: Unit[];
@@ -44,6 +45,7 @@ export function HomeScreen({
   today: DayKey;
   plan: TodayPlan;
   onStart: (practice: boolean) => void;
+  onStartUnit: (unitId: string) => void;
   onImport: (progress: Progress) => void;
 }) {
   const streak = currentStreak(progress, today);
@@ -116,6 +118,11 @@ export function HomeScreen({
                 <Text>{unit.description}</Text>
               </span>
             </summary>
+            <div className="px-3 pb-3">
+              <Button block variant="secondary" onClick={() => onStartUnit(unit.id)}>
+                Practice this unit
+              </Button>
+            </div>
             <ul className="flex flex-col gap-2 px-3 pb-3">
               {unitCards.map((card) => {
                 const status = STATUS_STYLES[cardStatus(card, progress, today)];

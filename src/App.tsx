@@ -48,7 +48,19 @@ export function App({ store, now }: { store: ProgressStore; now: () => Date }) {
   }
 
   function startSession(practice: boolean) {
-    const exercises = buildSession(CARDS, MCQS_BY_CARD, progress!, today, practice);
+    const exercises = buildSession(CARDS, MCQS_BY_CARD, progress!, today, { practice });
+    if (exercises.length > 0) {
+      setScreen({ name: 'session', exercises });
+    }
+  }
+
+  /**
+   * A session on one unit only: its due cards, then its new cards even past the daily limit, since
+   * the learner chose the unit; once all are seen, the ones that come due soonest.
+   */
+  function startUnitSession(unitId: string) {
+    const unitCards = CARDS.filter((card) => card.unit === unitId);
+    const exercises = buildSession(unitCards, MCQS_BY_CARD, progress!, today, { practice: true, ignoreNewLimit: true });
     if (exercises.length > 0) {
       setScreen({ name: 'session', exercises });
     }
@@ -89,6 +101,7 @@ export function App({ store, now }: { store: ProgressStore; now: () => Date }) {
       today={today}
       plan={planToday(CARDS, progress, today)}
       onStart={startSession}
+      onStartUnit={startUnitSession}
       onImport={setProgress}
     />
   );
