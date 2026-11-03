@@ -38,6 +38,17 @@ export const systemDesignCards: Card[] = [
       {
         question: 'The table outgrows one primary. How do you shard it?',
         answer: 'By a hash of the code, since every redirect asks for exactly one code. Sharding by creation date would send new links, and most clicks, to the newest shard. Grow the cache and add read replicas before that.',
+        fromList: 'fullstack-100#59.3',
+      },
+      {
+        question: 'How would you serve 100,000 redirects per second?',
+        answer: 'Keep each redirect a single cache read on stateless pods that autoscale. Spread the Valkey cache over several nodes and copy the hottest codes, or keep them in a small in-process LRU, so a viral link is not one hot node. At 100 reads per write, writes stay around 1,000 a second: one primary still fits.',
+        fromList: 'fullstack-100#59.1',
+      },
+      {
+        question: 'How do you stop the shortener being used to spread phishing or spam?',
+        answer: 'Accept only `http` and `https` targets, rate-limit link creation per account and per IP, and check targets against a threat list such as Google Safe Browsing at creation and again later, since a domain can turn bad. A flagged code is disabled at once and its cache entry deleted.',
+        fromList: 'fullstack-100#59.2',
       },
     ],
     traps: [
@@ -97,10 +108,21 @@ export const systemDesignCards: Card[] = [
       {
         question: 'How do you handle presence and "agent is typing"?',
         answer: 'Both are ephemeral. Presence is a Redis key with a TTL refreshed by the heartbeat, so it expires when a replica dies; typing goes over pub/sub only and is never stored.',
+        fromList: 'fullstack-100#60.3',
       },
       {
         question: 'What changes for something like WhatsApp?',
         answer: 'Group conversations need fan-out to many members, and the scale calls for a message store partitioned by conversation id instead of one table. The ids, acks and per-conversation sequence stay the same.',
+      },
+      {
+        question: 'How do you scale WebSocket connections across several servers behind a load balancer?',
+        answer: 'A socket is one connection routed once, so no sticky sessions; the balancer just has to allow the upgrade. Each replica publishes messages through Redis pub/sub to the replica holding the receiver\'s socket. On a deploy, a replica closes its sockets with code 1001 and clients reconnect with backoff and jitter.',
+        fromList: 'fullstack-100#60.1',
+      },
+      {
+        question: 'How do you guarantee delivery and order when a connection drops and comes back?',
+        answer: 'The guarantees live in the database. The client resends unacknowledged messages with the same client id, which the unique constraint stores once, and on reconnect asks for every message after its last sequence number. That per-conversation sequence also gives the order, so the client sorts by it.',
+        fromList: 'fullstack-100#60.2',
       },
     ],
     traps: [
@@ -159,6 +181,21 @@ export const systemDesignCards: Card[] = [
       {
         question: 'What should the autoscaler scale on?',
         answer: 'A metric that tracks load for that service: CPU for the API, queue depth or the age of the oldest message for workers. The Kubernetes Horizontal Pod Autoscaler supports custom metrics as well as CPU.',
+      },
+      {
+        question: 'What must change in a stateful app, say one with in-memory sessions, so it can scale out?',
+        answer: 'Every piece of state leaves the process: sessions go to Redis, caches to Redis, uploads to object storage, and scheduled jobs run behind a lock so only one copy runs them. Then any copy can take the next request, and a pod can die without logging anyone out.',
+        fromList: 'fullstack-100#61.1',
+      },
+      {
+        question: 'How does a load balancer make horizontal scaling possible?',
+        answer: 'Clients see one address while the balancer spreads requests over the copies, so a new copy adds capacity without anyone changing a URL. Its health checks keep traffic away from copies that are failing or still starting, which lets the autoscaler add and remove pods safely.',
+        fromList: 'fullstack-100#61.2',
+      },
+      {
+        question: 'How do you scale the database horizontally, compared with the application?',
+        answer: 'API copies are interchangeable; copies of data are not. Read replicas spread reads, but every write still goes to the primary. To spread writes you shard, for example orders by customer id, which makes queries and transactions across shards hard, so it comes last.',
+        fromList: 'fullstack-100#61.3',
       },
     ],
     traps: [
@@ -223,6 +260,21 @@ export const systemDesignCards: Card[] = [
         question: 'How do you update a photo that the CDN caches for a year?',
         answer: 'Store it under a new key, for example with a content hash or a version, and point the product to it. The old URL simply stops being referenced, so no purge is needed.',
       },
+      {
+        question: 'How would you implement and secure the presigned upload URL?',
+        answer: 'The API checks that the agent may edit the product, chooses the object key itself, and signs a presigned POST with the AWS SDK: a short expiry, an allowed content type and a `content-length-range`. The bucket stays private, and the worker still decodes the file before anything is published.',
+        fromList: 'fullstack-100#62.1',
+      },
+      {
+        question: 'How do you generate thumbnails asynchronously and reliably, failures included?',
+        answer: 'The storage event goes to a queue, and a worker using `sharp` writes each size under a key derived from the original, so a retry overwrites the same files. Failures retry with backoff, then land in a dead-letter queue with an alert, and the page shows a placeholder until the sizes exist.',
+        fromList: 'fullstack-100#62.2',
+      },
+      {
+        question: 'How do you detect and handle inappropriate uploads?',
+        answer: 'Customer review photos go to a moderation service, such as Amazon Rekognition\'s content moderation, and stay unpublished until they pass. Uncertain scores go to a review queue in the back office, and a rejected image is deleted and logged with who uploaded it.',
+        fromList: 'fullstack-100#62.3',
+      },
     ],
     traps: [
       {
@@ -280,6 +332,21 @@ export const systemDesignCards: Card[] = [
       {
         question: 'What is a distributed monolith?',
         answer: 'Services that cannot change their schema or deploy independently, usually because they share tables or need to ship together, with network calls on top. You get the costs of both styles.',
+      },
+      {
+        question: 'How do you choose service boundaries when splitting a growing monolith?',
+        answer: 'Along business capabilities that own their data, such as Ordering, Payments or Inventory, not along technical layers. A good boundary needs few synchronous calls across it; if two parts keep changing in the same pull request, they belong in the same service.',
+        fromList: 'fullstack-100#63.1',
+      },
+      {
+        question: 'How do services keep data consistent without distributed transactions?',
+        answer: 'Each service commits locally and publishes an event through an outbox, and the others react, so data is eventually consistent. A multi-step flow like checkout runs as a saga: when a step fails, compensating actions undo the earlier ones, such as releasing stock or refunding. Consumers deduplicate by event id.',
+        fromList: 'fullstack-100#63.2',
+      },
+      {
+        question: 'What signals show a team is ready for microservices?',
+        answer: 'Several teams blocking each other in one deployable, boundaries already stable inside a modular monolith, and the basics in place: automated CI/CD, metrics and tracing per service, and on-call. Without those, splitting adds network failures to the same organisational problems.',
+        fromList: 'fullstack-100#63.3',
       },
     ],
     traps: [
@@ -339,6 +406,21 @@ export const systemDesignCards: Card[] = [
       {
         question: 'How does the Next.js storefront fit in?',
         answer: 'Product data is cached with `\'use cache\'` and a tag per product, and the catalogue calls a webhook that runs `revalidateTag`, so a price change reaches customers after one background render instead of a timer.',
+      },
+      {
+        question: 'How do you invalidate the cache when the source data changes?',
+        answer: 'The code that writes deletes the key after the commit. When another service owns the change, it publishes an event through its outbox and a consumer deletes the key. The storefront revalidates its product tag the same way, and every key keeps a TTL that bounds whatever invalidation misses.',
+        fromList: 'fullstack-100#64.1',
+      },
+      {
+        question: 'What is a cache stampede, and how do you prevent one?',
+        answer: 'Many requests miss the same expired hot key and all load it from the database at once. Single flight shares one load per process; across replicas, serve the stale value while one caller refreshes, take a short Redis lock with `SET NX PX`, or refresh early with XFetch.',
+        fromList: 'fullstack-100#64.2',
+      },
+      {
+        question: 'What must never be cached because it has to be fresh?',
+        answer: 'Anything where a stale value costs money or security: stock and price when `POST /orders` commits, payment status, permissions and session checks. They may be cached for display, but the decision reads the source of truth, and per-user data never goes under a shared key.',
+        fromList: 'fullstack-100#64.3',
       },
     ],
     traps: [
@@ -403,6 +485,21 @@ export const systemDesignCards: Card[] = [
         question: 'What should the server do when the same idempotency key comes with a different body?',
         answer: 'Reject it, with a 422 in the IETF draft: the client reused a key for another operation, which is a bug to surface, not a retry to replay.',
       },
+      {
+        question: 'How would you implement idempotency on `POST /orders`?',
+        answer: 'The storefront generates one key per checkout attempt and sends it in an `Idempotency-Key` header on every retry. The API inserts the key under a unique constraint in the order\'s transaction and stores the response; a repeat gets that response replayed, and a repeat while the first is still running gets a 409.',
+        fromList: 'fullstack-100#65.1',
+      },
+      {
+        question: 'What if the payment succeeds but a later step, like the stock update, fails?',
+        answer: 'Stock is taken before payment, in the order\'s transaction. After payment, marking the order `paid` and its outbox row commit together; if that fails, the webhook returns an error and the provider retries. If an item truly cannot ship, the saga compensates by refunding and cancelling.',
+        fromList: 'fullstack-100#65.2',
+      },
+      {
+        question: 'How do you avoid handling or storing raw card data?',
+        answer: 'Customers type card details into the provider\'s fields or page, such as Stripe Elements or Checkout, which send them straight to the provider, so our servers never see them. We keep only the brand, last four digits and expiry for receipts, which Stripe says are outside PCI scope. That shrinks our PCI obligations.',
+        fromList: 'fullstack-100#65.3',
+      },
     ],
     traps: [
       {
@@ -463,6 +560,21 @@ export const systemDesignCards: Card[] = [
         question: 'When would you choose least outstanding requests over round robin?',
         answer: 'When request durations vary a lot, like a mix of fast reads and slow exports. Round robin ignores how busy each instance is, so slow requests can pile up on one copy.',
       },
+      {
+        question: 'What is the difference between layer 4 and layer 7 load balancing?',
+        answer: 'Layer 4 forwards TCP connections by address and port without reading them, so it is fast but balances connections, not requests. Layer 7 terminates TLS and reads HTTP, so it can route by path or header and spread each request, which matters with the BFF\'s long keep-alive connections.',
+        fromList: 'fullstack-100#66.1',
+      },
+      {
+        question: 'How would you get sticky sessions without hashing the client IP?',
+        answer: 'With a cookie: the layer 7 balancer or the app sets an affinity cookie and routes by it, so customers behind the same mobile carrier\'s shared IP are not all pinned to one pod. I use it only for warm caches, never for state: sessions live in Redis, so losing affinity logs nobody out.',
+        fromList: 'fullstack-100#66.2',
+      },
+      {
+        question: 'How does a load balancer detect an unhealthy instance and route around it?',
+        answer: 'It probes each instance on a schedule, for example `GET /ready`, takes it out of rotation after a few failed checks in a row, and puts it back once checks pass. Some balancers also eject an instance that returns too many errors on real traffic. In Kubernetes, the readiness probe removes the pod from the endpoints.',
+        fromList: 'fullstack-100#66.3',
+      },
     ],
     traps: [
       {
@@ -516,10 +628,21 @@ export const systemDesignCards: Card[] = [
       {
         question: 'What happens when the SMS provider goes down?',
         answer: 'Keep a second provider configured and switch when the first one\'s error rate crosses a threshold, using the same dedup key so a message is not sent through both.',
+        fromList: 'fullstack-100#67.1',
       },
       {
         question: 'How do you store the in-app inbox?',
         answer: 'As a read model shaped for that screen: rows keyed by user id and creation time in PostgreSQL, partitioned by user at large scale.',
+      },
+      {
+        question: 'How do you prevent duplicate notifications for the same event?',
+        answer: 'Each notification gets an id derived from the event, such as `order.paid` plus the order id. The worker skips a (notification id, channel) pair already recorded as sent, records it once the provider accepts, and passes the same id as an idempotency key where the provider supports one.',
+        fromList: 'fullstack-100#67.2',
+      },
+      {
+        question: 'How do you apply user preferences and opt-outs consistently across channels?',
+        answer: 'One store owns them per user, channel and category, and every channel worker reads it at send time from the primary rather than a snapshot. Transactional messages like a login code ignore marketing opt-outs, and every marketing e-mail carries an unsubscribe link that writes to the same store.',
+        fromList: 'fullstack-100#67.3',
       },
     ],
     traps: [
@@ -578,6 +701,21 @@ export const systemDesignCards: Card[] = [
       {
         question: 'What does Automerge offer compared with Yjs?',
         answer: 'Both are CRDT libraries. Automerge is designed for local-first software and keeps the history of changes, so you can view old versions, branch and merge; it has JavaScript and Rust implementations, the Rust one compiling to WebAssembly.',
+      },
+      {
+        question: 'At a high level, how does a CRDT merge concurrent edits without coordination?',
+        answer: 'Each inserted element gets a unique id, from its author and a counter, and is placed relative to its neighbours\' ids rather than at an index; deletes are marked, not erased. Merging is commutative and idempotent, so every replica that applies the same updates, in any order, ends with the same text.',
+        fromList: 'fullstack-100#68.1',
+      },
+      {
+        question: 'What is the fundamental difference between OT and CRDTs, and the trade-offs?',
+        answer: 'OT changes the operations: each is transformed against concurrent ones, usually by a central server that fixes the order. CRDTs change the data: elements carry ids, so updates commute. OT needs that server but keeps documents lean; CRDTs allow peer-to-peer and offline editing but carry extra metadata.',
+        fromList: 'fullstack-100#68.2',
+      },
+      {
+        question: 'How do you handle a user who made many edits offline before reconnecting?',
+        answer: 'With Yjs, edits are saved locally, for example with y-indexeddb. On reconnect, client and server exchange state vectors so each sends only the updates the other lacks, and those merge without conflict. The merged text can still read oddly, so I would tell the agent that others\' changes arrived.',
+        fromList: 'fullstack-100#68.3',
       },
     ],
     traps: [
@@ -642,6 +780,21 @@ export const systemDesignCards: Card[] = [
         question: 'How do you handle a migration on a table with millions of rows in the plan?',
         answer: 'As its own item, in steps that keep the old code working: add the column, backfill in batches, switch the code, then clean up, each deployed separately.',
       },
+      {
+        question: 'How do you communicate a missed deadline or estimate early?',
+        answer: 'As soon as I know, not on the due date: I tell the lead and the product manager what slipped, why, the new estimate and the options, such as cutting a slice or moving the date. On returns, I raised the label API problem the day the spike ended, so the plan changed mid-sprint, not at the review.',
+        fromList: 'fullstack-100#69.1',
+      },
+      {
+        question: 'How do you account for code review, QA and testing in the estimate?',
+        answer: 'They are part of the work, not a margin: tests sit in each slice\'s estimate, and review, QA on staging and monitoring are explicit items. I size them from our history, such as how long reviews of similar pull requests took, and keep pull requests small so reviews stay quick.',
+        fromList: 'fullstack-100#69.2',
+      },
+      {
+        question: 'How do you break a large feature into pieces that ship and estimate on their own?',
+        answer: 'Into thin end-to-end slices, each with value: for returns, first a customer form whose returns agents handle by hand, then the agent screen, then the label integration. Each slice crosses the stack and can ship behind a flag, and it is small enough to estimate.',
+        fromList: 'fullstack-100#69.3',
+      },
     ],
     traps: [
       {
@@ -699,6 +852,21 @@ export const systemDesignCards: Card[] = [
       {
         question: 'Users say the storefront is slow but the API looks fine. Where do you look?',
         answer: 'At field data from real users, such as LCP and INP from the `web-vitals` library, split by page. The time may be in the browser, in rendering or JavaScript, not in the API.',
+      },
+      {
+        question: 'Which metrics would you want on the dashboard to diagnose this quickly?',
+        answer: 'Per route: request rate, error rate and p50, p95 and p99 latency, with deploy markers. Then the causes: pool waits and connections in use, event loop delay, CPU and memory per pod, slow queries and database CPU, and the latency and errors of each dependency, such as the delivery partner.',
+        fromList: 'fullstack-100#70.1',
+      },
+      {
+        question: 'How do you tell a database bottleneck from a problem in the application servers?',
+        answer: 'Traces tell them apart. Long query spans, with high database CPU, locks or bad plans, point at the database; fast queries but time waiting before them point at the pool. Rising event loop delay or pod CPU while query spans stay fast point at the application.',
+        fromList: 'fullstack-100#70.2',
+      },
+      {
+        question: 'How would you roll back a suspect deployment safely and quickly?',
+        answer: 'With the fastest lever: turn the feature flag off, or run `kubectl rollout undo deployment/orders-api`. That is safe only because migrations stay backward compatible, since a rollout undo never touches the schema. Then I watch p99 and errors split by version to confirm it worked.',
+        fromList: 'fullstack-100#70.3',
       },
     ],
     traps: [

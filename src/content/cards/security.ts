@@ -39,6 +39,21 @@ export const securityCards: Card[] = [
         question: 'Why does CSP use nonces rather than domain allow-lists?',
         answer: 'Allow-listed domains often host scripts an attacker can reuse. A nonce is a random value per response, so only script tags the server rendered with it can run.',
       },
+      {
+        question: 'What separates stored, reflected and DOM-based XSS?',
+        answer: 'Stored XSS is saved by the server, like a review shown to every agent. Reflected XSS comes back from the request, like a search term echoed into the page. DOM-based XSS never touches the server\'s HTML: front-end code writes untrusted data, such as `location.hash`, into a sink.',
+        fromList: 'fullstack-100#81.1',
+      },
+      {
+        question: 'How does a Content Security Policy limit the damage of an XSS?',
+        answer: 'The browser runs only scripts the policy allows: with `script-src \'nonce-...\' \'strict-dynamic\'`, an injected `<script>` or inline `onerror` handler has no nonce and is blocked. `object-src \'none\'` and `base-uri \'none\'` close other paths, and violation reports show attempts.',
+        fromList: 'fullstack-100#81.2',
+      },
+      {
+        question: 'Why is a token in an `HttpOnly` cookie safer against XSS than one in `localStorage`?',
+        answer: 'Any script on the page can read `localStorage` and send the token to the attacker, who replays it from anywhere until it expires. An `HttpOnly` cookie is invisible to JavaScript, so an XSS can only act inside the open page while it runs; it still needs fixing.',
+        fromList: 'fullstack-100#81.3',
+      },
     ],
     traps: [
       {
@@ -102,6 +117,21 @@ export const securityCards: Card[] = [
       {
         question: 'Why is a tagged template, such as the `sql` tag of postgres.js, safe against injection?',
         answer: 'The tag function receives the literal parts and the values separately, so the library puts a placeholder where each value was and sends the values as parameters.',
+      },
+      {
+        question: 'How do parameterised queries stop SQL injection at a technical level?',
+        answer: 'PostgreSQL\'s extended protocol sends the SQL text with `$1` placeholders in one message, and the values separately in a later bind step. The statement is already parsed into a plan when the values arrive, so an input like `\' OR 1=1` is only ever compared as a string.',
+        fromList: 'fullstack-100#82.1',
+      },
+      {
+        question: 'Does an ORM remove the risk of SQL injection completely?',
+        answer: 'No. Its normal query methods parameterise, but raw escape hatches such as Prisma\'s `$queryRawUnsafe`, `sql.raw` or a raw string passed to `query()` paste text as is. Dynamic column names in `orderBy` still need an allow-list too.',
+        fromList: 'fullstack-100#82.2',
+      },
+      {
+        question: 'How would you audit an existing codebase for SQL injection?',
+        answer: 'Search every raw query call for template literals or concatenation, plus `Unsafe` and `raw` escape hatches, and follow where each input comes from. Then add a Semgrep rule in CI so new cases fail the build, and test risky endpoints with injection payloads.',
+        fromList: 'fullstack-100#82.3',
       },
     ],
     traps: [
@@ -169,6 +199,17 @@ const orderBy = { newest: 'created_at DESC', oldest: 'created_at ASC' }[sort];`,
       {
         question: 'Is an API that takes a bearer token in the `Authorization` header vulnerable to CSRF?',
         answer: 'Not in the classic way: the browser does not attach that header by itself, so another site cannot make it send the token.',
+        fromList: 'fullstack-100#83.2',
+      },
+      {
+        question: 'How does `SameSite` protect against CSRF, and how do `Strict`, `Lax` and `None` differ?',
+        answer: 'It tells the browser when to send the cookie on cross-site requests. `Strict` never does; `Lax` does only on top-level `GET` navigations, and browsers like Chrome apply it when the attribute is missing; `None` always does and requires `Secure`.',
+        fromList: 'fullstack-100#83.1',
+      },
+      {
+        question: 'How do you implement CSRF token validation on the front end and the back end?',
+        answer: 'The server generates a random token tied to the session and gives it to the page. The front end sends it in a header such as `X-CSRF-Token` on every write, and the server compares it with the session\'s value in constant time, answering 403 on a mismatch.',
+        fromList: 'fullstack-100#83.3',
       },
     ],
     traps: [
@@ -237,6 +278,21 @@ const orderBy = { newest: 'created_at DESC', oldest: 'created_at ASC' }[sort];`,
         question: 'How do you rotate a database password without downtime?',
         answer: 'Create the new credential while the old one still works, roll it out to every instance, then revoke the old one. Secret managers can automate this rotation.',
       },
+      {
+        question: 'How do you rotate a compromised credential across every environment and service?',
+        answer: 'Revoke or replace it at the provider first, then update it in the secret manager and restart or reload every service that reads it, found from the manager\'s access list. Check the provider\'s logs for use by the attacker, and give each environment its own credential so one leak stays contained.',
+        fromList: 'fullstack-100#84.1',
+      },
+      {
+        question: 'Which tools have you used to manage secrets in production?',
+        answer: 'On the Orders API, AWS Secrets Manager, synced into Kubernetes by External Secrets Operator, with one IAM role per service, and GitHub Actions deploying through OIDC. The lesson: an inventory of who reads which secret is what makes a rotation fast.',
+        fromList: 'fullstack-100#84.2',
+      },
+      {
+        question: 'How do you stop secrets from being committed in the first place?',
+        answer: 'Keep them out of the working tree: `.env` in `.gitignore` and only a `.env.example` committed. Then scan: a pre-commit hook with gitleaks, GitHub push protection, and a scanner in CI. Short-lived credentials leave fewer secrets to leak.',
+        fromList: 'fullstack-100#84.3',
+      },
     ],
     traps: [
       {
@@ -299,10 +355,21 @@ function loadConfig(env: NodeJS.ProcessEnv) {
       {
         question: 'What does HSTS do, and what is its weakness?',
         answer: 'It tells the browser to use only HTTPS for the host and to refuse certificate errors. It only works after one secure visit, so the first request can be attacked; the preload list closes that gap.',
+        fromList: 'fullstack-100#85.2',
       },
       {
         question: 'Where do you terminate TLS in a Kubernetes setup?',
         answer: 'Usually at the load balancer or ingress, with automated certificates. Traffic inside the cluster can be re-encrypted, for example with a service mesh, when the threat model requires it.',
+      },
+      {
+        question: 'How does the TLS handshake set up a secure connection?',
+        answer: 'In TLS 1.3, the client sends its supported ciphers and a key share, the server answers with its own key share, its certificate and a signature proving it holds the private key. Both derive the same session keys by Diffie-Hellman, and the client checks the certificate chain and hostname.',
+        fromList: 'fullstack-100#85.1',
+      },
+      {
+        question: 'How do you obtain and reliably renew a production TLS certificate?',
+        answer: 'Automate it with ACME: cert-manager in Kubernetes with Let\'s Encrypt, or a managed certificate on the cloud load balancer, which renews itself. Then monitor expiry dates and alert weeks ahead, since a failed renewal is silent until the day it expires.',
+        fromList: 'fullstack-100#85.3',
       },
     ],
     traps: [
@@ -371,6 +438,21 @@ Set-Cookie: __Host-sid=...; Path=/; Secure; HttpOnly; SameSite=Lax`,
       {
         question: 'What would you check in the supply chain?',
         answer: 'A committed lockfile installed exactly in CI, dependency audits, delayed adoption of brand-new versions, install scripts blocked unless reviewed, and no secrets reachable from the build.',
+      },
+      {
+        question: 'Which automated security scanners have you used, and what do they catch best?',
+        answer: 'On the Orders API: Dependabot and `npm audit` for known-vulnerable packages, Semgrep for injection patterns in code, Trivy for container images, and ZAP against staging for missing headers. They catch known patterns well; none found the order another customer could read.',
+        fromList: 'fullstack-100#86.1',
+      },
+      {
+        question: 'How do you test for broken access control, such as an insecure direct object reference?',
+        answer: 'With two real test customers: A creates an order, B asks `GET /orders/:id` with A\'s id and must get 404; then a non-admin calls the refund route and must get 403. I write these as integration tests for every route that takes an id, so CI keeps checking them.',
+        fromList: 'fullstack-100#86.2',
+      },
+      {
+        question: 'How do you prioritise several security issues found at once?',
+        answer: 'By risk: how easy it is to exploit, whether it is reachable without login, and what data or money it exposes, with CVSS as a guide, not the answer. An order leak open to any customer comes before a missing header, and each finding gets an owner and a deadline.',
+        fromList: 'fullstack-100#86.3',
       },
     ],
     traps: [

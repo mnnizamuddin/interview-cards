@@ -37,6 +37,17 @@ export const reactCards: Card[] = [
       {
         question: 'How does React compare two trees without an expensive full diff?',
         answer: 'It assumes elements of a different type produce different trees and replaces them, and it matches children in lists by `key`. That keeps the comparison roughly linear in the number of elements.',
+        fromList: 'fullstack-100#26.1',
+      },
+      {
+        question: 'Why does a list need a unique `key`, and what goes wrong with the index?',
+        answer: 'The key is how React matches a list item with its previous version, so state and DOM follow the right data. With the index, prepending an order shifts every key: each row keeps the state of whatever was at its position before, so a typed note shows on the wrong order.',
+        fromList: 'fullstack-100#26.2',
+      },
+      {
+        question: 'How do frameworks like Svelte avoid a virtual DOM altogether?',
+        answer: 'Svelte compiles each component into code that updates the exact DOM nodes depending on a changed value, and Solid tracks values with signals at run time. Neither re-runs whole components nor diffs a tree, so updates are fine-grained; React keeps the diff and lets its compiler cut re-render work.',
+        fromList: 'fullstack-100#26.3',
       },
     ],
     traps: [
@@ -99,6 +110,21 @@ console.log(element.type, element.props);
       {
         question: 'When is it fine to initialise state from a prop?',
         answer: 'When the prop is only a starting value, usually named `initialX` or `defaultX`. To reset the state when an identity changes, give the component a `key` instead of syncing with an effect.',
+      },
+      {
+        question: 'What does lifting state up mean, and when do you need it?',
+        answer: 'Moving state from a child to the closest common parent of every component that needs it, then passing the value down and a setter callback down. I do it when two siblings must agree, like the orders table and its count of selected rows.',
+        fromList: 'fullstack-100#27.1',
+      },
+      {
+        question: 'How do you decide whether something is state or computed during render?',
+        answer: 'If it can be computed from props or existing state, it is not state: the filtered orders or a cart total are computed in render. State is only what changes over time and cannot be derived, like the filter text. Storing both creates two sources that drift apart.',
+        fromList: 'fullstack-100#27.2',
+      },
+      {
+        question: 'When does prop drilling become a problem, and what fixes it?',
+        answer: 'When a value crosses many layers that do not use it, every one of them must forward it and changes touch all those files. First I try composition, passing components as `children`; then context for values that rarely change, or a store with selectors for shared, often-updated state.',
+        fromList: 'fullstack-100#27.3',
       },
     ],
     traps: [
@@ -166,6 +192,17 @@ console.log(element.type, element.props);
       {
         question: 'How do you avoid a race condition when an effect fetches?',
         answer: 'In the cleanup, set an `ignore` flag or call `abort()` on an `AbortController`, so a response for an old `orderId` is not written into state. A data library like TanStack Query handles this for you.',
+        fromList: 'fullstack-100#28.3',
+      },
+      {
+        question: 'What is the difference between no dependency array and an empty one?',
+        answer: 'With no array, the effect runs after every render. With `[]`, it runs once after mount, plus the extra Strict Mode cycle in development, and its cleanup runs on unmount. An empty array is only correct when the effect reads no props or state.',
+        fromList: 'fullstack-100#28.1',
+      },
+      {
+        question: 'Why does the exhaustive-deps lint rule matter, and would you ever break it?',
+        answer: 'A missing dependency leaves the effect with stale values from an old render, a bug that is hard to see. I do not silence it: I move the code into the effect, use an updater function, or, since React 19.2, `useEffectEvent` for a value the effect reads but should not react to.',
+        fromList: 'fullstack-100#28.2',
       },
     ],
     traps: [
@@ -235,6 +272,17 @@ console.log(element.type, element.props);
       {
         question: 'Why do form libraries like React Hook Form prefer uncontrolled inputs?',
         answer: 'Typing does not re-render the whole form, because values live in the DOM and are read through refs. Only the fields that need to react subscribe to changes.',
+        fromList: 'fullstack-100#29.1',
+      },
+      {
+        question: 'How do you give an uncontrolled input a starting value?',
+        answer: 'With `defaultValue`, or `defaultChecked` for a checkbox or radio. It sets the value on mount only; to load another order into the form, I change the form\'s `key` so it mounts again with the new defaults.',
+        fromList: 'fullstack-100#29.2',
+      },
+      {
+        question: 'When do you reach for React Hook Form, and how does it fit with both input modes?',
+        answer: 'When a form has many fields, schema validation with Zod, error messages and field arrays, like the back office\'s order edit form. It registers native inputs as uncontrolled by default, and wraps controlled components, like a date picker, with its `Controller`.',
+        fromList: 'fullstack-100#29.3',
       },
     ],
     traps: [
@@ -302,6 +350,21 @@ console.log(element.type, element.props);
         question: 'Where do you keep the filters of the orders table?',
         answer: 'In the query string, read and written with `useSearchParams`, so a reload, a shared link and the back button keep them. The query key then includes the filters.',
       },
+      {
+        question: 'What goes wrong when fast-changing global state lives in Context?',
+        answer: 'Every component that reads the context re-renders on each change, even if it uses one field, and a provider value built as a new object each render makes it worse. I split contexts by how often they change, memoize the value, or move that state to a store with selectors.',
+        fromList: 'fullstack-100#30.1',
+      },
+      {
+        question: 'How does Zustand differ in philosophy from Redux?',
+        answer: 'Redux keeps one store changed only by dispatched actions through pure reducers, which gives strict structure, middleware and time-travel devtools. Zustand is a small hook-based store: you call `set` directly from functions in the store, need no provider, and keep as many small stores as you like.',
+        fromList: 'fullstack-100#30.2',
+      },
+      {
+        question: 'At what point does a growing app need a state library?',
+        answer: 'After server state is in TanStack Query and filters are in the URL, when client state is still shared by distant components and updated often, and lifting or context starts causing re-renders or tangled callbacks. Not on day one: in the back office, that moment was the table\'s column layout.',
+        fromList: 'fullstack-100#30.3',
+      },
     ],
     traps: [
       {
@@ -355,10 +418,21 @@ console.log(element.type, element.props);
       {
         question: 'When is the index acceptable as a key?',
         answer: 'When the list is static: never reordered, filtered or inserted into, and the items have no state. A read-only list of footer links is an example.',
+        fromList: 'fullstack-100#31.1',
       },
       {
         question: 'How do you reset a form when the user opens another order?',
         answer: 'Render it with `key={orderId}`: a new key makes React unmount the old form and mount a fresh one, with no effect needed.',
+      },
+      {
+        question: 'What bugs and slowdowns does an unstable key cause?',
+        answer: 'A key that changes every render, like `Math.random()`, remounts every item: typed text, focus and scroll are lost, effects run again and the DOM is rebuilt. An index key on a changing list keeps the DOM but attaches state to the wrong item.',
+        fromList: 'fullstack-100#31.2',
+      },
+      {
+        question: 'How do you choose keys for items fetched from an API?',
+        answer: 'I use the id the API returns, like `order.id`, or a combination such as `orderId` and `productId` for order lines. If the data has no id, I add one when the response arrives, never during render.',
+        fromList: 'fullstack-100#31.3',
       },
     ],
     traps: [
@@ -424,6 +498,21 @@ console.log(element.type, element.props);
         question: 'What does the compiler skip?',
         answer: 'Code that breaks the Rules of React, like mutating props or reading refs during render, and some incompatible libraries. It compiles the rest, so the ESLint rules from `eslint-plugin-react-hooks` come first.',
       },
+      {
+        question: 'When does `React.memo` fail to skip a render?',
+        answer: 'When a prop is a new reference each render: an inline object, an arrow function, or JSX passed as `children`. A memoized component also still renders when its own state changes or a context it reads changes.',
+        fromList: 'fullstack-100#32.1',
+      },
+      {
+        question: 'How do you find where memoization is worth it instead of guessing?',
+        answer: 'I record the slow interaction with the React DevTools Profiler, with "Record why each component rendered" ticked, and look at the flame graph for components that render often, take long and receive equal props. I fix those, then record again to compare.',
+        fromList: 'fullstack-100#32.2',
+      },
+      {
+        question: 'What does memoization cost even when it works?',
+        answer: 'Memory to keep the cached value, a dependency comparison on every render, and more code to read. Wrong dependencies give stale values, and a memo whose inputs change every time pays the comparison and still renders.',
+        fromList: 'fullstack-100#32.3',
+      },
     ],
     traps: [
       {
@@ -487,10 +576,21 @@ function OrdersTable({ orders }: { orders: Order[] }) {
       {
         question: 'How do you virtualise rows of different heights?',
         answer: 'Give an estimated size and let the library measure each rendered row, with `measureElement` in TanStack Virtual. Estimating on the large side avoids jumps while scrolling.',
+        fromList: 'fullstack-100#33.1',
       },
       {
         question: 'Does `useTransition` make the filtering faster?',
         answer: 'No: it marks the update as interruptible so typing stays responsive, but the work still costs the same. Rendering fewer rows is what makes it faster.',
+      },
+      {
+        question: 'Beyond virtualization, what would you optimise on a data-heavy page?',
+        answer: 'Filter, sort and paginate on the server, and ask the API only for the columns shown. Keep rows cheap with stable keys and memoized rows, keep typing responsive with `useDeferredValue`, and move heavy client work off the main thread or into smaller chunks.',
+        fromList: 'fullstack-100#33.2',
+      },
+      {
+        question: 'How do you combine infinite scroll with a virtualised list?',
+        answer: 'I load pages with TanStack Query\'s `useInfiniteQuery`, flatten them into one array, and give the virtualizer one extra row for a loader while `hasNextPage` is true. When the last visible index reaches the loaded count, I call `fetchNextPage`, with cursor pagination on the API.',
+        fromList: 'fullstack-100#33.3',
       },
     ],
     traps: [
@@ -557,6 +657,21 @@ visibleRange(8000, 5000); // { start: 195, end: 220 }: 25 rows instead of 5,000`
         question: 'How does a deeply nested child update data owned high in the tree?',
         answer: 'Through a callback passed down, a context that exposes an update function, or a store. In each case the owner changes the state and the view renders again.',
       },
+      {
+        question: 'What does one-way data flow buy you as the app grows?',
+        answer: 'Every value has one owner and changes only through its setter or a handler, so when the order status is wrong I find the one place that writes it. With automatic two-way sync, any field can change shared data, and updates can cascade in ways that are hard to trace.',
+        fromList: 'fullstack-100#34.1',
+      },
+      {
+        question: 'How does React\'s one-way flow relate to Flux and Redux?',
+        answer: 'Flux applied the same idea to the whole app: views dispatch actions, a store updates the state, and views render from it. Redux is the best-known version, with one store and pure reducers, so React\'s props-down, callbacks-up rule extends to global state.',
+        fromList: 'fullstack-100#34.2',
+      },
+      {
+        question: 'Can you get two-way binding in React?',
+        answer: 'You can simulate it: a controlled input with `value` and `onChange`, often wrapped in a small hook like `useField` that returns both so you spread them on the input. It feels two-way, but the update still goes explicitly through the setter.',
+        fromList: 'fullstack-100#34.3',
+      },
     ],
     traps: [
       {
@@ -619,6 +734,21 @@ return <input value={postcode} onChange={(e) => setPostcode(e.target.value.toUpp
       {
         question: 'When do you use `waitFor` rather than a `findBy` query?',
         answer: '`findBy` waits for an element to appear and covers most cases. `waitFor` is for other assertions that become true later, like a mock being called, and should hold no side effects.',
+      },
+      {
+        question: 'Why does React Testing Library steer you away from internal state?',
+        answer: 'The user and the business only care about what is on screen and what is sent. Tests on state or hooks break at every refactor and can pass while the UI is broken; tests through roles and text survive a rewrite and catch real regressions.',
+        fromList: 'fullstack-100#35.1',
+      },
+      {
+        question: 'How do you test a component that calls an API?',
+        answer: 'MSW answers the request, the test renders the component, then waits for the result with a `findBy` query. For the error path, I override the handler in that test with `server.use` to return a 500 and check the error message appears.',
+        fromList: 'fullstack-100#35.2',
+      },
+      {
+        question: 'What is the difference between shallow rendering and full rendering?',
+        answer: 'Shallow rendering renders one level and leaves child components unrendered, so it tests structure, not behaviour. React Testing Library renders the full tree into a DOM like jsdom. React 19 removed `react-test-renderer/shallow` and recommends Testing Library.',
+        fromList: 'fullstack-100#35.3',
       },
     ],
     traps: [

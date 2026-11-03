@@ -75,6 +75,33 @@ describe('cards', () => {
     }
   });
 
+  it('answer every follow-up of the full-stack list exactly once', () => {
+    const references = CARDS.flatMap((card) => card.followUps.flatMap((followUp) => (followUp.fromList ? [followUp.fromList] : [])));
+    expect(new Set(references).size, 'a list follow-up is used twice').toBe(references.length);
+    const missing: string[] = [];
+    for (let question = 1; question <= 100; question += 1) {
+      for (let followUp = 1; followUp <= 3; followUp += 1) {
+        const reference = `fullstack-100#${question}.${followUp}`;
+        if (!references.includes(reference)) {
+          missing.push(reference);
+        }
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
+  it.each(CARDS.map((card) => [card.id, card] as const))('%s keeps follow-up answers short and their list references well formed', (_, card) => {
+    const questionsOfCard = (card.fromLists ?? []).map((reference) => reference.split('#')[1]);
+    for (const followUp of card.followUps) {
+      expect(followUp.answer.length, followUp.question).toBeLessThanOrEqual(320);
+      if (followUp.fromList) {
+        expect(followUp.fromList).toMatch(/^fullstack-100#\d+\.[1-3]$/);
+        // A follow-up belongs to the card that answers its main question.
+        expect(questionsOfCard, followUp.fromList).toContain(followUp.fromList.split('#')[1]!.split('.')[0]);
+      }
+    }
+  });
+
   it('every unit has at least one card', () => {
     for (const unit of UNITS) {
       expect(CARDS.some((card) => card.unit === unit.id), unit.id).toBe(true);

@@ -34,10 +34,21 @@ export const webPlatformCards: Card[] = [
       {
         question: 'What is margin collapsing?',
         answer: 'Vertical margins of adjacent blocks in normal flow merge into the larger of the two instead of adding up. It does not happen between flex or grid items, which is one reason layouts with `gap` are more predictable.',
+        fromList: 'fullstack-100#1.2',
       },
       {
         question: 'How do you see the box model of an element while debugging?',
         answer: 'The browser devtools show it in the Computed or Layout panel: content size, padding, border and margin, with the values that produced them.',
+      },
+      {
+        question: 'How do you apply `border-box` sizing to a whole project?',
+        answer: 'In the global reset: `*, *::before, *::after { box-sizing: border-box; }`. Some teams set it on `html` and give everything else `box-sizing: inherit`, so a third-party widget can switch its own subtree back to `content-box`.',
+        fromList: 'fullstack-100#1.1',
+      },
+      {
+        question: 'How does the box model apply to flex and grid children?',
+        answer: 'The same way: padding and border count in the item\'s size, and `box-sizing` decides what `width` and `flex-basis` measure. What changes is margins: they never collapse, and `margin-left: auto` absorbs the free space, for example to push the Pay button to the right of a flex row.',
+        fromList: 'fullstack-100#1.3',
       },
     ],
     traps: [
@@ -101,10 +112,21 @@ export const webPlatformCards: Card[] = [
       {
         question: 'How do you centre an element horizontally and vertically?',
         answer: '`display: grid; place-items: center` on the parent does it in one line. With flex, `justify-content: center` and `align-items: center`.',
+        fromList: 'fullstack-100#2.3',
       },
       {
         question: 'What are container queries, and how do they relate to these layouts?',
         answer: 'They let a component change its layout based on the width of its container instead of the viewport, so the same product card can switch from one column to two depending on where it is placed.',
+      },
+      {
+        question: 'How do you build a grid whose number of columns follows the available space, without media queries?',
+        answer: '`grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr))` fits as many columns of at least 14rem as the row allows and shares the rest. With `auto-fit`, empty tracks collapse, so a row with only two products stretches them across the full width.',
+        fromList: 'fullstack-100#2.1',
+      },
+      {
+        question: 'How do `flex-grow`, `flex-shrink` and `flex-basis` work together?',
+        answer: '`flex-basis` is the starting size. Free space is shared in proportion to `flex-grow`; when items overflow, they shrink in proportion to `flex-shrink` weighted by their basis. The default is `0 1 auto`, and `flex: 1` means `1 1 0%`, so such items split the row equally.',
+        fromList: 'fullstack-100#2.2',
       },
     ],
     traps: [
@@ -175,6 +197,21 @@ export const webPlatformCards: Card[] = [
         question: 'Which of these values create a stacking context?',
         answer: '`fixed` and `sticky` always do; `relative` and `absolute` do when their `z-index` is not `auto`. Inside a stacking context, `z-index` values only compete with each other.',
       },
+      {
+        question: 'How does `z-index` work with positioned elements, and what creates a stacking context?',
+        answer: '`z-index` orders positioned elements, and flex or grid items, only within their stacking context. Besides positioned elements with a `z-index`, `fixed` and `sticky`, a context comes from `opacity` below 1, `transform`, `filter` or `isolation: isolate`. A child at 9999 cannot rise above its parent\'s context.',
+        fromList: 'fullstack-100#3.1',
+      },
+      {
+        question: 'How would you build a modal overlay with positioning?',
+        answer: 'A backdrop with `position: fixed; inset: 0` and a translucent background, the dialog centred in it with grid, rendered at the end of `body` through a React portal so no transformed ancestor traps it. Today I prefer `<dialog>` with `showModal()`: top layer, `::backdrop` and Escape for free.',
+        fromList: 'fullstack-100#3.2',
+      },
+      {
+        question: 'Why does `position: sticky` sometimes not stick?',
+        answer: 'Usually an ancestor has `overflow: hidden`, `auto` or `scroll`, so it becomes the scrolling ancestor, and it never scrolls. Other causes: no `top` threshold, or a parent no taller than the element, since it sticks only within its parent. `overflow: clip` clips without breaking it.',
+        fromList: 'fullstack-100#3.3',
+      },
     ],
     traps: [
       {
@@ -238,10 +275,21 @@ export const webPlatformCards: Card[] = [
       {
         question: 'What is the difference between `defer` and `async`?',
         answer: 'Both download in parallel with parsing. `defer` scripts run after parsing, in document order, before `DOMContentLoaded`; `async` scripts run as soon as they arrive, in any order.',
+        fromList: 'fullstack-100#4.1',
       },
       {
         question: 'What is the preload scanner?',
         answer: 'A lighter parser that reads ahead in the raw HTML and starts downloading the resources it sees while the main parser is blocked. It cannot see resources referenced only from CSS or created by JavaScript.',
+      },
+      {
+        question: 'How would you measure and diagnose a slow critical rendering path?',
+        answer: 'I start from field data, the Core Web Vitals report or our real-user monitoring, to find the slow pages and devices. Then I record the page in the Performance panel with throttling and read the waterfall: when the HTML arrives, what blocks rendering, and when the LCP image starts.',
+        fromList: 'fullstack-100#4.2',
+      },
+      {
+        question: 'What is Time to First Byte, and how does it fit into page load?',
+        answer: 'TTFB is the time until the first byte of the response arrives: redirects, DNS, connection and TLS, then server time. Nothing renders before it, so it is a floor under FCP and LCP. web.dev calls 0.8 s or less good; CDN-cached HTML is how we cut it on product pages.',
+        fromList: 'fullstack-100#4.3',
       },
     ],
     traps: [
@@ -312,6 +360,21 @@ export const webPlatformCards: Card[] = [
         question: 'When is ARIA the right tool?',
         answer: 'When no native element exists for the widget, such as tabs or a combobox, and then you must also implement the keyboard behaviour. The first rule of ARIA is to use the native element when there is one.',
       },
+      {
+        question: 'How would you make a custom dropdown accessible with ARIA?',
+        answer: 'I follow the select-only combobox pattern: `role="combobox"` with `aria-expanded`, `aria-controls` and `aria-activedescendant`, a popup with `role="listbox"` and `role="option"` items, `aria-selected` on the chosen one. Then the keyboard: arrows move, Enter picks, Escape closes.',
+        fromList: 'fullstack-100#5.1',
+      },
+      {
+        question: 'What is the difference between `<section>` and `<article>`?',
+        answer: '`<article>` is self-contained content that makes sense on its own, like a product review or a blog post. `<section>` is a thematic part of a page or article, usually with its own heading, like "Delivery options". When the wrapper is only for styling, it is a `div`.',
+        fromList: 'fullstack-100#5.2',
+      },
+      {
+        question: 'How does semantic HTML affect SEO?',
+        answer: 'Crawlers read the structure: a clear `h1` and heading order, `<title>`, `alt` text, and links as real `<a href>` elements, the only ones Google follows. On product pages we add JSON-LD structured data so search results can show price and stock.',
+        fromList: 'fullstack-100#5.3',
+      },
     ],
     traps: [
       {
@@ -375,6 +438,21 @@ export const webPlatformCards: Card[] = [
       {
         question: 'What is the trap with container queries?',
         answer: 'A container cannot size from its content, so the element with `container-type: inline-size` must get its width from outside; a shrink-to-fit container collapses to zero.',
+      },
+      {
+        question: 'Mobile first or desktop first for media queries: which do you prefer?',
+        answer: 'Mobile first writes base styles for small screens and adds `min-width` queries; desktop first starts wide and undoes layout with `max-width` queries. I prefer mobile first: the small layout is the simplest, and larger screens only add rules instead of overriding them.',
+        fromList: 'fullstack-100#8.1',
+      },
+      {
+        question: 'How do you keep images sharp on high-density screens?',
+        answer: 'I let the browser pick: `srcset` with width descriptors plus `sizes`, so a 2x phone downloads a file twice as wide as the slot, or `1x, 2x` density descriptors for fixed-size images. Icons and logos are SVG, sharp at any density.',
+        fromList: 'fullstack-100#8.2',
+      },
+      {
+        question: 'What are container queries, and how do they differ from media queries?',
+        answer: 'Media queries read the viewport. Container queries, `@container`, read the size of an ancestor declared with `container-type`. So the product card adapts to its slot, wide in the grid and narrow in the cart sidebar; I keep media queries for page-level layout.',
+        fromList: 'fullstack-100#8.3',
       },
     ],
     traps: [
@@ -444,6 +522,21 @@ export const webPlatformCards: Card[] = [
         question: 'Why can reading `offsetHeight` right after changing a style be slow?',
         answer: 'The browser must run layout immediately to return a correct value: a forced synchronous layout. Doing it in a loop is layout thrashing.',
       },
+      {
+        question: 'What is the difference between `innerHTML` and `textContent`, and what is the risk of `innerHTML`?',
+        answer: '`textContent` sets plain text that is never parsed. `innerHTML` parses the string as HTML, so a review containing `<img src=x onerror=...>` runs script for every visitor: stored XSS. User data goes through `textContent`, or through a sanitizer such as DOMPurify when HTML is really needed.',
+        fromList: 'fullstack-100#9.1',
+      },
+      {
+        question: 'What is a document fragment, and how does it help when adding many elements?',
+        answer: 'A `DocumentFragment` is a container outside the page. I build 200 order rows in it, then append it once: its children move into the DOM in a single insertion and the fragment is left empty. `list.append(...rows)` gives the same single insertion.',
+        fromList: 'fullstack-100#9.2',
+      },
+      {
+        question: 'What is the difference between the DOM and the virtual DOM?',
+        answer: 'The DOM is the browser\'s real tree. The "virtual DOM" is the tree of plain objects React components return: on each render React compares it with the previous one and applies only the differences. It is not faster than precise manual updates; it lets me describe the UI from state.',
+        fromList: 'fullstack-100#9.3',
+      },
     ],
     traps: [
       {
@@ -508,6 +601,21 @@ list.append(item);
       {
         question: 'How do you know when an element enters the screen without reading its position on scroll?',
         answer: 'With an `IntersectionObserver`, whose callback runs only when the visibility changes and which does not force layout from your script.',
+      },
+      {
+        question: 'Why are `transform` and `opacity` cheaper to animate than `width` or `top`?',
+        answer: '`width`, `height`, `top` and `left` change geometry, so every frame reruns layout and paint on the main thread. `transform` and `opacity` change neither, so the compositor can move or fade the already painted layer, often on the GPU, and stay smooth while the main thread is busy.',
+        fromList: 'fullstack-100#10.1',
+      },
+      {
+        question: 'What is layout thrashing, and how do you avoid it?',
+        answer: 'It is alternating style writes and geometry reads in a loop: each read after a write forces a synchronous layout, so 500 cards mean 500 layouts. I read everything first and write after, move writes into `requestAnimationFrame`, or replace the measuring with CSS.',
+        fromList: 'fullstack-100#10.2',
+      },
+      {
+        question: 'How do you use the devtools to find reflow and repaint problems?',
+        answer: 'I record in the Performance panel and look at long tasks: purple Layout and green Paint blocks, with forced reflow warnings that link to the script line. The Rendering tab\'s Paint flashing highlights repainted areas, and Layout Shift Regions shows content that moves.',
+        fromList: 'fullstack-100#10.3',
       },
     ],
     traps: [
@@ -576,6 +684,17 @@ cards.forEach((card, i) => {
       {
         question: 'How do cascade layers interact with specificity?',
         answer: 'Layers are compared first: a rule in a later layer wins whatever its specificity. Unlayered styles beat all layered ones, and `!important` reverses the layer order.',
+        fromList: 'fullstack-100#11.3',
+      },
+      {
+        question: 'How do you calculate the specificity of `.container .item.active`?',
+        answer: 'Count each column: no id, three classes, no element type, so (0,3,0). It beats `.container .item` at (0,2,0) and any number of element selectors, but a single id still wins.',
+        fromList: 'fullstack-100#11.1',
+      },
+      {
+        question: 'Why is `!important` considered an anti-pattern, and when is it justified?',
+        answer: 'It jumps over normal specificity, so the only way to beat it is another `!important`: an arms race that makes styles hard to reason about. I accept it in utilities that must always win, like `.visually-hidden`, and to override inline styles from a third-party widget.',
+        fromList: 'fullstack-100#11.2',
       },
     ],
     traps: [
@@ -643,6 +762,21 @@ cards.forEach((card, i) => {
       {
         question: 'How do two tabs learn that `localStorage` changed?',
         answer: 'The other tabs of the origin receive a `storage` event; the tab that wrote the value does not.',
+      },
+      {
+        question: 'Why is a JWT in `localStorage` easier to steal through XSS than one in an `HttpOnly` cookie?',
+        answer: 'Any script on the page can call `localStorage.getItem`, so one XSS in an order note sends the token to the attacker, who uses it from anywhere until it expires. An `HttpOnly` cookie is invisible to scripts: XSS can still send requests from the open page, but the credential never leaves.',
+        fromList: 'fullstack-100#12.1',
+      },
+      {
+        question: 'What do the `Secure` and `SameSite` cookie attributes protect against?',
+        answer: '`Secure` sends the cookie over HTTPS only, so it cannot leak on plain HTTP. `SameSite` limits cross-site sending, against CSRF: `Strict` never sends it from another site, `Lax` only on top-level navigations with a safe method like GET, and `None` always, which requires `Secure`.',
+        fromList: 'fullstack-100#12.2',
+      },
+      {
+        question: 'How much data can each storage mechanism hold?',
+        answer: 'A cookie holds about 4 KB. MDN gives 5 MiB of `localStorage` and 5 MiB of `sessionStorage` per origin. IndexedDB gets a share of the disk set by each browser, far larger, which is why it suits offline data. Writes past the limit throw a `QuotaExceededError`.',
+        fromList: 'fullstack-100#12.3',
       },
     ],
     traps: [
@@ -713,6 +847,21 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
         question: 'Why is Sass `@import` deprecated?',
         answer: 'It put everything in one global namespace. Dart Sass deprecated it in 1.80.0 in favour of `@use` and `@forward`, which load each module once with a namespace.',
       },
+      {
+        question: 'How does a Sass variable differ from a CSS custom property at runtime?',
+        answer: 'A Sass variable exists only at compile time: `$brand` is replaced by its value and gone from the CSS. A custom property, `--brand`, lives in the browser: it inherits, follows the cascade, changes under a `data-theme` attribute or a media query, and JavaScript can read and set it.',
+        fromList: 'fullstack-100#13.1',
+      },
+      {
+        question: 'What is a mixin, and when would you use one?',
+        answer: 'A Sass mixin is a reusable block of declarations, with parameters, copied wherever you `@include` it, like a `focus-ring($color)` used by every button and link. I use one when several components need the same group of rules that a utility class or custom properties cannot express.',
+        fromList: 'fullstack-100#13.2',
+      },
+      {
+        question: 'How does CSS-in-JS compare with a preprocessor like Sass?',
+        answer: 'Sass produces static CSS at build time. Runtime CSS-in-JS, like styled-components, generates styles from JavaScript, allowing styles from props but costing runtime work, and in the Next.js App Router it runs only in Client Components. So I prefer build-time options: CSS Modules, Tailwind or vanilla-extract.',
+        fromList: 'fullstack-100#13.3',
+      },
     ],
     traps: [
       {
@@ -774,10 +923,21 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
       {
         question: 'What must happen to focus when a modal opens and closes?',
         answer: 'Focus moves into the modal, the page behind becomes inert, Escape closes it, and focus returns to the element that opened it. The native `<dialog>` with `showModal()` handles most of this.',
+        fromList: 'fullstack-100#14.3',
       },
       {
         question: 'What does an automated scan miss?',
         answer: 'Anything that needs judgement or interaction: whether an `alt` text is meaningful, whether the focus order makes sense, states that were not rendered during the scan, and how a screen reader announces changes.',
+      },
+      {
+        question: 'How do you test accessibility beyond an automated tool like axe?',
+        answer: 'I run the key flows, checkout and the refund dialog, with the keyboard only: focus order, visible focus, no traps. Then with a screen reader, NVDA on Windows or VoiceOver on a Mac, I listen to names, roles and announcements. I also zoom to 200% and check the layout at 320 CSS pixels wide.',
+        fromList: 'fullstack-100#14.1',
+      },
+      {
+        question: 'What is the difference between `aria-label` and `aria-labelledby`?',
+        answer: 'Both set an element\'s accessible name. `aria-label` takes a string, for an icon button with no visible text. `aria-labelledby` points at the id of visible elements whose text becomes the name, like a dialog named by its heading, and it wins over `aria-label`. Visible text is better when possible.',
+        fromList: 'fullstack-100#14.2',
       },
     ],
     traps: [
@@ -839,10 +999,17 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
       {
         question: 'What is ISR?',
         answer: 'Incremental static regeneration: a page is served as static, then rebuilt in the background after a lifetime or when a tag is revalidated. It suits a catalogue that changes sometimes.',
+        fromList: 'fullstack-100#15.2',
       },
       {
         question: 'What is hydration, and what goes wrong with it?',
         answer: 'React attaches its event handlers to the server HTML, which requires the first client render to match it. Dates, browser-only data or invalid nesting cause mismatches, and React then re-renders that subtree on the client.',
+        fromList: 'fullstack-100#15.1',
+      },
+      {
+        question: 'How do you decide which rendering strategy suits a page?',
+        answer: 'I ask who sees it and how fresh it must be. Public pages that need SEO and change rarely, like product pages, are static with revalidation; pages that depend on the request, like search or "my orders", render per request; the back office behind a login can render on the client.',
+        fromList: 'fullstack-100#15.3',
       },
     ],
     traps: [

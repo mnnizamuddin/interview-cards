@@ -37,6 +37,21 @@ export const asyncCards: Card[] = [
         question: 'How is the event loop in Node different?',
         answer: 'Node goes through phases, such as timers, poll for I/O and check, and has no rendering step. It adds `process.nextTick`, whose callbacks run before promise callbacks, and `setImmediate`, which runs in the check phase.',
       },
+      {
+        question: 'What separates the microtask queue from the task queue, and which one wins?',
+        answer: 'Tasks, also called macrotasks, are timers, I/O and events; microtasks are promise callbacks, code after `await` and `queueMicrotask`. Microtasks have priority: after each task the loop drains the whole microtask queue, new ones included, before the next task or a render.',
+        fromList: 'fullstack-100#6.1',
+      },
+      {
+        question: 'Walk me through the output of a snippet mixing sync code, promises and `setTimeout`.',
+        answer: 'First all synchronous logs, top to bottom. Then the microtasks in the order they were queued, including any `.then` queued by another microtask. Last, the `setTimeout` callbacks, each as a separate task, even a timeout scheduled from inside a `.then`.',
+        fromList: 'fullstack-100#6.2',
+      },
+      {
+        question: 'How does `async`/`await` map onto the event loop?',
+        answer: 'An async function runs synchronously up to its first `await`, then returns a pending promise to the caller. When the awaited value settles, the rest of the function is queued as a microtask, so it resumes before any pending timer, but never in the middle of the current code.',
+        fromList: 'fullstack-100#6.3',
+      },
     ],
     traps: [
       {
@@ -100,6 +115,21 @@ console.log('sync');
       {
         question: 'What happens to a rejected promise that nobody handles?',
         answer: 'The browser fires an `unhandledrejection` event. Node crashes the process by default since version 15.',
+      },
+      {
+        question: 'Give a real use for each of `all`, `allSettled`, `race` and `any`.',
+        answer: '`all` when every result is required, like a cart and its prices. `allSettled` for optional blocks, like reviews and recommendations on the product page. `race` to put a timeout on a call to the delivery partner. `any` to take the first image mirror that answers.',
+        fromList: 'fullstack-100#20.1',
+      },
+      {
+        question: 'How do `async` and `await` relate to promises?',
+        answer: 'They are syntax over promises: an async function always returns a promise, `return` fulfils it and `throw` rejects it. `await` pauses the function until a promise settles and resumes it as a microtask, so `try`/`catch` replaces `.catch` and the code reads top to bottom.',
+        fromList: 'fullstack-100#20.2',
+      },
+      {
+        question: 'An error is thrown halfway through a `.then` chain. What happens, and how do you handle it?',
+        answer: 'The returned promise rejects, so the next `.then` callbacks are skipped until the first `.catch`. That `.catch` can rethrow, or return a fallback value, and the chain continues fulfilled from there. I put a `.catch` where I can really recover, and one at the end to report.',
+        fromList: 'fullstack-100#20.3',
       },
     ],
     traps: [

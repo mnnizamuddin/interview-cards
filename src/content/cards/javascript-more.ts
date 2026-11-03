@@ -38,6 +38,21 @@ export const javascriptMoreCards: Card[] = [
         question: 'Can you use array destructuring on something that is not an array?',
         answer: 'Yes, on any iterable: a string, a `Map`, a `Set` or a generator. `for (const [key, value] of map)` is array destructuring of each entry.',
       },
+      {
+        question: 'How do you destructure a nested property in one statement?',
+        answer: '`const { customer: { address: { city } } } = order` reads `order.customer.address.city` into `city`. Only `city` becomes a variable, not `customer` or `address`. If a level can be missing, I give it a default or read it with `?.`, because destructuring `undefined` throws.',
+        fromList: 'fullstack-100#21.1',
+      },
+      {
+        question: 'How do you swap two variables with destructuring?',
+        answer: '`[a, b] = [b, a]`: the right side builds an array from the current values, then the pattern assigns them back reversed. One trap: if the previous line has no semicolon, the `[` continues that line and it breaks, so start the line with a semicolon in that style.',
+        fromList: 'fullstack-100#21.2',
+      },
+      {
+        question: 'How does a rest element work in array destructuring, as in `const [first, ...rest] = items`?',
+        answer: '`first` gets the first item, and `rest` gets a new real array of all remaining items, empty when there are none. The rest element must come last, with no trailing comma after it. It works on any iterable: `const [head, ...tail] = \'abc\'` gives "a" and `[\'b\', \'c\']`.',
+        fromList: 'fullstack-100#21.3',
+      },
     ],
     traps: [
       {
@@ -111,6 +126,21 @@ console.log(order.customer?.name); // undefined`,
         question: 'What does spreading `null` do?',
         answer: 'In an object literal, `{ ...null }` is allowed and adds nothing, which is handy for optional fields. In an array, `[...null]` throws a TypeError because `null` is not iterable.',
       },
+      {
+        question: 'Why does the shallow copy of spread cause bugs, and how do you copy deeply instead?',
+        answer: 'Nested objects stay shared, so editing `draft.lines[0]` also edits the original order, and in React a mutated nested object keeps its reference, so memoized children miss the change. I copy each level I change, or use `structuredClone` when I need a full deep copy.',
+        fromList: 'fullstack-100#22.1',
+      },
+      {
+        question: 'How does a rest pattern work when destructuring function parameters?',
+        answer: '`function updateOrder({ id, ...changes })` takes `id` out and gathers every other own property into a new `changes` object. In React, `function Button({ variant, ...props })` reads its own prop and passes the rest on to the `<button>`.',
+        fromList: 'fullstack-100#22.2',
+      },
+      {
+        question: 'How do you merge two objects so that the second one wins on conflicts?',
+        answer: '`const merged = { ...defaults, ...overrides }`: properties are copied left to right, so the later object wins. `Object.assign({}, defaults, overrides)` does the same. Both are shallow: a nested `shipping` object is replaced whole, not merged, so nested levels need their own spread.',
+        fromList: 'fullstack-100#22.3',
+      },
     ],
     traps: [
       {
@@ -179,10 +209,21 @@ console.log({ ...null });                            // {}`,
       {
         question: 'What is the difference between `event.target` and `event.currentTarget`?',
         answer: '`target` is the element where the event started, such as the icon that was clicked. `currentTarget` is the element whose listener is running, the container in delegation.',
+        fromList: 'fullstack-100#25.2',
       },
       {
         question: 'Does React use event delegation?',
         answer: 'Yes: React DOM attaches its listeners to the root container and dispatches to your `onClick` props itself, so you rarely need to delegate by hand in React.',
+      },
+      {
+        question: 'How does bubbling differ from capturing, and when would you use the capture phase?',
+        answer: 'Capture runs first, from the window down to the target; bubbling runs after, from the target back up. With `{ capture: true }`, a container hears the event before its children, which suits closing a dropdown on any outside click even if a child calls `stopPropagation()`.',
+        fromList: 'fullstack-100#25.1',
+      },
+      {
+        question: 'How do you stop an event from bubbling, and when is it needed?',
+        answer: '`event.stopPropagation()` stops it from reaching listeners further along; `stopImmediatePropagation()` also skips other listeners on the same element. I rarely need it: a delete icon inside a clickable order row is the classic case, though checking `closest()` in the row handler avoids breaking other listeners.',
+        fromList: 'fullstack-100#25.3',
       },
     ],
     traps: [

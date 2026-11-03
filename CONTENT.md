@@ -28,7 +28,7 @@ verified, never guessed.
 | `explanation` | Why interviewers ask it and what they listen for, especially what separates a senior answer. 2 or 3 sentences. |
 | `example` | A production story from **the running example** (below): a concrete problem, what was done, the result. 2 to 4 sentences. |
 | `mistakes` | **2 or 3** common mistakes candidates make, each one sentence, ideally with the correction. |
-| `followUps` | **2** deeper questions the interviewer asks next, each with a short answer (1 to 3 sentences). |
+| `followUps` | Deeper questions the interviewer asks next, each with a short answer said aloud (1 to 3 sentences, **at most 320 characters**). At least 2 of our own, plus every follow-up of the list question the card answers, marked with `fromList: 'fullstack-100#16.2'` (question 16, follow-up 2). When one of our follow-ups already asks the same thing, add `fromList` to it instead of adding a duplicate. For "have you used X / what was your experience" follow-ups, the answer is a short model answer set in the running example, naming what you did and what you learned. |
 | `traps` | **2 or 3** true/false statements built from common misconceptions, **at least one true and at least one false**, each with a one-sentence `why`. A trap must be unambiguous: true or false without "it depends". |
 | `topic` | The topic's short name for lists, **at most 40 characters**: "Closures", "CORS", "Connection pooling", "Telling a cross-layer bug story". |
 | `lesson` | The bite-sized lesson card (see "Lesson cards" below). |

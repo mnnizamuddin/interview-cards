@@ -39,6 +39,21 @@ export const behaviouralCards: Card[] = [
         question: 'How did you test it across the layers?',
         answer: 'Say what each layer had: an integration test of replay after a given event id on the API, a component test of the timeline with a fake stream, and one browser test of the whole flow.',
       },
+      {
+        question: 'How did you agree the API contract between the frontend and the backend before starting?',
+        answer: 'I wrote the event format as a TypeScript type in a shared package, with an example payload for each status and the reconnect rule, and reviewed it with the app developer in a short call. They built the timeline against a fake stream replaying those examples while I built the endpoint.',
+        fromList: 'fullstack-100#87.1',
+      },
+      {
+        question: 'What was the hardest cross-layer bug in that project, and how did you solve it?',
+        answer: 'After a reconnect, some customers saw a status twice. The API replayed from the last event id included instead of strictly after it, and the client appended without checking. I fixed the query, made the client ignore event ids it already had, and added a test with a dropped connection.',
+        fromList: 'fullstack-100#87.2',
+      },
+      {
+        question: 'How did you decide where the business logic lived, frontend or backend?',
+        answer: 'Rules that decide something live on the backend; the frontend renders. The Orders API decided which statuses exist and when they change, and the timeline only displayed what the stream sent, so adding `refunded` later needed only a label in the app.',
+        fromList: 'fullstack-100#87.3',
+      },
     ],
     traps: [
       {
@@ -97,6 +112,21 @@ export const behaviouralCards: Card[] = [
         question: 'How did you make sure the fix worked?',
         answer: 'Give the signal you watched: a count of orders paid at the provider but still `pending_payment` after five minutes, which went to zero and now has an alert.',
       },
+      {
+        question: 'Which tools did you use at each layer to narrow it down?',
+        answer: 'On the storefront, the browser\'s network panel showed the API really returned `pending_payment`. In the API, traces and logs searched by order id showed the webhook arriving before the order was visible on the replica, and the replica\'s replication lag metric spiked at those exact times.',
+        fromList: 'fullstack-100#88.1',
+      },
+      {
+        question: 'How did you confirm you had fixed the root cause and not just a symptom?',
+        answer: 'The reproduction failed before the fix and passed after it, and the fix removed the race itself, by reading from the primary, instead of adding a delay or a retry around it. Then stuck paid orders stayed at zero for weeks through the same evening peaks.',
+        fromList: 'fullstack-100#88.2',
+      },
+      {
+        question: 'What did you change in your process afterwards to catch similar issues earlier?',
+        answer: 'I added an integration test that delays replication, a review rule that handlers acting on payments read from the primary, and the alert on orders paid at the provider but still `pending_payment` after five minutes. I also presented the bug at our incident review.',
+        fromList: 'fullstack-100#88.3',
+      },
     ],
     traps: [
       {
@@ -154,6 +184,17 @@ export const behaviouralCards: Card[] = [
       {
         question: 'When would you put a rule only in the frontend?',
         answer: 'When breaking it harms nobody but the user\'s own experience, such as the order of steps in a form or a display preference.',
+        fromList: 'fullstack-100#89.1',
+      },
+      {
+        question: 'How do you keep frontend and backend validation consistent as the app evolves?',
+        answer: 'One Zod schema per request in a shared package, used by the API and the React form, so a rule changes in one place. The API\'s errors name the field, so a rule the form does not know yet still shows next to the right input, and the server stays the last word.',
+        fromList: 'fullstack-100#89.2',
+      },
+      {
+        question: 'How does this change in a server-rendered app compared with a single-page app?',
+        answer: 'In the Next.js storefront, Server Components and Server Functions run on the server, so logic can leave the browser, but Server Functions are public endpoints that still validate and authorise. In the back office SPA, everything in the browser is untrusted, so rules sit in the BFF and the Orders API.',
+        fromList: 'fullstack-100#89.3',
       },
     ],
     traps: [
@@ -213,6 +254,21 @@ export const behaviouralCards: Card[] = [
         question: 'Who did you ask for help, and when?',
         answer: 'Name it: after reading the docs, with precise questions, so the people you asked could answer quickly.',
       },
+      {
+        question: 'How do you decide what to learn first when time is short?',
+        answer: 'What the feature needs, in order of risk. For the partner\'s GraphQL API, I learned authentication, how errors come back and how to create a shipment first, then pagination; anything our code did not call could wait.',
+        fromList: 'fullstack-100#90.1',
+      },
+      {
+        question: 'Which resources do you turn to first when learning something new?',
+        answer: 'The official docs and their getting-started guide, then the provider\'s own examples or sandbox, and the changelog for recent changes. Blog posts and AI answers come after, checked against the docs. When I am stuck, I ask a precise question to someone who has used it.',
+        fromList: 'fullstack-100#90.2',
+      },
+      {
+        question: 'How do you judge whether a new technology is production-ready?',
+        answer: 'I look at who maintains it and how often it is released, open issues on the cases I need, the docs, the licence, and whether we can monitor and debug it. Then a prototype in our setup and a first use on a small, reversible part, as we did with TanStack Table on one small back-office table.',
+        fromList: 'fullstack-100#90.3',
+      },
     ],
     traps: [
       {
@@ -246,7 +302,7 @@ export const behaviouralCards: Card[] = [
     paths: ['fullstack', 'frontend', 'backend'],
     question: 'Describe a time you disagreed with a technical decision. How did you handle it?',
     answer:
-      'A colleague proposed running PM2 in cluster mode inside each Orders API pod to use more CPU. I disagreed, because Kubernetes already runs and restarts pods, and a second process manager hides restarts and metrics. Instead of arguing in the pull request, I asked what he wanted to fix: p99 latency during the evening peak. We agreed to load-test both options on staging. More single-process pods gave the same throughput with simpler health checks. His concern about slow scale-up was valid, so we raised the minimum replicas before the peak. We shipped that, and p99 stayed under target. I learned to turn opinions into a shared test.',
+      'A colleague proposed running PM2 in cluster mode inside each Orders API pod to use more CPU. I disagreed, because Kubernetes already runs and restarts pods, and a second process manager hides restarts and metrics. Instead of arguing in the pull request, I asked what my colleague wanted to fix: p99 latency during the evening peak. We agreed to load-test both options on staging. More single-process pods gave the same throughput with simpler health checks. Their concern about slow scale-up was valid, so we raised the minimum replicas before the peak. We shipped that, and p99 stayed under target. I learned to turn opinions into a shared test.',
     keyPoints: [
       'The disagreement and your reason, stated fairly',
       'You understood the other person\'s goal',
@@ -266,10 +322,21 @@ export const behaviouralCards: Card[] = [
       {
         question: 'What if the decision had gone against you?',
         answer: 'Say you would commit to it fully, make sure the risk you saw is monitored, and bring data back if it materialised.',
+        fromList: 'fullstack-100#91.3',
       },
       {
         question: 'Was there a decision you disagreed with and accepted?',
         answer: 'Have one ready: it shows you can disagree and commit, which matters as much as being right.',
+      },
+      {
+        question: 'How did you know it was time to stop pushing your position and commit?',
+        answer: 'Once the load test answered the question we had agreed to test, the debate was over; arguing further would only have been about pride. I had said before the test that I would back their option if the numbers favoured it.',
+        fromList: 'fullstack-100#91.1',
+      },
+      {
+        question: 'What would you have done if that decision had later turned out badly?',
+        answer: 'Owned it with my colleague, since we chose it together: stop the impact first by raising replicas or rolling back, then rerun the comparison with the new data. No blame, and I would write down what our load test had missed.',
+        fromList: 'fullstack-100#91.2',
       },
     ],
     traps: [
@@ -328,6 +395,17 @@ export const behaviouralCards: Card[] = [
       {
         question: 'What do you do when the code has no documentation?',
         answer: 'Read the tests and the git history of the main files, ask the owners, and write down what you learn where the next person will find it.',
+        fromList: 'fullstack-100#92.1',
+      },
+      {
+        question: 'How do you balance becoming productive quickly against breaking something you do not yet understand?',
+        answer: 'I start with small, reversible changes in well-tested areas, behind a flag when they touch checkout, and ask the code\'s owner to review. Before changing code I do not understand, I add a test that pins its current behaviour, so the change shows what it really alters.',
+        fromList: 'fullstack-100#92.2',
+      },
+      {
+        question: 'Which questions would you ask teammates first during onboarding?',
+        answer: 'Which flows are critical and what breaks most often, who owns each part, how code reaches production and how we roll back, which parts are fragile or about to change, and what they wish they had known in their first month. The answers tell me where to be careful and whom to ask.',
+        fromList: 'fullstack-100#92.3',
       },
     ],
     traps: [
@@ -362,7 +440,7 @@ export const behaviouralCards: Card[] = [
     paths: ['fullstack', 'frontend', 'backend'],
     question: 'Tell me about a time you balanced technical debt against a tight deadline.',
     answer:
-      'Three weeks before Black Friday, product wanted gift cards at checkout, and I knew our calls to the delivery partner had no timeout and had already frozen checkout once. I owned the checkout path. I put a cost on the debt: that incident had blocked orders for 20 minutes, which at peak would mean thousands of lost orders. I proposed to the product manager to ship gift cards without partial use, and to spend the saved days on timeouts and retries with backoff. She agreed. Black Friday ran with no checkout incident, gift cards shipped on time, and partial use came in January. Lesson: talk about debt in business terms.',
+      'Three weeks before Black Friday, product wanted gift cards at checkout, and I knew our calls to the delivery partner had no timeout and had already frozen checkout once. I owned the checkout path. I put a cost on the debt: that incident had blocked orders for 20 minutes, which at peak would mean thousands of lost orders. I proposed to the product manager to ship gift cards without partial use, and to spend the saved days on timeouts and retries with backoff. They agreed. Black Friday ran with no checkout incident, gift cards shipped on time, and partial use came in January. Lesson: talk about debt in business terms.',
     keyPoints: [
       'The deadline and the debt, in one sentence each',
       'A cost put on the debt, in terms the business understands',
@@ -382,10 +460,21 @@ export const behaviouralCards: Card[] = [
       {
         question: 'How do you make sure deferred debt is actually paid back?',
         answer: 'It goes into the backlog with its cost and an owner, and a date or a trigger is agreed with the product manager; I bring it back at the planning that follows.',
+        fromList: 'fullstack-100#93.2',
       },
       {
         question: 'When do you accept new debt on purpose?',
         answer: 'When the deadline has real business value, the shortcut is contained and reversible, and the plan to remove it is written down.',
+      },
+      {
+        question: 'How do you decide which corners can be cut under deadline pressure, and which never can?',
+        answer: 'Scope and polish can be cut, like partial gift-card use. Never: correct money and stock, security, the timeouts and retries that keep checkout up, tests on the paths that charge customers, and anything that could lose data. Those are the corners whose cost lands on customers.',
+        fromList: 'fullstack-100#93.1',
+      },
+      {
+        question: 'How do you explain such a trade-off to a non-technical stakeholder?',
+        answer: 'In their units: the frozen checkout had blocked orders for 20 minutes, which at peak means thousands of lost orders, against a few days of work. I gave the product manager two options with their cost and risk, and we chose together.',
+        fromList: 'fullstack-100#93.3',
       },
     ],
     traps: [
@@ -444,6 +533,21 @@ export const behaviouralCards: Card[] = [
       {
         question: 'How do you handle interruptions like Slack questions?',
         answer: 'Answer urgent ones at once and batch the rest at fixed times, so focused work is not cut every few minutes.',
+      },
+      {
+        question: 'How do you handle a new urgent request that threatens work you already committed to?',
+        answer: 'I check how urgent it really is, then tell my lead what it would push back and by how much, so the trade is a decision, not a surprise. When the export bug arrived, we agreed it came first, and I announced the refund dialog\'s two-day delay that same morning.',
+        fromList: 'fullstack-100#94.1',
+      },
+      {
+        question: 'Which tools or systems have you used to track and prioritise your own work?',
+        answer: 'The team tracker for anything others depend on, ordered with my lead, a short daily list of my top three tasks, and a note per branch saying where I stopped. The tool matters less than having one ordered list and keeping it current.',
+        fromList: 'fullstack-100#94.2',
+      },
+      {
+        question: 'How do you limit the cost of switching between frontend and backend work in a day?',
+        answer: 'I group work by layer in blocks of a few hours instead of alternating, and leave a note with the next step before switching. Working in thin vertical slices also helps: one slice\'s API and UI are the same problem, so moving between them costs little.',
+        fromList: 'fullstack-100#94.3',
       },
     ],
     traps: [

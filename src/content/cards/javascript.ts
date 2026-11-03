@@ -38,6 +38,21 @@ export const javascriptCards: Card[] = [
         question: 'Why does a `for` loop with `var` and `setTimeout` print the same number three times?',
         answer: 'There is one function-scoped variable shared by every callback, and it holds the final value when they run. `let` in the loop header creates a fresh variable for each iteration.',
       },
+      {
+        question: 'What is the temporal dead zone, and how does it apply to `let` and `const`?',
+        answer: 'It is the stretch from the start of the scope to the declaration line. The `let` or `const` name already exists there but is uninitialized, so any read or write throws a ReferenceError, even `typeof`. It turns a silent `undefined` into an error on the exact line.',
+        fromList: 'fullstack-100#17.1',
+      },
+      {
+        question: 'How do you make an object truly immutable, not just its variable?',
+        answer: '`Object.freeze(order)` makes its own properties read-only and blocks adding or deleting any: in strict mode, assigning one throws a TypeError. It is shallow, so nested objects stay mutable unless I freeze them too. In TypeScript, `readonly` and `as const` give the same guarantee at compile time only.',
+        fromList: 'fullstack-100#17.2',
+      },
+      {
+        question: 'Why is `var` considered outdated?',
+        answer: 'It ignores blocks, so it leaks out of `if` and loop bodies and is shared by loop callbacks. It reads as `undefined` before its line instead of throwing, and at the top level of a classic script it becomes a property of `window`. `let` and `const` fix all three, so we ban `var` with `no-var`.',
+        fromList: 'fullstack-100#17.3',
+      },
     ],
     traps: [
       {
@@ -108,6 +123,17 @@ items.push('mug');                 // allowed: mutation, not reassignment`,
       {
         question: 'Can closures cause memory leaks?',
         answer: 'Yes, when a long-lived function, like a global listener or a cached callback, captures a large object. The object stays reachable as long as the function is.',
+        fromList: 'fullstack-100#16.2',
+      },
+      {
+        question: 'Why does `var` in a loop with an async callback behave differently from `let`?',
+        answer: '`var` creates one variable for the whole function, so every callback closes over the same variable and reads its final value when it runs. `let` in the loop header creates a new binding for each iteration, so each callback closes over its own value.',
+        fromList: 'fullstack-100#16.1',
+      },
+      {
+        question: 'Can you write a simple memoization function with a closure?',
+        answer: '`function memoize(fn) { const cache = new Map(); return (arg) => { if (!cache.has(arg)) { cache.set(arg, fn(arg)); } return cache.get(arg); }; }`. The `cache` lives in the closure, private to the returned function. In real code I bound its size so it cannot grow forever.',
+        fromList: 'fullstack-100#16.3',
       },
     ],
     traps: [
@@ -177,6 +203,21 @@ console.log(a(), b()); // 3 1: each call made its own count`,
         question: 'Why are class event handlers often written as arrow function fields?',
         answer: 'An arrow function field is created for each instance and captures that instance\'s `this`, so it can be passed as a callback safely. The cost is one function per instance instead of one shared method on the prototype.',
       },
+      {
+        question: 'How does `this` behave in an arrow function compared with a regular function?',
+        answer: 'A regular function gets `this` from each call: the receiver, `undefined` in a plain strict call, the new object with `new`. An arrow function has no `this` of its own: it uses the `this` of the scope where it was written, `call`, `apply` and `bind` cannot change it, and it cannot be called with `new`.',
+        fromList: 'fullstack-100#19.1',
+      },
+      {
+        question: 'What is the difference between `call`, `apply` and `bind`?',
+        answer: '`call` and `apply` run the function at once with the `this` you give: `call` takes the arguments one by one, `apply` as an array. `bind` runs nothing: it returns a new function with `this`, and optionally the first arguments, fixed for good. Today `fn.call(obj, ...args)` mostly replaces `apply`.',
+        fromList: 'fullstack-100#19.2',
+      },
+      {
+        question: 'How do you fix a lost `this` in a class method used as an event handler?',
+        answer: 'Bind it once in the constructor, `this.onClick = this.onClick.bind(this)`, declare it as an arrow function field, or wrap it where it is passed, `() => this.onClick()`. I keep a reference to the function I passed, because `removeEventListener` needs that same function.',
+        fromList: 'fullstack-100#19.3',
+      },
     ],
     traps: [
       {
@@ -244,6 +285,17 @@ console.log(detached.call(cart)); // 1`,
       {
         question: 'How does `instanceof` work?',
         answer: 'It checks whether `Class.prototype` appears anywhere in the object\'s prototype chain. It can fail across realms like iframes, which is why `Array.isArray` exists.',
+        fromList: 'fullstack-100#24.3',
+      },
+      {
+        question: 'How would you implement inheritance without the `class` syntax?',
+        answer: 'With constructor functions: the child calls the parent, `Base.call(this, code)`, and I link the prototypes with `Child.prototype = Object.create(Base.prototype)`, then restore `Child.prototype.constructor`. For plain objects, `Object.create(base)` is enough. `extends` does this linking for me, so I use classes.',
+        fromList: 'fullstack-100#24.1',
+      },
+      {
+        question: 'What does `Object.create()` do, and how does it relate to the prototype chain?',
+        answer: '`Object.create(proto)` returns a new empty object whose prototype is `proto`, without running any constructor, so lookups that miss on it continue on `proto`. `Object.create(null)` makes an object with no prototype at all: a dictionary with no inherited keys such as `toString`.',
+        fromList: 'fullstack-100#24.2',
       },
     ],
     traps: [
@@ -312,6 +364,32 @@ try { PaymentError('x'); } catch (e) { console.log(e.name); }        // TypeErro
       {
         question: 'How does `Object.is` differ from `===`?',
         answer: 'It treats `NaN` as equal to itself and tells `+0` from `-0`; otherwise it behaves like `===`. React uses it to decide whether state changed.',
+        fromList: 'fullstack-100#18.3',
+      },
+      {
+        question: 'What do `typeof undefined` and `typeof null` return, and why is the second one odd?',
+        answer: '`typeof undefined` is "undefined", but `typeof null` is "object". It is a bug from the first implementation of the language, kept because fixing it would break existing code. So to test for an object I write `value !== null && typeof value === \'object\'`.',
+        fromList: 'fullstack-100#7.1',
+      },
+      {
+        question: 'How do you check in one expression that a value is `null` or `undefined`?',
+        answer: '`value == null` is true for exactly those two and never for 0, an empty string or `false`. It is the one loose comparison I allow. When I only need a fallback, `value ?? fallback` applies the same test.',
+        fromList: 'fullstack-100#7.2',
+      },
+      {
+        question: 'Which do you use by default, `==` or `===`, and why?',
+        answer: '`===`, because it compares without converting, so the result depends only on the two values. `==` first converts the operands to a common type, and those rules surprise people. My only exception is `== null`.',
+        fromList: 'fullstack-100#7.3',
+      },
+      {
+        question: 'Can you give a few surprising results of `==`?',
+        answer: '`\'\' == 0`, `\'0\' == 0`, `\'0\' == false` and `[] == false` are all true, yet `\'\' == \'0\'` is false, so `==` is not even transitive. `null == 0` is false because `null` only equals `undefined`, and `NaN == NaN` is false.',
+        fromList: 'fullstack-100#18.1',
+      },
+      {
+        question: 'Why do style guides and lint rules recommend `===`?',
+        answer: 'Its result is predictable and the reader sees the intended types; `==` hides bugs behind coercion. ESLint\'s `eqeqeq` rule enforces it, and its `{ "null": "ignore" }` option keeps the `== null` check allowed.',
+        fromList: 'fullstack-100#18.2',
       },
     ],
     traps: [
@@ -449,6 +527,21 @@ console.log(count); // 1: a live binding, not a copy
       {
         question: 'What are iterator helpers?',
         answer: 'Methods like `.map()`, `.filter()` and `.take()` available directly on iterators since ES2025. They stay lazy, unlike converting the iterator to an array first.',
+      },
+      {
+        question: 'How do you make your own object iterable with a generator?',
+        answer: 'I write `[Symbol.iterator]` as a generator method: `*[Symbol.iterator]() { for (const line of this.lines) yield line; }`. Each `for...of` or spread calls it and gets a fresh generator, so the cart can be iterated many times, unlike a single generator object.',
+        fromList: 'fullstack-100#23.1',
+      },
+      {
+        question: 'How do generators relate to `async`/`await`?',
+        answer: 'An async function behaves like a generator that yields promises: it pauses at each `await`, and a driver resumes it with the resolved value. TypeScript still compiles `async` functions that way for an ES2015 target: a generator plus an `__awaiter` helper.',
+        fromList: 'fullstack-100#23.2',
+      },
+      {
+        question: 'Can you write a generator that produces an infinite sequence?',
+        answer: '`function* ids() { let id = 1; while (true) { yield id++; } }`. It never hangs, because each value is computed only when `next()` asks for it. I take what I need with `ids().take(5)` or a `break`, and never spread it, which would loop forever.',
+        fromList: 'fullstack-100#23.3',
       },
     ],
     traps: [

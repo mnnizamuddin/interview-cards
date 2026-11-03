@@ -12,6 +12,11 @@ export type Path = 'frontend' | 'backend' | 'fullstack' | 'react';
 export type FollowUp = {
   question: string;
   answer: string;
+  /**
+   * The list follow-up this answers, as `list#question.followUp`: `fullstack-100#16.2` is the
+   * second follow-up of question 16. Only the question is shared with the list.
+   */
+  fromList?: string;
 };
 
 /** A true-or-false statement built from a common mistake. */

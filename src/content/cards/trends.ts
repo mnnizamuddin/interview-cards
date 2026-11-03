@@ -40,6 +40,21 @@ export const trendsCards: Card[] = [
         question: 'Does this change what juniors should learn?',
         answer: 'They still need the fundamentals, because judging generated code requires knowing what correct code looks like. Debugging, reading code and testing become even more important.',
       },
+      {
+        question: 'How do you check that AI-generated code is correct and secure before merging?',
+        answer: 'I review it against the requirement, not against its own tests, and add tests for edge cases and error paths myself. CI runs the type checker, linting and dependency audit as for any code, and I check every new package exists and is maintained, plus input validation and authorization.',
+        fromList: 'fullstack-100#95.1',
+      },
+      {
+        question: 'What are the risks of leaning too hard on AI assistants, especially for juniors?',
+        answer: 'Merging code nobody on the team understands, which slows every later bug fix, and skills that never form: a junior who never debugs alone cannot judge the next suggestion. I ask juniors to explain each generated change in review and to solve some tasks without the tool.',
+        fromList: 'fullstack-100#95.2',
+      },
+      {
+        question: 'How will full-stack skill requirements keep shifting as these tools mature?',
+        answer: 'Less weight on typing syntax, more on framing problems, system design, reading and reviewing code, testing and security. Knowing the whole stack matters more, because judging a change that touches the API, the database and the UI needs it.',
+        fromList: 'fullstack-100#95.3',
+      },
     ],
     traps: [
       {
@@ -99,6 +114,21 @@ export const trendsCards: Card[] = [
         question: 'How would you serve a personalised page fast to users worldwide?',
         answer: 'Cache the shared part at the CDN and stream or fetch the personal part, like the cart count, from a region near the data. The edge can pick the variant from a cookie without touching the database.',
       },
+      {
+        question: 'Which workloads suit edge functions, and which do not?',
+        answer: 'Suited: short work on the request alone, like redirects by country, A/B assignment, checking a session cookie or rewriting headers. Not suited: anything that queries a single-region database several times, long or CPU-heavy jobs, and code that needs Node APIs or native modules.',
+        fromList: 'fullstack-100#96.1',
+      },
+      {
+        question: 'An edge function needs the central database. How do you handle the latency?',
+        answer: 'I avoid it where I can: the edge only routes, and a function in the database\'s region does the queries. Otherwise I make one call instead of several, cache read-mostly data near users, use read replicas in other regions, and connect through a pooler or an HTTP driver.',
+        fromList: 'fullstack-100#96.2',
+      },
+      {
+        question: 'Have you used an edge platform, and what did you learn?',
+        answer: 'On the storefront, country redirects and the A/B cookie run at the edge and answer in a few milliseconds. We also tried rendering product pages there, but each page queried the database in Paris, so it was slower; the lesson was that latency follows the data.',
+        fromList: 'fullstack-100#96.3',
+      },
     ],
     traps: [
       {
@@ -156,6 +186,21 @@ export const trendsCards: Card[] = [
       {
         question: 'What does a Server Component change compared with classic SSR?',
         answer: 'Classic SSR renders HTML on the server but still ships and hydrates all the component code. A Server Component never ships its code to the browser; only Client Components are hydrated.',
+      },
+      {
+        question: 'What does Next.js give you over a React app you assemble yourself?',
+        answer: 'Routing, server rendering, static generation, streaming, Server Components and Server Functions, image and font optimisation, and a tuned build, all working together. By hand I would pick, wire and upgrade each piece myself, and server rendering is the hardest part to get right.',
+        fromList: 'fullstack-100#97.1',
+      },
+      {
+        question: 'How does file-based routing work in a meta-framework?',
+        answer: 'The folder structure is the URL map. In the Next.js App Router, `app/products/[id]/page.tsx` serves `/products/42`, with `[id]` a dynamic segment passed in `params`; a `layout.tsx` wraps every page below it, and `route.ts` defines an API endpoint.',
+        fromList: 'fullstack-100#97.2',
+      },
+      {
+        question: 'Have you used Next.js or Remix in production, and how did it go?',
+        answer: 'The storefront runs on the Next.js App Router. Moving product pages to Server Components cut their JavaScript and improved mobile LCP. The lessons: caching needs a clear plan per route, and every Server Function checks the session itself, after a review caught one trusting the client.',
+        fromList: 'fullstack-100#97.3',
       },
     ],
     traps: [
@@ -224,6 +269,21 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         question: 'Why would a design system team choose Web Components?',
         answer: 'When teams use different frameworks, one implementation can serve all of them. The cost is weaker server rendering and more work for typed React and Vue wrappers or interop.',
       },
+      {
+        question: 'What are the practical trade-offs between a native Web Component and a React component?',
+        answer: 'A Web Component works in any stack and isolates its styles, but you manage rendering and state yourself, attributes are strings, and server rendering needs declarative Shadow DOM. A React component gets React\'s rendering, state and tooling but works only in React apps.',
+        fromList: 'fullstack-100#98.1',
+      },
+      {
+        question: 'How does Shadow DOM encapsulate a component\'s styles?',
+        answer: 'The shadow root is a separate tree: page selectors do not match inside it, and styles inside do not leak out. Inherited properties like `color` and `font` and CSS custom properties still cross the boundary, and `:host` styles the element itself from inside.',
+        fromList: 'fullstack-100#98.2',
+      },
+      {
+        question: 'Have you worked with Web Components on a real project?',
+        answer: 'Yes, the delivery partner\'s `<delivery-tracker>` in the storefront and back office. With React 19 we pass the shipment as a property and listen to its `delivered` event. I learned to theme through its CSS custom properties and to check its accessibility, since we cannot change its markup.',
+        fromList: 'fullstack-100#98.3',
+      },
     ],
     traps: [
       {
@@ -287,10 +347,17 @@ customElements.define('delivery-tracker', DeliveryTracker);
       {
         question: 'What is the difference between lab and field data?',
         answer: 'Lab data comes from a controlled run like Lighthouse and is good for debugging. Field data comes from real users, like CrUX or your own RUM, and is what the thresholds are judged on; INP needs real interactions.',
+        fromList: 'fullstack-100#99.3',
       },
       {
         question: 'How do you fix a poor LCP on a product page?',
         answer: 'Make the hero image discoverable in the HTML, give it high fetch priority and do not lazy-load it, serve it in a modern format at the right size, and keep the server response fast.',
+        fromList: 'fullstack-100#99.1',
+      },
+      {
+        question: 'How do you measure and monitor Core Web Vitals on a live app over time?',
+        answer: 'The `web-vitals` library sends LCP, INP and CLS from real visits to our analytics, where a dashboard shows p75 by page type and device and alerts on regressions. Search Console and CrUX confirm the public view, and Lighthouse runs in CI to catch regressions before release.',
+        fromList: 'fullstack-100#99.2',
       },
     ],
     traps: [
@@ -358,6 +425,21 @@ onLCP(sendToAnalytics);`,
       {
         question: 'How do you decide whether a new CSS or browser API is safe to use?',
         answer: 'I check its Baseline status on web.dev or MDN and our browser support policy. Newly available features get a fallback; widely available ones can be used directly.',
+      },
+      {
+        question: 'What tool have you evaluated recently, and how did you decide whether to adopt it?',
+        answer: 'The React Compiler for the back office. I enabled it on one folder in a branch, ran the tests and compared the orders table in the Profiler: fewer renders, no regressions. It was stable and solved a real problem, so we rolled it out folder by folder.',
+        fromList: 'fullstack-100#100.1',
+      },
+      {
+        question: 'Which resources do you follow regularly?',
+        answer: 'Primary sources first: the react.dev and Next.js blogs, Node.js release notes, and web.dev with Baseline for browser features. Then one weekly newsletter, like JavaScript Weekly, and the changelogs of the libraries we depend on.',
+        fromList: 'fullstack-100#100.2',
+      },
+      {
+        question: 'How do you tell a trend worth deep learning from short-lived hype?',
+        answer: 'I look for a stable release, adoption by the official docs or the tools we already use, and a problem we actually have. Standards and platform features, like a new browser API, deserve depth; a new framework gets a small experiment until it proves itself.',
+        fromList: 'fullstack-100#100.3',
       },
     ],
     traps: [

@@ -39,6 +39,17 @@ export const deliveryCards: Card[] = [
       {
         question: 'How do you keep E2E tests from becoming flaky?',
         answer: 'Keep them few and focused on critical journeys, select elements the way users do, wait for conditions instead of sleeping, and give each test its own data.',
+        fromList: 'fullstack-100#71.1',
+      },
+      {
+        question: 'What is the difference between mocking and stubbing a dependency in a unit test?',
+        answer: 'A stub only returns canned answers so the code can run, like a delivery client that always quotes 4.90. A mock also records its calls, and the test asserts on them, with `toHaveBeenCalledWith` for example. In Vitest, `vi.fn()` plays both roles; I prefer asserting outcomes over calls.',
+        fromList: 'fullstack-100#71.2',
+      },
+      {
+        question: 'How do you decide what needs an integration test rather than unit tests alone?',
+        answer: "When the bug I fear lives at a boundary a unit test would mock: SQL, a constraint, a transaction, a route's validation and error mapping, or serialization. A pure rule only needs a unit test; code that talks to PostgreSQL gets tested against a real one.",
+        fromList: 'fullstack-100#71.3',
       },
     ],
     traps: [
@@ -98,6 +109,21 @@ export const deliveryCards: Card[] = [
         question: 'Where do database migrations run?',
         answer: 'As their own pipeline step before the deploy, not at the startup of every pod, and written backward compatible so the previous version still runs if you roll back.',
       },
+      {
+        question: 'What is the difference between continuous delivery and continuous deployment?',
+        answer: 'Both keep every change that passes the pipeline releasable. Continuous delivery stops before production for a human decision, such as an approval on the environment; continuous deployment ships every passing change to production with no human step.',
+        fromList: 'fullstack-100#72.1',
+      },
+      {
+        question: 'How would you design a rollback strategy for a bad release found in production?',
+        answer: 'Each release is an immutable image tag, so rolling back means redeploying the previous tag, with `kubectl rollout undo` for example, in a minute. Migrations stay backward compatible so the old version runs on the new schema, risky features sit behind flags, and changed data needs a roll-forward fix.',
+        fromList: 'fullstack-100#72.2',
+      },
+      {
+        question: 'What is a blue-green deployment, and how does it reduce deployment risk?',
+        answer: 'Two full environments: blue serves traffic while green gets the new version and is tested in place. Then all traffic switches to green; if errors rise, switching back to blue takes seconds because it is still running. The database is shared, so schema changes must work with both.',
+        fromList: 'fullstack-100#72.3',
+      },
     ],
     traps: [
       {
@@ -155,6 +181,17 @@ export const deliveryCards: Card[] = [
       {
         question: 'What is a multi-stage build?',
         answer: 'A Dockerfile with several `FROM` stages: one with the compiler and dev dependencies builds the app, and the final stage copies only the built files, so the runtime image stays small.',
+        fromList: 'fullstack-100#73.1',
+      },
+      {
+        question: 'What is the difference between Docker and an orchestration platform like Kubernetes?',
+        answer: 'Docker builds images and runs containers on one machine. Kubernetes runs containers across a cluster: it schedules pods on nodes, restarts failed ones, scales replicas, routes traffic through Services and rolls out new versions. Docker makes the package; Kubernetes runs it in production.',
+        fromList: 'fullstack-100#73.2',
+      },
+      {
+        question: 'How do you manage environment-specific configuration and secrets with containers?',
+        answer: 'One image runs everywhere, and each environment injects config at runtime as environment variables, from a ConfigMap in Kubernetes. Secrets come from a Secret or a secret manager, never the image; Kubernetes Secrets are stored unencrypted unless encryption at rest is on, so access is restricted.',
+        fromList: 'fullstack-100#73.3',
       },
     ],
     traps: [
@@ -213,6 +250,21 @@ export const deliveryCards: Card[] = [
       {
         question: 'How do you check that a timeout works without waiting for it?',
         answer: 'Make the stub never resolve, enable fake timers, advance past the timeout, and assert that the call rejects with your timeout error.',
+      },
+      {
+        question: 'What is the difference between mocking a dependency and using a fake implementation?',
+        answer: 'A mock is programmed in each test with answers and expectations, like `vi.fn().mockResolvedValue(...)`. A fake is a small working implementation, such as an in-memory orders repository backed by a `Map`, so tests read naturally and do not break when the call order changes.',
+        fromList: 'fullstack-100#74.1',
+      },
+      {
+        question: "How would you test a function's behaviour when an awaited promise rejects?",
+        answer: 'I make the stub reject with `mockRejectedValueOnce(new HttpError(503))`, then assert the outcome: `await expect(getQuote(client, id)).rejects.toThrow()` if it should fail, or the fallback value if it should recover. Without the `await`, the test ends before the check runs.',
+        fromList: 'fullstack-100#74.2',
+      },
+      {
+        question: 'Which tools or libraries have you used to mock HTTP requests?',
+        answer: "On the Orders API I used MSW in Vitest to intercept calls to the delivery partner, with per-test handlers for 503s and timeouts, and Playwright's `page.route` in the storefront's E2E tests. Lesson learned: make unhandled requests fail, or a missing handler quietly hits the real API.",
+        fromList: 'fullstack-100#74.3',
       },
     ],
     traps: [
@@ -281,6 +333,21 @@ expect(client.get).toHaveBeenCalledTimes(2);`,
         question: 'Terraform or OpenTofu?',
         answer: 'Terraform moved to the Business Source License in version 1.6; OpenTofu is the Linux Foundation fork under MPL-2.0 with the same language and providers. Terraform is what most job offers name; OpenTofu suits teams that want an open-source licence.',
       },
+      {
+        question: 'How would you manage secrets securely in an infrastructure-as-code workflow?',
+        answer: 'No secret in git: Terraform reads it from a secret manager or generates it there, and `sensitive` hides it from plan output. It still lands in the state, so the state lives in an encrypted remote backend with locking and restricted access, and CI gets cloud access through OIDC, not stored keys.',
+        fromList: 'fullstack-100#75.1',
+      },
+      {
+        question: 'What is configuration drift, and how does infrastructure as code help prevent it?',
+        answer: 'Drift is when real infrastructure no longer matches its definition, usually after a manual fix in the console. With IaC, changes go through review and apply, and a scheduled `terraform plan -detailed-exitcode` exits with 2 when reality differs, so the team codes the change or reverts it.',
+        fromList: 'fullstack-100#75.2',
+      },
+      {
+        question: 'Have you used Terraform or a similar tool, and what was your experience?',
+        answer: "Yes: I described the shop's staging and production on AWS in Terraform modules, with state in a locked remote backend and plans shown on pull requests. One plan would have replaced the production database after an attribute change, so I learned to read every replace and to set `prevent_destroy`.",
+        fromList: 'fullstack-100#75.3',
+      },
     ],
     traps: [
       {
@@ -343,6 +410,21 @@ terraform apply tfplan        # applies exactly that plan`,
         question: 'What makes a front-end production error debuggable?',
         answer: 'Source maps uploaded to the error tracker, the release version on every event, and context such as the route and browser, without personal data.',
       },
+      {
+        question: 'How would you add temporary diagnostic logging in production without creating risk for users?',
+        answer: 'Behind a flag scoped to the affected customers or a sample of requests, at debug level with the trace id, without personal data and with a size limit. It ships through the normal pipeline with an owner and an expiry date, and I remove it once the cause is found.',
+        fromList: 'fullstack-100#76.1',
+      },
+      {
+        question: 'Which monitoring or observability tools have you used to investigate a production-only issue?',
+        answer: 'On the Orders API: OpenTelemetry traces in Grafana Tempo, logs in Loki filtered by trace id, Prometheus metrics by version, and Sentry with source maps for the storefront. Traces showed every failing checkout came from old imported addresses; I learned to tag every signal with the release.',
+        fromList: 'fullstack-100#76.2',
+      },
+      {
+        question: 'How would you write a reliable regression test once you have found the root cause?',
+        answer: 'I reproduce the failing input, like the address with a `null` postcode, at the lowest level that still exercises the cause, and watch the test fail before the fix. It uses fixed data and a frozen clock, never a production copy, and passes after the fix for the right reason.',
+        fromList: 'fullstack-100#76.3',
+      },
     ],
     traps: [
       {
@@ -400,6 +482,21 @@ terraform apply tfplan        # applies exactly that plan`,
       {
         question: 'How do you keep a percentage rollout stable for one customer?',
         answer: 'Evaluate the flag with a targeting key such as the customer id, so the same customer always gets the same answer.',
+      },
+      {
+        question: 'How would you design a feature flag system for gradual percentage rollouts?',
+        answer: 'Each flag has targeting rules and a percentage; the SDK hashes the flag key with a targeting key such as the customer id into a bucket from 0 to 99, and enables the flag when the bucket is below the percentage. Services cache the rules, refresh them by polling or streaming, and fall back to a safe default.',
+        fromList: 'fullstack-100#77.1',
+      },
+      {
+        question: 'How do you make sure flags are cleaned up once a feature is fully launched?',
+        answer: 'Every flag gets an owner and an expiry date when it is created, with the removal ticket opened at the same time. The flag tool or a CI check lists flags that are stale or have served one value for weeks, and removal deletes the dead code path and its tests too.',
+        fromList: 'fullstack-100#77.2',
+      },
+      {
+        question: 'What testing issues arise from several flag states being active at the same time?',
+        answer: "Flags combine: ten booleans give 1,024 states, too many to test. I test each flag's on and off paths, plus the combination running in production and the next one planned, set flag values explicitly in tests with an in-memory provider, and keep flags few and short-lived.",
+        fromList: 'fullstack-100#77.3',
       },
     ],
     traps: [
@@ -467,6 +564,21 @@ const useNewFlow = await flags.getBooleanValue(
         question: 'How do you change a column during a canary?',
         answer: 'Expand and contract: add the new column first, write both, backfill, switch reads, and remove the old column only once no running version uses it.',
       },
+      {
+        question: 'Which infrastructure and tooling does a canary deployment need?',
+        answer: 'Weighted traffic splitting, from a service mesh, an ingress controller or a load balancer; metrics labelled by version, such as error rate and p95 latency; and automation that compares canary and stable, then promotes or aborts, like Argo Rollouts or Flagger. Without per-version metrics it is guesswork.',
+        fromList: 'fullstack-100#78.1',
+      },
+      {
+        question: 'How do you choose the first canary percentage, and when is it safe to increase it?',
+        answer: 'Small enough to limit harm but large enough to give a signal: at low traffic 1% yields too few requests, so I might start at 5%. I increase only after a set time with enough requests, when error rate and latency match the stable version, ideally checked automatically at each step.',
+        fromList: 'fullstack-100#78.2',
+      },
+      {
+        question: 'How do the costs of a full blue-green setup compare with a canary approach?',
+        answer: 'Blue-green doubles capacity during each release, and more if the idle stack stays up. A canary adds only a few pods but costs in tooling: weighted routing, metrics per version and automated analysis. Both need backward-compatible schema changes, the cost teams forget.',
+        fromList: 'fullstack-100#78.3',
+      },
     ],
     traps: [
       {
@@ -525,6 +637,21 @@ const useNewFlow = await flags.getBooleanValue(
         question: 'What makes a pull request easy to review?',
         answer: 'A small, single-purpose change with a description of why, how it was tested and what to look at, plus self-review before asking.',
       },
+      {
+        question: 'How would you handle a disagreement with another reviewer about a design decision?',
+        answer: 'I move it from the thread to a short call, list the constraints we both care about and compare the options against them, with data or a quick spike if possible. If we still disagree, the code owner or tech lead decides, we write the decision down, and I commit to it.',
+        fromList: 'fullstack-100#79.1',
+      },
+      {
+        question: 'How do you review an unusually large pull request effectively?',
+        answer: 'First I ask whether it can be split, for example migration, then API, then UI. If not, I read the description, review commit by commit, start with the risky parts such as data, security and error handling, run the branch locally, and walk through the hardest part with the author on a call.',
+        fromList: 'fullstack-100#79.2',
+      },
+      {
+        question: "What would you do if you saw the same kind of issue again and again in one teammate's pull requests?",
+        answer: 'I talk to them privately instead of repeating comments, framed as help: I show the pattern with two examples and offer to pair on it. If others could hit it too, I fix the system with a lint rule, a test helper or a checklist item, so review is not the only safety net.',
+        fromList: 'fullstack-100#79.3',
+      },
     ],
     traps: [
       {
@@ -582,6 +709,21 @@ const useNewFlow = await flags.getBooleanValue(
       {
         question: 'How do you stop performance from regressing?',
         answer: 'Enforce budgets in CI, such as JavaScript bytes per route, and alert on real-user metrics and API latency per release.',
+      },
+      {
+        question: 'What are the Core Web Vitals, and how would you measure and improve them in a real application?',
+        answer: 'LCP for loading, INP for responsiveness and CLS for visual stability. I measure them from real users with the `web-vitals` library or CrUX, at p75, and use Lighthouse to debug. To improve them: load the LCP image early, break up long tasks, and reserve space for images and embeds.',
+        fromList: 'fullstack-100#80.1',
+      },
+      {
+        question: 'How would you tell whether a slow page load comes from the frontend, the network or the backend?',
+        answer: 'I split the load timeline from DevTools or real-user Navigation Timing. Long DNS or connection times point to the network or a missing CDN; a high time to first byte points to the server, and its traces show where; a fast first byte with a late LCP points to front-end code, images or scripts.',
+        fromList: 'fullstack-100#80.2',
+      },
+      {
+        question: 'Which tools have you used to profile performance on the frontend and the backend?',
+        answer: 'On the storefront: the Chrome DevTools Performance panel for long tasks, Lighthouse in CI and `web-vitals` field data. On the Orders API: OpenTelemetry traces, `EXPLAIN ANALYZE` and `node --cpu-prof` for a hot endpoint. Lesson: field data and traces first, profilers once I know where to look.',
+        fromList: 'fullstack-100#80.3',
       },
     ],
     traps: [

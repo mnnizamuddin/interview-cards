@@ -39,6 +39,21 @@ export const databaseCards: Card[] = [
         question: 'When would you put Redis next to PostgreSQL?',
         answer: 'For data that is fast to lose and rebuild: a cache, sessions, rate-limit counters or a job queue. The source of truth stays in PostgreSQL.',
       },
+      {
+        question: 'How do you model a many-to-many relationship in a document database that has no joins?',
+        answer: 'I store an array of references on the side read most, like category ids inside each product, and index that array, so "products of category 7" is one indexed query. If a page also needs the names, I copy them into the document and accept updating the copies when a name changes.',
+        fromList: 'fullstack-100#49.1',
+      },
+      {
+        question: 'When would you pick a graph database over a relational one?',
+        answer: 'When the main queries follow relationships to a variable depth, like fraud rings linked by shared cards and addresses, or "customers who bought what you bought". A graph database such as Neo4j traverses those links directly; for two or three levels, a recursive CTE in PostgreSQL is usually enough.',
+        fromList: 'fullstack-100#49.2',
+      },
+      {
+        question: 'How do relational databases scale horizontally today, with read replicas and sharding?',
+        answer: "Reads scale with read replicas fed by streaming replication; they lag slightly, so a customer's just-placed order is read from the primary. Writes beyond one primary need sharding: the Citus extension or routing in the application for PostgreSQL, or a distributed SQL database.",
+        fromList: 'fullstack-100#49.3',
+      },
     ],
     traps: [
       {
@@ -102,6 +117,21 @@ SELECT id FROM products WHERE attrs @> '{"color": "red"}';`,
       {
         question: 'Where does denormalization become the normal design?',
         answer: 'In read models built for one screen, such as a back-office orders table fed by events, and in document databases, where data read together is stored together.',
+      },
+      {
+        question: 'What does third normal form require? Give an example of a violation.',
+        answer: "Every non-key column must depend on the key and on nothing else, so no column depends on another non-key column. A customer's email stored on each order breaks it: the email depends on `customer_id`, so changing it means updating every order, and missing one leaves two emails.",
+        fromList: 'fullstack-100#50.1',
+      },
+      {
+        question: 'When would you denormalize a production schema, and how do you keep the copies in sync?',
+        answer: 'Only for a measured read problem, like `orders.total_cents`, read by every list page and CSV export. The copy gets one owner: the same transaction as its source, a trigger, or an event consumer when a short delay is fine, plus a scheduled query that alerts on drift.',
+        fromList: 'fullstack-100#50.2',
+      },
+      {
+        question: 'How does a normalized OLTP schema differ from a denormalized OLAP or data warehouse schema?',
+        answer: 'OLTP serves many small reads and writes, so it is normalized to keep each write correct. A warehouse serves large analytical scans, so it uses a star schema: a fact table such as order lines joined to a few wide dimension tables like product, customer and date, loaded from the OLTP database.',
+        fromList: 'fullstack-100#50.3',
       },
     ],
     traps: [
@@ -168,6 +198,21 @@ HAVING o.total_cents <> sum(l.quantity * l.unit_price_cents);`,
         question: 'What is a covering index?',
         answer: 'An index that holds every column the query needs, for example with `INCLUDE`, so PostgreSQL can answer from the index alone with an index-only scan.',
       },
+      {
+        question: 'What is the difference between a clustered and a non-clustered, or secondary, index?',
+        answer: 'A clustered index stores the rows themselves in index order, so a table has one: MySQL InnoDB clusters by primary key. PostgreSQL has none: rows sit in an unordered heap and every index is secondary, pointing to them; `CLUSTER` reorders the table once, and new rows do not follow that order.',
+        fromList: 'fullstack-100#51.1',
+      },
+      {
+        question: 'How do you decide which columns deserve an index in a real application?',
+        answer: 'From the queries, not the schema: I take the top statements in `pg_stat_statements` and index what they filter, join and sort on, foreign keys first. I compare the plan before and after, and drop indexes that `pg_stat_user_indexes` shows are never scanned, since each one slows every write.',
+        fromList: 'fullstack-100#51.2',
+      },
+      {
+        question: 'What is a composite index, and why does the order of its columns matter?',
+        answer: "It indexes several columns, sorted by the first, then by the second within each value, like a phone book. So it serves conditions on its leading columns: I put equality columns first and the range or sort column last, as in `(customer_id, created_at)` for a customer's latest orders.",
+        fromList: 'fullstack-100#51.3',
+      },
     ],
     traps: [
       {
@@ -233,6 +278,21 @@ WHERE customer_id = 42 ORDER BY created_at DESC LIMIT 20;
       {
         question: 'How do you catch the plan of a query that is only slow sometimes?',
         answer: 'The `auto_explain` module logs the real plan of every statement slower than a threshold, with production data; sample it or turn off per-node timing to keep its cost low.',
+      },
+      {
+        question: 'How do you tell whether a slow query is CPU-bound or I/O-bound, and how does the fix differ?',
+        answer: '`EXPLAIN (ANALYZE, BUFFERS)` shows pages found in memory (`shared hit`) and read from disk (`read`), plus read time with `track_io_timing` on. Many reads mean I/O: index it or read fewer rows. Slow with only hits means CPU, such as sorting or filtering many rows: change the query shape.',
+        fromList: 'fullstack-100#52.1',
+      },
+      {
+        question: 'What is the N+1 query problem, and how do you detect and fix it in a real application?',
+        answer: 'One query loads a list, then one more runs per row: 50 orders, then 50 customer lookups. Traces show a ladder of identical queries under one request, and `pg_stat_statements` a cheap query with a huge call count. The fix is a join, or one `WHERE id = ANY($1)` query for the whole page.',
+        fromList: 'fullstack-100#52.2',
+      },
+      {
+        question: 'How do you choose between adding an index and adding an application cache for a slow query?',
+        answer: 'First I find why it is slow. If the plan reads far more rows than it returns, an index fixes the cause and the data stays fresh. A cache such as Redis suits a query that is already efficient but runs very often, like a product page, and brings invalidation and staleness I must accept.',
+        fromList: 'fullstack-100#52.3',
       },
     ],
     traps: [
@@ -301,6 +361,21 @@ CREATE INDEX CONCURRENTLY orders_pending_idx
         question: 'Why keep transactions short?',
         answer: 'They hold row locks and a pooled connection, and old row versions cannot be cleaned up while they run. Never make an HTTP call inside a transaction.',
       },
+      {
+        question: 'What are the standard isolation levels, and which anomalies does each one prevent?',
+        answer: 'Read Uncommitted allows dirty reads; Read Committed prevents them; Repeatable Read also prevents non-repeatable reads; Serializable also prevents phantoms, giving the result of some serial order. In PostgreSQL, Read Uncommitted acts as Read Committed and Repeatable Read also prevents phantoms.',
+        fromList: 'fullstack-100#53.1',
+      },
+      {
+        question: 'How would you handle a transaction that spans several databases or microservices?',
+        answer: 'I avoid a distributed transaction: two-phase commit holds locks across services, and HTTP APIs such as the payment provider cannot take part. I use a saga: each service commits locally and publishes its event through an outbox, and a failed step triggers idempotent compensations, like a refund.',
+        fromList: 'fullstack-100#53.2',
+      },
+      {
+        question: 'What is the difference between optimistic and pessimistic locking?',
+        answer: 'Pessimistic locking takes the lock first, with `SELECT ... FOR UPDATE`, so others wait. Optimistic locking takes none: each order has a `version`, the `UPDATE` checks and bumps it in one statement, and 0 rows updated means someone changed it first. I use it for back-office forms with low contention.',
+        fromList: 'fullstack-100#53.3',
+      },
     ],
     traps: [
       {
@@ -367,6 +442,21 @@ COMMIT;`,
         question: 'What should happen to the links when a product is deleted?',
         answer: 'Choose it with the foreign key: `ON DELETE CASCADE` removes the links, `RESTRICT` refuses the delete while links exist. For data with history, a soft delete is often better.',
       },
+      {
+        question: 'How do you stop the same pair, like a student enrolled twice in one course, from being stored twice?',
+        answer: 'In the shop, that is a product listed twice in one category. The primary key on `(product_id, category_id)` makes PostgreSQL reject the duplicate with error `23505`, and when a retry may resend the same link, `INSERT ... ON CONFLICT DO NOTHING` makes the insert idempotent.',
+        fromList: 'fullstack-100#54.1',
+      },
+      {
+        question: 'How do you efficiently fetch everything linked to one side, like all the courses of one student?',
+        answer: "In the shop, all categories of one product: I join through `product_categories` with `WHERE product_id = $1`, which the primary key on `(product_id, category_id)` serves with an index scan. The other direction, a category's products, uses the second index on `(category_id, product_id)`.",
+        fromList: 'fullstack-100#54.2',
+      },
+      {
+        question: 'How does many-to-many modelling change in a document database?',
+        answer: 'There is no junction table: I keep an array of ids on one side, such as category ids in each product, index it, and copy the few fields pages need. Nothing enforces those references, so the application or a periodic check must clean up links to a deleted category.',
+        fromList: 'fullstack-100#54.3',
+      },
     ],
     traps: [
       {
@@ -432,6 +522,17 @@ CREATE INDEX product_categories_category_idx
       {
         question: 'Why do requests hang with no error when the pool is exhausted?',
         answer: 'With node-postgres, `connectionTimeoutMillis` defaults to 0, so a request waits for a free connection forever. Set a timeout and export the pool\'s waiting count as a metric.',
+        fromList: 'fullstack-100#55.2',
+      },
+      {
+        question: "How do you choose a pool size from the expected traffic and the database's connection limit?",
+        answer: "Little's law: busy connections equal queries per second times the time each holds a connection, so 200 queries per second at 10 ms need about 2. Then I cap it: pool size times the maximum pods, plus migrations and admin tools, must stay under `max_connections`. A load test confirms it.",
+        fromList: 'fullstack-100#55.1',
+      },
+      {
+        question: 'How does pooling interact with an application running as many separate instances?',
+        answer: 'Each pod has its own pool, so the database sees pool size times pods, and autoscaling or a rolling deploy with extra pods can push that past `max_connections`. I size each pool for the maximum replica count, and when pods multiply I put PgBouncer in front to share a few server connections.',
+        fromList: 'fullstack-100#55.3',
       },
     ],
     traps: [
@@ -498,6 +599,21 @@ export const pool = new pg.Pool({
         question: 'What happens to a query that does not include the shard key?',
         answer: 'It is sent to every shard and the results are merged, a scatter-gather that gets slower as shards are added.',
       },
+      {
+        question: 'How would you handle a query or a transaction that needs data from several shards?',
+        answer: "I choose the shard key so the common ones stay on one shard, like `customer_id` for a customer's orders. A cross-shard read goes to every shard and merges, or reads a read model fed by events; a cross-shard write becomes a saga with compensations rather than a distributed transaction.",
+        fromList: 'fullstack-100#56.1',
+      },
+      {
+        question: 'How would you add shards and rebalance existing data as the dataset grows?',
+        answer: 'I create many more logical shards than servers from the start, so growing means moving whole shards to a new server, not rehashing every row. A move copies the shard while it still takes writes, catches up, then switches its routing entry; consistent hashing likewise limits how many keys move.',
+        fromList: 'fullstack-100#56.2',
+      },
+      {
+        question: 'How do you avoid a hot shard that receives far more traffic than the others?',
+        answer: 'Pick a key with many distinct values that does not grow over time, or hash it, so dates or sequential ids do not send every insert to one shard. For one huge tenant, I give it its own shard or split its key with a suffix, and I watch load per shard to catch skew early.',
+        fromList: 'fullstack-100#56.3',
+      },
     ],
     traps: [
       {
@@ -555,6 +671,21 @@ export const pool = new pg.Pool({
       {
         question: 'Where do TypeORM and Sequelize fit?',
         answer: 'They are older ORMs you will often inherit, TypeORM in NestJS codebases and Sequelize in Express services. For new code, teams usually prefer Prisma or Drizzle, whose types follow the schema.',
+      },
+      {
+        question: 'How would you identify an N+1 query problem introduced by the ORM?',
+        answer: "I turn on the ORM's query log in development, or read traces, and count queries per request: a page of 50 orders running 51 queries is the signature. A test can assert an endpoint's query count, and the fix is the ORM's eager loading, such as Prisma's `include`, or one `IN` query.",
+        fromList: 'fullstack-100#57.1',
+      },
+      {
+        question: "When would you drop down to raw SQL instead of the ORM's query builder?",
+        answer: 'When the ORM cannot express a query cleanly or generates a slow one: window functions, recursive CTEs, a conditional upsert, or a hot query I tuned with `EXPLAIN`. I keep it parameterized, type its result at the boundary and cover it with an integration test against a real PostgreSQL.',
+        fromList: 'fullstack-100#57.2',
+      },
+      {
+        question: 'How does an ORM protect against SQL injection in the standard cases?',
+        answer: "It sends values as bound parameters, separate from the SQL text, so a value is never parsed as SQL. That covers its query API and tagged templates such as Prisma's `$queryRaw`; it does not cover `$queryRawUnsafe` with concatenated strings, or table and column names taken from user input.",
+        fromList: 'fullstack-100#57.3',
       },
     ],
     traps: [
@@ -615,10 +746,21 @@ SELECT * FROM customers WHERE id = ANY($1);`,
       {
         question: 'How does a hybrid fan-out work?',
         answer: 'Events from ordinary sources are pushed into followers\' feeds at write time, while events from very popular sources are pulled and merged at read time, so no single event triggers millions of writes.',
+        fromList: 'fullstack-100#58.1',
       },
       {
         question: 'How do you produce the events without losing any?',
         answer: 'Insert them into an outbox table in the same transaction as the state change, and let a relay or worker publish or fan them out; consumers must be idempotent because delivery can repeat.',
+      },
+      {
+        question: 'How would you handle an unfollow and its effect on the precomputed feed?',
+        answer: "A background job deletes that source's items from the user's `feed_items`, which needs a source column and an index on `(user_id, source_id)`. Until it finishes, the read path filters out sources the user no longer follows, so the change shows at once.",
+        fromList: 'fullstack-100#58.2',
+      },
+      {
+        question: 'How would you rank the feed by relevance instead of newest first?',
+        answer: 'I fetch a candidate set, say the 500 most recent items, score each with signals such as affinity with the source, engagement and age, and return the top. The score is computed at read time or stored with the item, and pagination uses a cursor over the ranked list, not a timestamp.',
+        fromList: 'fullstack-100#58.3',
       },
     ],
     traps: [

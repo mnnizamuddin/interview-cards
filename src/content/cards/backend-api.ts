@@ -38,6 +38,17 @@ export const backendApiCards: Card[] = [
       {
         question: 'What is the N+1 problem in GraphQL, and how do you fix it?',
         answer: 'A list of 50 orders whose `customer` resolver runs one query per order makes 51 queries. A DataLoader created per request collects the ids requested in one tick and loads them in one batched query.',
+        fromList: 'fullstack-100#36.1',
+      },
+      {
+        question: 'How do you cache a GraphQL API when it does not use HTTP `GET` caching?',
+        answer: 'In layers: a normalised cache in the client, such as Apollo Client\'s, a per-request DataLoader cache on the server, and Redis for expensive resolvers. For a CDN, I send trusted persisted queries by id over `GET`, so public queries like product pages get cacheable URLs.',
+        fromList: 'fullstack-100#36.2',
+      },
+      {
+        question: 'When would you still pick REST over GraphQL for a new project?',
+        answer: 'When the API is public or for partners, when HTTP and CDN caching matter, or when one frontend needs simple resource views. REST also keeps status codes, rate limits and monitoring straightforward. The Orders API stays REST for the delivery partner for those reasons.',
+        fromList: 'fullstack-100#36.3',
       },
     ],
     traps: [
@@ -102,10 +113,21 @@ Content-Type: application/json
       {
         question: 'Which code do you return for an expired access token?',
         answer: '401, with a `WWW-Authenticate: Bearer` header; RFC 6750 adds `error="invalid_token"`. The client then uses its refresh token, or sends the user to log in.',
+        fromList: 'fullstack-100#37.2',
       },
       {
         question: 'Where should the 401 and 403 decisions live in the code?',
         answer: 'Authentication in one middleware or guard that verifies the session or token for every route. Authorisation as close to the data as possible: role checks in guards, ownership in the query itself.',
+      },
+      {
+        question: 'Which code do you return for a missing resource, and for one the user may not access?',
+        answer: '404 when the order does not exist. For a route the caller\'s role forbids, like a customer calling refunds, 403. For another customer\'s order I also answer 404, since RFC 9110 allows it and a 403 would confirm the id exists.',
+        fromList: 'fullstack-100#37.1',
+      },
+      {
+        question: 'What is the difference between authentication and authorisation?',
+        answer: 'Authentication proves who the caller is, through a session or a verified token; failing it gives 401. Authorisation decides whether that caller may do this action on this object, like refunding order 1042; failing it gives 403, or 404 to hide the object.',
+        fromList: 'fullstack-100#37.3',
       },
     ],
     traps: [
@@ -170,6 +192,21 @@ WWW-Authenticate: Bearer error="invalid_token", error_description="The access to
       {
         question: 'How do you stop two agents from overwriting each other\'s edits?',
         answer: 'Return an `ETag` with the order, require `If-Match` on writes, and check the version inside the `UPDATE`. A stale write gets 412 Precondition Failed instead of silently winning.',
+      },
+      {
+        question: 'Would you paginate the orders list with offsets or cursors?',
+        answer: 'Offsets are simple and allow jumping to page 40, but deep pages get slow and new orders shift rows between pages. A cursor encodes the last `(created_at, id)` seen, uses an index and stays stable, but only moves next or back. I use cursors for feeds and offsets for small admin tables.',
+        fromList: 'fullstack-100#38.1',
+      },
+      {
+        question: 'How do you model a nested resource, such as the refunds of an order?',
+        answer: 'Nest one level where the child only exists in its parent: `GET /orders/:id/refunds` and `POST /orders/:id/refunds`. A refund with its own id can also live at `/refunds/:id`. I avoid deep chains like `/customers/:id/orders/:id/refunds`, and still check that the parent belongs to the caller.',
+        fromList: 'fullstack-100#38.2',
+      },
+      {
+        question: 'How would you serve old and new clients through a breaking change?',
+        answer: 'Avoid it with additive changes first. If it must break, ship `/v2/orders`, keep v1 running by translating it onto the same code at the edge, announce retirement with `Deprecation` and `Sunset` headers, and remove v1 once its logged usage reaches zero.',
+        fromList: 'fullstack-100#38.3',
       },
     ],
     traps: [
@@ -237,6 +274,21 @@ Location: /orders/1042`,
       {
         question: 'How do you make a request id available to every log line without passing it around?',
         answer: 'A middleware opens an `AsyncLocalStorage` store for the request with `storage.run(store, next)`, and the logger reads the id from the store, even after `await`s.',
+      },
+      {
+        question: 'How would you write middleware that verifies a JWT and attaches the user to the request?',
+        answer: 'It reads the `Authorization: Bearer` header, verifies the token with a library such as `jose`, pinning the algorithm, issuer and audience, then sets `req.user` from the claims and calls `next()`. A missing or invalid token ends with 401 and a `WWW-Authenticate` header.',
+        fromList: 'fullstack-100#39.1',
+      },
+      {
+        question: 'How does Express error-handling middleware differ in syntax from normal middleware?',
+        answer: 'It declares four parameters, `(err, req, res, next)`, and Express recognises it by that count, so you cannot drop `next` even if unused. It is registered after the routes and runs only when something calls `next(err)`, throws, or, since Express 5, rejects.',
+        fromList: 'fullstack-100#39.2',
+      },
+      {
+        question: 'How do you apply middleware to only some routes?',
+        answer: 'In Express, mount it on a path, `app.use(\'/admin\', requireAdmin)`, on a `Router`, or list it in one route: `app.post(\'/orders/:id/refunds\', requireAdmin, handler)`. In NestJS, `consumer.apply(...).forRoutes(...)`, with `exclude()` to skip some.',
+        fromList: 'fullstack-100#39.3',
       },
     ],
     traps: [
@@ -307,6 +359,21 @@ app.use((err, req, res, next) => {       // four parameters: the error handler
         question: 'How do you detect event loop blocking in production?',
         answer: 'Measure event loop delay, for example with `perf_hooks.monitorEventLoopDelay`, export it as a metric, and profile the CPU when it rises.',
       },
+      {
+        question: 'How does one thread handle many concurrent I/O operations in Node?',
+        answer: 'Node starts each operation and does not wait: the OS notifies libuv when a socket is ready, through epoll, kqueue or IOCP, and the event loop runs the matching callback. Waiting costs no thread, so one process can hold thousands of open database and HTTP calls.',
+        fromList: 'fullstack-100#40.1',
+      },
+      {
+        question: 'What can still block the event loop even with async I/O?',
+        answer: 'Any long JavaScript run: `*Sync` APIs, big `JSON.parse` or `stringify` calls, sorting huge arrays, and regexes with catastrophic backtracking. On Node 24, `/^(a+)+$/` on 26 `a`s and a `b` blocked for over 2 seconds; parsing 30 MB of JSON took about 150 ms.',
+        fromList: 'fullstack-100#40.2',
+      },
+      {
+        question: 'How do you run a CPU-heavy task without blocking the event loop?',
+        answer: 'Move it to `worker_threads`, each with its own event loop, through a pool such as Piscina so threads are reused. On Node 24, a 600,000-iteration `pbkdf2Sync` in a worker delayed a 10 ms timer by only 8 ms. For long jobs, a queue and a separate worker service.',
+        fromList: 'fullstack-100#40.3',
+      },
     ],
     traps: [
       {
@@ -375,6 +442,21 @@ pbkdf2Sync('secret', 'salt', 600_000, 64, 'sha512');
         question: 'What does PKCE protect against?',
         answer: 'Theft of the authorisation code. The client sends a hash of a secret verifier at the start and the verifier itself at the token exchange, so a stolen code is useless without it.',
       },
+      {
+        question: 'How do sessions and JWTs compare for scaling and revocation?',
+        answer: 'A session is an id pointing to server state, so every replica reads a shared store like Redis, and deleting the row revokes it at once. A JWT is verified without a lookup, which scales easily, but stays valid until `exp`. So I keep JWTs short and revoke through refresh tokens.',
+        fromList: 'fullstack-100#41.1',
+      },
+      {
+        question: 'How do you implement "log out everywhere" when JWTs are stateless?',
+        answer: 'Revoke every refresh token of the customer in the database, so no device gets a new access token; existing access tokens die within their few minutes. For an immediate effect, store a per-customer cut-off time and reject tokens whose `iat` is older, at the cost of a lookup.',
+        fromList: 'fullstack-100#41.2',
+      },
+      {
+        question: 'What is a refresh token for, and why is it safer than one long-lived access token?',
+        answer: 'It gets new short-lived access tokens without a new login. The access token travels on every request, so if it leaks it works only minutes. The refresh token goes only to the IdP, is rotated on each use, and a replayed old one revokes the whole family.',
+        fromList: 'fullstack-100#41.3',
+      },
     ],
     traps: [
       {
@@ -436,10 +518,21 @@ const challenge = createHash('sha256').update(verifier).digest('base64url');
       {
         question: 'Can you use `Access-Control-Allow-Origin: *` with credentials?',
         answer: 'No. Browsers refuse to expose a credentialed response when the allowed origin is the wildcard; you must name the exact origin.',
+        fromList: 'fullstack-100#42.2',
       },
       {
         question: 'How do you reduce the cost of preflights?',
         answer: 'Send `Access-Control-Max-Age` so the browser caches the answer; Chromium caps it at 2 hours and Firefox at 24 hours. Or serve the API on the same origin, through a proxy or a BFF, so no preflight happens.',
+      },
+      {
+        question: 'What is a CORS preflight, and when does the browser send one?',
+        answer: 'An `OPTIONS` request the browser sends before a cross-origin request that is not simple: a method like `PUT` or `DELETE`, a custom header such as `Authorization`, or a `Content-Type` like `application/json`. The real request only follows if the answer allows that origin, method and headers.',
+        fromList: 'fullstack-100#42.1',
+      },
+      {
+        question: 'How do you allow several specific origins?',
+        answer: 'The header holds one origin, so I keep an allow-list, compare the request\'s `Origin` exactly, echo it back only on a match, and add `Vary: Origin` so caches keep answers apart. The `cors` package for Express accepts an array of origins and does this.',
+        fromList: 'fullstack-100#42.3',
       },
     ],
     traps: [
@@ -510,6 +603,21 @@ Vary: Origin`,
         question: 'How long can an S3 presigned URL stay valid?',
         answer: 'Up to 7 days with Signature Version 4 and IAM user credentials, and never longer than the temporary credentials that signed it. For uploads, I use minutes.',
       },
+      {
+        question: 'How do you restrict file types and sizes on the client and the server?',
+        answer: 'The client checks `file.type` and `file.size` and sets `accept="image/*"`, only for a fast message. The server is the real gate: an allow-list of content types and a size cap when signing, a size range in the upload policy, then the file\'s magic bytes checked after upload.',
+        fromList: 'fullstack-100#43.1',
+      },
+      {
+        question: 'How do you generate a presigned URL and use it to upload straight to storage?',
+        answer: 'The API checks the user, picks the key, and signs a `PutObjectCommand` with `getSignedUrl` from `@aws-sdk/s3-request-presigner`, valid five minutes. The browser `PUT`s the file to that URL with the agreed `Content-Type`, then calls the API to confirm the upload.',
+        fromList: 'fullstack-100#43.2',
+      },
+      {
+        question: 'How do you produce several image sizes, such as a thumbnail and a full view?',
+        answer: 'A worker triggered by the confirmed upload resizes the original with a library such as sharp, into 128 px and 512 px WebP versions under derived keys, and the CDN serves them. Keeping the original lets me add a size later; an image CDN that resizes on request is the alternative.',
+        fromList: 'fullstack-100#43.3',
+      },
     ],
     traps: [
       {
@@ -577,6 +685,21 @@ Content-Type: application/json
       {
         question: 'Is a request count enough for a GraphQL endpoint or an expensive export?',
         answer: 'No: one request can be very expensive. Limit by estimated cost, cap page and body sizes, and put heavy work behind a queue.',
+      },
+      {
+        question: 'How do you keep rate limits consistent across several replicas?',
+        answer: 'Counters live in one shared store, usually Redis, updated atomically with `INCR` and an expiry or a small Lua script, so all six Orders API replicas see the same count. The limiter must also read the real client IP from headers our own proxy sets.',
+        fromList: 'fullstack-100#44.1',
+      },
+      {
+        question: 'How do the token bucket and the sliding window log differ?',
+        answer: 'A token bucket keeps two numbers per key, tokens and last refill, and allows bursts up to its capacity at a steady average. A sliding window log stores the timestamp of every request in the window and counts them: exact, but memory grows with traffic.',
+        fromList: 'fullstack-100#44.2',
+      },
+      {
+        question: 'How do you tell API clients about their rate limit status?',
+        answer: 'Over the limit, 429 with `Retry-After`. On every response, the remaining quota: many APIs use vendor headers like `X-RateLimit-Remaining`, while the IETF `RateLimit` fields are still an Internet-Draft. And I document the limits so partners can pace themselves.',
+        fromList: 'fullstack-100#44.3',
       },
     ],
     traps: [
@@ -647,6 +770,21 @@ Content-Type: application/json
         question: 'How do you log an Error object with pino so you keep its stack?',
         answer: 'Put it under the `err` key: `log.error({ err }, \'payment failed\')`. Only that key uses pino\'s error serializer; `message` and `stack` are not enumerable, so other keys lose them.',
       },
+      {
+        question: 'Which errors do you handle gracefully, and which should crash or alert?',
+        answer: 'Expected domain errors, like a shipped order or a declined card, get a clear 4xx and no alert. Transient failures, like a delivery partner timeout, get retries. Bugs and unknown state, such as an uncaught exception, crash the process, are logged, and count toward an alert.',
+        fromList: 'fullstack-100#45.1',
+      },
+      {
+        question: 'What do you put in a structured log entry for later debugging?',
+        answer: 'Time, level, a message, the service and its version, the request id and trace id, the route, status and duration, business ids like `orderId`, and the error with its stack under `err`. Never passwords, tokens or card data, and customer emails redacted.',
+        fromList: 'fullstack-100#45.2',
+      },
+      {
+        question: 'How would you alert on a spike in error rates?',
+        answer: 'Export a request counter labelled by route and status, alert on the share of 5xx over a window, such as above 2% for 5 minutes, or better on SLO burn rate, and route it to on-call with a link to the dashboard. Alerting on single log lines only makes noise.',
+        fromList: 'fullstack-100#45.3',
+      },
     ],
     traps: [
       {
@@ -715,6 +853,21 @@ function toProblem(err: unknown, reqId: string) {
         question: 'How would you do DI without a framework?',
         answer: 'Write a composition root: one startup function that creates the pool and adapters and passes them to factory functions such as `makeCancelOrder({ orders, payments, now })`.',
       },
+      {
+        question: 'How does dependency injection make unit tests easier?',
+        answer: 'The test passes in fakes instead of mocking imports: an in-memory `OrderRepository`, a payment gateway that records refunds, a clock fixed at one date. Tests run fast, never touch the network, and give the same result on every run.',
+        fromList: 'fullstack-100#46.1',
+      },
+      {
+        question: 'How does constructor injection differ from other forms of injection?',
+        answer: 'Constructor injection makes every required dependency explicit and ready before the object is used. Property or setter injection fills fields afterwards; NestJS supports property injection with `@Inject()`, but its docs prefer the constructor unless a base class makes passing through `super()` awkward.',
+        fromList: 'fullstack-100#46.2',
+      },
+      {
+        question: 'How does a DI container work under the hood?',
+        answer: 'It keeps a registry from tokens to providers. In NestJS, `emitDecoratorMetadata` records each constructor\'s parameter types; at startup the container walks the module graph, resolves each dependency first, and caches singletons, so it fails at boot on a missing provider.',
+        fromList: 'fullstack-100#46.3',
+      },
     ],
     traps: [
       {
@@ -779,10 +932,21 @@ export function makeCancelOrder({ orders, payments, now }: Deps) {
       {
         question: 'Polling, SSE or a webhook: how do you choose?',
         answer: 'Polling is simplest and fine for a few clients. SSE pushes one-way updates to a browser over plain HTTP. A webhook suits server-to-server integrations, with signatures and retries.',
+        fromList: 'fullstack-100#47.2',
       },
       {
         question: 'What happens if the worker crashes halfway?',
         answer: 'The queue redelivers the job, so the work must be idempotent: overwrite the same object key and update the job row by id. After a maximum number of attempts it goes to a dead-letter queue and the job is marked `failed`.',
+      },
+      {
+        question: 'How would you design the status endpoint and report progress?',
+        answer: '`GET /exports/:id` returns the job row: status, `processed` and `total` rows, timestamps, and once done a short-lived download link. The worker updates progress every few thousand rows, not per row, and the endpoint checks that the export belongs to the agent asking.',
+        fromList: 'fullstack-100#47.1',
+      },
+      {
+        question: 'How do you handle a failed background job and tell the client?',
+        answer: 'After the last retry the worker marks the job `failed` with an error code and a safe message, never a stack trace, and the status endpoint returns them, so the back office shows "Export failed, try a shorter range" with a retry button. The failure also feeds an alert.',
+        fromList: 'fullstack-100#47.3',
       },
     ],
     traps: [
@@ -850,6 +1014,21 @@ Retry-After: 5`,
       {
         question: 'How do you catch a breaking change before it ships?',
         answer: 'Keep the OpenAPI document in the repository and run a breaking-change diff, such as oasdiff, in CI against the main branch.',
+      },
+      {
+        question: 'What are the trade-offs between URL and header versioning?',
+        answer: 'A URL version like `/v2/orders` is visible in logs, easy to route, test in a browser and cache. A header keeps URLs stable and allows fine-grained or dated versions, but it is easy to forget, harder to debug, and shared caches need `Vary` on that header.',
+        fromList: 'fullstack-100#48.1',
+      },
+      {
+        question: 'How do you deprecate and then retire an old version responsibly?',
+        answer: 'Announce a date in the changelog and to known clients, add `Deprecation` and `Sunset` headers with a link to the migration guide, and log calls per version and client. I contact the last callers directly, and remove the version only when usage reaches zero or the date passes.',
+        fromList: 'fullstack-100#48.2',
+      },
+      {
+        question: 'How does evolving a GraphQL schema differ from versioning a REST API?',
+        answer: 'GraphQL keeps one schema with no version: clients only get fields they ask for, so adding fields breaks nobody. Old fields are marked `@deprecated`, their usage is tracked per field, and they are removed at zero, with a schema diff in CI catching breaking changes.',
+        fromList: 'fullstack-100#48.3',
       },
     ],
     traps: [
