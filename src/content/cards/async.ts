@@ -7,6 +7,7 @@ export const asyncCards: Card[] = [
   {
     id: 'async-event-loop',
     unit: 'async-js',
+    topic: 'Event loop and task order',
     level: 'mid',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'How does the event loop work, and in what order do promise callbacks and timers run?',
@@ -49,16 +50,28 @@ export const asyncCards: Card[] = [
         why: 'The rest of the async function resumes as a promise job once the awaited value settles.',
       },
     ],
+    lesson: {
+      points: [
+        'JavaScript runs your code on one thread with one call stack. Waiting for timers, the network or clicks is done by the browser or Node, which queues a callback when it is ready.',
+        'A task is one unit of work from a queue, like a `setTimeout` callback or a click handler. The event loop runs one task at a time, and each task runs to completion: nothing interrupts it.',
+        'Microtasks are small jobs queued by promises: `.then` callbacks, the code after an `await`, and `queueMicrotask`. After each task, the loop runs every microtask, new ones included, until the queue is empty.',
+        'The browser can paint only after that, between two tasks; `requestAnimationFrame` callbacks run just before a paint. So an endless chain of microtasks freezes the page as surely as a long loop.',
+        'Node has no paint step: it loops through phases such as timers, poll (I/O) and check (`setImmediate`). Inside a callback, `process.nextTick` jobs run before promise callbacks.',
+      ],
+      code: `setTimeout(() => console.log('timeout'), 0);
+Promise.resolve().then(() => console.log('promise'));
+queueMicrotask(() => console.log('microtask'));
+console.log('sync');
+// sync, promise, microtask, timeout`,
+      codeLang: 'js',
+    },
     mcqSections: ['m24#loop', 'm24#order'],
     fromLists: ['fullstack-100#6'],
-    lessons: [
-      { module: 'M24', section: 'loop', title: 'One thread for your code and for the pixels' },
-      { module: 'M24', section: 'order', title: 'Predicting the order: microtasks, timers and frames' },
-    ],
   },
   {
     id: 'async-promises',
     unit: 'async-js',
+    topic: 'Promises and their combinators',
     level: 'mid',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'What is a Promise, and how do `Promise.all`, `allSettled`, `race` and `any` differ?',
@@ -101,13 +114,29 @@ export const asyncCards: Card[] = [
         why: 'It then rejects with an AggregateError that holds every reason.',
       },
     ],
+    lesson: {
+      points: [
+        'A promise is an object for a result that arrives later. It starts pending, then settles once: fulfilled with a value or rejected with a reason, and it never changes after that.',
+        '`.then` returns a new promise, so steps chain; return the next promise inside `.then` or the chain stops waiting for it. One `.catch` at the end handles a rejection from any earlier step.',
+        '`Promise.all` fulfils with every value, in input order, and rejects as soon as one input rejects. `Promise.allSettled` always waits for all and gives each result as `fulfilled` with a value or `rejected` with a reason.',
+        '`Promise.race` settles like the first input to settle, even a rejection. `Promise.any` fulfils with the first success and rejects only when all fail, with an `AggregateError` holding every reason.',
+        'A promise cannot be cancelled: when `Promise.all` rejects, the other requests keep running and their results are ignored. An `AbortSignal` is what stops a request.',
+      ],
+      code: `const [reviews, recommendations] = await Promise.allSettled([
+  getReviews(productId),
+  getRecommendations(productId),
+]);
+if (reviews.status === 'fulfilled') showReviews(reviews.value);
+if (recommendations.status === 'rejected') hideRecommendations();`,
+      codeLang: 'ts',
+    },
     mcqSections: ['m24#promises'],
     fromLists: ['fullstack-100#20'],
-    lessons: [{ module: 'M24', section: 'promises', title: 'Promises and combinators in UI code' }],
   },
   {
     id: 'async-await',
     unit: 'async-js',
+    topic: 'async and await',
     level: 'mid',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'How does `async`/`await` work, and how do you handle errors and parallel calls with it?',
@@ -150,12 +179,26 @@ export const asyncCards: Card[] = [
         why: 'It gives a promise fulfilled with 5; the caller needs `await` or `.then` to read it.',
       },
     ],
+    lesson: {
+      points: [
+        'An `async` function always returns a promise: returning 5 gives the caller a promise fulfilled with 5, and throwing gives a rejected promise.',
+        '`await` pauses only the current async function until the promise settles. The thread keeps running other code, and the rest of the function resumes later as a microtask.',
+        'A rejected promise makes `await` throw, so `try`/`catch` handles it. Inside a `try`, write `return await promise`: a plain `return promise` leaves the function first, and the `catch` never sees the rejection.',
+        'Awaiting independent calls one after another adds their delays. Start them together and await `Promise.all`. To cap it at 5 at a time, run 5 workers that take items from a shared list.',
+        '`forEach` ignores the promises its callback returns, so it does not wait: use `for...of` or `Promise.all(items.map(fn))`. A promise nobody awaits or handles is a floating promise; lint rules catch it.',
+      ],
+      code: `// One after another: 100 ms + 100 ms
+const slow = [await getCustomer(id), await getHistory(id)];
+// Started together: about 100 ms
+const fast = await Promise.all([getCustomer(id), getHistory(id)]);`,
+      codeLang: 'ts',
+    },
     mcqSections: ['m02#floating'],
-    lessons: [{ module: 'M02', section: 'floating', title: 'Promises nobody handles' }],
   },
   {
     id: 'async-abort',
     unit: 'async-js',
+    topic: 'Cancelling fetch, stale responses',
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'How do you cancel a `fetch`, and how do you avoid showing a stale response?',
@@ -198,15 +241,30 @@ export const asyncCards: Card[] = [
         why: 'Debounce sends fewer requests, but two requests can still complete out of order.',
       },
     ],
+    lesson: {
+      points: [
+        'An `AbortController` has a `signal` and an `abort()` method. Pass the signal to `fetch`; calling `abort()` makes the pending fetch reject with a `DOMException` named `AbortError`.',
+        'An `AbortError` means you cancelled on purpose: check `error.name` and ignore it rather than showing an error message.',
+        'The stale response race: the request for "sho" is slower than the one for "shoes", lands last and overwrites the newer results. Debounce sends fewer requests but cannot fix the order they finish in.',
+        'In React, create the controller inside the effect and call `abort()` in its cleanup, which runs before the next run and on unmount. TanStack Query avoids the race by storing each response under its query key.',
+        '`AbortSignal.timeout(5000)` aborts with a `TimeoutError`, and `AbortSignal.any([a, b])` combines signals. Aborting closes the browser\'s request; the server stops only if it notices and cancels its own work.',
+      ],
+      code: `useEffect(() => {
+  const controller = new AbortController();
+  fetch(\`/api/search?q=\${encodeURIComponent(query)}\`, { signal: controller.signal })
+    .then((response) => response.json())
+    .then(setResults)
+    .catch((error) => { if (error.name !== 'AbortError') setError(error); });
+  return () => controller.abort(); // the previous query's request is cancelled
+}, [query]);`,
+      codeLang: 'ts',
+    },
     mcqSections: ['m24#abort', 'm24#race'],
-    lessons: [
-      { module: 'M24', section: 'abort', title: 'Cancelling a fetch with AbortController' },
-      { module: 'M24', section: 'race', title: 'The stale response race' },
-    ],
   },
   {
     id: 'async-debounce',
     unit: 'async-js',
+    topic: 'Debounce and throttle',
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'What is the difference between debounce and throttle, and when do you use each?',
@@ -249,15 +307,30 @@ export const asyncCards: Card[] = [
         why: 'You want regular checks during the scroll; debounce would wait until scrolling stops.',
       },
     ],
+    lesson: {
+      points: [
+        'Both limit how often a function runs during a burst of events, like typing, scrolling or resizing.',
+        'Debounce restarts a timer on every event and runs the function once, after the events have stopped for the delay. Search suggestions sent after 300 ms without typing is the classic use.',
+        'Throttle runs the function at most once per interval while the events keep coming, giving regular updates. It suits scroll position, dragging and deciding when to load the next page of a list.',
+        'A leading call runs on the first event of a burst, a trailing call after the last one. Debounce is usually trailing; throttle often does both so the final position is not lost.',
+        'The timer lives in a closure, so in React create the debounced function once, with `useMemo` or a ref, and cancel its pending call on unmount. A new one on every render debounces nothing.',
+      ],
+      code: `function debounce(fn, ms) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
+const suggest = debounce((query) => fetchSuggestions(query), 300);`,
+      codeLang: 'js',
+    },
     mcqSections: ['m24#debounce', 'm24#throttle'],
-    lessons: [
-      { module: 'M24', section: 'debounce', title: 'Debounce: wait until typing stops' },
-      { module: 'M24', section: 'throttle', title: 'Throttle: at most one call per interval' },
-    ],
   },
   {
     id: 'async-long-tasks',
     unit: 'async-js',
+    topic: 'Long tasks and a frozen page',
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'Why does a page freeze during heavy JavaScript, and how do you fix it?',
@@ -305,10 +378,26 @@ export const asyncCards: Card[] = [
         why: 'Workers have no DOM access; they send their results back with `postMessage`.',
       },
     ],
+    lesson: {
+      points: [
+        'The browser\'s main thread runs JavaScript, handles input and renders. While one task runs, clicks and key presses wait and nothing repaints.',
+        'A long task keeps the main thread busy for more than 50 ms. INP (Interaction to Next Paint), a Core Web Vital, measures the delay from an interaction to the next frame; 200 ms or less is good.',
+        '`async` does not help with CPU work: a loop inside an async function still blocks. Fixes, cheapest first: do less work, split it into chunks and yield between them, or mark updates non-urgent with `useTransition`.',
+        'A Web Worker runs code on another thread. It has no DOM and no `window`, and data goes through `postMessage`, copied unless transferred. Keep it for heavy pure computation, as copying large data costs time.',
+        'Measure first: the Performance panel in the browser\'s dev tools marks long tasks, so you fix the real cause.',
+      ],
+      code: `const yieldToMain = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+async function filterInChunks(orders, matches, chunkSize = 500) {
+  const result = [];
+  for (let i = 0; i < orders.length; i += chunkSize) {
+    result.push(...orders.slice(i, i + chunkSize).filter(matches));
+    await yieldToMain(); // the browser can handle input and paint here
+  }
+  return result;
+}`,
+      codeLang: 'js',
+    },
     mcqSections: ['m24#long-tasks', 'm24#workers'],
-    lessons: [
-      { module: 'M24', section: 'long-tasks', title: 'Long tasks: why typing feels slow' },
-      { module: 'M24', section: 'workers', title: 'Moving the filter to a Web Worker' },
-    ],
   },
 ];

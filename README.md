@@ -1,16 +1,17 @@
 # Interview Cards
 
-Duolingo-style daily practice for React, TypeScript, JavaScript and Node interviews, made for the phone.
+An endless stream of interview questions for React, TypeScript, JavaScript and Node developers, made for the phone. No lives, no daily goal: play as long as you like and watch the share of topics you handle grow.
 
-Each card follows the interview: a question you answer **out loud**, the model answer with key points to tick, why interviewers ask it, a real-world example from the track's running example (the shop's storefront, back office and Orders API), common mistakes, then the interviewer's **follow-up questions**. A quick check follows each card: a "spot the trap" statement or a "what does this print" question imported from the Senior Full-Stack Track (`../backend-drills`).
+There are 106 topics, covering every question of Mocklingo’s full-stack list. Each one has a **lesson card**, an interview question you answer **out loud** and check against a model answer and its key points, **follow-up questions** answered the same way, and auto-graded **true/false traps** and **multiple-choice questions** (some copied from the Senior Full-Stack Track in `../backend-drills`). Examples come from one running example, an online shop.
 
-## How a session works
+## How playing works
 
-- Up to 5 cards: reviews that are due first, then new cards (5 new per day).
-- **Say it**: answer out loud, reveal, tick the key points you said, rate yourself (Again, Hard, Good, Easy). A Good or Easy rating brings the follow-ups; a missed follow-up lowers the rating by one step.
-- The rating schedules the next review (a simplified SM-2, in whole days: `src/srs/schedule.ts`).
-- A missed exercise comes back once at the end of the session.
-- XP, a daily goal and a streak (days with a finished session).
+- The engine (`src/play/engine.ts`) keeps about 3 topics in progress at a time. A new topic starts with its lesson card.
+- A topic whose last answer was wrong comes back after a short rest; now and then a handled topic is checked again (15%).
+- Each topic cycles through its questions, the one shown longest ago first.
+- A topic is **handled** when your last 3 answers on it were right. The home screen shows the share handled, overall and per unit.
+- After a miss, "Review the lesson" opens the topic’s lesson; lessons are also browsable from each unit.
+- "Play this unit" limits the stream to one unit.
 
 Progress is stored in IndexedDB **on the device only**. Use "Back up" and "Restore" at the bottom of the home screen to move it or keep a copy.
 
@@ -18,7 +19,7 @@ Progress is stored in IndexedDB **on the device only**. Use "Back up" and "Resto
 
 ```bash
 pnpm dev          # http://localhost:5180
-pnpm test         # unit, content and app tests (frozen clock, no real date)
+pnpm test         # unit, content and app tests (frozen clock and random source)
 pnpm build        # type-check and build to dist/
 pnpm import-mcq   # re-copy track questions into src/content/mcq.generated.json
 pnpm icons        # redraw the PNG icons
@@ -28,7 +29,7 @@ pnpm icons        # redraw the PNG icons
 
 ## Adding cards
 
-Cards live in `src/content/cards/*.ts` (type in `src/content/types.ts`). Inline code goes between backticks. `src/content/content.test.ts` checks every card: 3 to 5 key points, at least 2 mistakes, 1 follow-up, 2 traps with at least one true, a spoken answer under 110 words, balanced backticks, and track sections that exist. Run each code claim before writing it.
+Cards live in `src/content/cards/*.ts` (type in `src/content/types.ts`). Inline code goes between backticks. `src/content/content.test.ts` checks every card: a short topic name, a lesson of 3 to 5 points, 3 to 5 key points, at least 2 mistakes, 1 follow-up, 2 traps with at least one true, a spoken answer under 110 words, balanced backticks, and track sections that exist. The writing rules are in `CONTENT.md`. Run each code claim before writing it.
 
 ## Deploying on Vercel
 

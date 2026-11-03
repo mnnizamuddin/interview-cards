@@ -1,13 +1,20 @@
 import { useState } from 'react';
 import type { Trap } from '../content/types.ts';
-import { XP_FOR_CHECK } from '../progress/model.ts';
 import { Button } from '../ui/Button.tsx';
 import { Feedback } from '../ui/Feedback.tsx';
 import { Text } from '../ui/Text.tsx';
 import type { ExerciseResult } from './types.ts';
 
 /** "Spot the trap": the learner decides whether a statement from a common mistake is true. */
-export function TrapExercise({ trap, onDone }: { trap: Trap; onDone: (result: ExerciseResult) => void }) {
+export function TrapExercise({
+  trap,
+  onDone,
+  onReviewLesson,
+}: {
+  trap: Trap;
+  onDone: (result: ExerciseResult) => void;
+  onReviewLesson: () => void;
+}) {
   const [choice, setChoice] = useState<boolean | null>(null);
   const correct = choice === trap.isTrue;
 
@@ -34,7 +41,8 @@ export function TrapExercise({ trap, onDone }: { trap: Trap; onDone: (result: Ex
           <Feedback
             correct={correct}
             title={correct ? 'Correct!' : `It's ${trap.isTrue ? 'true' : 'false'}`}
-            onContinue={() => onDone({ passed: correct, xp: correct ? XP_FOR_CHECK : 0 })}
+            onContinue={() => onDone({ correct })}
+            onReviewLesson={onReviewLesson}
           >
             <Text>{trap.why}</Text>
           </Feedback>

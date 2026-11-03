@@ -9,6 +9,7 @@ export const trendsCards: Card[] = [
   {
     id: 'trend-ai-assistants',
     unit: 'trends',
+    topic: 'AI coding assistants',
     level: 'mid',
     paths: ['fullstack', 'frontend', 'backend'],
     question: 'How are AI coding assistants changing full-stack development practice?',
@@ -52,13 +53,22 @@ export const trendsCards: Card[] = [
         why: 'Models can invent plausible names, and attackers can register them, so every new dependency is checked.',
       },
     ],
+    lesson: {
+      points: [
+        'AI coding tools went from autocomplete to agents: they read the repository, edit several files, run commands and tests, and propose a change for you to review.',
+        'The developer\'s time moves from typing to framing the task, giving context and reviewing. A repository instructions file, like `AGENTS.md`, gives agents your conventions and commands.',
+        'Typical failures: code that looks right but is subtly wrong, outdated APIs, skipped error paths, and invented package names that attackers can register. Generated tests can share the code\'s wrong assumption.',
+        'The gates stay the same: types, tests, CI and a human review of small diffs. You own every line you merge, so merge only what you can explain.',
+        'Use only tools your company has approved, and never paste secrets or customer data into the others.',
+      ],
+    },
     mcqSections: [],
-    lessons: [],
     fromLists: ['fullstack-100#95'],
   },
   {
     id: 'trend-edge-functions',
     unit: 'trends',
+    topic: 'Edge functions',
     level: 'senior',
     paths: ['fullstack', 'frontend', 'backend'],
     question: 'What role do edge computing and edge functions play in modern full-stack architecture?',
@@ -102,13 +112,22 @@ export const trendsCards: Card[] = [
         why: 'The Next.js docs state that Proxy defaults to the Node.js runtime since version 16.',
       },
     ],
+    lesson: {
+      points: [
+        'Edge functions run small pieces of server code in many locations close to users, usually in a lightweight runtime with Web APIs such as `fetch`, `Request` and `Response` instead of the full Node.js API.',
+        'Good edge work needs no central data: redirects, A/B test assignment, geolocation, checking a session cookie, or rewriting headers in front of a cache.',
+        'Latency follows the data: a render at the edge that queries a database in one region pays that distance on every query, so it can be slower than rendering next to the database.',
+        'Expect limits: no file system or native modules, time limits set by the platform, and a new database connection per invocation unless you use a pooler or an HTTP driver.',
+        'In Next.js, the Node.js runtime is the default and the `edge` runtime option is marked deprecated. Since Next.js 16, `middleware` is renamed `proxy` and runs on Node.js.',
+      ],
+    },
     mcqSections: [],
-    lessons: [],
     fromLists: ['fullstack-100#96'],
   },
   {
     id: 'trend-meta-frameworks',
     unit: 'trends',
+    topic: 'Meta-frameworks',
     level: 'mid',
     paths: ['fullstack', 'frontend'],
     question: 'How are meta-frameworks like Next.js, Remix or Nuxt changing full-stack JavaScript development?',
@@ -151,16 +170,30 @@ export const trendsCards: Card[] = [
         why: 'It is exposed as an HTTP endpoint that anyone can call, so it checks the session and permissions itself.',
       },
     ],
+    lesson: {
+      points: [
+        'A meta-framework adds routing, server rendering, data loading and a build setup to a UI library: Next.js and React Router for React, Nuxt for Vue. react.dev recommends a framework to start a new React app.',
+        'Remix merged into React Router: React Router v7, released in November 2024, is the upgrade path for Remix apps.',
+        'Server Components run only on the server and ship no code to the browser. Only Client Components, marked `\'use client\'`, are hydrated, that is, made interactive in the browser. Classic SSR hydrates everything.',
+        'Server Functions, marked `\'use server\'`, let the browser call server code for mutations. Each one is an HTTP endpoint anyone can call, so it checks the session and permissions itself.',
+        'The trade-offs: coupling to the framework\'s conventions and hosting, more complex caching, and new server entry points to secure. A Vite single-page app stays simpler for a back office behind a login.',
+      ],
+      code: `// app/products/[id]/page.tsx: a Server Component, its code stays on the server
+export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const product = await getProduct(id);
+  return <><h1>{product.name}</h1><AddToCartButton productId={id} /></>;
+}
+// AddToCartButton.tsx starts with 'use client': only it ships to the browser`,
+      codeLang: 'tsx',
+    },
     mcqSections: ['m33#rendering', 'm33#actions'],
-    lessons: [
-      { module: 'M33', section: 'rendering', title: 'Rendering strategies, and what Server Components add' },
-      { module: 'M33', section: 'actions', title: 'Server Functions are public endpoints' },
-    ],
     fromLists: ['fullstack-100#97'],
   },
   {
     id: 'trend-web-components',
     unit: 'trends',
+    topic: 'Web Components',
     level: 'mid',
     paths: ['fullstack', 'frontend'],
     question: 'What are Web Components, and how do they differ from framework components like React\'s?',
@@ -204,13 +237,31 @@ export const trendsCards: Card[] = [
         why: 'Shadow DOM scopes styles: outside selectors do not match elements inside it.',
       },
     ],
+    lesson: {
+      points: [
+        'Web Components are browser standards: a custom element defines a new tag with a class, Shadow DOM gives it a private tree for its markup and styles, and `<template>` with `<slot>` places content.',
+        'They work in any framework or none, which suits a design system shared by teams on different stacks and widgets embedded in other sites.',
+        'They have no rendering model or state like React: you update the DOM yourself or use a helper like Lit. Attributes are always strings, so objects go through JavaScript properties.',
+        'Shadow DOM scopes styles: page selectors do not reach inside. CSS custom properties inherit through the boundary, and `::part()` styles the parts a component exposes: those are the theming hooks.',
+        'React 19 sets a property when the element has one with that name, else an attribute, and a prop like `ondelivered` listens to the `delivered` event. Server rendering needs declarative Shadow DOM.',
+      ],
+      code: `class DeliveryTracker extends HTMLElement {
+  #shadow = this.attachShadow({ mode: 'open' });
+  set shipment(value) { // a property: receives the whole object
+    this.#shadow.innerHTML = \`<p part="status">Status: \${value.status}</p>\`;
+  }
+}
+customElements.define('delivery-tracker', DeliveryTracker);
+// In React 19: <delivery-tracker shipment={shipment} ondelivered={onDelivered} />`,
+      codeLang: 'js',
+    },
     mcqSections: [],
-    lessons: [],
     fromLists: ['fullstack-100#98'],
   },
   {
     id: 'trend-core-web-vitals',
     unit: 'trends',
+    topic: 'Core Web Vitals',
     level: 'mid',
     paths: ['fullstack', 'frontend'],
     question: 'How is the focus on Core Web Vitals changing full-stack development priorities?',
@@ -254,17 +305,32 @@ export const trendsCards: Card[] = [
         why: 'INP became stable in March 2024 and measures every interaction until the next paint.',
       },
     ],
+    lesson: {
+      points: [
+        'Three metrics: LCP (Largest Contentful Paint, loading) is good at 2.5 s or less; INP (Interaction to Next Paint, responsiveness) at 200 ms or less; CLS (Cumulative Layout Shift, visual stability) at 0.1 or less.',
+        'A page passes when the 75th percentile of real visits meets each threshold, on mobile and on desktop separately. A good median is not enough.',
+        'Field data from real users, from CrUX (Chrome\'s public dataset) or your own monitoring with `web-vitals`, is what is judged. Lab tools like Lighthouse are for debugging, and INP needs real interactions.',
+        'INP replaced FID (First Input Delay) as a Core Web Vital in March 2024. It looks at the interactions across the whole visit, not only the first one.',
+        'Typical fixes: for LCP, a hero image in the HTML with high fetch priority and no lazy loading; for INP, less JavaScript and yielding in long tasks; for CLS, space reserved for images, ads and fonts.',
+      ],
+      code: `import { onCLS, onINP, onLCP } from 'web-vitals';
+
+function sendToAnalytics(metric) {
+  const body = JSON.stringify({ name: metric.name, value: metric.value, rating: metric.rating });
+  navigator.sendBeacon('/analytics', body);
+}
+onCLS(sendToAnalytics);
+onINP(sendToAnalytics);
+onLCP(sendToAnalytics);`,
+      codeLang: 'js',
+    },
     mcqSections: ['m26#vitals', 'm26#field-lab', 'm26#inp-fix'],
-    lessons: [
-      { module: 'M26', section: 'vitals', title: 'Three numbers for one page view' },
-      { module: 'M26', section: 'field-lab', title: 'Field data, lab data, and what Google reads' },
-      { module: 'M26', section: 'inp-fix', title: 'Fixing INP: yield to the main thread' },
-    ],
     fromLists: ['fullstack-100#99'],
   },
   {
     id: 'trend-staying-current',
     unit: 'trends',
+    topic: 'Staying current',
     level: 'junior',
     paths: ['fullstack', 'frontend', 'backend'],
     question: 'How do you stay current with the fast-moving full-stack landscape?',
@@ -306,8 +372,16 @@ export const trendsCards: Card[] = [
         why: 'Upgrades are planned against their benefit and risk, usually after reading the guide and waiting for early fixes.',
       },
     ],
+    lesson: {
+      points: [
+        'The interviewer assesses a real habit and judgement: where you learn, how you filter hype, and one recent example of something you learned and applied at work.',
+        'Prefer primary sources for the tools you use daily: official blogs, release notes and upgrade guides, such as react.dev, nextjs.org and Node.js releases. One weekly newsletter covers the rest.',
+        'Baseline, shown on MDN and web.dev, tells whether a web feature works in all the core browsers: newly available once the last one ships it, widely available 30 months later.',
+        'Learn by building: try a feature in a small project before proposing it, and read the whole upgrade guide before upgrading, as with Next.js 16 renaming `middleware` to `proxy`.',
+        'Adopt something only when it is stable, solves a problem you actually have and is worth the migration cost. Plan major upgrades rather than chasing every release.',
+      ],
+    },
     mcqSections: [],
-    lessons: [],
     fromLists: ['fullstack-100#100'],
   },
 ];

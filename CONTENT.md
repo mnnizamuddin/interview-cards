@@ -6,9 +6,11 @@ reference cards**: read at least three of them first and match their length, ton
 ## Who it is for
 
 A senior TypeScript / React / Node developer, French, preparing for senior full-stack interviews at
-French product companies (scale-ups, fintech, gaming, SaaS). They practise on their phone, a few
-minutes a day. Each card is one interview question: they answer **out loud**, reveal the model answer,
-tick the key points they said, rate themselves, then answer the interviewer's follow-ups.
+French product companies (scale-ups, fintech, gaming, SaaS). They practise on their phone in an endless
+stream of questions. Each card is one **topic**: a lesson card that teaches it, an interview question
+they answer **out loud** and check against the model answer and its key points, follow-up questions
+answered the same way, and auto-graded true/false traps and multiple-choice questions. A topic counts
+as handled once the learner's last 3 answers on it were right.
 
 They asked for: modern practice as used in companies in 2026 (no history lessons, legacy only in one
 sentence when interviewers still ask), clear explanations with no context missing, and facts that are
@@ -28,13 +30,32 @@ verified, never guessed.
 | `mistakes` | **2 or 3** common mistakes candidates make, each one sentence, ideally with the correction. |
 | `followUps` | **2** deeper questions the interviewer asks next, each with a short answer (1 to 3 sentences). |
 | `traps` | **2 or 3** true/false statements built from common misconceptions, **at least one true and at least one false**, each with a one-sentence `why`. A trap must be unambiguous: true or false without "it depends". |
-| `mcqSections` | Track sections whose quiz questions should follow this card, as `m05#idempotency` (see "Linking to the track"). `[]` when none fits. |
-| `lessons` | The same track sections as `{ module: 'M05', section: 'idempotency', title: '<the section title>' }`. `[]` when none. |
+| `topic` | The topic's short name for lists, **at most 40 characters**: "Closures", "CORS", "Connection pooling", "Telling a cross-layer bug story". |
+| `lesson` | The bite-sized lesson card (see "Lesson cards" below). |
+| `mcqSections` | Track sections whose quiz questions become extra questions on this topic, as `m05#idempotency` (see "Linking to the track"). `[]` when none fits. The learner never sees the track name. |
 | `fromLists` | The list reference given in your brief, for example `['fullstack-100#36']`. |
 
 All text is plain strings. Inline code goes between backticks: `` `useEffect` ``. Every opening backtick
 needs its closing one. Use straight apostrophes inside single-quoted strings with `\'`, or use
 double-quoted strings, as the reference files do.
+
+## Lesson cards
+
+The app is an endless stream of questions. The first time a topic comes up, its **lesson card** is
+shown before any question, and the learner can open it again after a wrong answer. It must teach
+enough to answer the topic's questions; it is read on a phone in under a minute.
+
+- `points`: **3 to 5** short points, **at most 220 characters each**. One idea per point, in a
+  logical order: what it is, how it works, the rule or trade-off that matters, the trap. Plain
+  words; define every term at first use. Full sentences, no bare fragments.
+- `code` (optional): a short example, **at most 10 lines**, that makes the concept concrete, with
+  `codeLang` set (`js`, `ts`, `tsx`, `sql`, `css`, `html`, `bash`, `http`). Omit it when code would not
+  help (behavioural, most system design).
+- Teach the concept; do not copy the model answer. The answer is how you *say* it in an interview,
+  the lesson is what you need to *know*. Use the running example where it helps.
+- Same verification rules as everything else: run code, check docs, never guess.
+- For behavioural topics, the lesson teaches the technique: what the interviewer assesses, the
+  shape of a strong answer, the traps.
 
 ## The running example
 

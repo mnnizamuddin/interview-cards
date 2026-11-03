@@ -1,22 +1,23 @@
 import { useState } from 'react';
 import type { Mcq } from '../content/types.ts';
-import { XP_FOR_CHECK } from '../progress/model.ts';
-import { shuffledOrder } from '../session/shuffle.ts';
+import { shuffledOrder } from '../play/shuffle.ts';
 import { Feedback } from '../ui/Feedback.tsx';
 import { CodeBlock, TrackHtml } from '../ui/Text.tsx';
 import type { ExerciseResult } from './types.ts';
 
 /**
- * A multiple-choice question from the Senior Full-Stack Track, often "what does this print?".
- * Options are shuffled each time the question is shown; indexes below are the track's own.
+ * A multiple-choice question, often "what does this print?". Options are shuffled each time the
+ * question is shown; the indexes below are the question's own.
  */
 export function McqExercise({
   mcq,
   onDone,
+  onReviewLesson,
   random,
 }: {
   mcq: Mcq;
   onDone: (result: ExerciseResult) => void;
+  onReviewLesson?: () => void;
   random?: () => number;
 }) {
   const [order] = useState(() => shuffledOrder(mcq.options.length, random));
@@ -36,7 +37,7 @@ export function McqExercise({
   return (
     <div className="flex flex-1 flex-col gap-4">
       <div>
-        <p className="mb-2 text-sm font-bold uppercase tracking-wider text-gold">Quick check · track {mcq.module.toUpperCase()}</p>
+        <p className="mb-2 text-sm font-bold uppercase tracking-wider text-gold">Quick check</p>
         <h2 className="text-lg font-bold">
           <TrackHtml html={mcq.q} />
         </h2>
@@ -61,7 +62,8 @@ export function McqExercise({
           <Feedback
             correct={correct}
             title={correct ? 'Correct!' : 'Not quite'}
-            onContinue={() => onDone({ passed: correct, xp: correct ? XP_FOR_CHECK : 0 })}
+            onContinue={() => onDone({ correct })}
+            onReviewLesson={onReviewLesson}
           >
             <TrackHtml html={mcq.explain} />
           </Feedback>

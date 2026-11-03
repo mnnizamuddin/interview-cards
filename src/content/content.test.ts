@@ -20,6 +20,23 @@ describe('cards', () => {
     expect(card.traps.some((trap) => trap.isTrue)).toBe(true);
   });
 
+  it.each(CARDS.map((card) => [card.id, card] as const))('%s has a short topic name and a bite-sized lesson', (_, card) => {
+    expect(card.topic, 'topic').toBeTruthy();
+    expect(card.topic!.length).toBeLessThanOrEqual(40);
+    expect(card.lesson, 'lesson').toBeDefined();
+    const { points, code, codeLang } = card.lesson!;
+    expect(points.length).toBeGreaterThanOrEqual(3);
+    expect(points.length).toBeLessThanOrEqual(5);
+    for (const point of points) {
+      expect(point.length, point).toBeLessThanOrEqual(220);
+      expect(point.split('`').length % 2, point).toBe(1);
+    }
+    if (code !== undefined) {
+      expect(code.split('\n').length).toBeLessThanOrEqual(10);
+      expect(codeLang, 'codeLang is required with code').toBeDefined();
+    }
+  });
+
   it.each(CARDS.map((card) => [card.id, card] as const))('%s keeps the spoken answer short enough to say in about a minute', (_, card) => {
     expect(card.answer.split(/\s+/).length).toBeLessThanOrEqual(110);
   });

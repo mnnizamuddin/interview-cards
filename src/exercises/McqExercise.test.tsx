@@ -27,7 +27,7 @@ describe('McqExercise', () => {
     await user.click(screen.getByRole('button', { name: '[3, 3, 3]' }));
     expect(screen.getByRole('status')).toHaveTextContent('Correct!');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
-    expect(onDone).toHaveBeenCalledWith({ passed: true, xp: 5 });
+    expect(onDone).toHaveBeenCalledWith({ correct: true });
   });
 
   it('marks a wrong pick as wrong', async () => {

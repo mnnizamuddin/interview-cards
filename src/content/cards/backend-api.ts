@@ -9,6 +9,7 @@ export const backendApiCards: Card[] = [
   {
     id: 'api-rest-vs-graphql',
     unit: 'backend-api',
+    topic: 'REST vs GraphQL',
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is the difference between REST and GraphQL, and when would you choose each?',
@@ -51,16 +52,32 @@ export const backendApiCards: Card[] = [
         why: 'Operations are usually POSTs to one URL, which HTTP caches do not store; CDN caching needs GET with persisted query ids.',
       },
     ],
+    lesson: {
+      points: [
+        'REST exposes resources at URLs, such as `/orders/1042`, and the HTTP method says the action. The server decides the shape of each response, so status codes and HTTP caching work as HTTP intends.',
+        'GraphQL exposes one endpoint and a typed schema. The client sends a query naming exactly the fields it wants, across related entities, and gets them in one round trip, usually as a `POST`.',
+        'GraphQL removes over-fetching (fields you do not need) and under-fetching (several calls for one screen). The cost moves to the server: one query can be very expensive, so you limit query cost.',
+        'A resolver is the function that fetches one field. Resolving `customer` for 50 orders one by one makes 51 queries (N+1); a DataLoader created per request batches those ids into one query.',
+        'GraphQL usually reports errors with HTTP 200, an `errors` array and partial `data`, so monitoring by status code misses them. Its `POST`s to one URL are not cached by CDNs like REST `GET`s.',
+      ],
+      code: `POST /graphql HTTP/1.1
+Content-Type: application/json
+
+{"query":"{ order(id: 1042) { status customer { email } } }"}
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"data":{"order":{"status":"paid","customer":null}},"errors":[{"message":"Customer service timeout","path":["order","customer"]}]}`,
+      codeLang: 'http',
+    },
     mcqSections: ['m05#senior', 'm20#errors'],
     fromLists: ['fullstack-100#36'],
-    lessons: [
-      { module: 'M05', section: 'senior', title: 'The senior take' },
-      { module: 'M20', section: 'errors', title: 'Errors and caching: the REST habits that change' },
-    ],
   },
   {
     id: 'api-401-vs-403',
     unit: 'backend-api',
+    topic: '401 vs 403',
     level: 'junior',
     paths: ['backend', 'fullstack'],
     question: 'What is the difference between HTTP 401 and 403?',
@@ -103,13 +120,28 @@ export const backendApiCards: Card[] = [
         why: 'RFC 9110 lets a server answer 404 to hide that a forbidden resource exists.',
       },
     ],
+    lesson: {
+      points: [
+        'Authentication answers "who are you?"; authorisation answers "are you allowed to do this?". HTTP has one status code for each failure: 401 for the first, 403 for the second.',
+        '401 Unauthorized means the request has no valid credentials: the token is missing, expired or invalid. RFC 9110 requires a `WWW-Authenticate` header saying how to authenticate.',
+        '403 Forbidden means the server knows the caller and refuses the action, like a customer calling the refund route. New credentials will not help, so the client must not send the user back to log in.',
+        'RFC 9110 lets a server answer 404 instead of 403 to hide that a resource exists. Answering 404 for another customer\'s order stops anyone from learning which order ids are real.',
+        'Clients react differently: on 401 the BFF refreshes the token once or sends the user to log in; on 403 the UI says which permission is missing.',
+      ],
+      code: `GET /orders/1042 HTTP/1.1
+Authorization: Bearer eyJhbGciOiJFUzI1NiJ9...
+
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer error="invalid_token", error_description="The access token expired"`,
+      codeLang: 'http',
+    },
     mcqSections: ['m05#status'],
     fromLists: ['fullstack-100#37'],
-    lessons: [{ module: 'M05', section: 'status', title: 'Status codes clients can trust' }],
   },
   {
     id: 'api-rest-design',
     unit: 'backend-api',
+    topic: 'REST API design',
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'How would you design a RESTful API for the shop\'s orders, following REST best practices?',
@@ -152,17 +184,31 @@ export const backendApiCards: Card[] = [
         why: '`POST` is not idempotent, so a retry can create a second order unless the server deduplicates with an idempotency key.',
       },
     ],
+    lesson: {
+      points: [
+        'Resources are nouns (`/orders`, `/orders/:id`) and the method carries the intent. An action such as a refund becomes a sub-resource you create, `POST /orders/:id/refunds`, not a `/refundOrder` URL.',
+        'A safe method (`GET`) changes nothing; an idempotent one (`PUT`, `DELETE`) has the same effect when repeated. `POST` and `PATCH` are neither, so a retried `POST /orders` can create a second order.',
+        'An idempotency key is a unique value the client sends with a `POST` and reuses on retries; the server stores it and replays the first response. The `Idempotency-Key` header is an IETF draft, not yet an RFC.',
+        'Status codes stay honest: 201 with a `Location` header on create, 4xx for client errors, never a 200 with an error inside. Every error uses one body format, Problem Details (RFC 9457).',
+        'Cursor pagination returns an opaque pointer to the next page, so new rows do not shift pages as offsets do. For concurrent edits, `If-Match` with the `ETag` makes a stale write get 412.',
+      ],
+      code: `POST /orders HTTP/1.1
+Idempotency-Key: "8e03978e-40d5-43e8-bc93-6894a57f9324"
+Content-Type: application/json
+
+{"items":[{"productId":"p_12","quantity":2}]}
+
+HTTP/1.1 201 Created
+Location: /orders/1042`,
+      codeLang: 'http',
+    },
     mcqSections: ['m05#resources', 'm05#idempotency', 'm05#pagination'],
     fromLists: ['fullstack-100#38'],
-    lessons: [
-      { module: 'M05', section: 'resources', title: 'Resources and methods' },
-      { module: 'M05', section: 'idempotency', title: 'An idempotency key on POST /orders' },
-      { module: 'M05', section: 'pagination', title: 'Cursor pagination for the order history' },
-    ],
   },
   {
     id: 'api-middleware',
     unit: 'backend-api',
+    topic: 'Middleware',
     level: 'junior',
     paths: ['backend', 'fullstack'],
     question: 'What is middleware in a backend framework like Express, and how does it work?',
@@ -205,13 +251,33 @@ export const backendApiCards: Card[] = [
         why: 'Express 5 calls `next(err)` automatically when a handler or middleware returns a rejected promise.',
       },
     ],
+    lesson: {
+      points: [
+        'Middleware is a function that runs between the incoming request and the route handler, for concerns many routes share: request ids, logging, body parsing, authentication.',
+        'In Express a middleware receives `req`, `res` and `next`. It must either send a response or call `next()`; doing neither leaves the request hanging until a timeout.',
+        'Middleware runs in the order it is registered with `app.use`, so order is design: the request id and the logger come first, the error handler comes last, after the routes.',
+        'An error handler is a middleware with four parameters, `(err, req, res, next)`. `next(err)` jumps to it, and since Express 5 a rejected promise from an async handler reaches it too.',
+        'NestJS splits the idea into fixed slots: middleware, guards (may this caller go on?), interceptors, pipes (validate and transform input), then the handler; exception filters build error responses.',
+      ],
+      code: `app.use((req, res, next) => {            // every request, in registration order
+  req.id = crypto.randomUUID();
+  next();                                  // pass control on
+});
+app.get('/orders/:id', async (req, res) => {
+  res.json(await orders.find(req.params.id)); // Express 5: a rejection goes to next(err)
+});
+app.use((err, req, res, next) => {       // four parameters: the error handler
+  res.status(500).json({ requestId: req.id });
+});`,
+      codeLang: 'js',
+    },
     mcqSections: ['m06#nest-request'],
     fromLists: ['fullstack-100#39'],
-    lessons: [{ module: 'M06', section: 'nest-request', title: 'NestJS: the request lifecycle and validation' }],
   },
   {
     id: 'api-sync-async-io',
     unit: 'backend-api',
+    topic: 'Sync vs async I/O in Node',
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is the difference between synchronous and asynchronous I/O in a Node server, and why does it matter?',
@@ -254,17 +320,32 @@ export const backendApiCards: Card[] = [
         why: 'Waiting on sockets is handled by the operating system; Node only runs a callback when data arrives.',
       },
     ],
+    lesson: {
+      points: [
+        'Node runs all your JavaScript on one main thread, driven by the event loop: a loop that takes the next ready callback and runs it to the end before taking another.',
+        'Asynchronous I/O starts an operation and gives the thread back. The OS watches network sockets, and libuv runs file, `dns.lookup`, async crypto and zlib work on a pool of 4 threads by default.',
+        'Synchronous calls such as `fs.readFileSync` or `crypto.pbkdf2Sync` hold the main thread until they finish, so every other request waits, health checks included.',
+        '`async` does not create a thread: an async function runs on the main thread until its first `await`. CPU-heavy work still blocks, and belongs in worker threads or another service.',
+        'Measure blocking as event loop delay with `perf_hooks.monitorEventLoopDelay`. Raising `UV_THREADPOOL_SIZE` only helps when the libuv pool is the bottleneck, never for slow JavaScript.',
+      ],
+      code: `import { pbkdf2, pbkdf2Sync } from 'node:crypto';
+
+const start = Date.now();
+setTimeout(() => console.log('late by', Date.now() - start - 10, 'ms'), 10);
+
+// Measured on Node 24: the 10 ms timer fired about 200 ms late.
+pbkdf2Sync('secret', 'salt', 600_000, 64, 'sha512');
+// The async version runs on the pool: the timer was 4 ms late.
+// pbkdf2('secret', 'salt', 600_000, 64, 'sha512', onDone);`,
+      codeLang: 'ts',
+    },
     mcqSections: ['m01#model', 'm01#blocking', 'm01#pool'],
     fromLists: ['fullstack-100#40'],
-    lessons: [
-      { module: 'M01', section: 'model', title: 'One thread for your JavaScript' },
-      { module: 'M01', section: 'blocking', title: 'Blocking the event loop' },
-      { module: 'M01', section: 'pool', title: 'The libuv thread pool' },
-    ],
   },
   {
     id: 'api-authentication',
     unit: 'backend-api',
+    topic: 'Authentication in a web app',
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'How would you implement authentication in a full-stack web application?',
@@ -307,17 +388,30 @@ export const backendApiCards: Card[] = [
         why: '`HttpOnly` only hides the cookie from JavaScript; the browser still attaches it to cross-site requests, so CSRF needs its own defence.',
       },
     ],
+    lesson: {
+      points: [
+        'An identity provider (IdP), such as Auth0, Entra ID or Keycloak, handles passwords, MFA and SSO. Your app delegates login to it through OpenID Connect (OIDC), an identity layer on top of OAuth 2.0.',
+        'In the authorization code flow, the IdP redirects back with a one-time code that the app exchanges for tokens. PKCE ties the code to a secret verifier, so a stolen code is useless without it.',
+        'For a web app, a backend-for-frontend (BFF) runs that flow and keeps the tokens on the server. The browser only gets a session cookie that is `HttpOnly` (hidden from JavaScript), `Secure` and `SameSite`.',
+        'A JWT is a signed token anyone can read. An API checks its signature with a pinned algorithm, then its issuer (`iss`), audience (`aud`) and expiry (`exp`). Short lifetimes and rotated refresh tokens limit theft.',
+        'The browser sends cookies automatically, so a cookie session needs CSRF protection, such as a token or a `Sec-Fetch-Site` check. `HttpOnly` does not stop CSRF; it only stops scripts from reading the cookie.',
+      ],
+      code: `import { createHash, randomBytes } from 'node:crypto';
+
+// PKCE with the S256 method (RFC 7636)
+const verifier = randomBytes(32).toString('base64url'); // kept secret by the BFF
+const challenge = createHash('sha256').update(verifier).digest('base64url');
+// 1. redirect to /authorize?...&code_challenge=<challenge>&code_challenge_method=S256
+// 2. POST /token with the code and code_verifier=<verifier>`,
+      codeLang: 'ts',
+    },
     mcqSections: ['m12#identity', 'm12#sessions', 'm12#tokens'],
     fromLists: ['fullstack-100#41'],
-    lessons: [
-      { module: 'M12', section: 'identity', title: 'Login: an identity provider, OpenID Connect and passkeys' },
-      { module: 'M12', section: 'sessions', title: 'Sessions in the browser: cookies, CSRF, CORS and headers' },
-      { module: 'M12', section: 'tokens', title: 'Access tokens: verifying a JWT properly' },
-    ],
   },
   {
     id: 'api-cors',
     unit: 'backend-api',
+    topic: 'CORS',
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is CORS, and how do you configure a server to handle it correctly?',
@@ -360,13 +454,33 @@ export const backendApiCards: Card[] = [
         why: '`application/json` is not one of the simple content types, so the browser sends an `OPTIONS` preflight first.',
       },
     ],
+    lesson: {
+      points: [
+        'An origin is scheme, host and port: `https://shop.example` and `https://api.shop.example` are different origins. The same-origin policy lets a script send cross-origin requests but not read the answers.',
+        'CORS (Cross-Origin Resource Sharing) is a set of response headers with which a server lets chosen origins read its responses. The browser enforces it; curl and other servers ignore it.',
+        'A simple request (`GET`, `HEAD`, or a `POST` with a form or `text/plain` body) is sent directly. JSON bodies, custom headers or `PUT` first trigger an `OPTIONS` preflight asking for permission.',
+        'With cookies, the server must name the exact origin, never `*`, and send `Access-Control-Allow-Credentials: true`. Echo only origins from an allow-list, with `Vary: Origin` so caches keep them apart.',
+        'CORS decides what a script may read; a simple request reaches the server anyway. So it is neither authorisation nor CSRF protection. Serving the API on the same origin, through a BFF, removes the need for it.',
+      ],
+      code: `OPTIONS /orders HTTP/1.1
+Origin: https://shop.example
+Access-Control-Request-Method: POST
+Access-Control-Request-Headers: content-type
+
+HTTP/1.1 204 No Content
+Access-Control-Allow-Origin: https://shop.example
+Access-Control-Allow-Headers: content-type
+Access-Control-Allow-Credentials: true
+Vary: Origin`,
+      codeLang: 'http',
+    },
     mcqSections: ['m27#csrf-cors'],
     fromLists: ['fullstack-100#42'],
-    lessons: [{ module: 'M27', section: 'csrf-cors', title: 'CSRF and CORS, seen from the browser' }],
   },
   {
     id: 'api-file-uploads',
     unit: 'backend-api',
+    topic: 'File uploads',
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'How would you design the schema and API for file uploads, such as profile pictures?',
@@ -409,13 +523,32 @@ export const backendApiCards: Card[] = [
         why: 'The client sends the file straight to object storage; the API only signs the URL and records the result.',
       },
     ],
+    lesson: {
+      points: [
+        'Object storage, such as S3, keeps files as objects under keys, cheaply and at any size. PostgreSQL keeps only the metadata: key, owner, content type, size and status.',
+        'A presigned URL is signed with the server\'s credentials and allows one operation, such as `PUT` on one key, until it expires. Anyone holding it can use it, like a bearer token.',
+        'The flow: the client asks the API for an upload, the API checks the user, picks the key and signs a short-lived URL, the browser uploads straight to the bucket, then the client confirms.',
+        'Never trust the client. The server picks the key, a presigned POST policy can enforce a size range, and after upload the API checks the stored object\'s real size and type before marking it ready.',
+        'A worker makes resized versions and a CDN serves them. A lifecycle rule expires uploads that were never confirmed. SigV4 presigned URLs last at most 7 days; an upload needs minutes.',
+      ],
+      code: `POST /me/avatar-uploads HTTP/1.1
+Content-Type: application/json
+
+{"contentType":"image/jpeg","size":2400000}
+
+HTTP/1.1 201 Created
+Content-Type: application/json
+
+{"uploadId":"up_81","uploadUrl":"https://shop-avatars.s3.eu-west-3.amazonaws.com/...","expiresIn":300}`,
+      codeLang: 'http',
+    },
     mcqSections: ['m03#upload'],
     fromLists: ['fullstack-100#43'],
-    lessons: [{ module: 'M03', section: 'upload', title: 'The supplier catalogue upload' }],
   },
   {
     id: 'api-rate-limiting',
     unit: 'backend-api',
+    topic: 'Rate limiting',
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is rate limiting, and how would you implement it for an API?',
@@ -458,13 +591,33 @@ export const backendApiCards: Card[] = [
         why: 'Each replica counts only its own traffic, so the effective limit is up to six times higher.',
       },
     ],
+    lesson: {
+      points: [
+        'Rate limiting caps how many requests one key may make per period. The key is the design choice: user or API key on authenticated routes, IP on anonymous ones, both account and IP on login.',
+        'Over the limit, answer 429 Too Many Requests with `Retry-After` saying when to try again. A 503 would wrongly tell clients that the whole service is down.',
+        'A fixed window counts per clock period, such as each minute, and lets through up to twice the limit around a boundary. A sliding window or a token bucket smooths that.',
+        'A token bucket holds up to N tokens, refilled at a steady rate, and each request takes one. It allows short bursts while enforcing the average rate.',
+        'With several replicas, counters live in a shared store such as Redis, or each replica allows the full limit. Behind a proxy, read the client IP only from headers your own proxy sets.',
+      ],
+      code: `function makeBucket(capacity: number, perSecond: number) {
+  let tokens = capacity, last = 0;
+  return (nowMs: number): boolean => {
+    tokens = Math.min(capacity, tokens + ((nowMs - last) / 1000) * perSecond);
+    last = nowMs;
+    const allowed = tokens >= 1; // false: answer 429 with Retry-After
+    tokens -= allowed ? 1 : 0;
+    return allowed;
+  };
+}`,
+      codeLang: 'ts',
+    },
     mcqSections: ['m12#abuse'],
     fromLists: ['fullstack-100#44'],
-    lessons: [{ module: 'M12', section: 'abuse', title: 'Limits: rate, size, time and destination' }],
   },
   {
     id: 'api-errors-logging',
     unit: 'backend-api',
+    topic: 'Errors and logging',
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'How do you handle errors and logging in a production backend?',
@@ -507,17 +660,32 @@ export const backendApiCards: Card[] = [
         why: 'Node\'s documentation says it is not safe to resume normal operation: log, exit, and let the orchestrator restart it.',
       },
     ],
+    lesson: {
+      points: [
+        'Expected errors belong to the domain, like cancelling an order already shipped; bugs do not. The domain throws typed errors, and one global error handler maps them to status codes.',
+        'Clients get Problem Details (RFC 9457) bodies. An unexpected error becomes a generic 500 with a request id; the stack trace and the SQL message go to the logs, never to the client.',
+        'Logs are structured JSON written to stdout, which the platform collects. Each line has a level, the request id and the trace id, and personal data and secrets are redacted.',
+        'An `Error`\'s `message` and `stack` are not enumerable, so `JSON.stringify` drops them. pino serialises errors only under the `err` key: `log.error({ err }, \'payment failed\')`.',
+        'Since Node 15 an unhandled rejection crashes the process, and Node says resuming after an uncaught exception is unsafe. Log, exit, let Kubernetes restart the pod, and alert on error rates.',
+      ],
+      code: `class OrderAlreadyShipped extends Error {}
+
+function toProblem(err: unknown, reqId: string) {
+  if (err instanceof OrderAlreadyShipped) {
+    return { status: 409, title: 'Order already shipped' };
+  }
+  log.error({ err, reqId }, 'unexpected error'); // the stack goes to the logs only
+  return { status: 500, title: 'Internal Server Error', instance: \`urn:request:\${reqId}\` };
+}`,
+      codeLang: 'ts',
+    },
     mcqSections: ['m06#errors', 'm15#logs', 'm01#crashes'],
     fromLists: ['fullstack-100#45'],
-    lessons: [
-      { module: 'M06', section: 'errors', title: 'One error path: domain errors to Problem Details' },
-      { module: 'M15', section: 'logs', title: 'Logs that point to their trace' },
-      { module: 'M01', section: 'crashes', title: 'When the process crashes' },
-    ],
   },
   {
     id: 'api-dependency-injection',
     unit: 'backend-api',
+    topic: 'Dependency injection',
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is dependency injection, and how do backend frameworks such as NestJS use it?',
@@ -560,16 +728,33 @@ export const backendApiCards: Card[] = [
         why: 'Interfaces do not exist at runtime, so you register the implementation under a token and use `@Inject(TOKEN)`.',
       },
     ],
+    lesson: {
+      points: [
+        'A dependency is anything code needs to work: a repository, a payment gateway, a clock. Dependency injection (DI) means the code receives them instead of creating or importing them.',
+        'Something else builds every object once and passes it in: a composition root (one startup function) written by hand, or a DI container that does the wiring for you.',
+        'In NestJS, `@Injectable()` classes are providers, modules declare and export them, and the container reads constructor parameter types to inject them. Providers are singletons by default.',
+        'TypeScript interfaces vanish at runtime, so Nest cannot inject by interface. Register the implementation under a token with `useClass`, `useValue` or `useFactory`, and inject it with `@Inject(TOKEN)`.',
+        'The payoff is swapping implementations, such as a fake payment gateway and a fixed clock in tests. A circular dependency hints that a shared responsibility belongs in a third service.',
+      ],
+      code: `type Deps = { orders: OrderRepository; payments: PaymentGateway; now: () => Date };
+
+export function makeCancelOrder({ orders, payments, now }: Deps) {
+  return async (orderId: string) => {
+    const order = await orders.get(orderId);
+    await payments.refund(order.paymentId);
+    await orders.save({ ...order, status: 'refunded', cancelledAt: now() });
+  };
+}
+// Composition root: makeCancelOrder({ orders: pgOrders(pool), payments: stripeGateway, now: () => new Date() })`,
+      codeLang: 'ts',
+    },
     mcqSections: ['m06#wiring', 'm06#nest-di'],
     fromLists: ['fullstack-100#46'],
-    lessons: [
-      { module: 'M06', section: 'wiring', title: 'Dependency injection without a framework' },
-      { module: 'M06', section: 'nest-di', title: 'NestJS: modules, providers and dependency injection' },
-    ],
   },
   {
     id: 'api-long-running-tasks',
     unit: 'backend-api',
+    topic: 'Long-running tasks',
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How would you design an endpoint for a long-running task, like generating a large report, without blocking the client?',
@@ -612,16 +797,31 @@ export const backendApiCards: Card[] = [
         why: 'CPU work still runs on the main thread, and the request still hits proxy timeouts; the work belongs in a worker.',
       },
     ],
+    lesson: {
+      points: [
+        'Holding a request open for minutes fails: proxies and load balancers time out, the pod is tied up, and a deploy kills the work. So the API only records the job and answers at once.',
+        '202 Accepted means accepted for processing but not finished (RFC 9110). Send it with a `Location` to a status resource, `GET /exports/:id`, whose job row says `queued`, `running`, `done` or `failed`.',
+        'A queue holds the job and a worker outside the API pods does the work. The result goes to object storage, and the status resource then gives a short-lived download link.',
+        'The client learns of completion by polling the status URL, by server-sent events (SSE, a one-way push stream over HTTP) in a browser, or by a signed webhook for server clients.',
+        'Queues redeliver after a crash, so jobs must be idempotent: same object key, update by job id. Add retries with backoff, a timeout, and a dead-letter queue for jobs that keep failing.',
+      ],
+      code: `POST /exports HTTP/1.1
+Content-Type: application/json
+
+{"from":"2026-01-01","to":"2026-09-30","format":"csv"}
+
+HTTP/1.1 202 Accepted
+Location: /exports/exp_77
+Retry-After: 5`,
+      codeLang: 'http',
+    },
     mcqSections: ['m13#brokers', 'm20#transport'],
     fromLists: ['fullstack-100#47'],
-    lessons: [
-      { module: 'M13', section: 'brokers', title: 'Picking the tools: BullMQ, SQS, Kafka' },
-      { module: 'M20', section: 'transport', title: 'Live order status: polling, SSE or WebSockets' },
-    ],
   },
   {
     id: 'api-versioning',
     unit: 'backend-api',
+    topic: 'API versioning',
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is API versioning, and which strategies exist?',
@@ -664,8 +864,22 @@ export const backendApiCards: Card[] = [
         why: 'Existing clients do not send it, so their requests start failing.',
       },
     ],
+    lesson: {
+      points: [
+        'A breaking change makes existing clients fail: removing or renaming a field, changing a type or meaning, adding a required input. Adding optional fields or endpoints is additive and needs no version.',
+        'Additive changes are safe only for tolerant readers, clients that ignore unknown fields and handle unknown enum values. A client with an exhaustive `switch` on `status` can crash on a new value.',
+        'Three schemes exist: a major version in the URL (`/v2/orders`), a version header, often dated as at GitHub, or each account pinned to a version, as at Stripe. The URL is the simplest default.',
+        'Keep one internal model and translate old versions at the edge, so the business logic is not duplicated per version.',
+        'Retire a version with the `Deprecation` (RFC 9745) and `Sunset` (RFC 8594) headers, measure who still calls it, and catch breaking changes in CI with an OpenAPI diff.',
+      ],
+      code: `HTTP/1.1 200 OK
+Deprecation: @1788220800
+Sunset: Tue, 01 Jun 2027 00:00:00 GMT
+Link: <https://developer.shop.example/migrations/orders-v2>; rel="deprecation"; type="text/html"
+Content-Type: application/json`,
+      codeLang: 'http',
+    },
     mcqSections: ['m05#evolution'],
     fromLists: ['fullstack-100#48'],
-    lessons: [{ module: 'M05', section: 'evolution', title: 'Versioning v2 and retiring v1' }],
   },
 ];

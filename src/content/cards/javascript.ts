@@ -8,6 +8,7 @@ export const javascriptCards: Card[] = [
   {
     id: 'js-scope',
     unit: 'js-core',
+    topic: 'var, let, const and hoisting',
     level: 'junior',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'What is the difference between `var`, `let` and `const`, and what is hoisting?',
@@ -55,13 +56,30 @@ export const javascriptCards: Card[] = [
         why: 'It returns "undefined". It only throws for a `let`, `const` or `class` name read in its temporal dead zone.',
       },
     ],
+    lesson: {
+      points: [
+        'Scope is where a name is visible. `var` belongs to the whole function; `let` and `const` belong to the nearest block `{}`. A `let` in a `for` header even gets a fresh variable on each iteration.',
+        'Hoisting means the engine creates every declared name when it enters the scope, before any line runs. A `var` is created with the value `undefined`, so reading it early gives `undefined`, not an error.',
+        'A `let`, `const` or `class` name is also hoisted but left uninitialized until its line runs. Reading it earlier, even with `typeof`, throws a ReferenceError: that stretch is the temporal dead zone (TDZ).',
+        'A function declaration is hoisted with its body, so it can be called above its line. A function stored in a `const` follows the `const` rule and throws if called before its line.',
+        '`const` stops the variable from being reassigned, not the object from changing: `items.push()` still works. Use `const` by default, `let` when you reassign, and never `var`.',
+      ],
+      code: `console.log(typeof neverDeclared); // "undefined"
+console.log(threshold);            // undefined: var starts as undefined
+var threshold = 50;
+try { total; } catch (e) { console.log(e.name); } // ReferenceError: TDZ
+let total = 0;
+const items = [];
+items.push('mug');                 // allowed: mutation, not reassignment`,
+      codeLang: 'js',
+    },
     mcqSections: ['m23#scope'],
     fromLists: ['fullstack-100#17'],
-    lessons: [{ module: 'M23', section: 'scope', title: 'Scope, hoisting and the temporal dead zone' }],
   },
   {
     id: 'js-closures',
     unit: 'js-core',
+    topic: 'Closures',
     level: 'mid',
     paths: ['frontend', 'fullstack', 'backend', 'react'],
     question: 'What is a closure, and where do you use one in real code?',
@@ -104,13 +122,32 @@ export const javascriptCards: Card[] = [
         why: 'Each call creates a new scope, so each returned function closes over its own variable.',
       },
     ],
+    lesson: {
+      points: [
+        'A closure is a function together with the variables of the scope where it was created. Every JavaScript function remembers that scope; you do not opt into it.',
+        'The captured variables stay alive after the outer function has returned, as long as the function is reachable. The closure keeps a live link to them, not a copy: later changes are visible inside it.',
+        'Each call of the outer function creates a new scope, so two counters made by two calls of the same factory keep separate counts. That is how closures give private state.',
+        'Typical uses: a factory with private state, a memoization cache, callbacks that need context, and `debounce`, which keeps its timer in a closure between calls.',
+        'In React, each render\'s handlers close over that render\'s props and state. A callback created once, like an interval in an effect, keeps reading old state: a stale closure. Fix it with a functional update or a ref.',
+      ],
+      code: `function makeCounter() {
+  let count = 0; // private: only the returned function can reach it
+  return () => ++count;
+}
+const a = makeCounter();
+const b = makeCounter();
+a();
+a();
+console.log(a(), b()); // 3 1: each call made its own count`,
+      codeLang: 'js',
+    },
     mcqSections: ['m23#closures'],
     fromLists: ['fullstack-100#16'],
-    lessons: [{ module: 'M23', section: 'closures', title: 'Closures, and the loop that shares one variable' }],
   },
   {
     id: 'js-this',
     unit: 'js-core',
+    topic: 'The this keyword',
     level: 'mid',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'How is the value of `this` decided in JavaScript?',
@@ -153,13 +190,32 @@ export const javascriptCards: Card[] = [
         why: 'Modules run in strict mode, and a plain call has no receiver.',
       },
     ],
+    lesson: {
+      points: [
+        '`this` is a hidden parameter set by how a function is called, not by where it is written. The same function can get a different `this` on each call.',
+        'Called as `obj.method()`, `this` is `obj`. Called plainly as `f()`, it is `undefined` in strict mode, which covers ES modules and classes. In a listener added with `addEventListener`, it is the element.',
+        '`new` binds `this` to the new object. `call` and `apply` set it for one call; `bind` returns a function whose `this` is fixed for good: binding it again changes nothing, only `new` overrides it.',
+        'Arrow functions have no `this` of their own: they use the `this` of the surrounding scope, and `call`, `apply` and `bind` cannot change it. So an object method written as an arrow function does not see the object.',
+        'The classic bug: passing `cart.remove` as a callback detaches it from `cart`. Wrap it, `() => cart.remove(id)`, or bind it. Arrow function class fields do this per instance, at the cost of one function each.',
+      ],
+      code: `'use strict';
+const cart = {
+  lines: ['mug'],
+  count() { return this.lines.length; },
+};
+console.log(cart.count());        // 1
+const detached = cart.count;
+try { detached(); } catch (e) { console.log(e.name); } // TypeError: this is undefined
+console.log(detached.call(cart)); // 1`,
+      codeLang: 'js',
+    },
     mcqSections: ['m23#this'],
     fromLists: ['fullstack-100#19'],
-    lessons: [{ module: 'M23', section: 'this', title: '`this` is decided by the call' }],
   },
   {
     id: 'js-prototypes',
     unit: 'js-core',
+    topic: 'Prototypes and classes',
     level: 'mid',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'What is prototypal inheritance, and how do ES classes relate to it?',
@@ -202,13 +258,32 @@ export const javascriptCards: Card[] = [
         why: 'A class constructor cannot be called as a plain function: "Class constructor X cannot be invoked without \'new\'".',
       },
     ],
+    lesson: {
+      points: [
+        'Every object has a hidden link to another object, its prototype. Reading a property the object lacks makes the engine look on the prototype, then on its prototype, up the chain until `null`.',
+        '`Class.prototype` is the object new instances link to; `Object.getPrototypeOf(obj)`, or the old `__proto__`, reads an object\'s actual link. Class methods live once on `Class.prototype` and are shared, not copied.',
+        '`class B extends A` links `B.prototype` to `A.prototype`, so instances find the methods of both. `obj instanceof A` checks whether `A.prototype` appears anywhere in the chain of `obj`.',
+        'Classes are more than syntax: calling one without `new` throws a TypeError, the class body runs in strict mode, and `#private` fields cannot be read from outside, not even with bracket access.',
+        '`instanceof` can fail across realms: an array from an iframe has its own `Array.prototype`, which is why `Array.isArray` exists. Never add methods to built-in prototypes in application code.',
+      ],
+      code: `class PaymentError extends Error {
+  #attempts = 0;
+  constructor(code) { super(code); this.code = code; }
+}
+const err = new PaymentError('card_declined');
+console.log(Object.getPrototypeOf(err) === PaymentError.prototype); // true
+console.log(err instanceof Error, Object.hasOwn(err, 'code'));       // true true
+console.log(err['#attempts']);                                       // undefined
+try { PaymentError('x'); } catch (e) { console.log(e.name); }        // TypeError`,
+      codeLang: 'js',
+    },
     mcqSections: ['m23#classes'],
     fromLists: ['fullstack-100#24'],
-    lessons: [{ module: 'M23', section: 'classes', title: 'Prototypes, classes and private fields' }],
   },
   {
     id: 'js-equality',
     unit: 'js-core',
+    topic: 'Equality, null and undefined',
     level: 'junior',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'What is the difference between `==` and `===`, and between `null` and `undefined`?',
@@ -256,13 +331,29 @@ export const javascriptCards: Card[] = [
         why: '`false` becomes 0, the array becomes "" and then 0, so the comparison is 0 == 0.',
       },
     ],
+    lesson: {
+      points: [
+        '`===`, strict equality, compares without converting: values of different types are never equal. `==`, loose equality, first converts the operands to a common type, which is called coercion.',
+        'Coercion rules surprise people: `\'\' == 0` and `[] == false` are both true, because each side ends up as the number 0. So use `===` everywhere.',
+        'The one accepted `==`: `x == null` is true only for `null` and `undefined`, never for 0 or an empty string, so it checks both missing values at once.',
+        '`undefined` means never set: a missing property, a missing argument, a `var` before its value. `null` is assigned on purpose to mean "empty". `typeof null` is "object", an old bug kept for compatibility.',
+        '`??` and `?.` treat only `null` and `undefined` as missing, while `||` falls back on any falsy value, 0 included. `NaN === NaN` is false: use `Number.isNaN`, or `Object.is`, which React uses to compare state.',
+      ],
+      code: `console.log('' == 0, [] == false);              // true true
+console.log(null == undefined, null == 0);        // true false
+console.log(typeof null);                         // object
+const qty = 0;
+console.log(qty || 1, qty ?? 1);                  // 1 0
+console.log(NaN === NaN, Object.is(NaN, NaN));    // false true`,
+      codeLang: 'js',
+    },
     mcqSections: ['m23#coercion'],
     fromLists: ['fullstack-100#7', 'fullstack-100#18'],
-    lessons: [{ module: 'M23', section: 'coercion', title: 'Coercion and equality' }],
   },
   {
     id: 'js-modules',
     unit: 'js-core',
+    topic: 'ES modules and CommonJS',
     level: 'mid',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'What is the difference between ES modules and CommonJS?',
@@ -305,12 +396,31 @@ export const javascriptCards: Card[] = [
         why: 'Imports are read-only for the importer: assigning to one throws a TypeError.',
       },
     ],
+    lesson: {
+      points: [
+        'CommonJS is Node\'s original module system: `require()` loads a file synchronously while the code runs, and `module.exports` is a plain object. Values you destructure from it do not follow later changes.',
+        'ES modules use `import` and `export`. Static imports are resolved before any code runs, so tools know the whole dependency graph and bundlers can drop unused exports: that is tree shaking.',
+        'ES module exports are live bindings: the importer always reads the exporter\'s current value. Imports are read-only for the importer: assigning to one throws a TypeError.',
+        'ES modules always run in strict mode and allow top-level `await`. `import()` loads a module on demand and returns a promise: it is the basis of code splitting.',
+        'In Node, `"type": "module"` in `package.json` makes `.js` files ES modules; otherwise use `.mjs`. `require()` of an ES module without top-level `await` works since Node 22.12 and 20.19.',
+      ],
+      code: `// counter.js
+export let count = 0;
+export function increment() { count += 1; }
+
+// main.js
+import { count, increment } from './counter.js';
+increment();
+console.log(count); // 1: a live binding, not a copy
+// count = 5;       // TypeError: assignment to an import`,
+      codeLang: 'js',
+    },
     mcqSections: ['m23#modules'],
-    lessons: [{ module: 'M23', section: 'modules', title: 'ES modules: live bindings and dynamic import' }],
   },
   {
     id: 'js-generators',
     unit: 'js-core',
+    topic: 'Iterators and generators',
     level: 'senior',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'What are iterators and generators, and when would you use a generator?',
@@ -358,13 +468,33 @@ export const javascriptCards: Card[] = [
         why: 'Plain objects are not iterable. Loop over `Object.entries(obj)`, or use a Map.',
       },
     ],
+    lesson: {
+      points: [
+        'An iterator is an object whose `next()` returns `{ value, done }`. An iterable has a `[Symbol.iterator]()` method that returns an iterator. `for...of`, spread and array destructuring all use this protocol.',
+        'Arrays, strings, Maps, Sets and generators are iterable. Plain objects are not, and neither are array-likes that only have a `length`: loop over an object with `Object.entries(obj)`.',
+        'Calling a generator function, `function*`, returns a generator object without running the body. Each `next()` runs it up to the next `yield`, which pauses it and hands out a value: values come lazily.',
+        'A generator can be consumed only once. Leaving `for...of` early with `break` calls its `return()`, so its `finally` block runs: the place to release a resource such as a database cursor.',
+        'An `async function*` can `await` between yields and is read with `for await...of`, ideal for paginated APIs and streams. Iterator helpers such as `.map()` and `.take()` (ES2025) keep iterators lazy.',
+      ],
+      code: `function* orderIds() {
+  try { for (let id = 1; ; id += 1) yield id; } // endless, but lazy
+  finally { console.log('cleanup'); }
+}
+const ids = orderIds();                          // the body has not run yet
+console.log(ids.next().value, ids.next().value); // 1 2
+for (const id of ids) {
+  console.log(id); // 3
+  break;           // calls ids.return(): logs "cleanup"
+}`,
+      codeLang: 'js',
+    },
     mcqSections: ['m23#iterators'],
     fromLists: ['fullstack-100#23'],
-    lessons: [{ module: 'M23', section: 'iterators', title: 'Iterators and generators' }],
   },
   {
     id: 'js-copying',
     unit: 'js-core',
+    topic: 'Shallow and deep copies',
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'What is the difference between a shallow copy and a deep copy, and how do you make each?',
@@ -412,12 +542,29 @@ export const javascriptCards: Card[] = [
         why: '`JSON.stringify` drops them, and it turns Dates into strings.',
       },
     ],
+    lesson: {
+      points: [
+        'A shallow copy creates a new top-level object but shares the nested ones. Spread `{ ...x }`, `Object.assign` and `slice()` are shallow, so editing `copy.lines[0]` also edits the original.',
+        'A deep copy duplicates every level. `structuredClone(x)` is the built-in way: it keeps Dates, Maps, Sets, typed arrays and cyclic references.',
+        '`structuredClone` throws a DataCloneError on functions and DOM nodes, and turns class instances into plain objects, without their prototype or methods.',
+        'The old trick `JSON.parse(JSON.stringify(x))` loses data: Dates become strings, properties holding `undefined` or functions disappear, and cycles throw.',
+        'React compares state by reference with `Object.is`, so an update needs new objects, but only along the path that changed. Deep cloning everything gives unchanged parts new references and defeats memoization.',
+      ],
+      code: `const order = { id: 7, lines: [{ sku: 'mug', qty: 1 }], at: new Date(0) };
+const shallow = { ...order };
+shallow.lines[0].qty = 5;
+console.log(order.lines[0].qty);                                  // 5: shared
+const deep = structuredClone(order);
+console.log(deep.lines !== order.lines, deep.at instanceof Date); // true true
+console.log(typeof JSON.parse(JSON.stringify(order)).at);         // string`,
+      codeLang: 'js',
+    },
     mcqSections: ['m23#copying'],
-    lessons: [{ module: 'M23', section: 'copying', title: 'Copies, equality and immutable updates' }],
   },
   {
     id: 'js-memory',
     unit: 'js-core',
+    topic: 'Garbage collection and memory leaks',
     level: 'senior',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'How does garbage collection work in JavaScript, and what causes memory leaks?',
@@ -460,7 +607,21 @@ export const javascriptCards: Card[] = [
         why: 'The timer stays reachable, and its callback\'s closure keeps that data reachable with it.',
       },
     ],
+    lesson: {
+      points: [
+        'The garbage collector frees objects that are no longer reachable: no chain of references leads to them from a root, such as a global variable or a variable on the current call stack.',
+        'Engines use mark-and-sweep: they mark everything reachable from the roots, then free the rest. Two objects that only reference each other are unreachable, so cycles are collected.',
+        'A leak is memory you no longer need that is still reachable. Usual causes: listeners and intervals never removed, subscriptions never closed, caches that only grow, closures holding large objects.',
+        'A module-level `Map` on a server lives as long as the process: use a bounded LRU (least recently used) cache. A `WeakMap` holds object keys weakly: once a key is collected, its entry goes too.',
+        'To find a leak, watch heap usage over time, then compare heap snapshots: take one, repeat the action, take another and see what grew. In Node, `--heapsnapshot-signal` or the inspector writes snapshots.',
+      ],
+      code: `useEffect(() => {
+  const id = setInterval(refreshOrderStatus, 5000);
+  // Without this cleanup, the timer and everything its callback uses stay alive
+  return () => clearInterval(id);
+}, []);`,
+      codeLang: 'tsx',
+    },
     mcqSections: ['m23#memory'],
-    lessons: [{ module: 'M23', section: 'memory', title: 'Garbage collection and memory leaks' }],
   },
 ];

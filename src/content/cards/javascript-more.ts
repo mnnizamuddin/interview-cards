@@ -8,6 +8,7 @@ export const javascriptMoreCards: Card[] = [
   {
     id: 'js-destructuring',
     unit: 'js-core',
+    topic: 'Destructuring',
     level: 'junior',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'What is destructuring, and how do you use it with objects and arrays?',
@@ -55,13 +56,32 @@ export const javascriptMoreCards: Card[] = [
         why: 'The right side builds a new array from the current values first, then the left side assigns them back in reverse order.',
       },
     ],
+    lesson: {
+      points: [
+        'Destructuring unpacks values into variables in one statement. Object patterns pick properties by name, `const { id, status } = order`; array patterns pick items by position, `const [first] = items`.',
+        'Object patterns can rename, nest and collect the rest: `{ status: label, customer: { name }, ...rest }`. A colon renames (here to `label`); an equals sign sets a default.',
+        'A default, as in `{ status = \'pending_payment\' }`, applies only when the value is `undefined`. A `null` value is kept as `null`.',
+        'Destructuring `null` or `undefined` throws a TypeError, and so does a nested pattern whose parent is missing. A parent default, `{ customer: { name } = {} }`, covers `undefined` only; for `null`, use `?.`.',
+        'Array patterns work on any iterable: strings, Maps, Sets, generators. `[a, b] = [b, a]` swaps two variables, and `for (const [key, value] of map)` destructures each Map entry.',
+      ],
+      code: `const order = { id: 42, status: null, customer: null };
+const { id, status = 'pending_payment', total = 0 } = order;
+console.log(id, status, total);   // 42 null 0
+try {
+  const { customer: { name } = {} } = order;
+} catch (e) {
+  console.log(e.name);            // TypeError: customer is null
+}
+console.log(order.customer?.name); // undefined`,
+      codeLang: 'js',
+    },
     mcqSections: [],
     fromLists: ['fullstack-100#21'],
-    lessons: [],
   },
   {
     id: 'js-spread-rest',
     unit: 'js-core',
+    topic: 'Spread and rest',
     level: 'junior',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'What is the spread syntax, and how does it differ from rest parameters?',
@@ -109,13 +129,32 @@ export const javascriptMoreCards: Card[] = [
         why: 'Array spread needs an iterable, and plain objects are not iterable, so it throws a TypeError.',
       },
     ],
+    lesson: {
+      points: [
+        'The same three dots do opposite jobs. Spread expands an iterable or an object into a new literal or into arguments; rest collects what is left into a new array or object.',
+        'Spread: `[...items, newItem]` copies an array, `{ ...order, status: \'shipped\' }` copies an object and overrides a field, `Math.max(...prices)` passes items as arguments. Later properties win.',
+        'Rest: `function log(label, ...values)` gathers the remaining arguments into a real array and must be the last parameter. Prefer it to `arguments`, which is not a real array and which arrow functions do not have.',
+        'Spread is shallow: nested objects and arrays are shared with the original. Copy each level you change, such as `lines: order.lines.with(i, newLine)`, or use `structuredClone` for a deep copy.',
+        'Array spread needs an iterable, so `[...null]` and `[...{ a: 1 }]` throw a TypeError. Object spread accepts anything: `{ ...null }` adds nothing, which is handy for optional fields.',
+      ],
+      code: `const order = { id: 1, status: 'paid', customer: { name: 'Ana' } };
+const shipped = { ...order, status: 'shipped' };
+console.log(shipped.customer === order.customer);    // true: shallow
+console.log({ status: 'shipped', ...order }.status); // paid: later wins
+const { id, ...rest } = order;
+console.log(Object.keys(rest));                      // [ 'status', 'customer' ]
+function log(label, ...values) { return \`\${label}: \${values.length}\`; }
+console.log(log('prices', 10, 20));                  // prices: 2
+console.log({ ...null });                            // {}`,
+      codeLang: 'js',
+    },
     mcqSections: ['m23#copying'],
     fromLists: ['fullstack-100#22'],
-    lessons: [{ module: 'M23', section: 'copying', title: 'Copies, equality and immutable updates' }],
   },
   {
     id: 'js-event-delegation',
     unit: 'js-core',
+    topic: 'Event delegation',
     level: 'mid',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'What is event delegation, and why is it useful?',
@@ -163,8 +202,25 @@ export const javascriptMoreCards: Card[] = [
         why: '`focus` does not bubble; `focusin` does, so delegate focus with `focusin`.',
       },
     ],
+    lesson: {
+      points: [
+        'A DOM event travels in three phases: capture, from the window down to the target; target; then bubble, back up through every ancestor. `addEventListener` listens in the bubble phase unless passed `{ capture: true }`.',
+        'Event delegation puts one listener on a container instead of one on each child. Events on any child bubble up to it, including children added later, such as product cards loaded on scroll.',
+        '`event.target` is where the event started, maybe an icon inside the button; `event.currentTarget` is the element whose listener runs. Use `event.target.closest()` to find the element that matters.',
+        'Some events do not bubble, such as `focus` and `blur`: delegate `focusin` and `focusout` instead. A `stopPropagation()` call below the container silently stops every delegated handler above it.',
+        'React DOM already delegates: it attaches its listeners to the root container and dispatches to your `onClick` props itself, so in React you rarely delegate by hand.',
+      ],
+      code: `const grid = document.querySelector('#recommendations');
+grid.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-product-id]');
+  if (!button || !grid.contains(button)) {
+    return;
+  }
+  addToCart(button.dataset.productId);
+});`,
+      codeLang: 'js',
+    },
     mcqSections: ['m25#events'],
     fromLists: ['fullstack-100#25'],
-    lessons: [{ module: 'M25', section: 'events', title: 'Event dispatch and delegation on the product grid' }],
   },
 ];

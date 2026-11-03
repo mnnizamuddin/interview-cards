@@ -9,6 +9,7 @@ export const securityCards: Card[] = [
   {
     id: 'sec-xss',
     unit: 'security',
+    topic: 'XSS',
     level: 'mid',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'What is XSS, and how do you prevent it in a full-stack application?',
@@ -51,17 +52,28 @@ export const securityCards: Card[] = [
         why: 'The script cannot read the cookie, but it can still send requests from the page, and the browser attaches the cookie.',
       },
     ],
+    lesson: {
+      points: [
+        'Cross-site scripting (XSS) is an attacker\'s script running in your page, under your origin. It can read the page and call your API as the user, and the browser adds the user\'s cookies.',
+        'Stored XSS comes from saved data, such as a review; reflected XSS from a URL echoed into the page; DOM-based XSS from your own front-end code writing untrusted data into the page.',
+        'A sink is where a string becomes markup or code. React encodes values rendered in JSX, so the risk is in sinks it skips: `dangerouslySetInnerHTML`, `innerHTML` through a ref, user-controlled URLs.',
+        'Encoding makes text inert. Sanitising strips HTML down to an allow-list of tags, with DOMPurify, right before a sink that must render HTML. A regex that removes `<script>` is not sanitising.',
+        'A Content Security Policy (CSP) header limits which scripts run; with nonces, only script tags the server marked can run. `HttpOnly` cookies hide the session, but an injected script can still send requests.',
+      ],
+      code: `// Safe: React inserts the string as a text node, so markup shows as text.
+<p>{review.body}</p>
+
+// A sink: the string is parsed as HTML. Sanitise right before it.
+<div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(review.html) }} />`,
+      codeLang: 'tsx',
+    },
     mcqSections: ['m27#xss', 'm27#sinks', 'm27#sanitise'],
     fromLists: ['fullstack-100#81'],
-    lessons: [
-      { module: 'M27', section: 'xss', title: 'XSS, and what React escapes for you' },
-      { module: 'M27', section: 'sinks', title: 'Where React does not protect you' },
-      { module: 'M27', section: 'sanitise', title: 'Validation, encoding, sanitisation' },
-    ],
   },
   {
     id: 'sec-sql-injection',
     unit: 'security',
+    topic: 'SQL injection',
     level: 'junior',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'What is SQL injection, and how do you prevent it?',
@@ -104,13 +116,31 @@ export const securityCards: Card[] = [
         why: 'The statement is parsed before the value is bound, so the value can never change the query\'s structure.',
       },
     ],
+    lesson: {
+      points: [
+        'SQL injection happens when input is pasted into the SQL text, so the input can change the query. With `x\' OR \'1\'=\'1` as an email, a lookup by email returns every customer.',
+        'A parameterised query sends the SQL with placeholders such as `$1`, and the values separately. PostgreSQL parses the statement before binding the values, so a value can never become SQL.',
+        'Parameters carry values only, never identifiers: `SELECT * FROM $1` is a syntax error. Sort columns and table names come from an allow-list in code.',
+        'For a list, write `WHERE id = ANY($1)` and pass an array as one parameter. Query builders and tagged templates parameterise for you, but raw escape hatches such as `sql.raw` paste text as is.',
+        'Give the app\'s database user only the rights it needs, so a missed injection cannot drop tables or read other schemas.',
+      ],
+      code: `// Injectable: the input becomes SQL text (returned all 3 customers).
+await db.query(\`SELECT * FROM customers WHERE email = '\${email}'\`);
+
+// Parameterised: the value travels apart from the SQL (returned 0 rows).
+await db.query('SELECT * FROM customers WHERE email = $1', [email]);
+
+// Identifiers cannot be parameters: map them through an allow-list.
+const orderBy = { newest: 'created_at DESC', oldest: 'created_at ASC' }[sort];`,
+      codeLang: 'ts',
+    },
     mcqSections: ['m11#injection'],
     fromLists: ['fullstack-100#82'],
-    lessons: [{ module: 'M11', section: 'injection', title: 'Values as parameters, names from an allowlist' }],
   },
   {
     id: 'sec-csrf',
     unit: 'security',
+    topic: 'CSRF',
     level: 'mid',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'What is CSRF, and how do you protect an application against it?',
@@ -153,17 +183,31 @@ export const securityCards: Card[] = [
         why: 'SameSite compares registrable domains, so subdomains of `shop.example` are the same site.',
       },
     ],
+    lesson: {
+      points: [
+        'Cross-site request forgery (CSRF): another site makes the victim\'s browser send a state-changing request to your app, and the browser attaches the victim\'s cookies automatically.',
+        'The `SameSite` cookie attribute limits this. `Strict` never sends the cookie on cross-site requests; `Lax` still sends it on top-level `GET` navigations, so a `GET` must never change state.',
+        'A site is the scheme plus the registrable domain, so `admin.shop.example` and `www.shop.example` are the same site. SameSite does not guard against a sibling subdomain: it is defence in depth.',
+        'Browsers send `Sec-Fetch-Site`: `same-origin`, `same-site`, `cross-site` or `none`. Accept writes only when it is `same-origin`, fall back to an `Origin` allow-list, or use a CSRF token.',
+        'CORS does not stop CSRF, since a form `POST` is sent without asking. Requiring JSON forces cross-origin scripts through a preflight. A bearer token in a header is never attached automatically.',
+      ],
+      code: `function isAllowedWrite(headers: Headers, allowedOrigins: Set<string>): boolean {
+  const site = headers.get('sec-fetch-site');
+  if (site !== null) {
+    return site === 'same-origin';
+  }
+  const origin = headers.get('origin'); // fallback for browsers without Fetch Metadata
+  return origin !== null && allowedOrigins.has(origin);
+}`,
+      codeLang: 'ts',
+    },
     mcqSections: ['m12#sessions', 'm27#storage', 'm27#csrf-cors'],
     fromLists: ['fullstack-100#83'],
-    lessons: [
-      { module: 'M12', section: 'sessions', title: 'Sessions in the browser: cookies, CSRF, CORS and headers' },
-      { module: 'M27', section: 'storage', title: 'Where the session lives: storage, cookies and SameSite' },
-      { module: 'M27', section: 'csrf-cors', title: 'CSRF and CORS, seen from the browser' },
-    ],
   },
   {
     id: 'sec-secrets',
     unit: 'security',
+    topic: 'Secrets management',
     level: 'mid',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'How do you store and manage secrets like API keys and database passwords in a full-stack application?',
@@ -206,17 +250,31 @@ export const securityCards: Card[] = [
         why: 'Everything shipped to the browser is public; anyone can search the bundle in DevTools.',
       },
     ],
+    lesson: {
+      points: [
+        'A secret is any value that grants access: a database password, an API key, a signing key. It must never sit in the repository, a Docker image, CI logs or the front-end bundle.',
+        'Secrets live in a secret manager, such as AWS Secrets Manager or HashiCorp Vault, and reach the process at runtime as environment variables or mounted files, each service reading only its own.',
+        'Variables prefixed `NEXT_PUBLIC_` (Next.js) or `VITE_` (Vite) are written into the browser bundle, which anyone can read. Privileged calls stay in server code with unprefixed variables.',
+        'Kubernetes Secrets are only base64-encoded in etcd unless encryption at rest is turned on. Docker build arguments and `ENV` values persist in the image, so they are no place for secrets.',
+        'Rotate a leaked secret first; deleting the commit does not un-leak it. Short-lived credentials, such as CI deploying to AWS through OIDC, remove static keys altogether.',
+      ],
+      code: `/** Reads the config once at startup and fails fast if a secret is missing. */
+function loadConfig(env: NodeJS.ProcessEnv) {
+  const databaseUrl = env.DATABASE_URL; // injected at runtime by the platform
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL is missing'); // name the variable, never print a value
+  }
+  return { databaseUrl };
+}`,
+      codeLang: 'ts',
+    },
     mcqSections: ['m12#supply-chain', 'm27#secrets', 'm17#oidc'],
     fromLists: ['fullstack-100#84'],
-    lessons: [
-      { module: 'M12', section: 'supply-chain', title: 'Secrets and the supply chain' },
-      { module: 'M27', section: 'secrets', title: 'Secrets in the bundle' },
-      { module: 'M17', section: 'oidc', title: 'AWS access without long-lived keys' },
-    ],
   },
   {
     id: 'sec-https',
     unit: 'security',
+    topic: 'HTTPS',
     level: 'junior',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'What is HTTPS, and why does every application need it, even one without sensitive data?',
@@ -259,13 +317,32 @@ export const securityCards: Card[] = [
         why: 'Without integrity, anyone on the network can inject scripts into its pages, and browsers restrict many features to secure contexts.',
       },
     ],
+    lesson: {
+      points: [
+        'HTTPS is HTTP over TLS (Transport Layer Security). TLS gives confidentiality (nobody reads the traffic), integrity (nobody changes it) and authentication of the server through its certificate.',
+        'Integrity matters even without secrets: over plain HTTP, a hotspot or a network attacker can inject scripts or ads into your pages, and read cookies that lack the `Secure` flag.',
+        'Browsers reserve many features for secure contexts, such as service workers, geolocation and passkeys (WebAuthn), and they speak HTTP/2 and HTTP/3 only over TLS.',
+        'Certificates are free and renewed automatically with the ACME protocol, for example from Let\'s Encrypt. TLS usually ends at the load balancer or ingress, which also redirects HTTP to HTTPS.',
+        'HSTS (`Strict-Transport-Security`) makes the browser use only HTTPS for the host, and counts only when received over HTTPS. The preload list closes the first-visit gap; it requires a `max-age` of a year or more.',
+      ],
+      code: `GET /products/42 HTTP/1.1
+Host: shop.example
+
+HTTP/1.1 301 Moved Permanently
+Location: https://shop.example/products/42
+
+HTTP/1.1 200 OK
+Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+Set-Cookie: __Host-sid=...; Path=/; Secure; HttpOnly; SameSite=Lax`,
+      codeLang: 'http',
+    },
     mcqSections: [],
     fromLists: ['fullstack-100#85'],
-    lessons: [],
   },
   {
     id: 'sec-security-review',
     unit: 'security',
+    topic: 'Pre-launch security review',
     level: 'senior',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'How would you run a basic security review of a full-stack application before launch?',
@@ -308,11 +385,16 @@ export const securityCards: Card[] = [
         why: 'Scanners do not know who owns which order; object-level authorisation needs tests with two real users.',
       },
     ],
+    lesson: {
+      points: [
+        'Start with a threat model: what you protect (orders, payments, customer data), who might attack, and the entry points (routes, the payment webhook, uploads, the back office).',
+        'Use two checklists: the OWASP Top 10 (2025 edition) for web applications and the OWASP API Security Top 10 (2023 edition) for APIs. Tie each risk to your own routes and data.',
+        'Broken Access Control is A01 in the Top 10, and Broken Object Level Authorization (BOLA, one user reaching another\'s object) is API1. Test every route with two customers and with a non-admin.',
+        'Then walk authentication and sessions, injection, output encoding and CSP, secrets, headers and CORS, rate limits, the dependency supply chain, and logging with alerts.',
+        'Scanners rarely find authorisation flaws. Keep the review alive: tests and dependency audits in CI, each finding ranked with an owner, and critical ones blocking the launch.',
+      ],
+    },
     mcqSections: ['m12#bola'],
     fromLists: ['fullstack-100#86'],
-    lessons: [
-      { module: 'M12', section: 'senior', title: 'The senior take' },
-      { module: 'M12', section: 'bola', title: 'The critical finding: authorisation per object' },
-    ],
   },
 ];

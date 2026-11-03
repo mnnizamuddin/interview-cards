@@ -9,6 +9,7 @@ export const webPlatformCards: Card[] = [
   {
     id: 'web-box-model',
     unit: 'web-platform',
+    topic: 'The CSS box model',
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What is the CSS box model, and how do `content-box` and `border-box` differ?',
@@ -51,13 +52,31 @@ export const webPlatformCards: Card[] = [
         why: 'The default is `content-box`; resets switch it to `border-box`.',
       },
     ],
+    lesson: {
+      points: [
+        'Every element is laid out as a box of four layers, from the inside out: content, padding, border and margin. Padding sits inside the border and shows the background; margin is outside and transparent.',
+        '`box-sizing` decides what `width` and `height` measure. The default, `content-box`, sizes the content only: padding and border are added on top.',
+        'With `border-box`, `width` includes padding and border, and the content shrinks to fit. Margin is never part of the width, in either mode.',
+        'Example: `width: 300px` with 16px of padding and a 2px border takes 336px with `content-box` (300 + 32 + 4) and 300px with `border-box`. Resets set `border-box` on all elements and pseudo-elements.',
+        'Vertical margins of adjacent blocks in normal flow collapse into the larger one instead of adding up. Flex and grid items never collapse their margins, one reason `gap` is more predictable.',
+      ],
+      code: `*, *::before, *::after {
+  box-sizing: border-box;
+}
+.order-summary {
+  width: 300px;
+  padding: 16px;
+  border: 2px solid; /* still 300px wide in total */
+}`,
+      codeLang: 'css',
+    },
     mcqSections: [],
     fromLists: ['fullstack-100#1'],
-    lessons: [],
   },
   {
     id: 'web-flexbox-grid',
     unit: 'web-platform',
+    topic: 'Flexbox and Grid',
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What is the difference between Flexbox and CSS Grid, and when do you use each?',
@@ -100,13 +119,33 @@ export const webPlatformCards: Card[] = [
         why: 'Both layouts support `gap`, which replaces the old margin tricks between items.',
       },
     ],
+    lesson: {
+      points: [
+        'Flexbox lays items out along one axis, a row or a column, and lets each item\'s content drive its size. It suits toolbars, rows of badges and a label next to an input.',
+        'Grid lays out rows and columns at once. The container defines the tracks (the rows and columns), so items line up in both directions: page shells, a checkout form beside its summary, a product grid.',
+        'They are combined, not rivals: grid for the page or the list, flex inside each card. Both support `gap` for the space between items.',
+        '`repeat(auto-fill, minmax(14rem, 1fr))` makes as many columns of at least 14rem as fit and shares the leftover space, where `fr` is a fraction of the free space: a responsive grid with no media query.',
+        'Reordering with `order` or grid placement changes only what you see: the Tab order and screen readers follow the DOM. To centre anything, use `display: grid; place-items: center` on the parent.',
+      ],
+      code: `.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 1rem;
+}
+.product-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}`,
+      codeLang: 'css',
+    },
     mcqSections: ['m28#layout'],
     fromLists: ['fullstack-100#2'],
-    lessons: [{ module: 'M28', section: 'layout', title: 'CSS layout: flex, grid, stacking contexts and container queries' }],
   },
   {
     id: 'web-position',
     unit: 'web-platform',
+    topic: 'CSS positioning',
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What is the difference between `position: relative`, `absolute`, `fixed` and `sticky`?',
@@ -154,13 +193,27 @@ export const webPlatformCards: Card[] = [
         why: 'Without a threshold it never sticks, so it acts as relatively positioned.',
       },
     ],
+    lesson: {
+      points: [
+        '`position` decides what an element is placed against and whether it keeps its space. The default, `static`, ignores the offsets `top`, `right`, `bottom` and `left`, also called insets.',
+        '`relative` keeps its space and shifts only visually. `absolute` leaves the flow and is placed against the nearest positioned ancestor (any `position` but `static`), or the initial containing block if none.',
+        '`fixed` leaves the flow and is placed against the viewport, unless an ancestor has a `transform`, `perspective` or `filter`: that ancestor then becomes its reference, and the element scrolls with it.',
+        '`sticky` stays in the flow and sticks on reaching a threshold like `top: 0`; with no threshold it acts like `relative`. It sticks within its nearest scrolling ancestor, so a parent with `overflow: hidden` breaks it.',
+        '`z-index` only competes inside a stacking context. `fixed` and `sticky` always create one; `relative` and `absolute` do when `z-index` is not `auto`. A child cannot escape its parent\'s context.',
+      ],
+      code: `.product-card { position: relative; }
+.product-card .badge { position: absolute; top: 8px; right: 8px; }
+.orders-table th { position: sticky; top: 0; }
+.cart-bar { position: fixed; bottom: 0; left: 0; right: 0; }`,
+      codeLang: 'css',
+    },
     mcqSections: ['m28#layout'],
     fromLists: ['fullstack-100#3'],
-    lessons: [{ module: 'M28', section: 'layout', title: 'CSS layout: flex, grid, stacking contexts and container queries' }],
   },
   {
     id: 'web-critical-rendering-path',
     unit: 'web-platform',
+    topic: 'Critical rendering path',
     level: 'senior',
     paths: ['frontend', 'fullstack'],
     question: 'What is the critical rendering path, and how would you optimize it to load a page faster?',
@@ -203,17 +256,33 @@ export const webPlatformCards: Card[] = [
         why: 'They run as soon as each one arrives; `defer` and module scripts keep the document order.',
       },
     ],
+    lesson: {
+      points: [
+        'The critical rendering path is the work before the first paint: parse HTML into the DOM, CSS into the CSSOM (the tree of styles), combine them, then compute layout and paint pixels.',
+        'Stylesheets in the `<head>` block rendering: nothing paints until they load, unless their `media` does not match, like `media="print"`. A classic `<script>` blocks the HTML parser while it downloads and runs.',
+        '`defer` and `async` download scripts in parallel with parsing. `defer` runs them after parsing, in document order, before `DOMContentLoaded`; `async` runs each on arrival, in any order. Module scripts defer.',
+        'The preload scanner reads ahead in the raw HTML to start downloads early, but cannot see images set in CSS or added by JavaScript. So put the hero image in an `<img>` with `fetchpriority="high"`, never lazy.',
+        'LCP, Largest Contentful Paint, is when the largest visible element is painted; 2.5 s or less is good. Cut the time to first byte too, for example with CDN-cached HTML, and judge changes on field data.',
+      ],
+      code: `<head>
+  <link rel="stylesheet" href="/critical.css">
+  <link rel="stylesheet" href="/print.css" media="print">
+  <script src="/app.js" defer></script>
+  <script src="/analytics.js" async></script>
+</head>
+<body>
+  <img src="/mug-800.jpg" srcset="/mug-800.jpg 800w, /mug-1600.jpg 1600w"
+       sizes="100vw" fetchpriority="high" alt="Blue ceramic mug">
+</body>`,
+      codeLang: 'html',
+    },
     mcqSections: ['m25#css', 'm25#scripts', 'm26#lcp'],
     fromLists: ['fullstack-100#4'],
-    lessons: [
-      { module: 'M25', section: 'css', title: 'CSS blocks the first paint' },
-      { module: 'M25', section: 'scripts', title: 'Classic, defer, async and module scripts' },
-      { module: 'M26', section: 'lcp', title: 'Fixing LCP: the hero image' },
-    ],
   },
   {
     id: 'web-semantic-html',
     unit: 'web-platform',
+    topic: 'Semantic HTML',
     level: 'junior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'What is semantic HTML, and why does it matter?',
@@ -256,13 +325,28 @@ export const webPlatformCards: Card[] = [
         why: 'Buttons, links and form fields are focusable by default.',
       },
     ],
+    lesson: {
+      points: [
+        'Semantic HTML means choosing elements for what they are, not how they look: `button` for an action, `a` for navigation, `label` for a field, headings in order, `nav`, `main`, `header` and `footer`.',
+        'The browser turns the DOM into an accessibility tree: for each element, a role (button, link), a name (its text or label) and states (checked, expanded). Screen readers and voice control read that tree.',
+        'Native elements bring behaviour for free: a `button` is in the Tab order and activates with Enter and Space. `role="button"` on a `div` only changes the tree; focus and keys would be yours to build.',
+        'Landmark elements, `header`, `nav`, `main` and `footer`, create regions that screen reader users jump between. Heading levels follow the page structure, never the font size you want.',
+        'ARIA attributes change the accessibility tree. Its first rule: use a native element when one exists. ARIA is for widgets with no native element, like tabs, and then you write the keyboard behaviour.',
+      ],
+      code: `<!-- Before: not focusable, read as plain text -->
+<div class="pay" onclick="pay()">Pay</div>
+
+<!-- After: focusable, works with Enter and Space, announced as a button -->
+<button type="submit" class="pay">Pay</button>`,
+      codeLang: 'html',
+    },
     mcqSections: ['m28#semantics'],
     fromLists: ['fullstack-100#5'],
-    lessons: [{ module: 'M28', section: 'semantics', title: 'Semantic HTML before anything else' }],
   },
   {
     id: 'web-responsive-design',
     unit: 'web-platform',
+    topic: 'Responsive web design',
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What is responsive web design, and which techniques do you use to implement it?',
@@ -305,13 +389,32 @@ export const webPlatformCards: Card[] = [
         why: 'They lay it out on a wider virtual viewport and zoom out; `width=device-width` fixes that.',
       },
     ],
+    lesson: {
+      points: [
+        'Responsive design is one page that adapts to every screen width, instead of separate mobile and desktop sites. Without the viewport meta tag, phones lay the page out on a wider virtual viewport and zoom out.',
+        'Fluid layouts do most of the work: grid and flex with `fr`, `minmax()` and percentages adapt without any breakpoint (a width where the layout changes).',
+        'Media queries adapt the page to the viewport. Mobile first means base styles for small screens, then `min-width` queries that add layout as the screen grows.',
+        'Container queries adapt a component to its container\'s width instead. The parent gets `container-type: inline-size`, so it must take its width from outside, and the child uses `@container`.',
+        'Responsive images use `srcset` and `sizes` so phones download smaller files. Size text in `rem` so the user\'s font setting applies, and check the layout at 320 CSS pixels wide.',
+      ],
+      code: `<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  .product-slot { container-type: inline-size; }
+  .product-card { display: grid; gap: 1rem; }
+  @container (min-width: 30rem) {
+    .product-card { grid-template-columns: 10rem 1fr; }
+  }
+  @media (min-width: 64rem) { .page { grid-template-columns: 16rem 1fr; } }
+</style>`,
+      codeLang: 'html',
+    },
     mcqSections: ['m28#layout'],
     fromLists: ['fullstack-100#8'],
-    lessons: [{ module: 'M28', section: 'layout', title: 'CSS layout: flex, grid, stacking contexts and container queries' }],
   },
   {
     id: 'web-dom',
     unit: 'web-platform',
+    topic: 'The DOM',
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What is the DOM, and how does JavaScript interact with it?',
@@ -354,13 +457,29 @@ export const webPlatformCards: Card[] = [
         why: 'It returns a static `NodeList`; `getElementsByClassName` returns a live collection.',
       },
     ],
+    lesson: {
+      points: [
+        'The DOM, Document Object Model, is the tree of objects the browser builds from the HTML: one node per element and per piece of text, with properties and methods that scripts can use.',
+        'The DOM is not the source text. The parser repairs invalid markup, for example a `<p>` inside a `<p>` becomes two sibling paragraphs, and scripts can change the tree at any time.',
+        'Find nodes with `querySelector` and `querySelectorAll`, which returns a static `NodeList` snapshot; `getElementsByClassName` returns a live `HTMLCollection`. Listen with `addEventListener`.',
+        'Change nodes with `textContent`, `classList`, `setAttribute` and `append`. `textContent` inserts plain text; `innerHTML` parses HTML, so user data there allows XSS (cross-site scripting: injected script runs).',
+        'Reading geometry such as `offsetHeight` right after a style change forces the browser to run layout at once. In React, let React own the DOM and use refs only for focus, measuring or third-party widgets.',
+      ],
+      code: `const list = document.querySelector('#reviews');
+const item = document.createElement('li');
+item.textContent = review.text;  // safe: shown as text, never parsed
+item.classList.add('review');
+list.append(item);
+// item.innerHTML = review.text; // XSS: '<img src=x onerror=...>' would run`,
+      codeLang: 'js',
+    },
     mcqSections: ['m25#parsing'],
     fromLists: ['fullstack-100#9'],
-    lessons: [{ module: 'M25', section: 'parsing', title: 'Parsing the HTML and the preload scanner' }],
   },
   {
     id: 'web-reflow-repaint',
     unit: 'web-platform',
+    topic: 'Reflow and repaint',
     level: 'mid',
     paths: ['frontend', 'fullstack'],
     question: 'What causes a reflow (layout) versus a repaint, and how does it affect performance?',
@@ -403,16 +522,32 @@ export const webPlatformCards: Card[] = [
         why: 'The value must be up to date, so the browser runs a forced synchronous layout.',
       },
     ],
+    lesson: {
+      points: [
+        'After a change, the browser runs a pipeline: style, layout, paint, composite. A change restarts it at the earliest step it affects, so cheaper changes skip steps.',
+        'Layout, also called reflow, computes the size and position of boxes. Changing `width`, `top`, `font-size` or the content triggers layout, then paint and composite.',
+        'Paint fills in pixels: colours, text, shadows. Changing `color` or `background-color` repaints without layout. `transform` and `opacity` can skip both and run on the compositor, so animate those.',
+        'Reading geometry, like `offsetHeight` or `getBoundingClientRect()`, after a style write forces a synchronous layout. Doing it in a loop is layout thrashing: batch all reads, then all writes.',
+        '`visibility: hidden` hides an element but keeps its space; `display: none` removes it from layout. To know when an element enters the screen, use an `IntersectionObserver`, not positions read on scroll.',
+      ],
+      code: `// Thrashing: each read forces a layout after the previous write
+for (const card of cards) {
+  card.style.minHeight = \`\${card.offsetHeight + 10}px\`;
+}
+// Batched: all reads first, then all writes, one layout
+const heights = cards.map((card) => card.offsetHeight);
+cards.forEach((card, i) => {
+  card.style.minHeight = \`\${heights[i] + 10}px\`;
+});`,
+      codeLang: 'js',
+    },
     mcqSections: ['m25#pipeline', 'm25#thrashing'],
     fromLists: ['fullstack-100#10'],
-    lessons: [
-      { module: 'M25', section: 'pipeline', title: 'From DOM and CSSOM to pixels' },
-      { module: 'M25', section: 'thrashing', title: 'Layout thrashing in the sticky add-to-cart script' },
-    ],
   },
   {
     id: 'web-specificity',
     unit: 'web-platform',
+    topic: 'CSS specificity',
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What is CSS specificity, and how is it calculated?',
@@ -455,13 +590,31 @@ export const webPlatformCards: Card[] = [
         why: '`*` has no specificity at all.',
       },
     ],
+    lesson: {
+      points: [
+        'When two rules set the same property on an element, the cascade picks one. Within the same layer, specificity decides; if it ties, the rule that comes later in the source wins.',
+        'Specificity is three counts: ids; then classes, attributes and pseudo-classes like `:hover`; then element types and pseudo-elements like `::before`. `#cart .item p` is (1,1,1).',
+        'The counts are compared left to right, never added: one id beats any number of classes. The universal selector `*` and combinators such as `>` count nothing.',
+        '`:is()` and `:not()` take the specificity of their most specific argument; `:where()` always counts zero, which makes it ideal for defaults that are easy to override.',
+        'Cascade layers are compared before specificity: a later `@layer` wins whatever its selectors, and unlayered styles beat layered ones. Inline styles beat selectors; `!important` beats both and reverses layer order.',
+      ],
+      code: `/* Before: the id rule wins, so the focus ring never shows */
+#checkout button { outline: none; }               /* (1,0,1) */
+.pay-button:focus-visible { outline: 2px solid; } /* (0,2,0) */
+
+/* After: layers are compared before specificity */
+@layer legacy, components;
+@layer legacy { #checkout button { outline: none; } }
+@layer components { .pay-button:focus-visible { outline: 2px solid; } }`,
+      codeLang: 'css',
+    },
     mcqSections: ['m28#cascade'],
     fromLists: ['fullstack-100#11'],
-    lessons: [{ module: 'M28', section: 'cascade', title: 'CSS: the cascade, specificity and @layer' }],
   },
   {
     id: 'web-storage',
     unit: 'web-platform',
+    topic: 'Cookies and Web Storage',
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What is the difference between `localStorage`, `sessionStorage` and cookies?',
@@ -509,16 +662,28 @@ export const webPlatformCards: Card[] = [
         why: 'Web Storage stores strings only, so it saves "[object Object]"; use `JSON.stringify`.',
       },
     ],
+    lesson: {
+      points: [
+        'A cookie is a small value, about 4 KB at most, that the browser sends with every request to its site. The server sets it with the `Set-Cookie` header and attributes such as `HttpOnly`, `Secure` and `SameSite`.',
+        '`HttpOnly` hides a cookie from scripts and `document.cookie`, while the browser still sends it. `Secure` sends it over HTTPS only, and `SameSite` limits sending it with cross-site requests.',
+        'Web Storage, `localStorage` and `sessionStorage`, holds strings per origin (scheme, host and port), a few megabytes, never sent to the server. Its API is synchronous, so keep values small.',
+        '`localStorage` lasts until cleared and is shared by all tabs of the origin; the other tabs get a `storage` event on change. `sessionStorage` belongs to one tab and is deleted when the tab closes.',
+        'Any script on the page can read Web Storage, so one XSS steals what is there: keep the session in an `HttpOnly` cookie. Store objects with `JSON.stringify`, and use IndexedDB for large or structured data.',
+      ],
+      code: `localStorage.setItem('theme', 'dark');
+localStorage.setItem('cart', { items: 2 });
+console.log(localStorage.getItem('cart'));                   // [object Object]
+localStorage.setItem('cart', JSON.stringify({ items: 2 }));
+console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
+      codeLang: 'js',
+    },
     mcqSections: ['m25#storage', 'm27#storage'],
     fromLists: ['fullstack-100#12'],
-    lessons: [
-      { module: 'M25', section: 'storage', title: 'Where the cart and the session live' },
-      { module: 'M27', section: 'storage', title: 'Where the session lives: storage, cookies and SameSite' },
-    ],
   },
   {
     id: 'web-sass',
     unit: 'web-platform',
+    topic: 'Sass and modern CSS',
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What does a CSS preprocessor like Sass give you over plain CSS?',
@@ -561,13 +726,30 @@ export const webPlatformCards: Card[] = [
         why: 'Native nesting does not concatenate strings; that is a Sass-only feature.',
       },
     ],
+    lesson: {
+      points: [
+        'Sass is a CSS preprocessor: you write its syntax in `.scss` files and a build step compiles them to plain CSS. Nothing of Sass reaches the browser.',
+        'Native CSS has caught up on the basics: custom properties (`--brand`), nesting in every major browser since late 2023, `calc()`, `color-mix()`, cascade layers and container queries.',
+        'Custom properties live at runtime and follow the cascade, so they can change under a class, a `data-theme` attribute or a media query. Sass variables are replaced at compile time and cannot.',
+        'Native nesting differs from Sass: it cannot glue strings, so `&__title` does not build a BEM class name, and the `&` counts like `:is()` for specificity.',
+        'Sass still adds compile-time logic: mixins, loops, maps and functions that generate CSS. Modules load with `@use` and `@forward`; Sass `@import` is deprecated since Dart Sass 1.80.0.',
+      ],
+      code: `:root { --brand: #0a6e4f; }
+[data-theme="dark"] { --brand: #4fd1a5; } /* switches at runtime */
+.order-card {
+  color: var(--brand);
+  & .title { font-weight: 600; }         /* native nesting */
+  &:hover { background: color-mix(in srgb, var(--brand) 10%, white); }
+}`,
+      codeLang: 'css',
+    },
     mcqSections: [],
     fromLists: ['fullstack-100#13'],
-    lessons: [],
   },
   {
     id: 'web-accessibility',
     unit: 'web-platform',
+    topic: 'Web accessibility',
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'How would you make a web application accessible to users with disabilities?',
@@ -610,17 +792,29 @@ export const webPlatformCards: Card[] = [
         why: 'Success criterion 1.4.3 requires 4.5:1 for text, and 3:1 for large text.',
       },
     ],
+    lesson: {
+      points: [
+        'WCAG, the Web Content Accessibility Guidelines, is the standard. Aim for WCAG 2.2 level AA; the European Accessibility Act, which covers e-commerce, relies on WCAG 2.1 AA through the EN 301 549 standard.',
+        'Start with semantic HTML so the accessibility tree is right. Every control needs an accessible name, from its text, a `label`, an `alt` or `aria-label`. Normal text needs a contrast of 4.5:1, large text 3:1.',
+        'Everything must work with the keyboard and show a visible focus: never remove outlines without a replacement, style `:focus-visible`. In a single-page app, move focus to the new page\'s heading on route changes.',
+        'A modal takes focus, makes the page behind inert, closes on Escape and returns focus to its opener; `<dialog>` with `showModal()` does most of it. Status updates go in a live region, read aloud when it changes.',
+        'Automated scans such as axe find only part of the issues. Run them in CI, then test by hand with the keyboard and a screen reader: meaningful alt text, focus order, announcements.',
+      ],
+      code: `<button type="button" class="icon-button">
+  <svg aria-hidden="true">...</svg>
+  <span class="visually-hidden">Refund order 1042</span>
+</button>
+<!-- A live region: its new text is read aloud -->
+<p role="status">Refund sent</p>`,
+      codeLang: 'html',
+    },
     mcqSections: ['m28#semantics', 'm28#name', 'm28#focus'],
     fromLists: ['fullstack-100#14'],
-    lessons: [
-      { module: 'M28', section: 'semantics', title: 'Semantic HTML before anything else' },
-      { module: 'M28', section: 'name', title: 'The accessible name, and when ARIA makes things worse' },
-      { module: 'M28', section: 'focus', title: 'Keyboard, visible focus and route changes' },
-    ],
   },
   {
     id: 'web-ssr-csr-ssg',
     unit: 'web-platform',
+    topic: 'SSR, CSR and SSG',
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'What is the difference between SSR, CSR and SSG?',
@@ -663,11 +857,16 @@ export const webPlatformCards: Card[] = [
         why: 'SSG builds the HTML once at build time; per-request rendering is SSR.',
       },
     ],
+    lesson: {
+      points: [
+        'The three differ by when and where the HTML is built. CSR, client-side rendering: the server sends a near-empty page and JavaScript builds it in the browser. Fine behind a login, weak for SEO and first load.',
+        'SSR, server-side rendering: the server builds the HTML for each request, so it can depend on cookies, headers or the search query. The price is server work on every request.',
+        'SSG, static site generation: HTML built once at build time and served from a CDN. ISR, incremental static regeneration, rebuilds a static page in the background after a delay or when its cache tag is revalidated.',
+        'Hydration is React attaching event handlers to the server HTML, which needs the first client render to match it. So SSR still ships JavaScript, and dates or browser-only values cause hydration mismatches.',
+        'In the Next.js App Router the choice is per route, even per component: static parts are prerendered, dynamic parts stream in behind `<Suspense>`, and Server Components ship no JavaScript; only Client Components hydrate.',
+      ],
+    },
     mcqSections: ['m33#rendering', 'm33#caching'],
     fromLists: ['fullstack-100#15'],
-    lessons: [
-      { module: 'M33', section: 'rendering', title: 'Rendering strategies, and what Server Components add' },
-      { module: 'M33', section: 'caching', title: 'Caching and revalidation in Next.js 16' },
-    ],
   },
 ];

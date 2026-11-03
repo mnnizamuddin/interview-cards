@@ -9,6 +9,7 @@ export const databaseCards: Card[] = [
   {
     id: 'db-sql-nosql',
     unit: 'databases',
+    topic: 'SQL vs NoSQL',
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is the difference between SQL and NoSQL databases, and how do you choose?',
@@ -51,16 +52,28 @@ export const databaseCards: Card[] = [
         why: 'A `jsonb` column stores a document next to typed columns and can be indexed, for example with a GIN index.',
       },
     ],
+    lesson: {
+      points: [
+        'A relational database such as PostgreSQL stores rows in tables with a declared schema. Constraints such as foreign keys reject bad data, and a transaction changes several rows atomically.',
+        '"NoSQL" names several families: document stores (MongoDB), key-value stores (Redis, DynamoDB), wide-column stores (Cassandra) and graph databases. Each is built around a few access patterns.',
+        'An access pattern is a query the app runs often, like "load a product by id with all its attributes". Pick the store that serves your main patterns, and name what you give up: joins, foreign keys, transactions.',
+        '"Schemaless" moves the schema into the application, which must still validate it. A MongoDB document is capped at 16 MiB, so an unbounded array inside one document eventually fails.',
+        'PostgreSQL covers a few flexible fields with `jsonb`, a binary JSON column. A GIN index, which indexes the keys and values inside the documents, serves containment queries with `@>`.',
+      ],
+      code: `CREATE TABLE products (id int PRIMARY KEY, attrs jsonb);
+CREATE INDEX products_attrs_idx ON products USING gin (attrs);
+
+-- served by a Bitmap Index Scan on products_attrs_idx
+SELECT id FROM products WHERE attrs @> '{"color": "red"}';`,
+      codeLang: 'sql',
+    },
     mcqSections: ['m19#why', 'm19#embedding'],
     fromLists: ['fullstack-100#49'],
-    lessons: [
-      { module: 'M19', section: 'why', title: 'Why the catalogue is in MongoDB' },
-      { module: 'M19', section: 'embedding', title: 'Embedding or referencing' },
-    ],
   },
   {
     id: 'db-normalization',
     unit: 'databases',
+    topic: 'Normalization and denormalization',
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is normalization, and what are the trade-offs of denormalizing?',
@@ -103,13 +116,29 @@ export const databaseCards: Card[] = [
         why: 'Nothing in the database links the copy to its source unless you add a trigger or a check, which is why it needs an owner.',
       },
     ],
+    lesson: {
+      points: [
+        'Normalizing means storing each fact once and pointing to it by key, so an update touches one row and two copies can never disagree.',
+        'Third normal form (3NF): every column depends on the key, the whole key and nothing but the key. A customer\'s email repeated on each order breaks it, because it describes the customer, not the order.',
+        'Denormalizing keeps a copy or a derived value on purpose, like `orders.total_cents`, to make frequent reads cheaper. The risk is drift when one write path forgets it, so it needs an owner and a drift check.',
+        'A snapshot is not a copy. The unit price stored on an order line records what the customer paid, a different fact from today\'s catalogue price, so storing it is correct.',
+        'A materialized view stores the result of a query and is recomputed only by `REFRESH MATERIALIZED VIEW`, so it is stale between refreshes; a column updated in the same transaction is always current.',
+      ],
+      code: `-- drift check: orders whose stored total no longer matches their lines
+SELECT o.id
+FROM orders o
+JOIN order_lines l ON l.order_id = o.id
+GROUP BY o.id
+HAVING o.total_cents <> sum(l.quantity * l.unit_price_cents);`,
+      codeLang: 'sql',
+    },
     mcqSections: ['m10#normalise'],
     fromLists: ['fullstack-100#50'],
-    lessons: [{ module: 'M10', section: 'normalise', title: 'Where each fact lives' }],
   },
   {
     id: 'db-index',
     unit: 'databases',
+    topic: 'Database indexes',
     level: 'junior',
     paths: ['backend', 'fullstack'],
     question: 'What is a database index, and how does it speed up queries?',
@@ -152,17 +181,30 @@ export const databaseCards: Card[] = [
         why: 'A composite B-tree serves its leftmost columns, so the first column alone is enough.',
       },
     ],
+    lesson: {
+      points: [
+        'An index is a separate structure holding a sorted copy of some columns, each entry pointing to its row. Without a usable index, PostgreSQL reads the whole table: a sequential scan.',
+        'The default index type is the B-tree, a shallow tree whose leaves are sorted. It serves equality, ranges and `ORDER BY`, and lets a `LIMIT` stop after the first matching entries.',
+        'A composite index on `(customer_id, created_at)` is sorted by `customer_id`, then by `created_at`. It serves filters on its leftmost columns; on `created_at` alone it cannot jump to the matches.',
+        'PostgreSQL creates indexes for primary keys and unique constraints only, not for foreign keys. Every index slows inserts and updates and takes space, so index what queries filter, join and sort on.',
+        'The planner picks the cheapest plan from table statistics, so it skips an index when a condition matches a large share of rows. A covering index adds columns with `INCLUDE` to allow an index-only scan.',
+      ],
+      code: `CREATE INDEX orders_customer_created_idx
+  ON orders (customer_id, created_at);
+
+EXPLAIN SELECT id FROM orders
+WHERE customer_id = 42 ORDER BY created_at DESC LIMIT 20;
+-- Limit
+--   -> Index Scan Backward using orders_customer_created_idx`,
+      codeLang: 'sql',
+    },
     mcqSections: ['m08#btree', 'm08#composite', 'm08#writes'],
     fromLists: ['fullstack-100#51'],
-    lessons: [
-      { module: 'M08', section: 'btree', title: 'A B-tree index for the page' },
-      { module: 'M08', section: 'composite', title: 'Column order in a composite index' },
-      { module: 'M08', section: 'writes', title: 'What every index costs on writes' },
-    ],
   },
   {
     id: 'db-slow-query',
     unit: 'databases',
+    topic: 'Diagnosing a slow query',
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How would you diagnose and fix a slow SQL query in production?',
@@ -205,17 +247,31 @@ export const databaseCards: Card[] = [
         why: 'It locks out inserts, updates and deletes for the whole build; `CONCURRENTLY` avoids that at the cost of a slower build.',
       },
     ],
+    lesson: {
+      points: [
+        'Start with what costs the most in total. The `pg_stat_statements` extension records calls, total and mean time per normalized query; a 2 ms query run 50,000 times can cost more than one slow report.',
+        '`EXPLAIN` shows the planner\'s estimated plan. `EXPLAIN (ANALYZE, BUFFERS)` really runs the statement and adds actual rows, time and pages read, so wrap an `UPDATE` in a transaction you roll back.',
+        'In the plan, estimated rows far from actual rows point to stale statistics (run `ANALYZE`); a sequential scan with a large "Rows Removed by Filter" points to a missing or unusable index.',
+        'A plain `CREATE INDEX` blocks writes to the table for the whole build. `CREATE INDEX CONCURRENTLY` does not, but it cannot run inside a transaction block and leaves an invalid index if it fails.',
+        'Test plans on realistic data volumes, since a tiny table always gets a full scan, and measure again after the fix. The `auto_explain` module logs the plans of statements slower than a threshold.',
+      ],
+      code: `BEGIN;
+EXPLAIN (ANALYZE, BUFFERS)
+  UPDATE orders SET status = 'shipped' WHERE id = 7;  -- really runs
+ROLLBACK;
+
+-- outside any transaction block:
+CREATE INDEX CONCURRENTLY orders_pending_idx
+  ON orders (created_at) WHERE status = 'pending_payment';`,
+      codeLang: 'sql',
+    },
     mcqSections: ['m08#find', 'm08#explain', 'm08#live'],
     fromLists: ['fullstack-100#52'],
-    lessons: [
-      { module: 'M08', section: 'find', title: 'Finding the statement behind the slow page' },
-      { module: 'M08', section: 'explain', title: 'Reading the plan with EXPLAIN ANALYZE' },
-      { module: 'M08', section: 'live', title: 'Creating the index in production' },
-    ],
   },
   {
     id: 'db-transactions-acid',
     unit: 'databases',
+    topic: 'Transactions and ACID',
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is a transaction, and what do the ACID properties mean?',
@@ -258,17 +314,30 @@ export const databaseCards: Card[] = [
         why: '`SHOW transaction_isolation` returns `read committed` on a default installation.',
       },
     ],
+    lesson: {
+      points: [
+        'A transaction groups statements into one unit: `BEGIN`, then `COMMIT` to keep everything or `ROLLBACK` to undo it all.',
+        'Atomicity: all or nothing. Consistency: constraints hold at commit. Isolation: others never see half-done work. Durability: a commit survives a crash, as it is in the write-ahead log (WAL) on disk.',
+        'After any error inside a transaction, PostgreSQL refuses every later statement with "current transaction is aborted", and `COMMIT` then performs a rollback: nothing is saved.',
+        'At the default level, Read Committed, each statement sees a fresh snapshot, so two checkouts that read the stock then write it can lose an update. Use one atomic `UPDATE` or lock the row with `SELECT ... FOR UPDATE`.',
+        'In Node with node-postgres, run every statement of a transaction on one client from `pool.connect()` and release it in `finally`; `pool.query` may use a different connection each time.',
+      ],
+      code: `BEGIN;
+UPDATE products SET stock = stock - 1
+WHERE id = $1 AND stock >= 1
+RETURNING stock;
+-- no row returned: sold out, ROLLBACK instead of creating the order
+INSERT INTO orders (customer_id, status) VALUES ($2, 'pending_payment');
+COMMIT;`,
+      codeLang: 'sql',
+    },
     mcqSections: ['m09#guarantees', 'm09#isolation', 'm09#atomic'],
     fromLists: ['fullstack-100#53'],
-    lessons: [
-      { module: 'M09', section: 'guarantees', title: 'What a transaction guarantees, and the race it lets through' },
-      { module: 'M09', section: 'isolation', title: 'Isolation levels as PostgreSQL implements them' },
-      { module: 'M09', section: 'atomic', title: 'Fixing the oversell: one atomic statement' },
-    ],
   },
   {
     id: 'db-many-to-many',
     unit: 'databases',
+    topic: 'Many-to-many relationships',
     level: 'junior',
     paths: ['backend', 'fullstack'],
     question: 'How do you model a many-to-many relationship in a relational database?',
@@ -311,13 +380,30 @@ export const databaseCards: Card[] = [
         why: 'A single foreign key column holds one value per row, which models one-to-many; many-to-many needs a junction table.',
       },
     ],
+    lesson: {
+      points: [
+        'One-to-many needs one foreign key column on the "many" side. Many-to-many needs a junction table, also called a join table, holding one foreign key to each side.',
+        'Make the pair the primary key, so the same link cannot be stored twice: a second insert of the same pair fails with a unique violation (error `23505`).',
+        'The primary key on `(product_id, category_id)` serves lookups by product. Add an index on `(category_id, product_id)` so that listing a category\'s products is fast too.',
+        'Each foreign key decides what a delete does: `ON DELETE CASCADE` removes the links with the product, `ON DELETE RESTRICT` refuses to delete a category that still has links.',
+        'When the link carries its own data, such as a quantity and the price paid, it becomes an entity with its own name, like `order_lines` between orders and products.',
+      ],
+      code: `CREATE TABLE product_categories (
+  product_id  int REFERENCES products (id) ON DELETE CASCADE,
+  category_id int REFERENCES categories (id) ON DELETE RESTRICT,
+  PRIMARY KEY (product_id, category_id)
+);
+CREATE INDEX product_categories_category_idx
+  ON product_categories (category_id, product_id);`,
+      codeLang: 'sql',
+    },
     mcqSections: [],
     fromLists: ['fullstack-100#54'],
-    lessons: [],
   },
   {
     id: 'db-connection-pooling',
     unit: 'databases',
+    topic: 'Connection pooling',
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is connection pooling, and why does a backend need it?',
@@ -360,17 +446,29 @@ export const databaseCards: Card[] = [
         why: 'Past what the database can run in parallel, extra connections only move the queue into PostgreSQL and use more memory.',
       },
     ],
+    lesson: {
+      points: [
+        'PostgreSQL starts a separate server process for each connection, and a connection runs one query at a time, so opening a connection per request is slow and quickly hits the limit.',
+        'A pool keeps connections open and lends them out: a request checks one out, runs its queries and releases it. When all are busy, the next request waits in the pool\'s queue.',
+        'Create one pool per process. Pool size times the maximum number of pods must stay under `max_connections`, which is 100 by default, with a few of them reserved for superusers.',
+        'node-postgres waits forever for a free connection by default (`connectionTimeoutMillis: 0`), so set a timeout. Release a checked-out client in `finally`, or each error leaks one until the pool is empty.',
+        'An external pooler such as PgBouncer in transaction mode shares a few server connections among many clients, but session state breaks: `SET`, `LISTEN`, session advisory locks and SQL `PREPARE`.',
+      ],
+      code: `import pg from 'pg';
+
+export const pool = new pg.Pool({
+  max: 5,                         // 16 pods x 5 = 80, under 100
+  connectionTimeoutMillis: 2_000, // default 0: wait forever
+});`,
+      codeLang: 'ts',
+    },
     mcqSections: ['m11#pooling', 'm11#sizing', 'm11#poolers'],
     fromLists: ['fullstack-100#55'],
-    lessons: [
-      { module: 'M11', section: 'pooling', title: 'The connection pool, and why requests hang' },
-      { module: 'M11', section: 'sizing', title: 'Sizing the pool across pods' },
-      { module: 'M11', section: 'poolers', title: 'PgBouncer and managed poolers' },
-    ],
   },
   {
     id: 'db-sharding',
     unit: 'databases',
+    topic: 'Sharding',
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'What is sharding, and which sharding strategies exist?',
@@ -413,13 +511,22 @@ export const databaseCards: Card[] = [
         why: 'Partitions live in the same server; spreading data across servers needs an extension such as Citus or routing in the application.',
       },
     ],
+    lesson: {
+      points: [
+        'Sharding splits one dataset across several database servers, each holding the rows for some values of a shard key, so writes and storage can grow beyond what one primary handles.',
+        'Do not confuse it with partitioning, which splits one table into partitions on the same server, or with replication, which copies the whole dataset to read replicas.',
+        'Range sharding gives each shard a key range, but an ever-growing key such as a date sends every insert to one hot shard. Hash sharding spreads writes but scatters range queries. Directory sharding uses a lookup table.',
+        'Pick a key the main queries filter on, such as `customer_id`. A query without it goes to every shard and merges the results (scatter-gather); joins and transactions across shards are costly.',
+        'PostgreSQL has no built-in sharding: the Citus extension distributes tables by a column, or the application routes queries. Indexes, read replicas, partitioning and archiving come first.',
+      ],
+    },
     mcqSections: ['m19#sharding'],
     fromLists: ['fullstack-100#56'],
-    lessons: [{ module: 'M19', section: 'sharding', title: 'Sharding and the shard key' }],
   },
   {
     id: 'db-orm',
     unit: 'databases',
+    topic: 'ORMs and query builders',
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is an ORM, and what are its benefits and drawbacks?',
@@ -462,16 +569,28 @@ export const databaseCards: Card[] = [
         why: 'ORMs run on a database driver, and their connections come from that driver\'s pool.',
       },
     ],
+    lesson: {
+      points: [
+        'An ORM (object-relational mapper) maps tables and relations to typed objects and generates the SQL. Prisma uses a schema file and a generated client; Drizzle declares tables in TypeScript.',
+        'A query builder such as Kysely types the SQL you compose call by call, but it does not own your schema or load relations for you.',
+        'Benefits: types that follow the schema, less boilerplate, built-in migrations. Costs: the SQL is hidden, complex reports with window functions are awkward, and the abstraction has to be learned.',
+        'The N+1 problem: loading 50 orders, then each order\'s customer in a loop, runs 51 queries. Load the relation in one query instead, with a join or `WHERE id = ANY($1)`.',
+        'An ORM still runs on a database driver and its connection pool. For raw SQL, pass values as parameters, never by concatenation; table and column names come from an allowlist.',
+      ],
+      code: `-- N+1: one query per order on the page
+SELECT * FROM customers WHERE id = $1;
+
+-- one query for the whole page, $1 = [3, 7, 9]
+SELECT * FROM customers WHERE id = ANY($1);`,
+      codeLang: 'sql',
+    },
     mcqSections: ['m11#landscape', 'm11#n-plus-one'],
     fromLists: ['fullstack-100#57'],
-    lessons: [
-      { module: 'M11', section: 'landscape', title: 'Driver, query builder or ORM' },
-      { module: 'M11', section: 'n-plus-one', title: 'Loading relations: the N+1 trap' },
-    ],
   },
   {
     id: 'db-activity-feed',
     unit: 'databases',
+    topic: 'Activity feed schema',
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How would you design a schema for an activity feed, like a social feed of events?',
@@ -514,11 +633,23 @@ export const databaseCards: Card[] = [
         why: 'The database still reads and discards every skipped row; a keyset condition on `(created_at, id)` jumps straight to the page.',
       },
     ],
+    lesson: {
+      points: [
+        'Store each event once: the actor, the verb, the object, the time and a small payload, such as "agent 12 refunded order 981".',
+        'Fan-out on read builds the feed when it is read, from the events of everything the user follows: writes are cheap, and reads get costlier with each source followed.',
+        'Fan-out on write inserts one `feed_items` row per follower when the event happens: a read is one index range scan, but a source with millions of followers multiplies writes. Hybrids pull those at read time.',
+        'Paginate with a keyset cursor: keep the last `(created_at, id)` and ask for the rows before it. `OFFSET` reads and discards every skipped row, and repeats rows when new events arrive.',
+        'Write the event in the same transaction as the change, into an outbox table that a worker then publishes or fans out. Delivery can repeat, so consumers must be idempotent: safe to run twice.',
+      ],
+      code: `-- index: (user_id, created_at DESC, id DESC)
+SELECT id, verb, object_id, created_at
+FROM feed_items
+WHERE user_id = $1 AND (created_at, id) < ($2, $3)
+ORDER BY created_at DESC, id DESC
+LIMIT 20;`,
+      codeLang: 'sql',
+    },
     mcqSections: ['m05#pagination', 'm13#outbox'],
     fromLists: ['fullstack-100#58'],
-    lessons: [
-      { module: 'M05', section: 'pagination', title: 'Cursor pagination for the order history' },
-      { module: 'M13', section: 'outbox', title: 'Publishing order.paid without losing it: the transactional outbox' },
-    ],
   },
 ];

@@ -1,32 +1,27 @@
 import { useRef } from 'react';
 import type { Card, Unit } from '../content/types.ts';
-import { currentStreak, dayStats, isProgress, type Progress } from '../progress/model.ts';
-import type { TodayPlan } from '../session/build-session.ts';
-import type { DayKey } from '../srs/day.ts';
+import { countHandled, isHandled, isProgress, type Progress } from '../play/progress.ts';
 import { Button } from '../ui/Button.tsx';
 import { Text } from '../ui/Text.tsx';
 
-type CardStatus = 'new' | 'due' | 'learning' | 'known';
+type TopicStatus = 'new' | 'learning' | 'handled';
 
-const STATUS_STYLES: Record<CardStatus, { label: string; dot: string }> = {
+const STATUS_STYLES: Record<TopicStatus, { label: string; dot: string }> = {
   new: { label: 'New', dot: 'bg-line' },
-  due: { label: 'Due', dot: 'bg-gold' },
-  learning: { label: 'Learning', dot: 'bg-sky-500' },
-  known: { label: 'Known', dot: 'bg-brand' },
+  learning: { label: 'Learning', dot: 'bg-gold' },
+  handled: { label: 'Handled', dot: 'bg-brand' },
 };
 
-/** A card is "known" once its next review is three weeks or more away. */
-const KNOWN_INTERVAL_DAYS = 21;
-
-function cardStatus(card: Card, progress: Progress, today: DayKey): CardStatus {
-  const state = progress.cards[card.id];
+function topicStatus(card: Card, progress: Progress): TopicStatus {
+  const state = progress.topics[card.id];
   if (!state) {
     return 'new';
   }
-  if (state.dueDay <= today) {
-    return 'due';
-  }
-  return state.intervalDays >= KNOWN_INTERVAL_DAYS ? 'known' : 'learning';
+  return isHandled(state) ? 'handled' : 'learning';
+}
+
+function percent(part: number, total: number): number {
+  return Math.round((part / Math.max(1, total)) * 100);
 }
 
 export function HomeScreen({
@@ -34,112 +29,96 @@ export function HomeScreen({
   cards,
   progress,
   today,
-  plan,
-  onStart,
-  onStartUnit,
+  onPlay,
+  onOpenLesson,
   onImport,
 }: {
   units: Unit[];
   cards: Card[];
   progress: Progress;
-  today: DayKey;
-  plan: TodayPlan;
-  onStart: (practice: boolean) => void;
-  onStartUnit: (unitId: string) => void;
+  /** The current day as `YYYY-MM-DD`, used to name the backup file. */
+  today: string;
+  /** Starts playing on one unit, or on every topic when `unitId` is undefined. */
+  onPlay: (unitId?: string) => void;
+  onOpenLesson: (cardId: string) => void;
   onImport: (progress: Progress) => void;
 }) {
-  const streak = currentStreak(progress, today);
-  const xpToday = dayStats(progress, today).xp;
-  const goal = progress.settings.dailyGoalXp;
-  const hasWork = plan.dueCount + plan.newCount > 0;
-  const startedCards = cards.filter((card) => progress.cards[card.id]).length;
+  const handled = countHandled(cards.map((card) => card.id), progress);
+  const share = percent(handled, cards.length);
+  const answered = Object.values(progress.topics).reduce((sum, topic) => sum + topic.answered, 0);
+  const correct = Object.values(progress.topics).reduce((sum, topic) => sum + topic.correct, 0);
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col gap-6 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
-      <header className="flex items-center justify-between">
+      <header>
         <h1 className="text-xl font-extrabold text-brand">Interview Cards</h1>
-        <div className="flex items-center gap-4 font-bold">
-          <span aria-label={`Streak: ${streak} days`} className={streak > 0 ? 'text-gold' : 'text-muted'}>
-            🔥 {streak}
-          </span>
-          <span aria-label={`${xpToday} XP today`} className="text-sky-500">
-            ⚡ {xpToday}
-          </span>
-        </div>
       </header>
 
       <section className="rounded-3xl border-2 border-line p-5">
-        <div className="mb-1 flex items-baseline justify-between">
-          <h2 className="font-bold">Daily goal</h2>
-          <span className="text-sm text-muted">
-            {Math.min(xpToday, goal)} / {goal} XP
-          </span>
+        <p className="text-sm font-bold uppercase tracking-wider text-muted">Topics you handle</p>
+        <p className="mb-2 text-4xl font-extrabold">
+          {share}
+          <span className="text-2xl">%</span>
+        </p>
+        <div className="mb-2 h-3 overflow-hidden rounded-full bg-surface">
+          <div className="h-full rounded-full bg-brand" style={{ width: `${share}%` }} />
         </div>
-        <div className="mb-5 h-3 overflow-hidden rounded-full bg-surface">
-          <div className="h-full rounded-full bg-gold" style={{ width: `${Math.min(100, (xpToday / goal) * 100)}%` }} />
-        </div>
-        {hasWork ? (
-          <>
-            <p className="mb-3 text-muted">
-              {plan.dueCount} {plan.dueCount === 1 ? 'review' : 'reviews'} · {plan.newCount} new {plan.newCount === 1 ? 'card' : 'cards'}
-            </p>
-            <Button block onClick={() => onStart(false)}>
-              Start today’s session
-            </Button>
-          </>
-        ) : (
-          <>
-            <p className="mb-3 text-muted">All done for today. Come back tomorrow to keep your streak.</p>
-            <Button block variant="secondary" disabled={startedCards === 0} onClick={() => onStart(true)}>
-              Practice anyway
-            </Button>
-          </>
-        )}
+        <p className="mb-4 text-sm text-muted">
+          {handled} of {cards.length} topics · {answered} {answered === 1 ? 'answer' : 'answers'}
+          {answered > 0 ? `, ${percent(correct, answered)}% right` : ''}
+        </p>
+        <Button block onClick={() => onPlay()}>
+          {answered === 0 ? 'Start playing' : 'Keep playing'}
+        </Button>
+        <p className="mt-3 text-center text-xs text-muted">A topic counts once your last 3 answers on it are right.</p>
       </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-extrabold">Units</h2>
-      {units.map((unit) => {
-        const unitCards = cards.filter((card) => card.unit === unit.id);
-        const started = unitCards.filter((card) => progress.cards[card.id]).length;
-        return (
-          <details key={unit.id} className="unit rounded-2xl border-2 border-line">
-            <summary className="flex flex-col gap-2 p-4">
-              <span className="flex items-baseline justify-between gap-3 pr-6">
-                <span className="font-extrabold">{unit.title}</span>
-                <span className="shrink-0 text-sm text-muted">
-                  {started}/{unitCards.length}
+        {units.map((unit) => {
+          const unitCards = cards.filter((card) => card.unit === unit.id);
+          const unitHandled = countHandled(unitCards.map((card) => card.id), progress);
+          const unitShare = percent(unitHandled, unitCards.length);
+          return (
+            <details key={unit.id} className="unit rounded-2xl border-2 border-line">
+              <summary className="flex flex-col gap-2 p-4">
+                <span className="flex items-baseline justify-between gap-3 pr-6">
+                  <span className="font-extrabold">{unit.title}</span>
+                  <span className="shrink-0 text-sm text-muted">{unitShare}%</span>
                 </span>
-              </span>
-              <span className="h-2 overflow-hidden rounded-full bg-surface" aria-hidden>
-                <span className="block h-full rounded-full bg-brand" style={{ width: `${(started / Math.max(1, unitCards.length)) * 100}%` }} />
-              </span>
-              <span className="text-sm text-muted">
-                <Text>{unit.description}</Text>
-              </span>
-            </summary>
-            <div className="px-3 pb-3">
-              <Button block variant="secondary" onClick={() => onStartUnit(unit.id)}>
-                Practice this unit
-              </Button>
-            </div>
-            <ul className="flex flex-col gap-2 px-3 pb-3">
-              {unitCards.map((card) => {
-                const status = STATUS_STYLES[cardStatus(card, progress, today)];
-                return (
-                  <li key={card.id} className="flex items-start gap-3 rounded-2xl bg-surface px-4 py-3">
-                    <span className={`mt-2 size-2.5 shrink-0 rounded-full ${status.dot}`} aria-hidden />
-                    <span className="flex-1 text-[0.95rem]">
-                      <Text>{card.question}</Text>
-                    </span>
-                    <span className="shrink-0 text-xs font-bold uppercase text-muted">{status.label}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          </details>
-        );
-      })}
+                <span className="h-2 overflow-hidden rounded-full bg-surface" aria-hidden>
+                  <span className="block h-full rounded-full bg-brand" style={{ width: `${unitShare}%` }} />
+                </span>
+                <span className="text-sm text-muted">
+                  <Text>{unit.description}</Text>
+                </span>
+              </summary>
+              <div className="px-3 pb-3">
+                <Button block variant="secondary" onClick={() => onPlay(unit.id)}>
+                  Play this unit
+                </Button>
+              </div>
+              <ul className="flex flex-col gap-2 px-3 pb-3">
+                {unitCards.map((card) => {
+                  const status = STATUS_STYLES[topicStatus(card, progress)];
+                  return (
+                    <li key={card.id}>
+                      <button
+                        type="button"
+                        onClick={() => onOpenLesson(card.id)}
+                        className="flex w-full items-center gap-3 rounded-2xl bg-surface px-4 py-3 text-left"
+                      >
+                        <span className={`size-2.5 shrink-0 rounded-full ${status.dot}`} aria-hidden />
+                        <span className="flex-1 text-[0.95rem] font-semibold">{card.topic ?? card.question}</span>
+                        <span className="shrink-0 text-xs font-bold uppercase text-muted">{status.label}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </details>
+          );
+        })}
       </section>
 
       <BackupSection progress={progress} today={today} onImport={onImport} />
@@ -148,7 +127,7 @@ export function HomeScreen({
 }
 
 /** Progress lives on this device only; the backup file is how it survives a reset or a new phone. */
-function BackupSection({ progress, today, onImport }: { progress: Progress; today: DayKey; onImport: (progress: Progress) => void }) {
+function BackupSection({ progress, today, onImport }: { progress: Progress; today: string; onImport: (progress: Progress) => void }) {
   const fileInput = useRef<HTMLInputElement>(null);
 
   function exportProgress() {

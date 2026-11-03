@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App, type ProgressStore } from './App.tsx';
-import { loadProgress, requestPersistentStorage, saveProgress } from './progress/storage.ts';
+import { loadProgress, requestPersistentStorage, saveProgress } from './play/storage.ts';
 import './styles.css';
 
 const store: ProgressStore = { load: loadProgress, save: saveProgress };

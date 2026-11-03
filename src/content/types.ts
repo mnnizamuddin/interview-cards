@@ -21,17 +21,23 @@ export type Trap = {
   why: string;
 };
 
-/** Where the full lesson lives in the Senior Full-Stack Track. */
-export type LessonRef = {
-  module: string;
-  section: string;
-  title: string;
+/**
+ * The bite-sized lesson shown before a topic's first question and after a miss: what you need
+ * to know to answer, in a few short points, with an optional short code example.
+ */
+export type Lesson = {
+  points: string[];
+  code?: string;
+  codeLang?: 'js' | 'ts' | 'tsx' | 'sql' | 'css' | 'html' | 'bash' | 'http';
 };
 
 /** One interview question, with everything needed to rehearse and check the answer. */
 export type Card = {
   id: string;
   unit: string;
+  /** The topic's short name, as listed on the home screen: "Closures", "CORS". */
+  topic: string;
+  lesson: Lesson;
   level: Level;
   paths: Path[];
   question: string;
@@ -48,7 +54,6 @@ export type Card = {
   traps: Trap[];
   /** Track sections whose quiz questions become quick checks, as `m23#scope`. May be empty. */
   mcqSections: string[];
-  lessons: LessonRef[];
   /**
    * The public question lists this card answers, as `list#number`, for example
    * `fullstack-100#16` for question 16 of Mocklingo's full-stack list. Only the question is shared:

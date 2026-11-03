@@ -1,13 +1,10 @@
 import { useEffect, useState } from 'react';
-import { CARDS, MCQS_BY_CARD, UNITS } from './content/index.ts';
-import type { ExerciseResult } from './exercises/types.ts';
-import { addXp, currentStreak, recordCardReview, recordSessionDone, type Progress } from './progress/model.ts';
-import { DoneScreen } from './screens/DoneScreen.tsx';
+import { CARDS, CARDS_BY_ID, UNITS } from './content/index.ts';
+import { toDayKey } from './play/day.ts';
+import type { Progress } from './play/progress.ts';
 import { HomeScreen } from './screens/HomeScreen.tsx';
-import { SessionScreen, type SessionSummary } from './screens/SessionScreen.tsx';
-import { buildSession, planToday, type Exercise } from './session/build-session.ts';
-import type { Step } from './session/queue.ts';
-import { toDayKey } from './srs/day.ts';
+import { PlayScreen } from './screens/PlayScreen.tsx';
+import { LessonView } from './ui/LessonView.tsx';
 
 /** Where progress is kept. The browser uses IndexedDB; tests pass an in-memory store. */
 export type ProgressStore = {
@@ -15,15 +12,15 @@ export type ProgressStore = {
   save: (progress: Progress) => Promise<void>;
 };
 
-type Screen = { name: 'home' } | { name: 'session'; exercises: Exercise[] } | { name: 'done'; summary: SessionSummary };
+type Screen = { name: 'home' } | { name: 'play'; unitId?: string } | { name: 'lesson'; cardId: string };
 
 /**
- * @param now The clock, injected so tests can freeze the date.
+ * @param now The clock, used only to name backup files; injected so tests can freeze it.
+ * @param random The random source for the occasional check on a handled topic; injected for tests.
  */
-export function App({ store, now }: { store: ProgressStore; now: () => Date }) {
+export function App({ store, now, random }: { store: ProgressStore; now: () => Date; random?: () => number }) {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [screen, setScreen] = useState<Screen>({ name: 'home' });
-  const today = toDayKey(now());
 
   useEffect(() => {
     let cancelled = false;
@@ -47,50 +44,31 @@ export function App({ store, now }: { store: ProgressStore; now: () => Date }) {
     return <p className="p-8 text-center text-muted">Loading…</p>;
   }
 
-  function startSession(practice: boolean) {
-    const exercises = buildSession(CARDS, MCQS_BY_CARD, progress!, today, { practice });
-    if (exercises.length > 0) {
-      setScreen({ name: 'session', exercises });
-    }
-  }
+  const goHome = () => setScreen({ name: 'home' });
 
-  /**
-   * A session on one unit only: its due cards, then its new cards even past the daily limit, since
-   * the learner chose the unit; once all are seen, the ones that come due soonest.
-   */
-  function startUnitSession(unitId: string) {
-    const unitCards = CARDS.filter((card) => card.unit === unitId);
-    const exercises = buildSession(unitCards, MCQS_BY_CARD, progress!, today, { practice: true, ignoreNewLimit: true });
-    if (exercises.length > 0) {
-      setScreen({ name: 'session', exercises });
-    }
-  }
-
-  function recordResult(step: Step, result: ExerciseResult) {
-    setProgress((previous) => {
-      const reviewed = result.rating ? recordCardReview(previous!, step.cardId, result.rating, today) : previous!;
-      return addXp(reviewed, result.xp, today);
-    });
-  }
-
-  function finishSession(summary: SessionSummary) {
-    setProgress((previous) => recordSessionDone(previous!, today));
-    setScreen({ name: 'done', summary });
-  }
-
-  if (screen.name === 'session') {
+  if (screen.name === 'play') {
+    const unit = UNITS.find((candidate) => candidate.id === screen.unitId);
     return (
-      <SessionScreen
-        exercises={screen.exercises}
-        onResult={recordResult}
-        onFinish={finishSession}
-        onQuit={() => setScreen({ name: 'home' })}
+      <PlayScreen
+        cards={unit ? CARDS.filter((card) => card.unit === unit.id) : CARDS}
+        title={unit ? unit.title : 'All topics'}
+        progress={progress}
+        onProgress={setProgress}
+        onStop={goHome}
+        random={random}
       />
     );
   }
 
-  if (screen.name === 'done') {
-    return <DoneScreen summary={screen.summary} streak={currentStreak(progress, today)} onContinue={() => setScreen({ name: 'home' })} />;
+  if (screen.name === 'lesson') {
+    const card = CARDS_BY_ID.get(screen.cardId);
+    if (card) {
+      return (
+        <div className="mx-auto flex min-h-dvh max-w-xl flex-col px-4 pt-[max(1rem,env(safe-area-inset-top))]">
+          <LessonView card={card} unitTitle={UNITS.find((unit) => unit.id === card.unit)?.title ?? ''} actionLabel="Close" onDone={goHome} />
+        </div>
+      );
+    }
   }
 
   return (
@@ -98,10 +76,9 @@ export function App({ store, now }: { store: ProgressStore; now: () => Date }) {
       units={UNITS}
       cards={CARDS}
       progress={progress}
-      today={today}
-      plan={planToday(CARDS, progress, today)}
-      onStart={startSession}
-      onStartUnit={startUnitSession}
+      today={toDayKey(now())}
+      onPlay={(unitId) => setScreen({ name: 'play', unitId })}
+      onOpenLesson={(cardId) => setScreen({ name: 'lesson', cardId })}
       onImport={setProgress}
     />
   );

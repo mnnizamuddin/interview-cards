@@ -10,6 +10,7 @@ export const deliveryCards: Card[] = [
   {
     id: 'ops-test-levels',
     unit: 'delivery',
+    topic: 'Unit, integration and E2E tests',
     level: 'mid',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'What is the difference between unit, integration and end-to-end tests, and what mix would you aim for?',
@@ -52,16 +53,22 @@ export const deliveryCards: Card[] = [
         why: 'Kent C. Dodds\' trophy puts static analysis at the base and integration tests as the widest part, with few E2E tests.',
       },
     ],
+    lesson: {
+      points: [
+        'A unit test runs one function in memory, with no network, database or real clock. It is fast and precise, and ideal for pure rules such as a discount or a shipping fee.',
+        'An integration test runs your code with its real neighbours, for example an HTTP route against a real PostgreSQL, so it catches wrong SQL, validation and error mapping.',
+        'An end-to-end (E2E) test drives the deployed system from outside, like a user, for example with Playwright in a browser. It catches wiring and configuration, but it is slow and easily flaky.',
+        'A mock replaces a dependency with a fake, so the mocked code never runs: a test with a mocked repository cannot catch a bug in that repository\'s SQL.',
+        'Kent C. Dodds\' testing trophy puts static analysis at the base and integration tests as the widest layer. A contract test, with Pact for example, checks that two separately deployed services still agree.',
+      ],
+    },
     mcqSections: ['m14#strategy', 'm35#levels'],
     fromLists: ['fullstack-100#71'],
-    lessons: [
-      { module: 'M14', section: 'strategy', title: 'What to test at each level' },
-      { module: 'M35', section: 'levels', title: 'What to test in a React app' },
-    ],
   },
   {
     id: 'ops-ci-cd',
     unit: 'delivery',
+    topic: 'CI/CD pipelines',
     level: 'mid',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'What is CI/CD, and how would you set up a basic pipeline for a full-stack app?',
@@ -104,16 +111,22 @@ export const deliveryCards: Card[] = [
         why: 'That is continuous deployment; continuous delivery keeps every change releasable and may keep a manual approval.',
       },
     ],
+    lesson: {
+      points: [
+        'Continuous integration (CI) runs the checks on every change. Continuous delivery keeps each passing change releasable, possibly behind a manual approval; continuous deployment ships it with no human step.',
+        'In GitHub Actions, a workflow is a YAML file in `.github/workflows`, triggered by events such as `pull_request` or `push`. Its jobs run in parallel unless `needs` makes one wait for others.',
+        'A job can start a PostgreSQL service container for integration tests. A deploy job can target an environment whose protection rules require a reviewer\'s approval.',
+        'Build one image per commit, tagged with the commit, and promote that same image from staging to production. Rebuilding per environment ships bytes that were never tested.',
+        'Keep it safe: minimal `permissions` for the `GITHUB_TOKEN`, third-party actions pinned to a full commit SHA, and OIDC to get short-lived cloud credentials instead of stored keys.',
+      ],
+    },
     mcqSections: ['m17#ci', 'm17#deploy'],
     fromLists: ['fullstack-100#72'],
-    lessons: [
-      { module: 'M17', section: 'ci', title: 'Continuous integration in GitHub Actions' },
-      { module: 'M17', section: 'deploy', title: 'Deploying, approving and rolling back' },
-    ],
   },
   {
     id: 'ops-docker',
     unit: 'delivery',
+    topic: 'Docker and containers',
     level: 'junior',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'What is Docker, and why use it in a full-stack workflow?',
@@ -156,16 +169,22 @@ export const deliveryCards: Card[] = [
         why: 'Docker reuses cached layers only while their inputs and every earlier layer are unchanged.',
       },
     ],
+    lesson: {
+      points: [
+        'An image is a read-only package of an application with its runtime and dependencies. A container is an isolated process started from an image.',
+        'Containers share the host\'s kernel, while a virtual machine boots its own, so a container starts in seconds and uses less memory.',
+        'A Dockerfile builds the image in layers, one per instruction, cached between builds. When a layer changes, every layer after it is rebuilt, so copy the package manifests and install before copying the source.',
+        'A multi-stage build has several `FROM` stages: one compiles with the dev dependencies, the last copies only the built files. The runtime image stays small and should run as a non-root user.',
+        'Docker Compose starts several containers from one file, such as PostgreSQL and the API with `docker compose up`. Never bake secrets or the `.env` file into an image.',
+      ],
+    },
     mcqSections: ['m17#dockerfile', 'm17#image'],
     fromLists: ['fullstack-100#73'],
-    lessons: [
-      { module: 'M17', section: 'dockerfile', title: 'A production Dockerfile' },
-      { module: 'M17', section: 'image', title: 'Building, tagging and scanning the image' },
-    ],
   },
   {
     id: 'ops-test-async-api',
     unit: 'delivery',
+    topic: 'Testing async code and API calls',
     level: 'mid',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'How do you write a good unit test for an async function that calls an external API?',
@@ -208,17 +227,31 @@ export const deliveryCards: Card[] = [
         why: 'An async function returns a rejected promise instead of throwing; use `await expect(fetchQuote()).rejects.toThrow()`.',
       },
     ],
+    lesson: {
+      points: [
+        'A test must never call the real partner API: it would be slow, flaky, and could charge a card. Replace the boundary, the HTTP client, rather than your own code.',
+        'Either inject the client and pass a stub, or keep the real `fetch` and intercept requests with MSW (Mock Service Worker), so URL building and JSON parsing still run. Unhandled requests should fail.',
+        'An async function never throws synchronously: it returns a rejected promise. Assert with `await expect(call()).rejects.toThrow()`; without `await`, the test ends before the check runs.',
+        'An `expect` placed only inside a `catch` passes when nothing throws. `expect.assertions(1)` makes the test fail if no assertion ran.',
+        'Fake timers (`vi.useFakeTimers()`) replace `setTimeout`. `await vi.advanceTimersByTimeAsync(1000)` moves time forward and lets pending promises settle, so a retry test runs in milliseconds.',
+      ],
+      code: `vi.useFakeTimers();
+const client = { get: vi.fn()
+  .mockRejectedValueOnce(new HttpError(503))
+  .mockResolvedValueOnce({ price: 490 }) };
+const quote = getQuote(client, 'ord_981'); // retries after 1 s
+await vi.advanceTimersByTimeAsync(1000);
+await expect(quote).resolves.toEqual({ price: 490 });
+expect(client.get).toHaveBeenCalledTimes(2);`,
+      codeLang: 'ts',
+    },
     mcqSections: ['m14#payments', 'm14#async', 'm35#timers'],
     fromLists: ['fullstack-100#74'],
-    lessons: [
-      { module: 'M14', section: 'payments', title: 'Test doubles, and the payments service with MSW' },
-      { module: 'M14', section: 'async', title: 'Async assertions that can fail' },
-      { module: 'M35', section: 'timers', title: 'The debounced autocomplete with fake timers' },
-    ],
   },
   {
     id: 'ops-iac',
     unit: 'delivery',
+    topic: 'Infrastructure as code',
     level: 'mid',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'What is infrastructure as code, and what does it give you?',
@@ -261,16 +294,26 @@ export const deliveryCards: Card[] = [
         why: 'A plan only computes and shows the changes; `apply` carries them out.',
       },
     ],
+    lesson: {
+      points: [
+        'Infrastructure as code (IaC) describes servers, databases, queues and permissions in files kept in git, so every change is reviewed, versioned and repeatable.',
+        'Terraform and OpenTofu, its open-source fork, read HCL files. Providers are plugins that call each cloud\'s API, and the state file maps each block to the real resource it manages.',
+        '`terraform plan` compares the code with the state and the real resources and lists creates, updates and deletes without changing anything. `apply` carries them out; apply the saved plan that was reviewed.',
+        'The state holds every attribute in plain text, secrets included. Keep it in a remote backend with locking, versioning and restricted access, never on a laptop or in git.',
+        'Drift is when reality no longer matches the code, often after a fix by hand in the console; the next plan shows it. `prevent_destroy` makes Terraform reject a plan that would destroy a database.',
+      ],
+      code: `terraform plan -out=tfplan   # computes, changes nothing
+terraform show tfplan         # what reviewers read
+terraform apply tfplan        # applies exactly that plan`,
+      codeLang: 'bash',
+    },
     mcqSections: ['m17#terraform', 'm17#tf-safety'],
     fromLists: ['fullstack-100#75'],
-    lessons: [
-      { module: 'M17', section: 'terraform', title: 'Describing it all in Terraform' },
-      { module: 'M17', section: 'tf-safety', title: 'Plans that cannot destroy the database' },
-    ],
   },
   {
     id: 'ops-debug-production',
     unit: 'delivery',
+    topic: 'Debugging production-only bugs',
     level: 'senior',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'How do you debug a bug that only happens in production?',
@@ -313,16 +356,22 @@ export const deliveryCards: Card[] = [
         why: 'Even alone it lets you filter every log line of one request across services.',
       },
     ],
+    lesson: {
+      points: [
+        'Mitigate before you investigate: if a recent deploy or flag is the likely cause, roll back or switch the flag off. The evidence stays in the logs, traces and metrics.',
+        'A trace follows one request across services. With the trace id in every log line, you can filter all the logs of a failing request, next to error-tracker events and metrics split by version.',
+        'Ask what differs from staging: the shape and volume of real data, real concurrency, configuration, third parties and browsers. Production-only bugs usually live in one of these.',
+        'Test one hypothesis at a time, by reproducing with production-like data or adding targeted logging behind a flag. Never copy personal data into logs or onto laptops.',
+        'Close the loop with a regression test, an alert that would have caught it and a blameless post-mortem. For a Node memory leak, compare two heap snapshots taken minutes apart.',
+      ],
+    },
     mcqSections: ['m15#traces', 'm15#logs'],
     fromLists: ['fullstack-100#76'],
-    lessons: [
-      { module: 'M15', section: 'traces', title: 'Following one checkout across the payment call' },
-      { module: 'M15', section: 'logs', title: 'Logs that point to their trace' },
-    ],
   },
   {
     id: 'ops-feature-flags',
     unit: 'delivery',
+    topic: 'Feature flags',
     level: 'mid',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'What is a feature flag, and how do you use one when deploying?',
@@ -365,13 +414,30 @@ export const deliveryCards: Card[] = [
         why: 'The default should be the old, safe behaviour, because it is what runs whenever evaluation fails.',
       },
     ],
+    lesson: {
+      points: [
+        'A feature flag is a switch read at runtime that decides which code path runs, so deploying the code and releasing the feature become two separate steps.',
+        'Roll out gradually: internal users, then a percentage or a segment of customers, while watching the metrics. Turning the flag off is a rollback in seconds, with no deploy.',
+        'Evaluate the flag with a targeting key such as the customer id, so a percentage rollout gives the same customer the same answer every time.',
+        'The default value is returned whenever evaluation fails, so it must be the old, safe behaviour. A flag only switches code paths: it cannot undo a database migration.',
+        'Remove a flag once the feature is fully released, since old flags become untested code paths. OpenFeature is a CNCF standard API with providers for flagd, LaunchDarkly or Unleash.',
+      ],
+      code: `import { OpenFeature } from '@openfeature/server-sdk';
+
+const flags = OpenFeature.getClient('orders-api');
+
+// false (the old flow) whenever evaluation fails
+const useNewFlow = await flags.getBooleanValue(
+  'new-payment-flow', false, { targetingKey: customerId });`,
+      codeLang: 'ts',
+    },
     mcqSections: ['m15#deploys'],
     fromLists: ['fullstack-100#77'],
-    lessons: [{ module: 'M15', section: 'deploys', title: 'Shipping the fix safely: rollouts, flags, rollback' }],
   },
   {
     id: 'ops-blue-green-canary',
     unit: 'delivery',
+    topic: 'Blue-green and canary deployments',
     level: 'mid',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'What is the difference between blue-green and canary deployments?',
@@ -395,7 +461,7 @@ export const deliveryCards: Card[] = [
     followUps: [
       {
         question: 'What does Kubernetes do by default when you update a Deployment?',
-        answer: 'A rolling update: it replaces pods a few at a time, waiting for new pods to be ready. It needs no extra capacity, but rolling back is another rollout.',
+        answer: 'A rolling update: it replaces pods a few at a time, waiting for new pods to be ready. It needs little extra capacity, at most 25% more pods by default (`maxSurge`), but rolling back is another rollout.',
       },
       {
         question: 'How do you change a column during a canary?',
@@ -414,16 +480,22 @@ export const deliveryCards: Card[] = [
         why: 'Switching traffic changes which code runs, not the schema; a dropped column stays dropped.',
       },
     ],
+    lesson: {
+      points: [
+        'Blue-green runs a full copy of the new version (green) next to the live one (blue), then switches all traffic at once. Switching back is just as fast, but you pay for double capacity.',
+        'A canary sends a small, growing share of traffic to the new version, such as 1%, then 10%, then 50%, compares its error rate and latency with the stable version, and stops if they degrade.',
+        'Kubernetes updates a Deployment with a rolling update by default: pods are replaced a few at a time, with at most 25% extra and 25% unavailable by default. Rolling back is another rollout.',
+        'In every strategy, old and new code share one database, so schema changes must work with both. Expand and contract: add the new column, write both, backfill, switch reads, then drop the old one.',
+        'Switching traffic changes which code runs, never the schema: a dropped column stays dropped. Tools such as Argo Rollouts automate canary steps and their analysis.',
+      ],
+    },
     mcqSections: ['m15#deploys', 'm17#deploy'],
     fromLists: ['fullstack-100#78'],
-    lessons: [
-      { module: 'M15', section: 'deploys', title: 'Shipping the fix safely: rollouts, flags, rollback' },
-      { module: 'M17', section: 'deploy', title: 'Deploying, approving and rolling back' },
-    ],
   },
   {
     id: 'ops-code-review',
     unit: 'delivery',
+    topic: 'Giving and receiving code review',
     level: 'mid',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'How do you write useful code review comments, and how do you receive review feedback?',
@@ -466,13 +538,22 @@ export const deliveryCards: Card[] = [
         why: 'Reviews aim at continuous improvement; perfectionism slows the team, so polish is marked as non-blocking.',
       },
     ],
+    lesson: {
+      points: [
+        'Review by risk: security and data integrity first, then failure handling and concurrency, then design. Leave formatting and style to the linter and formatter.',
+        'A useful comment says what breaks, shows the evidence, such as an input or a race that triggers it, and proposes a fix. When you are unsure, ask a question instead of asserting.',
+        'Label the intent. Conventional Comments starts each comment with a label such as `issue`, `suggestion`, `question`, `nitpick` or `praise`, plus decorations like "(blocking)" or "(non-blocking)".',
+        'Google\'s review guide says to approve once a change clearly improves code health, even if it is not perfect, and to prefix polish with "Nit:". Small, single-purpose pull requests get better reviews.',
+        'When receiving, assume good intent and answer every comment by fixing or explaining. Move a long thread to a call, then write the outcome back in the thread.',
+      ],
+    },
     mcqSections: ['m22#code-review'],
     fromLists: ['fullstack-100#79'],
-    lessons: [{ module: 'M22', section: 'code-review', title: 'The code review round: what breaks production first' }],
   },
   {
     id: 'ops-full-stack-performance',
     unit: 'delivery',
+    topic: 'Full-stack performance',
     level: 'senior',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'How would you improve a full-stack application\'s performance, from page load to backend response time?',
@@ -515,11 +596,26 @@ export const deliveryCards: Card[] = [
         why: 'Lighthouse simulates one load on one device; real users have slower phones and networks, and INP needs real interactions.',
       },
     ],
+    lesson: {
+      points: [
+        'Measure first. Pages: Core Web Vitals from real users, judged at the 75th percentile. API: traces and latency percentiles such as p95. Lighthouse, a lab tool, simulates one load and misses real devices.',
+        'The Core Web Vitals are good at: LCP (Largest Contentful Paint, main content shown) 2.5 s or less, INP (Interaction to Next Paint, reaction to input) 200 ms or less, CLS (layout shift) 0.1 or less.',
+        'Page fixes: cache assets and pages at a CDN, load the LCP image early with high priority instead of lazily, ship less JavaScript, reserve space for media, and split long tasks for INP.',
+        'API fixes found in traces: remove N+1 queries, add the missing index, run independent calls in parallel with `Promise.all`, and cache hot reads once you know why they are slow.',
+        'Change one thing at a time and compare before and after. Averages hide the slow tail that users feel, so watch percentiles, and set budgets in CI to stop regressions.',
+      ],
+      code: `// before: one call after the other, 450 ms + 450 ms
+// const stock = await getStock(productId);
+// const reviews = await getReviews(productId);
+
+// after: both in flight at once, about 450 ms
+const [stock, reviews] = await Promise.all([
+  getStock(productId),
+  getReviews(productId),
+]);`,
+      codeLang: 'ts',
+    },
     mcqSections: ['m26#vitals', 'm26#senior'],
     fromLists: ['fullstack-100#80'],
-    lessons: [
-      { module: 'M26', section: 'vitals', title: 'Three numbers for one page view' },
-      { module: 'M26', section: 'senior', title: 'The senior take' },
-    ],
   },
 ];

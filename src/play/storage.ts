@@ -1,4 +1,4 @@
-import { emptyProgress, isProgress, type Progress } from './model.ts';
+import { emptyProgress, isProgress, type Progress } from './progress.ts';
 
 /**
  * Keeps the progress document in IndexedDB, on this device only. One object store, one key:
