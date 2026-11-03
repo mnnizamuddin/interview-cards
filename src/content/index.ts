@@ -1,8 +1,8 @@
-import { asyncCards } from './cards/async.ts';
-import { javascriptCards } from './cards/javascript.ts';
+import { ALL_CARDS } from './cards/index.ts';
 import mcqData from './mcq.generated.json';
 import type { Card, Mcq, Unit } from './types.ts';
 
+/** Units in the order the home screen lists them. */
 export const UNITS: Unit[] = [
   {
     id: 'js-core',
@@ -14,10 +14,55 @@ export const UNITS: Unit[] = [
     title: 'Async JavaScript',
     description: 'The event loop, promises, `await`, cancellation, debounce and long tasks.',
   },
+  {
+    id: 'web-platform',
+    title: 'HTML, CSS and the browser',
+    description: 'Layout, rendering, storage, accessibility and how pages are rendered.',
+  },
+  {
+    id: 'react',
+    title: 'React and state',
+    description: 'Rendering, hooks, forms, memoization, lists and testing components.',
+  },
+  {
+    id: 'backend-api',
+    title: 'Backend and API design',
+    description: 'REST and GraphQL, HTTP, middleware, auth, CORS, rate limits and long-running jobs.',
+  },
+  {
+    id: 'databases',
+    title: 'Databases',
+    description: 'SQL and NoSQL, indexes, transactions, pooling, sharding and schema design.',
+  },
+  {
+    id: 'system-design',
+    title: 'System design',
+    description: 'Designing services end to end: scaling, caching, real-time, uploads and checkout.',
+  },
+  {
+    id: 'delivery',
+    title: 'Testing, DevOps and delivery',
+    description: 'Tests, CI/CD, Docker, infrastructure as code, feature flags and deployments.',
+  },
+  {
+    id: 'security',
+    title: 'Security',
+    description: 'XSS, SQL injection, CSRF, secrets, HTTPS and a pre-launch security review.',
+  },
+  {
+    id: 'behavioural',
+    title: 'Behavioural and scenarios',
+    description: 'Stories about your work, told with a clear structure and real trade-offs.',
+  },
+  {
+    id: 'trends',
+    title: 'Industry trends',
+    description: 'AI assistants, edge functions, meta-frameworks, Web Components and Web Vitals.',
+  },
 ];
 
 /** Every card, in learning order: new cards are introduced in this order. */
-export const CARDS: Card[] = [...javascriptCards, ...asyncCards];
+export const CARDS: Card[] = ALL_CARDS;
 
 export const MCQS: Mcq[] = mcqData as Mcq[];
 

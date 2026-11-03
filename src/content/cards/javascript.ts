@@ -56,6 +56,7 @@ export const javascriptCards: Card[] = [
       },
     ],
     mcqSections: ['m23#scope'],
+    fromLists: ['fullstack-100#17'],
     lessons: [{ module: 'M23', section: 'scope', title: 'Scope, hoisting and the temporal dead zone' }],
   },
   {
@@ -104,6 +105,7 @@ export const javascriptCards: Card[] = [
       },
     ],
     mcqSections: ['m23#closures'],
+    fromLists: ['fullstack-100#16'],
     lessons: [{ module: 'M23', section: 'closures', title: 'Closures, and the loop that shares one variable' }],
   },
   {
@@ -152,6 +154,7 @@ export const javascriptCards: Card[] = [
       },
     ],
     mcqSections: ['m23#this'],
+    fromLists: ['fullstack-100#19'],
     lessons: [{ module: 'M23', section: 'this', title: '`this` is decided by the call' }],
   },
   {
@@ -200,6 +203,7 @@ export const javascriptCards: Card[] = [
       },
     ],
     mcqSections: ['m23#classes'],
+    fromLists: ['fullstack-100#24'],
     lessons: [{ module: 'M23', section: 'classes', title: 'Prototypes, classes and private fields' }],
   },
   {
@@ -253,6 +257,7 @@ export const javascriptCards: Card[] = [
       },
     ],
     mcqSections: ['m23#coercion'],
+    fromLists: ['fullstack-100#7', 'fullstack-100#18'],
     lessons: [{ module: 'M23', section: 'coercion', title: 'Coercion and equality' }],
   },
   {
@@ -354,6 +359,7 @@ export const javascriptCards: Card[] = [
       },
     ],
     mcqSections: ['m23#iterators'],
+    fromLists: ['fullstack-100#23'],
     lessons: [{ module: 'M23', section: 'iterators', title: 'Iterators and generators' }],
   },
   {

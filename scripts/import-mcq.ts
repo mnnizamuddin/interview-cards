@@ -9,8 +9,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { runInNewContext } from 'node:vm';
-import { asyncCards } from '../src/content/cards/async.ts';
-import { javascriptCards } from '../src/content/cards/javascript.ts';
+import { ALL_CARDS } from '../src/content/cards/index.ts';
 import type { Mcq } from '../src/content/types.ts';
 
 type TrackQuestion = {
@@ -38,7 +37,7 @@ function loadTrackModule(moduleId: string): { quiz: TrackQuestion[] } {
   return content;
 }
 
-const wanted = new Set([...javascriptCards, ...asyncCards].flatMap((card) => card.mcqSections));
+const wanted = new Set(ALL_CARDS.flatMap((card) => card.mcqSections));
 const moduleIds = [...new Set([...wanted].map((ref) => ref.split('#')[0]!))].toSorted();
 
 const mcqs: Mcq[] = moduleIds.flatMap((moduleId) =>

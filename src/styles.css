@@ -112,6 +112,18 @@ details > summary::after {
   color: var(--muted);
 }
 
+/* Unit rows are flex columns, so their +/− marker is placed in the top-right corner instead. */
+details.unit > summary {
+  position: relative;
+}
+
+details.unit > summary::after {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-weight: 700;
+}
+
 details[open] > summary::after {
   content: '−';
 }

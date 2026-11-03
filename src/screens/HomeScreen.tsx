@@ -95,21 +95,28 @@ export function HomeScreen({
         )}
       </section>
 
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-extrabold">Units</h2>
       {units.map((unit) => {
         const unitCards = cards.filter((card) => card.unit === unit.id);
         const started = unitCards.filter((card) => progress.cards[card.id]).length;
         return (
-          <section key={unit.id}>
-            <div className="mb-2 flex items-baseline justify-between">
-              <h2 className="text-lg font-extrabold">{unit.title}</h2>
-              <span className="text-sm text-muted">
-                {started}/{unitCards.length}
+          <details key={unit.id} className="unit rounded-2xl border-2 border-line">
+            <summary className="flex flex-col gap-2 p-4">
+              <span className="flex items-baseline justify-between gap-3 pr-6">
+                <span className="font-extrabold">{unit.title}</span>
+                <span className="shrink-0 text-sm text-muted">
+                  {started}/{unitCards.length}
+                </span>
               </span>
-            </div>
-            <p className="mb-3 text-sm text-muted">
-              <Text>{unit.description}</Text>
-            </p>
-            <ul className="flex flex-col gap-2">
+              <span className="h-2 overflow-hidden rounded-full bg-surface" aria-hidden>
+                <span className="block h-full rounded-full bg-brand" style={{ width: `${(started / Math.max(1, unitCards.length)) * 100}%` }} />
+              </span>
+              <span className="text-sm text-muted">
+                <Text>{unit.description}</Text>
+              </span>
+            </summary>
+            <ul className="flex flex-col gap-2 px-3 pb-3">
               {unitCards.map((card) => {
                 const status = STATUS_STYLES[cardStatus(card, progress, today)];
                 return (
@@ -123,9 +130,10 @@ export function HomeScreen({
                 );
               })}
             </ul>
-          </section>
+          </details>
         );
       })}
+      </section>
 
       <BackupSection progress={progress} today={today} onImport={onImport} />
     </div>

@@ -46,9 +46,15 @@ export type Card = {
   mistakes: string[];
   followUps: FollowUp[];
   traps: Trap[];
-  /** Track sections whose quiz questions become "what does this print" checks, as `m23#scope`. */
+  /** Track sections whose quiz questions become quick checks, as `m23#scope`. May be empty. */
   mcqSections: string[];
   lessons: LessonRef[];
+  /**
+   * The public question lists this card answers, as `list#number`, for example
+   * `fullstack-100#16` for question 16 of Mocklingo's full-stack list. Only the question is shared:
+   * every answer is our own.
+   */
+  fromLists?: string[];
 };
 
 export type Unit = {

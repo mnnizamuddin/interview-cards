@@ -1,0 +1,529 @@
+import type { Card } from '../types.ts';
+
+/**
+ * Unit "React". Examples follow the track's running example: the shop's storefront (Next.js),
+ * its back office (React + Vite) and the Orders API. Lessons are in track modules M29 to M35.
+ */
+export const reactCards: Card[] = [
+  {
+    id: 'react-virtual-dom',
+    unit: 'react',
+    level: 'mid',
+    paths: ['react', 'frontend', 'fullstack'],
+    question: 'What is the virtual DOM, and how does it compare with updating the DOM directly?',
+    answer:
+      'The virtual DOM is the tree of plain JavaScript objects that my components return: React elements describing what the UI should look like. When state changes, React renders the affected components again, compares the new tree with the previous one, and in the commit phase applies only the differences to the real DOM. It is not faster than a well-targeted direct update; its value is that I describe the result for any state and React works out the minimal changes. The cost is re-rendering work, which I keep small with good state placement and keys.',
+    keyPoints: [
+      'A tree of plain objects describing the UI, returned by components',
+      'React diffs the new tree with the old one: reconciliation',
+      'Only the differences are applied to the real DOM, in the commit',
+      'Not faster than targeted DOM updates: the gain is declarative code',
+    ],
+    explanation:
+      'Interviewers check whether you repeat the "virtual DOM is fast" myth or understand render versus commit. A senior answer says what the diff costs, why keys and element types steer it, and that frameworks like Svelte or Solid skip the diff by compiling to direct updates.',
+    example:
+      'In the back office, a live update for one order re-rendered the whole 200-row orders table, yet the React DevTools highlight showed the DOM changed in a single cell: the diff did its job. The cost was in rendering, not in the DOM, so the team moved the live status into the row component and the render time per update dropped from about 40 ms to under 5 ms.',
+    mistakes: [
+      'Saying the virtual DOM is always faster than the DOM: a direct, targeted update does less work',
+      'Thinking re-rendering a component means rewriting its DOM: unchanged output is not touched',
+      'Ignoring that a different element type or key at the same position throws the subtree away',
+    ],
+    followUps: [
+      {
+        question: 'What is the difference between the render phase and the commit phase?',
+        answer: 'Render calls your components to compute the new tree and must be pure, with no side effects. Commit applies the changes to the DOM, then React runs layout effects and, later, effects.',
+      },
+      {
+        question: 'How does React compare two trees without an expensive full diff?',
+        answer: 'It assumes elements of a different type produce different trees and replaces them, and it matches children in lists by `key`. That keeps the comparison roughly linear in the number of elements.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'When a component re-renders, React rewrites all of its DOM nodes.',
+        isTrue: false,
+        why: 'React only commits the differences between the new and previous output; identical nodes are left untouched.',
+      },
+      {
+        statement: 'Rendering a `<div>` where a `<section>` was before discards the state of the components inside it.',
+        isTrue: true,
+        why: 'A different element type at the same position makes React unmount the old subtree and mount a new one.',
+      },
+    ],
+    mcqSections: ['m29#render-commit'],
+    lessons: [{ module: 'M29', section: 'render-commit', title: 'Render, commit, and why render must be pure' }],
+    fromLists: ['fullstack-100#26'],
+  },
+  {
+    id: 'react-state-props',
+    unit: 'react',
+    level: 'junior',
+    paths: ['react', 'frontend', 'fullstack'],
+    question: 'What is the difference between state and props in React?',
+    answer:
+      'Props are the inputs a parent passes to a component; the component reads them and must not change them. State is data a component owns and changes over time with its setter, like `useState`, and changing it makes React render that component again. Both are snapshots for one render. Data flows down through props, and a child asks for a change by calling a callback prop. When two components need the same data, I lift the state to their closest common parent, and I never copy a prop into state unless I want only its initial value.',
+    keyPoints: [
+      'Props come from the parent and are read-only',
+      'State is owned by the component and changed with its setter',
+      'Changing state triggers a new render; both are per-render snapshots',
+      'Shared data is lifted to the closest common parent',
+    ],
+    explanation:
+      'It sounds basic, but interviewers listen for the ownership idea: who can change the data. Seniors mention the classic bug of copying props into state and the rule to compute derived values during render instead of storing them.',
+    example:
+      'The back office\'s order detail copied `order.status` from props into `useState` to show a badge. After a refund, the parent got the new order from the API but the badge still said `paid`, because the state was only initialised once. Reading `order.status` directly from props fixed it and removed an effect that tried to keep the two in sync.',
+    mistakes: [
+      'Mutating a prop object inside a child instead of asking the parent through a callback',
+      'Copying a prop into state and expecting it to follow later changes of the prop',
+      'Storing values that can be computed from props or state, like a filtered list',
+    ],
+    followUps: [
+      {
+        question: 'Why does `console.log(count)` right after `setCount(count + 1)` print the old value?',
+        answer: 'State is a snapshot for the current render: the setter schedules a new render, and only that render sees the new value. Use the functional form `setCount((c) => c + 1)` when the update depends on the previous value.',
+      },
+      {
+        question: 'When is it fine to initialise state from a prop?',
+        answer: 'When the prop is only a starting value, usually named `initialX` or `defaultX`. To reset the state when an identity changes, give the component a `key` instead of syncing with an effect.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'A child component can update its props directly to change what its parent shows.',
+        isTrue: false,
+        why: 'Props are read-only; the child calls a callback the parent passed, and the parent updates its own state.',
+      },
+      {
+        statement: 'A state value read inside an event handler is the value from the render that created that handler.',
+        isTrue: true,
+        why: 'Each render has its own snapshot of state, and the handler closes over it.',
+      },
+    ],
+    mcqSections: ['m29#snapshot', 'm29#derived'],
+    lessons: [
+      { module: 'M29', section: 'snapshot', title: 'State is a snapshot, and updates are batched' },
+      { module: 'M29', section: 'derived', title: 'Compute during render instead of copying into state' },
+    ],
+    fromLists: ['fullstack-100#27'],
+  },
+  {
+    id: 'react-use-effect',
+    unit: 'react',
+    level: 'mid',
+    paths: ['react', 'frontend', 'fullstack'],
+    question: 'Explain `useEffect`: what do its dependency array and its cleanup function do, and when should you not use it?',
+    answer:
+      '`useEffect` synchronises a component with something outside React, like a WebSocket, a timer or a browser API. It runs after the commit; the dependency array lists every reactive value it reads, and React compares them with `Object.is` to decide whether to run it again. Before re-running and on unmount, React calls the cleanup I return, so I close the socket or cancel the request. I do not use an effect to compute data from props or state, which belongs in render, or to react to a click, which belongs in the handler. Data fetching usually goes to a framework or TanStack Query.',
+    keyPoints: [
+      'Synchronises with an external system, runs after the commit',
+      'Dependencies: every reactive value read, compared with `Object.is`',
+      'Cleanup runs before the next run and on unmount',
+      'Not for derived data or event logic: render and handlers do that',
+    ],
+    explanation:
+      'Effects cause most React bugs, so interviewers want to know whether you reach for them by reflex. A senior answer quotes the "You Might Not Need an Effect" rules, explains why Strict Mode runs setup and cleanup twice in development, and handles race conditions in fetching effects.',
+    example:
+      'The back office opened a WebSocket for live order updates in an effect without cleanup. In development, Strict Mode\'s extra setup and cleanup cycle revealed two sockets, and in production agents switching orders piled up connections. Returning `() => socket.close()` and listing `orderId` as a dependency kept exactly one socket per open order.',
+    mistakes: [
+      'Leaving a value out of the dependency array to stop an effect from re-running, which creates stale values',
+      'Using an effect to copy props into state or to filter a list, causing an extra render',
+      'Fetching in an effect without ignoring or aborting the previous request, so an old response wins',
+    ],
+    followUps: [
+      {
+        question: 'Why does my effect run twice in development?',
+        answer: 'Strict Mode mounts, cleans up and mounts the component again to check the cleanup is correct. It does not happen in production; the fix is a proper cleanup, not a guard.',
+      },
+      {
+        question: 'How do you avoid a race condition when an effect fetches?',
+        answer: 'In the cleanup, set an `ignore` flag or call `abort()` on an `AbortController`, so a response for an old `orderId` is not written into state. A data library like TanStack Query handles this for you.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'An effect with an empty dependency array runs once in development under Strict Mode.',
+        isTrue: false,
+        why: 'Strict Mode runs an extra setup and cleanup cycle in development, so setup runs twice.',
+      },
+      {
+        statement: 'The cleanup function runs before the effect runs again with new dependencies.',
+        isTrue: true,
+        why: 'React cleans up with the old values, then runs setup with the new ones.',
+      },
+      {
+        statement: 'Filtering a list from props belongs in a `useEffect` that stores the result in state.',
+        isTrue: false,
+        why: 'Compute it during render; an effect adds a render with stale data and more code.',
+      },
+    ],
+    mcqSections: ['m30#purpose', 'm30#lifecycle', 'm30#races'],
+    lessons: [
+      { module: 'M30', section: 'purpose', title: 'What an effect is for' },
+      { module: 'M30', section: 'lifecycle', title: 'Dependencies and cleanup' },
+      { module: 'M30', section: 'races', title: 'Race conditions when an effect fetches' },
+    ],
+    fromLists: ['fullstack-100#28'],
+  },
+  {
+    id: 'react-controlled-inputs',
+    unit: 'react',
+    level: 'junior',
+    paths: ['react', 'frontend', 'fullstack'],
+    question: 'What is the difference between controlled and uncontrolled form inputs in React?',
+    answer:
+      'An input is controlled when I pass it `value` and update that value in `onChange`: React state is the source of truth, so I can validate or format on every keystroke. It is uncontrolled when the DOM keeps the value: I pass only `defaultValue` and read the result on submit, from `FormData` or a ref. Controlled suits fields that drive other UI, like a live search. Uncontrolled is simpler and renders less, and it fits React 19 form actions, which receive `FormData`. For big forms I use React Hook Form, which is uncontrolled by default.',
+    keyPoints: [
+      'Controlled: `value` plus `onChange`, state is the source of truth',
+      'Uncontrolled: `defaultValue`, the DOM holds the value',
+      'Read uncontrolled values on submit with `FormData` or a ref',
+      'Choose controlled when the value drives other UI on each keystroke',
+    ],
+    explanation:
+      'It tests whether you know who owns the value. Seniors know the "changing an uncontrolled input to be controlled" warning, why `value={undefined}` causes it, and that the same idea applies to designing reusable components.',
+    example:
+      'The back office\'s refund form used `useState(order.refundReason)`, and the API omits `refundReason` until one is set, so the field started uncontrolled and became controlled on the first keystroke, with a console warning. Defaulting to an empty string fixed it. The checkout form in the storefront is uncontrolled: its action reads the address from `FormData`.',
+    mistakes: [
+      'Passing `value` without `onChange`, which gives a field that reverts every keystroke',
+      'Starting `value` as `undefined` or `null`, then switching to a string',
+      'Changing `defaultValue` later and expecting the field to update',
+    ],
+    followUps: [
+      {
+        question: 'How would you build a reusable input component that supports both modes?',
+        answer: 'Like a native input: if the caller passes `value`, use it and call `onValueChange`; if not, keep internal state seeded from `defaultValue`. The mode is chosen once and must not switch.',
+      },
+      {
+        question: 'Why do form libraries like React Hook Form prefer uncontrolled inputs?',
+        answer: 'Typing does not re-render the whole form, because values live in the DOM and are read through refs. Only the fields that need to react subscribe to changes.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'Updating `defaultValue` after the user has typed changes what the field shows.',
+        isTrue: false,
+        why: '`defaultValue` only sets the initial value; after that the DOM owns it.',
+      },
+      {
+        statement: 'An input with `value="7"` and no `onChange` ignores what the user types.',
+        isTrue: true,
+        why: 'React keeps forcing the DOM back to the `value` prop, and React warns that the field is read-only.',
+      },
+    ],
+    mcqSections: ['m29#inputs'],
+    lessons: [{ module: 'M29', section: 'inputs', title: 'Controlled and uncontrolled inputs' }],
+    fromLists: ['fullstack-100#29'],
+  },
+  {
+    id: 'react-state-libraries',
+    unit: 'react',
+    level: 'mid',
+    paths: ['react', 'frontend', 'fullstack'],
+    question: 'When do you use React\'s built-in state (`useState`, `useContext`) and when a state library like Redux or Zustand?',
+    answer:
+      'I first sort state by kind. Data from the API is server state: a cache, so I use TanStack Query, which handles loading, refetching and invalidation. Filters that a link should keep go in the URL. Local UI state stays in `useState`, lifted when siblings share it. Context is for values that rarely change, like the theme or the current user, because every reader re-renders when the value changes. I add Zustand or Redux Toolkit only for client state that many distant components read and update often, because they let components subscribe to a slice. Once server state is in a query cache, that store is usually small.',
+    keyPoints: [
+      'Server state is a cache: TanStack Query, not a global store',
+      'URL for shareable state, `useState` for local UI state',
+      'Context for rarely changing values; every reader re-renders',
+      'A store for shared, often-updated client state, with selectors',
+    ],
+    explanation:
+      'The question checks whether you can choose by need instead of by habit. Interviewers listen for the server state versus client state split, which removed most of what Redux used to hold, and for the re-render cost of Context.',
+    example:
+      'The back office kept every order in a Redux store and refreshed it by hand after a refund, so the list and the detail often disagreed. Moving the orders to TanStack Query with `invalidateQueries` after the refund mutation deleted about 600 lines of reducers; what remained was a small Zustand store for the table\'s column layout.',
+    mistakes: [
+      'Putting API data in Redux or Zustand and rebuilding caching, loading and refetching by hand',
+      'Using one big Context for fast-changing values, so the whole tree re-renders',
+      'Adding a library on day one before any shared client state exists',
+    ],
+    followUps: [
+      {
+        question: 'Why does a Zustand selector avoid re-renders that Context causes?',
+        answer: 'A component subscribed with a selector re-renders only when the selected value changes. A Context reader re-renders whenever the provider value changes, even if it uses only one field.',
+      },
+      {
+        question: 'Where do you keep the filters of the orders table?',
+        answer: 'In the query string, read and written with `useSearchParams`, so a reload, a shared link and the back button keep them. The query key then includes the filters.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'Context is a state management tool that only re-renders components reading the field that changed.',
+        isTrue: false,
+        why: 'Every component that reads the context re-renders when the provider value changes.',
+      },
+      {
+        statement: 'TanStack Query can replace most of a Redux store that only caches API responses.',
+        isTrue: true,
+        why: 'It is a server-state cache with deduplication, refetching and invalidation built in.',
+      },
+    ],
+    mcqSections: ['m32#kinds', 'm32#server-cache', 'm32#stores'],
+    lessons: [
+      { module: 'M32', section: 'kinds', title: 'Five kinds of state, five homes' },
+      { module: 'M32', section: 'server-cache', title: 'Server state is a cache: TanStack Query' },
+      { module: 'M32', section: 'stores', title: 'External stores: Zustand and Redux Toolkit' },
+    ],
+    fromLists: ['fullstack-100#30'],
+  },
+  {
+    id: 'react-keys',
+    unit: 'react',
+    level: 'junior',
+    paths: ['react', 'frontend', 'fullstack'],
+    question: 'What is the `key` prop, and why does it matter when rendering lists?',
+    answer:
+      'A `key` tells React which item in a list is which between renders. React matches old and new children by key, so it can move, insert or remove items and keep each item\'s state and DOM attached to the right data. The key must be stable and unique among siblings, typically the database id like `order.id`. Using the array index breaks as soon as the list is reordered, filtered or prepended: state and input values stay at a position and end up on the wrong item. I also change a key on purpose to reset a component\'s state.',
+    keyPoints: [
+      'Identifies each item between renders so React can match them',
+      'Stable and unique among siblings: use the data id',
+      'Index keys break on reorder, filter or insert: state moves',
+      'Changing a key remounts the component and resets its state',
+    ],
+    explanation:
+      'Interviewers want the mechanism, not "it removes the warning". A good answer explains that state is tied to a position and key, and gives the real bug index keys cause.',
+    example:
+      'In the back office, each order row had a "note" input and used the array index as key. When a live update prepended a new order, every typed note appeared on the row below. Switching to `key={order.id}` kept each note with its order.',
+    mistakes: [
+      'Using the index as key for a list that can be sorted, filtered or prepended',
+      'Generating keys with `Math.random()` or `crypto.randomUUID()` during render, which remounts every item',
+      'Thinking keys must be unique across the whole app: only among siblings',
+    ],
+    followUps: [
+      {
+        question: 'When is the index acceptable as a key?',
+        answer: 'When the list is static: never reordered, filtered or inserted into, and the items have no state. A read-only list of footer links is an example.',
+      },
+      {
+        question: 'How do you reset a form when the user opens another order?',
+        answer: 'Render it with `key={orderId}`: a new key makes React unmount the old form and mount a fresh one, with no effect needed.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'Keys need to be unique only among siblings in the same list.',
+        isTrue: true,
+        why: 'React compares keys within one parent\'s children; two lists can reuse the same keys.',
+      },
+      {
+        statement: 'A key generated with `Math.random()` in render is fine as long as it is unique.',
+        isTrue: false,
+        why: 'It changes on every render, so React remounts every item and loses its state and DOM.',
+      },
+    ],
+    mcqSections: ['m29#keys', 'm29#identity'],
+    lessons: [
+      { module: 'M29', section: 'keys', title: 'Keys in lists' },
+      { module: 'M29', section: 'identity', title: 'Where state lives: position, type and key' },
+    ],
+    fromLists: ['fullstack-100#31'],
+  },
+  {
+    id: 'react-memoization',
+    unit: 'react',
+    level: 'mid',
+    paths: ['react', 'frontend', 'fullstack'],
+    question: 'What is memoization in React, and how do `React.memo`, `useMemo` and `useCallback` differ?',
+    answer:
+      'Memoization means reusing a previous result when the inputs have not changed. `React.memo` wraps a component and skips its render when its props are shallowly equal to last time. `useMemo` caches a computed value and `useCallback` caches a function between renders, mainly so a memoized child or an effect dependency gets the same reference. I measure with the Profiler first. Since React Compiler 1.0, stable since October 2025, the compiler adds this caching at build time, so in new code I keep the hooks only as escape hatches. It does not make a changed input cheap.',
+    keyPoints: [
+      '`memo` skips a render when props are shallowly equal',
+      '`useMemo` caches a value, `useCallback` caches a function',
+      'They matter for referential equality: memoized children, dependencies',
+      'React Compiler memoizes automatically at build time; measure first',
+    ],
+    explanation:
+      'Interviewers check that you know these tools only skip work when references stay stable, and that you measure before adding them. In 2026 they also expect you to know what the React Compiler does and does not do.',
+    example:
+      'The back office\'s orders table wrapped each row in `memo`, but the parent passed `onOpen={() => open(id)}`, a new function every render, so all 200 rows still rendered on every keystroke in the filter. Enabling the React Compiler on that folder cached the callback and the rows; the Profiler showed only the changed rows rendering.',
+    mistakes: [
+      'Wrapping a child in `memo` while passing it a new object or arrow function each render',
+      'Adding `useMemo` everywhere without measuring, which adds cost and noise',
+      'Thinking the React Compiler makes slow filtering fast when its input changes on each keystroke',
+    ],
+    followUps: [
+      {
+        question: 'Is `useMemo` still needed with the React Compiler?',
+        answer: 'In new code, rarely: the compiler handles it, and react.dev keeps `useMemo` and `useCallback` as escape hatches, for example for an effect dependency. In existing code, leave them in place or remove them only with tests.',
+      },
+      {
+        question: 'What does the compiler skip?',
+        answer: 'Code that breaks the Rules of React, like mutating props or reading refs during render, and some incompatible libraries. It compiles the rest, so the ESLint rules from `eslint-plugin-react-hooks` come first.',
+      },
+    ],
+    traps: [
+      {
+        statement: '`useCallback(fn, deps)` is equivalent to `useMemo(() => fn, deps)`.',
+        isTrue: true,
+        why: 'Both return the same function reference until a dependency changes.',
+      },
+      {
+        statement: '`React.memo` compares props deeply, so a new object with the same content does not trigger a render.',
+        isTrue: false,
+        why: 'It compares each prop with `Object.is`, so a new object is a change.',
+      },
+    ],
+    mcqSections: ['m31#memo', 'm31#compiler', 'm31#measure'],
+    lessons: [
+      { module: 'M31', section: 'memo', title: 'memo and referential equality' },
+      { module: 'M31', section: 'compiler', title: 'The React Compiler' },
+      { module: 'M31', section: 'measure', title: 'Measure before you optimise' },
+    ],
+    fromLists: ['fullstack-100#32'],
+  },
+  {
+    id: 'react-long-lists',
+    unit: 'react',
+    level: 'senior',
+    paths: ['react', 'frontend', 'fullstack'],
+    question: 'How would you render a list of thousands of items efficiently?',
+    answer:
+      'First I ask whether the user needs thousands of rows at once: server-side pagination with filters is simpler and sends less data. If they really scroll one long list, I virtualise it with TanStack Virtual, which renders only the visible rows plus a small overscan inside a spacer as tall as the full list. Then I keep each render cheap: stable keys, rows that re-render only when their own data changes, and `useDeferredValue` so typing in a filter stays responsive. Virtualising costs something: find-in-page misses hidden rows, and accessibility needs `aria-rowcount`.',
+    keyPoints: [
+      'Question the need first: pagination and server filtering',
+      'Virtualise: render only visible rows plus overscan',
+      'Stable keys and rows that skip unchanged data',
+      'Keep input responsive with `useDeferredValue` or a transition',
+      'Know the costs: find-in-page, scroll restore, ARIA row counts',
+    ],
+    explanation:
+      'A senior answer starts with the product question and data volume, not with a library. Interviewers then listen for how virtualisation works, its trade-offs, and how you would measure the gain.',
+    example:
+      'The back office\'s orders page rendered 5,000 rows, and mounting it took between 0.6 and 3.6 seconds in Chromium. Virtualising with `useVirtualizer` rendered about 40 rows, mounted in under 30 ms, and kept each filter keystroke painting within about 25 ms. The team added `aria-rowcount` and `aria-rowindex` so screen readers still announced the real size.',
+    mistakes: [
+      'Reaching for virtualisation before asking whether pagination would do',
+      'Forgetting a stable `key`, so scrolling remounts rows and loses their state',
+      'Assuming `memo` alone solves it: 5,000 DOM rows are still slow to mount and lay out',
+    ],
+    followUps: [
+      {
+        question: 'How do you virtualise rows of different heights?',
+        answer: 'Give an estimated size and let the library measure each rendered row, with `measureElement` in TanStack Virtual. Estimating on the large side avoids jumps while scrolling.',
+      },
+      {
+        question: 'Does `useTransition` make the filtering faster?',
+        answer: 'No: it marks the update as interruptible so typing stays responsive, but the work still costs the same. Rendering fewer rows is what makes it faster.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'With virtualisation, the browser\'s find-in-page can match rows that are scrolled out of view.',
+        isTrue: false,
+        why: 'Rows outside the window are not in the DOM, so the browser cannot find them.',
+      },
+      {
+        statement: 'A virtualised list keeps the scrollbar correct by sizing a container to the full list height.',
+        isTrue: true,
+        why: 'The spacer has the total height, and visible rows are positioned inside it.',
+      },
+    ],
+    mcqSections: ['m31#virtualise', 'm31#concurrent'],
+    lessons: [
+      { module: 'M31', section: 'virtualise', title: 'Virtualising the table' },
+      { module: 'M31', section: 'concurrent', title: 'Keeping typing responsive: useDeferredValue and useTransition' },
+    ],
+    fromLists: ['fullstack-100#33'],
+  },
+  {
+    id: 'react-data-binding',
+    unit: 'react',
+    level: 'junior',
+    paths: ['react', 'frontend', 'fullstack'],
+    question: 'What is the difference between one-way and two-way data binding, and which does React use?',
+    answer:
+      'With one-way binding, data flows in one direction: from state to the view. The view never writes back by itself; a user action calls a handler that updates the state, and the view renders again. With two-way binding, the framework keeps a field and a variable in sync automatically in both directions, like Angular\'s `[(ngModel)]` or Vue\'s `v-model`. React is one-way: props flow down, and a controlled input needs `value` plus an explicit `onChange`. It is a bit more code, but every change goes through one place, which makes bugs easier to trace.',
+    keyPoints: [
+      'One-way: state drives the view, changes go through handlers',
+      'Two-way: the framework syncs field and variable both ways',
+      'React is one-way: props down, callbacks up',
+      'A controlled input is one-way binding written explicitly',
+    ],
+    explanation:
+      'It checks that you understand React\'s data flow and can compare it with other frameworks without dogma. A good answer explains why explicit updates make the data flow predictable.',
+    example:
+      'In the storefront\'s checkout, the postcode field is controlled: `onChange` uppercases the value and checks the format before updating state, so the delivery estimate always matches what is shown. With automatic two-way binding the formatting would have needed a watcher on the variable.',
+    mistakes: [
+      'Saying React has two-way binding because inputs update as you type: the handler does it',
+      'Thinking one-way binding means a child cannot change anything: it calls a callback prop',
+    ],
+    followUps: [
+      {
+        question: 'Is Vue\'s `v-model` really two-way binding?',
+        answer: 'It is syntax sugar: on a component it expands to a `modelValue` prop and an `update:modelValue` event, so the data flow underneath is still props down and events up.',
+      },
+      {
+        question: 'How does a deeply nested child update data owned high in the tree?',
+        answer: 'Through a callback passed down, a context that exposes an update function, or a store. In each case the owner changes the state and the view renders again.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'In React, typing in an input with a `value` prop updates the state automatically.',
+        isTrue: false,
+        why: 'The state changes only if `onChange` calls the setter; otherwise the field reverts.',
+      },
+      {
+        statement: 'In React, a child asks for a change by calling a function its parent passed as a prop.',
+        isTrue: true,
+        why: 'That is the "callbacks up" half of one-way data flow.',
+      },
+    ],
+    mcqSections: ['m29#inputs'],
+    lessons: [{ module: 'M29', section: 'inputs', title: 'Controlled and uncontrolled inputs' }],
+    fromLists: ['fullstack-100#34'],
+  },
+  {
+    id: 'react-testing',
+    unit: 'react',
+    level: 'mid',
+    paths: ['react', 'frontend', 'fullstack'],
+    question: 'How would you test a React component?',
+    answer:
+      'I test behaviour the way a user sees it, not implementation details. With Vitest and React Testing Library, I render the component, find elements by role and accessible name, and interact with `user-event`, which simulates real typing and clicks. For async UI I wait with `findBy` queries. I mock the network with MSW at the HTTP level, so the component, its data hooks and TanStack Query run for real. I avoid asserting on state, hooks or snapshots. The checkout flow itself gets a few end-to-end tests with Playwright.',
+    keyPoints: [
+      'Test behaviour like a user, not state or internals',
+      'Query by role and name; interact with `user-event`',
+      'Wait for async UI with `findBy`',
+      'Mock the network with MSW, not the data hooks',
+      'Keep a few critical flows in Playwright end to end',
+    ],
+    explanation:
+      'Interviewers want to know whether your tests survive a refactor. A senior answer explains the query priority, why network-level mocks beat module mocks, and how unit, integration and end-to-end tests split the work.',
+    example:
+      'The back office\'s refund dialog had tests that checked internal state and broke at every refactor. They were rewritten to type an amount, click "Refund" by its role and name, and wait for "Refund sent", with MSW answering `POST /orders/:id/refunds`. A later rewrite of the form library changed no test.',
+    mistakes: [
+      'Querying by class name or test id first instead of by role and accessible name',
+      'Mocking the fetch hook module, so the real loading and error paths are never tested',
+      'Using `fireEvent` for typing, which skips focus and key events that `user-event` sends',
+    ],
+    followUps: [
+      {
+        question: 'How do you test a component that uses TanStack Query?',
+        answer: 'Render it inside a fresh `QueryClientProvider` per test with retries turned off, and let MSW answer the requests. A shared client would leak cached data between tests.',
+      },
+      {
+        question: 'When do you use `waitFor` rather than a `findBy` query?',
+        answer: '`findBy` waits for an element to appear and covers most cases. `waitFor` is for other assertions that become true later, like a mock being called, and should hold no side effects.',
+      },
+    ],
+    traps: [
+      {
+        statement: '`user-event` simulates the full sequence of browser events a real user triggers, unlike a single `fireEvent`.',
+        isTrue: true,
+        why: 'It sends focus, keyboard and input events in order, so behaviour matches a real browser more closely.',
+      },
+      {
+        statement: 'MSW works by replacing your data-fetching hooks with mocks.',
+        isTrue: false,
+        why: 'It intercepts requests at the network level, so your hooks and fetch code run unchanged.',
+      },
+    ],
+    mcqSections: ['m35#levels', 'm35#queries', 'm35#network'],
+    lessons: [
+      { module: 'M35', section: 'levels', title: 'What to test in a React app' },
+      { module: 'M35', section: 'queries', title: 'Finding elements the way users do' },
+      { module: 'M35', section: 'network', title: 'Mocking the network with MSW' },
+    ],
+    fromLists: ['fullstack-100#35'],
+  },
+];

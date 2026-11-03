@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CARDS, MCQS, MCQS_BY_CARD, UNITS } from './index.ts';
+import { CARDS, MCQS, UNITS } from './index.ts';
 
 /** Shape rules every card must follow, so a new card cannot silently break a session. */
 describe('cards', () => {
@@ -41,9 +41,26 @@ describe('cards', () => {
   });
 
   it('point only to track sections that were imported', () => {
+    const imported = new Set(MCQS.map((mcq) => `${mcq.module}#${mcq.section}`));
     for (const card of CARDS) {
-      expect(MCQS_BY_CARD.get(card.id)?.length, card.id).toBeGreaterThan(0);
+      for (const section of card.mcqSections) {
+        expect(imported, `${card.id} → ${section}: run pnpm import-mcq`).toContain(section);
+      }
     }
     expect(MCQS.every((mcq) => mcq.answer >= 0 && mcq.answer < mcq.options.length)).toBe(true);
+  });
+
+  it('use list references at most once each, in the list#number form', () => {
+    const references = CARDS.flatMap((card) => card.fromLists ?? []);
+    expect(new Set(references).size).toBe(references.length);
+    for (const reference of references) {
+      expect(reference).toMatch(/^[a-z]+-\d+#\d+$/);
+    }
+  });
+
+  it('every unit has at least one card', () => {
+    for (const unit of UNITS) {
+      expect(CARDS.some((card) => card.unit === unit.id), unit.id).toBe(true);
+    }
   });
 });

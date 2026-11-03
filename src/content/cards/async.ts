@@ -50,6 +50,7 @@ export const asyncCards: Card[] = [
       },
     ],
     mcqSections: ['m24#loop', 'm24#order'],
+    fromLists: ['fullstack-100#6'],
     lessons: [
       { module: 'M24', section: 'loop', title: 'One thread for your code and for the pixels' },
       { module: 'M24', section: 'order', title: 'Predicting the order: microtasks, timers and frames' },
@@ -101,6 +102,7 @@ export const asyncCards: Card[] = [
       },
     ],
     mcqSections: ['m24#promises'],
+    fromLists: ['fullstack-100#20'],
     lessons: [{ module: 'M24', section: 'promises', title: 'Promises and combinators in UI code' }],
   },
   {

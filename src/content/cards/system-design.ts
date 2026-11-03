@@ -1,0 +1,653 @@
+import type { Card } from '../types.ts';
+
+/**
+ * Unit "System design". The spoken answer is the outline a senior gives in the first minute:
+ * requirements, main components, the key decision and its trade-off. Examples follow the shop
+ * (Orders API, storefront, back office). Lessons are in track modules M16, M13, M18 and M20.
+ */
+export const systemDesignCards: Card[] = [
+  {
+    id: 'design-url-shortener',
+    unit: 'system-design',
+    level: 'senior',
+    paths: ['fullstack', 'backend'],
+    question: 'How would you design a URL shortener, end to end?',
+    answer:
+      'I start with requirements: create a link, redirect fast, count clicks, optional alias and expiry. Then estimates: at 100 million links a month that is about 39 writes and 3,900 reads per second, and 3 TB over five years, so it is read-heavy and one PostgreSQL primary handles the writes. Codes come from a sequence encoded in base 62, shuffled if they must not be guessable, with a unique constraint. Redirects read a Redis cache in front of the database and answer 302, not 301, so clicks keep reaching us. Clicks go to a queue and are counted asynchronously, never as an update on the redirect path.',
+    keyPoints: [
+      'Requirements and estimates first: about 100 reads per write',
+      'Base 62 codes from a sequence, guarded by a unique constraint',
+      'A cache in front of the database on the redirect path',
+      '302 redirect, clicks counted asynchronously from events',
+    ],
+    explanation:
+      'It is the classic warm-up design question, so interviewers expect the method rather than the diagram: requirements, numbers, then decisions that follow from the numbers. A senior names the 301 versus 302 trade-off, keeps writes off the read path and spots the viral link as a hot key before being asked.',
+    example:
+      'The shop\'s shipping SMS needed tracking links that fit in one message, so the team built `sho.rt` codes from a PostgreSQL sequence in base 62, with a reversible shuffle because the links point at customers\' orders. When a campaign link went viral, redirects stayed single cache reads from Valkey and click counts arrived a few seconds late through a queue, which marketing had accepted.',
+    mistakes: [
+      'Redirecting with 301: browsers and proxies may cache it, so clicks go uncounted and the target cannot change',
+      'Running `UPDATE links SET clicks = clicks + 1` in each redirect, which turns a viral link into a locked hot row',
+      'Accepting any target URL: only `http` and `https` are safe, since a short link hides its destination',
+    ],
+    followUps: [
+      {
+        question: 'How do custom aliases coexist with generated codes?',
+        answer: 'They share one namespace, so the generator must skip codes already taken, or aliases must contain a character the generator never emits, such as `-`. Uniqueness comes from the unique constraint on the primary, never from a cache.',
+      },
+      {
+        question: 'The table outgrows one primary. How do you shard it?',
+        answer: 'By a hash of the code, since every redirect asks for exactly one code. Sharding by creation date would send new links, and most clicks, to the newest shard. Grow the cache and add read replicas before that.',
+      },
+    ],
+    traps: [
+      {
+        statement: '301 is the better default for a short link, because the link is permanent.',
+        isTrue: false,
+        why: 'A 301 may be reused by caches without asking again, so you lose click counts and the ability to change the target; 302 keeps the requests coming.',
+      },
+      {
+        statement: 'Six base-62 characters give more than 56 billion possible codes.',
+        isTrue: true,
+        why: '62 to the power 6 is 56,800,235,584, which lasts decades at 1.2 billion links a year.',
+      },
+      {
+        statement: 'Sharding links by creation date spreads the redirect load evenly.',
+        isTrue: false,
+        why: 'New links get most of the clicks, so they would all land on the newest shard.',
+      },
+    ],
+    mcqSections: ['m16#url-shortener', 'm16#url-scale'],
+    fromLists: ['fullstack-100#59'],
+    lessons: [
+      { module: 'M16', section: 'url-shortener', title: 'The interviewer then asks: short tracking links' },
+      { module: 'M16', section: 'url-scale', title: 'The interviewer then asks: codes, the read path and clicks' },
+    ],
+  },
+  {
+    id: 'design-realtime-chat',
+    unit: 'system-design',
+    level: 'senior',
+    paths: ['fullstack', 'backend', 'frontend'],
+    question: 'How would you design the architecture of a real-time chat?',
+    answer:
+      'I clarify scope first: one conversation per order between a customer and agents, history kept, order preserved within a conversation, read receipts, typing, and a push when the customer is offline. Chat is two-way, so I use WebSockets. A message carries a client-generated id and is stored in PostgreSQL, in one transaction that also takes the conversation\'s next sequence number; a unique constraint on the client id makes resends harmless. The server acks, then publishes through Redis pub/sub so the replica holding the agent\'s socket delivers it. Pub/sub can drop messages, so on reconnect the client asks for everything after its last sequence.',
+    keyPoints: [
+      'Requirements: order per conversation, history, receipts, offline push',
+      'WebSockets, because the traffic goes both ways',
+      'Client message id plus unique constraint: stored once despite resends',
+      'Fan-out across replicas via Redis; replay from the last seq',
+    ],
+    explanation:
+      'The follow-up questions are all about guarantees: is a message lost, shown twice, or shown out of order? A senior answer puts those guarantees in ids and the database rather than in the socket, and treats presence and typing as cheap, lossy data.',
+    example:
+      'The shop\'s support chat handles about 300,000 messages a day, roughly 3.5 per second, so one PostgreSQL table is enough. On flaky mobile connections, customers\' resends first created duplicate messages; a unique constraint on `client_message_id` fixed it. Agent presence is a Redis key with a 60-second TTL refreshed by the heartbeat, so agents on a crashed replica disappear by themselves.',
+    mistakes: [
+      'Relying on the socket for delivery guarantees instead of acks, ids and replay from the database',
+      'Building a global message order when a sequence per conversation is enough',
+      'Saying WebSockets need sticky sessions: one socket is one connection, routed once',
+    ],
+    followUps: [
+      {
+        question: 'How do you handle presence and "agent is typing"?',
+        answer: 'Both are ephemeral. Presence is a Redis key with a TTL refreshed by the heartbeat, so it expires when a replica dies; typing goes over pub/sub only and is never stored.',
+      },
+      {
+        question: 'What changes for something like WhatsApp?',
+        answer: 'Group conversations need fan-out to many members, and the scale calls for a message store partitioned by conversation id instead of one table. The ids, acks and per-conversation sequence stay the same.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'Redis pub/sub delivers messages that a subscriber missed during a short disconnect.',
+        isTrue: false,
+        why: 'The Redis docs describe pub/sub as at-most-once: a missed message is lost, so clients replay from the database.',
+      },
+      {
+        statement: 'A sequence number per conversation is enough to order chat messages; no global order is needed.',
+        isTrue: true,
+        why: 'Users only see order within one conversation, so a counter incremented under the conversation\'s row lock is sufficient.',
+      },
+    ],
+    mcqSections: ['m20#senior', 'm20#scaling', 'm20#transport'],
+    fromLists: ['fullstack-100#60'],
+    lessons: [
+      { module: 'M20', section: 'senior', title: 'The interviewer then asks: a support chat, and the senior take' },
+      { module: 'M20', section: 'scaling', title: 'Across replicas: Redis pub/sub, Streams and sticky sessions' },
+      { module: 'M20', section: 'transport', title: 'Live order status: polling, SSE or WebSockets' },
+    ],
+  },
+  {
+    id: 'design-scaling',
+    unit: 'system-design',
+    level: 'mid',
+    paths: ['fullstack', 'backend'],
+    question: 'What is the difference between horizontal and vertical scaling, and how would you apply each to a full-stack app?',
+    answer:
+      'Vertical scaling means a bigger machine: more CPU and memory for the same instance. It needs no code change, but it has a ceiling and each step costs more. Horizontal scaling means more copies behind a load balancer: no hard ceiling, and one copy can fail, but the copies must be stateless, so sessions, caches and uploads move to Redis, the database or object storage. In a full-stack app I scale the Next.js and API tiers horizontally, since they are stateless. PostgreSQL I scale vertically first, then add read replicas for reads, and shard only when one primary is genuinely too small.',
+    keyPoints: [
+      'Vertical: a bigger machine; simple, but capped and pricier',
+      'Horizontal: more copies behind a load balancer; needs statelessness',
+      'Move state out: sessions, caches and files in shared stores',
+      'Database: bigger primary, then read replicas, shard last',
+    ],
+    explanation:
+      'It checks that you know where state lives, because that decides what can be copied. Seniors add the side effects of scaling out, like connection limits on the database, and treat sharding as a last resort with a named key.',
+    example:
+      'For a sale, the autoscaler took the Orders API from 4 to 16 pods, each with a pool of 10 connections, and the new pods failed with `too_many_connections`: 160 against the 100 PostgreSQL accepts by default. The team sized each pool from a budget divided by the maximum pod count, and planned a pooler for the next step.',
+    mistakes: [
+      'Thinking read replicas add write capacity: writes still go to one primary',
+      'Scaling out a service that keeps sessions in memory, which logs users out when they hit another copy',
+      'Adding pods without adding up their database connections',
+    ],
+    followUps: [
+      {
+        question: 'How do you size the database pool when the API scales out?',
+        answer: 'Pool size times the maximum number of pods, deploys included, must fit under `max_connections`. When the pod count is large or unpredictable, put an external pooler such as PgBouncer in between.',
+      },
+      {
+        question: 'What should the autoscaler scale on?',
+        answer: 'A metric that tracks load for that service: CPU for the API, queue depth or the age of the oldest message for workers. The Kubernetes Horizontal Pod Autoscaler supports custom metrics as well as CPU.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'Adding read replicas increases PostgreSQL\'s write capacity.',
+        isTrue: false,
+        why: 'Replicas only serve reads; every write still goes to the single primary.',
+      },
+      {
+        statement: 'Horizontal scaling requires the application to be stateless, or its state to live in a shared store.',
+        isTrue: true,
+        why: 'Any copy can receive the next request, so it cannot rely on memory another copy holds.',
+      },
+      {
+        statement: 'In the cloud, vertical scaling has no upper limit.',
+        isTrue: false,
+        why: 'Every provider has a largest instance size, and each step up costs more.',
+      },
+    ],
+    mcqSections: ['m16#high-level', 'm11#sizing'],
+    fromLists: ['fullstack-100#61'],
+    lessons: [
+      { module: 'M16', section: 'high-level', title: 'Minutes 18 to 28: the high-level design' },
+      { module: 'M11', section: 'sizing', title: 'Sizing the pool across pods' },
+    ],
+  },
+  {
+    id: 'design-image-uploads',
+    unit: 'system-design',
+    level: 'senior',
+    paths: ['fullstack', 'backend', 'frontend'],
+    question: 'How would you handle image uploads and serving at scale?',
+    answer:
+      'I separate upload, processing and serving. For uploads, the API checks the user\'s rights and returns a presigned URL, so the browser sends the file straight to S3 and the API never handles the bytes; it only records the key. An event then triggers a worker that validates the file, strips its metadata and generates resized versions in modern formats like AVIF and WebP. Serving goes through a CDN with long cache lifetimes, on URLs that change when the image changes. On the storefront, `srcset` and `sizes` let each device download the right width, and the main product photo is never lazy-loaded.',
+    keyPoints: [
+      'Presigned URL: the browser uploads straight to object storage',
+      'An async worker validates and generates sizes and formats',
+      'Served by a CDN, with a new URL when the image changes',
+      'Responsive `srcset`/`sizes`; the LCP photo is never lazy',
+    ],
+    explanation:
+      'Interviewers want to see that the bytes never block the API and that processing is asynchronous. A senior full-stack answer connects the backend design to what the user feels: image weight, Largest Contentful Paint and layout shifts.',
+    example:
+      'Agents uploaded product photos of 15 to 20 MB from the back office through the Orders API, and memory spiked on every catalogue import. The team switched to presigned uploads, and a worker using `sharp` now writes 400, 800 and 1,600-pixel versions in AVIF and WebP. Product pages on mobile download the 800-pixel file instead of the original.',
+    mistakes: [
+      'Proxying every upload through the API, which ties up memory and connections for the whole transfer',
+      'Trusting the file name or `Content-Type` sent by the client instead of decoding the image',
+      'Overwriting an image under the same URL, so CDNs and browsers keep serving the old one',
+    ],
+    followUps: [
+      {
+        question: 'How do you stop someone uploading a huge file through a presigned URL?',
+        answer: 'Use a presigned POST whose policy sets a `content-length-range`, keep the URL\'s expiry short, and have the worker check the stored object\'s size and delete anything out of bounds.',
+      },
+      {
+        question: 'How do you update a photo that the CDN caches for a year?',
+        answer: 'Store it under a new key, for example with a content hash or a version, and point the product to it. The old URL simply stops being referenced, so no purge is needed.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'With a presigned URL, the file bytes pass through your API server.',
+        isTrue: false,
+        why: 'The client sends them straight to the bucket; the API only signs the URL and records the key.',
+      },
+      {
+        statement: '`next/image` lazy-loads images by default.',
+        isTrue: true,
+        why: 'That is why the hero photo needs `loading="eager"` or `fetchPriority="high"`.',
+      },
+    ],
+    mcqSections: ['m03#upload', 'm26#lcp'],
+    fromLists: ['fullstack-100#62'],
+    lessons: [
+      { module: 'M03', section: 'upload', title: 'The supplier catalogue upload' },
+      { module: 'M26', section: 'lcp', title: 'Fixing LCP: the hero image' },
+    ],
+  },
+  {
+    id: 'design-monolith-microservices',
+    unit: 'system-design',
+    level: 'mid',
+    paths: ['fullstack', 'backend'],
+    question: 'Monolith or microservices: how do you decide?',
+    answer:
+      'I start from a modular monolith: one deployable, split into modules that each own their data and expose a small public API, with the boundaries enforced, for example imports checked in CI and one database schema per module. That keeps transactions, refactoring and deploys simple. Microservices buy independent deploys and scaling, but you pay in network failures, distributed data, tracing and on-call for many services. So I extract a service only for a concrete reason: a part scales very differently, needs its own release pace, needs security isolation, or a separate team owns it. And I record that decision in an architecture decision record.',
+    keyPoints: [
+      'Default: a modular monolith with enforced boundaries',
+      'Each module owns its data and exposes a small public API',
+      'Microservices cost: network failures, distributed data, operations',
+      'Extract for a named reason: scale, release pace, security, team',
+    ],
+    explanation:
+      'It tests whether you choose architecture from requirements or from fashion. A senior answer names the cost of microservices, explains how boundaries are enforced inside a monolith, and gives the concrete signals that justify extracting a service.',
+    example:
+      'The Orders API became a modular monolith: one folder per context, imports between modules checked in CI by dependency-cruiser, and one PostgreSQL schema and role per module. A year later, Payments deployed ten times a day, had its own team and stricter security needs, so it was extracted with a strangler fig and an ADR; the other modules stayed together.',
+    mistakes: [
+      'Splitting into services that still share database tables, which gives a distributed monolith',
+      'Choosing microservices for a small team whose boundaries are still moving',
+      'Calling a monolith "modular" when nothing fails if a module reaches into another\'s tables',
+    ],
+    followUps: [
+      {
+        question: 'How do you extract a service without a big-bang rewrite?',
+        answer: 'With a strangler fig: put a facade in front, move features one by one to the new service, copy and sync its data until the new database becomes the system of record, then retire the old code.',
+      },
+      {
+        question: 'What is a distributed monolith?',
+        answer: 'Services that cannot change their schema or deploy independently, usually because they share tables or need to ship together, with network calls on top. You get the costs of both styles.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'In a modular monolith, each module should own its data and expose it only through its public API.',
+        isTrue: true,
+        why: 'Otherwise boundaries erode and extracting a module later means untangling shared tables.',
+      },
+      {
+        statement: 'Microservices that read each other\'s tables in a shared database are still independently deployable.',
+        isTrue: false,
+        why: 'A schema change in one breaks the others, so they must ship together: a distributed monolith.',
+      },
+    ],
+    mcqSections: ['m18#modular-monolith', 'm18#extraction', 'm18#senior'],
+    fromLists: ['fullstack-100#63'],
+    lessons: [
+      { module: 'M18', section: 'modular-monolith', title: 'A modular monolith with enforced boundaries' },
+      { module: 'M18', section: 'extraction', title: 'Extracting a service: strangler fig, data ownership, ADR' },
+      { module: 'M18', section: 'senior', title: 'The senior take' },
+    ],
+  },
+  {
+    id: 'design-caching-strategy',
+    unit: 'system-design',
+    level: 'senior',
+    paths: ['fullstack', 'backend'],
+    question: 'How would you design a caching strategy for a full-stack application?',
+    answer:
+      'I decide per piece of data who it belongs to and how stale it may be, then cache it at the outermost layer that allows that. Public responses get `Cache-Control`, so the browser and the CDN keep them, with `s-maxage` and `stale-while-revalidate`; anything per user is `private, no-store`. Inside the API, I use Redis with cache-aside: read the cache, load from PostgreSQL on a miss, store with a jittered TTL. On a write, I commit, then delete the key, and the TTL bounds whatever invalidation misses. At the database, indexes come before another cache. And I protect hot keys from stampedes with single flight.',
+    keyPoints: [
+      'Per data: who it belongs to and how stale it may be',
+      '`Cache-Control` for browser and CDN; per-user data never shared',
+      'Redis cache-aside with a jittered TTL',
+      'On a write: commit, then delete the key; TTL as the safety net',
+      'Protect hot keys from stampedes, for example single flight',
+    ],
+    explanation:
+      'Caching is easy to add and hard to keep correct, so interviewers listen for invalidation, staleness and data leaks rather than for "add Redis". A senior chooses the layer per data, explains the delete-after-commit rule and knows what a stampede is.',
+    example:
+      'During the sale load test, `GET /products/:id` took about 2,000 requests a second and saturated PostgreSQL, while products changed a few times a day. The CDN now keeps product responses for five minutes with `stale-while-revalidate`, and logged-in traffic reads Redis. When the flagship console\'s key expired at the opening, single flight cut 100 concurrent database loads per replica down to one.',
+    mistakes: [
+      'Caching per-user data, like a member discount, under a shared key: that is a data leak',
+      'Updating the cache instead of deleting it, or deleting before the commit, which can leave an old value',
+      'Keys without a TTL, so any missed invalidation lives forever',
+    ],
+    followUps: [
+      {
+        question: 'In-process cache or Redis?',
+        answer: 'In-process is fastest but each replica has its own copy, which a delete elsewhere never reaches. Redis gives one copy to invalidate; a small in-process LRU with a TTL of seconds can sit in front for the hottest keys.',
+      },
+      {
+        question: 'How does the Next.js storefront fit in?',
+        answer: 'Product data is cached with `\'use cache\'` and a tag per product, and the catalogue calls a webhook that runs `revalidateTag`, so a price change reaches customers after one background render instead of a timer.',
+      },
+    ],
+    traps: [
+      {
+        statement: '`Cache-Control: no-cache` means the response must not be stored.',
+        isTrue: false,
+        why: 'It may be stored but must be revalidated before each reuse; `no-store` forbids storing.',
+      },
+      {
+        statement: 'With cache-aside, flushing the whole cache loses no data.',
+        isTrue: true,
+        why: 'The cache is never the source of truth: the API only gets slower until the cache refills.',
+      },
+      {
+        statement: 'After a write, overwriting the cached value is safer than deleting the key.',
+        isTrue: false,
+        why: 'Two concurrent writers can overwrite in the opposite order to their commits; a delete has no order to get wrong.',
+      },
+    ],
+    mcqSections: ['m13#http-cache', 'm13#cache-aside', 'm13#stampede'],
+    fromLists: ['fullstack-100#64'],
+    lessons: [
+      { module: 'M13', section: 'http-cache', title: 'Caching the public catalogue at the CDN' },
+      { module: 'M13', section: 'cache-aside', title: 'Cache-aside: reading and invalidating' },
+      { module: 'M13', section: 'stampede', title: 'Stampedes when a hot key expires' },
+    ],
+  },
+  {
+    id: 'design-checkout',
+    unit: 'system-design',
+    level: 'senior',
+    paths: ['fullstack', 'backend'],
+    question: 'How would you design an e-commerce checkout that stays reliable and consistent?',
+    answer:
+      'The requirements are: never charge twice, never sell stock we do not have, never lose a paid order. The storefront sends `POST /orders` with an idempotency key, so a retry after a lost response returns the same order. One PostgreSQL transaction creates the order as `pending_payment` and takes the stock with a conditional update. The payment result arrives through a signed webhook, which I process once per event id, because providers retry. Marking the order `paid` and writing an `order.paid` row to an outbox table happen in the same transaction, and a relay publishes it, so e-mails and shipping never miss a payment.',
+    keyPoints: [
+      'Idempotency key on `POST /orders`: a retry returns the same order',
+      'One transaction: the order, and stock taken by a conditional update',
+      'Signed payment webhook, processed once per event id',
+      'Transactional outbox for `order.paid`; consumers stay idempotent',
+    ],
+    explanation:
+      'Checkout is where money and network failures meet, so interviewers probe every retry: the customer\'s, the provider\'s and your own workers\'. A senior answer refuses exactly-once delivery and builds exactly-once effects from idempotency keys, transactions and the outbox.',
+    example:
+      'Support found duplicate orders a few seconds apart: the app\'s `POST /orders` succeeded, the response was lost in a tunnel, and the app retried. An `Idempotency-Key` header, the same on every retry, now replays the first response. The same review found two confirmation e-mails when the provider retried a webhook; recording each `webhook-id` before acting fixed it.',
+    mistakes: [
+      'Relying on a disabled Place order button to prevent duplicate orders',
+      'Calling the payment provider inside the database transaction, which holds a connection and locks during a network call',
+      'Publishing `order.paid` right after the commit: a crash in between loses it, which is what the outbox prevents',
+    ],
+    followUps: [
+      {
+        question: 'What if the payment result never arrives?',
+        answer: 'A scheduled worker cancels `pending_payment` orders older than the reservation window and releases their stock. If a success arrives later for a cancelled order, the system checks with the provider and refunds or restores the order.',
+      },
+      {
+        question: 'What should the server do when the same idempotency key comes with a different body?',
+        answer: 'Reject it, with a 422 in the IETF draft: the client reused a key for another operation, which is a bug to surface, not a retry to replay.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'A payment provider can guarantee that each webhook event is delivered exactly once.',
+        isTrue: false,
+        why: 'Over a network, delivery is at-least-once; your handler must make duplicates harmless.',
+      },
+      {
+        statement: 'Writing the outbox row in the same transaction as the order update removes the dual-write problem.',
+        isTrue: true,
+        why: 'Both commit or neither does, and the relay publishes the row afterwards, possibly more than once.',
+      },
+    ],
+    mcqSections: ['m05#idempotency', 'm09#webhook', 'm13#outbox'],
+    fromLists: ['fullstack-100#65'],
+    lessons: [
+      { module: 'M05', section: 'idempotency', title: 'An idempotency key on POST /orders' },
+      { module: 'M09', section: 'webhook', title: 'Fixing the double webhook: idempotency and short transactions' },
+      { module: 'M13', section: 'outbox', title: 'Publishing order.paid without losing it: the transactional outbox' },
+    ],
+  },
+  {
+    id: 'design-load-balancer',
+    unit: 'system-design',
+    level: 'mid',
+    paths: ['fullstack', 'backend'],
+    question: 'What is a load balancer, and which load-balancing algorithms exist?',
+    answer:
+      'A load balancer receives traffic on one address and spreads it over several copies of a service. It stops sending to copies that fail their health check, so instances can be added, removed or redeployed without downtime. A layer 4 balancer routes TCP connections; a layer 7 balancer reads HTTP, so it can route by path or header and terminate TLS. The common algorithms are round robin, weighted round robin for unequal machines, least connections or least outstanding requests when request durations vary, and hashing a key such as the client IP when a client should keep reaching the same instance.',
+    keyPoints: [
+      'Spreads traffic over copies; health checks remove failing ones',
+      'Layer 4 routes connections; layer 7 reads HTTP and routes by path',
+      'Round robin, weighted, least connections or least requests',
+      'Hashing a key for affinity, at the cost of uneven load',
+    ],
+    explanation:
+      'It is a building block of every design answer, so interviewers check you know what it does beyond "spreads load". Mid-level candidates should pick an algorithm by request shape and know the difference between layer 4 and layer 7.',
+    example:
+      'After the Orders API scaled from 4 to 12 pods, the new pods got almost no traffic from the BFF. The BFF kept long-lived keep-alive connections, and a layer 4 balancer routes connections, not requests, so the old pods kept everything. Balancing at layer 7, per request, spread the load within minutes.',
+    mistakes: [
+      'Assuming a layer 4 balancer spreads each HTTP request, when it only spreads connections',
+      'Using sticky sessions to hide in-memory sessions instead of moving them to a shared store',
+      'Putting the database in a health check that restarts pods, so a database blip restarts everything',
+    ],
+    followUps: [
+      {
+        question: 'What is the difference between a readiness and a liveness probe in Kubernetes?',
+        answer: 'A failing readiness probe removes the pod from the Service endpoints, so it gets no traffic but keeps running. A failing liveness probe makes the kubelet restart the container, so it must not check dependencies.',
+      },
+      {
+        question: 'When would you choose least outstanding requests over round robin?',
+        answer: 'When request durations vary a lot, like a mix of fast reads and slow exports. Round robin ignores how busy each instance is, so slow requests can pile up on one copy.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'A layer 4 load balancer can route requests by URL path.',
+        isTrue: false,
+        why: 'It sees connections, not HTTP; routing by path needs a layer 7 balancer.',
+      },
+      {
+        statement: 'Round robin ignores how busy each instance currently is.',
+        isTrue: true,
+        why: 'It hands requests out in turn; least connections or least outstanding requests look at current load.',
+      },
+    ],
+    mcqSections: ['m16#high-level', 'm15#probes'],
+    fromLists: ['fullstack-100#66'],
+    lessons: [
+      { module: 'M16', section: 'high-level', title: 'Minutes 18 to 28: the high-level design' },
+      { module: 'M15', section: 'probes', title: 'Health checks and graceful shutdown' },
+    ],
+  },
+  {
+    id: 'design-notifications',
+    unit: 'system-design',
+    level: 'senior',
+    paths: ['fullstack', 'backend'],
+    question: 'How would you design a notification system for email, push and SMS?',
+    answer:
+      'I clarify channels, triggers, user preferences, priorities, and that nothing is lost while duplicates stay rare. Then I size for the peak: a campaign push to 10 million users in 10 minutes is about 16,700 per second, roughly 29 times the average. Events reach a notification service that checks preferences, renders the template, and writes the notification and an outbox row in one transaction. A relay publishes to one queue per channel and priority, so a campaign never delays a login code. Workers call APNs, FCM or the e-mail and SMS providers with rate limits, retries with backoff, a dead-letter queue and a dedup key per notification and channel.',
+    keyPoints: [
+      'Requirements: channels, preferences, priorities, no loss',
+      'Size for the campaign peak, not the daily average',
+      'Outbox, then one queue per channel and priority',
+      'Backoff retries, dead-letter queue, dedup key per channel',
+    ],
+    explanation:
+      'It combines queues, idempotency and capacity planning in one prompt. Seniors stand out by sizing for the burst, isolating priorities so urgent messages are never stuck, and treating preferences as a consistency problem.',
+    example:
+      'The 9:50 push announcing the sale went to every app user through the same queue as login codes, and customers waited minutes for their code. Splitting `push.urgent` from `push.bulk` fixed it. The same day, a customer who unsubscribed at 9:49 still got the push, so preferences are now read at send time from the primary, not from the campaign\'s snapshot.',
+    mistakes: [
+      'Sending notifications inside the HTTP request that triggered them',
+      'One shared queue for every channel and priority, so a slow provider or a campaign delays everything',
+      'Retrying an invalid device token instead of removing it',
+    ],
+    followUps: [
+      {
+        question: 'What happens when the SMS provider goes down?',
+        answer: 'Keep a second provider configured and switch when the first one\'s error rate crosses a threshold, using the same dedup key so a message is not sent through both.',
+      },
+      {
+        question: 'How do you store the in-app inbox?',
+        answer: 'As a read model shaped for that screen: rows keyed by user id and creation time in PostgreSQL, partitioned by user at large scale.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'With an outbox and retries, a notification can be published more than once, so workers must deduplicate.',
+        isTrue: true,
+        why: 'The relay and the queue deliver at least once; a key per notification and channel makes repeats harmless.',
+      },
+      {
+        statement: 'The daily average rate is the right number for sizing the queues and workers.',
+        isTrue: false,
+        why: 'A campaign can be about 29 times the average, and that peak decides the design.',
+      },
+    ],
+    mcqSections: ['m16#notifications', 'm13#outbox'],
+    fromLists: ['fullstack-100#67'],
+    lessons: [
+      { module: 'M16', section: 'notifications', title: 'The interviewer then asks: notify everyone' },
+      { module: 'M13', section: 'outbox', title: 'Publishing order.paid without losing it: the transactional outbox' },
+    ],
+  },
+  {
+    id: 'design-collaborative-editing',
+    unit: 'system-design',
+    level: 'senior',
+    paths: ['fullstack', 'backend', 'frontend'],
+    question: 'How would you approach real-time collaborative editing, like Google Docs?',
+    answer:
+      'The hard part is concurrent edits: two agents typing in the same product description must end with the same text, without losing either change. There are two families. Operational transformation, which Google Docs adopted, transforms each operation against concurrent ones, usually with a central server ordering them. CRDTs give every element an identity so copies merge in any order and converge without a central authority, which also allows offline edits. I would not write either: I would use Yjs, a CRDT library with bindings for editors like ProseMirror and Tiptap, sync it over WebSockets, persist its updates, and show cursors through its awareness feature.',
+    keyPoints: [
+      'Concurrent edits must converge without losing changes',
+      'OT: transform operations, usually ordered by a central server',
+      'CRDTs merge in any order, no central authority, offline-friendly',
+      'Use a library such as Yjs; sync over WebSockets, persist updates',
+    ],
+    explanation:
+      'Nobody expects you to implement OT on a whiteboard; interviewers check that you name the convergence problem, know the two families and their trade-off, and reach for a proven library. A senior also asks whether live co-editing is really needed or whether conflict detection is enough.',
+    example:
+      'Two agents edited the same product description in the back office and the last save silently erased the other\'s work. The first fix was optimistic concurrency, an `ETag` checked with `If-Match`, which turned silent loss into a visible conflict. When the content team asked for live co-editing, the team embedded a Tiptap editor backed by Yjs, synced over the back office\'s WebSocket connection.',
+    mistakes: [
+      'Saving the whole document with last-write-wins and calling it collaboration',
+      'Writing your own CRDT or OT instead of using a tested library',
+      'Storing cursors and presence in the document, when they are ephemeral',
+    ],
+    followUps: [
+      {
+        question: 'Do you always need real-time co-editing?',
+        answer: 'No. When conflicts are rare, a version or `ETag` checked with `If-Match` is enough: the second save fails with 412 and the user merges. Live co-editing is worth its cost when people really edit together.',
+      },
+      {
+        question: 'What does Automerge offer compared with Yjs?',
+        answer: 'Both are CRDT libraries. Automerge is designed for local-first software and keeps the history of changes, so you can view old versions, branch and merge; it has JavaScript and Rust implementations, the Rust one compiling to WebAssembly.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'CRDT replicas converge to the same state whatever order they receive the updates in.',
+        isTrue: true,
+        why: 'That is the defining property: merges are order-independent, so no central server must decide.',
+      },
+      {
+        statement: 'Yjs needs a central server as the source of truth.',
+        isTrue: false,
+        why: 'Its docs say it does not need a central source of truth; servers are just one way to relay and store updates.',
+      },
+      {
+        statement: 'Yjs stores awareness data, such as cursor positions, inside the shared document.',
+        isTrue: false,
+        why: 'Awareness is kept outside the document and is not persisted, since it does not need to survive a session.',
+      },
+    ],
+    mcqSections: [],
+    fromLists: ['fullstack-100#68'],
+    lessons: [],
+  },
+  {
+    id: 'design-feature-estimation',
+    unit: 'system-design',
+    level: 'mid',
+    paths: ['fullstack', 'backend'],
+    question: 'How do you estimate and plan the technical scope of a new full-stack feature in sprint planning?',
+    answer:
+      'Before estimating, I make sure we agree on the outcome and the acceptance criteria. Then I slice the feature through the stack: data model and migration, API endpoint and contract, frontend screens and their states, tests, and the rollout. Each slice exposes unknowns, like a third-party API or a migration on a big table; for the risky ones I propose a short, time-boxed spike first. I estimate relative to work we have already done, and add explicit items for review, QA and monitoring. If it does not fit the sprint, I propose a smaller first version behind a feature flag, rather than a smaller estimate.',
+    keyPoints: [
+      'Clarify the outcome and acceptance criteria first',
+      'Slice across the stack: schema, API, UI, tests, rollout',
+      'Name the unknowns; time-box a spike for the risky ones',
+      'Too big: cut scope behind a flag, never the estimate',
+    ],
+    explanation:
+      'Interviewers check that you see the whole cost of a feature, not only the coding, and that you handle uncertainty openly. A senior answer negotiates scope with the product owner instead of promising an estimate the team cannot meet.',
+    example:
+      'Order returns touched every layer: a `returns` table, `POST /orders/:id/returns`, a storefront form, an agent screen in the back office and the delivery partner\'s return-label API. A one-day spike showed the partner\'s sandbox could not produce labels, so the team shipped the customer form behind a flag first and the label integration the next sprint.',
+    mistakes: [
+      'Estimating only the coding, without migration, tests, review and rollout',
+      'Giving one firm number under pressure when a large unknown remains',
+      'Shrinking the estimate to fit the sprint instead of shrinking the scope',
+    ],
+    followUps: [
+      {
+        question: 'The product manager says it must ship this sprint. What do you do?',
+        answer: 'I show what fits and what does not, and offer a smaller version that delivers the core value. The trade is on scope, never silently on tests or quality.',
+      },
+      {
+        question: 'How do you handle a migration on a table with millions of rows in the plan?',
+        answer: 'As its own item, in steps that keep the old code working: add the column, backfill in batches, switch the code, then clean up, each deployed separately.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'A spike is meant to produce production-ready code.',
+        isTrue: false,
+        why: 'Its output is knowledge, such as whether an approach works and what it costs; the code is usually thrown away.',
+      },
+      {
+        statement: 'Slicing a feature into thin end-to-end slices lets you ship part of it earlier.',
+        isTrue: true,
+        why: 'Each slice works from the database to the screen, so the first one can be released on its own.',
+      },
+    ],
+    mcqSections: [],
+    fromLists: ['fullstack-100#69'],
+    lessons: [],
+  },
+  {
+    id: 'design-latency-diagnosis',
+    unit: 'system-design',
+    level: 'senior',
+    paths: ['fullstack', 'backend'],
+    question: 'How would you diagnose a full-stack application that suddenly has high latency in production?',
+    answer:
+      'First I scope it: which routes, which percentiles, all users or some, and what changed at that time, like a deploy, a traffic spike or a dependency. Latency percentiles per route tell me where; a trace of a slow request tells me which span takes the time: the database, an external call, or waiting before any span starts. Then I follow the evidence: slow query plans or a saturated connection pool, event loop delay if the time is spent inside Node, a slow third party. I mitigate first, by rolling back or turning off a flag, and fix the root cause after, with an alert for next time.',
+    keyPoints: [
+      'Scope it: which routes, which users, since when, what changed',
+      'Percentiles per route, then traces to find the slow span',
+      'Check pool waits, slow queries, event loop delay, dependencies',
+      'Mitigate first (rollback, flag), then fix the root cause',
+    ],
+    explanation:
+      'It is a debugging round in disguise: interviewers want a method, not a list of guesses. Seniors start from what changed, use percentiles and traces rather than averages, and stop the bleeding before investigating further.',
+    example:
+      'After a deploy, the p99 of `GET /orders/:id` went from 120 ms to 2 s. Traces showed requests waiting before their first query: a new code path called the delivery partner\'s API inside a transaction, holding a pooled connection for the whole call. The team rolled back within minutes, then moved the call outside the transaction.',
+    mistakes: [
+      'Looking at the average, which hides a slow tail',
+      'Adding replicas before knowing the cause, which adds database connections to a database-bound problem',
+      'Investigating for an hour before rolling back the deploy that started it',
+    ],
+    followUps: [
+      {
+        question: 'How do you tell time spent inside Node from time spent waiting?',
+        answer: 'Watch event loop delay, for example with `monitorEventLoopDelay` from `node:perf_hooks`: if it rises, synchronous work is blocking the thread, and a CPU profile names the function. Waiting on I/O shows up as long spans for the database or HTTP calls.',
+      },
+      {
+        question: 'Users say the storefront is slow but the API looks fine. Where do you look?',
+        answer: 'At field data from real users, such as LCP and INP from the `web-vitals` library, split by page. The time may be in the browser, in rendering or JavaScript, not in the API.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'Average latency is the best signal for a sudden latency problem.',
+        isTrue: false,
+        why: 'Averages hide the tail; p95 and p99 per route show what the slowest users get.',
+      },
+      {
+        statement: 'Adding API replicas can make a database-bound slowdown worse.',
+        isTrue: true,
+        why: 'Each replica brings its own connections and queries to a database that is already the bottleneck.',
+      },
+    ],
+    mcqSections: ['m15#traces', 'm15#runtime', 'm11#pooling'],
+    fromLists: ['fullstack-100#70'],
+    lessons: [
+      { module: 'M15', section: 'traces', title: 'Following one checkout across the payment call' },
+      { module: 'M15', section: 'runtime', title: 'When the time is spent inside Node' },
+      { module: 'M11', section: 'pooling', title: 'The connection pool, and why requests hang' },
+    ],
+  },
+];
