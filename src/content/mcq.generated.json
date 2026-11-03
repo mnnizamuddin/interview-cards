@@ -1,0 +1,860 @@
+[
+  {
+    "id": "m02.q10",
+    "module": "m02",
+    "section": "floating",
+    "q": "What does the last line print?",
+    "code": "const saved = [];\n[1, 2, 3].forEach(async (n) => {\n  await save(n);\n  saved.push(n);\n});\nconsole.log(saved);",
+    "lang": "js",
+    "options": [
+      "<code>[1, 2, 3]</code>",
+      "<code>[1]</code>",
+      "<code>[]</code>",
+      "It depends on how fast <code>save</code> is"
+    ],
+    "answer": 2,
+    "explain": "<code>forEach</code> calls the async callback and ignores the promise it returns, so the log runs before any <code>save</code> finishes. Measured: <code>[]</code>, then <code>[1, 2, 3]</code> a moment later. Even a very fast <code>save</code> resolves after the current synchronous code, so the answer does not depend on timing."
+  },
+  {
+    "id": "m02.q26",
+    "module": "m02",
+    "section": "floating",
+    "q": "In an ES module on Node 24, <code>loadOrders</code> resolves after 100 ms and <code>loadInvoices</code> rejects after 10 ms. What happens?",
+    "code": "const orders = loadOrders();\nconst invoices = loadInvoices();\nawait orders;\ntry {\n  await invoices;\n} catch (error) {\n  console.log('caught', error.message);\n}",
+    "lang": "js",
+    "options": [
+      "It prints \"caught …\" after 100 ms",
+      "The rejection is silently ignored",
+      "It prints \"caught …\" after 10 ms",
+      "The process exits with code 1 before the <code>try</code> runs"
+    ],
+    "answer": 3,
+    "explain": "While the code waits on <code>orders</code>, <code>invoices</code> rejects with no handler attached yet. Node treats it as an unhandled rejection and exits with code 1; measured, nothing was printed. <code>await Promise.all([loadOrders(), loadInvoices()])</code> attaches handlers to both and the same code is caught normally."
+  },
+  {
+    "id": "m02.q28",
+    "module": "m02",
+    "section": "floating",
+    "q": "Checkout calls <code>auditLog.write(event)</code> without awaiting it, to keep the response fast. A colleague proposes <code>void auditLog.write(event)</code> to satisfy <code>no-floating-promises</code>. What do you answer?",
+    "options": [
+      "Fine: <code>void</code> handles the rejection",
+      "Better to await it, since fire-and-forget is never acceptable",
+      "Disable the rule for this file, since audit writes rarely fail",
+      "<code>void</code> silences the rule but a rejection still crashes the process; attach a <code>.catch</code> that logs it"
+    ],
+    "answer": 3,
+    "explain": "The rule's docs warn that voiding a promise does not handle it or change runtime behaviour, and an unhandled rejection exits the process. A <code>.catch</code> that logs keeps the response fast and makes failures visible. Fire-and-forget is acceptable when its failure is handled and the work is not critical."
+  },
+  {
+    "id": "m23.q1",
+    "module": "m23",
+    "section": "scope",
+    "q": "In an ES module, what does this function print when called?",
+    "code": "function shippingSummary() {\n  console.log(freeShippingFrom);\n  var freeShippingFrom = 5000;\n  console.log(currency);\n  const currency = 'EUR';\n}",
+    "lang": "js",
+    "options": [
+      "5000, then EUR, because both declarations are hoisted with their values",
+      "undefined, then a ReferenceError",
+      "A ReferenceError on the first line, before anything prints",
+      "undefined, then undefined, since both are hoisted"
+    ],
+    "answer": 1,
+    "explain": "The var is hoisted and initialized to undefined, so the first log prints undefined. The const is hoisted but uninitialized: reading it in its temporal dead zone throws \"Cannot access 'currency' before initialization\" (measured on Node 24). Two undefined values would be the behaviour if both were var."
+  },
+  {
+    "id": "m23.q2",
+    "module": "m23",
+    "section": "closures",
+    "q": "A function created inside another function reads one of its variables. What does the inner function keep?",
+    "options": [
+      "A copy of the variable's value at the moment the function was created",
+      "Nothing: the variable is freed when the outer function returns",
+      "Access to the variable itself, so it sees later changes",
+      "A copy that is refreshed only when the outer function is called again"
+    ],
+    "answer": 2,
+    "explain": "A closure keeps the variable binding, not a snapshot, and keeps it alive as long as the inner function is reachable. That is why listeners created in a var loop all read the final index. The \"copy at creation\" idea is the misconception the loop question tests."
+  },
+  {
+    "id": "m23.q3",
+    "module": "m23",
+    "section": "this",
+    "q": "In an ES module, <code>[1250, 399].map(priceFormatter.format)</code> throws \"Cannot read properties of undefined (reading 'locale')\", while <code>priceFormatter.format(1250)</code> works. Why?",
+    "options": [
+      "map calls it as a plain function, so this is undefined in strict code",
+      "map calls it with this set to the array, which has no locale property",
+      "Intl.NumberFormat cannot be created inside an array callback",
+      "Methods written with the shorthand syntax lose their body when passed as values"
+    ],
+    "answer": 0,
+    "explain": "Passing priceFormatter.format hands over the function without its object, and map calls it as a plain function; ES modules are strict, so this is undefined (measured). map only uses its optional second argument as this, and none was given, so the array is not this."
+  },
+  {
+    "id": "m23.q4",
+    "module": "m23",
+    "section": "this",
+    "q": "Which statement about arrow functions and <code>this</code> is true?",
+    "options": [
+      "call and bind set its this, exactly as they do for regular functions",
+      "Its this is always the global object, even inside a method",
+      "Its this is the object it is stored on, like a method shorthand",
+      "It takes this from the surrounding code; call and bind cannot change it"
+    ],
+    "answer": 3,
+    "explain": "Arrows have no this of their own: they read the this of the scope where they are written. Measured: calling an arrow class field with .call({ count: 99 }) still used the instance's count. Storing an arrow on an object does not make the object its this."
+  },
+  {
+    "id": "m23.q5",
+    "module": "m23",
+    "section": "classes",
+    "q": "For <code>const cart = new Cart()</code>, where does the <code>addLine</code> method defined in the class body live?",
+    "options": [
+      "On cart itself, copied there by the constructor on every new",
+      "On Cart.prototype, shared by every instance through the prototype chain",
+      "On the Cart function itself, as a static property shared by instances",
+      "In a hidden per-instance method table created by the engine"
+    ],
+    "answer": 1,
+    "explain": "Class methods are installed once on Cart.prototype; each instance links to it. Measured: Object.hasOwn(cart, 'addLine') is false and Object.hasOwn(Cart.prototype, 'addLine') is true. Only fields, such as #lines or an arrow function field, are created on each instance."
+  },
+  {
+    "id": "m23.q6",
+    "module": "m23",
+    "section": "classes",
+    "q": "A TypeScript class declares <code>private lines</code>; another declares <code>#lines</code>. What differs at run time?",
+    "options": [
+      "Nothing: both are erased by the compiler and become ordinary properties",
+      "Both are enforced at run time, but #lines is faster because it skips the prototype",
+      "private is erased at compile time; #lines is unreachable from outside the class",
+      "private hides the property from JSON.stringify and Object.keys; #lines does not"
+    ],
+    "answer": 2,
+    "explain": "TypeScript's private is a compile-time check only, so bracket access or plain JavaScript still reach the property. A # field is private for the engine: measured, it does not appear in Object.keys or JSON.stringify, and cart['#lines'] is undefined."
+  },
+  {
+    "id": "m23.q7",
+    "module": "m23",
+    "section": "coercion",
+    "q": "A quantity input is cleared, so its value is <code>''</code>. What is <code>'' == 0</code>, and why?",
+    "options": [
+      "false, because a string never equals a number without a cast",
+      "true, because == converts the empty string to the number 0",
+      "false, because the empty string converts to NaN, and NaN equals nothing",
+      "It throws a TypeError, because == refuses to compare different types"
+    ],
+    "answer": 1,
+    "explain": "When == compares a string with a number, it converts the string to a number, and Number('') is 0 (measured). That is how removeEmptyLines dropped the line. NaN is what you get from Number('abc'), not from the empty string."
+  },
+  {
+    "id": "m23.q8",
+    "module": "m23",
+    "section": "modules",
+    "q": "Why can a bundler remove an unused export of an ES module but not of a CommonJS module?",
+    "options": [
+      "ES modules are always smaller after minification, so unused code stands out",
+      "CommonJS modules are evaluated twice, once per bundle, so code cannot be dropped",
+      "Only ES modules can run in a browser, so CommonJS code is never bundled",
+      "Static import and export reveal the graph before running; require() is a run-time call"
+    ],
+    "answer": 3,
+    "explain": "Static declarations let the bundler see which exports are imported without executing anything; measured with Vite 8.3.4, an unused export disappeared from the bundle. require() can take a computed path and run anywhere, so the bundler cannot know what is used."
+  },
+  {
+    "id": "m23.q9",
+    "module": "m23",
+    "section": "iterators",
+    "q": "What makes an object usable in <code>for...of</code> and with spread?",
+    "options": [
+      "A Symbol.iterator method returning an object with next()",
+      "A length property and numeric keys, like an array",
+      "Being created by a class, whose instances are iterable by default",
+      "A forEach method, which for...of calls for each value"
+    ],
+    "answer": 0,
+    "explain": "That is the iteration protocol: an iterable returns an iterator, whose next() gives { value, done }. A plain object with length and numeric keys is array-like, not iterable, and for...of on a plain object throws \"is not iterable\" (measured)."
+  },
+  {
+    "id": "m23.q10",
+    "module": "m23",
+    "section": "copying",
+    "q": "You call <code>structuredClone(new Money(1250))</code>, where <code>Money</code> is a class with a <code>#cents</code> field and a <code>format()</code> method. What do you get?",
+    "options": [
+      "A Money instance with the same #cents and the same methods",
+      "A DataCloneError, because class instances cannot be cloned",
+      "A plain object with the public fields only: no methods, no #cents",
+      "A Money instance whose #cents is reset to undefined"
+    ],
+    "answer": 2,
+    "explain": "The structured clone algorithm copies plain data and does not walk the prototype chain or duplicate private elements; measured in Node 24 and Chromium, the copy was { currency: 'EUR' } and instanceof Money was false. DataCloneError is thrown for functions, not for class instances."
+  },
+  {
+    "id": "m23.q12",
+    "module": "m23",
+    "section": "memory",
+    "q": "What distinguishes a <code>WeakMap</code> from a <code>Map</code>?",
+    "options": [
+      "Its keys do not keep their objects alive; it is not iterable and has no size",
+      "It frees its entries after a fixed delay, like a cache with a time limit",
+      "It accepts any key type, including strings, but holds its values weakly",
+      "It is faster than Map, so it suits large caches keyed by product id"
+    ],
+    "answer": 0,
+    "explain": "A WeakMap entry disappears when its key object is no longer reachable elsewhere; keys must be objects or unregistered symbols, and a string key throws (measured). A cache keyed by string ids therefore cannot be a WeakMap: it needs a bounded Map such as an LRU."
+  },
+  {
+    "id": "m23.q13",
+    "module": "m23",
+    "section": "scope",
+    "q": "What happens when this code runs?",
+    "code": "let total = 10;\n\nfunction printTotal() {\n  console.log(total);\n  let total = 20;\n}\n\nprintTotal();",
+    "lang": "js",
+    "options": [
+      "It prints 10, from the outer variable",
+      "It prints undefined, as a var would",
+      "It prints 20, the hoisted value",
+      "It throws a ReferenceError"
+    ],
+    "answer": 3,
+    "explain": "The inner let total shadows the outer one for the whole function body, and the log reads it in its temporal dead zone: \"Cannot access 'total' before initialization\" (measured on Node 24). Printing 10 would need the outer variable to be visible, but the inner declaration hides it from the start of the block."
+  },
+  {
+    "id": "m23.q14",
+    "module": "m23",
+    "section": "closures",
+    "q": "What does this print?",
+    "code": "const getters = [];\nlet i = 0;\nfor (; i < 3; i++) {\n  getters.push(() => i);\n}\nconsole.log(getters.map((get) => get()));",
+    "lang": "js",
+    "options": [
+      "[0, 1, 2]",
+      "[3, 3, 3]",
+      "[undefined, undefined, undefined]",
+      "[2, 2, 2]"
+    ],
+    "answer": 1,
+    "explain": "The per-iteration binding only applies to a let declared in the for header. Here i is declared once outside the loop, so every arrow closes over the same variable, which is 3 when they run (measured). Writing let inside the header would print [0, 1, 2]."
+  },
+  {
+    "id": "m23.q15",
+    "module": "m23",
+    "section": "closures",
+    "q": "What does this print?",
+    "code": "function createIdGenerator(prefix) {\n  let next = 1;\n  return () => prefix + next++;\n}\n\nconst cartIds = createIdGenerator('cart-');\nconst otherIds = createIdGenerator('cart-');\nconsole.log(cartIds(), cartIds(), otherIds());",
+    "lang": "js",
+    "options": [
+      "cart-1 cart-2 cart-3",
+      "cart-1 cart-1 cart-1",
+      "cart-1 cart-2 cart-1",
+      "cart-2 cart-3 cart-2"
+    ],
+    "answer": 2,
+    "explain": "Each call to createIdGenerator creates a new scope with its own next, and each returned arrow keeps its own. next++ returns the old value, so the first call gives cart-1 (measured). A shared counter, the cart-3 option, would need next to live outside the factory."
+  },
+  {
+    "id": "m23.q16",
+    "module": "m23",
+    "section": "this",
+    "q": "In an ES module, what happens when <code>cart.labels()</code> is called?",
+    "code": "const cart = {\n  currency: 'EUR',\n  lines: [1250, 399],\n  labels() {\n    return this.lines.map(function (cents) {\n      return cents + ' ' + this.currency;\n    });\n  },\n};",
+    "lang": "js",
+    "options": [
+      "It throws a TypeError: the inner function's this is undefined",
+      "It returns ['1250 EUR', '399 EUR']: the inner function inherits this",
+      "It returns ['1250 undefined', '399 undefined'] from the global object",
+      "It throws a ReferenceError: currency is not defined in that scope"
+    ],
+    "answer": 0,
+    "explain": "labels is called as a method, so its own this is cart, but the inner function is called by map as a plain function and gets its own this: undefined in strict code, so this.currency throws (measured). An arrow callback would read the method's this and return the EUR labels. The undefined labels appear only in old non-module scripts, where this is the global object."
+  },
+  {
+    "id": "m23.q17",
+    "module": "m23",
+    "section": "this",
+    "q": "What does the last line print?",
+    "code": "function storeName() {\n  return this.name;\n}\n\nconst bound = storeName.bind({ name: 'storefront' }).bind({ name: 'back office' });\nconsole.log(bound.call({ name: 'admin' }));",
+    "lang": "js",
+    "options": [
+      "admin",
+      "back office",
+      "undefined",
+      "storefront"
+    ],
+    "answer": 3,
+    "explain": "bind returns a function whose this is fixed for good: binding it again or calling it with call cannot change it, so the first bind wins (measured: storefront). The back office option assumes the last bind overrides, which is the usual misconception."
+  },
+  {
+    "id": "m23.q18",
+    "module": "m23",
+    "section": "classes",
+    "q": "Given the <code>Cart</code> class with a <code>#lines</code> field and <code>static isCart(value)</code> that returns <code>#lines in value</code>, what does this print?",
+    "code": "const fake = Object.create(Cart.prototype);\nconsole.log(fake instanceof Cart, Cart.isCart(fake));",
+    "lang": "js",
+    "options": [
+      "false false",
+      "true false",
+      "true true",
+      "It throws a TypeError, because fake has no #lines"
+    ],
+    "answer": 1,
+    "explain": "instanceof only checks whether Cart.prototype is in the chain, and Object.create put it there, so it is true. No constructor ran, so the object has no #lines, and the #lines in check returns false without throwing (measured). That is why a brand check is more reliable than instanceof."
+  },
+  {
+    "id": "m23.q19",
+    "module": "m23",
+    "section": "classes",
+    "q": "What does this print?",
+    "code": "function Product(name) {\n  this.name = name;\n}\nProduct.prototype.label = function () { return 'Product ' + this.name; };\n\nconst mug = new Product('Mug');\nProduct.prototype.label = function () { return 'New ' + this.name; };\nconsole.log(mug.label());",
+    "lang": "js",
+    "options": [
+      "Product Mug",
+      "It throws, because label was replaced after mug was created",
+      "New Mug",
+      "undefined"
+    ],
+    "answer": 2,
+    "explain": "mug does not copy the methods: it links to Product.prototype and looks label up there at call time, so it sees the replacement (measured: New Mug). Product Mug would require the instance to hold its own copy of the method."
+  },
+  {
+    "id": "m23.q20",
+    "module": "m23",
+    "section": "coercion",
+    "q": "What does this print?",
+    "code": "console.log(1 + 2 + '3', '1' + 2 + 3, '5' - 2);",
+    "lang": "js",
+    "options": [
+      "6 6 3",
+      "33 123 3",
+      "123 123 52",
+      "33 15 3"
+    ],
+    "answer": 1,
+    "explain": "+ is evaluated left to right: 1 + 2 is 3, then 3 + '3' concatenates to '33'; '1' + 2 starts a string, so the result is '123'; - always converts to numbers, so '5' - 2 is 3 (measured). The '15' option assumes 2 + 3 is computed first."
+  },
+  {
+    "id": "m23.q21",
+    "module": "m23",
+    "section": "coercion",
+    "q": "A product card shows <code>line.quantity || 1</code> as the default quantity. A customer sets the quantity to 0 to keep the line but not buy it, and the card shows 1. Which fix would you ship?",
+    "options": [
+      "line.quantity ?? 1, which falls back only for null and undefined",
+      "Number(line.quantity) || 1, so that string quantities are converted",
+      "line.quantity == 0 ? 1 : line.quantity, to handle zero explicitly",
+      "Math.max(line.quantity, 1), so the quantity is never below 1"
+    ],
+    "answer": 0,
+    "explain": "|| falls back for every falsy value, and 0 is falsy, so 0 || 1 is 1; ?? falls back only for null and undefined, so 0 ?? 1 is 0 (measured). Converting with Number keeps the || problem, and the == 0 version forces the same wrong default on purpose."
+  },
+  {
+    "id": "m23.q22",
+    "module": "m23",
+    "section": "modules",
+    "q": "<code>cart-store</code> exports <code>let itemCount = 0</code> and <code>function addItem() { itemCount += 1; }</code>. What do the two importers print?",
+    "code": "// header.mjs (ES module)\nimport { itemCount, addItem } from './cart-store.mjs';\naddItem();\nconsole.log(itemCount);\n\n// header.cjs (CommonJS; cart-store.cjs exports { itemCount, addItem })\nconst { itemCount, addItem } = require('./cart-store.cjs');\naddItem();\nconsole.log(itemCount);",
+    "lang": "js",
+    "options": [
+      "1 and 1",
+      "0 and 0",
+      "0 and 1",
+      "1 and 0"
+    ],
+    "answer": 3,
+    "explain": "An ES import is a live binding to the exporter's variable, so it reads the incremented value. CommonJS destructuring copies the value present in module.exports at require time, and addItem changes only the module's local variable (measured on Node 24: 1, then 0)."
+  },
+  {
+    "id": "m23.q24",
+    "module": "m23",
+    "section": "iterators",
+    "q": "What does this print?",
+    "code": "function* checkoutSteps() {\n  console.log('start');\n  yield 'address';\n  console.log('after address');\n  yield 'payment';\n}\n\nconst steps = checkoutSteps();\nconsole.log('created');\nconsole.log(steps.next().value);",
+    "lang": "js",
+    "options": [
+      "start, created, address",
+      "created, start, address",
+      "created, address",
+      "start, after address, created, address"
+    ],
+    "answer": 1,
+    "explain": "Calling a generator function runs none of its body; it returns a paused generator. The first next() runs up to the first yield, printing start, then returns address (measured). The body never reaches after address because next() is not called again."
+  },
+  {
+    "id": "m23.q25",
+    "module": "m23",
+    "section": "iterators",
+    "q": "What does this print?",
+    "code": "function* promoCodes() {\n  yield 'BLACKFRIDAY';\n  yield 'FREESHIP';\n}\n\nconst codes = promoCodes();\nconsole.log([...codes].length, [...codes].length);",
+    "lang": "js",
+    "options": [
+      "2 2",
+      "2 0",
+      "0 0",
+      "It throws, because a generator cannot be spread twice"
+    ],
+    "answer": 1,
+    "explain": "A generator object is an iterator, and an iterator can be consumed once: the second spread finds it done and produces an empty array (measured). Calling promoCodes() again, or making a class iterable with a generator method, gives a fresh iterator each time."
+  },
+  {
+    "id": "m23.q26",
+    "module": "m23",
+    "section": "copying",
+    "q": "The Undo snapshot is made with <code>JSON.parse(JSON.stringify(cart))</code>. What do <code>typeof snapshot.updatedAt</code> and <code>snapshot.lines</code> give, if <code>updatedAt</code> is a <code>Date</code> and <code>lines</code> a <code>Map</code> with one entry?",
+    "options": [
+      "'object' (a Date) and an equal Map",
+      "'string' and an equal Map",
+      "'object' and an empty object",
+      "'string' and an empty object"
+    ],
+    "answer": 3,
+    "explain": "JSON.stringify calls Date's toJSON, so the date comes back as an ISO string, and a Map has no enumerable own properties, so it becomes {} (measured). structuredClone would keep both the Date and the Map, which is why it fits an in-memory snapshot."
+  },
+  {
+    "id": "m23.q27",
+    "module": "m23",
+    "section": "copying",
+    "q": "The cart drawer sorts prices in cents with <code>prices.sort()</code>, where <code>prices</code> is <code>[1250, 399, 10000, 900]</code>. What is the result, and what else happens?",
+    "options": [
+      "[399, 900, 1250, 10000], and prices is unchanged",
+      "[399, 900, 1250, 10000], and prices is sorted in place",
+      "[10000, 1250, 399, 900], and prices is sorted in place",
+      "[10000, 1250, 399, 900], and prices is unchanged"
+    ],
+    "answer": 2,
+    "explain": "Without a comparator, sort converts values to strings and compares them, so '10000' comes before '1250' (measured), and sort mutates the array it is called on. prices.toSorted((a, b) =&gt; a - b) returns a new, numerically sorted array and leaves prices alone."
+  },
+  {
+    "id": "m23.q28",
+    "module": "m23",
+    "section": "memory",
+    "q": "In Next.js server code, a teammate stores the current customer's cart in a module-level variable \"to avoid fetching it twice per request\". What is the main risk?",
+    "options": [
+      "One module instance serves every request: customers see each other's carts",
+      "It is reset at the start of every request, so the cache never saves a fetch",
+      "Module-level variables are forbidden in server code, so the build fails",
+      "The variable is serialized into the HTML, so the cart leaks to the browser"
+    ],
+    "answer": 0,
+    "explain": "A module is evaluated once and shared by all importers for the life of the process, so module state on a server is shared across requests and users: a data leak between customers and a memory leak. Per-request data must live in the request scope; the \"reset on every request\" option describes what the teammate wrongly assumes."
+  },
+  {
+    "id": "m23.q29",
+    "module": "m23",
+    "section": "memory",
+    "q": "A server-side cache of price labels grows without limit. It is a module-level <code>Map</code> keyed by product id, and products change rarely. Which fix would you ship?",
+    "options": [
+      "Replace it with a WeakMap keyed by product id, so the GC frees entries",
+      "Clear the whole Map every hour with setInterval to cap its growth",
+      "Call the garbage collector at the end of each request to reclaim it",
+      "Bound it: an LRU with a maximum size, plus a time limit if prices change"
+    ],
+    "answer": 3,
+    "explain": "A bounded LRU keeps memory flat and keeps the useful entries; a Map's insertion order gives one in a few lines. A WeakMap cannot take a string id as a key (it throws \"Invalid value used as weak map key\", measured), and clearing everything hourly throws away the hot entries while still growing between clears."
+  },
+  {
+    "id": "m24.q1",
+    "module": "m24",
+    "section": "loop",
+    "q": "A click handler on the storefront runs a 400 ms loop. When can the browser paint the result of the click?",
+    "options": [
+      "Every 16 ms during the loop, because rendering runs on its own schedule",
+      "Only after the handler and the microtasks it queued have finished running",
+      "Right away, because painting happens on the GPU thread",
+      "Halfway through the loop, when the browser interrupts the task"
+    ],
+    "answer": 1,
+    "explain": "Rendering is a step of the event loop on the main thread, and it happens only between tasks, after the microtask queue is empty. Nothing interrupts a running task, so the screen stays frozen for the whole 400 ms. The refresh rate sets when a rendering opportunity may come, not whether a busy thread can be interrupted."
+  },
+  {
+    "id": "m24.q2",
+    "module": "m24",
+    "section": "loop",
+    "q": "A developer from the Node team writes storefront code. Which statement about the browser event loop is true?",
+    "options": [
+      "It has the same phases as libuv: timers, then poll for I/O, then check for setImmediate",
+      "<code>process.nextTick</code> callbacks run before promise callbacks, as in Node",
+      "<code>setImmediate</code> is the fastest way to yield to rendering",
+      "No nextTick or setImmediate; after a task and its microtasks, a frame may render"
+    ],
+    "answer": 3,
+    "explain": "Browsers have no libuv phases: one task runs, then all microtasks, then possibly a rendering step with rAF, style, layout and paint. Both process.nextTick and setImmediate are undefined in Chromium (checked). The nextTick-before-promises rule is specific to Node (M01)."
+  },
+  {
+    "id": "m24.q3",
+    "module": "m24",
+    "section": "order",
+    "q": "What does this print in the browser?",
+    "code": "console.log('1');\nsetTimeout(() => console.log('2'), 0);\nPromise.resolve().then(() => console.log('3'));\nqueueMicrotask(() => console.log('4'));\nconsole.log('5');",
+    "lang": "js",
+    "options": [
+      "1 5 3 4 2",
+      "1 5 2 3 4",
+      "1 3 4 5 2",
+      "1 5 4 3 2"
+    ],
+    "answer": 0,
+    "explain": "Synchronous code first (1, 5), then the microtasks in the order they were queued (3, then 4), then the timer task (2). Measured in Chromium, 10 runs out of 10. queueMicrotask and a .then callback share the same queue, so neither has priority over the other."
+  },
+  {
+    "id": "m24.q4",
+    "module": "m24",
+    "section": "order",
+    "q": "Code schedules <code>setTimeout(f, 0)</code> and <code>requestAnimationFrame(g)</code> in the same task. Which runs first?",
+    "options": [
+      "<code>f</code>, always, because timers are tasks and frames come after tasks",
+      "<code>g</code>, always, because animation frame callbacks have the highest priority of all",
+      "Either one: it depends on when the next rendering opportunity falls",
+      "Both run in the same microtask checkpoint, in call order"
+    ],
+    "answer": 2,
+    "explain": "The timer is a task that is ready almost at once, while rAF waits for the next rendering opportunity, which follows the display refresh. Measured in Chromium over 200 random starts: the frame came first 134 times and the timer 66 times. Neither callback is a microtask."
+  },
+  {
+    "id": "m24.q5",
+    "module": "m24",
+    "section": "long-tasks",
+    "q": "What is a long task, and why does it hurt INP?",
+    "options": [
+      "A fetch that takes more than 1 second; INP counts network time",
+      "A task over 50 ms; while it runs the browser cannot paint the next frame after an input",
+      "Any task over 16 ms, because it always drops a frame, and INP counts the frames that were dropped",
+      "A task that runs in a Web Worker for more than 200 ms"
+    ],
+    "answer": 1,
+    "explain": "web.dev defines a long task as any task over 50 ms. INP measures from an input to the next paint, and a long task on the main thread delays that paint and any input queued behind it. Network waiting does not occupy the main thread, and a worker's long task does not block the page."
+  },
+  {
+    "id": "m24.q6",
+    "module": "m24",
+    "section": "long-tasks",
+    "q": "Why does the storefront's <code>yieldToMain()</code> prefer <code>scheduler.yield()</code> over <code>setTimeout(resolve, 0)</code>?",
+    "options": [
+      "Both let input and paint happen, but scheduler.yield() resumes before other queued tasks",
+      "scheduler.yield() runs the rest of the function on another thread",
+      "setTimeout cannot be awaited, so the function would not wait",
+      "scheduler.yield() is a microtask, so the function resumes sooner and the work finishes faster"
+    ],
+    "answer": 0,
+    "explain": "Both create a new task, so input and rendering can happen in between. The continuation of scheduler.yield() is prioritized: measured in Chromium, it resumed before a timer queued earlier, 20 runs out of 20, while a setTimeout continuation goes to the back of the queue. It is not a microtask (a microtask would block rendering) and not another thread."
+  },
+  {
+    "id": "m24.q7",
+    "module": "m24",
+    "section": "promises",
+    "q": "The empty search panel loads \"recent searches\" and \"trending products\", both optional. With <code>Promise.all</code>, a trending failure empties the whole panel. What do you change?",
+    "options": [
+      "Use Promise.race so the faster block is shown",
+      "Use Promise.any so the panel shows whichever of the two blocks succeeds first and skips the other",
+      "Wrap Promise.all in a retry loop until both succeed",
+      "Use Promise.allSettled, render each block from its own result, and report the failures"
+    ],
+    "answer": 3,
+    "explain": "allSettled never rejects and gives one result per input, so each optional block can fall back to empty on its own while the failure is reported. Promise.any would return only one of the two values, and race returns whichever settles first, even a failure. Retrying hides the outage and delays both blocks."
+  },
+  {
+    "id": "m24.q8",
+    "module": "m24",
+    "section": "abort",
+    "q": "A search fetch was given <code>{ signal }</code>, and the code calls <code>controller.abort()</code> while the response is pending. What does the fetch promise do?",
+    "options": [
+      "It resolves with a response whose status is 499",
+      "It stays pending forever, so the caller must check signal.aborted",
+      "It rejects with a DOMException named AbortError",
+      "It rejects with a TypeError named NetworkError"
+    ],
+    "answer": 2,
+    "explain": "Measured in Chromium: the fetch rejected with a DOMException whose name is AbortError, and the test server saw the connection close. With AbortSignal.timeout the name is TimeoutError instead. 499 is a status some proxies log for a client that disconnected; the browser never makes up a response."
+  },
+  {
+    "id": "m24.q9",
+    "module": "m24",
+    "section": "race",
+    "q": "Why can the naive search handler show suggestions for \"ru\" after the customer typed \"run\"?",
+    "options": [
+      "Responses can arrive out of order, and the handler renders whichever arrives last",
+      "The browser sends requests to the same host one at a time, in reverse order",
+      "fetch caches the first response of the session and returns it again for similar queries",
+      "React batches the state updates and keeps the first one"
+    ],
+    "answer": 0,
+    "explain": "Each keystroke starts a request, and the server may answer a short query more slowly than a longer one. Reproduced in Chromium with \"ru\" answered in 400 ms and \"run\" in 100 ms: the screen ended on \"ru\". Browsers send requests in parallel, and the bug happens in plain JavaScript without React."
+  },
+  {
+    "id": "m24.q10",
+    "module": "m24",
+    "section": "debounce",
+    "q": "Which description matches a trailing-edge debounce of 300 ms?",
+    "options": [
+      "It runs at most once every 300 ms, for as long as the calls keep coming in",
+      "It runs once, 300 ms after the last call, with the arguments of that last call",
+      "It runs the first call at once and ignores the others forever",
+      "It runs every call, each delayed by 300 ms"
+    ],
+    "answer": 1,
+    "explain": "Every call restarts the 300 ms wait, so the function runs only after a pause, with the latest arguments; tested with fake timers, calls every 100 ms never triggered it until they stopped. \"At most once every 300 ms while calls keep coming\" is a throttle."
+  },
+  {
+    "id": "m24.q11",
+    "module": "m24",
+    "section": "throttle",
+    "q": "A function throttled at 200 ms (leading and trailing) is called every 50 ms for one second, then the calls stop. How many times does it run?",
+    "options": [
+      "20 times, once per call, since no two calls overlap",
+      "Once, 200 ms after the last call, with the arguments of that call",
+      "5 times, once at the end of each 200 ms window during the second",
+      "6 times: at 0 ms, then at the end of each 200 ms window"
+    ],
+    "answer": 3,
+    "explain": "The leading call runs at 0, and the latest call of each window runs when the window ends: tested with Vitest fake timers, it ran at 0, 200, 400, 600, 800 and 1,000 ms. Running once after the last call is what a debounce does."
+  },
+  {
+    "id": "m24.q12",
+    "module": "m24",
+    "section": "workers",
+    "q": "What can code inside a Web Worker do?",
+    "options": [
+      "Read and update the DOM of the page directly, but from a separate thread",
+      "Share JavaScript objects with the page by reference, so no copy is ever made",
+      "Call fetch and compute, and exchange copied messages with the page",
+      "Run only synchronous code, since it has no event loop"
+    ],
+    "answer": 2,
+    "explain": "A worker has its own thread and event loop, has fetch, and has no DOM (document is undefined inside one, checked in Chromium). Messages are copied with the structured clone algorithm; only transferable objects such as ArrayBuffer are moved instead, and even then nothing is shared by reference."
+  },
+  {
+    "id": "m24.q13",
+    "module": "m24",
+    "section": "order",
+    "q": "What does this print?",
+    "code": "async function loadCart() {\n  console.log('B');\n  await null;\n  console.log('C');\n}\n\nconsole.log('A');\nsetTimeout(() => console.log('D'), 0);\nloadCart();\nPromise.resolve().then(() => console.log('E'));\nconsole.log('F');",
+    "lang": "js",
+    "options": [
+      "A B C E F D",
+      "A F B C E D",
+      "A B F C E D",
+      "A B F E C D"
+    ],
+    "answer": 2,
+    "explain": "loadCart runs synchronously up to its await, so B prints right after A. The rest of loadCart (C) was queued as a microtask before the .then callback (E), so C comes before E, and the timer (D) comes last. Measured in Chromium, 10 runs out of 10. A B C E F D forgets that await always suspends, even on a non-promise value."
+  },
+  {
+    "id": "m24.q14",
+    "module": "m24",
+    "section": "order",
+    "q": "A unit test triggers the \"Add to cart\" button with <code>button.click()</code>. The button has two click listeners, each queuing a promise callback. In what order do the logs appear?",
+    "code": "button.addEventListener('click', () => {\n  console.log('listener 1');\n  Promise.resolve().then(() => console.log('micro 1'));\n});\nbutton.addEventListener('click', () => {\n  console.log('listener 2');\n  Promise.resolve().then(() => console.log('micro 2'));\n});\nbutton.click();\nconsole.log('after click()');",
+    "lang": "js",
+    "options": [
+      "listener 1, listener 2, after click(), micro 1, micro 2",
+      "listener 1, micro 1, listener 2, micro 2, after click()",
+      "after click(), listener 1, listener 2, micro 1, micro 2",
+      "listener 1, micro 1, listener 2, micro 2, then after click() in a later task"
+    ],
+    "answer": 0,
+    "explain": "click() dispatches the event synchronously, while the test code is still on the stack, so no microtask can run until that script ends. Measured in Chromium: listener 1, listener 2, after click(), micro 1, micro 2. The order with micro 1 between the listeners is what a real user click produces, because each listener then starts with an empty stack."
+  },
+  {
+    "id": "m24.q15",
+    "module": "m24",
+    "section": "order",
+    "q": "What does this print?",
+    "code": "Promise.resolve()\n  .then(() => console.log('a1'))\n  .then(() => console.log('a2'));\nPromise.resolve()\n  .then(() => console.log('b1'))\n  .then(() => console.log('b2'));",
+    "lang": "js",
+    "options": [
+      "a1 a2 b1 b2",
+      "a1 b1 a2 b2",
+      "b1 b2 a1 a2",
+      "a1 b1, then a2 and b2 in the next task"
+    ],
+    "answer": 1,
+    "explain": "Only a1 and b1 are queued at first. Running a1 resolves the promise of the second .then, which queues a2 behind b1; then b1 queues b2. So the chains interleave: a1 b1 a2 b2, measured in Chromium. Everything happens in the same microtask checkpoint, with no task in between."
+  },
+  {
+    "id": "m24.q16",
+    "module": "m24",
+    "section": "order",
+    "q": "What is the order of the logs, as measured in Chromium?",
+    "code": "requestAnimationFrame(() => {\n  console.log('frame');\n  setTimeout(() => console.log('timeout'), 0);\n  Promise.resolve().then(() => console.log('micro'));\n  requestAnimationFrame(() => console.log('next frame'));\n});",
+    "lang": "js",
+    "options": [
+      "frame, next frame, micro, timeout",
+      "frame, timeout, micro, next frame",
+      "frame, micro, next frame, timeout",
+      "frame, micro, timeout, next frame"
+    ],
+    "answer": 3,
+    "explain": "Microtasks are drained right after each rAF callback, so micro follows frame. A rAF requested inside a rAF callback waits for the next frame, about one refresh later, while the timer task is ready at once: measured 30 runs out of 30 in Chromium, headless and in a visible window. The nested rAF never runs in the same frame."
+  },
+  {
+    "id": "m24.q17",
+    "module": "m24",
+    "section": "long-tasks",
+    "q": "To fix the sticky search box, a colleague splits the filter into slices with <code>await Promise.resolve()</code> between them. Typing is still frozen. Why?",
+    "options": [
+      "The slices are too large: with 100 entries per slice, the browser would find time to paint",
+      "Promise.resolve() is synchronous, so await does nothing at all",
+      "Code after await runs as a microtask, and all microtasks run before any paint or input",
+      "Chromium disables yielding inside input event handlers"
+    ],
+    "answer": 2,
+    "explain": "Awaiting a resolved promise does suspend the function, but it resumes in a microtask, and the microtask queue is drained completely before any rendering or next task. Measured in Chromium: 0 frames painted during 500 ms of work sliced this way. Smaller slices change nothing; a new task is needed, such as scheduler.yield() or setTimeout."
+  },
+  {
+    "id": "m24.q18",
+    "module": "m24",
+    "section": "long-tasks",
+    "q": "Profiling shows each keystroke spends about 300 ms in <code>index.filter((entry) =&gt; normalizeForSearch(entry.label).includes(needle))</code> over 200,000 entries. What do you do first?",
+    "options": [
+      "Normalize each label once when the index loads, and filter on the stored result",
+      "Move the same code to a Web Worker",
+      "Wrap the filter in useDeferredValue",
+      "Split it into slices with scheduler.yield() and keep normalizing each label per keystroke"
+    ],
+    "answer": 0,
+    "explain": "Most of the 300 ms is repeated work: normalizing 200,000 labels on every keystroke. Precomputing it brought one run to 26 ms in Chromium, at no architectural cost. Slices or a worker would still repeat the waste; they are the next steps if the remaining work is still too long."
+  },
+  {
+    "id": "m24.q19",
+    "module": "m24",
+    "section": "promises",
+    "q": "What happens when the out-of-stock product is added?",
+    "code": "async function addToCart(productId: string): Promise<void> {\n  throw new Error('out of stock');\n}\n\nfunction onAddClick(productId: string): void {\n  try {\n    addToCart(productId);\n  } catch (error) {\n    showToast('Could not add the product');\n  }\n}",
+    "lang": "ts",
+    "options": [
+      "The toast appears, because the error is thrown inside the try block of onAddClick",
+      "The page crashes and reloads",
+      "The toast appears after a microtask, when the rejection reaches the catch",
+      "No toast: the call returns a rejected promise, which goes unhandled"
+    ],
+    "answer": 3,
+    "explain": "An async function never throws at the call site; it returns a rejected promise. Without await, the try/catch has nothing to catch, and the rejection becomes an unhandledrejection event while the page keeps running (measured in Chromium). The fix is async onAddClick with await addToCart(productId)."
+  },
+  {
+    "id": "m24.q20",
+    "module": "m24",
+    "section": "promises",
+    "q": "A product page uses <code>Promise.all([getReviews(), getStock(), getRecommendations()])</code>. The stock call rejects after 10 ms; the others take 30 and 60 ms. What happens?",
+    "options": [
+      "Promise.all waits for all three, then rejects with an AggregateError",
+      "It rejects after about 10 ms with the stock error; the other two calls still finish",
+      "It rejects after about 10 ms with the stock error and cancels the two other requests",
+      "Promise.all resolves with undefined in place of the stock result"
+    ],
+    "answer": 1,
+    "explain": "Promise.all rejects as soon as one input rejects, with that reason. It receives promises that are already running and cannot stop them: measured in Chromium, both slower calls settled after the rejection. Cancelling them needs an AbortSignal; AggregateError comes from Promise.any."
+  },
+  {
+    "id": "m24.q22",
+    "module": "m24",
+    "section": "abort",
+    "q": "After a refactor, every fast typist sees \"Search failed\" banners. What is the bug?",
+    "code": "current?.abort(new Error('superseded by a newer query'));\ncurrent = new AbortController();\ntry {\n  render(await searchProducts(query, current.signal));\n} catch (error) {\n  if (error instanceof DOMException && error.name === 'AbortError') {\n    return;\n  }\n  showBanner('Search failed');\n}",
+    "lang": "ts",
+    "options": [
+      "With a reason, fetch rejects with that Error, so the name check misses it",
+      "abort() must be called after the new controller is created",
+      "An AbortError is a TypeError in browsers, so instanceof DOMException is false",
+      "The banner shows because aborting closes the connection with an HTTP error status"
+    ],
+    "answer": 0,
+    "explain": "When abort() receives a reason, fetch rejects with that reason: measured in Chromium, the rejection was the Error passed to abort. The name check therefore fails and a deliberate cancel is shown as a failure. Without a reason the rejection is indeed a DOMException named AbortError, so checking the signal (as section 6 does) is the robust test."
+  },
+  {
+    "id": "m24.q23",
+    "module": "m24",
+    "section": "abort",
+    "q": "The response headers for \"ru\" have arrived and <code>await response.json()</code> is in progress when the next keystroke calls <code>abort()</code> on that request's controller. What happens?",
+    "options": [
+      "Nothing: once fetch has resolved, the signal is no longer looked at",
+      "response.json() resolves, but with an empty object",
+      "The browser finishes reading the body and then throws on the next fetch",
+      "response.json() rejects with an AbortError, because abort also covers the body"
+    ],
+    "answer": 3,
+    "explain": "The signal stays attached to the response body. Measured in Chromium: aborting after fetch resolved but before the body was read made response.json() reject with an AbortError. Only once the body has been fully read does abort change nothing."
+  },
+  {
+    "id": "m24.q24",
+    "module": "m24",
+    "section": "race",
+    "q": "The suggestions now come from a Web Worker that answers with <code>postMessage</code>. Old answers sometimes overwrite new ones. Which fix would you ship?",
+    "options": [
+      "Pass an AbortSignal to worker.postMessage",
+      "Tag each request with an increasing id and render only the latest id's answer",
+      "Terminate the worker and create a new one on every keystroke, so old work is dropped",
+      "Wrap the handler in Promise.race with a timeout"
+    ],
+    "answer": 1,
+    "explain": "A worker message cannot be aborted, so the fix is to ignore stale answers: measured in Chromium, 6 of 7 answers were dropped by the id check while typing. postMessage takes no signal, and recreating the worker would reload its index on every keystroke. Promise.race only picks the first to settle, not the latest query."
+  },
+  {
+    "id": "m24.q25",
+    "module": "m24",
+    "section": "race",
+    "q": "This handler is supposed to ignore stale responses. What is wrong with it?",
+    "code": "let latestId = 0;\n\nasync function onSearchInput(query: string): Promise<void> {\n  const requestId = ++latestId;\n  if (requestId !== latestId) {\n    return;\n  }\n  const suggestions = await searchProducts(query, new AbortController().signal);\n  renderSuggestions(suggestions);\n}",
+    "lang": "ts",
+    "options": [
+      "Nothing: the id check prevents the race",
+      "++latestId is not atomic, so two keystrokes can get the same id",
+      "The check runs before the await, where it is always true",
+      "The function must be synchronous for the id to be captured"
+    ],
+    "answer": 2,
+    "explain": "Right after the increment, requestId always equals latestId, so the check never skips anything. Staleness can only be detected after the await, when newer keystrokes may have raised latestId. JavaScript runs one callback at a time on the main thread, so the increment cannot be interleaved."
+  },
+  {
+    "id": "m24.q26",
+    "module": "m24",
+    "section": "debounce",
+    "q": "In this component, typing r, ru, run quickly sends three searches. Why?",
+    "code": "export function SearchBox() {\n  const [input, setInput] = useState('');\n  const debouncedSearch = debounce(sendSearch, 300);\n  return (\n    <input\n      aria-label=\"Search products\"\n      value={input}\n      onChange={(event) => {\n        setInput(event.target.value);\n        debouncedSearch(event.target.value);\n      }}\n    />\n  );\n}",
+    "lang": "tsx",
+    "options": [
+      "Each render creates a new debounced function, so no calls are merged",
+      "setInput cancels the pending timer, so every value is sent right away instead",
+      "React StrictMode calls the handler twice",
+      "The debounce delay is too short for fast typists"
+    ],
+    "answer": 0,
+    "explain": "Every keystroke sets state, the component renders again and creates a fresh debounce; each instance receives one call and fires it 300 ms later. Measured in jsdom with React 19.3: r, ru, run were all sent, and with useMemo only run was. A longer delay changes nothing; debouncing the value with an effect avoids the problem."
+  },
+  {
+    "id": "m24.q27",
+    "module": "m24",
+    "section": "debounce",
+    "q": "With this module's <code>debounce</code>, a function is debounced with <code>{ leading: true, trailing: true }</code> and called exactly once. How many times does it run?",
+    "options": [
+      "Twice: once at once, once after the wait",
+      "Zero times, because the two edges cancel each other",
+      "Once, after the wait",
+      "Once, at the moment of the call"
+    ],
+    "answer": 3,
+    "explain": "The leading call runs at once and does not store its arguments, so at the end of the wait there is nothing left for the trailing edge. Tested with fake timers: a single call ran once, and a second call within the wait added one trailing run. Running twice would send a duplicate request for every single keystroke."
+  },
+  {
+    "id": "m24.q28",
+    "module": "m24",
+    "section": "throttle",
+    "q": "The results page loads the next page of products when the customer nears the end of the list. The current code runs a throttled scroll handler that measures the last card. What would you ship instead?",
+    "options": [
+      "A debounced scroll handler, so it runs only when scrolling stops",
+      "An IntersectionObserver watching a sentinel element placed near the end of the list",
+      "A requestAnimationFrame loop that measures the last card on every frame",
+      "A setInterval that checks the scroll position every 100 ms"
+    ],
+    "answer": 1,
+    "explain": "Detecting that an element becomes visible is what IntersectionObserver is for; MDN lists infinite scrolling as a use case, and no code runs on the main thread during the scroll. A rAF loop or an interval would measure layout constantly, and a debounce would load late, only after the customer stops."
+  },
+  {
+    "id": "m24.q30",
+    "module": "m24",
+    "section": "workers",
+    "q": "The first worker version receives the 200,000-entry suggestion index from the page with <code>worker.postMessage(index)</code> at startup. The page now has a 200 ms long task when it loads. Which change fixes it?",
+    "options": [
+      "Let the worker fetch the index itself, so only small messages cross threads",
+      "Post the index from a microtask, so it does not block the page while it loads",
+      "Call postMessage inside requestAnimationFrame",
+      "JSON.stringify the index before posting it, because strings are not cloned"
+    ],
+    "answer": 0,
+    "explain": "postMessage copies the data with structured clone on the sending thread: measured in Chromium, posting the index blocked the main thread for about 200 ms. Fetching it inside the worker means the big data never crosses threads. A microtask or rAF only moves the same long task, and stringifying is still main-thread work."
+  }
+]
