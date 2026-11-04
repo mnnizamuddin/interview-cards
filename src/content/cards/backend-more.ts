@@ -57,6 +57,31 @@ export const backendMoreCards: Card[] = [
         why: 'That is `If-None-Match`; `If-Match` guards writes and leads to 412 when the version differs.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both handle `PATCH /orders/:id` with the version from `If-Match`. Which one stops a lost update when two saves race?',
+        codeLang: 'ts',
+        better: `const { rows } = await db.query(
+  \`UPDATE orders SET note = $1, version = version + 1
+   WHERE id = $2 AND version = $3 RETURNING version\`,
+  [note, orderId, expectedVersion],
+);
+if (rows.length === 0) {
+  return reply.code(412).send();
+}
+return reply.header('etag', \`"\${rows[0].version}"\`).send();`,
+        worse: `const { rows } = await db.query(
+  'SELECT version FROM orders WHERE id = $1', [orderId]);
+if (rows[0].version !== expectedVersion) {
+  return reply.code(412).send();
+}
+const { rows: [next] } = await db.query(
+  \`UPDATE orders SET note = $1, version = version + 1
+   WHERE id = $2 RETURNING version\`, [note, orderId]);
+return reply.header('etag', \`"\${next.version}"\`).send();`,
+        why: 'The version check sits inside the `UPDATE`, so the database decides atomically: of two saves sent with `If-Match: "1"`, one updates and the other matches 0 rows and gets a 412. In the other version both requests read version 1 before either writes, both pass the check, and the second save silently erases the first.',
+      },
+    ],
     lesson: {
       points: [
         'A lost update happens when two clients read the same version, both edit it, and the second save silently erases the first. HTTP prevents it with conditional requests.',
@@ -122,6 +147,31 @@ PATCH /orders/ord_42  If-Match: "1"     -> 412 Precondition Failed  (the stale a
         statement: 'Deleting `passwordHash` from the user object before sending it is as safe as a response allow-list.',
         isTrue: false,
         why: 'A deny-list misses every sensitive column added later; an allow-list sends only what was chosen.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both validate the body of `PATCH /me` with the same Zod schema. Which one stops a customer from sending `"role": "admin"`?',
+        codeLang: 'ts',
+        better: `const UpdateProfile = z.object({
+  displayName: z.string().trim().min(1).max(80),
+  locale: z.enum(['en', 'fr']),
+});
+app.patch('/me', async (req, res) => {
+  const body = UpdateProfile.parse(req.body);
+  await customers.update(req.user.id, body);
+  res.sendStatus(204);
+});`,
+        worse: `const UpdateProfile = z.object({
+  displayName: z.string().trim().min(1).max(80),
+  locale: z.enum(['en', 'fr']),
+});
+app.patch('/me', async (req, res) => {
+  UpdateProfile.parse(req.body);
+  await customers.update(req.user.id, req.body);
+  res.sendStatus(204);
+});`,
+        why: '`z.object` strips keys the schema does not list, so writing the parsed result saves only `displayName` and `locale`. The other version validates the body, then writes the raw `req.body`: the check passes, the unlisted `role` goes straight to the update, and any customer can make themselves an admin. That is mass assignment.',
       },
     ],
     lesson: {
@@ -200,6 +250,29 @@ const PublicCustomer = z.object({ id: z.string(), displayName: z.string() });
         why: 'It is classed as dangerous: an old mobile app may not handle a status it has never seen.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both describe orders in the back-office schema; `customer` is loaded from another service. Which one survives one failed customer lookup?',
+        codeLang: 'ts',
+        better: `export const typeDefs = /* GraphQL */ \`
+  type Order {
+    id: ID!
+    status: OrderStatus!
+    customer: Customer
+  }
+  type OrderEdge { cursor: String! node: Order! }
+\`;`,
+        worse: `export const typeDefs = /* GraphQL */ \`
+  type Order {
+    id: ID!
+    status: OrderStatus!
+    customer: Customer!
+  }
+  type OrderEdge { cursor: String! node: Order! }
+\`;`,
+        why: 'A field that calls another service stays nullable: a failed lookup gives `customer: null` plus an error for that one order. With `Customer!`, GraphQL nulls the parent instead, up to the nearest nullable position: here the `Order`, then past `node: Order!`, so one failing lookup erases far more than one customer, possibly the whole page.',
+      },
+    ],
     lesson: {
       points: [
         'A GraphQL schema is a typed description of every type and field the server offers on one endpoint. Clients name the fields they want, and a resolver function runs per field.',
@@ -266,6 +339,26 @@ export const typeDefs = /* GraphQL */ \`
         statement: 'A DataLoader shared across users can serve one user\'s cached objects to another.',
         isTrue: true,
         why: 'Its cache is keyed by id, not by viewer, so it must be created per request.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both resolve `orders(first: 20)` for a signed-in storefront customer. Which one returns full pages of their own orders?',
+        codeLang: 'ts',
+        better: `orders: async (_root, args, ctx) => {
+  const { rows } = await ctx.db.query(
+    \`SELECT * FROM orders WHERE customer_id = $1
+     ORDER BY id LIMIT $2\`,
+    [ctx.viewer.customerId, args.first]);
+  return rows;
+},`,
+        worse: `orders: async (_root, args, ctx) => {
+  const { rows } = await ctx.db.query(
+    'SELECT * FROM orders ORDER BY id LIMIT $1', [args.first]);
+  return rows.filter((order) =>
+    orderPolicy.canView(ctx.viewer, order));
+},`,
+        why: 'Filtering in SQL returns up to 20 of the customer\'s own orders. Loading the first 20 orders of the whole shop and then dropping the forbidden ones leaves pages short or empty: with 1,000 orders and 5 of them the customer\'s, the first page shows none, though the customer has orders.',
       },
     ],
     lesson: {
@@ -405,6 +498,24 @@ const Customer = {
         why: 'Unlike `EventSource` and Socket.io, it does not: the client code must reconnect.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both push an order status update to every connected back-office socket. Which one protects the server from a client that stops reading?',
+        codeLang: 'ts',
+        better: `const MAX_BUFFERED = 1_000_000; // bytes
+for (const socket of wss.clients) {
+  if (socket.bufferedAmount > MAX_BUFFERED) {
+    socket.terminate(); // it resyncs when it reconnects
+    continue;
+  }
+  socket.send(payload);
+}`,
+        worse: `for (const socket of wss.clients) {
+  socket.send(payload);
+}`,
+        why: '`send()` never blocks: bytes a client has not received wait in server memory, counted by `bufferedAmount`. The better version cuts a client that falls too far behind; it reconnects and replays from its last event id. Without the check, one stalled connection makes the buffer grow with every update until the pod runs out of memory.',
+      },
+    ],
     lesson: {
       points: [
         'Authenticate once, at the HTTP upgrade. Browsers send cookies with the handshake, so check `Origin` against an allowlist (to stop cross-site WebSocket hijacking), then the session.',
@@ -477,6 +588,31 @@ const Customer = {
         why: 'The newest completed step is undone first, as the code pushes each compensation and runs them reversed.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both run the checkout saga and undo completed steps, newest first, when a step fails. Which one never undoes a step that did not happen?',
+        codeLang: 'ts',
+        better: `const undo = [() => cancelOrder(order.id)];
+try {
+  await reserveStock(order.lines);
+  undo.push(() => releaseStock(order.lines));
+  const paymentId = await chargePayment(order);
+  undo.push(() => refundPayment(paymentId));
+} catch {
+  for (const step of undo.toReversed()) await step();
+}`,
+        worse: `const undo = [() => cancelOrder(order.id)];
+try {
+  undo.push(() => releaseStock(order.lines));
+  await reserveStock(order.lines);
+  const paymentId = await chargePayment(order);
+  undo.push(() => refundPayment(paymentId));
+} catch {
+  for (const step of undo.toReversed()) await step();
+}`,
+        why: 'A compensation is registered only once its step has succeeded. In the other version, when `reserveStock` throws because the mug is sold out, the saga still runs `releaseStock(order.lines)`, which adds back units that were never taken: each failed checkout inflates the stock count, and the shop oversells.',
+      },
+    ],
     lesson: {
       points: [
         'When one business operation spans services with their own databases, no single transaction covers it. Two-phase commit (2PC) needs every participant to join, and HTTP APIs and brokers cannot.',
@@ -547,6 +683,24 @@ try {
         statement: 'With 3.5 trillion possible codes, random order numbers do not need a unique constraint.',
         isTrue: false,
         why: 'By the birthday paradox, the chance of a collision reaches 50% after about 2.2 million codes.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both save a new order with a random 7-character public number; the column has a unique constraint. Which one copes with a collision?',
+        codeLang: 'ts',
+        better: `for (let attempt = 1; ; attempt++) {
+  const number = randomCode(7);
+  try {
+    return await insertOrder({ ...order, number });
+  } catch (error) {
+    if (error.code !== '23505' || attempt === 3) {
+      throw error; // not a collision, or unlucky three times
+    }
+  }
+}`,
+        worse: `return await insertOrder({ ...order, number: randomCode(7) });`,
+        why: 'Random codes collide sooner than intuition says: with 62^7 codes, a repeat is about 50% likely after 2.2 million orders. The unique constraint catches it with error `23505`, and the loop draws a new code. The other version passes that error up, so an unlucky customer\'s checkout fails with a 500.',
       },
     ],
     lesson: {
@@ -681,6 +835,29 @@ function encodeBase62(id: number): string {
         why: 'There is one repository per aggregate, which may span several tables.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both check whether a refund covers the whole order total, both `Money` value objects. Which comparison works?',
+        codeLang: 'ts',
+        better: `type Money = Readonly<{ cents: number; currency: string }>;
+function sameMoney(a: Money, b: Money): boolean {
+  return a.cents === b.cents && a.currency === b.currency;
+}
+const refund: Money = { cents: 4999, currency: 'EUR' };
+if (sameMoney(refund, order.total)) {
+  order.markFullyRefunded();
+}`,
+        worse: `type Money = Readonly<{ cents: number; currency: string }>;
+function sameMoney(a: Money, b: Money): boolean {
+  return a.cents === b.cents && a.currency === b.currency;
+}
+const refund: Money = { cents: 4999, currency: 'EUR' };
+if (refund === order.total) {
+  order.markFullyRefunded();
+}`,
+        why: 'A value object has no identity: two `Money` values with the same cents and currency are interchangeable, so compare them by value. `===` compares object references: the refund built from the request is never the same object as the order\'s total, so a full refund of 49.99 EUR is never recognised.',
+      },
+    ],
     lesson: {
       points: [
         'An entity has an identity that stays the same while its data changes. A value object has no identity: it is immutable, and two equal values are interchangeable, like `Money`.',
@@ -747,6 +924,30 @@ function encodeBase62(id: number): string {
         statement: 'Hexagonal architecture requires exactly six ports, one per side of the hexagon.',
         isTrue: false,
         why: 'Cockburn said the number six is not important: the shape just leaves room for many ports.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both are the place-order use case in the Orders API\'s `application/` folder. Which one respects the dependency rule?',
+        codeLang: 'ts',
+        better: `export function makePlaceOrder(deps: {
+  orders: OrderRepository; // a port declared by the core
+  now: () => Date;
+}) {
+  return async (command: PlaceOrderCommand) => {
+    const order = Order.place(command, deps.now());
+    await deps.orders.save(order);
+    return order;
+  };
+}`,
+        worse: `import { pool } from '../infrastructure/pg-pool.ts';
+
+export async function placeOrder(command: PlaceOrderCommand) {
+  const order = Order.place(command, new Date());
+  await pool.query(INSERT_ORDER, [order.id, order.status]);
+  return order;
+}`,
+        why: 'The core declares the `OrderRepository` port and receives an adapter and a clock, so a test passes an in-memory repository and a frozen time and runs with no database. The other version imports the PostgreSQL pool and reads the real clock: the core depends on infrastructure, and testing any order rule now needs a running database.',
       },
     ],
     lesson: {

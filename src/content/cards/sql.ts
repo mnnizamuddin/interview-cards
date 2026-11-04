@@ -60,6 +60,19 @@ export const sqlCards: Card[] = [
         why: 'Orders whose `customer_id` is `NULL` match no customer, so the inner join drops them: 9 rows for 11 orders in the shop.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both list every customer with their cancelled orders, if any. Which one keeps all the customers?',
+        codeLang: 'sql',
+        better: `SELECT c.name, o.id FROM customers c
+LEFT JOIN orders o
+  ON o.customer_id = c.id AND o.status = 'cancelled';`,
+        worse: `SELECT c.name, o.id FROM customers c
+LEFT JOIN orders o ON o.customer_id = c.id
+WHERE o.status = 'cancelled';`,
+        why: "With the status test in `ON`, the left join keeps every customer and pads those with no cancelled order with `NULL`: 6 rows. In `WHERE`, the test runs after the join, `NULL = 'cancelled'` is not true, so the padded rows are dropped and the left join becomes an inner join: only Ada and Eve remain.",
+      },
+    ],
     lesson: {
       points: [
         'An inner join (`JOIN`) keeps only the pairs of rows that match the `ON` condition. A left join also keeps every left row that matched nothing, with `NULL` in the right side\'s columns.',
@@ -138,6 +151,21 @@ LEFT JOIN orders o ON o.customer_id = c.id AND o.status = 'paid';`,
         why: '`NOT EXISTS` only asks whether a matching row exists, so a `NULL` cannot break it; that is the flaw of `NOT IN`.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both look for the customers who never ordered, and guest orders have no customer. Which one finds them?',
+        codeLang: 'sql',
+        better: `SELECT c.name FROM customers c
+WHERE NOT EXISTS (
+  SELECT 1 FROM orders o WHERE o.customer_id = c.id
+);`,
+        worse: `SELECT c.name FROM customers c
+WHERE c.id NOT IN (
+  SELECT o.customer_id FROM orders o
+);`,
+        why: '`NOT EXISTS` only asks whether a matching order exists, so it returns Dana and Farid. The guest orders put a `NULL` in the `NOT IN` list, and `c.id <> NULL` is unknown, never true, so the `NOT IN` version returns 0 rows on the same data.',
+      },
+    ],
     lesson: {
       points: [
         '`NULL` marks a missing, unknown value. Any comparison with it, even `NULL = NULL`, returns unknown (shown as `NULL`): neither true nor false. This is three-valued logic.',
@@ -213,6 +241,21 @@ WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id);`,
         statement: '`GROUP BY customer_id` puts all the orders with a `NULL` customer in one group.',
         isTrue: true,
         why: 'Grouping treats all `NULL` values as one group, so the guest orders come out together.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both count the orders of every customer, including those who never ordered. Which count is right?',
+        codeLang: 'sql',
+        better: `SELECT c.name, count(o.id) AS orders
+FROM customers c
+LEFT JOIN orders o ON o.customer_id = c.id
+GROUP BY c.id;`,
+        worse: `SELECT c.name, count(*) AS orders
+FROM customers c
+LEFT JOIN orders o ON o.customer_id = c.id
+GROUP BY c.id;`,
+        why: '`count(o.id)` counts non-null order ids, so Dana and Farid get 0. `count(*)` counts rows, and the left join gives each customer without orders one padded row, so they show 1 order they never placed.',
       },
     ],
     lesson: {
@@ -294,6 +337,28 @@ GROUP BY c.id;
         why: 'It is materialized by default: computed once and scanned twice, unless you write `NOT MATERIALIZED`.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both report the shipping each customer paid, next to their items total. Which shipping total is right?',
+        codeLang: 'sql',
+        better: `WITH items AS (
+  SELECT order_id, sum(quantity * unit_price_cents) AS total
+  FROM order_items GROUP BY order_id
+)
+SELECT c.name, sum(o.shipping_cents), sum(i.total)
+FROM customers c
+JOIN orders o ON o.customer_id = c.id AND o.status = 'paid'
+JOIN items i ON i.order_id = o.id
+GROUP BY c.id;`,
+        worse: `SELECT c.name, sum(o.shipping_cents),
+       sum(i.quantity * i.unit_price_cents)
+FROM customers c
+JOIN orders o ON o.customer_id = c.id AND o.status = 'paid'
+JOIN order_items i ON i.order_id = o.id
+GROUP BY c.id;`,
+        why: 'The CTE reduces the items to one row per order first, so each order meets its customer once: Ada paid 2000 of shipping. Joining `order_items` directly repeats an order once per item, so the shipping of her two-item order 101 is summed twice: 2500. The items total is right in both, which hides the bug.',
+      },
+    ],
     lesson: {
       points: [
         'Fan-out: joining a one-to-many table repeats each parent row once per child. An order with 2 items becomes 2 rows, so its shipping is summed twice and the order counted twice.',
@@ -367,6 +432,25 @@ GROUP BY c.id ORDER BY spent DESC;
         statement: '`CROSS JOIN LATERAL` drops the outer rows for which the subquery returns nothing.',
         isTrue: true,
         why: 'It behaves like an inner join; `LEFT JOIN LATERAL ... ON true` keeps them with `NULL`.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: "Both show every customer next to their latest paid order on the CRM screen. Which one keeps customers who have none?",
+        codeLang: 'sql',
+        better: `SELECT c.name, last.id FROM customers c
+LEFT JOIN LATERAL (
+  SELECT o.id FROM orders o
+  WHERE o.customer_id = c.id AND o.status = 'paid'
+  ORDER BY o.placed_on DESC, o.id DESC LIMIT 1
+) AS last ON true;`,
+        worse: `SELECT c.name, last.id FROM customers c
+CROSS JOIN LATERAL (
+  SELECT o.id FROM orders o
+  WHERE o.customer_id = c.id AND o.status = 'paid'
+  ORDER BY o.placed_on DESC, o.id DESC LIMIT 1
+) AS last;`,
+        why: '`LEFT JOIN LATERAL ... ON true` keeps a customer when the subquery returns nothing, with `NULL`: 6 rows. `CROSS JOIN LATERAL` behaves like an inner join, so Dana, Eve and Farid, who have no paid order, vanish from the screen: 3 rows.',
       },
     ],
     lesson: {
@@ -446,6 +530,21 @@ LEFT JOIN LATERAL (
         statement: "`lag(revenue) OVER (ORDER BY month)` always returns the previous calendar month's revenue.",
         isTrue: false,
         why: 'It returns the previous row\'s value; a month with no row is skipped, so build a calendar first.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both compute a running total of shipping fees, order by order, and two orders share a day. Which one adds them one at a time?',
+        codeLang: 'sql',
+        better: `SELECT id, placed_on, shipping_cents,
+  sum(shipping_cents)
+    OVER (ORDER BY placed_on, id) AS running
+FROM orders WHERE status = 'paid';`,
+        worse: `SELECT id, placed_on, shipping_cents,
+  sum(shipping_cents)
+    OVER (ORDER BY placed_on) AS running
+FROM orders WHERE status = 'paid';`,
+        why: "With an `ORDER BY`, the default frame is `RANGE ... CURRENT ROW`, which includes the current row's peers. Ending the order with the unique `id` adds one order per row: 500, then 1200 for a 700 order the same day. Ordered by day alone, both orders of that day show 1200, as if they had been paid together.",
       },
     ],
     lesson: {
@@ -528,6 +627,25 @@ ORDER BY total DESC, id;
         why: 'The `DISTINCT ON` expressions must start the `ORDER BY`; otherwise PostgreSQL fails with error 42P10.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: "Both are meant to return each customer's two latest paid orders. Which one does?",
+        codeLang: 'sql',
+        better: `WITH ranked AS (
+  SELECT customer_id, id,
+    row_number() OVER (PARTITION BY customer_id
+      ORDER BY placed_on DESC, id DESC) AS position
+  FROM orders
+  WHERE status = 'paid' AND customer_id IS NOT NULL
+)
+SELECT customer_id, id FROM ranked WHERE position <= 2;`,
+        worse: `SELECT customer_id, id FROM orders
+WHERE status = 'paid' AND customer_id IS NOT NULL
+ORDER BY customer_id, placed_on DESC, id DESC
+LIMIT 2;`,
+        why: '`row_number` restarts at 1 in each customer\'s partition, and filtering it one level up keeps two rows per customer: 5 rows for Ada, Brendan and Chen. `LIMIT` applies to the whole result, so the other version returns 2 rows in total, both Ada\'s.',
+      },
+    ],
     lesson: {
       points: [
         'Top-N per group means N rows for each customer, not N in total. `LIMIT` applies to the whole result, so it needs one of three patterns.',
@@ -606,6 +724,26 @@ WHERE position <= 2;
         statement: '`MERGE` can delete rows of the target table.',
         isTrue: true,
         why: 'A `WHEN MATCHED` clause can run `DELETE`, which is why it suits syncing a table from a feed.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both save a supplier price for a SKU, and two imports can run at once. Which one stays correct?',
+        codeLang: 'ts',
+        better: `await db.query(
+  \`INSERT INTO products (sku, name, price_cents)
+   VALUES ($1, $2, $3)
+   ON CONFLICT (sku) DO UPDATE
+   SET price_cents = EXCLUDED.price_cents\`,
+  [p.sku, p.name, p.price]);`,
+        worse: `const found = await db.query(
+  'SELECT 1 FROM products WHERE sku = $1', [p.sku]);
+if (found.rowCount === 0) {
+  await db.query(INSERT_PRODUCT, [p.sku, p.name, p.price]);
+} else {
+  await db.query(UPDATE_PRICE, [p.sku, p.price]);
+}`,
+        why: 'The upsert is one atomic statement: the unique constraint on `sku` decides, and a concurrent insert of the same SKU turns into an update. With select-then-insert, both imports see no row, both insert, and the second fails with `23505` duplicate key; it also costs two round trips per row.',
       },
     ],
     lesson: {

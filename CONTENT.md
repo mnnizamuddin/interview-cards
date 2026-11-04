@@ -57,6 +57,31 @@ enough to answer the topic's questions; it is read on a phone in under a minute.
 - For behavioural topics, the lesson teaches the technique: what the interviewer assesses, the
   shape of a strong answer, the traps.
 
+## Code choices ("Which code is better?")
+
+`codeChoices` (optional) holds pairs of code: two versions of the same code, one **clearly better**.
+The app shows them as A and B in a random order; the learner chooses one, then reads `why`. They are
+graded by the app, so they make the "% handled" more trustworthy than self-checked spoken answers.
+
+- **When**: on topics where code makes the point (JavaScript, TypeScript, React, Node, SQL, security,
+  tests…). **One pair per card** is the norm, two at most. Skip topics where code would be forced
+  (behavioural, most architecture and process topics).
+- **`prompt`** (160 characters at most): what both versions do, then what to judge, so the learner
+  knows the criterion: "Both load an order and its lines. Which one should ship?", "Both debounce the
+  search box. Which one cancels the stale request?". Never "Which is better?" alone.
+- **`better` / `worse`**: **at most 10 lines** each and **at most 64 characters per line** (a phone
+  screen). The same task, names and style in both, so the **difference is small and visible**:
+  one to three lines. Prefer a difference that matters in production (a bug, a race, an injection,
+  an N+1, a leak, a re-render storm, a lost error) over taste. The worse version must look plausible:
+  code a candidate could really write.
+- **No "it depends"**: in the situation the prompt sets, a senior engineer picks `better` every time.
+- **`why`** (420 characters at most): why `better` wins, then what goes wrong with `worse`, with the
+  concrete consequence ("every reminder throws", "one query per row: 101 queries for 100 orders").
+- `codeLang`: `js`, `ts`, `tsx`, `sql`, `css`, `html`, `bash` or `http`.
+- **Run both versions** whenever they can run (Node 24, PGlite for SQL, React 19 with jsdom) and
+  check that the behaviour `why` describes really happens. The reference pair is on `js-scope` in
+  `src/content/cards/javascript.ts`.
+
 ## The running example
 
 Every example comes from the same online shop, the one the Senior Full-Stack Track uses:

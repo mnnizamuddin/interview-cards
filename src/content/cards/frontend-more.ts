@@ -27,7 +27,7 @@ export const frontendMoreCards: Card[] = [
     example:
       "The back office shipped one 1.4 MB bundle, so agents who only used the orders table also downloaded the charting library of the reports page. Splitting per route with `React.lazy` and putting the chart library behind a dynamic import cut the entry chunk to about 450 KB, and the orders page became usable about a second sooner on a throttled connection.",
     mistakes: [
-      'Calling `React.lazy` inside a component: it creates a new component type on every render and resets its state; declare it at module level.',
+      'Calling `React.lazy` inside a component: every render creates a new lazy component that suspends again, so the fallback replaces the content; declare it at module level.',
       'Splitting into dozens of tiny chunks, which adds requests and waterfalls instead of saving bytes.',
       'Lazy loading what the first screen needs, which delays exactly the content the user is waiting for.',
     ],
@@ -76,7 +76,31 @@ export const frontendMoreCards: Card[] = [
       {
         statement: 'Declaring a `React.lazy` component inside another component\'s body is harmless.',
         isTrue: false,
-        why: 'Each render creates a new component type, so React remounts it and its state is reset; declare it at the top level of the module.',
+        why: 'Each render creates a new lazy component that has not loaded, so it suspends again and the fallback replaces the content on every re-render; declare it at the top level of the module.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both lazy load the revenue chart on the reports page. Which one keeps the chart on screen when the date range changes?',
+        codeLang: 'tsx',
+        better: `const RevenueChart = lazy(() => import('./revenue-chart'));
+
+export function ReportsPage({ range }) {
+  return (
+    <Suspense fallback={<div className="chart-skeleton" />}>
+      <RevenueChart range={range} />
+    </Suspense>
+  );
+}`,
+        worse: `export function ReportsPage({ range }) {
+  const RevenueChart = lazy(() => import('./revenue-chart'));
+  return (
+    <Suspense fallback={<div className="chart-skeleton" />}>
+      <RevenueChart range={range} />
+    </Suspense>
+  );
+}`,
+        why: 'Declared at module level, the lazy component loads once and later renders reuse it. Declared in the body, every render creates a new lazy component that has not loaded, so it suspends again: in React 19.3 the chart is hidden and the skeleton shown on each range change until `import()` resolves again.',
       },
     ],
     lesson: {
@@ -149,6 +173,19 @@ export function ReportsPage() {
         statement: 'The browser can start downloading an eager `<img>` from the HTML before the page\'s CSS has finished loading.',
         isTrue: true,
         why: 'The preload scanner reads the incoming HTML and requests images it finds in `src` right away, without waiting for layout.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both render the product page\'s hero image, its LCP element. Which one should ship?',
+        codeLang: 'html',
+        better: `<img src="/img/mug-800.jpg" alt="Blue ceramic mug"
+     width="800" height="800"
+     fetchpriority="high">`,
+        worse: `<img src="/img/mug-800.jpg" alt="Blue ceramic mug"
+     width="800" height="800"
+     loading="lazy">`,
+        why: 'An eager image in the HTML is requested by the preload scanner right away, and `fetchpriority="high"` puts it first. A lazy image waits for layout before it is requested: measured in Chromium behind a slow stylesheet, it started about 550 ms late instead of about 20 ms, delaying LCP.',
       },
     ],
     lesson: {
@@ -228,6 +265,22 @@ export function ReportsPage() {
         why: 'The `<source>` elements only choose the file; the `<img>` displays it, so without it no image appears.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'In the product grid, each image is shown at a quarter of the screen width on desktop. Which markup lets the browser pick the right file?',
+        codeLang: 'html',
+        better: `<img src="/img/trail-runner-800.jpg"
+     srcset="/img/trail-runner-400.jpg 400w,
+             /img/trail-runner-800.jpg 800w"
+     sizes="(max-width: 768px) 50vw, 25vw"
+     width="800" height="800" alt="Trail Runner 3">`,
+        worse: `<img src="/img/trail-runner-800.jpg"
+     srcset="/img/trail-runner-400.jpg 400w,
+             /img/trail-runner-800.jpg 800w"
+     width="800" height="800" alt="Trail Runner 3">`,
+        why: '`sizes` tells the browser how wide the image is displayed, so on a 1440px desktop at 1x it needs about 360px and can take the 400w file. Without `sizes`, the browser assumes the image is as wide as the viewport, 1440px, and downloads the 800w file for every card.',
+      },
+    ],
     lesson: {
       points: [
         'Images are often most of a page\'s bytes and the LCP element of product pages: their size and discovery time drive LCP, and missing dimensions cause layout shifts (CLS).',
@@ -301,6 +354,23 @@ export function ReportsPage() {
         why: 'A CSS import is a side effect; the bundler may drop it, so list CSS files in a `sideEffects` array instead.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'The app imports only `formatPrice` from shop-utils, whose index re-exports this file. Which version lets the bundler drop the locale table?',
+        codeLang: 'js',
+        better: `// shop-utils/locales.js
+import { register } from './registry.js';
+import { ALL_LOCALES } from './locale-data.js';
+export function registerLocales() {
+  ALL_LOCALES.forEach(register);
+}`,
+        worse: `// shop-utils/locales.js
+import { register } from './registry.js';
+import { ALL_LOCALES } from './locale-data.js';
+ALL_LOCALES.forEach(register); // runs on import`,
+        why: 'When the registration sits in an exported function nobody imports, the bundler drops it with the data it uses. Top-level code is a side effect the bundler must keep: in a Vite 8 build, the locale table stayed in the bundle with the second version and disappeared with the first.',
+      },
+    ],
     lesson: {
       points: [
         'Tree shaking is dead-code elimination by the bundler: starting from the entry, it keeps the exports that are imported and drops the rest. It runs in production builds.',
@@ -372,6 +442,24 @@ import { formatPrice } from 'shop-utils';
         why: 'The continuation is a microtask, which runs before the browser can render; measured in Chromium, the click still took over 300 ms. Use `scheduler.yield()` or `setTimeout`.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both slide the storefront\'s sticky add-to-cart bar in from the bottom. Which one stays smooth on phones?',
+        codeLang: 'css',
+        better: `.sticky-cart {
+  bottom: 0;
+  transform: translateY(100%);
+  transition: transform 200ms ease-out;
+}
+.sticky-cart[data-visible='true'] { transform: none; }`,
+        worse: `.sticky-cart {
+  bottom: -80px;
+  transition: bottom 200ms ease-out;
+}
+.sticky-cart[data-visible='true'] { bottom: 0; }`,
+        why: '`transform` changes no geometry, so the compositor can slide the already painted layer without layout or paint, even while the main thread is busy. Animating `bottom` changes geometry, so every frame runs layout and paint on the main thread and the bar stutters when a script is running.',
+      },
+    ],
     lesson: {
       points: [
         'At 60 Hz each frame has about 16.7 ms. Jank is a frame that misses it: an animation or a scroll visibly stutters.',
@@ -440,6 +528,23 @@ import { formatPrice } from 'shop-utils';
         statement: 'Two packages that depend on different major versions of the same library can put two copies of it in the bundle.',
         isTrue: true,
         why: 'Each needs its own version, so both get bundled; the analyzer shows the library twice.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both debounce the back office\'s order search box with lodash. Which one keeps the entry chunk small?',
+        codeLang: 'js',
+        better: `import debounce from 'lodash/debounce.js';
+
+const onInput = debounce(() => {
+  searchOrders(search.value);
+}, 300);`,
+        worse: `import _ from 'lodash';
+
+const onInput = _.debounce(() => {
+  searchOrders(search.value);
+}, 300);`,
+        why: 'Importing the single module bundles `debounce` and its few helpers. `lodash` is one CommonJS object, so the default import pulls in the whole library for one function: in a Vite 8 build with lodash 4.18, the minified chunk was about 4 KB with the first import and 72 KB with the second.',
       },
     ],
     lesson: {
@@ -514,6 +619,17 @@ npx size-limit`,
         statement: 'A same-origin font preload works without the `crossorigin` attribute.',
         isTrue: false,
         why: 'Fonts are fetched in CORS mode, so the preload must set `crossorigin` to match, even on the same origin.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both preload the brand font that the storefront\'s stylesheet uses. Which preload is actually used?',
+        codeLang: 'html',
+        better: `<link rel="preload" href="/fonts/brand.woff2"
+      as="font" type="font/woff2" crossorigin>`,
+        worse: `<link rel="preload" href="/fonts/brand.woff2"
+      as="font" type="font/woff2">`,
+        why: 'Fonts are fetched in CORS mode, so a font preload needs `crossorigin`, even on the same origin, to match the real request. Without it, the preloaded response does not match: the browser downloads the font a second time when the CSS asks for it, and the preload only wasted bandwidth.',
       },
     ],
     lesson: {
@@ -678,6 +794,22 @@ onCLS(sendToRum);`,
         why: 'Functions cannot be structured-cloned; posting one throws a `DataCloneError`.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'A worker filters 200,000 products for the search box. Both send it a query on each keystroke. Which one keeps typing smooth?',
+        codeLang: 'js',
+        better: `// The worker fetched the product index itself
+search.addEventListener('input', () => {
+  worker.postMessage({ id: ++lastId, query: search.value });
+});`,
+        worse: `search.addEventListener('input', () => {
+  worker.postMessage({
+    id: ++lastId, query: search.value, products: productIndex,
+  });
+});`,
+        why: '`postMessage` copies its data with structured clone on the sending thread. A short query costs almost nothing; 200,000 products cost about 150 to 200 ms per message measured in Node 24, on the main thread, at every keystroke: the lag the worker was meant to remove.',
+      },
+    ],
     lesson: {
       points: [
         'The main thread runs your JavaScript, handles input and renders frames. A long computation there freezes taps and animations: it shows as long tasks and a poor INP.',
@@ -812,6 +944,21 @@ worker.postMessage({ id: 1, query: 'trail' });`,
         why: 'Consumers using the old name break: any removed or renamed prop is a breaking change and needs a major.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Dark mode remaps the semantic tokens under `[data-theme="dark"]`. Both style the primary button. Which one follows the theme?',
+        codeLang: 'css',
+        better: `.button-primary {
+  background: var(--color-action);
+  border-radius: var(--radius-md);
+}`,
+        worse: `.button-primary {
+  background: var(--indigo-600);
+  border-radius: var(--radius-md);
+}`,
+        why: 'Components that use the semantic `--color-action` change when the theme remaps it, with no component edit. A primitive like `--indigo-600` is the same in every theme, so the button stays dark indigo in dark mode, and a rebrand means editing every component that names the palette.',
+      },
+    ],
     lesson: {
       points: [
         'A design token is a named design decision stored once. Primitives hold the palette (`--indigo-600`); semantic tokens hold roles (`--color-action`). Components use only semantic tokens.',
@@ -880,6 +1027,29 @@ worker.postMessage({ id: 1, query: 'trail' });`,
         statement: 'With build-time composition, a team can release its part without redeploying the shell.',
         isTrue: false,
         why: 'The parts are bundled into the shell at build time, so every change needs a new shell build and deploy.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'The back office loads a partner remote whose components use hooks. Both configure Module Federation in the host. Which one works?',
+        codeLang: 'js',
+        better: `new ModuleFederationPlugin({
+  name: 'backOffice',
+  remotes: {
+    partner: 'partner@https://partner.example/remoteEntry.js',
+  },
+  shared: {
+    react: { singleton: true },
+    'react-dom': { singleton: true },
+  },
+});`,
+        worse: `new ModuleFederationPlugin({
+  name: 'backOffice',
+  remotes: {
+    partner: 'partner@https://partner.example/remoteEntry.js',
+  },
+});`,
+        why: 'With React shared as a singleton, host and remote use one copy of React, so the remote\'s hooks run inside the host\'s tree. Without `shared`, the remote brings its own React: two copies on one page, which bloats it and makes the remote\'s hooks fail with the invalid hook call error.',
       },
     ],
     lesson: {
@@ -1006,6 +1176,17 @@ worker.postMessage({ id: 1, query: 'trail' });`,
         why: 'Only the files listed in `outputs` are cached; without them, only the logs are replayed.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both are the CI job for pull requests in the shop\'s pnpm and Turborepo monorepo. Which one keeps CI fast as it grows?',
+        codeLang: 'bash',
+        better: `pnpm install --frozen-lockfile
+pnpm turbo run lint test build --affected`,
+        worse: `pnpm install --frozen-lockfile
+pnpm -r run lint && pnpm -r run test && pnpm -r run build`,
+        why: 'Turborepo runs tasks in dependency order, restores unchanged results from its cache, and `--affected` limits the run to packages the branch touches. `pnpm -r` lints, tests and builds every package on every pull request, so CI gets slower than separate repositories as packages are added.',
+      },
+    ],
     lesson: {
       points: [
         'A monorepo holds several packages in one repository: `apps/` for what you deploy, `packages/` for shared code such as the design system, tokens, API client and configs.',
@@ -1082,6 +1263,20 @@ pnpm turbo run test --affected                 # only packages changed on this b
         why: 'The variable holds a plain copy and no longer goes through the proxy, so changes are not tracked.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both show whether an order is paid while a poller updates its status. Which one updates when the status turns `paid`?',
+        codeLang: 'js',
+        better: `const order = reactive({ status: 'pending_payment' });
+const isPaid = computed(() => order.status === 'paid');
+pollStatus((status) => { order.status = status; });`,
+        worse: `const order = reactive({ status: 'pending_payment' });
+const { status } = order;
+const isPaid = computed(() => status === 'paid');
+pollStatus((status) => { order.status = status; });`,
+        why: 'Reading `order.status` goes through the proxy, so the computed tracks it and recomputes when the poller writes. Destructuring copies the string once: `status` is a plain variable, the computed never sees the change, and `isPaid` stays false after the order is paid.',
+      },
+    ],
     lesson: {
       points: [
         'Vue offers two styles on one reactivity system. The Options API declares `data`, `methods`, `computed` and hooks as options of an object, reached through `this`.',
@@ -1152,6 +1347,21 @@ onMounted(async () => {
         statement: 'A service with `providedIn: \'root\'` gets a new instance for every component that injects it.',
         isTrue: false,
         why: 'The root injector creates one instance and hands the same one to every consumer.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both give the order detail component the orders service. Which one can a test replace with a fake through `TestBed`?',
+        codeLang: 'ts',
+        better: `@Component({ selector: 'app-order-detail', template: '...' })
+export class OrderDetail {
+  private orders = inject(OrdersService);
+}`,
+        worse: `@Component({ selector: 'app-order-detail', template: '...' })
+export class OrderDetail {
+  private orders = new OrdersService();
+}`,
+        why: 'With `inject()`, the injector supplies the instance: the app gets the root singleton, and a test\'s `{ provide: OrdersService, useValue: fake }` swaps it. `new` bypasses DI: each component gets its own service, and tests cannot replace it, so they make real HTTP calls or need mocking.',
       },
     ],
     lesson: {
@@ -1232,6 +1442,30 @@ export class OrderDetail {
         why: 'Children re-render unless memoized, which is what `memo` and the React Compiler avoid.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both show the remaining stock in a Solid component. Which one updates the text after a click?',
+        codeLang: 'tsx',
+        better: `function StockBadge() {
+  const [stock, setStock] = createSignal(12);
+  return (
+    <button onClick={() => setStock(stock() - 1)}>
+      {stock()} left
+    </button>
+  );
+}`,
+        worse: `function StockBadge() {
+  const [stock, setStock] = createSignal(12);
+  const left = stock();
+  return (
+    <button onClick={() => setStock(stock() - 1)}>
+      {left} left
+    </button>
+  );
+}`,
+        why: 'A Solid component function runs once; only reactive reads in the JSX update. `{stock()}` in the JSX subscribes that text to the signal. `left` is read once in the body, outside any tracking scope, so it is a plain number: the signal changes but the button keeps saying "12 left".',
+      },
+    ],
     lesson: {
       points: [
         'A signal is a value container that records who reads it. Reading it in a template, computed value or effect subscribes that code; writing it notifies exactly those readers.',
@@ -1301,6 +1535,25 @@ function StockBadge() {
         statement: 'A React context provider in one Astro island makes its value available to the other islands on the page.',
         isTrue: false,
         why: 'Each island hydrates in isolation as its own root; share state with a store such as Nano Stores.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both put the Add to cart button on an Astro product page. Which one makes it work in the browser?',
+        codeLang: 'html',
+        better: `---
+import AddToCart from '../components/AddToCart.tsx';
+const { product } = Astro.props;
+---
+<h1>{product.name}</h1>
+<AddToCart client:load productId={product.id} />`,
+        worse: `---
+import AddToCart from '../components/AddToCart.tsx';
+const { product } = Astro.props;
+---
+<h1>{product.name}</h1>
+<AddToCart productId={product.id} />`,
+        why: 'A `client:*` directive turns the component into an island that ships its JavaScript and hydrates; `client:load` does it at once. Without a directive, Astro renders the React component to static HTML and ships no JavaScript, so the button appears but clicking it does nothing.',
       },
     ],
     lesson: {

@@ -77,7 +77,7 @@ export function HomeScreen({
         <Button block variant="secondary" className="mt-3" onClick={() => onMockInterview()}>
           Mock interview
         </Button>
-        <p className="mt-3 text-center text-xs text-muted">A topic counts once your last 3 answers on it are right, at least one of them a true/false or quick check, and for {HANDLED_FOR_DAYS} days after your last answer.</p>
+        <p className="mt-3 text-center text-xs text-muted">A topic counts once your last 3 answers on it are right, at least one of them a true/false, quick check or code choice, and for {HANDLED_FOR_DAYS} days after your last answer.</p>
       </section>
 
       <section className="flex flex-col gap-3">

@@ -55,6 +55,24 @@ export const mongodbCards: Card[] = [
         why: 'Updated by a periodic job, it lags until the next run; even updated per write, a crash between two writes can leave it off.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both add a new review to the product page document. Which one keeps the document from growing forever?',
+        codeLang: 'ts',
+        better: `await products.updateOne({ _id: review.productId }, {
+  $push: { latestReviews: {
+    $each: [preview], $position: 0, $slice: 10 } },
+  $inc: { 'ratingSummary.count': 1,
+          'ratingSummary.starsTotal': preview.stars },
+});`,
+        worse: `await products.updateOne({ _id: review.productId }, {
+  $push: { latestReviews: preview },
+  $inc: { 'ratingSummary.count': 1,
+          'ratingSummary.starsTotal': preview.stars },
+});`,
+        why: 'The subset pattern keeps only the 10 newest previews: `$position: 0` puts the new one first and `$slice: 10` drops the rest, while the full list lives in `reviews`. A plain `$push` grows the array with every review, so every page read loads them all, and a popular product eventually hits the 16 MiB document limit.',
+      },
+    ],
     lesson: {
       points: [
         'MongoDB schema patterns copy or precompute data at write time so that a hot read touches one document. You choose them from the screens and their queries.',
@@ -132,6 +150,25 @@ type ReviewPreview = { reviewId: ObjectId; stars: number; authorName: string };`
         statement: 'A Node service should create a new `MongoClient` for each HTTP request.',
         isTrue: false,
         why: 'Each client keeps its own connection pool; create one per process at startup and share it.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both serve `GET /products/:sku` from MongoDB in the Node service. Which one uses connections correctly?',
+        codeLang: 'ts',
+        better: `const client = new MongoClient(MONGO_URL);
+const products = client.db('catalogue').collection('products');
+
+app.get('/products/:sku', async (req, res) => {
+  res.json(await products.findOne({ sku: req.params.sku }));
+});`,
+        worse: `app.get('/products/:sku', async (req, res) => {
+  const client = await MongoClient.connect(MONGO_URL);
+  const products = client.db('catalogue')
+    .collection('products');
+  res.json(await products.findOne({ sku: req.params.sku }));
+});`,
+        why: 'One `MongoClient` per process, created at startup and shared, keeps one connection pool that every request reuses. Creating a client per request opens a new pool and new connections each time, and this handler never closes them, so connections pile up on the server under load.',
       },
     ],
     lesson: {
@@ -214,6 +251,19 @@ type ReviewPreview = { reviewId: ObjectId; stars: number; authorName: string };`
         why: 'A background task runs every 60 seconds, so deletion happens late, never early.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both indexes serve published reviews of a product with `stars >= 4`, newest first. Which one avoids an in-memory sort?',
+        codeLang: 'ts',
+        better: `// E: productId, status   S: createdAt   R: stars
+await reviews.createIndex(
+  { productId: 1, status: 1, createdAt: -1, stars: 1 });`,
+        worse: `// E: productId, status   R: stars   S: createdAt
+await reviews.createIndex(
+  { productId: 1, status: 1, stars: 1, createdAt: -1 });`,
+        why: 'Following ESR, equality fields, then the sort field, then the range field, the matching entries come out of the index already ordered by `createdAt`, so the plan has no `SORT` stage and `limit(20)` stops early. With the range before the sort, entries are ordered by stars first, so MongoDB must sort every match in memory.',
+      },
+    ],
     lesson: {
       points: [
         'A compound index lists several fields and serves queries on any prefix: `{ a, b, c }` serves `a`, `a + b` and `a + b + c`, not `b` alone. Field order also decides whether it can sort.',
@@ -292,6 +342,26 @@ const plan = await reviews
         why: 'Per the docs it does a collection scan; put a `$match` before it so that stage can use an index.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both count published reviews per product for the weekly report, with the product name. Which pipeline joins less?',
+        codeLang: 'ts',
+        better: `await reviews.aggregate([
+  { $match: { status: 'published' } },
+  { $group: { _id: '$productId', reviews: { $sum: 1 } } },
+  { $lookup: { from: 'products', localField: '_id',
+               foreignField: '_id', as: 'product' } },
+]).toArray();`,
+        worse: `await reviews.aggregate([
+  { $match: { status: 'published' } },
+  { $lookup: { from: 'products', localField: 'productId',
+               foreignField: '_id', as: 'product' } },
+  { $group: { _id: '$productId', reviews: { $sum: 1 },
+              product: { $first: '$product' } } },
+]).toArray();`,
+        why: 'Grouping first reduces the reviews to one document per product, so `$lookup` runs once per product. Joining before the `$group` runs one lookup per review: on 2 million reviews, 2 million lookups into `products` to produce the same report.',
+      },
+    ],
     lesson: {
       points: [
         'An aggregation pipeline is an array of stages. Each stage transforms the documents the previous one produced, like a SQL query written step by step.',
@@ -367,6 +437,21 @@ const plan = await reviews
         statement: 'Retryable writes also retry `updateMany` operations automatically.',
         isTrue: false,
         why: 'Only single-document writes are retryable; `updateMany` and `w: 0` writes are not retried.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both connect the catalogue service to its replica set. Which one keeps saved reviews safe across a failover?',
+        codeLang: 'ts',
+        better: `const hosts = 'catalogue-0,catalogue-1,catalogue-2';
+const client = new MongoClient(
+  \`mongodb://\${hosts}/?replicaSet=rs0\`,
+);`,
+        worse: `const hosts = 'catalogue-0,catalogue-1,catalogue-2';
+const client = new MongoClient(
+  \`mongodb://\${hosts}/?replicaSet=rs0&w=1&retryWrites=false\`,
+);`,
+        why: "The defaults keep `w: 'majority'` and retryable writes: a review is acknowledged once a majority holds it, and a write hit by an election is retried once. With `w=1`, a write acknowledged by the primary alone can be rolled back if it fails over, and without retries every election fails the writes in flight.",
       },
     ],
     lesson: {
@@ -447,6 +532,27 @@ const reviewsForReports = client.db('catalogue').collection('reviews', {
         why: 'It states the opposite: a distributed transaction usually costs more than single-document writes and should not replace schema design.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both insert a review and update the product summary in one transaction. Which one rolls back both on abort?',
+        codeLang: 'ts',
+        better: `await client.withSession(async (session) =>
+  session.withTransaction(async (txSession) => {
+    await reviews.insertOne(review, { session: txSession });
+    await products.updateOne({ _id: review.productId },
+      reviewUpdate(review), { session: txSession });
+  }),
+);`,
+        worse: `await client.withSession(async (session) =>
+  session.withTransaction(async (txSession) => {
+    await reviews.insertOne(review, { session: txSession });
+    await products.updateOne({ _id: review.productId },
+      reviewUpdate(review));
+  }),
+);`,
+        why: 'Every operation that gets `{ session }` belongs to the transaction, so an abort undoes both. The `updateOne` without it runs outside the transaction: it stays committed when the transaction aborts, and since `withTransaction` can rerun the callback on a transient error, the summary can be counted twice.',
+      },
+    ],
     lesson: {
       points: [
         'A write to one document is atomic, even across several fields. Putting what must change together in one document is the first way to avoid a transaction.',
@@ -523,6 +629,21 @@ const reviewsForReports = client.db('catalogue').collection('reviews', {
         statement: 'Change streams work on a standalone MongoDB server.',
         isTrue: false,
         why: 'They need a replica set or a sharded cluster.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both sync product changes into the Orders API and save the resume token. Which one never loses a change after a crash?',
+        codeLang: 'ts',
+        better: `for await (const change of products.watch([], options)) {
+  await sink.apply(change);      // idempotent upsert by sku
+  await tokens.save(change._id);
+}`,
+        worse: `for await (const change of products.watch([], options)) {
+  await tokens.save(change._id);
+  await sink.apply(change);      // idempotent upsert by sku
+}`,
+        why: 'Saving the token after the write gives at-least-once delivery: a crash between the two replays the event on restart, and the idempotent upsert absorbs it. Saving it first means a crash before `sink.apply` resumes after that event, so the change is never applied and the Orders API keeps the stale name or `sellable` flag.',
       },
     ],
     lesson: {

@@ -23,7 +23,7 @@ export const javascriptMoreCards: Card[] = [
     explanation:
       'It is a warm-up question, so interviewers listen for precision rather than a definition. The `undefined` versus `null` rule for defaults and the TypeError when destructuring `null` are what separate someone who has debugged it from someone who has only read about it.',
     example:
-      'The back office order detail crashed with "Cannot destructure property \'name\' of \'null\'" on guest orders, because the Orders API returned `customer: null` and the component destructured it in its parameters. A default value did not help, since defaults only replace `undefined`. The fix mapped `null` to a "Guest" customer in the BFF, so the component always receives an object.',
+      'The back office order detail crashed with "Cannot read properties of null (reading \'name\')" on guest orders, because the Orders API returned `customer: null` and the component destructured it in its parameters. A default value did not help, since defaults only replace `undefined`. The fix mapped `null` to a "Guest" customer in the BFF, so the component always receives an object.',
     mistakes: [
       'Expecting a default to replace `null`: it only replaces `undefined`',
       'Destructuring a nested property of a value that can be missing, which throws a TypeError',
@@ -79,6 +79,21 @@ export const javascriptMoreCards: Card[] = [
         statement: '`[x, y] = [y, x]` swaps the values of two `let` variables.',
         isTrue: true,
         why: 'The right side builds a new array from the current values first, then the left side assigns them back in reverse order.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both label an order; for guest orders the Orders API sends `customer: null`. Which one works for guests?',
+        codeLang: 'js',
+        better: `function customerLabel(order) {
+  const name = order.customer?.name;
+  return name ?? 'Guest';
+}`,
+        worse: `function customerLabel(order) {
+  const { customer: { name } = {} } = order;
+  return name ?? 'Guest';
+}`,
+        why: 'A destructuring default applies only to `undefined`, so `= {}` does nothing when `customer` is `null`, and the nested pattern throws a TypeError ("Cannot destructure property \'name\'…") on every guest order. Optional chaining stops at `null` and `undefined` alike, so guests get "Guest".',
       },
     ],
     lesson: {
@@ -169,6 +184,19 @@ console.log(order.customer?.name); // undefined`,
         why: 'Array spread needs an iterable, and plain objects are not iterable, so it throws a TypeError.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both mark a paid order as shipped with its tracking id. Which one returns the shipped order?',
+        codeLang: 'js',
+        better: `function markShipped(order, trackingId) {
+  return { ...order, status: 'shipped', trackingId };
+}`,
+        worse: `function markShipped(order, trackingId) {
+  return { status: 'shipped', trackingId, ...order };
+}`,
+        why: 'Properties are copied left to right and later ones win. With the spread first, the new `status` and `trackingId` override the order\'s. With the spread last, the order\'s own `status: \'paid\'` and `trackingId: null` overwrite them, so the function returns an unchanged copy and the order never shows as shipped.',
+      },
+    ],
     lesson: {
       points: [
         'The same three dots do opposite jobs. Spread expands an iterable or an object into a new literal or into arguments; rest collects what is left into a new array or object.',
@@ -253,6 +281,27 @@ console.log({ ...null });                            // {}`,
         why: '`focus` does not bubble; `focusin` does, so delegate focus with `focusin`.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both handle Add to cart for every product card in the grid; each button holds a cart icon. Which one works when the icon is clicked?',
+        codeLang: 'js',
+        better: `grid.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-product-id]');
+  if (!button) {
+    return;
+  }
+  addToCart(button.dataset.productId);
+});`,
+        worse: `grid.addEventListener('click', (event) => {
+  const id = event.target.dataset.productId;
+  if (!id) {
+    return;
+  }
+  addToCart(id);
+});`,
+        why: '`event.target` is the element where the click started. A click on the icon targets the icon, which has no `data-product-id`, so the second version silently adds nothing. `closest()` walks up from the target to the button that carries the id, so a click on the icon or on the label both work.',
+      },
+    ],
     lesson: {
       points: [
         'A DOM event travels in three phases: capture, from the window down to the target; target; then bubble, back up through every ancestor. `addEventListener` listens in the bubble phase unless passed `{ capture: true }`.',
@@ -330,6 +379,21 @@ grid.addEventListener('click', (event) => {
         statement: 'A `return` inside a `forEach` callback stops the loop.',
         isTrue: false,
         why: 'It only ends that call of the callback; `forEach` goes on with the next item.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both total the paid orders for the back office footer. Which one works when no order on the page is paid?',
+        codeLang: 'js',
+        better: `const paidCents = orders
+  .filter((o) => o.status === 'paid')
+  .map((o) => o.cents)
+  .reduce((sum, cents) => sum + cents, 0);`,
+        worse: `const paidCents = orders
+  .filter((o) => o.status === 'paid')
+  .map((o) => o.cents)
+  .reduce((sum, cents) => sum + cents);`,
+        why: 'With the initial value 0, `reduce` returns 0 for an empty array. Without it, `reduce` uses the first item as the accumulator, and an empty array has none: it throws "TypeError: Reduce of empty array with no initial value", so a page with no paid order crashes the footer.',
       },
     ],
     lesson: {

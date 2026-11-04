@@ -32,7 +32,10 @@ async function answerOnScreen(user: ReturnType<typeof userEvent.setup>, { right,
     return;
   }
   const trueButton = screen.queryByRole('button', { name: 'True' });
-  if (trueButton) {
+  const chooseA = screen.queryByRole('button', { name: 'Choose A' });
+  if (chooseA) {
+    await user.click(attempt % 2 === 0 ? chooseA : screen.getByRole('button', { name: 'Choose B' }));
+  } else if (trueButton) {
     await user.click(attempt % 2 === 0 ? trueButton : screen.getByRole('button', { name: 'False' }));
   } else {
     const options = screen.getAllByRole('listitem').map((item) => item.querySelector('button')!);
@@ -103,7 +106,8 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: 'Next series' }));
     expect(screen.getByLabelText(`Question 1 of ${SERIES_LENGTH}`)).toBeInTheDocument();
-  });
+    // A whole series with its replays is dozens of screens: more than the 5 s default.
+  }, 20_000);
 
   it('teaches in unit practice: a lesson first, then a lesson button and a review after a reveal', async () => {
     const user = userEvent.setup();

@@ -68,6 +68,24 @@ export const webPlatformCards: Card[] = [
         why: 'The default is `content-box`; resets switch it to `border-box`.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both style the two checkout columns, meant to sit side by side at `width: 50%`. Which one keeps them on one row?',
+        codeLang: 'css',
+        better: `*, *::before, *::after {
+  box-sizing: border-box;
+}
+.checkout-column {
+  width: 50%;
+  padding: 24px;
+}`,
+        worse: `.checkout-column {
+  width: 50%;
+  padding: 24px;
+}`,
+        why: 'With `border-box`, `width: 50%` includes the padding, so two columns fill exactly one row. With the default `content-box`, each column takes half the row plus 48px of padding, more than 100% together, so the second column wraps onto its own line.',
+      },
+    ],
     lesson: {
       points: [
         'Every element is laid out as a box of four layers, from the inside out: content, padding, border and margin. Padding sits inside the border and shows the background; margin is outside and transparent.',
@@ -154,6 +172,24 @@ export const webPlatformCards: Card[] = [
         statement: 'The `gap` property works in both Flexbox and Grid containers.',
         isTrue: true,
         why: 'Both layouts support `gap`, which replaces the old margin tricks between items.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both lay out the storefront\'s product grid. Which one keeps every card the same width, last row included?',
+        codeLang: 'css',
+        better: `.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 1rem;
+}`,
+        worse: `.product-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.product-card { flex: 1 1 14rem; }`,
+        why: 'Grid defines the columns on the container, so every card sits in a track of the same width, even alone on the last row. With flex, each line shares its own free space: two cards left on the last row grow to fill it and end up wider than the cards above, with misaligned Add to cart buttons.',
       },
     ],
     lesson: {
@@ -246,6 +282,22 @@ export const webPlatformCards: Card[] = [
         why: 'Without a threshold it never sticks, so it acts as relatively positioned.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both try to keep the header row of the back office\'s orders table visible while agents scroll. Which one works?',
+        codeLang: 'css',
+        better: `.orders-table th {
+  position: sticky;
+  top: 0;
+  background: white;
+}`,
+        worse: `.orders-table th {
+  position: sticky;
+  background: white;
+}`,
+        why: '`sticky` needs a threshold such as `top: 0` to know where to stick. Without any inset, the header behaves like `position: relative` and scrolls away with the rows, though the CSS looks right at a glance.',
+      },
+    ],
     lesson: {
       points: [
         '`position` decides what an element is placed against and whether it keeps its space. The default, `static`, ignores the offsets `top`, `right`, `bottom` and `left`, also called insets.',
@@ -328,6 +380,21 @@ export const webPlatformCards: Card[] = [
         statement: '`async` scripts run in the order they appear in the document.',
         isTrue: false,
         why: 'They run as soon as each one arrives; `defer` and module scripts keep the document order.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both load the storefront\'s app script from the `<head>`. Which one lets the HTML parse and paint without waiting for it?',
+        codeLang: 'html',
+        better: `<head>
+  <link rel="stylesheet" href="/critical.css">
+  <script src="/app.js" defer></script>
+</head>`,
+        worse: `<head>
+  <link rel="stylesheet" href="/critical.css">
+  <script src="/app.js"></script>
+</head>`,
+        why: 'A `defer` script downloads in parallel with parsing and runs after the document is parsed, in order, before `DOMContentLoaded`. A classic script stops the parser while it downloads and runs, so the body, the hero image included, is not even discovered by the main parser until `/app.js` has arrived and run.',
       },
     ],
     lesson: {
@@ -419,6 +486,19 @@ export const webPlatformCards: Card[] = [
         why: 'Buttons, links and form fields are focusable by default.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both render the checkout\'s Pay control. Which one works with the keyboard and is announced as a button?',
+        codeLang: 'html',
+        better: `<form action="/orders" method="post">
+  <button type="submit" class="pay">Pay</button>
+</form>`,
+        worse: `<form action="/orders" method="post">
+  <div class="pay" onclick="pay()">Pay</div>
+</form>`,
+        why: 'A `button` is in the Tab order, activates with Enter and Space, submits its form and is exposed with the role button. The `div` is not focusable (its `tabIndex` is -1) and has no role, so keyboard users cannot pay and screen readers read "Pay" as plain text.',
+      },
+    ],
     lesson: {
       points: [
         'Semantic HTML means choosing elements for what they are, not how they look: `button` for an action, `a` for navigation, `label` for a field, headings in order, `nav`, `main`, `header` and `footer`.',
@@ -501,6 +581,21 @@ export const webPlatformCards: Card[] = [
         statement: 'Without the viewport meta tag, mobile browsers lay the page out at the device width.',
         isTrue: false,
         why: 'They lay it out on a wider virtual viewport and zoom out; `width=device-width` fixes that.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both are the head of the storefront, whose CSS is written mobile first. Which one makes phones use the mobile layout?',
+        codeLang: 'html',
+        better: `<head>
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/storefront.css">
+</head>`,
+        worse: `<head>
+  <link rel="stylesheet" href="/storefront.css">
+</head>`,
+        why: 'The viewport meta tag tells mobile browsers to lay the page out at the device width, so the small-screen styles apply. Without it, phones lay the page out on a wider virtual viewport and zoom out: the `min-width` media queries match as on a desktop, and customers see a tiny desktop layout.',
       },
     ],
     lesson: {
@@ -586,6 +681,23 @@ export const webPlatformCards: Card[] = [
         why: 'It returns a static `NodeList`; `getElementsByClassName` returns a live collection.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both show a customer review on the product page. Which one is safe when a review contains HTML?',
+        codeLang: 'js',
+        better: `function showReview(list, review) {
+  const item = document.createElement('li');
+  item.textContent = review.text;
+  list.append(item);
+}`,
+        worse: `function showReview(list, review) {
+  const item = document.createElement('li');
+  item.innerHTML = review.text;
+  list.append(item);
+}`,
+        why: '`textContent` inserts plain text that is never parsed: a review containing `<img src=x onerror=...>` is shown as characters. `innerHTML` parses it, so a real `img` element with its `onerror` handler lands in the page and the attacker\'s script runs for every visitor: stored XSS.',
+      },
+    ],
     lesson: {
       points: [
         'The DOM, Document Object Model, is the tree of objects the browser builds from the HTML: one node per element and per piece of text, with properties and methods that scripts can use.',
@@ -664,6 +776,20 @@ list.append(item);
         statement: 'Reading `offsetHeight` right after changing a width forces the browser to run layout immediately.',
         isTrue: true,
         why: 'The value must be up to date, so the browser runs a forced synchronous layout.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both give 500 product cards a minimum height of their height plus 10px. Which one avoids layout thrashing?',
+        codeLang: 'js',
+        better: `const heights = cards.map((card) => card.offsetHeight);
+cards.forEach((card, i) => {
+  card.style.minHeight = \`\${heights[i] + 10}px\`;
+});`,
+        worse: `for (const card of cards) {
+  card.style.minHeight = \`\${card.offsetHeight + 10}px\`;
+}`,
+        why: 'Reading all heights first needs one layout, then the writes are batched. The loop reads `offsetHeight` right after the previous card\'s style write, so the browser must run a forced synchronous layout on every iteration: 500 layouts, about 780 ms in the card\'s example instead of under 2 ms.',
       },
     ],
     lesson: {
@@ -751,6 +877,22 @@ cards.forEach((card, i) => {
         why: '`*` has no specificity at all.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'A legacy `#checkout button` rule removes outlines. Both add a focus ring to the Pay button. Which one shows it?',
+        codeLang: 'css',
+        better: `@layer legacy, components;
+@layer legacy {
+  #checkout button { outline: none; }
+}
+@layer components {
+  .pay-button:focus-visible { outline: 2px solid; }
+}`,
+        worse: `#checkout button { outline: none; }
+.pay-button:focus-visible { outline: 2px solid; }`,
+        why: 'Layers are compared before specificity, so the rule in the later `components` layer wins over the legacy id rule. Without layers, `#checkout button` weighs (1,0,1) and beats `.pay-button:focus-visible` at (0,2,0), so the focus ring never shows, whatever the source order.',
+      },
+    ],
     lesson: {
       points: [
         'When two rules set the same property on an element, the cascade picks one. Within the same layer, specificity decides; if it ties, the rule that comes later in the source wins.',
@@ -836,6 +978,23 @@ cards.forEach((card, i) => {
         statement: '`localStorage.setItem(\'cart\', { items: 2 })` stores the object as an object.',
         isTrue: false,
         why: 'Web Storage stores strings only, so it saves "[object Object]"; use `JSON.stringify`.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both let the back office call the Orders API as the signed-in agent. Which one keeps the credential out of reach of an XSS?',
+        codeLang: 'js',
+        better: `// Login set an HttpOnly, Secure, SameSite session cookie
+const res = await fetch('/bff/orders', {
+  credentials: 'same-origin', // the browser sends it
+});`,
+        worse: `// Login returned an access token in its JSON body
+localStorage.setItem('token', login.accessToken);
+const token = localStorage.getItem('token');
+const res = await fetch('/bff/orders', {
+  headers: { Authorization: \`Bearer \${token}\` },
+});`,
+        why: 'An `HttpOnly` cookie is sent by the browser but invisible to scripts: `document.cookie` does not show it. Any script on the page can call `localStorage.getItem(\'token\')`, so one XSS in an order note sends the token to the attacker, who can use it from anywhere until it expires.',
       },
     ],
     lesson: {
@@ -927,6 +1086,19 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
         why: 'Native nesting does not concatenate strings; that is a Sass-only feature.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both define the back office\'s brand colour, with a dark mode switched by a `data-theme` attribute. Which one changes colour at runtime?',
+        codeLang: 'css',
+        better: `:root { --brand: #0a6e4f; }
+[data-theme="dark"] { --brand: #4fd1a5; }
+.order-card { color: var(--brand); }`,
+        worse: `$brand: #0a6e4f;
+[data-theme="dark"] { $brand: #4fd1a5; }
+.order-card { color: $brand; }`,
+        why: 'Custom properties live in the browser and follow the cascade, so setting `data-theme="dark"` changes `--brand` for the cards below it. The Sass variable is gone after compilation: the second `$brand` is only a local variable of its block, so the CSS contains `color: #0a6e4f` and nothing else, and dark mode never changes it.',
+      },
+    ],
     lesson: {
       points: [
         'Sass is a CSS preprocessor: you write its syntax in `.scss` files and a build step compiles them to plain CSS. Nothing of Sass reaches the browser.',
@@ -1002,6 +1174,20 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
         statement: 'WCAG 2.2 AA asks for a contrast ratio of at least 4.5:1 for normal body text.',
         isTrue: true,
         why: 'Success criterion 1.4.3 requires 4.5:1 for text, and 3:1 for large text.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both render the icon button that refunds order 1042 in the back office. Which one has an accessible name?',
+        codeLang: 'html',
+        better: `<button type="button" class="icon-button">
+  <svg aria-hidden="true">...</svg>
+  <span class="visually-hidden">Refund order 1042</span>
+</button>`,
+        worse: `<button type="button" class="icon-button">
+  <svg>...</svg>
+</button>`,
+        why: 'The visually hidden text gives the button its name, so a screen reader says "Refund order 1042, button" and voice control can target it. The second button\'s computed name is empty: it is announced as just "button", and a sighted keyboard user sees an icon only.',
       },
     ],
     lesson: {
@@ -1156,6 +1342,31 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
         why: 'Specificity is compared column by column, so (1,0,0) beats (0,11,0).',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'The order detail page renders this refund reason field twice, once in a side panel. Which one keeps each label tied to its own field?',
+        codeLang: 'tsx',
+        better: `function RefundReason() {
+  const id = useId();
+  return (
+    <>
+      <label htmlFor={id}>Reason</label>
+      <textarea id={id} className="field" />
+    </>
+  );
+}`,
+        worse: `function RefundReason() {
+  const id = 'refund-reason';
+  return (
+    <>
+      <label htmlFor={id}>Reason</label>
+      <textarea id={id} className="field" />
+    </>
+  );
+}`,
+        why: '`useId` gives each instance its own id, so every label points at its own textarea. With a hard-coded id, both copies share `refund-reason`: lookups by id return the first match, so the second label\'s `control` is the first textarea, and screen readers can name the wrong field.',
+      },
+    ],
     lesson: {
       points: [
         'An `id` names a single element and must be unique in the document. A `class` is a reusable label: an element can carry several, and many elements can share one.',
@@ -1228,6 +1439,18 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
         why: 'The initial value of `display` is `inline`; `block` comes from the browser\'s default stylesheet.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both set the back office\'s typography. Which one makes buttons and inputs use the app\'s font too?',
+        codeLang: 'css',
+        better: `body { font-family: system-ui, sans-serif; }
+button, input, select, textarea {
+  font: inherit;
+}`,
+        worse: `body { font-family: system-ui, sans-serif; }`,
+        why: 'Inheritance only fills in when no declaration targets the element, and the browser\'s own stylesheet sets a font on form controls. So with `body` alone, buttons and inputs keep the browser\'s font; `font: inherit` makes them take the app\'s font from their parent.',
+      },
+    ],
     lesson: {
       points: [
         'The cascade picks one winner when several declarations set the same property on an element. It compares, in order: origin and `!important`, inline styles, cascade layers, specificity, then source order.',
@@ -1295,6 +1518,17 @@ button, input, select, textarea {
         why: '`rem` follows the root font size, which comes from that setting unless the root is set in `px`.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both set the storefront\'s body text to 14px at the default settings. Which one grows when a user raises the browser\'s font size?',
+        codeLang: 'css',
+        better: `html { font-size: 100%; }
+body { font-size: 0.875rem; }`,
+        worse: `html { font-size: 100%; }
+body { font-size: 14px; }`,
+        why: '`rem` is relative to the root font size, which follows the user\'s browser setting: 0.875rem is 14px at the default 16px and grows with it. `px` ignores that setting, so users with low vision who raise their default font size see no change at all.',
+      },
+    ],
     lesson: {
       points: [
         '`px` is a CSS pixel, fixed whatever the context. `rem` is relative to the root element\'s font size, 16px by default, which follows the user\'s browser font setting.',
@@ -1359,6 +1593,20 @@ h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem); }`,
         statement: 'A pseudo-element counts like a class in specificity.',
         isTrue: false,
         why: 'A pseudo-element counts like an element type; a pseudo-class counts like a class.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Designers want no focus ring after a mouse click on back office buttons. Which rule should ship?',
+        codeLang: 'css',
+        better: `.button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}`,
+        worse: `.button:focus {
+  outline: none;
+}`,
+        why: '`:focus-visible` matches only when the browser judges a ring is needed, as when tabbing, so the ring shows for keyboard users and not after a click. `:focus` matches every focus, so removing its outline also hides where keyboard users are: they tab through the page blind.',
       },
     ],
     lesson: {
@@ -1431,6 +1679,22 @@ h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem); }`,
         why: 'It only applies to inline-level content and table cells.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both centre the "No orders match these filters" message in the orders table area. Which one stays centred on every screen?',
+        codeLang: 'css',
+        better: `.orders-empty {
+  display: grid;
+  place-items: center;
+  min-height: 20rem;
+}`,
+        worse: `.orders-empty {
+  margin-top: 40vh;
+  text-align: center;
+}`,
+        why: 'Grid with `place-items: center` centres the message on both axes inside a box of known height, whatever the screen. The `40vh` margin is a magic number tied to the viewport, not to the table area, so the message drifts low and falls off the screen on small laptops.',
+      },
+    ],
     lesson: {
       points: [
         'Grid is the shortest: `display: grid; place-items: center` on the parent centres the child on both axes, whatever its size. `place-items` sets `align-items` and `justify-items` at once.',
@@ -1497,6 +1761,23 @@ h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem); }`,
         statement: 'CSS Modules make class names global so that any file can reuse them.',
         isTrue: false,
         why: 'They scope class names per file by rewriting them at build time.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'The reports page also has a global `.title` rule. Both style the refund dialog\'s title. Which one is safe from it?',
+        codeLang: 'tsx',
+        better: `import styles from './refund-dialog.module.css';
+
+export function RefundDialogTitle() {
+  return <h2 className={styles.title}>Refund</h2>;
+}`,
+        worse: `import './refund-dialog.css';
+
+export function RefundDialogTitle() {
+  return <h2 className="title">Refund</h2>;
+}`,
+        why: 'CSS Modules rewrite `.title` into a name unique to the file; in a Vite 8 build it became `_title_mus7h_1`, so the reports rule cannot match the dialog. A plain import is global: both `.title` rules apply to the dialog, and the build even merged them, so the reports page\'s bold weight landed on the refund title.',
       },
     ],
     lesson: {
@@ -1569,6 +1850,20 @@ h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem); }`,
         why: 'MDN documents the fallback to the `sv*` unit of the same axis.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'The order summary sits in the main column and in a 320px side panel. Both switch it to two columns when there is room. Which one fits both?',
+        codeLang: 'css',
+        better: `.summary-slot { container: summary / inline-size; }
+@container summary (min-width: 40rem) {
+  .order-summary { grid-template-columns: 1fr 1fr; }
+}`,
+        worse: `@media (min-width: 40rem) {
+  .order-summary { grid-template-columns: 1fr 1fr; }
+}`,
+        why: 'The container query reads the width of the slot the summary is placed in, so it is two columns in the main column and one in the narrow panel. The media query reads the viewport: on a wide screen it also forces two columns into the 320px side panel, which squeezes them.',
+      },
+    ],
     lesson: {
       points: [
         'A media query applies styles based on the environment: viewport width, orientation, or user preferences such as `prefers-reduced-motion` and `prefers-color-scheme`.',
@@ -1637,6 +1932,26 @@ h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem); }`,
         statement: 'Server Components hydrate in the browser like Client Components.',
         isTrue: false,
         why: 'Server Components never run in the browser; only Client Components ship code and hydrate.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both show the cart count from `localStorage` in a server-rendered Client Component. Which one hydrates without a mismatch?',
+        codeLang: 'tsx',
+        better: `export function CartBadge() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    setCount(Number(localStorage.getItem('cartCount') ?? 0));
+  }, []);
+  return <span className="cart-badge">{count}</span>;
+}`,
+        worse: `export function CartBadge() {
+  const count = typeof window === 'undefined'
+    ? 0
+    : Number(localStorage.getItem('cartCount') ?? 0);
+  return <span className="cart-badge">{count}</span>;
+}`,
+        why: 'The first version renders 0 on the server and on the first client render, so hydration matches, then the effect shows the stored count. The second renders 0 on the server and 3 in the browser: React 19 reports "Hydration failed because the server rendered text didn\'t match the client" and regenerates the tree on the client.',
       },
     ],
     lesson: {
@@ -1708,6 +2023,26 @@ export function CartBadge() {
         statement: 'With `React.lazy`, a route\'s code is downloaded only when that route first renders.',
         isTrue: true,
         why: 'The dynamic `import()` runs on the first render of the lazy component, while Suspense shows the fallback.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both are the back office router\'s handler when an agent clicks an order. Which one shows the order detail?',
+        codeLang: 'js',
+        better: `function openOrder(id) {
+  history.pushState({ id }, '', \`/orders/\${id}\`);
+  renderRoute(location.pathname);
+}
+window.addEventListener('popstate', () => {
+  renderRoute(location.pathname);
+});`,
+        worse: `function openOrder(id) {
+  history.pushState({ id }, '', \`/orders/\${id}\`);
+}
+window.addEventListener('popstate', () => {
+  renderRoute(location.pathname);
+});`,
+        why: '`pushState` changes the URL without firing `popstate`, which only fires on history traversal such as Back. So the router must render after pushing. The second version updates the address bar to `/orders/1042` but the screen keeps showing the list until the agent presses Back.',
       },
     ],
     lesson: {
@@ -1848,6 +2183,27 @@ Link: </styles/main.css>; rel=preload; as=style`,
         why: 'It runs in its own worker context; it talks to pages through messages and controls their requests.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both answer page navigations in the storefront\'s service worker. Which one shows new prices right after a release?',
+        codeLang: 'js',
+        better: `self.addEventListener('fetch', (event) => {
+  if (event.request.mode !== 'navigate') return;
+  event.respondWith(
+    fetch(event.request)
+      .catch(() => caches.match(event.request)),
+  );
+});`,
+        worse: `self.addEventListener('fetch', (event) => {
+  if (event.request.mode !== 'navigate') return;
+  event.respondWith(
+    caches.match(event.request)
+      .then((cached) => cached ?? fetch(event.request)),
+  );
+});`,
+        why: 'Network-first fetches fresh HTML and falls back to the cached page only when the network fails, so it still works offline. Cache-first answers from the cache whenever a copy exists, so customers keep getting the old page, with old prices, until that cache entry is replaced.',
+      },
+    ],
     lesson: {
       points: [
         'A service worker is a script a site registers that runs apart from its pages, with no access to the DOM. It acts as a proxy: it gets a `fetch` event for every request of the pages in its scope.',
@@ -1918,6 +2274,18 @@ self.addEventListener('activate', (event) => {
         why: 'They require AA; the W3C does not recommend AAA as a general policy for whole sites.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both render the checkout\'s Express delivery toggle, currently on. Which one meets WCAG 4.1.2 Name, Role, Value?',
+        codeLang: 'html',
+        better: `<button type="button" class="toggle"
+        aria-pressed="true"
+        onclick="toggleExpress()">Express delivery</button>`,
+        worse: `<div class="toggle toggle--on"
+     onclick="toggleExpress()">Express delivery</div>`,
+        why: 'The `button` with `aria-pressed` exposes a role, a name and an on or off state, and is reachable with the keyboard. The `div` has no role and no state: assistive technology reads "Express delivery" as text, never says whether it is on, and it is not focusable.',
+      },
+    ],
     lesson: {
       points: [
         'WCAG, the Web Content Accessibility Guidelines, is the W3C standard for web accessibility. Version 2.2 became a W3C Recommendation on 5 October 2023; laws and contracts reference WCAG.',
@@ -1976,6 +2344,26 @@ self.addEventListener('activate', (event) => {
         statement: 'Adding `role="listbox"` to a `ul` makes the arrow keys move between its options.',
         isTrue: false,
         why: 'ARIA only changes what assistive technology is told; you must implement every key yourself.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both move the highlight down in the storefront\'s search autocomplete, an input with `role="combobox"`. Which one lets the user keep typing?',
+        codeLang: 'js',
+        better: `search.addEventListener('keydown', (event) => {
+  if (event.key !== 'ArrowDown') return;
+  event.preventDefault();
+  active = Math.min(active + 1, options.length - 1);
+  search.setAttribute('aria-activedescendant',
+    options[active].id);
+});`,
+        worse: `search.addEventListener('keydown', (event) => {
+  if (event.key !== 'ArrowDown') return;
+  event.preventDefault();
+  active = Math.min(active + 1, options.length - 1);
+  options[active].focus();
+});`,
+        why: 'With `aria-activedescendant`, DOM focus stays in the input, so typing still edits the query while screen readers announce the highlighted option. Calling `focus()` on the option moves focus out of the input: the next keystrokes go to the option, not the search box.',
       },
     ],
     lesson: {
@@ -2045,6 +2433,28 @@ self.addEventListener('activate', (event) => {
         statement: 'A live region always announces its message, even when it is inserted into the page together with that message.',
         isTrue: false,
         why: 'The region should exist before its content changes; one added with its text may not be announced.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both announce "Export ready" to screen reader users when the CSV export ends. Which one is reliably announced?',
+        codeLang: 'tsx',
+        better: `function ExportAnnouncer({ message }: { message: string }) {
+  return (
+    <p role="status" className="visually-hidden">
+      {message}
+    </p>
+  );
+}`,
+        worse: `function ExportAnnouncer({ message }: { message: string }) {
+  if (!message) return null;
+  return (
+    <p role="status" className="visually-hidden">
+      {message}
+    </p>
+  );
+}`,
+        why: 'A live region must exist before its content changes: the first version is always mounted, empty, so setting the message is a change screen readers announce. The second inserts the region together with its text, and a region added with its message may not be announced at all.',
       },
     ],
     lesson: {

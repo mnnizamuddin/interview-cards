@@ -82,6 +82,13 @@ code {
   line-height: 1.45;
 }
 
+/* Code to compare side by side in a list: long lines wrap so the difference is never scrolled out of view. */
+.code-wrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+}
+
 .code-block code {
   background: none;
   padding: 0;

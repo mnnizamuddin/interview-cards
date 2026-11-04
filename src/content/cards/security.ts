@@ -67,6 +67,24 @@ export const securityCards: Card[] = [
         why: 'The script cannot read the cookie, but it can still send requests from the page, and the browser attaches the cookie.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both render a customer review\'s plain-text body in the back office. Which one is safe against stored XSS?',
+        codeLang: 'tsx',
+        better: `function ReviewBody({ review }: { review: Review }) {
+  return <p className="review">{review.body}</p>;
+}`,
+        worse: `function ReviewBody({ review }: { review: Review }) {
+  return (
+    <p
+      className="review"
+      dangerouslySetInnerHTML={{ __html: review.body }}
+    />
+  );
+}`,
+        why: 'React inserts a string between braces as text, so a body of `<img src=x onerror=…>` is displayed, encoded as `&lt;img` on the server. `dangerouslySetInnerHTML` parses it as HTML: the `onerror` handler runs in every support agent\'s browser, under the back office\'s origin, and can call the API as them.',
+      },
+    ],
     lesson: {
       points: [
         'Cross-site scripting (XSS) is an attacker\'s script running in your page, under your origin. It can read the page and call your API as the user, and the browser adds the user\'s cookies.',
@@ -146,6 +164,26 @@ export const securityCards: Card[] = [
         why: 'The statement is parsed before the value is bound, so the value can never change the query\'s structure.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both sort the order list by the column the client sent, such as `created_at`. Which one sorts correctly and safely?',
+        codeLang: 'ts',
+        better: `const SORT_COLUMNS = new Set(['created_at', 'total_cents']);
+const sortColumn = String(req.query.sort); // 'created_at'
+if (!SORT_COLUMNS.has(sortColumn)) {
+  throw new BadRequestError('Unknown sort column');
+}
+const { rows } = await db.query(
+  \`SELECT id, status FROM orders ORDER BY \${sortColumn} DESC\`,
+);`,
+        worse: `const sortColumn = String(req.query.sort); // 'created_at'
+const { rows } = await db.query(
+  'SELECT id, status FROM orders ORDER BY $1 DESC',
+  [sortColumn],
+);`,
+        why: 'Parameters carry values only, so `ORDER BY $1` sorts by the constant string \'created_at\': every row ties and PostgreSQL returns them in whatever order it reads them, with no error. Identifiers cannot be parameters; the allow-list makes pasting the column name safe, since only listed names reach the SQL.',
+      },
+    ],
     lesson: {
       points: [
         'SQL injection happens when input is pasted into the SQL text, so the input can change the query. With `x\' OR \'1\'=\'1` as an email, a lookup by email returns every customer.',
@@ -222,6 +260,21 @@ const orderBy = { newest: 'created_at DESC', oldest: 'created_at ASC' }[sort];`,
         statement: '`SameSite=Strict` protects the back office from a script running on another subdomain of the same domain.',
         isTrue: false,
         why: 'SameSite compares registrable domains, so subdomains of `shop.example` are the same site.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both decide from Fetch Metadata whether the back office BFF accepts a write. Which one should guard the refund route?',
+        codeLang: 'ts',
+        better: `function isAllowedWrite(headers: Headers): boolean {
+  const site = headers.get('sec-fetch-site');
+  return site === 'same-origin';
+}`,
+        worse: `function isAllowedWrite(headers: Headers): boolean {
+  const site = headers.get('sec-fetch-site');
+  return site !== 'cross-site';
+}`,
+        why: 'Only `same-origin` proves the request came from the back office itself. `!== \'cross-site\'` also accepts `same-site`, so a script on a compromised sibling subdomain can post a refund with the agent\'s cookies, which SameSite lets through too. It also accepts requests with no header at all.',
       },
     ],
     lesson: {
@@ -306,6 +359,24 @@ const orderBy = { newest: 'created_at DESC', oldest: 'created_at ASC' }[sort];`,
         why: 'Everything shipped to the browser is public; anyone can search the bundle in DevTools.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both create the search client that indexes products for the storefront. Which one keeps the admin key secret?',
+        codeLang: 'ts',
+        better: `// lib/search-admin.ts
+import 'server-only';
+export const searchAdmin = createSearchClient({
+  appId: process.env.NEXT_PUBLIC_SEARCH_APP_ID,
+  apiKey: process.env.SEARCH_ADMIN_KEY,
+});`,
+        worse: `// lib/search-admin.ts
+export const searchAdmin = createSearchClient({
+  appId: process.env.NEXT_PUBLIC_SEARCH_APP_ID,
+  apiKey: process.env.NEXT_PUBLIC_SEARCH_ADMIN_KEY,
+});`,
+        why: 'Next.js writes every `NEXT_PUBLIC_` variable into the browser bundle at build time, so the admin key ships to every visitor, minified or not, and anyone can rewrite the index. An unprefixed variable stays on the server, and `server-only` makes the build fail if a client component imports the module.',
+      },
+    ],
     lesson: {
       points: [
         'A secret is any value that grants access: a database password, an API key, a signing key. It must never sit in the repository, a Docker image, CI logs or the front-end bundle.',
@@ -382,6 +453,17 @@ function loadConfig(env: NodeJS.ProcessEnv) {
         statement: 'A site with no login and no personal data gains nothing from HTTPS.',
         isTrue: false,
         why: 'Without integrity, anyone on the network can inject scripts into its pages, and browsers restrict many features to secure contexts.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both set the storefront\'s session cookie on an HTTPS response. Which one never travels over plain HTTP?',
+        codeLang: 'http',
+        better: `HTTP/1.1 200 OK
+Set-Cookie: sid=8f3a; Path=/; Secure; HttpOnly; SameSite=Lax`,
+        worse: `HTTP/1.1 200 OK
+Set-Cookie: sid=8f3a; Path=/; HttpOnly; SameSite=Lax`,
+        why: 'With `Secure`, the browser sends the cookie only over HTTPS. Without it, any plain `http://` request to the site, such as an old link or an image URL an attacker injects, carries the session cookie in clear text, and anyone on the network can copy it and act as the customer.',
       },
     ],
     lesson: {
@@ -536,6 +618,19 @@ Set-Cookie: __Host-sid=...; Path=/; Secure; HttpOnly; SameSite=Lax`,
         why: 'CSP is defence in depth: a policy can be wrong or bypassed, so the sink is still fixed.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both are the storefront\'s Content Security Policy for scripts. Which one blocks an injected inline script?',
+        codeLang: 'http',
+        better: `Content-Security-Policy:
+  script-src 'nonce-r4nd0mBase64' 'strict-dynamic';
+  object-src 'none'; base-uri 'none'`,
+        worse: `Content-Security-Policy:
+  script-src 'self' 'unsafe-inline' https://cdn.example;
+  object-src 'none'; base-uri 'none'`,
+        why: 'Only scripts carrying this response\'s nonce run, plus the scripts they load, so an injected `<script>` or `onerror` handler is blocked. With \'unsafe-inline\' and no nonce, every inline script and handler runs, injected ones included, and the allowed CDN may host code an attacker can reuse.',
+      },
+    ],
     lesson: {
       points: [
         'A Content Security Policy (CSP) is a response header that tells the browser which scripts, styles, frames and other resources a page may load and run. The browser blocks anything else.',
@@ -613,6 +708,21 @@ Reporting-Endpoints: csp="https://www.shop.example/api/csp-reports"
         why: 'Any script on the page runs with the page\'s full power, form fields included.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both load the versioned reviews widget from a third-party CDN. Which one refuses a tampered file?',
+        codeLang: 'html',
+        better: `<script
+  src="https://cdn.reviews-widget.example/v3.2.1/widget.js"
+  integrity="sha384-…hash of exactly this file…"
+  crossorigin="anonymous"
+></script>`,
+        worse: `<script
+  src="https://cdn.reviews-widget.example/v3.2.1/widget.js"
+></script>`,
+        why: 'With Subresource Integrity, the browser hashes the downloaded file and refuses it if it differs from `integrity`; `crossorigin` lets it check a cross-origin file. Without them, if the CDN is compromised or the file swapped, the new code runs in the storefront with full access to the checkout form.',
+      },
+    ],
     lesson: {
       points: [
         'Everything shipped to the browser is public. `NEXT_PUBLIC_` (Next.js) and `VITE_` (Vite) variables are written into the bundle at build time, so secrets and privileged calls stay in server code.',
@@ -687,6 +797,28 @@ Reporting-Endpoints: csp="https://www.shop.example/api/csp-reports"
         statement: 'A customer calling an admin route is horizontal privilege escalation.',
         isTrue: false,
         why: 'Gaining a higher role\'s powers is vertical; horizontal is reaching a peer\'s data.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both load an order for `GET /orders/:id`. Which one stops customer B from reading customer A\'s order?',
+        codeLang: 'ts',
+        better: `async function findOrder(db: Pool, caller: Caller, id: string) {
+  const result = await db.query(
+    \`SELECT id, status, total_cents FROM orders
+     WHERE id = $1 AND customer_id = $2\`,
+    [id, caller.customerId],
+  );
+  return result.rows[0];
+}`,
+        worse: `async function findOrder(db: Pool, caller: Caller, id: string) {
+  const result = await db.query(
+    'SELECT id, status, total_cents FROM orders WHERE id = $1',
+    [id],
+  );
+  return result.rows[0];
+}`,
+        why: 'With ownership in the query and the customer id from the verified session, someone else\'s order returns no row, the same 404 as a missing id. Without it, any logged-in customer who changes the id in the URL reads another customer\'s order: an IDOR, a case of A01 in the OWASP Top 10.',
       },
     ],
     lesson: {
@@ -768,6 +900,27 @@ export async function findOrderForCaller(db: Pool, caller: Caller, orderId: stri
         why: 'It is secure but fast, so offline guessing is cheap; password hashing must be slow.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both hash a customer\'s password before it is saved in the `customers` table. Which one should ship?',
+        codeLang: 'ts',
+        better: `import { randomBytes, scrypt } from 'node:crypto';
+import { promisify } from 'node:util';
+const scryptAsync = promisify(scrypt);
+
+async function hashPassword(password: string) {
+  const salt = randomBytes(16);
+  const hash = await scryptAsync(password, salt, 64) as Buffer;
+  return \`\${salt.toString('hex')}:\${hash.toString('hex')}\`;
+}`,
+        worse: `import { createHash } from 'node:crypto';
+
+async function hashPassword(password: string) {
+  return createHash('sha256').update(password).digest('hex');
+}`,
+        why: 'scrypt is a password hashing function: with Node\'s defaults each hash takes 16 MiB of memory and tens of milliseconds, and a random salt gives equal passwords different hashes. SHA-256 takes about a microsecond and gives two customers with the same password the same hash, so a leaked table is cheap to crack offline.',
+      },
+    ],
     lesson: {
       points: [
         'Never store passwords, only a password hash. A password hashing function is deliberately slow and memory-hungry, so each guess costs an attacker real time. SHA-256 is built to be fast: the wrong tool.',
@@ -841,6 +994,22 @@ const ok = await verify(stored, attempt); // reads salt and parameters from stor
         statement: 'Deleting the JWT in the browser at logout makes it invalid on the server.',
         isTrue: false,
         why: 'Any copy stays valid until `exp`; revoke the refresh token and keep access tokens short.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both verify the access token on the Orders API with `jose`. Which one refuses a token minted for another API?',
+        codeLang: 'ts',
+        better: `const { payload } = await jwtVerify(token, jwks, {
+  algorithms: ['ES256'],
+  issuer: 'https://id.example.com/realms/shop',
+  audience: 'orders-api',
+});`,
+        worse: `const { payload } = await jwtVerify(token, jwks, {
+  algorithms: ['ES256'],
+  issuer: 'https://id.example.com/realms/shop',
+});`,
+        why: 'With `audience`, `jwtVerify` rejects a token whose `aud` is not `orders-api`. Without it, any valid token from the same identity provider passes, such as one issued to the newsletter service, so a token leaked from a less critical API also opens the Orders API.',
       },
     ],
     lesson: {

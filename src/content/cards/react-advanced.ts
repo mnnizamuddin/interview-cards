@@ -74,6 +74,25 @@ export const reactAdvancedCards: Card[] = [
         why: 'Server Components need no directive; `\'use server\'` marks Server Functions callable from the client.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both render the product page as a Server Component with a Client Component button. Which one renders?',
+        codeLang: 'tsx',
+        better: `// page.tsx: Server Component
+export default async function ProductPage({ params }: Props) {
+  const product = await getProduct((await params).slug);
+  return <AddToCartButton productId={product.id} />;
+}`,
+        worse: `// page.tsx: Server Component
+export default async function ProductPage({ params }: Props) {
+  const product = await getProduct((await params).slug);
+  return (
+    <AddToCartButton onAdd={() => addToCart(product.id)} />
+  );
+}`,
+        why: 'Props that cross into a Client Component must be serialisable: `productId` is a string, and the button adds to the cart itself. A plain function cannot travel in the RSC Payload, so the other page fails with an error saying functions cannot be passed to Client Components unless marked `\'use server\'`.',
+      },
+    ],
     lesson: {
       points: [
         'SSR (server-side rendering) produces HTML on the server for a request. The browser then downloads every component\'s JavaScript and hydrates it: attaches events and state to that HTML.',
@@ -167,6 +186,32 @@ export function AddToCartButton({ productId }: { productId: string }) { /* useSt
         statement: 'Calling three custom hooks in one component adds no components to the tree.',
         isTrue: true,
         why: 'Hooks are function calls inside the component, not wrappers around it.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both wrap the orders page with `withCustomer`. Which one keeps the page\'s state when the shell re-renders?',
+        codeLang: 'tsx',
+        better: `const GuardedOrders = withCustomer(OrdersPage);
+
+function BackOfficeShell() {
+  const [isSidebarOpen, setSidebarOpen] = useState(true);
+  return (
+    <Layout sidebar={isSidebarOpen} onToggle={setSidebarOpen}>
+      <GuardedOrders />
+    </Layout>
+  );
+}`,
+        worse: `function BackOfficeShell() {
+  const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const GuardedOrders = withCustomer(OrdersPage);
+  return (
+    <Layout sidebar={isSidebarOpen} onToggle={setSidebarOpen}>
+      <GuardedOrders />
+    </Layout>
+  );
+}`,
+        why: 'Called once at module level, `withCustomer` returns one component type, so React keeps the orders page and its state. Called during render, it returns a new type on every render: toggling the sidebar unmounts the page and mounts a fresh one, and the agent\'s filters are reset.',
       },
     ],
     lesson: {
@@ -327,6 +372,31 @@ export function OrdersTable({ orders, query, onOpen }: Props) {
         why: 'It runs after the DOM update, which is why it can measure elements, but before the paint.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both move the order actions menu above the row when it would overflow the window. Which one avoids a visible jump?',
+        codeLang: 'tsx',
+        better: `useLayoutEffect(() => {
+  const menu = menuRef.current;
+  if (menu === null) {
+    return;
+  }
+  if (menu.getBoundingClientRect().bottom > innerHeight) {
+    setPlacement('above');
+  }
+}, [anchorBottom]);`,
+        worse: `useEffect(() => {
+  const menu = menuRef.current;
+  if (menu === null) {
+    return;
+  }
+  if (menu.getBoundingClientRect().bottom > innerHeight) {
+    setPlacement('above');
+  }
+}, [anchorBottom]);`,
+        why: '`useLayoutEffect` runs after the DOM update but before the paint, and the `setPlacement` inside it also renders before the paint: the first frame already shows the menu above the row. `useEffect` usually runs after the paint, so the agent sees the menu below the row for a frame, then sees it jump.',
+      },
+    ],
     lesson: {
       points: [
         'After a render, React commits: it updates the DOM. Then the browser paints, which means it draws the result on screen.',
@@ -396,6 +466,30 @@ export function OrdersTable({ orders, query, onOpen }: Props) {
         statement: '`memo` prevents a component from re-rendering when a context it reads changes.',
         isTrue: false,
         why: 'Every reader of a context renders when the provider\'s value changes, memoized or not.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both show the column menu above the 5,000-row orders table. Which one keeps opening the menu cheap?',
+        codeLang: 'tsx',
+        better: `function OrdersPage({ orders }: Props) {
+  return (
+    <>
+      <ColumnMenu /> {/* owns its isOpen state */}
+      <OrdersTable orders={orders} />
+    </>
+  );
+}`,
+        worse: `function OrdersPage({ orders }: Props) {
+  const [isMenuOpen, setMenuOpen] = useState(false);
+  return (
+    <>
+      <ColumnMenu open={isMenuOpen} onToggle={setMenuOpen} />
+      <OrdersTable orders={orders} />
+    </>
+  );
+}`,
+        why: 'When `ColumnMenu` owns its open state, toggling it renders only the menu. With the state in the page, every toggle renders `OrdersPage`, and React renders its children by default: `OrdersTable` and its 5,000 rows render again with the same props.',
       },
     ],
     lesson: {
@@ -546,6 +640,24 @@ function OrdersPage({ orders }: Props) {
         why: 'Hooks need a rendering component; calling one outside a component throws.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both test that adding a product with the storefront\'s `useCart` hook counts one item. Which test passes?',
+        codeLang: 'ts',
+        better: `const { result } = renderHook(() => useCart());
+act(() => {
+  result.current.add('sku-42');
+});
+expect(result.current.count).toBe(1);`,
+        worse: `const { result } = renderHook(() => useCart());
+const cart = result.current;
+act(() => {
+  cart.add('sku-42');
+});
+expect(cart.count).toBe(1);`,
+        why: '`result.current` is replaced after every render, so reading it after `act` gives the new value: count 1. Copying it into `cart` keeps the first render\'s object: `cart.count` is still 0 and the test fails, although the hook works.',
+      },
+    ],
     lesson: {
       points: [
         'A hook can only run inside a component. `renderHook` from React Testing Library renders a small test component that calls it.',
@@ -619,6 +731,22 @@ expect(result.current).toBe('10 rue de Rivoli');`,
         why: 'It is shallow: nested objects stay mutable unless frozen too.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both mark the order as shipped when the live update arrives. Which one makes the order detail re-render?',
+        codeLang: 'ts',
+        better: `function onShipped() {
+  setOrder((previous) => ({ ...previous, status: 'shipped' }));
+}`,
+        worse: `function onShipped() {
+  setOrder((previous) => {
+    previous.status = 'shipped';
+    return previous;
+  });
+}`,
+        why: 'The spread creates a new object, so React sees a change and the detail shows "shipped". The other updater mutates the old object and returns it: `Object.is` says nothing changed, React skips the render, and the detail keeps showing "paid".',
+      },
+    ],
     lesson: {
       points: [
         'When you call a state setter, React compares the new value with the old one using `Object.is`. Same reference: React may skip the render.',
@@ -688,6 +816,27 @@ setOrder((previous) => ({ ...previous, status: 'shipped' }));`,
         statement: 'Without any error boundary, an error thrown during rendering unmounts the whole React root.',
         isTrue: true,
         why: 'React has nothing to show instead, so it removes the entire tree.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both wrap the order detail panel in an error boundary. Which one recovers when the agent opens another order?',
+        codeLang: 'tsx',
+        better: `function OrderPanel({ orderId }: Props) {
+  return (
+    <ErrorBoundary key={orderId} fallback={<OrderError />}>
+      <OrderDetail orderId={orderId} />
+    </ErrorBoundary>
+  );
+}`,
+        worse: `function OrderPanel({ orderId }: Props) {
+  return (
+    <ErrorBoundary fallback={<OrderError />}>
+      <OrderDetail orderId={orderId} />
+    </ErrorBoundary>
+  );
+}`,
+        why: 'A `key` per order makes React mount a fresh boundary when the agent opens another order, so the detail renders again. Without it, the same boundary keeps its error state: after one broken order, every order the agent opens shows the fallback until the page reloads.',
       },
     ],
     lesson: {
@@ -763,6 +912,23 @@ setOrder((previous) => ({ ...previous, status: 'shipped' }));`,
         statement: 'A client-side protected route is enough to keep a customer\'s orders private.',
         isTrue: false,
         why: 'Anyone can call the API directly; the server must check access on every request.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both link a row of the back office orders table to the order detail. Which one keeps the app loaded?',
+        codeLang: 'tsx',
+        better: `function OrderLink({ order }: Props) {
+  return (
+    <Link to={\`/orders/\${order.id}\`}>Order {order.id}</Link>
+  );
+}`,
+        worse: `function OrderLink({ order }: Props) {
+  return (
+    <a href={\`/orders/\${order.id}\`}>Order {order.id}</a>
+  );
+}`,
+        why: '`<Link>` lets React Router intercept the click, push the URL and render the detail route: the layout and in-memory state stay. A plain `<a href>` makes the browser load a new document, so the whole app downloads and starts again and every piece of client state is lost.',
       },
     ],
     lesson: {
@@ -841,6 +1007,27 @@ setOrder((previous) => ({ ...previous, status: 'shipped' }));`,
         why: 'With context, parts can be nested at any depth; only `cloneElement`-based versions need direct children.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both let `Tabs.Tab` read the state of its `Tabs.Root`. Which one helps a developer who renders a tab outside the root?',
+        codeLang: 'tsx',
+        better: `const TabsContext = createContext<TabsState | null>(null);
+
+function useTabs() {
+  const tabs = useContext(TabsContext);
+  if (tabs === null) {
+    throw new Error('Tabs.Tab must be inside <Tabs.Root>');
+  }
+  return tabs;
+}`,
+        worse: `const TabsContext = createContext<TabsState>({} as TabsState);
+
+function useTabs() {
+  return useContext(TabsContext);
+}`,
+        why: 'A context that starts as `null` lets the hook detect the missing root and throw a message that names the fix. With an empty object as default, a tab outside its root renders as if nothing were wrong, then a click fails with the vague "tabs.select is not a function".',
+      },
+    ],
     lesson: {
       points: [
         'Compound components are parts that work together, like `<select>` and `<option>`: a root and its parts, such as `Tabs.Root`, `Tabs.Tab` and `Tabs.Panel`.',
@@ -913,6 +1100,22 @@ setOrder((previous) => ({ ...previous, status: 'shipped' }));`,
         statement: 'A rejected promise read with `use` is handled by the nearest error boundary.',
         isTrue: true,
         why: 'Suspense only handles the pending state; errors go to error boundaries.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both read the product reviews with `use` in a Client Component under Suspense. Which one shows the reviews?',
+        codeLang: 'tsx',
+        better: `// The page starts the request once and passes the promise
+function Reviews({ reviewsPromise }: Props) {
+  const reviews = use(reviewsPromise);
+  return <ReviewList reviews={reviews} />;
+}`,
+        worse: `function Reviews({ productId }: Props) {
+  const reviews = use(fetchReviews(productId));
+  return <ReviewList reviews={reviews} />;
+}`,
+        why: 'A promise created once, by the server page or a cache, settles and `use` returns the reviews. Calling `fetchReviews` during render makes a new promise on each render, so the component suspends again every time: in a test, 33 requests in 500 ms and the skeleton never went away.',
       },
     ],
     lesson: {
@@ -989,6 +1192,29 @@ function Reviews({ reviewsPromise }: { reviewsPromise: Promise<Review[]> }) {
         statement: '`useFormStatus` reports the pending state of a form rendered by the same component that calls it.',
         isTrue: false,
         why: 'It only reads a `<form>` rendered by a parent; call it in a child, such as the submit button.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both disable the checkout button while `placeOrder` runs. Which one stops a double click from placing two orders?',
+        codeLang: 'tsx',
+        better: `function PlaceOrderButton() {
+  const { pending } = useFormStatus();
+  return <button disabled={pending}>Place order</button>;
+}
+
+function CheckoutForm() {
+  return <form action={placeOrder}><PlaceOrderButton /></form>;
+}`,
+        worse: `function CheckoutForm() {
+  const { pending } = useFormStatus();
+  return (
+    <form action={placeOrder}>
+      <button disabled={pending}>Place order</button>
+    </form>
+  );
+}`,
+        why: '`useFormStatus` reads the form rendered by a parent, so in `PlaceOrderButton` `pending` turns true and the button disables itself. Called in the component that renders the form, it finds no parent form: `pending` stays false, and a double click sent two orders in a test.',
       },
     ],
     lesson: {

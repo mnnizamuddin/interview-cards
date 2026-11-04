@@ -52,6 +52,26 @@ export const deliveryMoreCards: Card[] = [
         why: 'It has no dependency to replace: the inputs go in, the total comes out.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both test the rule "carts of 50.00 or more ship free, others pay 4.99". Which table catches a `>=` changed into `>`?',
+        codeLang: 'ts',
+        better: `it.each([
+  [4_999, 5_498], // just under 50.00: shipping is charged
+  [5_000, 5_000], // exactly 50.00: shipping is free
+  [7_500, 7_500],
+])('a %i-cent cart costs %i cents', (subtotal, expected) => {
+  expect(checkoutTotalCents(subtotal)).toBe(expected);
+});`,
+        worse: `it.each([
+  [3_000, 3_499], // well under 50.00: shipping is charged
+  [7_500, 7_500], // well over 50.00: shipping is free
+])('a %i-cent cart costs %i cents', (subtotal, expected) => {
+  expect(checkoutTotalCents(subtotal)).toBe(expected);
+});`,
+        why: 'Pricing bugs live at boundaries. The rows at 49.99 and exactly 50.00 pin the threshold: if `subtotal >= 5_000` becomes `subtotal > 5_000`, the 50.00 row fails. The other table tests only carts far from the threshold, so the same change passes, and customers with exactly 50.00 pay shipping.',
+      },
+    ],
     lesson: {
       points: [
         'A unit test runs one function in memory, with no database, network or real clock. It suits pure rules with many cases, such as a price, a discount or a shipping fee.',
@@ -119,6 +139,24 @@ export const deliveryMoreCards: Card[] = [
         statement: 'With Testcontainers, integration tests can run on the same PostgreSQL image as production.',
         isTrue: true,
         why: 'It starts a real server in a container from the image you choose, for example `postgres:18-alpine`.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both give each test of a 40-test orders repository file an empty PGlite database. Which setup keeps the file fast?',
+        codeLang: 'ts',
+        better: `beforeAll(async () => {
+  db = new PGlite();
+  await db.exec(SCHEMA); // the real migrations, once per file
+});
+beforeEach(async () => {
+  await db.exec('TRUNCATE orders, order_lines');
+});`,
+        worse: `beforeEach(async () => {
+  db = new PGlite(); // a brand-new database for every test
+  await db.exec(SCHEMA);
+});`,
+        why: 'Starting PGlite and running the schema took about 1.2 s on a laptop, while a `TRUNCATE` took about 2 ms. Paying the start-up once per file and resetting the data before each test keeps 40 tests isolated in well under a second of setup; a new database per test spends about 48 s on setup alone.',
       },
     ],
     lesson: {
@@ -192,6 +230,26 @@ afterAll(async () => {
         why: 'Its README says it binds the app to a random free port for the test.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both call `POST /orders` on the Express app in a test. Which one runs safely while Vitest runs other test files in parallel?',
+        codeLang: 'ts',
+        better: `const app = buildApp(testDeps); // never calls listen()
+const response = await request(app)
+  .post('/orders')
+  .send({ customerId: 'cus_1', lines });
+expect(response.status).toBe(201);`,
+        worse: `const server = buildApp(testDeps).listen(3000);
+const response = await fetch('http://localhost:3000/orders', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ customerId: 'cus_1', lines }),
+});
+expect(response.status).toBe(201);
+server.close();`,
+        why: 'supertest binds an app that is not listening to a free ephemeral port, so parallel test files never collide. A fixed port works alone, but when two files listen on 3000 in parallel workers, the second fails with `EADDRINUSE`, and a failed assertion skips `server.close()`, leaving the port taken.',
+      },
+    ],
     lesson: {
       points: [
         'Build the app in a function that does not listen, such as `buildApp(deps)`, and pass it its dependencies: repositories, outside clients, a clock and an id generator.',
@@ -261,6 +319,21 @@ await expect(stock.stockOf('prod_mug')).resolves.toBe(8);`,
         statement: 'Seeded with the same value, a seeded random generator returns the same sequence on every run.',
         isTrue: true,
         why: 'That is what makes jittered delays assertable in a test.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both flag paid orders not shipped within 48 hours, and a test checks a fixture order. Which one keeps that test stable over time?',
+        codeLang: 'ts',
+        better: `export function isLate(order: Order, clock: Clock): boolean {
+  const ageMs = clock.now().getTime() - order.paidAt.getTime();
+  return ageMs > 48 * 60 * 60 * 1000; // 48 hours unshipped
+}`,
+        worse: `export function isLate(order: Order): boolean {
+  const ageMs = Date.now() - order.paidAt.getTime();
+  return ageMs > 48 * 60 * 60 * 1000; // 48 hours unshipped
+}`,
+        why: 'With the clock injected, the test passes a frozen time, such as `new FixedClock(\'2027-01-31T09:00:00Z\')`, and the answer never changes. Reading `Date.now()` ties the result to the day the test runs: a fixture paid "yesterday" when the test was written is late two days later, and the test fails with no code change.',
       },
     ],
     lesson: {

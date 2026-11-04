@@ -146,6 +146,21 @@ SELECT id FROM products WHERE attrs @> '{"color": "red"}';`,
         why: 'Nothing in the database links the copy to its source unless you add a trigger or a check, which is why it needs an owner.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both print the lines of invoice 101 a year later, once the keyboard costs more. Which one shows what the customer paid?',
+        codeLang: 'sql',
+        better: `SELECT p.name, l.quantity, l.unit_price_cents
+FROM order_lines l
+JOIN products p ON p.id = l.product_id
+WHERE l.order_id = 101;`,
+        worse: `SELECT p.name, l.quantity, p.price_cents
+FROM order_lines l
+JOIN products p ON p.id = l.product_id
+WHERE l.order_id = 101;`,
+        why: "The order line's `unit_price_cents` is a snapshot of the price paid, a fact of its own, so the invoice still shows 4000 for the keyboard. Reading today's catalogue price rewrites history: after the price rose to 4500, the old invoice shows 4500 and no longer matches what was charged.",
+      },
+    ],
     lesson: {
       points: [
         'Normalizing means storing each fact once and pointing to it by key, so an update touches one row and two copies can never disagree.',
@@ -231,6 +246,17 @@ HAVING o.total_cents <> sum(l.quantity * l.unit_price_cents);`,
         why: 'A composite B-tree serves its leftmost columns, so the first column alone is enough.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both indexes are for "my orders": `WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 20`. Which one serves it best?',
+        codeLang: 'sql',
+        better: `CREATE INDEX orders_customer_created_idx
+  ON orders (customer_id, created_at);`,
+        worse: `CREATE INDEX orders_created_customer_idx
+  ON orders (created_at, customer_id);`,
+        why: "With the equality column first, the customer's entries sit together, already sorted by date: PostgreSQL reads the last 20 and stops, 23 pages on 400,000 orders. With `created_at` first, the customer's entries are scattered across the index, so it walks it backwards skipping everyone else's: 348 pages, and more for a quiet customer.",
+      },
+    ],
     lesson: {
       points: [
         'An index is a separate structure holding a sorted copy of some columns, each entry pointing to its row. Without a usable index, PostgreSQL reads the whole table: a sequential scan.',
@@ -310,6 +336,19 @@ WHERE customer_id = 42 ORDER BY created_at DESC LIMIT 20;
         statement: 'A plain `CREATE INDEX` blocks writes to the table while it builds.',
         isTrue: true,
         why: 'It locks out inserts, updates and deletes for the whole build; `CONCURRENTLY` avoids that at the cost of a slower build.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both measure a slow status update on the production database. Which one leaves the data unchanged?',
+        codeLang: 'sql',
+        better: `BEGIN;
+EXPLAIN (ANALYZE, BUFFERS)
+  UPDATE orders SET status = 'shipped' WHERE id = 7;
+ROLLBACK;`,
+        worse: `EXPLAIN (ANALYZE, BUFFERS)
+  UPDATE orders SET status = 'shipped' WHERE id = 7;`,
+        why: '`EXPLAIN ANALYZE` really executes the statement to measure it. Inside a transaction that ends with `ROLLBACK`, you get the real plan and timings and the order stays as it was. Run on its own, the update commits: order 7 is now marked shipped although nothing left the warehouse.',
       },
     ],
     lesson: {
@@ -394,6 +433,23 @@ CREATE INDEX CONCURRENTLY orders_pending_idx
         why: '`SHOW transaction_isolation` returns `read committed` on a default installation.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both reserve a console and create the order, and the insert can fail. Which one never loses stock?',
+        codeLang: 'sql',
+        better: `BEGIN;
+UPDATE products SET stock = stock - 1
+WHERE id = 7 AND stock >= 1;
+INSERT INTO orders (customer_id, status)
+VALUES (42, 'pending_payment');
+COMMIT;`,
+        worse: `UPDATE products SET stock = stock - 1
+WHERE id = 7 AND stock >= 1;
+INSERT INTO orders (customer_id, status)
+VALUES (42, 'pending_payment');`,
+        why: 'In one transaction, a failed insert aborts the whole unit, and the `COMMIT` then performs a rollback: the stock is back, all or nothing. Without `BEGIN`, each statement commits on its own, so when the insert fails, for example on a foreign key, the console is gone from stock with no order behind it.',
+      },
+    ],
     lesson: {
       points: [
         'A transaction groups statements into one unit: `BEGIN`, then `COMMIT` to keep everything or `ROLLBACK` to undo it all.',
@@ -475,6 +531,23 @@ COMMIT;`,
         why: 'A single foreign key column holds one value per row, which models one-to-many; many-to-many needs a junction table.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both link products to categories. Which table stops a product from appearing twice in one category?',
+        codeLang: 'sql',
+        better: `CREATE TABLE product_categories (
+  product_id  int NOT NULL REFERENCES products (id),
+  category_id int NOT NULL REFERENCES categories (id),
+  PRIMARY KEY (product_id, category_id)
+);`,
+        worse: `CREATE TABLE product_categories (
+  id          serial PRIMARY KEY,
+  product_id  int NOT NULL REFERENCES products (id),
+  category_id int NOT NULL REFERENCES categories (id)
+);`,
+        why: 'With the pair as primary key, a second insert of the same product and category fails with `23505`, and the key also indexes lookups by product. With a surrogate `id` and nothing unique on the pair, the duplicate is accepted, and the category page lists the product twice.',
+      },
+    ],
     lesson: {
       points: [
         'One-to-many needs one foreign key column on the "many" side. Many-to-many needs a junction table, also called a join table, holding one foreign key to each side.',
@@ -550,6 +623,24 @@ CREATE INDEX product_categories_category_idx
         statement: 'A bigger pool always makes a busy API faster.',
         isTrue: false,
         why: 'Past what the database can run in parallel, extra connections only move the queue into PostgreSQL and use more memory.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both check out a pooled client for the "my orders" query, which can time out. Which one keeps the pool alive?',
+        codeLang: 'ts',
+        better: `const client = await pool.connect();
+try {
+  const { rows } = await client.query(MY_ORDERS, [customerId]);
+  return rows;
+} finally {
+  client.release();
+}`,
+        worse: `const client = await pool.connect();
+const { rows } = await client.query(MY_ORDERS, [customerId]);
+client.release();
+return rows;`,
+        why: 'The `finally` gives the client back even when the query throws. In the other version an error skips `release()`, so each failure leaks a connection; after 10 errors a pool of 10 is empty, and with the default `connectionTimeoutMillis` of 0 every later request waits forever.',
       },
     ],
     lesson: {
@@ -705,6 +796,19 @@ export const pool = new pg.Pool({
         why: 'ORMs run on a database driver, and their connections come from that driver\'s pool.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both run a raw query next to Prisma with an email from the request. Which one is safe from SQL injection?',
+        codeLang: 'ts',
+        better: `const orders = await prisma.$queryRaw\`
+  SELECT id, status FROM orders
+  WHERE customer_email = \${email}\`;`,
+        worse: `const orders = await prisma.$queryRawUnsafe(\`
+  SELECT id, status FROM orders
+  WHERE customer_email = '\${email}'\`);`,
+        why: "The tagged template `$queryRaw` sends `email` as a bound parameter, separate from the SQL text, so it is never parsed as SQL. `$queryRawUnsafe` with a template string concatenates it: an email of `' OR '1'='1` makes the filter always true and returns every customer's orders.",
+      },
+    ],
     lesson: {
       points: [
         'An ORM (object-relational mapper) maps tables and relations to typed objects and generates the SQL. Prisma uses a schema file and a generated client; Drizzle declares tables in TypeScript.',
@@ -780,6 +884,22 @@ SELECT * FROM customers WHERE id = ANY($1);`,
         why: 'The database still reads and discards every skipped row; a keyset condition on `(created_at, id)` jumps straight to the page.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: "Both load the next page of an agent's feed while new events keep arriving. Which one neither repeats rows nor slows down?",
+        codeLang: 'sql',
+        better: `SELECT id, verb, created_at FROM feed_items
+WHERE user_id = $1
+  AND (created_at, id) < ($2, $3)
+ORDER BY created_at DESC, id DESC
+LIMIT 20;`,
+        worse: `SELECT id, verb, created_at FROM feed_items
+WHERE user_id = $1
+ORDER BY created_at DESC, id DESC
+LIMIT 20 OFFSET $2;`,
+        why: 'The keyset version starts right after the last item seen, `($2, $3)`, so it jumps there through the index and a new event cannot shift the page. `OFFSET` reads and discards every skipped row, slower with each page, and one event arriving between two pages pushes an item down, so the next page repeats it.',
+      },
+    ],
     lesson: {
       points: [
         'Store each event once: the actor, the verb, the object, the time and a small payload, such as "agent 12 refunded order 981".',
@@ -850,6 +970,26 @@ LIMIT 20;`,
         statement: '`UPDATE products SET stock = stock - 1 WHERE id = 7 AND stock >= 1` cannot take the stock below zero, even with concurrent checkouts.',
         isTrue: true,
         why: 'The row lock makes concurrent updates take turns, and at Read Committed a waiting update re-checks its condition on the new row version.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both reserve the last console during a checkout, with several API replicas. Which one cannot sell it twice?',
+        codeLang: 'ts',
+        better: `const { rowCount } = await db.query(
+  \`UPDATE products SET stock = stock - 1
+   WHERE id = $1 AND stock >= 1\`, [productId]);
+if (rowCount === 0) {
+  throw new SoldOutError(productId);
+}`,
+        worse: `const { rows } = await db.query(
+  'SELECT stock FROM products WHERE id = $1', [productId]);
+if (rows[0].stock < 1) {
+  throw new SoldOutError(productId);
+}
+await db.query('UPDATE products SET stock = $2 WHERE id = $1',
+  [productId, rows[0].stock - 1]);`,
+        why: 'The guarded `UPDATE` checks and decrements in one statement: a concurrent checkout waits for the row lock, re-checks `stock >= 1`, updates 0 rows and throws. With read-then-write, both checkouts read a stock of 1, both pass the check and both write 0: two customers get the last console.',
       },
     ],
     lesson: {
@@ -997,6 +1137,19 @@ SELECT application_name, replay_lag FROM pg_stat_replication;`,
         why: 'The number of queries no longer grows with the number of orders: two queries in total, whatever the page size.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both load the items of a page of 200 orders. Which one fixes the N+1?',
+        codeLang: 'ts',
+        better: `const { rows } = await db.query(
+  'SELECT * FROM order_items WHERE order_id = ANY($1)',
+  [orders.map((order) => order.id)]);`,
+        worse: `const results = await Promise.all(orders.map((order) =>
+  db.query('SELECT * FROM order_items WHERE order_id = $1',
+    [order.id])));`,
+        why: 'One `= ANY($1)` query loads the items of every order on the page: one round trip, whatever the page size. `Promise.all` still sends 200 queries, only in parallel: each takes a pooled connection, so one page can hold the whole pool while other requests wait.',
+      },
+    ],
     lesson: {
       points: [
         'N+1: one query loads a list (the 1), then a loop runs one more query per row (the N). 20 orders become 21 queries.',
@@ -1071,6 +1224,21 @@ const { rows } = await db.query('SELECT * FROM order_items WHERE order_id = ANY(
         why: 'Its predicate locks never block; when a conflict could break serial order, one transaction fails with `40001` and must be retried.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both read the count and the total of paid orders for a report while orders keep arriving. Which one gives figures that match?',
+        codeLang: 'sql',
+        better: `BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SELECT count(*) FROM orders WHERE status = 'paid';
+SELECT sum(total_cents) FROM orders WHERE status = 'paid';
+COMMIT;`,
+        worse: `BEGIN;
+SELECT count(*) FROM orders WHERE status = 'paid';
+SELECT sum(total_cents) FROM orders WHERE status = 'paid';
+COMMIT;`,
+        why: 'At Repeatable Read the whole transaction reads one snapshot, so the count and the sum describe the same orders. At the default Read Committed, each statement takes a new snapshot: an order paid between the two queries is in the sum but not in the count, and the average order value comes out wrong.',
+      },
+    ],
     lesson: {
       points: [
         'The isolation level decides what a transaction sees of others running at the same time. An anomaly is a result that no one-at-a-time order of the transactions could produce.',
@@ -1140,6 +1308,16 @@ COMMIT;`,
         statement: 'An `ALTER TABLE` waiting for its lock also blocks the queries that arrive after it on that table.',
         isTrue: true,
         why: 'Later conflicting requests queue behind the waiting one, which is why migrations set `lock_timeout`.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both add a column to the busy orders table during a deploy. Which one cannot freeze the API?',
+        codeLang: 'sql',
+        better: `SET lock_timeout = '3s';
+ALTER TABLE orders ADD COLUMN total_cents bigint;`,
+        worse: `ALTER TABLE orders ADD COLUMN total_cents bigint;`,
+        why: 'The `ALTER` needs an ACCESS EXCLUSIVE lock, if only for a moment. While a long transaction holds the table, the waiting `ALTER` blocks every query that arrives after it; `lock_timeout` makes it give up after 3 seconds, to retry later. Without it, the default 0 waits forever and the orders table stops answering.',
       },
     ],
     lesson: {
@@ -1214,6 +1392,24 @@ ALTER TABLE orders ALTER COLUMN total_cents SET NOT NULL;`,
         statement: 'A deadlock needs at least two tables.',
         isTrue: false,
         why: 'Two rows of one table locked in opposite order by two transactions are enough.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both lock the products of a bundle checkout, and baskets list them in any order. Which one cannot deadlock?',
+        codeLang: 'ts',
+        better: `const ids = basket.productIds.toSorted((a, b) => a - b);
+for (const productId of ids) {
+  await tx.query(
+    'SELECT 1 FROM products WHERE id = $1 FOR NO KEY UPDATE',
+    [productId]);
+}`,
+        worse: `for (const productId of basket.productIds) {
+  await tx.query(
+    'SELECT 1 FROM products WHERE id = $1 FOR NO KEY UPDATE',
+    [productId]);
+}`,
+        why: 'Sorting the ids makes baskets [7, 9] and [9, 7] lock in the same order, so the second checkout simply waits for the first. In basket order, one holds 7 and wants 9 while the other holds 9 and wants 7: PostgreSQL detects the cycle after `deadlock_timeout` and aborts one with `40P01`.',
       },
     ],
     lesson: {
@@ -1359,6 +1555,23 @@ SELECT ctid, customer_id FROM orders WHERE customer_id = 0;
         statement: 'Redis can enforce a foreign key between two keys.',
         isTrue: false,
         why: 'Redis has no constraints across keys; references between keys are kept correct by the application.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both update a product price and its cache-aside entry in Redis. Which one cannot leave an old price cached?',
+        codeLang: 'ts',
+        better: `await db.query(
+  'UPDATE products SET price_cents = $2 WHERE id = $1',
+  [productId, priceCents]);
+await redis.del(\`product:\${productId}\`);`,
+        worse: `await db.query(
+  'UPDATE products SET price_cents = $2 WHERE id = $1',
+  [productId, priceCents]);
+const product = await loadProduct(productId);
+await redis.set(\`product:\${productId}\`,
+  JSON.stringify(product), 'EX', 300);`,
+        why: 'Deleting the key after the commit means the next read misses and loads the current row from PostgreSQL. Overwriting it lets two racing price changes finish in the wrong order: a writer that loaded the product before the other update stores it last, and customers see the old price until the TTL expires.',
       },
     ],
     lesson: {

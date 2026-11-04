@@ -75,6 +75,31 @@ export const asyncCards: Card[] = [
         why: 'The rest of the async function resumes as a promise job once the awaited value settles.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both filter 50,000 orders in chunks of 500 so the search box stays responsive. Which one lets the browser handle typing between chunks?',
+        codeLang: 'js',
+        better: `async function filterInChunks(orders, matches) {
+  const result = [];
+  for (let i = 0; i < orders.length; i += 500) {
+    const chunk = orders.slice(i, i + 500);
+    result.push(...chunk.filter(matches));
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  return result;
+}`,
+        worse: `async function filterInChunks(orders, matches) {
+  const result = [];
+  for (let i = 0; i < orders.length; i += 500) {
+    const chunk = orders.slice(i, i + 500);
+    result.push(...chunk.filter(matches));
+    await Promise.resolve();
+  }
+  return result;
+}`,
+        why: '`setTimeout` resumes the loop in a new task, so between two chunks the browser can run a key press handler and paint. `await Promise.resolve()` resumes as a microtask, and the microtask queue is emptied before any other task or render: all 100 chunks run as one long task, and typing freezes until the end.',
+      },
+    ],
     lesson: {
       points: [
         'JavaScript runs your code on one thread with one call stack. Waiting for timers, the network or clicks is done by the browser or Node, which queues a callback when it is ready.',
@@ -160,6 +185,27 @@ console.log('sync');
         why: 'It then rejects with an AggregateError that holds every reason.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both charge the card, mark the order paid, then send the receipt. Which one sends the receipt only after the order is marked paid?',
+        codeLang: 'js',
+        better: `function payOrder(orderId) {
+  return chargeCard(orderId)
+    .then((payment) => {
+      return markPaid(orderId, payment.id);
+    })
+    .then(() => sendReceipt(orderId));
+}`,
+        worse: `function payOrder(orderId) {
+  return chargeCard(orderId)
+    .then((payment) => {
+      markPaid(orderId, payment.id);
+    })
+    .then(() => sendReceipt(orderId));
+}`,
+        why: 'Returning the promise from `markPaid` makes the next `.then` wait for it, and a failure reaches the caller\'s `.catch`. Without `return`, the callback returns `undefined` at once: the receipt goes out before the order is marked paid, and if `markPaid` rejects, nobody handles it: an unhandled rejection, which crashes a Node process.',
+      },
+    ],
     lesson: {
       points: [
         'A promise is an object for a result that arrives later. It starts pending, then settles once: fulfilled with a value or rejected with a reason, and it never changes after that.',
@@ -233,6 +279,25 @@ if (recommendations.status === 'rejected') hideRecommendations();`,
         statement: 'An `async` function that returns 5 gives its caller the number 5.',
         isTrue: false,
         why: 'It gives a promise fulfilled with 5; the caller needs `await` or `.then` to read it.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both load the customer, history and invoices for the order page; each call takes 200 ms. Which one renders sooner?',
+        codeLang: 'ts',
+        better: `async function loadOrderPage(id: string) {
+  const [customer, history, invoices] = await Promise.all([
+    getCustomer(id), getHistory(id), getInvoices(id),
+  ]);
+  return { customer, history, invoices };
+}`,
+        worse: `async function loadOrderPage(id: string) {
+  const customer = await getCustomer(id);
+  const history = await getHistory(id);
+  const invoices = await getInvoices(id);
+  return { customer, history, invoices };
+}`,
+        why: 'The three calls do not depend on each other. `Promise.all` starts them together, so the page waits for the slowest one: about 200 ms. Awaiting each call before starting the next adds up the delays: about 600 ms for the same data.',
       },
     ],
     lesson: {
@@ -323,6 +388,27 @@ const fast = await Promise.all([getCustomer(id), getHistory(id)]);`,
         why: 'Debounce sends fewer requests, but two requests can still complete out of order.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both fetch search results when `query` changes. Which one can never show the results of an older query?',
+        codeLang: 'tsx',
+        better: `useEffect(() => {
+  const controller = new AbortController();
+  searchProducts(query, controller.signal)
+    .then(setResults)
+    .catch((error) => {
+      if (error.name !== 'AbortError') setError(error);
+    });
+  return () => controller.abort();
+}, [query]);`,
+        worse: `useEffect(() => {
+  searchProducts(query)
+    .then(setResults)
+    .catch((error) => setError(error));
+}, [query]);`,
+        why: 'The cleanup aborts the previous request before the effect runs for the new query, so a slow "sho" response is rejected with an `AbortError`, which is ignored. Without it, "shoes" can answer first and "sho" last: `setResults` runs for both, and the list ends up showing the results for "sho".',
+      },
+    ],
     lesson: {
       points: [
         'An `AbortController` has a `signal` and an `abort()` method. Pass the signal to `fetch`; calling `abort()` makes the pending fetch reject with a `DOMException` named `AbortError`.',
@@ -411,6 +497,32 @@ const fast = await Promise.all([getCustomer(id), getHistory(id)]);`,
         why: 'You want regular checks during the scroll; debounce would wait until scrolling stops.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both debounce search suggestions by 300 ms. Which one sends one request when the user quickly types "shoes"?',
+        codeLang: 'tsx',
+        better: `function SearchBox() {
+  const [query, setQuery] = useState('');
+  const suggest = useMemo(
+    () => debounce(fetchSuggestions, 300), []);
+  function onChange(event: ChangeEvent<HTMLInputElement>) {
+    setQuery(event.target.value);
+    suggest(event.target.value);
+  }
+  return <input value={query} onChange={onChange} />;
+}`,
+        worse: `function SearchBox() {
+  const [query, setQuery] = useState('');
+  const suggest = debounce(fetchSuggestions, 300);
+  function onChange(event: ChangeEvent<HTMLInputElement>) {
+    setQuery(event.target.value);
+    suggest(event.target.value);
+  }
+  return <input value={query} onChange={onChange} />;
+}`,
+        why: '`useMemo` keeps one debounced function, so its timer survives re-renders and each keystroke cancels the pending call: one request for "shoes". In the component body, every render, which each keystroke triggers through `setQuery`, makes a new debounced function with its own timer: nothing is cancelled, and five keystrokes send five requests.',
+      },
+    ],
     lesson: {
       points: [
         'Both limit how often a function runs during a burst of events, like typing, scrolling or resizing.',
@@ -481,6 +593,19 @@ const suggest = debounce((query) => fetchSuggestions(query), 300);`,
         statement: 'A Web Worker can read and update the DOM directly.',
         isTrue: false,
         why: 'Workers have no DOM access; they send their results back with `postMessage`.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both send the 40 MB CSV export to a Web Worker for parsing. Which one avoids copying it on the main thread?',
+        codeLang: 'js',
+        better: `const worker = new Worker('/parse-csv.js');
+const buffer = await file.arrayBuffer();
+worker.postMessage(buffer, [buffer]);`,
+        worse: `const worker = new Worker('/parse-csv.js');
+const buffer = await file.arrayBuffer();
+worker.postMessage(buffer);`,
+        why: 'Listing the buffer in the transfer list moves it to the worker without copying: afterwards the page\'s `buffer.byteLength` is 0. Without it, `postMessage` copies all 40 MB with the structured clone algorithm, which costs main-thread time while the user waits and holds the data twice in memory.',
       },
     ],
     lesson: {

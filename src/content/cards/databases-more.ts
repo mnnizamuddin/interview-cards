@@ -57,6 +57,18 @@ export const databasesMoreCards: Card[] = [
         why: 'PostgreSQL casts the column to `numeric` to compare, and a cast on the column makes the index unusable.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both filter the back office by the day an order was placed, and `created_at` has a B-tree index. Which one can use it?',
+        codeLang: 'sql',
+        better: `SELECT id FROM orders
+WHERE created_at >= '2026-10-29'
+  AND created_at < '2026-10-30';`,
+        worse: `SELECT id FROM orders
+WHERE created_at::date = '2026-10-29';`,
+        why: 'Comparing the bare column with a half-open range lets PostgreSQL use the index: an Index Scan reading 32 pages on 400,000 orders. The cast hides `created_at` from its index, so the other version scans the whole table and removes 398,560 rows with a filter: 6,558 pages.',
+      },
+    ],
     lesson: {
       points: [
         'The planner estimates the cost of each possible plan and picks the cheapest. Ignoring an index is often right: when a condition keeps a large share of rows, reading the table in order costs less.',
@@ -130,6 +142,17 @@ WHERE created_at >= '2026-10-29' AND created_at < '2026-10-30';`,
         why: 'A leading wildcard gives the sorted tree no prefix to jump to; it takes a trigram GIN index.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both find orders flagged for fraud review, with a GIN index on `metadata` using `jsonb_path_ops`. Which one uses it?',
+        codeLang: 'sql',
+        better: `SELECT id FROM orders
+WHERE metadata @> '{"fraud_review": true}';`,
+        worse: `SELECT id FROM orders
+WHERE metadata->>'fraud_review' = 'true';`,
+        why: 'A GIN index serves operators such as `@>` (contains): the plan is a Bitmap Index Scan, about 800 pages for 800 matches on 400,000 orders. The `->>` expression is not something the GIN index stores, so the other version reads all 6,558 pages of the table with a filter.',
+      },
+    ],
     lesson: {
       points: [
         'A B-tree sorts whole values. It serves `=`, ranges, `IN` and `ORDER BY`, and stays the default. Other index types answer other questions and are chosen with `USING` in `CREATE INDEX`.',
@@ -199,6 +222,24 @@ CREATE INDEX orders_created_brin ON orders USING brin (created_at);`,
         statement: 'If the pod holding `pg_try_advisory_xact_lock` dies, the lock is freed when its connection closes.',
         isTrue: true,
         why: 'The lock belongs to the server session; when the connection drops, PostgreSQL releases it.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both let a worker claim the oldest pending job, with three replicas polling. Which one never gives two workers the same job?',
+        codeLang: 'sql',
+        better: `UPDATE jobs SET status = 'running'
+WHERE id = (SELECT id FROM jobs
+            WHERE status = 'pending'
+            ORDER BY id LIMIT 1
+            FOR UPDATE SKIP LOCKED)
+RETURNING id, kind;`,
+        worse: `UPDATE jobs SET status = 'running'
+WHERE id = (SELECT id FROM jobs
+            WHERE status = 'pending'
+            ORDER BY id LIMIT 1)
+RETURNING id, kind;`,
+        why: 'With `FOR UPDATE SKIP LOCKED`, each worker locks the row it picks and the others skip it, so three workers claim three different jobs without waiting. Without it, two workers pick the same id; the second waits for the first lock, then updates that job too, since the outer `WHERE` only checks the id, and the CSV export is built twice.',
       },
     ],
     lesson: {
@@ -276,6 +317,25 @@ RETURNING id, kind, payload;`,
         why: 'The documentation states there is no performance difference; a `CHECK` expresses the real rule.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both store the unit price of an order line. Which column keeps invoice totals exact?',
+        codeLang: 'sql',
+        better: `CREATE TABLE order_lines (
+  order_id   bigint  NOT NULL REFERENCES orders (id),
+  quantity   integer NOT NULL CHECK (quantity > 0),
+  unit_price_cents bigint NOT NULL
+    CHECK (unit_price_cents >= 0)
+);`,
+        worse: `CREATE TABLE order_lines (
+  order_id   bigint  NOT NULL REFERENCES orders (id),
+  quantity   integer NOT NULL CHECK (quantity > 0),
+  unit_price double precision NOT NULL
+    CHECK (unit_price >= 0)
+);`,
+        why: 'Integer cents add exactly: 10 + 20 is 30. A `double precision` cannot represent 0.1 exactly, so in PostgreSQL two lines at 0.10 and 0.20 sum to 0.30000000000000004; totals drift by a cent and stop matching the payment provider.',
+      },
+    ],
     lesson: {
       points: [
         'Money is never a float: `0.1 + 0.2` gives `0.30000000000000004` in `float8`. Store integer minor units (`total_cents bigint`) plus a `currency`, or `numeric(12, 2)`.',
@@ -344,6 +404,21 @@ RETURNING id, kind, payload;`,
         statement: 'With RLS, a policy\'s `USING` clause also stops inserts of rows for another tenant.',
         isTrue: false,
         why: '`USING` filters the rows you see; `WITH CHECK` validates the rows you write.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both set the brand for the RLS policy at the start of a request, on a pooled connection. Which one cannot leak into the next request?',
+        codeLang: 'sql',
+        better: `BEGIN;
+SELECT set_config('app.tenant_id', $1, true);
+SELECT id, status FROM orders;  -- filtered by the policy
+COMMIT;`,
+        worse: `BEGIN;
+SELECT set_config('app.tenant_id', $1, false);
+SELECT id, status FROM orders;  -- filtered by the policy
+COMMIT;`,
+        why: 'With `true` the setting is transaction-local: after `COMMIT` it reads back empty, so a request that forgets to set it gets an error, not data. With `false` it lasts for the whole session, so the pooled connection still carries brand 42 into the next request, which then sees brand 42\'s orders.',
       },
     ],
     lesson: {
@@ -417,6 +492,20 @@ SELECT set_config('app.tenant_id', $1, true);`,
         why: 'The trigger runs inside PostgreSQL on every write, whatever client issued it.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both enforce one account per email with soft-deleted customers. Which one lets a closed account sign up again?',
+        codeLang: 'sql',
+        better: `ALTER TABLE customers ADD COLUMN deleted_at timestamptz;
+CREATE UNIQUE INDEX customers_email_live_key
+  ON customers (lower(email))
+  WHERE deleted_at IS NULL;`,
+        worse: `ALTER TABLE customers ADD COLUMN deleted_at timestamptz;
+CREATE UNIQUE INDEX customers_email_key
+  ON customers (lower(email));`,
+        why: 'The partial unique index only covers live rows, so once Dana closed her account, a new sign-up with her email is accepted. The plain unique index still sees the soft-deleted row and rejects the sign-up with `23505`, so support cannot reopen the account.',
+      },
+    ],
     lesson: {
       points: [
         'Soft delete marks a row as deleted (`deleted_at timestamptz`) instead of removing it. Every read must then filter it; a view or a row-level security policy puts the filter in one place.',
@@ -488,6 +577,21 @@ CREATE UNIQUE INDEX customers_email_live_key
         why: 'Foreign keys only accept real columns, which is one reason referenced data belongs in columns.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both list the biggest payments from the raw webhook payloads. Which one sorts them by amount?',
+        codeLang: 'sql',
+        better: `SELECT id, payload->>'amount_paid' AS amount
+FROM webhook_events
+ORDER BY (payload->>'amount_paid')::bigint DESC
+LIMIT 10;`,
+        worse: `SELECT id, payload->>'amount_paid' AS amount
+FROM webhook_events
+ORDER BY payload->>'amount_paid' DESC
+LIMIT 10;`,
+        why: "`->>` returns `text`, so the value must be cast before a numeric comparison or sort. Sorted as text, strings compare character by character: '900' comes before '4500', which comes before '12000', and the biggest payment drops out of the top.",
+      },
+    ],
     lesson: {
       points: [
         '`jsonb` stores a parsed JSON document in a binary form: keys are reordered and only the last duplicate kept. Plain `json` keeps the exact text, useful only to verify a signature later.',
@@ -553,6 +657,24 @@ CREATE INDEX webhook_events_amount_idx ON webhook_events
         statement: 'A small fix to a migration that already ran in production is safe as long as the SQL stays equivalent.',
         isTrue: false,
         why: 'Tools track applied files, Flyway fails validation on a changed checksum, and environments drift; write a new migration.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both node-pg-migrate migrations add an index to the live orders table. Which one runs?',
+        codeLang: 'ts',
+        better: `export async function up(pgm: MigrationBuilder) {
+  pgm.noTransaction();
+  pgm.createIndex('orders', ['customer_id', 'placed_at'], {
+    name: 'orders_customer_placed_idx', concurrently: true,
+  });
+}`,
+        worse: `export async function up(pgm: MigrationBuilder) {
+  pgm.createIndex('orders', ['customer_id', 'placed_at'], {
+    name: 'orders_customer_placed_idx', concurrently: true,
+  });
+}`,
+        why: 'The tool wraps each migration in a transaction unless it opts out, and PostgreSQL refuses a concurrent build inside one: "CREATE INDEX CONCURRENTLY cannot run inside a transaction block". `pgm.noTransaction()` opts out, so the index builds without blocking writes; the other version fails at deploy time.',
       },
     ],
     lesson: {
@@ -623,6 +745,32 @@ CREATE INDEX webhook_events_amount_idx ON webhook_events
         statement: 'After an error inside a transaction, PostgreSQL rejects further statements on that connection until `ROLLBACK`.',
         isTrue: true,
         why: 'The transaction is aborted and every command fails with `25P02` until the transaction block ends.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both reserve stock and create an order in one transaction with node-postgres. Which one is really a transaction?',
+        codeLang: 'ts',
+        better: `const client = await pool.connect();
+try {
+  await client.query('BEGIN');
+  await client.query(RESERVE_STOCK, [productId]);
+  await client.query(CREATE_ORDER, [customerId]);
+  await client.query('COMMIT');
+} catch (error) {
+  await client.query('ROLLBACK');
+  throw error;
+} finally { client.release(); }`,
+        worse: `await pool.query('BEGIN');
+try {
+  await pool.query(RESERVE_STOCK, [productId]);
+  await pool.query(CREATE_ORDER, [customerId]);
+  await pool.query('COMMIT');
+} catch (error) {
+  await pool.query('ROLLBACK');
+  throw error;
+}`,
+        why: 'A transaction lives on one connection, so every statement runs on the client checked out with `pool.connect()`, released in `finally`. `pool.query` takes any idle connection per call: the `BEGIN` can land on one connection and the inserts on others, which commit at once, and a connection left inside an open transaction goes back to the pool.',
       },
     ],
     lesson: {
@@ -697,6 +845,21 @@ try {
         why: 'It only rejects the client\'s promise; the server keeps running the statement unless `statement_timeout` or a cancel stops it.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both raise the statement timeout for the nightly CSV export on a pooled connection. Which one keeps the 5 s limit for other requests?',
+        codeLang: 'sql',
+        better: `BEGIN;
+SET LOCAL statement_timeout = '5min';
+SELECT * FROM orders WHERE placed_at >= $1;
+COMMIT;`,
+        worse: `BEGIN;
+SET statement_timeout = '5min';
+SELECT * FROM orders WHERE placed_at >= $1;
+COMMIT;`,
+        why: '`SET LOCAL` ends with the transaction, so after `COMMIT` the connection is back to the role default. A plain `SET` inside a transaction lasts for the session once committed: the pooled connection keeps 5 minutes, and the next API request on it loses its 5-second guard.',
+      },
+    ],
     lesson: {
       points: [
         '`statement_timeout` cancels any single statement that runs too long (`57014`). `lock_timeout` fails a statement that waits too long for a lock (`55P03`).',
@@ -769,6 +932,21 @@ COMMIT;  -- back to the role default`,
         statement: '`pg` returns a `timestamptz` value as a `Date` at the correct instant.',
         isTrue: true,
         why: 'The value is an absolute instant, so the `Date` points to the same moment whatever the process time zone.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: "Both add today's order count from node-postgres to the orders still queued in memory. Which one returns a number?",
+        codeLang: 'ts',
+        better: `const { rows } = await db.query(
+  \`SELECT count(*)::int AS orders FROM orders
+   WHERE placed_on = $1\`, [day]);
+return rows[0].orders + queued.length;`,
+        worse: `const { rows } = await db.query(
+  \`SELECT count(*) AS orders FROM orders
+   WHERE placed_on = $1\`, [day]);
+return rows[0].orders + queued.length;`,
+        why: '`count(*)` is a `bigint`, which `pg` returns as a string to avoid losing precision. Cast to `int` in SQL, it arrives as a number: 3 + 1 is 4. Without the cast, `\'3\' + 1` concatenates, and the report shows "31 orders".',
       },
     ],
     lesson: {

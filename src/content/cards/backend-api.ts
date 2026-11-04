@@ -68,6 +68,27 @@ export const backendApiCards: Card[] = [
         why: 'Operations are usually POSTs to one URL, which HTTP caches do not store; CDN caching needs GET with persisted query ids.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both resolve `Order.customer` in the back office\'s GraphQL layer. Which one loads the customers of 50 orders in one query?',
+        codeLang: 'ts',
+        better: `const resolvers = {
+  Order: {
+    // ctx.loaders is created per request with DataLoader
+    customer: (order, _args, ctx) =>
+      ctx.loaders.customer.load(order.customerId),
+  },
+};`,
+        worse: `const resolvers = {
+  Order: {
+    // ctx.db is the shared repository layer
+    customer: (order, _args, ctx) =>
+      ctx.db.customers.findById(order.customerId),
+  },
+};`,
+        why: 'A DataLoader created per request collects the ids asked for in the same tick and loads them in one batched query, so a list of 50 orders costs 2 queries. `worse` runs one query per order: 1 for the list plus 50 for the customers, 51 in all. That is the N+1 problem, and it grows with the page size.',
+      },
+    ],
     lesson: {
       points: [
         'REST exposes resources at URLs, such as `/orders/1042`, and the HTTP method says the action. The server decides the shape of each response, so status codes and HTTP caching work as HTTP intends.',
@@ -145,6 +166,33 @@ Content-Type: application/json
         statement: 'Returning 404 for an order that exists but belongs to another customer is allowed by the HTTP standard.',
         isTrue: true,
         why: 'RFC 9110 lets a server answer 404 to hide that a forbidden resource exists.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both guard the refund route of the Orders API. Which one answers correctly to a logged-in agent without the refund permission?',
+        codeLang: 'ts',
+        better: `function requireRefund(req, res, next) {
+  if (!req.user) {
+    res.set('WWW-Authenticate', 'Bearer');
+    return res.status(401).end();
+  }
+  if (!can(req.user, 'order:refund')) {
+    return res.status(403).end();
+  }
+  next();
+}`,
+        worse: `function requireRefund(req, res, next) {
+  if (!req.user) {
+    res.set('WWW-Authenticate', 'Bearer');
+    return res.status(401).end();
+  }
+  if (!can(req.user, 'order:refund')) {
+    return res.status(401).end();
+  }
+  next();
+}`,
+        why: 'The agent is authenticated but lacks a permission: that is 403, and logging in again cannot fix it. `worse` answers 401, which the back office reads as "session expired": it refreshes or sends the agent to the login page, and the agent loops back to the same refusal.',
       },
     ],
     lesson: {
@@ -236,6 +284,19 @@ WWW-Authenticate: Bearer error="invalid_token", error_description="The access to
         why: '`POST` is not idempotent, so a retry can create a second order unless the server deduplicates with an idempotency key.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both let support agents cancel an order from the back office. Which route follows HTTP semantics?',
+        codeLang: 'ts',
+        better: `app.post('/orders/:id/cancellation', async (req, res) => {
+  res.json(await cancelOrder(req.params.id, req.user));
+});`,
+        worse: `app.get('/orders/:id/cancel', async (req, res) => {
+  res.json(await cancelOrder(req.params.id, req.user));
+});`,
+        why: '`GET` is safe by definition, so link scanners, prefetchers, crawlers and retrying clients call it freely: with `worse`, any of them can cancel orders, and a link on another site triggers it with the agent\'s `SameSite=Lax` cookie. A `POST` that creates a cancellation sub-resource is never sent by them.',
+      },
+    ],
     lesson: {
       points: [
         'Resources are nouns (`/orders`, `/orders/:id`) and the method carries the intent. An action such as a refund becomes a sub-resource you create, `POST /orders/:id/refunds`, not a `/refundOrder` URL.',
@@ -316,6 +377,27 @@ Location: /orders/1042`,
         statement: 'In Express 5 you must wrap every async handler in try/catch, or its rejected promise never reaches the error handler.',
         isTrue: false,
         why: 'Express 5 calls `next(err)` automatically when a handler or middleware returns a rejected promise.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both register a JSON error handler in the Orders API. Which one answers a failed `GET /orders/:id` with that handler?',
+        codeLang: 'js',
+        better: `const app = express();
+app.get('/orders/:id', async (req, res) => {
+  res.json(await orders.find(req.params.id));
+});
+app.use((err, req, res, next) => {
+  res.status(500).json({ title: 'Internal Server Error' });
+});`,
+        worse: `const app = express();
+app.use((err, req, res, next) => {
+  res.status(500).json({ title: 'Internal Server Error' });
+});
+app.get('/orders/:id', async (req, res) => {
+  res.json(await orders.find(req.params.id));
+});`,
+        why: 'Express runs middleware in registration order, and an error only reaches error handlers registered after the point where it happened. In `worse` the handler comes before the route and never sees the rejection: on Express 5.2 the default handler answered an HTML page instead, with the stack trace outside production.',
       },
     ],
     lesson: {
@@ -417,6 +499,25 @@ app.use((err, req, res, next) => {       // four parameters: the error handler
         why: 'Waiting on sockets is handled by the operating system; Node only runs a callback when data arrives.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both hash the password in the login route of the Orders API. Which one keeps the other requests flowing?',
+        codeLang: 'ts',
+        better: `import { pbkdf2 } from 'node:crypto';
+import { promisify } from 'node:util';
+const pbkdf2Async = promisify(pbkdf2);
+
+async function hashPassword(password: string, salt: string) {
+  return pbkdf2Async(password, salt, 600_000, 64, 'sha512');
+}`,
+        worse: `import { pbkdf2Sync } from 'node:crypto';
+
+async function hashPassword(password: string, salt: string) {
+  return pbkdf2Sync(password, salt, 600_000, 64, 'sha512');
+}`,
+        why: 'The async `pbkdf2` runs on the libuv thread pool and frees the main thread. `pbkdf2Sync` holds it for the whole hash, and `async` changes nothing. Measured on Node 24 with four logins at once: a 10 ms timer fired 1 ms late with `better` and 2.6 s late with `worse`.',
+      },
+    ],
     lesson: {
       points: [
         'Node runs all your JavaScript on one main thread, driven by the event loop: a loop that takes the next ready callback and runs it to the end before taking another.',
@@ -498,6 +599,28 @@ pbkdf2Sync('secret', 'salt', 600_000, 64, 'sha512');
         statement: 'An `HttpOnly` cookie protects the session against CSRF.',
         isTrue: false,
         why: '`HttpOnly` only hides the cookie from JavaScript; the browser still attaches it to cross-site requests, so CSRF needs its own defence.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both finish the OpenID Connect login in the back office\'s BFF. Which one leaves nothing reusable for an XSS to steal?',
+        codeLang: 'ts',
+        better: `app.get('/auth/callback', async (req, res) => {
+  const tokens = await exchangeCode(req); // code + PKCE
+  const sessionId = await sessions.create(tokens);
+  res.cookie('__Host-session', sessionId, {
+    httpOnly: true, secure: true, sameSite: 'lax', path: '/',
+  });
+  res.redirect('/');
+});`,
+        worse: `app.get('/auth/callback', async (req, res) => {
+  const tokens = await exchangeCode(req); // code + PKCE
+  res.cookie('access_token', tokens.access_token, {
+    secure: true, sameSite: 'lax', path: '/',
+  });
+  res.redirect('/');
+});`,
+        why: '`better` keeps the tokens on the server and gives the browser an opaque session id in an `HttpOnly` cookie, which scripts cannot read. `worse` puts the access token itself in a cookie without `HttpOnly`: any XSS reads it from `document.cookie` and replays it from anywhere until it expires.',
       },
     ],
     lesson: {
@@ -582,6 +705,32 @@ const challenge = createHash('sha256').update(verifier).digest('base64url');
         why: '`application/json` is not one of the simple content types, so the browser sends an `OPTIONS` preflight first.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both add CORS headers so the storefront can call the Orders API with cookies. Which one stops other sites from reading responses?',
+        codeLang: 'ts',
+        better: `const allowed = new Set(['https://shop.example']);
+app.use((req, res, next) => {
+  const origin = req.get('Origin');
+  if (origin && allowed.has(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+    res.set('Access-Control-Allow-Credentials', 'true');
+  }
+  res.vary('Origin');
+  next();
+});`,
+        worse: `app.use((req, res, next) => {
+  const origin = req.get('Origin');
+  if (origin) {
+    res.set('Access-Control-Allow-Origin', origin);
+    res.set('Access-Control-Allow-Credentials', 'true');
+  }
+  res.vary('Origin');
+  next();
+});`,
+        why: '`better` echoes the origin only when it is on the allow-list, with `Vary: Origin` so caches keep answers apart. `worse` reflects any `Origin` with credentials, so a page on any site can call the API with the visitor\'s cookie and read the answer: their orders, addresses and email.',
+      },
+    ],
     lesson: {
       points: [
         'An origin is scheme, host and port: `https://shop.example` and `https://api.shop.example` are different origins. The same-origin policy lets a script send cross-origin requests but not read the answers.',
@@ -664,6 +813,33 @@ Vary: Origin`,
         statement: 'With presigned uploads, the API servers still receive every byte of the file.',
         isTrue: false,
         why: 'The client sends the file straight to object storage; the API only signs the URL and records the result.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both sign an S3 upload URL for a customer\'s profile picture. Which one stops a customer from overwriting someone else\'s file?',
+        codeLang: 'ts',
+        better: `app.post('/me/avatar-uploads', async (req, res) => {
+  const key = \`avatars/\${req.user.id}/\${randomUUID()}\`;
+  const command = new PutObjectCommand({
+    Bucket: AVATARS, Key: key, ContentType: 'image/jpeg',
+  });
+  const uploadUrl = await getSignedUrl(s3, command, {
+    expiresIn: 300,
+  });
+  res.status(201).json({ key, uploadUrl, expiresIn: 300 });
+});`,
+        worse: `app.post('/me/avatar-uploads', async (req, res) => {
+  const key = \`avatars/\${req.body.fileName}\`;
+  const command = new PutObjectCommand({
+    Bucket: AVATARS, Key: key, ContentType: 'image/jpeg',
+  });
+  const uploadUrl = await getSignedUrl(s3, command, {
+    expiresIn: 300,
+  });
+  res.status(201).json({ key, uploadUrl, expiresIn: 300 });
+});`,
+        why: 'The server must pick the key: `better` scopes it to the authenticated customer and makes it unique. In `worse` the client chooses it, so sending another customer\'s file name, or a common one like `photo.jpg`, gets a valid URL that overwrites their picture.',
       },
     ],
     lesson: {
@@ -753,6 +929,26 @@ Content-Type: application/json
         statement: 'An in-memory rate limiter in each of six replicas enforces the same total limit as one shared Redis counter.',
         isTrue: false,
         why: 'Each replica counts only its own traffic, so the effective limit is up to six times higher.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both allow 5 login attempts per account per minute on the six replicas of the Orders API. Which one enforces 5?',
+        codeLang: 'ts',
+        better: `async function allowLogin(email: string): Promise<boolean> {
+  const key = \`login:\${email}\`;
+  const attempts = await redis.incr(key);
+  if (attempts === 1) await redis.expire(key, 60);
+  return attempts <= 5;
+}`,
+        worse: `const seen = new Map<string, number>();
+async function allowLogin(email: string): Promise<boolean> {
+  const attempts = (seen.get(email) ?? 0) + 1;
+  seen.set(email, attempts);
+  if (attempts === 1) setTimeout(() => seen.delete(email), 6e4);
+  return attempts <= 5;
+}`,
+        why: 'Redis holds one counter shared by every replica, and `INCR` is atomic. In `worse` each replica counts only the attempts the load balancer sends it, so an attacker gets up to 5 tries per replica: about 30 per minute on six replicas, and every deploy resets the counts.',
       },
     ],
     lesson: {
@@ -849,6 +1045,29 @@ Content-Type: application/json
         why: 'Node\'s documentation says it is not safe to resume normal operation: log, exit, and let the orchestrator restart it.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both are the last error handler of the Orders API. Which one is safe to run in production?',
+        codeLang: 'ts',
+        better: `app.use((err, req, res, next) => {
+  req.log.error({ err }, 'unexpected error');
+  res.status(500).type('application/problem+json').json({
+    title: 'Internal Server Error',
+    status: 500,
+    instance: \`urn:request:\${req.id}\`,
+  });
+});`,
+        worse: `app.use((err, req, res, next) => {
+  console.log(err.message);
+  res.status(500).json({
+    title: 'Internal Server Error',
+    detail: err.message,
+    stack: err.stack,
+  });
+});`,
+        why: '`better` logs the error and its stack under pino\'s `err` key with the request id, and the client gets a generic Problem Details body carrying that id. `worse` sends the raw message and stack, so a database error leaks internals such as `connect ECONNREFUSED 10.0.3.7:5432`, while its log line has no stack and no request id.',
+      },
+    ],
     lesson: {
       points: [
         'Expected errors belong to the domain, like cancelling an order already shipped; bugs do not. The domain throws typed errors, and one global error handler maps them to status codes.',
@@ -932,6 +1151,32 @@ function toProblem(err: unknown, reqId: string) {
         why: 'Interfaces do not exist at runtime, so you register the implementation under a token and use `@Inject(TOKEN)`.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both implement the cancel-order use case. Which one can a unit test run with fakes and a fixed clock?',
+        codeLang: 'ts',
+        better: `export function makeCancelOrder(deps: Deps) {
+  return async (orderId: string) => {
+    const order = await deps.orders.get(orderId);
+    await deps.payments.refund(order.paymentId);
+    await deps.orders.save({
+      ...order, status: 'refunded', cancelledAt: deps.now(),
+    });
+  };
+}`,
+        worse: `import { db } from '../db';
+import { payments } from '../payments';
+
+export async function cancelOrder(orderId: string) {
+  const order = await db.orders.get(orderId);
+  await payments.refund(order.paymentId);
+  await db.orders.save({
+    ...order, status: 'refunded', cancelledAt: new Date(),
+  });
+}`,
+        why: '`better` receives its repository, payment gateway and clock, so a test passes an in-memory repository, a fake gateway that records refunds and `now: () => fixedDate`. `worse` imports the live database and payment client and reads the real clock: tests must mock modules or hit the sandbox, and `cancelledAt` changes on every run.',
+      },
+    ],
     lesson: {
       points: [
         'A dependency is anything code needs to work: a repository, a payment gateway, a clock. Dependency injection (DI) means the code receives them instead of creating or importing them.',
@@ -1010,6 +1255,24 @@ export function makeCancelOrder({ orders, payments, now }: Deps) {
         statement: 'Making the export handler `async` is enough to stop a two-minute report from affecting other requests.',
         isTrue: false,
         why: 'CPU work still runs on the main thread, and the request still hits proxy timeouts; the work belongs in a worker.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both start a CSV export of several months of orders for the back office. Which one never holds the request open?',
+        codeLang: 'ts',
+        better: `app.post('/exports', async (req, res) => {
+  const range = ExportRange.parse(req.body);
+  const job = await exports.createQueued(range);
+  await queue.add('orders-export', { jobId: job.id });
+  res.status(202).location(\`/exports/\${job.id}\`).end();
+});`,
+        worse: `app.post('/exports', async (req, res) => {
+  const range = ExportRange.parse(req.body);
+  const csv = await buildOrdersCsv(range); // about 2 minutes
+  res.type('text/csv').send(csv);
+});`,
+        why: '`better` records a job, queues it and answers 202 with a status URL at once; a worker outside the API pods does the export, and the job survives deploys and can be retried. `worse` holds the request for minutes: the load balancer times out first, the pod holds the whole CSV in memory, and a deploy kills the work with nothing recorded.',
       },
     ],
     lesson: {
@@ -1094,6 +1357,29 @@ Retry-After: 5`,
         why: 'Existing clients do not send it, so their requests start failing.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both turn an order status from the Orders API into a label in the mobile app. Which one survives a new status?',
+        codeLang: 'ts',
+        better: `function statusLabel(status: string): string {
+  switch (status) {
+    case 'paid': return 'Paid';
+    case 'shipped': return 'On its way';
+    case 'refunded': return 'Refunded';
+    default: return 'Processing'; // a status added later
+  }
+}`,
+        worse: `function statusLabel(status: string): string {
+  switch (status) {
+    case 'paid': return 'Paid';
+    case 'shipped': return 'On its way';
+    case 'refunded': return 'Refunded';
+    default: throw new Error(\`Unknown status \${status}\`);
+  }
+}`,
+        why: 'A new enum value is an additive change only for tolerant readers. `better` falls back to a neutral label, so a later `partially_refunded` shows as "Processing". `worse` throws on any value it does not know: the day the API adds one, the order screen crashes for every order in that status.',
+      },
+    ],
     lesson: {
       points: [
         'A breaking change makes existing clients fail: removing or renaming a field, changing a type or meaning, adding a required input. Adding optional fields or endpoints is additive and needs no version.',
@@ -1165,6 +1451,25 @@ Content-Type: application/json`,
         why: 'HTTP/3 runs over QUIC, a transport built on UDP that handles loss per stream.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both call the delivery partner\'s API over HTTPS for every checkout. Which one reuses connections between calls?',
+        codeLang: 'ts',
+        better: `import { Agent, get } from 'node:https';
+const agent = new Agent({ keepAlive: true }); // shared
+
+function getQuote(path: string, onResponse: OnResponse) {
+  get({ host: PARTNER_HOST, path, agent }, onResponse);
+}`,
+        worse: `import { Agent, get } from 'node:https';
+
+function getQuote(path: string, onResponse: OnResponse) {
+  const agent = new Agent({ keepAlive: true });
+  get({ host: PARTNER_HOST, path, agent }, onResponse);
+}`,
+        why: 'An agent owns the pool of open connections, so it must outlive one call. `worse` builds a new agent per call, so every quote pays DNS, TCP and TLS before its first byte, even with `keepAlive`. Measured with `node:http` on Node 24: 10 calls opened 1 connection with the shared agent and 10 with an agent per call.',
+      },
+    ],
     lesson: {
       points: [
         'DNS turns the host name into an IP address, usually from a cache. Then TCP opens a connection with a three-way handshake (SYN, SYN-ACK, ACK): one round trip before data flows.',
@@ -1228,6 +1533,27 @@ Content-Type: application/json`,
         statement: 'A client that receives an unknown status code such as 299 should treat it like the 200 of its class.',
         isTrue: true,
         why: 'RFC 9110 says a client must understand the class of any code and treat an unknown one as the x00 code of that class.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both answer `POST /orders` when a product is out of stock. Which one lets monitoring and clients see the failure?',
+        codeLang: 'ts',
+        better: `if (!stock.has(item.productId, item.quantity)) {
+  return res.status(409).type('application/problem+json').json({
+    type: 'https://api.shop.example/problems/out-of-stock',
+    title: 'Product out of stock',
+    status: 409,
+    productId: item.productId,
+  });
+}`,
+        worse: `if (!stock.has(item.productId, item.quantity)) {
+  return res.status(200).json({
+    error: 'out of stock',
+    productId: item.productId,
+  });
+}`,
+        why: 'A 409 says the request conflicts with the current state, and load balancers, retries and dashboards read only the code. `worse` answers 200: the 4xx rate stays flat while checkouts fail, and a client that checks `response.ok` treats the failure as a placed order.',
       },
     ],
     lesson: {
@@ -1303,6 +1629,29 @@ Content-Type: application/problem+json
         statement: 'API pods that keep sessions in Redis are stateless, even though the system as a whole has state.',
         isTrue: true,
         why: 'Stateless describes the server process; the state lives in a store every replica can read.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both keep a customer\'s cart between requests on an API that runs six replicas. Which one works?',
+        codeLang: 'ts',
+        better: `async function getCart(sessionId: string): Promise<Cart> {
+  const json = await redis.get(\`cart:\${sessionId}\`);
+  return json ? JSON.parse(json) : { items: [] };
+}
+async function saveCart(sessionId: string, cart: Cart) {
+  await redis.set(\`cart:\${sessionId}\`, JSON.stringify(cart), {
+    EX: 86_400,
+  });
+}`,
+        worse: `const carts = new Map<string, Cart>();
+async function getCart(sessionId: string): Promise<Cart> {
+  return carts.get(sessionId) ?? { items: [] };
+}
+async function saveCart(sessionId: string, cart: Cart) {
+  carts.set(sessionId, cart);
+}`,
+        why: 'With the cart in Redis, any replica can serve any request and pods can restart freely. In `worse` the cart lives in one pod\'s memory: the next request lands on another replica and finds an empty cart, every deploy empties all carts, and the map keeps growing.',
       },
     ],
     lesson: {
@@ -1385,6 +1734,27 @@ Content-Type: application/problem+json
         why: 'Both retries see an unknown key and both create an order; the key must be reserved atomically before the work.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both handle `POST /orders` with an `Idempotency-Key`. Which one creates a single order when two retries arrive at once?',
+        codeLang: 'ts',
+        better: `async function placeOrder({ customerId, key, cart }: Input) {
+  const reserved = await keys.reserve(customerId, key, cart);
+  if (!reserved) return replayOrConflict(customerId, key);
+  const order = await createOrder(cart);
+  await keys.complete(customerId, key, order);
+  return order;
+}`,
+        worse: `async function placeOrder({ customerId, key, cart }: Input) {
+  const existing = await keys.find(customerId, key);
+  if (existing) return existing.response;
+  const order = await createOrder(cart);
+  await keys.save(customerId, key, order);
+  return order;
+}`,
+        why: '`better` reserves the key atomically before the work, for example with `INSERT … ON CONFLICT DO NOTHING`, so one request owns it and the other replays or gets 409. In `worse` both retries read "no key" before either saves it, and both create an order: in a simulation, two concurrent calls created 2 orders.',
+      },
+    ],
     lesson: {
       points: [
         'An operation is idempotent when doing it twice has the same effect as doing it once. `GET`, `PUT` and `DELETE` are idempotent by definition; `POST` and `PATCH` are not.',
@@ -1457,6 +1827,23 @@ RETURNING key;
         why: 'Lax withholds cookies only on cross-site subrequests and unsafe methods such as `POST`, so a state-changing `GET` stays exposed.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both send the back office\'s large order search, with many filters, from the browser. Which one works?',
+        codeLang: 'ts',
+        better: `const response = await fetch('/api/orders/search', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(filters),
+});`,
+        worse: `const response = await fetch('/api/orders', {
+  method: 'GET',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(filters),
+});`,
+        why: 'A search too big for a query string becomes `POST /orders/search`. A `GET` body has no defined meaning in RFC 9110, and the Fetch standard forbids one: on Node 24, `fetch` threw "TypeError: Request with GET/HEAD method cannot have body." before sending anything.',
+      },
+    ],
     lesson: {
       points: [
         'A safe method asks for no state change; an idempotent one has the same effect when repeated. `GET` is both; `POST` is neither.',
@@ -1520,6 +1907,23 @@ RETURNING key;
         statement: 'An open circuit breaker fails calls immediately without contacting the dependency.',
         isTrue: true,
         why: 'That is the point of the open state: fail in microseconds and give the dependency room to recover.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both write the orders CSV export to the HTTP response row by row. Which one keeps memory flat for a slow client?',
+        codeLang: 'ts',
+        better: `for await (const row of rows) {
+  if (!res.write(toCsvLine(row))) {
+    await once(res, 'drain'); // until the client catches up
+  }
+}
+res.end();`,
+        worse: `for await (const row of rows) {
+  res.write(toCsvLine(row));
+}
+res.end();`,
+        why: '`write()` returns `false` when the buffer is full; `better` then waits for `drain`, so rows are read only as fast as the client downloads. `worse` ignores it and queues everything: with a slow destination on Node 24, it had buffered 5.7 MB of 200,000 rows after 300 ms, against 16 KB for `better`.',
       },
     ],
     lesson: {
@@ -1591,6 +1995,23 @@ await pipeline(rows, toCsv, res);`,
         statement: 'With offset pagination, an order inserted at the top while a user pages can make one order appear on two pages.',
         isTrue: true,
         why: 'The new row shifts every row down by one, so the next offset starts one row too early.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both fetch the next page of orders, newest first, after the last order of the previous page. Which one never skips an order?',
+        codeLang: 'sql',
+        better: `SELECT id, customer_id, amount_cents, created_at
+FROM orders
+WHERE (created_at, id) < ($1, $2)
+ORDER BY created_at DESC, id DESC
+LIMIT 21;`,
+        worse: `SELECT id, customer_id, amount_cents, created_at
+FROM orders
+WHERE created_at < $1
+ORDER BY created_at DESC
+LIMIT 21;`,
+        why: 'The id tie-breaker makes the sort total, so the next page starts exactly after the last row. Orders often share a `created_at`, and `worse` drops those after the page boundary that share its timestamp. In PGlite, 30 orders created three per second and read 4 at a time: `better` returned all 30, `worse` only 22.',
       },
     ],
     lesson: {
@@ -1740,6 +2161,27 @@ LIMIT 21;  -- page size + 1: the extra row says whether a next page exists`,
         why: 'Anyone can call the route by hand; hiding a button is not authorization.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both load an order for `GET /orders/:id` as the logged-in customer. Which one stops a customer from reading another\'s order?',
+        codeLang: 'ts',
+        better: `async function findOrder(id: string, customerId: string) {
+  const { rows } = await pool.query(
+    'SELECT * FROM orders WHERE id = $1 AND customer_id = $2',
+    [id, customerId],
+  );
+  return rows[0]; // undefined: the route answers 404
+}`,
+        worse: `async function findOrder(id: string) {
+  const { rows } = await pool.query(
+    'SELECT * FROM orders WHERE id = $1',
+    [id],
+  );
+  return rows[0];
+}`,
+        why: 'With ownership in the `WHERE` clause, another customer\'s order is never loaded, so the route answers 404 and reveals nothing. `worse` loads any order by id: changing the id in the URL shows another customer\'s order. That is broken object level authorization, first in the OWASP API Security Top 10.',
+      },
+    ],
     lesson: {
       points: [
         'Authentication proves who the caller is (401 when it fails). Authorization decides whether that caller may do this action on this object (403, or 404 to hide the object).',
@@ -1813,6 +2255,31 @@ export function can(user: User, permission: Permission): boolean {
         statement: 'RFC 9457 replaced RFC 7807 with an incompatible new error format.',
         isTrue: false,
         why: 'It keeps the same format and adds a registry of common types and guidance for several problems.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both answer an invalid `POST /orders` body with Problem Details. Which one lets the client fix the request in one round trip?',
+        codeLang: 'ts',
+        better: `const result = OrderBody.safeParse(req.body);
+if (!result.success) {
+  return res.status(422).type('application/problem+json').json({
+    type: 'https://api.shop.example/problems/validation-error',
+    status: 422,
+    errors: result.error.issues.map((i) => ({
+      pointer: '#/' + i.path.join('/'), detail: i.message,
+    })),
+  });
+}`,
+        worse: `const result = OrderBody.safeParse(req.body);
+if (!result.success) {
+  return res.status(422).type('application/problem+json').json({
+    type: 'https://api.shop.example/problems/validation-error',
+    status: 422,
+    detail: result.error.issues[0].message,
+  });
+}`,
+        why: '`better` lists every invalid field with a JSON pointer, so the app can highlight them all at once. `worse` reports only the first issue, as free text: with a negative quantity and a bad email, Zod 4 found both, but the client hears about one, fixes it, and is rejected again for the other.',
       },
     ],
     lesson: {
@@ -1889,6 +2356,26 @@ Content-Type: application/problem+json
         why: 'RFC 6902 says the whole patch then fails, and an HTTP `PATCH` is applied atomically.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both save a new shipping address from the back office\'s order screen. Which one cannot erase another agent\'s edit?',
+        codeLang: 'ts',
+        better: `await fetch(\`/api/orders/\${order.id}\`, {
+  method: 'PATCH',
+  headers: {
+    'Content-Type': 'application/merge-patch+json',
+    'If-Match': order.etag,
+  },
+  body: JSON.stringify({ shippingAddress: address }),
+});`,
+        worse: `await fetch(\`/api/orders/\${order.id}\`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ ...order, shippingAddress: address }),
+});`,
+        why: '`better` sends only the changed field, and `If-Match` makes a save based on a stale version fail with 412. `worse` sends the whole order from the screen\'s stale state, so a delivery note another agent added in the meantime is silently reset by the `PUT`.',
+      },
+    ],
     lesson: {
       points: [
         '`PUT` sends the complete new representation of a resource: a field left out is reset or removed. Sending the same `PUT` twice has the same effect, so it is idempotent.',
@@ -1963,6 +2450,23 @@ Content-Type: application/json-patch+json
         statement: 'With Confluent Schema Registry\'s default `BACKWARD` compatibility, you upgrade consumers before producers start using the new schema.',
         isTrue: true,
         why: 'New-schema consumers can read old data, so they go first; old consumers may not read new data.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both validate the `order.paid` event in a consumer of the payments service. Which one survives a new optional field?',
+        codeLang: 'ts',
+        better: `const OrderPaid = z.object({
+  orderId: z.string(),
+  amountCents: z.number().int(),
+  paidAt: z.string(),
+});`,
+        worse: `const OrderPaid = z.object({
+  orderId: z.string(),
+  amountCents: z.number().int(),
+  paidAt: z.string(),
+}).strict();`,
+        why: 'A tolerant reader checks what it uses and ignores the rest, and a Zod object strips unknown keys by default. `.strict()` rejects them: when payments adds an optional `currency`, a purely additive change, every event fails with `Unrecognized key: "currency"` on Zod 4 and the consumer stops processing payments.',
       },
     ],
     lesson: {

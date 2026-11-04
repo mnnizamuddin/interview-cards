@@ -118,6 +118,30 @@ export const codingRoundCards: Card[] = [
         why: 'A plain value is treated as an already fulfilled promise and appears as is in the results.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both collect results inside a hand-written `promiseAll`. Which one returns them in input order?',
+        codeLang: 'js',
+        better: `values.forEach((value, index) => {
+  Promise.resolve(value).then((result) => {
+    results[index] = result;
+    pending -= 1;
+    if (pending === 0) {
+      resolve(results);
+    }
+  }, reject);
+});`,
+        worse: `values.forEach((value) => {
+  Promise.resolve(value).then((result) => {
+    results.push(result);
+    if (results.length === values.length) {
+      resolve(results);
+    }
+  }, reject);
+});`,
+        why: 'Storing at `index` keeps the input order whatever order the promises settle in. `push` stores in completion order: when the stock service answers before the price service, `[price, stock]` comes back as `[stock, price]` and the product page shows the stock as the price.',
+      },
+    ],
     lesson: {
       points: [
         '`Promise.all` takes values or promises and returns one promise. It fulfils with all the results in input order, or rejects with the first rejection.',
@@ -187,6 +211,24 @@ export const codingRoundCards: Card[] = [
         statement: 'In Node\'s `EventEmitter`, a listener removed by an earlier listener during an emit still runs for that emit.',
         isTrue: true,
         why: 'Node iterates a copy of the listener array taken when the emit starts.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both add `once` to an emitter whose `off(event, fn)` removes entries by function. Which one can a caller remove with `off`?',
+        codeLang: 'js',
+        better: `once(event, fn) {
+  // stores fn itself, with the once flag
+  return this.on(event, fn, true);
+}`,
+        worse: `once(event, fn) {
+  const wrapper = (...args) => {
+    this.off(event, wrapper);
+    fn(...args);
+  };
+  return this.on(event, wrapper);
+}`,
+        why: 'Storing the original `fn` with a `once` flag lets `off(event, fn)` find it. The wrapper version stores `wrapper`, so `off(\'order:paid\', fn)` removes nothing and the listener still runs on the next emit: a closed order panel keeps updating, a leak.',
       },
     ],
     lesson: {
@@ -266,6 +308,27 @@ emit(event, ...args) {
         why: 'They replace `setTimeout`, and the test moves time forward by hand with `tick`.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both debounce the storefront\'s `searchBox.search` method, which sets `this.lastTerm`. Which one works?',
+        codeLang: 'js',
+        better: `function debounce(fn, waitMs) {
+  let timer;
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), waitMs);
+  };
+}`,
+        worse: `function debounce(fn, waitMs) {
+  let timer;
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), waitMs);
+  };
+}`,
+        why: 'The arrow function sees the `this` of the returned regular function, and `apply` passes it on, so `search` runs on `searchBox`. `fn(...args)` calls it with `this` undefined in strict mode: when the timer fires, the search throws "Cannot set properties of undefined (setting \'lastTerm\')".',
+      },
+    ],
     lesson: {
       points: [
         'A debounced function runs once the calls stop for a delay, with the arguments of the last call. Each call clears the pending timer and starts a new one.',
@@ -341,6 +404,31 @@ emit(event, ...args) {
         why: 'The failed promise stays in the cache and is returned again without a retry, unless you delete it on failure.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both refund many orders with at most 4 payment provider calls at a time. Which one finishes sooner?',
+        codeLang: 'js',
+        better: `async function mapWithLimit(items, limit, task) {
+  const results = new Array(items.length);
+  const todo = items.entries(); // shared by all workers
+  async function worker() {
+    for (const [i, item] of todo) results[i] = await task(item);
+  }
+  const count = Math.min(limit, items.length);
+  await Promise.all(Array.from({ length: count }, worker));
+  return results;
+}`,
+        worse: `async function mapWithLimit(items, limit, task) {
+  const results = [];
+  for (let i = 0; i < items.length; i += limit) {
+    const batch = items.slice(i, i + limit);
+    results.push(...(await Promise.all(batch.map(task))));
+  }
+  return results;
+}`,
+        why: 'Each worker takes the next order as soon as its call ends, so 4 calls stay in flight until the list is empty. A batch waits for its slowest call while the other slots sit idle: with 12 calls and one slow call per 4, batches took about 620 ms and workers about 270 ms in a test.',
+      },
+    ],
     lesson: {
       points: [
         'A concurrency limit runs an async task on many items with at most N in flight. `Promise.all` on 200 calls starts all 200 at once.',
@@ -411,6 +499,19 @@ emit(event, ...args) {
         statement: '`toSorted` returns a new sorted array and leaves the original unchanged.',
         isTrue: true,
         why: 'It is the copying version of `sort`, which sorts in place.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both change the status filter of the orders table. Which one shows rows to an agent who was on page 3?',
+        codeLang: 'ts',
+        better: `function changeStatus(status: Status) {
+  setQuery((query) => ({ ...query, status, page: 0 }));
+}`,
+        worse: `function changeStatus(status: Status) {
+  setQuery((query) => ({ ...query, status }));
+}`,
+        why: 'A new filter makes a new list, so the page restarts at 0. Keeping `page: 2` on the 15 paid orders slices rows 40 to 59 of a list of 15: the agent sees an empty table under "Page 3 of 1".',
       },
     ],
     lesson: {
@@ -485,6 +586,31 @@ function selectOrders(orders, { status, sort, page }) {
         why: 'jsdom does not implement `showModal`; focus behaviour is tested in a real browser, for example with Playwright.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both open the refund confirmation `dialog` when `open` becomes true. Which one is a real modal?',
+        codeLang: 'tsx',
+        better: `useEffect(() => {
+  const dialog = dialogRef.current;
+  if (open && !dialog.open) {
+    dialog.showModal();
+  }
+  if (!open && dialog.open) {
+    dialog.close();
+  }
+}, [open]);`,
+        worse: `useEffect(() => {
+  const dialog = dialogRef.current;
+  if (open && !dialog.open) {
+    dialog.show();
+  }
+  if (!open && dialog.open) {
+    dialog.close();
+  }
+}, [open]);`,
+        why: '`showModal()` puts the dialog in the top layer, moves focus into it, makes the page behind inert and closes on Escape. `show()` opens it without being modal: the orders table behind stays focusable and clickable, so Tab and clicks escape the confirmation.',
+      },
+    ],
     lesson: {
       points: [
         'An accessible modal does four things: it moves focus into itself on open, keeps users out of the page behind, closes on Escape, and returns focus to the button that opened it.',
@@ -555,6 +681,24 @@ return (
         statement: 'By default, TanStack Query retries a failed query before showing the error.',
         isTrue: true,
         why: 'It retries 3 times with exponential backoff, which is why tests turn retries off.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both fetch the orders for TanStack Query in the take-home. Which one shows the error state when the API answers 503?',
+        codeLang: 'ts',
+        better: `async function fetchOrders(signal: AbortSignal) {
+  const response = await fetch('/api/orders', { signal });
+  if (!response.ok) {
+    throw new Error(\`GET /api/orders: \${response.status}\`);
+  }
+  return response.json();
+}`,
+        worse: `async function fetchOrders(signal: AbortSignal) {
+  const response = await fetch('/api/orders', { signal });
+  return response.json();
+}`,
+        why: '`fetch` rejects only on a network failure; a 503 resolves with `response.ok` false. Throwing turns it into a failed query, so the error state with its retry shows. Without the check, the 503 body is returned as data: the query succeeds and the table receives `{ error: \'unavailable\' }` instead of orders.',
       },
     ],
     lesson: {
@@ -629,6 +773,19 @@ return <OrdersTable orders={orders.data} />;`,
         why: 'A `div` is not focusable and has no role or keyboard activation; a `button` has all three.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both render an internal note on a back office order. Which one would you approve in a review?',
+        codeLang: 'tsx',
+        better: `function NoteItem({ note }: Props) {
+  return <li>{note.body}</li>;
+}`,
+        worse: `function NoteItem({ note }: Props) {
+  return <li dangerouslySetInnerHTML={{ __html: note.body }} />;
+}`,
+        why: 'React escapes text children, so markup in a note shows as text. `dangerouslySetInnerHTML` inserts it as HTML: a note containing an `img` with an `onerror` handler runs script in the support agent\'s session. That is an XSS and a blocker; if rich text is required, sanitize it with DOMPurify first.',
+      },
+    ],
     lesson: {
       points: [
         'In the review round you get a short component with hidden bugs and 30 to 45 minutes. The grade is what you find and the order in which you report it.',
@@ -698,6 +855,25 @@ return <ul>{sorted.map((note) => (
         statement: 'Debouncing the search input removes the race between an old and a new response.',
         isTrue: false,
         why: 'Debounce sends fewer requests, but two can still be in flight and arrive out of order; abort the old one or key the query by the term.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both load search results as the customer types "re" then "red". Which one never shows results for an older word?',
+        codeLang: 'tsx',
+        better: `useEffect(() => {
+  const controller = new AbortController();
+  searchProducts(term, controller.signal).then((products) => {
+    if (!controller.signal.aborted) {
+      setResults(products);
+    }
+  });
+  return () => controller.abort();
+}, [term]);`,
+        worse: `useEffect(() => {
+  searchProducts(term).then(setResults);
+}, [term]);`,
+        why: 'React runs the cleanup before the effect for the new term, so the "re" request is aborted and its late response is ignored. Without it, both responses call `setResults` in arrival order: when "re" answers after "red", the page shows results for "re" under the word "red".',
       },
     ],
     lesson: {

@@ -12,7 +12,8 @@ export type Exercise =
   | { kind: 'open'; cardId: string }
   | { kind: 'followUp'; cardId: string; index: number }
   | { kind: 'trap'; cardId: string; index: number }
-  | { kind: 'mcq'; cardId: string; mcqId: string };
+  | { kind: 'mcq'; cardId: string; mcqId: string }
+  | { kind: 'codeChoice'; cardId: string; index: number };
 
 /** How many topics are being learned at once before a new one is introduced. */
 export const TOPICS_IN_PROGRESS = 3;
@@ -31,6 +32,7 @@ export function exerciseKey(exercise: Exercise): string {
       return `${exercise.kind}:${exercise.cardId}`;
     case 'followUp':
     case 'trap':
+    case 'codeChoice':
       return `${exercise.kind}:${exercise.cardId}:${exercise.index}`;
     case 'mcq':
       return `mcq:${exercise.mcqId}`;
@@ -39,7 +41,7 @@ export function exerciseKey(exercise: Exercise): string {
 
 /** True for exercises the app grades itself; open questions and follow-ups are self-checked. */
 export function isGraded(exercise: Exercise): boolean {
-  return exercise.kind === 'trap' || exercise.kind === 'mcq';
+  return exercise.kind === 'trap' || exercise.kind === 'mcq' || exercise.kind === 'codeChoice';
 }
 
 export type NextOptions = {
@@ -104,7 +106,7 @@ function pickTopic(cards: readonly Card[], progress: Progress, random: () => num
 
 /**
  * Chooses the question on a topic: the one shown longest ago, never-shown first. The interview
- * question leads; traps, follow-ups and track questions then alternate.
+ * question leads; traps, follow-ups, track questions and code choices then alternate.
  */
 function pickQuestion(card: Card, mcqs: readonly Mcq[], progress: Progress): Exercise {
   const candidates: Exercise[] = [
@@ -113,6 +115,7 @@ function pickQuestion(card: Card, mcqs: readonly Mcq[], progress: Progress): Exe
       card.traps.map((_, index) => ({ kind: 'trap', cardId: card.id, index })),
       card.followUps.map((_, index) => ({ kind: 'followUp', cardId: card.id, index })),
       mcqs.map((mcq) => ({ kind: 'mcq', cardId: card.id, mcqId: mcq.id })),
+      (card.codeChoices ?? []).map((_, index) => ({ kind: 'codeChoice', cardId: card.id, index })),
     ),
   ];
   const lastShown = (exercise: Exercise) => progress.shown[exerciseKey(exercise)] ?? -1;

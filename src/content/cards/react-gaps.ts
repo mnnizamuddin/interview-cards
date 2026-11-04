@@ -55,6 +55,32 @@ export const reactGapsCards: Card[] = [
         why: 'A key only distinguishes elements of the same type; the type is still a new function on each render, so React remounts it anyway.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both render the internal notes editor of an order. Which one keeps the focus while the agent types?',
+        codeLang: 'tsx',
+        better: `function NoteEditor({ draft, onChange }: Props) {
+  return <input value={draft} onChange={onChange} />;
+}
+
+function NotesPanel() {
+  const [draft, setDraft] = useState('');
+  const onChange = (e: ChangeEvent<HTMLInputElement>) =>
+    setDraft(e.target.value);
+  return <NoteEditor draft={draft} onChange={onChange} />;
+}`,
+        worse: `function NotesPanel() {
+  const [draft, setDraft] = useState('');
+  const onChange = (e: ChangeEvent<HTMLInputElement>) =>
+    setDraft(e.target.value);
+  function NoteEditor() {
+    return <input value={draft} onChange={onChange} />;
+  }
+  return <NoteEditor />;
+}`,
+        why: 'Declared once at module level, `NoteEditor` is the same type on every render, so React keeps the same input. Declared inside `NotesPanel`, it is a new function on each render: each keystroke sets `draft`, React sees a new type, replaces the input, and the agent loses focus after every letter.',
+      },
+    ],
     lesson: {
       points: [
         "React decides whether to keep a component's state by looking at its position in the tree and its type. The type of `<NoteEditor />` is the `NoteEditor` function itself, compared by identity.",
@@ -126,6 +152,29 @@ export const reactGapsCards: Card[] = [
         statement: 'In `{isEditing ? <AddressForm /> : <AddressForm />}`, the form keeps its state when `isEditing` changes.',
         isTrue: true,
         why: 'Both branches put the same component type at the same position, so React keeps the same instance and its state.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both show the dispute badge in the order header. Which one shows nothing extra when the order has no open dispute?',
+        codeLang: 'tsx',
+        better: `function OrderHeader({ order }: Props) {
+  return (
+    <h1>
+      Order {order.id}
+      {order.openDisputes.length > 0 && <DisputeBadge />}
+    </h1>
+  );
+}`,
+        worse: `function OrderHeader({ order }: Props) {
+  return (
+    <h1>
+      Order {order.id}
+      {order.openDisputes.length && <DisputeBadge />}
+    </h1>
+  );
+}`,
+        why: '`length > 0` is a boolean, and React renders nothing for `false`. `0 && <DisputeBadge />` evaluates to the number 0, which React renders as text: every order without a dispute shows a stray 0 after its number, "Order 10420" for order 1042.',
       },
     ],
     lesson: {
@@ -201,6 +250,20 @@ export const reactGapsCards: Card[] = [
         why: 'react.dev states that the double calls and the extra effect cycle are development-only checks.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both open the live order updates socket in the back office. Which one leaves a single connection under StrictMode?',
+        codeLang: 'tsx',
+        better: `useEffect(() => {
+  const socket = connectOrderUpdates(onUpdate);
+  return () => socket.close();
+}, [onUpdate]);`,
+        worse: `useEffect(() => {
+  connectOrderUpdates(onUpdate);
+}, [onUpdate]);`,
+        why: 'In development StrictMode runs setup, cleanup, then setup again on mount. With the cleanup, the first socket closes and one stays open. Without it, two sockets stay open, so each update arrives twice, and in production a socket leaks every time the component unmounts.',
+      },
+    ],
     lesson: {
       points: [
         'StrictMode is a development-only checker that you wrap around the app, or any subtree, with `<StrictMode>`. It changes nothing in a production build.',
@@ -271,6 +334,20 @@ export const reactGapsCards: Card[] = [
         statement: 'An effect that calls setState with a value that always changes throws an error and stops the app.',
         isTrue: false,
         why: 'React logs "Maximum update depth exceeded" to the console, but the loop can keep running without crashing.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both load the orders when the status filter changes. Which one sends one request per filter change?',
+        codeLang: 'tsx',
+        better: `useEffect(() => {
+  fetchOrders({ status, limit: 50 }).then(setOrders);
+}, [status]);`,
+        worse: `const params = { status, limit: 50 };
+useEffect(() => {
+  fetchOrders(params).then(setOrders);
+}, [params]);`,
+        why: 'Dependencies are compared with `Object.is`. The `status` string is equal between renders, so the effect runs once per change. `params` is a new object every render, so each response renders, the effect sees a "changed" dependency and fetches again: over 5,000 calls in 300 ms in a test, with no error thrown.',
       },
     ],
     lesson: {
@@ -349,6 +426,25 @@ useEffect(() => {
         why: 'React needs a value for the server render and hydration; when it is missing, it throws an error saying `getServerSnapshot` is required.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both read the live order counts from a store outside React. Which `getSnapshot` is safe?',
+        codeLang: 'ts',
+        better: `function useOrderCounts() {
+  return useSyncExternalStore(
+    store.subscribe,
+    () => store.counts, // same object until the counts change
+  );
+}`,
+        worse: `function useOrderCounts() {
+  return useSyncExternalStore(
+    store.subscribe,
+    () => ({ ...store.counts }),
+  );
+}`,
+        why: 'React calls `getSnapshot` often and compares results with `Object.is`. Returning the stored object gives the same value while nothing changed. A fresh copy on each call always looks new: React warns "The result of getSnapshot should be cached to avoid an infinite loop", then throws "Maximum update depth exceeded".',
+      },
+    ],
     lesson: {
       points: [
         '`useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot?)` reads a value that lives outside React, like a shared store or a browser API, and re-renders when it changes.',
@@ -417,6 +513,25 @@ export const useOnline = () =>
         statement: 'Components inside a portal cannot read the context of their React parents.',
         isTrue: false,
         why: 'A portal keeps its place in the React tree, so context providers above it still apply.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both render the refund confirmation from an order row into `document.body`. Which one stops the click from opening the row?',
+        codeLang: 'tsx',
+        better: `return createPortal(
+  <div role="dialog" onClick={(e) => e.stopPropagation()}>
+    <button onClick={onConfirm}>Confirm refund</button>
+  </div>,
+  document.body,
+);`,
+        worse: `return createPortal(
+  <div role="dialog">
+    <button onClick={onConfirm}>Confirm refund</button>
+  </div>,
+  document.body,
+);`,
+        why: 'Portal events bubble through the React tree, not the DOM tree. The modal\'s DOM node is in `body`, but its React parent is the row, so without `stopPropagation` a click on "Confirm refund" also runs the row\'s `onClick` and opens the order detail.',
       },
     ],
     lesson: {
@@ -492,6 +607,24 @@ export const useOnline = () =>
         why: 'React can only yield between components, so one 150 ms component is one block of main-thread work.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both filter the 5,000-row orders table as the agent types in the search box. Which one keeps typing responsive?',
+        codeLang: 'tsx',
+        better: `function onSearch(e: ChangeEvent<HTMLInputElement>) {
+  setText(e.target.value); // the input: urgent
+  startTransition(() => {
+    setTableQuery(e.target.value); // the table: may lag
+  });
+}`,
+        worse: `function onSearch(e: ChangeEvent<HTMLInputElement>) {
+  startTransition(() => {
+    setText(e.target.value); // drives the input and the table
+  });
+}`,
+        why: 'The input must update synchronously with each keystroke, so its own value stays urgent and only the table\'s query goes into the transition. react.dev states a transition cannot drive a controlled input: transitions are non-blocking, so the typed text can lag behind while the table renders.',
+      },
+    ],
     lesson: {
       points: [
         'React separates urgent updates, like the text of an input, from transitions, which may lag. It renders a transition in slices, yields to the browser between components, and drops it when newer input arrives.',
@@ -561,6 +694,28 @@ export const useOnline = () =>
         statement: 'Updating the URL with `replace` does not add a new entry to the browser history.',
         isTrue: true,
         why: '`replace` rewrites the current entry, so filter clicks do not pile up behind the back button.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both set the status filter in the URL of the paginated orders table. Which one shows the new list from its start?',
+        codeLang: 'ts',
+        better: `function setStatus(next: OrderStatus) {
+  setParams((previous) => {
+    const url = new URLSearchParams(previous);
+    url.set('status', next);
+    url.delete('cursor');
+    return url;
+  }, { replace: true });
+}`,
+        worse: `function setStatus(next: OrderStatus) {
+  setParams((previous) => {
+    const url = new URLSearchParams(previous);
+    url.set('status', next);
+    return url;
+  }, { replace: true });
+}`,
+        why: 'A cursor points into one filtered, sorted list, so a new filter must start from the first page. Kept, the cursor from the `paid` list is applied to the `refunded` orders: the agent lands somewhere in the middle, with rows skipped or repeated.',
       },
     ],
     lesson: {
@@ -637,6 +792,26 @@ function setStatus(next: OrderStatus) {
         why: 'The same schema validates the form on the client and the request on the server, so the two cannot drift apart.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both require a note for goodwill refunds in the refund form\'s Zod schema. Which one shows the error under the note field?',
+        codeLang: 'ts',
+        better: `const refundSchema = z.object({
+  reason: z.enum(['damaged', 'not_received', 'goodwill']),
+  note: z.string().trim(),
+}).refine((f) => f.reason !== 'goodwill' || f.note !== '', {
+  message: 'A goodwill refund needs a note',
+  path: ['note'],
+});`,
+        worse: `const refundSchema = z.object({
+  reason: z.enum(['damaged', 'not_received', 'goodwill']),
+  note: z.string().trim(),
+}).refine((f) => f.reason !== 'goodwill' || f.note !== '', {
+  message: 'A goodwill refund needs a note',
+});`,
+        why: '`path: [\'note\']` attaches the issue to the note field, so `zodResolver` reports it as `errors.note` and the form shows it next to the note. Without a path, the issue belongs to the whole object: `errors.note` stays empty and the agent sees no message where the note is missing.',
+      },
+    ],
     lesson: {
       points: [
         'A controlled input takes its value from React state and re-renders on every keystroke. In a large form, that means the whole form re-renders as the user types.',
@@ -709,6 +884,29 @@ const { register, handleSubmit, formState } = useForm({
         statement: 'Changing a `NEXT_PUBLIC_` variable at runtime does not change the value seen by an already built browser bundle.',
         isTrue: true,
         why: 'Public variables are inlined into the JavaScript at build time, so the bundle keeps the build value.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both are the module the storefront uses to call the Orders API. Which one keeps the API token secret?',
+        codeLang: 'ts',
+        better: `import 'server-only';
+
+export async function getOrder(id: string) {
+  const token = process.env.ORDERS_API_TOKEN;
+  const response = await fetch(\`\${ORDERS_API}/orders/\${id}\`, {
+    headers: { authorization: \`Bearer \${token}\` },
+  });
+  return response.json();
+}`,
+        worse: `export async function getOrder(id: string) {
+  const token = process.env.NEXT_PUBLIC_ORDERS_API_TOKEN;
+  const response = await fetch(\`\${ORDERS_API}/orders/\${id}\`, {
+    headers: { authorization: \`Bearer \${token}\` },
+  });
+  return response.json();
+}`,
+        why: 'An unprefixed variable is only read on the server, and `server-only` fails the build if a Client Component imports the module. A `NEXT_PUBLIC_` variable is inlined into the JavaScript at build time: once a Client Component imports this file, the token ships in the browser bundle.',
       },
     ],
     lesson: {
@@ -785,6 +983,29 @@ export async function GET(_req: Request, ctx: RouteContext<'/api/orders/[id]/sta
         why: 'Error boundaries are client-side React features, so the file starts with `\'use client\'`.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both render a storefront product page. Which one answers a deleted product with the not-found page?',
+        codeLang: 'tsx',
+        better: `// Inside the async ProductPage Server Component
+const product = await getProduct(slug);
+if (product === null) {
+  notFound();
+}
+return <ProductView product={product} />;`,
+        worse: `// Inside the async ProductPage Server Component
+try {
+  const product = await getProduct(slug);
+  if (product === null) {
+    notFound();
+  }
+  return <ProductView product={product} />;
+} catch {
+  return <p>This product is temporarily unavailable.</p>;
+}`,
+        why: '`notFound()` works by throwing a signal that Next.js turns into `not-found.tsx` with a 404. Inside the `try`, the `catch` swallows that signal: a deleted product shows "temporarily unavailable" with a 200 status and stays in search results. Unexpected errors belong in `error.tsx`.',
+      },
+    ],
     lesson: {
       points: [
         'Expected failures, like an invalid form, are return values the UI shows. Unexpected ones throw to the nearest `error.tsx`.',
@@ -855,6 +1076,23 @@ export default function ProductError({ error, retry }: { error: unknown; retry: 
         statement: 'Navigating from a Pages Router page to an App Router page is a client-side transition without a full page load.',
         isTrue: false,
         why: 'Crossing between the two routers is a hard navigation, a full page load, and links do not prefetch across them.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both read the slug in a product page moved from `getServerSideProps` to the App Router. Which one works in Next.js 16?',
+        codeLang: 'tsx',
+        better: `export default async function ProductPage({ params }: Props) {
+  const { slug } = await params;
+  const product = await getProduct(slug);
+  return <ProductView product={product} />;
+}`,
+        worse: `export default async function ProductPage({ params }: Props) {
+  const { slug } = params;
+  const product = await getProduct(slug);
+  return <ProductView product={product} />;
+}`,
+        why: '`params` is a promise since Next.js 15, and Next.js 16 removed the synchronous access kept for migration. Awaiting it gives the slug. Destructuring the promise itself gives `slug` undefined, so the page asks for product `undefined`; typing `params` as a promise makes TypeScript catch it.',
       },
     ],
     lesson: {

@@ -76,6 +76,27 @@ export const javascriptCards: Card[] = [
         why: 'It returns "undefined". It only throws for a `let`, `const` or `class` name read in its temporal dead zone.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both schedule one reminder per order a second later. Which one should ship?',
+        codeLang: 'js',
+        better: `function scheduleReminders(orders) {
+  for (let i = 0; i < orders.length; i++) {
+    setTimeout(() => {
+      sendReminder(orders[i].customerId);
+    }, 1000);
+  }
+}`,
+        worse: `function scheduleReminders(orders) {
+  for (var i = 0; i < orders.length; i++) {
+    setTimeout(() => {
+      sendReminder(orders[i].customerId);
+    }, 1000);
+  }
+}`,
+        why: 'With `let`, each iteration gets its own `i`, so every callback reads its own order. With `var`, all callbacks share one `i`, which equals `orders.length` when they run: `orders[i]` is `undefined` and every reminder throws "Cannot read properties of undefined".',
+      },
+    ],
     lesson: {
       points: [
         'Scope is where a name is visible. `var` belongs to the whole function; `let` and `const` belong to the nearest block `{}`. A `let` in a `for` header even gets a fresh variable on each iteration.',
@@ -156,6 +177,31 @@ items.push('mug');                 // allowed: mutation, not reassignment`,
         statement: 'Two counters created by two calls of the same factory function do not share their count.',
         isTrue: true,
         why: 'Each call creates a new scope, so each returned function closes over its own variable.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both memoize the price lookup for the storefront\'s product cards. Which one calls the pricing service once per product?',
+        codeLang: 'js',
+        better: `function memoize(fn) {
+  const cache = new Map();
+  return (id) => {
+    if (!cache.has(id)) {
+      cache.set(id, fn(id));
+    }
+    return cache.get(id);
+  };
+}`,
+        worse: `function memoize(fn) {
+  return (id) => {
+    const cache = new Map();
+    if (!cache.has(id)) {
+      cache.set(id, fn(id));
+    }
+    return cache.get(id);
+  };
+}`,
+        why: 'When the Map is created in `memoize`, the returned function closes over that one `cache`, which survives between calls: three lookups of the same product call the service once. Created inside the returned function, a fresh empty Map is made on every call and dropped when it returns, so nothing is ever cached: three lookups, three calls.',
       },
     ],
     lesson: {
@@ -246,6 +292,29 @@ console.log(a(), b()); // 3 1: each call made its own count`,
         why: 'Modules run in strict mode, and a plain call has no receiver.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both add the SKUs of a pasted list to the back office cart. Which one runs without throwing?',
+        codeLang: 'js',
+        better: `class Cart {
+  lines = [];
+  add(sku) {
+    this.lines.push(sku);
+  }
+}
+const cart = new Cart();
+['mug', 'tee'].forEach((sku) => cart.add(sku));`,
+        worse: `class Cart {
+  lines = [];
+  add(sku) {
+    this.lines.push(sku);
+  }
+}
+const cart = new Cart();
+['mug', 'tee'].forEach(cart.add);`,
+        why: 'The arrow function calls `cart.add(sku)`, so `this` is `cart`. Passing `cart.add` alone detaches the method: `forEach` calls it as a plain function, and a class body is strict mode, so `this` is `undefined`. The first SKU throws "Cannot read properties of undefined (reading \'lines\')".',
+      },
+    ],
     lesson: {
       points: [
         '`this` is a hidden parameter set by how a function is called, not by where it is written. The same function can get a different `this` on each call.',
@@ -324,6 +393,28 @@ console.log(detached.call(cart)); // 1`,
         statement: 'Calling a class without `new` throws a TypeError.',
         isTrue: true,
         why: 'A class constructor cannot be called as a plain function: "Class constructor X cannot be invoked without \'new\'".',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both give each of the 50,000 orders loaded in the back office table a `total()` method. Which one stores the method once?',
+        codeLang: 'js',
+        better: `class Order {
+  constructor(lines) {
+    this.lines = lines;
+  }
+  total() {
+    return this.lines.reduce((s, l) => s + l.cents, 0);
+  }
+}`,
+        worse: `class Order {
+  constructor(lines) {
+    this.lines = lines;
+    this.total = () =>
+      this.lines.reduce((s, l) => s + l.cents, 0);
+  }
+}`,
+        why: 'A method declared in the class body lives once on `Order.prototype`, and every order finds it through the prototype chain: `a.total === b.total` is true. Assigning an arrow function in the constructor creates a new function on each instance, so 50,000 orders carry 50,000 copies of the same code.',
       },
     ],
     lesson: {
@@ -435,6 +526,21 @@ try { PaymentError('x'); } catch (e) { console.log(e.name); }        // TypeErro
         why: '`false` becomes 0, the array becomes "" and then 0, so the comparison is 0 == 0.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both read the shipping fee; a stored 0 means free shipping during a campaign. Which one charges the right fee?',
+        codeLang: 'js',
+        better: `function shippingFee(settings) {
+  // 0 means free shipping during a campaign
+  return settings.shippingFeeCents ?? 499;
+}`,
+        worse: `function shippingFee(settings) {
+  // 0 means free shipping during a campaign
+  return settings.shippingFeeCents || 499;
+}`,
+        why: '`??` falls back only on `null` and `undefined`, so a fee of 0 stays 0 and a missing setting gives 499. `||` falls back on any falsy value, 0 included: during the campaign every customer is still charged 4.99.',
+      },
+    ],
     lesson: {
       points: [
         '`===`, strict equality, compares without converting: values of different types are never equal. `==`, loose equality, first converts the operands to a common type, which is called coercion.',
@@ -508,6 +614,23 @@ console.log(NaN === NaN, Object.is(NaN, NaN));    // false true`,
         statement: 'You can reassign an imported binding in the module that imports it.',
         isTrue: false,
         why: 'Imports are read-only for the importer: assigning to one throws a TypeError.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both load the invoice template stored next to the file, in a package with `"type": "module"`. Which one starts?',
+        codeLang: 'js',
+        better: `import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const template = readFileSync(
+  join(import.meta.dirname, 'invoice.html'), 'utf8');`,
+        worse: `import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const template = readFileSync(
+  join(__dirname, 'invoice.html'), 'utf8');`,
+        why: 'With `"type": "module"`, the file is an ES module, and `__dirname` is a CommonJS variable that ES modules do not have: loading the module throws "ReferenceError: __dirname is not defined in ES module scope". `import.meta.dirname`, available since Node 20.11, gives the folder of the current module.',
       },
     ],
     lesson: {
@@ -608,6 +731,32 @@ console.log(count); // 1: a live binding, not a copy
         why: 'Plain objects are not iterable. Loop over `Object.entries(obj)`, or use a Map.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both feed the yearly CSV export, 100 orders per page. Which one keeps only one page in memory at a time?',
+        codeLang: 'js',
+        better: `async function* orderPages() {
+  for (let page = 1; ; page++) {
+    const orders = await fetchOrders(page);
+    if (orders.length === 0) {
+      return;
+    }
+    yield orders;
+  }
+}`,
+        worse: `async function orderPages() {
+  const pages = [];
+  for (let page = 1; ; page++) {
+    const orders = await fetchOrders(page);
+    if (orders.length === 0) {
+      return pages;
+    }
+    pages.push(orders);
+  }
+}`,
+        why: 'The async generator fetches a page only when the `for await...of` loop asks for the next one, so the export writes each page and lets it go before fetching another. The other version fetches every page into one array before the export writes its first row: all 200,000 orders sit in memory at once.',
+      },
+    ],
     lesson: {
       points: [
         'An iterator is an object whose `next()` returns `{ value, done }`. An iterable has a `[Symbol.iterator]()` method that returns an iterator. `for...of`, spread and array destructuring all use this protocol.',
@@ -688,6 +837,26 @@ for (const id of ids) {
         why: '`JSON.stringify` drops them, and it turns Dates into strings.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both change a line\'s quantity; the cart keeps the previous state for Undo. Which one leaves the previous state untouched?',
+        codeLang: 'js',
+        better: `function setQty(cart, id, qty) {
+  return {
+    ...cart,
+    lines: cart.lines.map((l) =>
+      l.id === id ? { ...l, qty } : l),
+  };
+}`,
+        worse: `function setQty(cart, id, qty) {
+  const next = { ...cart };
+  const line = next.lines.find((l) => l.id === id);
+  line.qty = qty;
+  return next;
+}`,
+        why: 'Mapping the lines and spreading the changed one copies exactly the path that changes, so the previous cart keeps its quantity. `{ ...cart }` is shallow: `next.lines` is the same array holding the same line objects, so `line.qty = qty` also edits the saved state, and Undo restores the new quantity.',
+      },
+    ],
     lesson: {
       points: [
         'A shallow copy creates a new top-level object but shares the nested ones. Spread `{ ...x }`, `Object.assign` and `slice()` are shallow, so editing `copy.lines[0]` also edits the original.',
@@ -763,6 +932,24 @@ console.log(typeof JSON.parse(JSON.stringify(order)).at);         // string`,
         statement: 'A `setInterval` callback keeps the data it uses alive until `clearInterval` is called.',
         isTrue: true,
         why: 'The timer stays reachable, and its callback\'s closure keeps that data reachable with it.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both track the window width in the back office order detail. Which one does not pile up listeners as agents open orders?',
+        codeLang: 'tsx',
+        better: `useEffect(() => {
+  const onResize = () => setWidth(window.innerWidth);
+  window.addEventListener('resize', onResize);
+  return () => {
+    window.removeEventListener('resize', onResize);
+  };
+}, []);`,
+        worse: `useEffect(() => {
+  const onResize = () => setWidth(window.innerWidth);
+  window.addEventListener('resize', onResize);
+}, []);`,
+        why: 'The cleanup removes the listener when the order detail unmounts. Without it, `window` keeps every listener, and each listener\'s closure keeps its component\'s state reachable: after an agent opens 50 orders, 50 resize listeners still run on every resize, and none of that memory can be collected.',
       },
     ],
     lesson: {

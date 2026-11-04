@@ -64,6 +64,22 @@ describe('cards', () => {
     }
   });
 
+  it.each(CARDS.filter((card) => card.codeChoices).map((card) => [card.id, card] as const))('%s has code choices that fit on a phone', (_, card) => {
+    for (const choice of card.codeChoices!) {
+      expect(choice.prompt.length, choice.prompt).toBeLessThanOrEqual(160);
+      expect(choice.why.length, choice.why).toBeLessThanOrEqual(420);
+      expect(choice.better.trim(), 'the better version is empty').not.toBe('');
+      expect(choice.better, 'both versions are identical').not.toBe(choice.worse);
+      for (const code of [choice.better, choice.worse]) {
+        expect(code.split('\n').length, code).toBeLessThanOrEqual(10);
+        expect(Math.max(...code.split('\n').map((line) => line.length)), code).toBeLessThanOrEqual(64);
+      }
+      for (const text of [choice.prompt, choice.why]) {
+        expect(text.split('`').length % 2, text).toBe(1);
+      }
+    }
+  });
+
   it('point only to track sections that were imported', () => {
     const imported = new Set(MCQS.map((mcq) => `${mcq.module}#${mcq.section}`));
     for (const card of CARDS) {

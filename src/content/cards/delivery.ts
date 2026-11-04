@@ -84,6 +84,25 @@ export const deliveryCards: Card[] = [
         why: 'Kent C. Dodds\' trophy puts static analysis at the base and integration tests as the widest part, with few E2E tests.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both test `findPaidOrders`, whose SQL filters orders on their status. Which test catches a typo in its `WHERE` clause?',
+        codeLang: 'ts',
+        better: `it('returns only paid orders', async () => {
+  await db.exec(\`INSERT INTO orders (id, status) VALUES
+    ('ord_1', 'paid'), ('ord_2', 'pending_payment')\`);
+  const orders = await findPaidOrders(db); // real PostgreSQL
+  expect(orders.map((o) => o.id)).toEqual(['ord_1']);
+});`,
+        worse: `it('returns only paid orders', async () => {
+  const db = { query: vi.fn().mockResolvedValue({
+    rows: [{ id: 'ord_1', status: 'paid' }] }) };
+  const orders = await findPaidOrders(db);
+  expect(orders.map((o) => o.id)).toEqual(['ord_1']);
+});`,
+        why: 'The integration test runs the real query on PostgreSQL, PGlite or a Testcontainers one, so `WHERE status = \'payed\'` returns no row and the test fails. The mocked `query` returns whatever the test wrote and never runs the SQL: the test stays green with the typo, and production lists no paid orders.',
+      },
+    ],
     lesson: {
       points: [
         'A unit test runs one function in memory, with no network, database or real clock. It is fast and precise, and ideal for pure rules such as a discount or a shipping fee.',
@@ -157,6 +176,20 @@ export const deliveryCards: Card[] = [
         why: 'That is continuous deployment; continuous delivery keeps every change releasable and may keep a manual approval.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both are the production deploy step of the Orders API pipeline, after CI built and tested the commit\'s image. Which one ships what was tested?',
+        codeLang: 'bash',
+        better: `IMAGE=registry.example.com/orders-api
+docker pull "$IMAGE:$GIT_SHA"   # built and tested in CI
+docker tag "$IMAGE:$GIT_SHA" "$IMAGE:production"
+docker push "$IMAGE:production"`,
+        worse: `IMAGE=registry.example.com/orders-api
+docker build -t "$IMAGE:production" .   # fresh build for prod
+docker push "$IMAGE:production"`,
+        why: 'CI built and tested the image tagged with the commit SHA; promoting it points production at those same bytes. Rebuilding for production makes a new image no test ever ran: a moved base image tag or a different build argument is enough for production to run something nobody tested.',
+      },
+    ],
     lesson: {
       points: [
         'Continuous integration (CI) runs the checks on every change. Continuous delivery keeps each passing change releasable, possibly behind a manual approval; continuous deployment ships it with no human step.',
@@ -224,6 +257,24 @@ export const deliveryCards: Card[] = [
         statement: 'Changing one layer of an image rebuilds every layer after it.',
         isTrue: true,
         why: 'Docker reuses cached layers only while their inputs and every earlier layer are unchanged.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both start the build stage of the Orders API\'s Dockerfile. Which one rebuilds quickly after a one-line code change?',
+        codeLang: 'bash',
+        better: `FROM node:24-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+RUN npm run build`,
+        worse: `FROM node:24-slim AS build
+WORKDIR /app
+COPY . .
+RUN npm ci
+RUN npm run build`,
+        why: 'Each instruction is a cached layer, and a changed layer rebuilds every layer after it. Copying only the manifests first keeps the `npm ci` layer cached until the dependencies change, so a code change rebuilds in seconds. Copying all the source first means any edited file invalidates the install: every build downloads and installs every dependency again.',
       },
     ],
     lesson: {
@@ -330,6 +381,30 @@ export const deliveryCards: Card[] = [
         why: 'An async function returns a rejected promise instead of throwing; use `await expect(fetchQuote()).rejects.toThrow()`.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both test that `getQuote` rejects when the delivery partner answers 404. Which test fails if a refactor makes `getQuote` stop throwing?',
+        codeLang: 'ts',
+        better: `it('rejects on a 404 from the partner', async () => {
+  const client = {
+    get: vi.fn().mockRejectedValue(new HttpError(404)),
+  };
+  await expect(getQuote(client, 'ord_981'))
+    .rejects.toThrow(HttpError);
+});`,
+        worse: `it('rejects on a 404 from the partner', async () => {
+  const client = {
+    get: vi.fn().mockRejectedValue(new HttpError(404)),
+  };
+  try {
+    await getQuote(client, 'ord_981');
+  } catch (error) {
+    expect(error).toBeInstanceOf(HttpError);
+  }
+});`,
+        why: '`await expect(...).rejects` fails the test when the promise resolves. The `try`/`catch` version asserts only inside the `catch`: if `getQuote` starts swallowing the 404 and resolves with `undefined`, no assertion runs and the test still passes. `expect.assertions(1)` would have caught it.',
+      },
+    ],
     lesson: {
       points: [
         'A test must never call the real partner API: it would be slow, flaky, and could charge a card. Replace the boundary, the HTTP client, rather than your own code.',
@@ -410,6 +485,17 @@ expect(client.get).toHaveBeenCalledTimes(2);`,
         statement: 'Running `terraform plan` changes the infrastructure.',
         isTrue: false,
         why: 'A plan only computes and shows the changes; `apply` carries them out.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both deploy a Terraform change to the Orders API\'s infrastructure after the plan was reviewed in the pull request. Which one applies what reviewers read?',
+        codeLang: 'bash',
+        better: `terraform plan -out=tfplan   # reviewed in the pull request
+terraform apply tfplan       # applies exactly that plan`,
+        worse: `terraform plan                 # reviewed in the pull request
+terraform apply -auto-approve  # plans again, then applies`,
+        why: 'A saved plan file pins the changes reviewers approved, and `apply tfplan` carries out exactly those. `apply` without a plan file computes a new plan at apply time: if the code, the state or the real resources changed since the review, it applies changes nobody read, and `-auto-approve` skips the last chance to see them.',
       },
     ],
     lesson: {
@@ -572,6 +658,17 @@ terraform apply tfplan        # applies exactly that plan`,
         why: 'The default should be the old, safe behaviour, because it is what runs whenever evaluation fails.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both read the flag that sends 5% of customers to the new payment flow. Which default value is safe?',
+        codeLang: 'ts',
+        better: `const useNewFlow = await flags.getBooleanValue(
+  'new-payment-flow', false, { targetingKey: customerId });`,
+        worse: `const useNewFlow = await flags.getBooleanValue(
+  'new-payment-flow', true, { targetingKey: customerId });`,
+        why: 'The default is what OpenFeature returns whenever evaluation fails: provider down, flag missing, wrong type. With `false`, an outage of the flag service keeps everyone on the old, proven flow. With `true`, the same outage silently sends every customer through the new flow that was meant for 5% of them.',
+      },
+    ],
     lesson: {
       points: [
         'A feature flag is a switch read at runtime that decides which code path runs, so deploying the code and releasing the feature become two separate steps.',
@@ -651,6 +748,21 @@ const useNewFlow = await flags.getBooleanValue(
         statement: 'Blue-green deployment lets you roll back a destructive database migration by switching traffic back.',
         isTrue: false,
         why: 'Switching traffic changes which code runs, not the schema; a dropped column stays dropped.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both start renaming `orders.note` to `delivery_note` in a release rolled out pod by pod. Which migration keeps the old pods working?',
+        codeLang: 'sql',
+        better: `-- release 1 (expand): old pods still read note
+ALTER TABLE orders ADD COLUMN delivery_note text;
+UPDATE orders SET delivery_note = note
+WHERE delivery_note IS NULL;
+-- later: write both, read the new one, then
+-- DROP COLUMN note once no pod reads it`,
+        worse: `-- release 1: the new code reads delivery_note
+ALTER TABLE orders RENAME COLUMN note TO delivery_note;`,
+        why: 'During a rolling update or a canary, old and new pods share one database. Expand and contract adds the new column and copies the data, so old pods keep reading `note` and a rollback still works. The rename breaks every old pod at once with `column "note" does not exist`, and rolling back the code cannot undo it.',
       },
     ],
     lesson: {
@@ -804,6 +916,19 @@ const useNewFlow = await flags.getBooleanValue(
         why: 'Lighthouse simulates one load on one device; real users have slower phones and networks, and INP needs real interactions.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both load a product page\'s stock and reviews, two independent calls of about 450 ms each. Which one answers faster?',
+        codeLang: 'ts',
+        better: `const [stock, reviews] = await Promise.all([
+  getStock(productId),
+  getReviews(productId),
+]);`,
+        worse: `const stock = await getStock(productId);
+const reviews = await getReviews(productId);`,
+        why: 'The two calls do not depend on each other, so `Promise.all` starts both at once and the page waits for the slower one, about 450 ms. Awaiting one after the other adds the latencies, about 900 ms on every product page view, for no reason.',
+      },
+    ],
     lesson: {
       points: [
         'Measure first. Pages: Core Web Vitals from real users, judged at the 75th percentile. API: traces and latency percentiles such as p95. Lighthouse, a lab tool, simulates one load and misses real devices.',
@@ -881,6 +1006,22 @@ const [stock, reviews] = await Promise.all([
         statement: 'With the `CI` environment variable set, Vitest writes a missing snapshot and passes.',
         isTrue: false,
         why: 'In CI it does not write new snapshots: the test fails, so snapshots are created and reviewed locally.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both test the message shown when a card is declined at checkout. Which test fails only when the message itself is wrong?',
+        codeLang: 'tsx',
+        better: `it('explains a declined card', () => {
+  render(<PaymentError code="card_declined" />);
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Your card was declined. Try another card.');
+});`,
+        worse: `it('explains a declined card', () => {
+  const view = render(<PaymentError code="card_declined" />);
+  expect(view.container).toMatchSnapshot();
+});`,
+        why: 'The role assertion checks what matters, the text, and ignores markup. The snapshot records the whole DOM as it is today: renaming a CSS class fails it, teams learn to run `vitest -u` without reading, and on the first run it would have recorded a wrong message as correct anyway.',
       },
     ],
     lesson: {
@@ -1015,6 +1156,22 @@ it('applies 10% off once, in cents', () => {
         why: 'The query matches the computed accessible name, so a missing label makes the test fail.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both click the icon-only "remove" button of a cart line in a test. Which query fails when the button has no accessible name?',
+        codeLang: 'tsx',
+        better: `const user = userEvent.setup();
+render(<CartLine line={mugLine} onRemove={onRemove} />);
+await user.click(
+  screen.getByRole('button', { name: 'Remove mug from cart' }));
+expect(onRemove).toHaveBeenCalledWith('prod_mug');`,
+        worse: `const user = userEvent.setup();
+render(<CartLine line={mugLine} onRemove={onRemove} />);
+await user.click(screen.getByTestId('remove-mug'));
+expect(onRemove).toHaveBeenCalledWith('prod_mug');`,
+        why: '`getByRole` with a name finds the button the way a screen reader does: if the icon button loses its `aria-label`, it throws and the test fails. A test id ignores accessibility, so the test stays green while screen reader users hear only "button", with no hint of what it removes.',
+      },
+    ],
     lesson: {
       points: [
         'Automate in layers: `eslint-plugin-jsx-a11y` flags invalid ARIA in JSX, component tests query by role and accessible name, and an axe scan runs on key pages in CI.',
@@ -1096,6 +1253,20 @@ it('applies 10% off once, in cents', () => {
         statement: '`toHaveBeenCalledWith` passes when at least one of the calls matched the arguments.',
         isTrue: true,
         why: 'It checks any call; add `toHaveBeenCalledTimes` or `toHaveBeenNthCalledWith` to pin the count or the order.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both test that checkout leaves order `ord_1` paid. Which test survives a refactor that keeps that behaviour?',
+        codeLang: 'ts',
+        better: `const orders = new InMemoryOrders(); // fake
+await checkout({ charge, orders, mailer }, cart);
+expect(orders.get('ord_1')?.status).toBe('paid');`,
+        worse: `const orders = { save: vi.fn(), get: vi.fn() }; // mock
+await checkout({ charge, orders, mailer }, cart);
+expect(orders.save).toHaveBeenCalledWith(
+  expect.objectContaining({ status: 'paid' }));`,
+        why: 'The fake is a working in-memory repository, so the test checks the outcome: the stored order is paid, however checkout got it there. The mock checks one call: when checkout is refactored to save the order as pending, then call `orders.markPaid(id)`, the order is still paid but the test fails.',
       },
     ],
     lesson: {
@@ -1239,6 +1410,24 @@ pact-broker record-deployment --pacticipant orders-api \\
         statement: 'A k6 run whose thresholds fail still exits with code 0.',
         isTrue: false,
         why: 'k6 exits with a non-zero code when a threshold fails, so CI can fail the build.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both are the k6 iteration that loads product pages before the summer sale. Which one measures what launch day will feel like?',
+        codeLang: 'js',
+        better: `const products = new SharedArray('products', () =>
+  JSON.parse(open('./product-ids.json'))); // 5,000 real ids
+export default function () {
+  const i = Math.floor(Math.random() * products.length);
+  http.get(\`\${BASE_URL}/products/\${products[i]}\`);
+  sleep(1);
+}`,
+        worse: `export default function () {
+  http.get(\`\${BASE_URL}/products/prod_mug\`);
+  sleep(1);
+}`,
+        why: 'Spreading requests over thousands of real product ids gives cache misses and database reads, as real shoppers will. Requesting the same product every time is served from the CDN or Redis after the first request: p95 looks great, and the first real traffic finds the slow queries.',
       },
     ],
     lesson: {
@@ -1459,6 +1648,20 @@ npx eslint --prune-suppressions   # after fixes, drop stale entries`,
         why: 'Kubernetes disables the other probes until the startup probe succeeds, so a slow boot is not killed by liveness.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both implement the liveness probe of an Orders API pod. Which one avoids restarting every pod when PostgreSQL has a blip?',
+        codeLang: 'ts',
+        better: `// liveness: can this process answer at all?
+app.get('/livez', async () => ({ status: 'ok' }));`,
+        worse: `// liveness: can this process answer at all?
+app.get('/livez', async (request, reply) => {
+  const ok = await pingDatabase({ timeoutMs: 500 });
+  return reply.code(ok ? 200 : 503).send();
+});`,
+        why: 'A failed liveness probe restarts the container, which cures a stuck process, not a database outage. Checking PostgreSQL there means a blip longer than three probe periods fails liveness on every pod at once: Kubernetes restarts them all, and they come back to the same database. That check belongs in readiness, which only takes the pod out of traffic.',
+      },
+    ],
     lesson: {
       points: [
         'Kubernetes calls probes, usually HTTP endpoints, at intervals. Liveness asks "is the process stuck?": on failure, the kubelet, the agent on each node, restarts the container.',
@@ -1524,6 +1727,27 @@ npx eslint --prune-suppressions   # after fixes, drop stale entries`,
         why: 'Its fields are a version, the trace id, the parent span id and flags such as "sampled".',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both record request durations in a Prometheus histogram from a Fastify hook. Which one keeps the number of time series bounded?',
+        codeLang: 'ts',
+        better: `app.addHook('onResponse', async (request, reply) => {
+  httpDuration.observe({
+    method: request.method,
+    route: request.routeOptions.url, // '/orders/:id'
+    status: reply.statusCode,
+  }, reply.elapsedTime / 1000);
+});`,
+        worse: `app.addHook('onResponse', async (request, reply) => {
+  httpDuration.observe({
+    method: request.method,
+    route: request.url, // '/orders/ord_42'
+    status: reply.statusCode,
+  }, reply.elapsedTime / 1000);
+});`,
+        why: 'Each distinct label combination is a new time series. The route pattern gives one series per endpoint, method and status. The raw URL holds the order id, so every order viewed adds new series: memory and cost in Prometheus grow with traffic, and queries slow down.',
+      },
+    ],
     lesson: {
       points: [
         'Monitoring watches conditions chosen in advance. Observability means the data a system emits lets you answer new questions, such as "are only card checkouts slow?", without shipping code.',
@@ -1587,6 +1811,25 @@ npx eslint --prune-suppressions   # after fixes, drop stale entries`,
         statement: 'After `server.close()` in Node, a client can still send a request on a keep-alive connection it already had open.',
         isTrue: true,
         why: '`close` refuses new connections, but a connection busy at that moment stays open and can be reused, so set a deadline that closes them.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both handle SIGTERM when Kubernetes replaces an Orders API pod during a deploy. Which one lets in-flight checkouts finish?',
+        codeLang: 'ts',
+        better: `process.once('SIGTERM', async () => {
+  shuttingDown = true;          // /readyz now answers 503
+  await delay(5_000);           // endpoints update meanwhile
+  const closed = once(server, 'close');
+  server.close();               // refuse new, finish in-flight
+  await closed;
+  await pool.end();
+});`,
+        worse: `process.once('SIGTERM', async () => {
+  await pool.end();
+  process.exit(0);
+});`,
+        why: 'The better version fails readiness, waits while the pod leaves the Service endpoints, then `server.close()` refuses new connections and waits for the requests in flight before the pool closes. The other exits at once: checkouts being processed are cut off, requests routed to the pod in the next seconds are refused, and customers see errors on every deploy.',
       },
     ],
     lesson: {

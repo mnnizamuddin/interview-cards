@@ -37,6 +37,20 @@ export type Lesson = {
   codeLang?: 'js' | 'ts' | 'tsx' | 'sql' | 'css' | 'html' | 'bash' | 'http';
 };
 
+/**
+ * "Which code is better?": two versions of the same code, one clearly better for a reason the
+ * prompt points at. They are shown in a random order; the learner picks one, then sees why.
+ */
+export type CodeChoice = {
+  /** What both versions do and what to judge: "Both load an order's lines. Which one should ship?" */
+  prompt: string;
+  codeLang: NonNullable<Lesson['codeLang']>;
+  better: string;
+  worse: string;
+  /** Why the better version wins, and what goes wrong with the other one. */
+  why: string;
+};
+
 /** One interview question, with everything needed to rehearse and check the answer. */
 export type Card = {
   id: string;
@@ -58,6 +72,8 @@ export type Card = {
   mistakes: string[];
   followUps: FollowUp[];
   traps: Trap[];
+  /** "Which code is better?" pairs, on topics where code makes sense. */
+  codeChoices?: CodeChoice[];
   /** Track sections whose quiz questions become quick checks, as `m23#scope`. May be empty. */
   mcqSections: string[];
   /**

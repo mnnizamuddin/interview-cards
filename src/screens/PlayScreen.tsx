@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CARDS_BY_ID, MCQS_BY_CARD, MCQS_BY_ID, UNITS } from '../content/index.ts';
 import type { Card } from '../content/types.ts';
+import { CodeChoiceExercise } from '../exercises/CodeChoiceExercise.tsx';
 import { McqExercise } from '../exercises/McqExercise.tsx';
 import { OpenQuestion } from '../exercises/OpenQuestion.tsx';
 import { TrapExercise } from '../exercises/TrapExercise.tsx';
@@ -277,5 +278,7 @@ function ExerciseView({
       const mcq = MCQS_BY_ID.get(exercise.mcqId);
       return mcq ? <McqExercise mcq={mcq} onDone={onAnswer} onReviewLesson={onReviewLesson} /> : <p>Unknown question.</p>;
     }
+    case 'codeChoice':
+      return <CodeChoiceExercise choice={card.codeChoices![exercise.index]!} onDone={onAnswer} onReviewLesson={onReviewLesson} />;
   }
 }

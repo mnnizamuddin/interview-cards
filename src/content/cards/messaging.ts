@@ -61,6 +61,23 @@ export const messagingCards: Card[] = [
         why: 'Eventually processed means eventually consistent: for a while, other services and users see the state before the message is handled.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both consume `order.paid` messages from SQS to send the receipt e-mail. Which one never loses a receipt when the worker crashes?',
+        codeLang: 'ts',
+        better: `for (const message of messages) {
+  await sendReceipt(JSON.parse(message.Body));
+  await sqs.send(new DeleteMessageCommand({
+    QueueUrl, ReceiptHandle: message.ReceiptHandle }));
+}`,
+        worse: `for (const message of messages) {
+  await sqs.send(new DeleteMessageCommand({
+    QueueUrl, ReceiptHandle: message.ReceiptHandle }));
+  await sendReceipt(JSON.parse(message.Body));
+}`,
+        why: 'Deleting the message is the acknowledgement, so it comes after the work: if the pod dies mid-send, the message becomes visible again and another worker sends the receipt. Deleting first makes the queue at-most-once: a crash between the two calls loses that receipt for good. The price of the safe order is a possible duplicate, so `sendReceipt` must be idempotent.',
+      },
+    ],
     lesson: {
       points: [
         'A message queue is a broker that stores messages from a producer until a consumer processes them. The consumer acknowledges each message once done, and the broker then deletes it.',
@@ -202,6 +219,21 @@ export const messagingCards: Card[] = [
         why: 'A DLQ has a retention period like any queue; on SQS standard queues it even counts from the original enqueue time, so set it longer than the source queue\'s.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both handle an `order.paid` message in the loyalty consumer; a thrown error makes SQS redeliver it. Which one stops retrying a payload that can never work?',
+        codeLang: 'ts',
+        better: `const parsed = OrderPaid.safeParse(JSON.parse(message.Body));
+if (!parsed.success) {
+  await moveToDeadLetterQueue(message, parsed.error);
+  return; // permanent: no retry can fix the payload
+}
+await addLoyaltyPoints(parsed.data); // timeouts throw: retried`,
+        worse: `const event = OrderPaid.parse(JSON.parse(message.Body));
+await addLoyaltyPoints(event); // any error throws: retried`,
+        why: 'An invalid payload fails the same way on every attempt, so it goes to the dead-letter queue at once, with its error, while timeouts and 503s still throw and are retried. In the other version a malformed message is received again and again, one visibility timeout apart, until `maxReceiveCount`: wasted work, and a later alert for something no retry could fix.',
+      },
+    ],
     lesson: {
       points: [
         'A poison message is one that fails every time, for example an event with a field the consumer cannot parse. Retried forever, it wastes work and can hold back the healthy messages.',
@@ -270,6 +302,30 @@ export const messagingCards: Card[] = [
         why: 'An open circuit fails calls immediately without invoking the dependency; that is how it saves resources and lets the dependency recover.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both fetch a parcel\'s tracking through `breaker.fire(...)`, which opens after 5 failures. Which one opens only when the partner is unhealthy?',
+        codeLang: 'ts',
+        better: `async function fetchTracking(url: string) {
+  const response = await fetch(url);
+  if (response.status === 404) {
+    return null; // unknown parcel: the partner is fine
+  }
+  if (!response.ok) {
+    throw new Error(\`Partner answered \${response.status}\`);
+  }
+  return response.json();
+}`,
+        worse: `async function fetchTracking(url: string) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(\`Partner answered \${response.status}\`);
+  }
+  return response.json();
+}`,
+        why: 'A breaker should count what says the dependency is unhealthy: timeouts and 5xx answers. A 404 for an unknown tracking number is a normal answer, so the better version returns `null` without throwing. In the other version five customers mistyping a tracking number open the breaker, and every lookup then fails at once though the partner is up.',
+      },
+    ],
     lesson: {
       points: [
         'A circuit breaker sits between your code and a remote dependency. It counts recent failures and decides whether to call the dependency or fail at once.',
@@ -336,6 +392,29 @@ export const messagingCards: Card[] = [
         statement: 'Saving the cursor in the same transaction as the chunk it describes lets a job resume without skipping or repeating that chunk.',
         isTrue: true,
         why: 'The chunk and its cursor are committed together or not at all, so the restart point always matches the work done.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both import 20,000 tracking numbers in a background job that resumes after its saved cursor. Which one keeps its progress when a deploy kills the worker?',
+        codeLang: 'ts',
+        better: `for (const chunk of chunks(rows, 500)) {
+  await db.transaction(async (tx) => {
+    for (const row of chunk) {
+      await applyRow(tx, row);
+    }
+    await tx.query('UPDATE jobs SET cursor = $1 WHERE id = $2',
+      [chunk.at(-1).line, jobId]);
+  });
+}`,
+        worse: `await db.transaction(async (tx) => {
+  for (const row of rows) {
+    await applyRow(tx, row);
+  }
+  await tx.query('UPDATE jobs SET cursor = $1 WHERE id = $2',
+    [rows.at(-1).line, jobId]);
+});`,
+        why: 'Each chunk of 500 rows commits together with the cursor, so a restarted job continues after the last committed chunk, and rows stay locked for one chunk only. The other version holds one transaction for all 20,000 rows: rows stay locked for minutes, and a deploy at row 19,000 rolls everything back, so the job starts again from zero.',
       },
     ],
     lesson: {
@@ -416,6 +495,21 @@ HTTP/1.1 200 OK
         why: 'They pair well, but each can be used without the other; CQRS is often used with an ordinary relational write model.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both append a refund to order 981\'s stream after its writer read the stream at version 2. Which one detects a concurrent writer?',
+        codeLang: 'sql',
+        better: `-- PRIMARY KEY (stream_id, version)
+-- $2 is the version this writer read, plus one: 3
+INSERT INTO events (stream_id, version, type, payload)
+VALUES ($1, $2, 'OrderRefunded', $3);`,
+        worse: `-- PRIMARY KEY (stream_id, version)
+INSERT INTO events (stream_id, version, type, payload)
+SELECT $1, coalesce(max(version), 0) + 1, 'OrderRefunded', $3
+FROM events WHERE stream_id = $1;`,
+        why: 'The writer appends with the version it read plus one, and the primary key `(stream_id, version)` rejects a second writer that read the same version: it reloads and decides again. Computing `max(version) + 1` at insert time always finds a free number, so a writer that decided on stale state, such as refunding an order already refunded, appends anyway.',
+      },
+    ],
     lesson: {
       points: [
         'Event sourcing stores each change as an immutable event in a stream, for example one stream per payment. Nothing is updated or deleted; a refund is a new event.',
@@ -491,6 +585,26 @@ const order = events.reduce(evolve, undefined);
         statement: 'Write-behind is safer than write-through because the database is written in batches.',
         isTrue: false,
         why: 'Write-behind acknowledges before the database write, so a cache failure before the flush loses acknowledged data.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both change a product\'s price in an Orders API that caches products in Redis with cache-aside. Which one never leaves a wrong price cached?',
+        codeLang: 'ts',
+        better: `async function updatePrice(id: string, priceCents: number) {
+  await db.query(
+    'UPDATE products SET price_cents = $1 WHERE id = $2',
+    [priceCents, id]);
+  await redis.del(\`product:v1:\${id}\`); // the next read reloads
+}`,
+        worse: `async function updatePrice(id: string, priceCents: number) {
+  const product = { ...(await loadProduct(id)), priceCents };
+  await redis.set(\`product:v1:\${id}\`, JSON.stringify(product));
+  await db.query(
+    'UPDATE products SET price_cents = $1 WHERE id = $2',
+    [priceCents, id]);
+}`,
+        why: 'Commit first, then delete the key: the next read loads the committed row. The other version writes the cache before the `UPDATE`: if the update fails, say on a check constraint, shoppers see a price that was never saved, and two concurrent edits can leave the older one cached. Its `set` has no TTL, so the wrong price stays until someone notices.',
       },
     ],
     lesson: {
@@ -572,6 +686,26 @@ const order = events.reduce(evolve, undefined);
         why: 'Kafka\'s docs warn that the default partitioner\'s mapping changes with the partition count, so a key may move to another partition.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both handle a batch from one Kafka partition, keyed by order id, with KafkaJS. Which one keeps each order\'s events in sequence?',
+        codeLang: 'ts',
+        better: `await consumer.run({
+  eachBatch: async ({ batch, resolveOffset }) => {
+    for (const message of batch.messages) {
+      await handle(message); // one at a time, in offset order
+      resolveOffset(message.offset);
+    }
+  },
+});`,
+        worse: `await consumer.run({
+  eachBatch: async ({ batch }) => {
+    await Promise.all(batch.messages.map(handle));
+  },
+});`,
+        why: 'The partition delivers `order.placed`, `order.paid` and `order.shipped` in sequence, and the loop handles them one at a time. `Promise.all` starts every handler at once, so whichever finishes last wins: if the `order.paid` handler is slower than the `order.shipped` one, the order ends up `paid` though the parcel has left.',
+      },
+    ],
     lesson: {
       points: [
         'Global order and parallel consumers do not go together. What usually needs ordering is the events of one entity, such as one order.',
@@ -638,6 +772,29 @@ const order = events.reduce(evolve, undefined);
         statement: 'The outbox pattern guarantees that each event reaches the broker exactly once.',
         isTrue: false,
         why: 'A relay that crashes after publishing but before marking the row publishes it again; delivery is at least once.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both mark an order as paid and announce `order.paid`; `recordPayment` can still fail after. Which one never announces a change that was rolled back?',
+        codeLang: 'ts',
+        better: `await db.transaction(async (tx) => {
+  await tx.query(
+    "UPDATE orders SET status = 'paid' WHERE id = $1",
+    [orderId]);
+  await tx.query(
+    'INSERT INTO outbox (event_type, payload) VALUES ($1, $2)',
+    ['order.paid', { orderId }]);
+  await recordPayment(tx, payment);
+});`,
+        worse: `await db.transaction(async (tx) => {
+  await tx.query(
+    "UPDATE orders SET status = 'paid' WHERE id = $1",
+    [orderId]);
+  await broker.publish('order.paid', { orderId });
+  await recordPayment(tx, payment);
+});`,
+        why: 'The event is a row written in the same transaction as the status, so both commit or neither does, and a relay publishes it afterwards. Publishing inside the transaction does not make the publish transactional: when `recordPayment` fails, the order rolls back to `pending_payment`, but the warehouse already received `order.paid` and ships an unpaid order.',
       },
     ],
     lesson: {

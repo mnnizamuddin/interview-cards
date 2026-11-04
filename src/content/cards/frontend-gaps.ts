@@ -61,6 +61,27 @@ export const frontendGapsCards: Card[] = [
         why: 'The argument must be set-like, with `size`, `has` and `keys`; an array throws a TypeError.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both count the search terms customers type, for autocomplete. Which one counts every term correctly?',
+        codeLang: 'js',
+        better: `function countTerms(terms) {
+  const counts = new Map();
+  for (const term of terms) {
+    counts.set(term, (counts.get(term) ?? 0) + 1);
+  }
+  return counts;
+}`,
+        worse: `function countTerms(terms) {
+  const counts = {};
+  for (const term of terms) {
+    counts[term] = (counts[term] ?? 0) + 1;
+  }
+  return counts;
+}`,
+        why: 'A `Map` has no inherited keys, so every term starts from zero. The plain object inherits from `Object.prototype`: `counts["constructor"]` is already a function, so a customer who searches "constructor" gets the count `function Object() { [native code] }1` instead of 1.',
+      },
+    ],
     lesson: {
       points: [
         'A plain object used as a dictionary inherits keys from `Object.prototype`, so `counts["constructor"]` is already a function, and every key becomes a string: an object key turns into "[object Object]".',
@@ -135,6 +156,29 @@ byStatus.refunded; // undefined when no order is refunded`,
         statement: '`instanceof Error` is true for every error, whichever iframe created it.',
         isTrue: false,
         why: 'Each realm has its own `Error` constructor, so an error from an iframe fails the check; `Error.isError` works across realms.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both wrap a network failure during checkout in a `CheckoutError`. Which one keeps the root cause in the logs?',
+        codeLang: 'ts',
+        better: `async function submitOrder(body: string) {
+  try {
+    await fetch('/api/orders', { method: 'POST', body });
+  } catch (error: unknown) {
+    throw new CheckoutError('Could not create the order', {
+      cause: error,
+    });
+  }
+}`,
+        worse: `async function submitOrder(body: string) {
+  try {
+    await fetch('/api/orders', { method: 'POST', body });
+  } catch (error: unknown) {
+    throw new CheckoutError('Could not create the order');
+  }
+}`,
+        why: 'With `{ cause: error }`, the original `TypeError` from `fetch` stays on the new error, and Node prints it as a `[cause]` line under the stack. Without it, the catch throws the original away: the logs say "Could not create the order" and nothing about why, so every network failure looks the same.',
       },
     ],
     lesson: {
@@ -214,6 +258,21 @@ try {
         why: 'Chrome no longer fires it and it can keep pages out of the bfcache; use `pagehide` or `visibilitychange`.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both refresh the cart badge when a customer comes back to a product page with Back. Which one works when the bfcache restores the page?',
+        codeLang: 'ts',
+        better: `window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    void refreshCartBadge();
+  }
+});`,
+        worse: `window.addEventListener('load', () => {
+  void refreshCartBadge();
+});`,
+        why: 'A page restored from the bfcache is not loaded again: `load` does not fire, but `pageshow` does, with `event.persisted` set to true. With the `load` listener, a customer who removed a shoe from the cart and tapped Back still sees "1 item" in the badge.',
+      },
+    ],
     lesson: {
       points: [
         'The back/forward cache (bfcache) keeps a page in memory, DOM and JavaScript state included, when you leave it, and restores it on Back or Forward instead of loading it again.',
@@ -287,6 +346,27 @@ try {
         why: 'A lab load has no real user interactions, so Lighthouse uses Total Blocking Time as its proxy.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both send the storefront\'s web-vitals reports to `/api/vitals`. Which one sends the final CLS and INP values?',
+        codeLang: 'ts',
+        better: `const pending = new Map<string, Metric>();
+onCLS((m) => pending.set(m.id, m));
+onINP((m) => pending.set(m.id, m));
+addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    navigator.sendBeacon('/api/vitals', toJson(pending));
+  }
+});`,
+        worse: `const pending = new Map<string, Metric>();
+onCLS((m) => pending.set(m.id, m));
+onINP((m) => pending.set(m.id, m));
+addEventListener('load', () => {
+  navigator.sendBeacon('/api/vitals', toJson(pending));
+});`,
+        why: 'CLS and INP keep changing until the visitor leaves, and `hidden` is the last moment the page can reliably send, mobile app switches included. On `load`, the visitor has not interacted yet and the library has not reported final values, so the beacon carries nothing useful and later shifts and slow taps are never sent.',
+      },
+    ],
     lesson: {
       points: [
         'Lab data comes from a tool such as Lighthouse loading the page once on one machine: it explains and reproduces. Field data comes from real visits: it is what users get.',
@@ -357,6 +437,24 @@ addEventListener('visibilitychange', () => {
         statement: 'Input delay can be caused by a script that has nothing to do with the tapped element.',
         isTrue: true,
         why: 'Any task on the main thread, such as a tag manager, delays the handlers until it ends.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both handle a tap on a size chip on the product page. Which one keeps INP low on a mid-range phone?',
+        codeLang: 'ts',
+        better: `async function onSizeTap(size: string) {
+  selectChip(size);
+  await scheduler.yield(); // let the browser paint the chip
+  updatePriceAndStock(size); // about 300 ms of work
+  trackSizeSelected(size);
+}`,
+        worse: `async function onSizeTap(size: string) {
+  selectChip(size);
+  updatePriceAndStock(size); // about 300 ms of work
+  trackSizeSelected(size);
+}`,
+        why: 'INP runs from the tap to the next paint. Yielding after the visible change lets the browser paint the selected chip, and the heavy work runs in a later task. Without the yield, the 300 ms of work sits in the processing phase of the interaction, so the chip appears only after it and INP is over 300 ms.',
       },
     ],
     lesson: {
@@ -436,6 +534,21 @@ onINP(({ rating, attribution: a }) => {
         why: 'Without a `strategy` prop, the script loads early but after some hydration.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both load the reviews widget, shown far down the product page. Which one keeps the first taps responsive?',
+        codeLang: 'tsx',
+        better: `<Script
+  src="https://widgets.reviews-vendor.example/reviews.js"
+  strategy="lazyOnload"
+/>`,
+        worse: `<Script
+  src="https://widgets.reviews-vendor.example/reviews.js"
+  strategy="beforeInteractive"
+/>`,
+        why: '`lazyOnload` loads the widget during browser idle time, after the page has loaded, which suits reviews far down the page. `beforeInteractive` is for code that must run before hydration: the widget is fetched and run early, competing with hydration and the first taps for the main thread.',
+      },
+    ],
     lesson: {
       points: [
         "A third-party script is another company's code running on your main thread with your page's rights. You cannot optimise it, so the levers are which scripts load, when and how.",
@@ -506,6 +619,20 @@ export function ThirdPartyScripts({ consent }: { consent: { analytics: boolean }
         statement: 'Trusted Types sanitise HTML themselves, so no sanitiser library is needed.',
         isTrue: false,
         why: 'The browser only enforces that a policy was used; the sanitising is whatever your policy does, usually DOMPurify.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both create the `review-html` Trusted Types policy for product reviews. Which one actually stops DOM XSS?',
+        codeLang: 'ts',
+        better: `const reviewPolicy = trustedTypes.createPolicy('review-html', {
+  createHTML: (dirty: string) =>
+    DOMPurify.sanitize(dirty, { ALLOWED_TAGS: ['b', 'p'] }),
+});`,
+        worse: `const reviewPolicy = trustedTypes.createPolicy('review-html', {
+  createHTML: (dirty: string) => dirty,
+});`,
+        why: 'The browser only checks that a `TrustedHTML` came from an allowed policy; what the policy does is the real defence. This one sanitises with DOMPurify. The other returns its input unchanged, so `<img src=x onerror=…>` passes through as trusted HTML: enforcement is on and the XSS still runs.',
       },
     ],
     lesson: {
@@ -582,6 +709,27 @@ el.textContent = reviewText;                         // safe sink: strings are f
         statement: '`event.origin.startsWith("https://pay.example")` is a safe origin check.',
         isTrue: false,
         why: 'It accepts `https://pay.example.evil.example`; compare the whole origin with `===`.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both receive the payment widget\'s messages in the checkout. Which origin check stops a fake `payment.succeeded`?',
+        codeLang: 'ts',
+        better: `const PAYMENT_ORIGIN = 'https://pay.example';
+window.addEventListener('message', (event) => {
+  if (event.origin !== PAYMENT_ORIGIN) {
+    return;
+  }
+  handlePaymentMessage(event.data);
+});`,
+        worse: `const PAYMENT_ORIGIN = 'https://pay.example';
+window.addEventListener('message', (event) => {
+  if (!event.origin.startsWith(PAYMENT_ORIGIN)) {
+    return;
+  }
+  handlePaymentMessage(event.data);
+});`,
+        why: 'Exact equality accepts only `https://pay.example`. `startsWith` also accepts `https://pay.example.evil.example`, a domain any attacker can register, so a page there that frames or opens the checkout can post a fake `payment.succeeded` and the check lets it through.',
       },
     ],
     lesson: {
@@ -661,6 +809,25 @@ frame.contentWindow?.postMessage({ type: 'checkout.ready' }, PAYMENT_ORIGIN);`,
         why: 'It only hides content from assistive technology; `inert` also removes focus and clicks.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both open the refund confirmation `<dialog>` when `open` becomes true. Which one is a real modal for keyboard users?',
+        codeLang: 'tsx',
+        better: `useEffect(() => {
+  const dialog = dialogRef.current;
+  if (open && dialog && !dialog.open) {
+    dialog.showModal();
+  }
+}, [open]);`,
+        worse: `useEffect(() => {
+  const dialog = dialogRef.current;
+  if (open && dialog && !dialog.open) {
+    dialog.show();
+  }
+}, [open]);`,
+        why: '`showModal()` makes the page behind inert and closes the dialog on Escape. `show()` opens a non-modal dialog: the orders table behind it stays reachable with Tab and clicks, so an agent can tab away from "Refund order?", and Escape does nothing by default.',
+      },
+    ],
     lesson: {
       points: [
         'A modal must move focus inside on open, keep Tab inside, close on Escape, make the page behind unreachable, and return focus to the opener. Its title names it via `aria-labelledby`.',
@@ -732,6 +899,21 @@ frame.contentWindow?.postMessage({ type: 'checkout.ready' }, PAYMENT_ORIGIN);`,
         statement: 'Under `prefers-reduced-motion: reduce`, every transition should be removed.',
         isTrue: false,
         why: 'The goal is less movement, not no feedback: a short fade can replace a slide.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both style the secondary text of the checkout summary, on a white background. Which one meets WCAG AA contrast?',
+        codeLang: 'css',
+        better: `.checkout-summary .secondary {
+  color: #6b7280; /* on #ffffff */
+  font-size: 14px;
+}`,
+        worse: `.checkout-summary .secondary {
+  color: #777777; /* on #ffffff */
+  font-size: 14px;
+}`,
+        why: 'Normal-size text needs a contrast ratio of at least 4.5:1 (WCAG 1.4.3). `#6b7280` on white gives 4.83:1. `#777777` looks dark enough but gives 4.48:1, just under the threshold, so the audit fails it and customers with low vision struggle to read the fees and delivery date.',
       },
     ],
     lesson: {
@@ -809,6 +991,29 @@ body { padding-bottom: 80px; }`,
         why: 'It throws, because a real user could not click it; `fireEvent.click` would call the handler.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both test that the search box sends one request after typing "mug". Which test can catch a missing debounce?',
+        codeLang: 'tsx',
+        better: `it('sends one search request', async () => {
+  const user = userEvent.setup();
+  const search = vi.fn();
+  render(<SearchBox onSearch={search} />);
+  await user.type(screen.getByRole('searchbox'), 'mug');
+  await waitFor(() => expect(search).toHaveBeenCalled());
+  expect(search).toHaveBeenCalledTimes(1);
+});`,
+        worse: `it('sends one search request', async () => {
+  const search = vi.fn();
+  render(<SearchBox onSearch={search} />);
+  const box = screen.getByRole('searchbox');
+  fireEvent.change(box, { target: { value: 'mug' } });
+  await waitFor(() => expect(search).toHaveBeenCalled());
+  expect(search).toHaveBeenCalledTimes(1);
+});`,
+        why: '`user.type` types key by key, so a search box without a debounce calls `onSearch` three times, for "m", "mu" and "mug", and the test fails. `fireEvent.change` sets the whole value in one event, so `onChange` runs once and the test passes whether the debounce exists or not.',
+      },
+    ],
     lesson: {
       points: [
         '`fireEvent` dispatches one DOM event. user-event simulates a real interaction: focus, then keydown, input and keyup per character, and pointer events before a click.',
@@ -848,7 +1053,7 @@ body { padding-bottom: 80px; }`,
     explanation:
       'Order-dependent failures from shared caches are a classic cause of flaky suites, so interviewers check that you know where state lives. A senior also explains why mocking the hook is worse: it skips the loading, error and cache behaviour where the bugs are.',
     example:
-      "The storefront's checkout tests imported the app's own `queryClient`. The order page test then failed only after another test: the first cached order `ord_1` as `paid`, and the second, whose mock answered `refunded`, made no request and showed \"paid\". A `renderWithProviders` helper that builds a fresh client with retries off fixed it, and error-state tests went from 7 seconds to milliseconds.",
+      "The storefront's checkout tests imported the app's own `queryClient`. The order page test then failed only after another test: the first cached order `ord_1` as `paid`, and the second, whose mock answered `refunded`, rendered the cached \"paid\" first, so its assertion failed before any refetch could land. A `renderWithProviders` helper that builds a fresh client with retries off fixed it, and error-state tests went from 7 seconds to milliseconds.",
     mistakes: [
       "Importing the app's singleton `QueryClient` into tests, which shares cached data between them.",
       'Leaving the default retries on, so the error UI appears after `findBy` has already given up.',
@@ -878,6 +1083,33 @@ body { padding-bottom: 80px; }`,
         statement: 'Sharing one `QueryClient` between tests is safe because each test renders a new component tree.',
         isTrue: false,
         why: 'The cache lives in the client, not the tree, so data from one test is served to the next.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both are the render helper for the storefront\'s order page tests. Which one keeps each test independent of the others?',
+        codeLang: 'tsx',
+        better: `export function renderWithProviders(ui: ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      {ui}
+    </QueryClientProvider>,
+  );
+}`,
+        worse: `const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false } },
+});
+export function renderWithProviders(ui: ReactElement) {
+  return render(
+    <QueryClientProvider client={queryClient}>
+      {ui}
+    </QueryClientProvider>,
+  );
+}`,
+        why: 'A new `QueryClient` per call gives each test an empty cache. The module-level client keeps its cache between tests, so a test starts with the orders the previous one loaded and can show "paid" where its own mock answers `refunded`: it passes alone and fails after another test.',
       },
     ],
     lesson: {
@@ -957,6 +1189,25 @@ body { padding-bottom: 80px; }`,
         why: 'They poll the locator, 5 seconds by default, so no manual wait is needed.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both check that Pay is enabled again after a declined card. Which assertion is reliable on a slow CI runner?',
+        codeLang: 'ts',
+        better: `const pay = page.getByRole('button', {
+  name: 'Pay',
+  exact: true,
+});
+await expect(page.getByRole('alert')).toBeVisible();
+await expect(pay).toBeEnabled();`,
+        worse: `const pay = page.getByRole('button', {
+  name: 'Pay',
+  exact: true,
+});
+await expect(page.getByRole('alert')).toBeVisible();
+expect(await pay.isEnabled()).toBe(true);`,
+        why: '`toBeEnabled()` is a web-first assertion: it retries until the button is enabled or 5 seconds pass. `isEnabled()` reads the state once, so when the button is re-enabled a few milliseconds after the alert appears, the test fails now and then on CI and passes locally: a flaky test.',
+      },
+    ],
     lesson: {
       points: [
         'Playwright drives Chromium, Firefox and WebKit. Locators such as `page.getByRole` are strict, and `name` matches a case-insensitive substring unless you add `exact: true`.',
@@ -1030,6 +1281,27 @@ body { padding-bottom: 80px; }`,
         why: 'So spreading the props on the element forwards the ref without `forwardRef`.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both are the shared Button, and a caller passes `className="refund"`. Which one keeps the base styles?',
+        codeLang: 'tsx',
+        better: `export function Button({
+  variant = 'primary', type = 'button', className, ...rest
+}: ButtonProps) {
+  const classes = [styles.button, className]
+    .filter(Boolean).join(' ');
+  return <button type={type} className={classes}
+    data-variant={variant} {...rest} />;
+}`,
+        worse: `export function Button({
+  variant = 'primary', type = 'button', ...rest
+}: ButtonProps) {
+  return <button type={type} className={styles.button}
+    data-variant={variant} {...rest} />;
+}`,
+        why: 'The better Button takes `className` out of the props and merges it with the base class: `class="btn refund"`. The other spreads `{...rest}` after its own `className`, so the caller\'s value replaces it: the refund button renders with `class="refund"` only and loses every base style.',
+      },
+    ],
     lesson: {
       points: [
         'A component\'s API is its props. Model visual options as one union, `variant: "primary" | "danger"`, not booleans, so `<Btn primary danger>` cannot compile.',
@@ -1099,6 +1371,27 @@ export function Button({ variant = 'primary', type = 'button', className, ...res
         statement: 'A component whose stories pass the accessibility addon meets WCAG.',
         isTrue: false,
         why: 'axe-core catches only part of WCAG issues; keyboard and screen reader checks are still needed.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both play functions test keyboard navigation in the Tabs story. Which one also protects the component\'s accessibility?',
+        codeLang: 'tsx',
+        better: `play: async ({ args, canvas, userEvent }) => {
+  const tab = canvas.getByRole('tab', { name: 'Details' });
+  await userEvent.click(tab);
+  await userEvent.keyboard('{ArrowRight}');
+  await expect(args.onValueChange)
+    .toHaveBeenCalledWith('payments');
+},`,
+        worse: `play: async ({ args, canvasElement, userEvent }) => {
+  const tab = canvasElement.querySelector('.tab-details');
+  await userEvent.click(tab!);
+  await userEvent.keyboard('{ArrowRight}');
+  await expect(args.onValueChange)
+    .toHaveBeenCalledWith('payments');
+},`,
+        why: 'Querying by role and accessible name finds the tab the way a screen reader does, so the story fails if the tab loses `role="tab"` or its name. The class selector keeps passing after such a regression, and breaks instead on a harmless CSS rename.',
       },
     ],
     lesson: {

@@ -57,6 +57,29 @@ export const nodeRuntimeCards: Card[] = [
         why: 'They are in nanoseconds: divide by 1e6, then subtract the resolution to get the real delay in milliseconds.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both report the event loop delay p99 to the dashboard in milliseconds. Which one sends the right number?',
+        codeLang: 'ts',
+        better: `const delay = monitorEventLoopDelay({ resolution: 10 });
+delay.enable();
+setInterval(() => {
+  // ns to ms, minus the 10 ms sampling interval
+  const p99Ms = delay.percentile(99) / 1e6 - 10;
+  report({ p99Ms });
+  delay.reset();
+}, 10_000).unref();`,
+        worse: `const delay = monitorEventLoopDelay({ resolution: 10 });
+delay.enable();
+setInterval(() => {
+  // p99 of the delay histogram
+  const p99Ms = delay.percentile(99);
+  report({ p99Ms });
+  delay.reset();
+}, 10_000).unref();`,
+        why: 'The histogram is in nanoseconds and each sample includes the sampling interval, so `better` divides by 1e6 and subtracts the 10 ms resolution. `worse` sends raw nanoseconds: an idle loop measured on Node 24 read 23,969,791, about 14 ms once converted, so the panel and its alert threshold mean nothing.',
+      },
+    ],
     lesson: {
       points: [
         'A blocked event loop means one callback runs so long that every other callback, new requests, timers and `/health` included, waits behind it on the main thread.',
@@ -134,6 +157,30 @@ setInterval(() => {
         why: 'The callback runs in the poll phase, and the check phase comes right after it, before the loop wraps around to timers.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both build CSV lines and pause every 1,000 orders so other requests can run. Which one really lets them run?',
+        codeLang: 'ts',
+        better: `import { setImmediate } from 'node:timers/promises';
+async function toCsvLines(rows: OrderRow[]) {
+  const lines: string[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    lines.push(toCsvLine(rows[i]));
+    if (i % 1_000 === 999) await setImmediate();
+  }
+  return lines;
+}`,
+        worse: `async function toCsvLines(rows: OrderRow[]) {
+  const lines: string[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    lines.push(toCsvLine(rows[i]));
+    if (i % 1_000 === 999) await Promise.resolve();
+  }
+  return lines;
+}`,
+        why: '`await setImmediate()` resumes in the check phase, after the loop has gone through poll, so waiting requests and timers run between slices. `await Promise.resolve()` resumes in a microtask before the loop moves on: on Node 24, a 0 ms timer did not fire until a 500 ms job had ended, so `/health` stays frozen just the same.',
+      },
+    ],
     lesson: {
       points: [
         'Besides its phases, Node has two priority queues: the nextTick queue for `process.nextTick`, and the microtask queue for `.then` callbacks, code after `await` and `queueMicrotask`.',
@@ -202,6 +249,26 @@ console.log('F');
         statement: 'With Piscina, an error thrown inside the worker becomes a rejected promise in the calling code.',
         isTrue: true,
         why: '`pool.run()` returns a promise that rejects when the worker task throws.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both attach each order\'s payment, for 20,000 orders and 20,000 payments. Which one keeps the event loop free?',
+        codeLang: 'ts',
+        better: `function attachPayments(orders: Order[], payments: Payment[]) {
+  const byId = new Map(payments.map((p) => [p.id, p]));
+  return orders.map((order) => ({
+    ...order,
+    payment: byId.get(order.paymentId),
+  }));
+}`,
+        worse: `function attachPayments(orders: Order[], payments: Payment[]) {
+  return orders.map((order) => ({
+    ...order,
+    payment: payments.find((p) => p.id === order.paymentId),
+  }));
+}`,
+        why: 'The `Map` is built once, then each lookup takes constant time: about 4 ms for 20,000 orders on Node 24. `find` inside `map` scans the payments again for every order, up to 400 million comparisons: about 0.7 s on the same machine, during which every other request of the process waits.',
       },
     ],
     lesson: {
@@ -335,6 +402,23 @@ async function toCsvLines(rows: OrderRow[]): Promise<string[]> {
         statement: 'On Node 24, `node app.ts` reports type errors before running the file.',
         isTrue: false,
         why: 'Node only strips the types and never type-checks; the check belongs to `tsc --noEmit` in CI.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both declare the order statuses in a file the service runs with `node src/server.ts` on Node 24. Which one starts?',
+        codeLang: 'ts',
+        better: `export const OrderStatus = {
+  Paid: 'paid',
+  Shipped: 'shipped',
+} as const;
+export type OrderStatus =
+  (typeof OrderStatus)[keyof typeof OrderStatus];`,
+        worse: `export enum OrderStatus {
+  Paid = 'paid',
+  Shipped = 'shipped',
+}`,
+        why: 'Type stripping only erases types, and an `as const` object with a union type is plain JavaScript once erased. An `enum` generates runtime code, so Node 24 refuses the file with `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`, "TypeScript enum is not supported in strip-only mode", and the service never starts.',
       },
     ],
     lesson: {
@@ -477,6 +561,31 @@ npx tsc --noEmit`,
         why: 'Guards are for authentication and authorisation; business rules belong in the use case so every caller applies them.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both cancel an order in the use case that the HTTP route and a Kafka consumer both call. Which one belongs in the use case?',
+        codeLang: 'ts',
+        better: `export const makeCancelOrder = (orders: OrderRepository) =>
+  async (id: string) => {
+    const order = await orders.findById(id);
+    if (!order) throw new OrderNotFoundError(id);
+    if (order.status !== 'paid') {
+      throw new OrderNotCancellableError(id, order.status);
+    }
+    await orders.save({ ...order, status: 'cancelled' });
+  };`,
+        worse: `export const makeCancelOrder = (orders: OrderRepository) =>
+  async (id: string, res: Response) => {
+    const order = await orders.findById(id);
+    if (!order) return res.status(404).end();
+    if (order.status !== 'paid') {
+      return res.status(409).json({ title: 'Not cancellable' });
+    }
+    await orders.save({ ...order, status: 'cancelled' });
+  };`,
+        why: '`better` throws domain errors that one error mapper turns into 404 or 409, so the route, the Kafka consumer and a unit test with fakes all call the same rule. `worse` needs an Express `Response`: the consumer has none to pass, so the rule gets copied there and the two copies drift apart.',
+      },
+    ],
     lesson: {
       points: [
         'The controller translates HTTP into a call and back: it reads params and body, validates their shape and picks the status code. It holds no SQL and no business rules.',
@@ -547,6 +656,23 @@ export const makeCancelOrder = (orders: OrderRepository) => async (id: string) =
         statement: 'With configuration validated at startup, a missing `DATABASE_URL` stops the process before it serves any request.',
         isTrue: true,
         why: 'The schema is checked once at boot, and a failure exits the process instead of waiting for the first query.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both read the `SEND_EMAILS` flag at startup. Which one turns emails off when the variable is set to "false"?',
+        codeLang: 'ts',
+        better: `const EnvSchema = z.object({
+  DATABASE_URL: z.url(),
+  SEND_EMAILS: z.stringbool().default(false),
+});
+export const config = EnvSchema.parse(process.env);`,
+        worse: `const EnvSchema = z.object({
+  DATABASE_URL: z.url(),
+  SEND_EMAILS: z.coerce.boolean().default(false),
+});
+export const config = EnvSchema.parse(process.env);`,
+        why: '`z.stringbool()` reads "false", "0", "no" or "off" as false and rejects unknown values. `z.coerce.boolean()` calls `Boolean(value)`, and every non-empty string is truthy: measured on Zod 4.6.7, "false" and "0" both gave `true`, so staging keeps emailing real customers.',
       },
     ],
     lesson: {

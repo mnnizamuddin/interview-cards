@@ -61,6 +61,23 @@ export const typescriptCards: Card[] = [
         why: 'tsx uses esbuild, which removes types without checking them; only tsc checks.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both define order statuses in a file the Orders API runs with `node src/main.ts` on Node 24. Which one starts?',
+        codeLang: 'ts',
+        better: `export const OrderStatus = {
+  PendingPayment: 'pending_payment',
+  Paid: 'paid',
+} as const;
+export type OrderStatus =
+  (typeof OrderStatus)[keyof typeof OrderStatus];`,
+        worse: `export enum OrderStatus {
+  PendingPayment = 'pending_payment',
+  Paid = 'paid',
+}`,
+        why: 'Node runs `.ts` files by stripping the types only, and an `enum` is not only a type: it generates a JavaScript object. Node refuses it at startup with `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`, and `erasableSyntaxOnly` makes tsc report it too. The `as const` object is plain JavaScript plus a type that strips cleanly, with the same named constants.',
+      },
+    ],
     lesson: {
       points: [
         'The defaults are too lax. `strict` adds null checks and refuses implicit `any`; `noUncheckedIndexedAccess` makes `list[0]` possibly `undefined`; `exactOptionalPropertyTypes` refuses `{ key: undefined }`.',
@@ -132,6 +149,23 @@ tsc --noEmit`,
         statement: 'The compiler does not verify that a type predicate checks what it claims.',
         isTrue: true,
         why: 'It trusts the `value is T` return type, so a predicate that checks too little lies everywhere.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both turn a database row, which holds `paymentToken`, into the body of `GET /orders/:id`. Which one keeps the token out of the response?',
+        codeLang: 'ts',
+        better: `function toPublicOrder(row: OrderRow): PublicOrder {
+  return {
+    id: row.id,
+    status: row.status,
+    totalCents: row.totalCents,
+  };
+}`,
+        worse: `function toPublicOrder(row: OrderRow): PublicOrder {
+  return row;
+}`,
+        why: 'Typing is structural: `row` has at least the fields of `PublicOrder`, so returning it compiles. But types are erased, so the whole row is returned and `JSON.stringify` sends every field, `paymentToken` included. Building the object field by field sends only the listed fields.',
       },
     ],
     lesson: {
@@ -208,6 +242,26 @@ function readEventType(body: unknown): string {
         statement: 'A branded `OrderId` cannot be assigned to a variable typed `string`.',
         isTrue: false,
         why: 'A brand is an intersection with `string`, so it is still assignable to `string`; only the reverse is blocked.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both type the refund call to the payment provider, which expects cents. Which one rejects an amount in euros at compile time?',
+        codeLang: 'ts',
+        better: `declare const brand: unique symbol;
+type Cents = number & { readonly [brand]: 'Cents' };
+
+declare function refundPayment(
+  paymentId: PaymentId,
+  amount: Cents,
+): Promise<void>;`,
+        worse: `type Cents = number; // always in cents
+
+declare function refundPayment(
+  paymentId: PaymentId,
+  amount: Cents,
+): Promise<void>;`,
+        why: 'A plain alias is just another name for `number`, so `refundPayment(id, order.totalEuros)` compiles and the provider receives euros as if they were cents. With the brand, a plain number fails with TS2345: only a checking constructor such as `toCents` can produce a `Cents` value.',
       },
     ],
     lesson: {
@@ -288,6 +342,22 @@ export function toCents(amount: number): Cents {
         statement: 'With TanStack Query, returning early on `isLoading` guarantees that `data` is defined afterwards.',
         isTrue: false,
         why: '`isLoading` is `isFetching && isPending`, so a pending query that is not fetching passes with no data.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both type the state of the back office orders panel. Which one makes a spinner shown with an error impossible?',
+        codeLang: 'ts',
+        better: `type OrdersState =
+  | { status: 'loading' }
+  | { status: 'error'; error: Error }
+  | { status: 'success'; data: Order[] };`,
+        worse: `type OrdersState = {
+  isLoading: boolean;
+  error?: Error;
+  data?: Order[];
+};`,
+        why: 'With a union on `status`, each state holds only its own fields: `{ status: \'loading\', error }` fails to compile (TS2353), and `data` can be read only after checking `status === \'success\'`. With a boolean and two optional fields, loading with an error compiles fine, so the panel can show a spinner and an error together.',
       },
     ],
     lesson: {
@@ -371,6 +441,23 @@ function assertNever(value: never): never {
         why: '`as` only tells the compiler what to believe; types are erased and nothing is checked.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both load the back office orders list from the BFF. Which one reports a renamed field instead of showing `NaN €`?',
+        codeLang: 'ts',
+        better: `const OrderList = z.array(OrderSummary);
+
+async function fetchOrders(): Promise<OrderSummary[]> {
+  const response = await fetch('/bff/orders');
+  return OrderList.parse(await response.json());
+}`,
+        worse: `async function fetchOrders(): Promise<OrderSummary[]> {
+  const response = await fetch('/bff/orders');
+  return (await response.json()) as OrderSummary[];
+}`,
+        why: 'The Zod schema checks the body at runtime: if the BFF renames `totalCents`, `parse` throws with an issue at path `[0, "totalCents"]`, and the query shows an error. `as` only tells the compiler what to believe: the body passes unchecked, `order.totalCents` is `undefined`, and the table shows `NaN €`.',
+      },
+    ],
     lesson: {
       points: [
         'Types are erased when the code runs, so a type on API data proves nothing. `response.json()` returns `any`, and `as Order[]` is a claim the compiler cannot check.',
@@ -441,6 +528,25 @@ const result = OrderSummary.safeParse(body); // body: unknown`,
         statement: 'With `function DataTable<Row>(props: { rows: readonly Row[] })`, TypeScript infers `Row` from the `rows` prop.',
         isTrue: true,
         why: 'Type parameters are inferred from the arguments, here the props object, so callers write no type argument.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both sort the rows of the back office orders table by a column. Which one fails the build when the column name is wrong?',
+        codeLang: 'ts',
+        better: `function sortBy<Row, K extends keyof Row>(
+  rows: readonly Row[],
+  key: K,
+): Row[] {
+  return rows.toSorted((a, b) => (a[key] < b[key] ? -1 : 1));
+}`,
+        worse: `function sortBy(
+  rows: any[],
+  key: string,
+): any[] {
+  return rows.toSorted((a, b) => (a[key] < b[key] ? -1 : 1));
+}`,
+        why: 'With `K extends keyof Row`, TypeScript infers `Row` from the rows and accepts only their real keys: `sortBy(orders, \'total\')` fails with TS2345 once the field is `totalCents`, and the result stays typed `Order[]`. With `any[]` and `string`, the same call compiles, compares `undefined` with `undefined`, and the table silently stops sorting.',
       },
     ],
     lesson: {
@@ -515,6 +621,25 @@ emit('order.payed', { orderId, paymentId }); // fails: unknown event name`,
         why: '`value` does not exist on the failure member, so it can only be read after narrowing on `ok`.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both wrap a payment provider failure during a refund. Which one keeps the original error for the on-call engineer?',
+        codeLang: 'ts',
+        better: `try {
+  await provider.refund(paymentId, amount);
+} catch (error) {
+  throw new PaymentProviderError('Refund failed', {
+    cause: error,
+  });
+}`,
+        worse: `try {
+  await provider.refund(paymentId, amount);
+} catch (error) {
+  throw new PaymentProviderError('Refund failed');
+}`,
+        why: 'Passing `{ cause: error }` attaches the original error, with its message and stack, to the new one: `error.cause` holds the provider\'s timeout, and Node prints it under `[cause]` when the error is logged. Without it, the log says only "Refund failed", and the real reason, a timeout, a 401 or a bad request, is lost.',
+      },
+    ],
     lesson: {
       points: [
         'Expected failures are outcomes of the domain: an order not paid, a declined card, an item out of stock. Incidents are bugs and outages: the database or the provider is down.',
@@ -582,6 +707,23 @@ declare function refundOrder(id: OrderId): Promise<Result<Order, RefundError>>;`
         statement: 'tRPC shares types with the client without a schema file or a code generation step.',
         isTrue: true,
         why: 'The client imports the type of the server\'s router directly.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both give the back office the type of an order from the Orders API. Which one breaks the build when the API renames a field?',
+        codeLang: 'ts',
+        better: `// generated in CI by openapi-typescript
+import type { components } from './generated/orders-api';
+
+type Order = components['schemas']['Order'];`,
+        worse: `// copied from the Orders API docs
+type Order = {
+  id: string;
+  status: 'pending_payment' | 'paid' | 'shipped' | 'refunded';
+  total: number;
+};`,
+        why: 'The generated type comes from the server\'s OpenAPI document, regenerated in CI, so when `total` becomes `totalCents`, every `order.total` in the back office fails with TS2339. The hand-written copy still says `total`: it compiles, and the screen shows empty amounts in production.',
       },
     ],
     lesson: {
@@ -660,6 +802,27 @@ const { data, error } = await ordersApi.GET('/orders/{orderId}', {
         why: 'It is `HTMLInputElement | null`, because the element is attached only after render.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both type the status badge, used as `<Badge tone="success">Paid</Badge>`. Which one accepts that call?',
+        codeLang: 'tsx',
+        better: `import type { ReactNode } from 'react';
+
+type BadgeProps = { tone: Tone; children: ReactNode };
+
+export function Badge({ tone, children }: BadgeProps) {
+  return <span className={'badge-' + tone}>{children}</span>;
+}`,
+        worse: `import type { ReactElement } from 'react';
+
+type BadgeProps = { tone: Tone; children: ReactElement };
+
+export function Badge({ tone, children }: BadgeProps) {
+  return <span className={'badge-' + tone}>{children}</span>;
+}`,
+        why: '`ReactNode` is anything React can render: text, numbers, `null`, elements, arrays. `ReactElement` accepts only a JSX element, so the text "Paid" fails to compile with TS2747: the component does not accept text as a child. Keep `ReactElement` for a slot that must be one element, like an icon.',
+      },
+    ],
     lesson: {
       points: [
         'Write components as plain functions with one typed props parameter. To wrap a native element, start from `ComponentPropsWithoutRef<\'button\'>`: every native prop, typed for that element.',
@@ -730,6 +893,19 @@ export function Button({ tone = 'primary', icon, children, ...rest }: ButtonProp
         statement: 'Typing `onClick?: never` on the link member makes `<Action href="/orders" onClick={refund} />` a compile error.',
         isTrue: true,
         why: 'No function is assignable to `never`, so the link member rejects it and the button member rejects `href`.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both type an `Action` that renders a link or a button. Which one rejects `<Action href="/orders/ord_7f3k" onClick={refund} />`?',
+        codeLang: 'tsx',
+        better: `type LinkProps = { href: string; onClick?: never };
+type ButtonProps = { href?: never; onClick: () => void };
+type ActionProps = LinkProps | ButtonProps;`,
+        worse: `type LinkProps = { href: string };
+type ButtonProps = { onClick: () => void };
+type ActionProps = LinkProps | ButtonProps;`,
+        why: 'A plain union lets an object through when each of its keys exists in some member, so `href` and `onClick` together compile and the component silently renders a link. Typing the other member\'s key as `never` means no member accepts both: the call fails with TS2322.',
       },
     ],
     lesson: {
@@ -809,6 +985,27 @@ export function Action(props: LinkProps | ButtonProps) {
         why: 'An empty array literal gives no element type, so a later `setOrders([order])` fails to compile.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both type the storefront\'s cart context and its hook. Which one fails loudly when a page renders outside `<CartProvider>`?',
+        codeLang: 'tsx',
+        better: `const CartContext = createContext<Cart | null>(null);
+
+export function useCart(): Cart {
+  const cart = use(CartContext);
+  if (cart === null) {
+    throw new Error('useCart needs <CartProvider>');
+  }
+  return cart;
+}`,
+        worse: `const CartContext = createContext<Cart>({ lines: [] });
+
+export function useCart(): Cart {
+  return use(CartContext);
+}`,
+        why: 'With `null` as the "no provider" value, the hook throws on the first render outside the provider, and the check narrows the return type to `Cart`. With a default object, a page outside the provider silently gets that empty cart: the badge shows 0 items and nothing reports the bug.',
+      },
+    ],
     lesson: {
       points: [
         'Create the context with `null` as the "no provider" value: `createContext<CartContextValue | null>(null)`. Avoid a fake default object, which hides a missing provider.',
@@ -881,6 +1078,25 @@ export function useCart(): CartContextValue {
         why: 'Each member of the key union becomes a required property, so a missing status fails (TS2741).',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both type the body of `PATCH /orders/:id`, where only the address and the delivery note are editable. Which one rejects `status`?',
+        codeLang: 'ts',
+        better: `type OrderPatch = Partial<
+  Pick<OrderDetail, 'shippingAddress' | 'deliveryNote'>
+>;
+declare function patchOrder(
+  id: string,
+  patch: OrderPatch,
+): Promise<void>;`,
+        worse: `type OrderPatch = Partial<OrderDetail>;
+declare function patchOrder(
+  id: string,
+  patch: OrderPatch,
+): Promise<void>;`,
+        why: '`Partial<Pick<…>>` keeps only the two editable fields, each optional, so `patchOrder(id, { status: \'refunded\' })` fails with TS2353. `Partial<OrderDetail>` makes every field optional but keeps them all, so a form bug can send `status: \'refunded\'` and it compiles.',
+      },
+    ],
     lesson: {
       points: [
         'Utility types are generic types that build a new type from an existing one. Deriving every payload from one domain type means a renamed field breaks them all at compile time.',
@@ -951,6 +1167,23 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
         statement: 'Annotating an object with `: Record<OrderStatus, BadgeStyle>` keeps the literal type of each `tone`.',
         isTrue: false,
         why: 'The annotation gives every entry the type `BadgeStyle`, so `tone` widens to the whole union; `satisfies` keeps it.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'A `refunded` status was just added to `OrderStatus`. Both map statuses to badge tones. Which one fails the build until `refunded` is mapped?',
+        codeLang: 'ts',
+        better: `const badgeTone = {
+  pending_payment: 'warning',
+  paid: 'success',
+  shipped: 'neutral',
+} as const satisfies Record<OrderStatus, Tone>;`,
+        worse: `const badgeTone: Record<string, Tone> = {
+  pending_payment: 'warning',
+  paid: 'success',
+  shipped: 'neutral',
+};`,
+        why: '`satisfies Record<OrderStatus, Tone>` requires one entry per status, so the missing `refunded` key fails to compile (TS1360), while `as const` keeps each literal tone. Keyed by `string`, the map accepts any set of keys: it compiles, `badgeTone[\'refunded\']` is `undefined` at runtime, and the badge renders with no tone.',
       },
     ],
     lesson: {

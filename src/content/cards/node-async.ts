@@ -61,6 +61,30 @@ export const nodeAsyncCards: Card[] = [
         why: 'It never rejects: it waits for every input and reports each one as fulfilled or rejected.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both fetch the required delivery quote and the optional loyalty discount in parallel. Which one survives a loyalty outage?',
+        codeLang: 'ts',
+        better: `async function shipping(customerId: string, address: Address) {
+  const discount = loyalty
+    .getDiscountCents(customerId)
+    .catch(() => 0); // optional: no discount
+  const [quote, discountCents] = await Promise.all([
+    delivery.getQuote(address),
+    discount,
+  ]);
+  return quote - discountCents;
+}`,
+        worse: `async function shipping(customerId: string, address: Address) {
+  const [quote, discountCents] = await Promise.all([
+    delivery.getQuote(address),
+    loyalty.getDiscountCents(customerId),
+  ]);
+  return quote - discountCents;
+}`,
+        why: 'The discount is optional, so `better` gives its promise its own `.catch` returning 0 before it joins `Promise.all`: a loyalty outage only means no discount. In `worse`, `Promise.all` fails fast on the first rejection, so a down loyalty service makes every checkout fail although the quote arrived.',
+      },
+    ],
     lesson: {
       points: [
         'A fan-out starts several independent calls at once and waits for them together, so the total time is the slowest call, not the sum. An `await` per call in a loop runs them one after another.',
@@ -135,6 +159,26 @@ const [stock, quote, discountCents] = await Promise.all([
         statement: 'In a `node:http` server, the response\'s `close` event fires only when the client disconnects.',
         isTrue: false,
         why: 'It also fires after a normal response, so check `writableEnded` to tell a disconnect from a success.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both give the delivery quote call a 3-second deadline. Which one stops the request when the deadline passes?',
+        codeLang: 'ts',
+        better: `async function getQuote(url: string) {
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(3_000),
+  });
+  return response.json();
+}`,
+        worse: `async function getQuote(url: string) {
+  const timeout = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('timeout')), 3_000);
+  });
+  const response = await Promise.race([fetch(url), timeout]);
+  return response.json();
+}`,
+        why: 'The signal reaches `fetch` itself: when it fires, the request is aborted and `fetch` rejects with a `TimeoutError`. `Promise.race` only stops waiting. Measured on Node 24 with a server answering in 1.5 s and a 300 ms limit: the race rejected on time, but the request ran on and the server sent its whole response for nobody.',
       },
     ],
     lesson: {
@@ -214,6 +258,25 @@ await placeOrder(cart, signal); // forwards it to every call`,
         statement: '`p-retry` 8 randomizes its delays by default.',
         isTrue: false,
         why: 'Its `randomize` option is `false` by default, so there is no jitter unless you turn it on.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both retry the payment authorization up to three times. Which one cannot charge the card twice?',
+        codeLang: 'ts',
+        better: `async function authorizePayment(order: Order) {
+  const idempotencyKey = \`payment:\${order.id}\`;
+  return retry(() =>
+    payments.authorize(order, { idempotencyKey }),
+  );
+}`,
+        worse: `async function authorizePayment(order: Order) {
+  return retry(() => {
+    const idempotencyKey = randomUUID();
+    return payments.authorize(order, { idempotencyKey });
+  });
+}`,
+        why: 'An idempotency key protects only if every attempt sends the same one: the provider then sees the retries as one operation. `worse` draws a new key per attempt, so when the first call reached the provider but its response was lost, the retry looks new. In a simulation of that case, `better` made 1 charge and `worse` 2.',
       },
     ],
     lesson: {
@@ -296,6 +359,31 @@ await placeOrder(cart, signal); // forwards it to every call`,
         why: 'It makes `pMap` reject and start no new item, but running calls finish unless they received the signal too.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both are the `run` function of a limiter that keeps at most `limit` email sends in flight. Which one keeps working after failures?',
+        codeLang: 'ts',
+        better: `async function run<T>(task: () => Promise<T>): Promise<T> {
+  if (active >= limit) await new Promise((r) => queue.push(r));
+  else active += 1;
+  try {
+    return await task();
+  } finally {
+    const next = queue.shift();
+    if (next) next(); else active -= 1;
+  }
+}`,
+        worse: `async function run<T>(task: () => Promise<T>): Promise<T> {
+  if (active >= limit) await new Promise((r) => queue.push(r));
+  else active += 1;
+  const result = await task();
+  const next = queue.shift();
+  if (next) next(); else active -= 1;
+  return result;
+}`,
+        why: 'In `better`, `finally` hands the slot on whether the send succeeds or throws. In `worse`, a rejected task skips the release, so each failure leaks a slot. Run with a limit of 2 and two bad addresses first: `worse` sent 0 of the 4 good emails and the job hung; `better` sent all 4.',
+      },
+    ],
     lesson: {
       points: [
         'An unbounded `Promise.all` over a large list starts every call at once and hits real limits: sockets, the database pool (10 connections by default in node-postgres), a partner\'s rate limit.',
@@ -374,6 +462,26 @@ await pMap(orders, async (order) => {
         statement: 'An async generator fetches every page ahead, before the loop reads them.',
         isTrue: false,
         why: 'It runs only up to its next `yield` each time the consumer asks for a value.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both read shipped orders page by page through a pooled connection. Which one returns the connection when the loop stops early?',
+        codeLang: 'js',
+        better: `async function* shippedOrders(pool) {
+  const client = await pool.connect();
+  try {
+    for await (const rows of pagesById(client)) yield* rows;
+  } finally {
+    client.release();
+  }
+}`,
+        worse: `async function* shippedOrders(pool) {
+  const client = await pool.connect();
+  for await (const rows of pagesById(client)) yield* rows;
+  client.release();
+}`,
+        why: 'A `break` in the consumer\'s `for await` calls the generator\'s `return()`, which runs only its `finally` blocks: `better` releases the connection on end, break and error. `worse` releases it only when every page was read, so a job that stops at the first match keeps it: measured, 1 connection still checked out after the break.',
       },
     ],
     lesson: {
@@ -455,6 +563,29 @@ await pMap(orders, async (order) => {
         statement: 'A module-level `currentRequestId` variable is safe because Node runs JavaScript on one thread.',
         isTrue: false,
         why: 'Requests interleave at each `await`, so another request overwrites the variable in between.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both wrap a failed order lookup in a clearer error. Which one actually catches the database rejection?',
+        codeLang: 'ts',
+        better: `async function loadOrder(id: string) {
+  try {
+    return await orders.findById(id);
+  } catch (error) {
+    const message = \`Could not load order \${id}\`;
+    throw new Error(message, { cause: error });
+  }
+}`,
+        worse: `async function loadOrder(id: string) {
+  try {
+    return orders.findById(id);
+  } catch (error) {
+    const message = \`Could not load order \${id}\`;
+    throw new Error(message, { cause: error });
+  }
+}`,
+        why: 'With `return await`, the rejection happens inside `try`, so the `catch` wraps it: the log says which order failed and keeps the driver error as `cause`. Without `await`, the promise leaves `try` before it settles, and on Node 24 the caller got the raw `connect ECONNREFUSED` with no order id.',
       },
     ],
     lesson: {
@@ -540,6 +671,30 @@ app.use((req, res, next) => context.run({ requestId: randomUUID() }, next));`,
         why: 'The status and headers are already on the wire; the only signal left is a broken download.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both stream the orders export as gzipped CSV to the response. Which one cleans up when the client closes the tab?',
+        codeLang: 'js',
+        better: `app.get('/exports/orders.csv.gz', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const rows = client.query(new QueryStream(EXPORT_SQL));
+    res.attachment('orders.csv.gz');
+    await pipeline(rows, toCsvLines, createGzip(), res);
+  } finally {
+    client.release();
+  }
+});`,
+        worse: `app.get('/exports/orders.csv.gz', async (req, res) => {
+  const client = await pool.connect();
+  const rows = client.query(new QueryStream(EXPORT_SQL));
+  res.attachment('orders.csv.gz');
+  rows.pipe(csvTransform).pipe(createGzip()).pipe(res);
+  rows.on('end', () => client.release());
+});`,
+        why: 'If the client leaves, `pipeline` destroys every stream, which closes the cursor, then rejects, and `finally` returns the connection. `.pipe()` only unpipes: the source stays open and paused, `end` never fires, and each closed tab leaks a pooled connection. Checked on Node 24 with a file source: after the destination failed, `.pipe()` left it open.',
+      },
+    ],
     lesson: {
       points: [
         'Buffering a whole export makes memory grow with the data; past the container\'s limit, Kubernetes kills the pod (an OOM kill). A stream moves data in chunks, so memory depends on the chunk size.',
@@ -619,6 +774,21 @@ await pipeline(rows, toCsvLines, createGzip(), res);`,
         why: 'Each page is a separate query with its own snapshot, so concurrent inserts can shift rows between pages.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both format one CSV field of the finance export. Which one keeps `Le "Gourmet", Lyon` in a single column?',
+        codeLang: 'js',
+        better: `function csvField(text) {
+  if (!/[",\\r\\n]/.test(text)) return text;
+  return '"' + text.replaceAll('"', '""') + '"';
+}`,
+        worse: `function csvField(text) {
+  if (!/[",\\r\\n]/.test(text)) return text;
+  return '"' + text.replaceAll('"', '\\\\"') + '"';
+}`,
+        why: 'RFC 4180 has no backslash escape: a quote inside a quoted field is doubled. With `\\"`, a standard parser closes the field at the first inner quote: Python\'s `csv` module read the `worse` row as four columns instead of three, splitting the customer name and shifting every column after it.',
+      },
+    ],
     lesson: {
       points: [
         'A cursor runs a query once and lets the client fetch its rows a batch at a time. `pg-query-stream` wraps it in an object-mode Readable; postgres.js offers `.cursor(500)`.',
@@ -693,6 +863,29 @@ csvField(-3);              // '-3'`,
         why: 'UTF-8 encodes `é` in two bytes, while the string\'s `.length` is 1.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both decode a streamed supplier file as UTF-8. Which one keeps "Crème brûlée" intact when a chunk boundary splits the "è"?',
+        codeLang: 'js',
+        better: `async function readText(chunks) {
+  const decoder = new TextDecoder();
+  let text = '';
+  for await (const chunk of chunks) {
+    text += decoder.decode(chunk, { stream: true });
+  }
+  return text + decoder.decode(); // flush the last bytes
+}`,
+        worse: `async function readText(chunks) {
+  const decoder = new TextDecoder();
+  let text = '';
+  for await (const chunk of chunks) {
+    text += decoder.decode(chunk);
+  }
+  return text;
+}`,
+        why: 'With `{ stream: true }`, the decoder keeps the first byte of a split character and joins it to the next chunk; the final `decode()` flushes what is left. Without it, each chunk is decoded alone: with the file cut after the first byte of "è", `worse` returned "Cr��me brûlée", two replacement characters.',
+      },
+    ],
     lesson: {
       points: [
         "A `Buffer` holds bytes; a string holds text. UTF-8 encodes ASCII in one byte and other characters in two to four, so `'é'.length` is 1 but `Buffer.byteLength('é')` is 2.",
@@ -761,6 +954,26 @@ decoder.decode(a, { stream: true }) + decoder.decode(b); // 'café'`,
         statement: 'A `Response` body made of string chunks can be read as text without encoding.',
         isTrue: false,
         why: 'A body must carry `Uint8Array` chunks; reading string chunks fails with a `TypeError`.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both save a supplier\'s catalogue from a URL to disk. Which one never saves an error page as the catalogue?',
+        codeLang: 'ts',
+        better: `async function download(url: string, path: string) {
+  const response = await fetch(url);
+  if (!response.ok || response.body === null) {
+    throw new Error(\`download failed: \${response.status}\`);
+  }
+  const body = Readable.fromWeb(response.body);
+  await pipeline(body, createWriteStream(path));
+}`,
+        worse: `async function download(url: string, path: string) {
+  const response = await fetch(url);
+  const body = Readable.fromWeb(response.body!);
+  await pipeline(body, createWriteStream(path));
+}`,
+        why: '`fetch` does not reject on a 4xx or 5xx, and an error page is a stream too. `better` checks `response.ok` first and fails the job loudly. `worse` streams whatever came back: against a server answering 503, it saved `<html>Service Unavailable</html>` as the catalogue and the job reported success.',
       },
     ],
     lesson: {

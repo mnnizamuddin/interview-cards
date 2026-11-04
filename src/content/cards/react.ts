@@ -77,6 +77,27 @@ export const reactCards: Card[] = [
         why: 'A different element type at the same position makes React unmount the old subtree and mount a new one.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both show an order note panel that switches to edit mode. Which one keeps what the agent typed when the mode changes?',
+        codeLang: 'tsx',
+        better: `function NotePanel({ editing }: { editing: boolean }) {
+  return (
+    <div className={editing ? 'panel editing' : 'panel'}>
+      <NoteInput />
+    </div>
+  );
+}`,
+        worse: `function NotePanel({ editing }: { editing: boolean }) {
+  return editing ? (
+    <section className="panel editing"><NoteInput /></section>
+  ) : (
+    <div className="panel"><NoteInput /></div>
+  );
+}`,
+        why: 'The same element type stays at the same position, so React keeps the `div` and `NoteInput` and only updates `className`. Switching between `section` and `div` changes the type at that position: React unmounts the whole subtree and mounts a new `NoteInput`, so the note the agent typed is lost on every toggle.',
+      },
+    ],
     lesson: {
       points: [
         'A React element is a plain JavaScript object, with a `type` and `props`, describing a piece of UI. Components return trees of them, and that tree is what people call the virtual DOM.',
@@ -169,6 +190,20 @@ console.log(element.type, element.props);
         why: 'Each render has its own snapshot of state, and the handler closes over it.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both show the status badge of the order the parent passes in. Which one shows `refunded` after the parent receives the refunded order?',
+        codeLang: 'tsx',
+        better: `function StatusBadge({ order }: { order: Order }) {
+  return <span className="badge">{order.status}</span>;
+}`,
+        worse: `function StatusBadge({ order }: { order: Order }) {
+  const [status] = useState(order.status);
+  return <span className="badge">{status}</span>;
+}`,
+        why: 'Reading `order.status` from props shows whatever the parent passes on each render. `useState(order.status)` reads the prop only on the first render: when the parent receives the refunded order, the badge keeps showing `paid`. Copy a prop into state only when it is a starting value.',
+      },
+    ],
     lesson: {
       points: [
         'Props are the inputs a parent passes to a child, like function arguments. The child reads them and never changes them.',
@@ -250,6 +285,24 @@ console.log(element.type, element.props);
         statement: 'Filtering a list from props belongs in a `useEffect` that stores the result in state.',
         isTrue: false,
         why: 'Compute it during render; an effect adds a render with stale data and more code.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both show the paid orders from the `orders` prop. Which one renders the right rows without an extra render?',
+        codeLang: 'tsx',
+        better: `function PaidOrders({ orders }: { orders: Order[] }) {
+  const paid = orders.filter((o) => o.status === 'paid');
+  return <OrdersTable orders={paid} />;
+}`,
+        worse: `function PaidOrders({ orders }: { orders: Order[] }) {
+  const [paid, setPaid] = useState<Order[]>([]);
+  useEffect(() => {
+    setPaid(orders.filter((o) => o.status === 'paid'));
+  }, [orders]);
+  return <OrdersTable orders={paid} />;
+}`,
+        why: 'Computing the list during render gives the right rows in one render. The effect version first renders `OrdersTable` with the previous list (empty on mount), commits it, then sets state and renders again: two renders per change of `orders`, the first with stale rows. Effects are for syncing with outside systems, not for derived data.',
       },
     ],
     lesson: {
@@ -335,6 +388,31 @@ console.log(element.type, element.props);
         statement: 'An input with `value="7"` and no `onChange` ignores what the user types.',
         isTrue: true,
         why: 'React keeps forcing the DOM back to the `value` prop, and React warns that the field is read-only.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both edit the refund reason, which the API omits until one is set. Which one stays controlled from the first render?',
+        codeLang: 'tsx',
+        better: `function RefundReason({ order }: { order: Order }) {
+  const [text, setText] = useState(order.refundReason ?? '');
+  return (
+    <input
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+    />
+  );
+}`,
+        worse: `function RefundReason({ order }: { order: Order }) {
+  const [text, setText] = useState(order.refundReason);
+  return (
+    <input
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+    />
+  );
+}`,
+        why: 'Defaulting to `\'\'` gives the input a string `value` from the start, so React state owns it all along. With `undefined`, React treats the field as uncontrolled; the first keystroke sets a string and React warns "A component is changing an uncontrolled input to be controlled", a switch of owner in the middle of editing.',
       },
     ],
     lesson: {
@@ -478,7 +556,7 @@ console.log(element.type, element.props);
     explanation:
       'Interviewers want the mechanism, not "it removes the warning". A good answer explains that state is tied to a position and key, and gives the real bug index keys cause.',
     example:
-      'In the back office, each order row had a "note" input and used the array index as key. When a live update prepended a new order, every typed note appeared on the row below. Switching to `key={order.id}` kept each note with its order.',
+      'In the back office, each order row had a "note" input and used the array index as key. When a live update prepended a new order, each typed note stayed in its position while the orders moved down, so it showed on the new order instead of its own. Switching to `key={order.id}` kept each note with its order.',
     mistakes: [
       'Using the index as key for a list that can be sorted, filtered or prepended',
       'Generating keys with `Math.random()` or `crypto.randomUUID()` during render, which remounts every item',
@@ -521,6 +599,23 @@ console.log(element.type, element.props);
         statement: 'A key generated with `Math.random()` in render is fine as long as it is unique.',
         isTrue: false,
         why: 'It changes on every render, so React remounts every item and loses its state and DOM.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both render order rows where agents type a note, and live updates prepend new orders. Which one keeps each note on its own order?',
+        codeLang: 'tsx',
+        better: `<ul>
+  {orders.map((order) => (
+    <OrderRow key={order.id} order={order} />
+  ))}
+</ul>`,
+        worse: `<ul>
+  {orders.map((order, index) => (
+    <OrderRow key={index} order={order} />
+  ))}
+</ul>`,
+        why: 'With `key={order.id}`, React matches each row to its order, so the typed note and its input move with the order. With the index, a prepended order takes key 0: React reuses the first row, its state and its input for the new order, so the note typed for order A now shows on the new order and A\'s row is empty.',
       },
     ],
     lesson: {
@@ -612,6 +707,33 @@ console.log(element.type, element.props);
         why: 'It compares each prop with `Object.is`, so a new object is a change.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both render 200 memoized `OrderRow`s and open the clicked order. Which one avoids re-rendering every row on each click?',
+        codeLang: 'tsx',
+        better: `function OrdersTable({ orders }: { orders: Order[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const open = useCallback((id: string) => setOpenId(id), []);
+  return (<>
+    {orders.map((order) => (
+      <OrderRow key={order.id} order={order} onOpen={open} />
+    ))}
+    <OrderDetail orderId={openId} />
+  </>);
+}`,
+        worse: `function OrdersTable({ orders }: { orders: Order[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  return (<>
+    {orders.map((order) => (
+      <OrderRow key={order.id} order={order}
+        onOpen={(id: string) => setOpenId(id)} />
+    ))}
+    <OrderDetail orderId={openId} />
+  </>);
+}`,
+        why: '`useCallback` returns the same function on every render, so `memo` sees equal props and skips all 200 rows when `openId` changes. The inline arrow is a new function each render: `memo` compares it with `Object.is`, sees a change, and all 200 rows render again on every click, for nothing.',
+      },
+    ],
     lesson: {
       points: [
         'Memoization reuses a previous result when the inputs have not changed. React compares inputs with `Object.is`, by reference, so a new object or arrow function counts as a change even with the same content.',
@@ -689,6 +811,32 @@ function OrdersTable({ orders }: { orders: Order[] }) {
         statement: 'A virtualised list keeps the scrollbar correct by sizing a container to the full list height.',
         isTrue: true,
         why: 'The spacer has the total height, and visible rows are positioned inside it.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both render the 5,000 orders in a 600 px scroll box with 40 px rows. Which one stays fast to mount and update?',
+        codeLang: 'tsx',
+        better: `function OrderList({ orders, scrollTop }: ListProps) {
+  const { start, end } = visibleRange(scrollTop, orders.length);
+  return (
+    <div style={{ height: orders.length * 40 }}>
+      {orders.slice(start, end).map((order, i) => (
+        <Row key={order.id} order={order} index={start + i} />
+      ))}
+    </div>
+  );
+}`,
+        worse: `function OrderList({ orders }: ListProps) {
+  return (
+    <div style={{ height: orders.length * 40 }}>
+      {orders.map((order, i) => (
+        <Row key={order.id} order={order} index={i} />
+      ))}
+    </div>
+  );
+}`,
+        why: 'Windowing renders only the rows in view plus the overscan, about 25 of the 5,000, inside a spacer as tall as the full list, so the scrollbar stays right. The other version mounts all 5,000 rows: thousands of DOM nodes to create and lay out, and every update of the list renders them all again.',
       },
     ],
     lesson: {
@@ -769,6 +917,29 @@ visibleRange(8000, 5000); // { start: 195, end: 220 }: 25 rows instead of 5,000`
         statement: 'In React, a child asks for a change by calling a function its parent passed as a prop.',
         isTrue: true,
         why: 'That is the "callbacks up" half of one-way data flow.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both let a child field edit the delivery note of an order that the parent owns and previews. Which one updates the field and the preview?',
+        codeLang: 'tsx',
+        better: `function NoteField({ order, onNoteChange }: NoteProps) {
+  return (
+    <input
+      value={order.note}
+      onChange={(e) => onNoteChange(e.target.value)}
+    />
+  );
+}`,
+        worse: `function NoteField({ order }: NoteProps) {
+  return (
+    <input
+      value={order.note}
+      onChange={(e) => (order.note = e.target.value)}
+    />
+  );
+}`,
+        why: 'One-way flow: the child asks the owner through `onNoteChange`, the parent updates its state, and the field and the preview render the new note. Writing to `order.note` changes an object React does not watch: nothing re-renders, the controlled input snaps back to the old value on each keystroke, and the preview never changes.',
       },
     ],
     lesson: {
@@ -859,6 +1030,27 @@ return <input value={postcode} onChange={(e) => setPostcode(e.target.value.toUpp
         why: 'It intercepts requests at the network level, so your hooks and fetch code run unchanged.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both check that the refund dialog shows "Refund sent" once the mocked API answers. Which test passes?',
+        codeLang: 'tsx',
+        better: `test('confirms the refund', async () => {
+  const user = userEvent.setup();
+  render(<RefundDialog orderId="42" />);
+  const button = screen.getByRole('button', { name: 'Refund' });
+  await user.click(button);
+  expect(await screen.findByText('Refund sent')).toBeVisible();
+});`,
+        worse: `test('confirms the refund', async () => {
+  const user = userEvent.setup();
+  render(<RefundDialog orderId="42" />);
+  const button = screen.getByRole('button', { name: 'Refund' });
+  await user.click(button);
+  expect(screen.getByText('Refund sent')).toBeVisible();
+});`,
+        why: '`findByText` returns a promise that retries until the text appears, so the test waits for the response. `getByText` looks once, right after the click, before the response has arrived: it throws "Unable to find an element with the text: Refund sent" and the test fails although the dialog works.',
+      },
+    ],
     lesson: {
       points: [
         'Test behaviour the way a user sees it: render, find elements, interact, check what is on screen. Tests that read state or hooks break at every refactor.',
@@ -946,6 +1138,25 @@ return <input value={postcode} onChange={(e) => setPostcode(e.target.value.toUpp
         statement: 'Putting `useEffect` inside `if (orderId)` is a correct way to skip the effect when no order is selected.',
         isTrue: false,
         why: 'It breaks the call order; call the hook every time and put the condition inside it.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both show an order\'s detail with a refund note, loading the order first. Which one keeps rendering once the order arrives?',
+        codeLang: 'tsx',
+        better: `function OrderDetail({ orderId }: { orderId: string }) {
+  const { data: order } = useOrder(orderId);
+  const [note, setNote] = useState('');
+  if (!order) return <Spinner />;
+  return <Note order={order} note={note} onNote={setNote} />;
+}`,
+        worse: `function OrderDetail({ orderId }: { orderId: string }) {
+  const { data: order } = useOrder(orderId);
+  if (!order) return <Spinner />;
+  const [note, setNote] = useState('');
+  return <Note order={order} note={note} onNote={setNote} />;
+}`,
+        why: 'Every hook runs before the early return, so each render calls the same hooks in the same order. In the other version, the loading render skips `useState` and the next one calls it: React matches hooks by call order and throws "Rendered more hooks than during the previous render". The `rules-of-hooks` lint rule flags it.',
       },
     ],
     lesson: {
@@ -1039,6 +1250,33 @@ return <input value={postcode} onChange={(e) => setPostcode(e.target.value.toUpp
         why: 'The cleanup with the old values runs first, then the setup with the new ones.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both show how many seconds an agent has spent on the open order. Which counter keeps counting?',
+        codeLang: 'tsx',
+        better: `function TimeOnOrder() {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => {
+      setSeconds((s) => s + 1);
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+  return <p>{seconds} s</p>;
+}`,
+        worse: `function TimeOnOrder() {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => {
+      setSeconds(seconds + 1);
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+  return <p>{seconds} s</p>;
+}`,
+        why: 'The updater `(s) => s + 1` receives the latest value on every tick. The interval is created once, after the first render, so its callback is a stale closure over that render\'s `seconds`, 0: every tick sets 1, and the counter is stuck at "1 s".',
+      },
+    ],
     lesson: {
       points: [
         'A component mounts, updates and unmounts. With hooks you express this as effects: code that starts syncing with something outside React and returns a cleanup that stops it.',
@@ -1112,6 +1350,29 @@ return <input value={postcode} onChange={(e) => setPostcode(e.target.value.toUpp
         statement: 'An error boundary cannot be written as a function component with hooks alone.',
         isTrue: true,
         why: 'There is no hook for `getDerivedStateFromError` or `componentDidCatch`, so a class or a package is needed.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both class components refund the order when the button is clicked. Which one works when an agent clicks?',
+        codeLang: 'tsx',
+        better: `class RefundButton extends Component<{ orderId: string }> {
+  handleClick = () => {
+    refundOrder(this.props.orderId);
+  };
+  render() {
+    return <button onClick={this.handleClick}>Refund</button>;
+  }
+}`,
+        worse: `class RefundButton extends Component<{ orderId: string }> {
+  handleClick() {
+    refundOrder(this.props.orderId);
+  }
+  render() {
+    return <button onClick={this.handleClick}>Refund</button>;
+  }
+}`,
+        why: 'An arrow function in a class field keeps `this` bound to the instance. A plain method passed as `onClick={this.handleClick}` is called without its instance, so `this` is `undefined` and the click throws "Cannot read properties of undefined (reading \'props\')": no refund. Function components have no `this` to lose.',
       },
     ],
     lesson: {
@@ -1189,6 +1450,27 @@ function OrderStatus({ orderId }: { orderId: string }) {
         why: 'It returns a React element; React creates or updates DOM nodes later, in the commit.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both show the order lines, or nothing when the order has none. Which one renders an empty section for an empty order?',
+        codeLang: 'tsx',
+        better: `function OrderLines({ lines }: { lines: OrderLine[] }) {
+  return (
+    <section>
+      {lines.length > 0 && <LinesTable lines={lines} />}
+    </section>
+  );
+}`,
+        worse: `function OrderLines({ lines }: { lines: OrderLine[] }) {
+  return (
+    <section>
+      {lines.length && <LinesTable lines={lines} />}
+    </section>
+  );
+}`,
+        why: '`a && b` gives `a` when `a` is falsy. `lines.length > 0` is then `false`, which React renders as nothing. `lines.length` is then `0`, and React renders numbers, so an empty order shows a lone "0" in the section.',
+      },
+    ],
     lesson: {
       points: [
         'JSX is a syntax extension for writing markup inside JavaScript. Browsers cannot run it: a compiler such as TypeScript, Babel or Vite\'s turns each tag into a function call.',
@@ -1259,6 +1541,29 @@ const row = _jsxs("li", { className: "order", children: ["Order ", order.number]
         statement: 'The `<>...</>` shorthand cannot take a `key`.',
         isTrue: true,
         why: 'It accepts no attributes; a keyed Fragment needs the full `<Fragment key>` syntax.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both render each order line as two table rows, the line and its details. Which one produces valid table markup?',
+        codeLang: 'tsx',
+        better: `<tbody>
+  {lines.map((line) => (
+    <Fragment key={line.id}>
+      <LineRow line={line} />
+      <DetailsRow line={line} />
+    </Fragment>
+  ))}
+</tbody>`,
+        worse: `<tbody>
+  {lines.map((line) => (
+    <div key={line.id}>
+      <LineRow line={line} />
+      <DetailsRow line={line} />
+    </div>
+  ))}
+</tbody>`,
+        why: 'A keyed Fragment groups the two rows without adding a node, so `tbody` contains only `tr` elements. The `div` is a real node: React warns "In HTML, <div> cannot be a child of <tbody>" and that `tr` cannot be inside a `div`, which also breaks hydration of server-rendered HTML, and the table columns no longer line up.',
       },
     ],
     lesson: {
@@ -1340,6 +1645,33 @@ const row = _jsxs("li", { className: "order", children: ["Order ", order.number]
         statement: 'A ref passed to an `<input>` already holds the DOM node during the component\'s first render.',
         isTrue: false,
         why: 'React sets `current` during the commit, after the render has returned.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both count how many times an agent retried the payment webhook and show it on the button. Which one updates the label?',
+        codeLang: 'tsx',
+        better: `function RetryButton({ onRetry }: { onRetry: () => void }) {
+  const [retries, setRetries] = useState(0);
+  function retry() {
+    onRetry();
+    setRetries((n) => n + 1);
+  }
+  return (
+    <button onClick={retry}>Retry ({retries})</button>
+  );
+}`,
+        worse: `function RetryButton({ onRetry }: { onRetry: () => void }) {
+  const retries = useRef(0);
+  function retry() {
+    onRetry();
+    retries.current += 1;
+  }
+  return (
+    <button onClick={retry}>Retry ({retries.current})</button>
+  );
+}`,
+        why: 'The count is shown on screen, so it belongs in state: `setRetries` schedules a render and the label shows the new count. Writing `retries.current` changes an object React does not track, so nothing re-renders and after three clicks the button still says "Retry (0)". Refs are for values the screen does not show.',
       },
     ],
     lesson: {

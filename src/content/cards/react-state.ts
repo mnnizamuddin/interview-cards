@@ -69,6 +69,33 @@ export const reactStateCards: Card[] = [
         why: '`memo` only compares props; a component that reads a context re-renders whenever the provider value changes.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both give the refund button the signed-in agent, and `Layout` never uses it. Which one keeps `Layout` free of data it ignores?',
+        codeLang: 'tsx',
+        better: `function App({ agent }: { agent: Agent }) {
+  return (
+    <Layout>
+      <RefundButton agent={agent} />
+    </Layout>
+  );
+}
+function Layout({ children }: { children: ReactNode }) {
+  return <main className="layout">{children}</main>;
+}`,
+        worse: `function App({ agent }: { agent: Agent }) {
+  return <Layout agent={agent} />;
+}
+function Layout({ agent }: { agent: Agent }) {
+  return (
+    <main className="layout">
+      <RefundButton agent={agent} />
+    </main>
+  );
+}`,
+        why: 'With composition, `App` renders `RefundButton` itself and passes it as `children`; `Layout` only places what it receives and takes no `agent` prop. Both render the same HTML, but drilling makes `Layout` accept and forward `agent`, data it never reads, and every new prop the button needs changes `Layout` too.',
+      },
+    ],
     lesson: {
       points: [
         'Prop drilling means passing a prop through components that do not use it, only so a deeper child can read it. A few levels are normal; many levels couple every middle layer to the data.',
@@ -172,6 +199,25 @@ export const reactStateCards: Card[] = [
         why: '`useSelector` re-runs after every action and compares with `===`, so a new object is always "different".',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both read the selection count and bulk mode for the selection bar. Which one avoids re-rendering the bar after every action?',
+        codeLang: 'tsx',
+        better: `function SelectionBar() {
+  const count = useAppSelector((s) => s.selection.ids.length);
+  const bulk = useAppSelector((s) => s.selection.bulkMode);
+  return <Bar count={count} bulk={bulk} />;
+}`,
+        worse: `function SelectionBar() {
+  const { count, bulk } = useAppSelector((s) => ({
+    count: s.selection.ids.length,
+    bulk: s.selection.bulkMode,
+  }));
+  return <Bar count={count} bulk={bulk} />;
+}`,
+        why: '`useSelector` re-runs after every dispatched action and re-renders when its result changes by `===`. A number and a boolean change only when the selection does. The object literal is new on each run, so the bar re-renders after every action in the store, search keystrokes included, and react-redux warns in development that the selector "returned a different result".',
+      },
+    ],
     lesson: {
       points: [
         'Redux keeps shared client state in one store outside React. A component dispatches an action, a plain object like `{ type: "cart/added" }`, and the store passes it to reducers.',
@@ -263,6 +309,25 @@ dispatch(cartSlice.actions.added({ productId: 'mug', quantity: 1 }));`,
         why: 'They share one cache entry, and a request already in flight for that key is shared.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both load the orders list for the current filters with TanStack Query. Which one shows the right orders when the filters change?',
+        codeLang: 'ts',
+        better: `function useOrders(filters: OrderFilters) {
+  return useQuery({
+    queryKey: ['orders', 'list', filters],
+    queryFn: ({ signal }) => getOrders(filters, signal),
+  });
+}`,
+        worse: `function useOrders(filters: OrderFilters) {
+  return useQuery({
+    queryKey: ['orders', 'list'],
+    queryFn: ({ signal }) => getOrders(filters, signal),
+  });
+}`,
+        why: 'Every input of the request belongs in the query key: new filters make a new key, so TanStack Query fetches it and caches each filter separately. Without `filters`, every filter shares one cache entry: switching from `paid` to `shipped` sends no request, and the table keeps showing the paid orders until something else triggers a refetch.',
+      },
+    ],
     lesson: {
       points: [
         'Client state is owned by the browser: an open dialog, a cart before checkout. Server state is owned by the server: the client only keeps a copy, which can go stale when someone else changes it.',
@@ -352,6 +417,23 @@ const refund = useMutation({
         why: 'The literal is a new object on every render, so `Object.is` sees a new value; `useMemo` fixes it.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both provide the cart to memoized readers such as the header badge. Which one stops them re-rendering when only the provider\'s parent re-renders?',
+        codeLang: 'tsx',
+        better: `function CartProvider({ children }: { children: ReactNode }) {
+  const [lines, setLines] = useState<CartLine[]>([]);
+  const value = useMemo(() => ({ lines, setLines }), [lines]);
+  return <CartContext value={value}>{children}</CartContext>;
+}`,
+        worse: `function CartProvider({ children }: { children: ReactNode }) {
+  const [lines, setLines] = useState<CartLine[]>([]);
+  const value = { lines, setLines };
+  return <CartContext value={value}>{children}</CartContext>;
+}`,
+        why: '`useMemo` keeps the same value object until `lines` changes, so React sees an unchanged context and memoized readers skip. The object literal is new on every render of the provider: `Object.is` sees a new value, and every component reading `CartContext` re-renders, `memo` or not, although the cart did not change.',
+      },
+    ],
     lesson: {
       points: [
         'Context passes a value to any descendant without props. `createContext` makes it, a provider sets the value, and components read it with `useContext`, or `use` in React 19.',
@@ -433,6 +515,31 @@ const CartActionsContext = createContext<CartActions | null>(null);
         why: 'Updating state re-renders the component that owns it, and React renders the components it creates again unless they are memoized.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both connect the bulk action bar and the orders table. Which one keeps the count and the ticked rows in agreement when the agent clicks Clear?',
+        codeLang: 'tsx',
+        better: `function OrdersPage() {
+  const [ids, setIds] = useState<string[]>([]);
+  return (
+    <>
+      <BulkBar count={ids.length} onClear={() => setIds([])} />
+      <OrdersTable selectedIds={ids} onChange={setIds} />
+    </>
+  );
+}`,
+        worse: `function OrdersPage() {
+  const [count, setCount] = useState(0);
+  return (
+    <>
+      <BulkBar count={count} onClear={() => setCount(0)} />
+      <OrdersTable onChange={(ids) => setCount(ids.length)} />
+    </>
+  );
+}`,
+        why: 'Lifting the selected ids into `OrdersPage` gives them one owner: the bar and the table read the same array, and Clear empties both. In the other version the table owns the selection and the page keeps only a copy of its count, so Clear shows "0 selected" while the rows stay ticked: two sources of truth that disagree.',
+      },
+    ],
     lesson: {
       points: [
         'Each component\'s state is private. Two siblings that must show the same data cannot read each other, so the state moves up to their closest common parent: that is lifting state up.',
@@ -502,6 +609,33 @@ const CartActionsContext = createContext<CartActions | null>(null);
         statement: 'When one Jotai atom changes, every component that uses any atom re-renders.',
         isTrue: false,
         why: 'Only components that read that atom, or an atom derived from it, re-render.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both keep the order note in a Jotai atom. Which one keeps one stable piece of state across renders?',
+        codeLang: 'tsx',
+        better: `const noteAtom = atom('');
+function NoteEditor() {
+  const [note, setNote] = useAtom(noteAtom);
+  return (
+    <textarea
+      value={note}
+      onChange={(e) => setNote(e.target.value)}
+    />
+  );
+}`,
+        worse: `function NoteEditor() {
+  const noteAtom = atom('');
+  const [note, setNote] = useAtom(noteAtom);
+  return (
+    <textarea
+      value={note}
+      onChange={(e) => setNote(e.target.value)}
+    />
+  );
+}`,
+        why: 'An atom declared at module level is the same object on every render, so the store keeps its value. Calling `atom()` in the component body makes a new atom on each render, a different piece of state that starts again from `\'\'`. Jotai\'s docs require `useMemo` or `useRef` for an atom made in render, and warn it can cause an infinite loop with `useAtom`.',
       },
     ],
     lesson: {
@@ -579,6 +713,30 @@ function CartBadge() {
         statement: 'A reducer is a good place to call the API, since it runs on every action.',
         isTrue: false,
         why: 'A reducer must be pure; React may call it twice in development. Side effects go in event handlers or effects.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both reducers add a product to the cart held in `useReducer`. Which one makes the cart show the new line?',
+        codeLang: 'ts',
+        better: `function cartReducer(lines: CartLine[], action: CartAction) {
+  switch (action.type) {
+    case 'added':
+      return [...lines, action.line];
+    default:
+      throw new Error('Unknown action');
+  }
+}`,
+        worse: `function cartReducer(lines: CartLine[], action: CartAction) {
+  switch (action.type) {
+    case 'added':
+      lines.push(action.line);
+      return lines;
+    default:
+      throw new Error('Unknown action');
+  }
+}`,
+        why: 'A reducer must return a new state. `[...lines, action.line]` is a new array, so React sees a change and renders the cart with the new line. `push` mutates the current array and returns the same reference: React compares with `Object.is`, finds no change, skips the render, and the cart still shows the old lines.',
       },
     ],
     lesson: {
@@ -659,6 +817,26 @@ function CartBadge() {
         why: 'A refetch started before the edit could otherwise land after it and show the old value.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both make the order priority toggle optimistic with TanStack Query. Which one leaves the screen right when the `PATCH` fails?',
+        codeLang: 'ts',
+        better: `onMutate: async (priority) => {
+  await queryClient.cancelQueries({ queryKey: key });
+  const previous = queryClient.getQueryData(key);
+  queryClient.setQueryData(key, (o) => o && { ...o, priority });
+  return { previous };
+},
+onError: (_error, _priority, context) =>
+  queryClient.setQueryData(key, context?.previous),`,
+        worse: `onMutate: async (priority) => {
+  await queryClient.cancelQueries({ queryKey: key });
+  queryClient.setQueryData(key, (o) => o && { ...o, priority });
+},
+onError: (error) => toast.error(error.message),`,
+        why: 'Returning a snapshot from `onMutate` lets `onError` put the old order back when the server refuses the change. Without it, the failed request only shows a toast: the cache keeps the optimistic priority, so the screen shows a change the server rejected until the next refetch.',
+      },
+    ],
     lesson: {
       points: [
         'An optimistic update shows the expected result before the server confirms it, so a toggle or a note feels instant instead of waiting for the round trip.',
@@ -735,6 +913,30 @@ onSettled: () => queryClient.invalidateQueries({ queryKey: detailKey }),`,
         why: 'It returns a promise, and React expects the effect to return a cleanup function or nothing; define the async function inside instead.',
       },
     ],
+    codeChoices: [
+      {
+        prompt: 'Both load the order the agent selects. Which one shows order B when the agent clicks A, then quickly B, and A answers last?',
+        codeLang: 'tsx',
+        better: `useEffect(() => {
+  const controller = new AbortController();
+  getOrder(orderId, controller.signal)
+    .then(setOrder)
+    .catch((error) => {
+      if (!controller.signal.aborted) setError(error);
+    });
+  return () => controller.abort();
+}, [orderId]);`,
+        worse: `useEffect(() => {
+  const controller = new AbortController();
+  getOrder(orderId, controller.signal)
+    .then(setOrder)
+    .catch((error) => {
+      if (!controller.signal.aborted) setError(error);
+    });
+}, [orderId]);`,
+        why: 'The cleanup aborts the request for the previous `orderId` when the agent picks another order, so only the latest response reaches `setOrder`. Without it, nothing ever aborts: both requests call `setOrder`, the last one to answer wins, and the panel shows order A under B\'s selection.',
+      },
+    ],
     lesson: {
       points: [
         'A fetch in `useEffect` starts after render, stores data, loading and error in state, and lists its inputs, like `orderId`, as dependencies so it runs again when they change.',
@@ -809,6 +1011,28 @@ onSettled: () => queryClient.invalidateQueries({ queryKey: detailKey }),`,
         statement: 'The rules of hooks apply inside a custom hook as well as inside components.',
         isTrue: true,
         why: 'React matches hook calls to their state by call order, so they must run at the top level in the same order.',
+      },
+    ],
+    codeChoices: [
+      {
+        prompt: 'Both debounce the search text by 300 ms before it triggers a search. Which one searches once when the agent types a word?',
+        codeLang: 'ts',
+        better: `function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(id);
+  }, [value, delayMs]);
+  return debounced;
+}`,
+        worse: `function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    setTimeout(() => setDebounced(value), delayMs);
+  }, [value, delayMs]);
+  return debounced;
+}`,
+        why: 'The cleanup clears the pending timer each time `value` changes, so the value settles once typing pauses: one search for a whole word. Without it, every keystroke\'s timer still fires 300 ms later and the debounced value changes almost once per keystroke: a word typed at 100 ms intervals sends about one search per letter, only delayed.',
       },
     ],
     lesson: {
