@@ -1,0 +1,142 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "backHome": "Back home",
+    "lesson": "Lesson",
+    "reviewLesson": "Review the lesson",
+    "backToSummary": "Back to the summary",
+    "backToQuestion": "Back to the question",
+    "correct": "Correct!",
+    "true": "True",
+    "false": "False",
+    "trueOrFalse": "True or false?",
+    "itIsTrue": "It's true",
+    "itIsFalse": "It's false",
+    "continue": "Continue",
+    "quickCheck": "Quick check",
+    "percent": "{{value}}%"
+  },
+  "app": {
+    "loadingQuestions": "Loading the questions…",
+    "downloadFailed": "The questions could not be downloaded. Check your connection: once a unit has been played online, it works offline.",
+    "allTopics": "All topics",
+    "weakSpots": "Weak spots",
+    "closeLesson": "Close the lesson"
+  },
+  "settings": {
+    "language": "Language",
+    "toDarkTheme": "Switch to the dark theme",
+    "toLightTheme": "Switch to the light theme"
+  },
+  "home": {
+    "topicsYouHandle": "Topics you handle",
+    "handledOf": "{{handled}} of {{total}} topics",
+    "answers_one": "{{count}} answer",
+    "answers_other": "{{count}} answers",
+    "rightShare": ", {{percent}}% right",
+    "startPlaying": "Start playing",
+    "keepPlaying": "Keep playing",
+    "mockInterview": "Mock interview",
+    "noWeakSpots": "No weak spots yet",
+    "reviewWeakSpots": "Review weak spots ({{count}})",
+    "handledRule": "A topic counts once your last 3 answers on it are right, at least one of them a true/false, quick check or code choice, and for {{days}} days after your last answer.",
+    "units": "Units",
+    "playUnit": "Play this unit",
+    "playUnitLabel": "Play {{unit}}",
+    "mockInterviewOn": "Mock interview on {{unit}}",
+    "status": {
+      "new": "New",
+      "learning": "Learning",
+      "handled": "Handled",
+      "stale": "Needs a check"
+    }
+  },
+  "backup": {
+    "deviceOnly": "Your progress is stored on this device only.",
+    "version": "Version {{version}} · {{commit}}",
+    "versionLabel": "Version {{version}}, build {{commit}}",
+    "backUp": "Back up",
+    "restore": "Restore",
+    "reset": "Reset",
+    "notABackup": "This file is not an Interview Cards backup.",
+    "confirmReplace": "Replace your progress on this device with this backup?",
+    "notJson": "This file could not be read as JSON.",
+    "confirmReset": "Delete all your progress on this device? Back it up first if you may want it again."
+  },
+  "play": {
+    "stop": "Stop playing",
+    "seriesProgress": "Series progress",
+    "nowHandle": "✓ You now handle {{topic}}",
+    "replayNotice": "Missed earlier: one more try. This one does not change your progress.",
+    "noWeakSpotsTitle": "No weak spots right now",
+    "noWeakSpotsText": "Every topic you started is handled or was answered right last time.",
+    "questionOf": "Question {{current}} of {{total}}",
+    "toRetry_one": "{{count}} missed question to retry",
+    "toRetry_other": "{{count}} missed questions to retry",
+    "cheerTop": "Outstanding: interview ready on these.",
+    "cheerGood": "Nice work. The missed ones come back soon.",
+    "cheerPractice": "Good practice. Keep going: every miss is now a weak spot to review.",
+    "seriesComplete": "Series complete",
+    "rightFirstTime": "{{correct}} of {{total}} right first time",
+    "accuracy": "Accuracy",
+    "topicsHandled_one": "Topic handled",
+    "topicsHandled_other": "Topics handled",
+    "youNowHandle": "You now handle",
+    "missedThisTime": "Missed this time",
+    "lessonOn": "Lesson on {{topic}}",
+    "nextSeries": "Next series",
+    "gotIt": "Got it, ask me",
+    "unknownQuestion": "Unknown question."
+  },
+  "mock": {
+    "leave": "Leave the interview",
+    "title": "Mock interview · {{topic}}",
+    "progress": "Interview progress",
+    "over": "Interview over",
+    "score": "You had {{had}} of {{total}}",
+    "hadIt": "Had it",
+    "missedIt": "Missed it",
+    "next": "Next interview"
+  },
+  "open": {
+    "level": {
+      "junior": "junior",
+      "mid": "mid",
+      "senior": "senior"
+    },
+    "digsDeeper": "The interviewer digs deeper",
+    "sayItOutLoud": "Say it out loud",
+    "answerFirst": "Answer as you would in the interview, then reveal.",
+    "showAnswer": "Show the answer",
+    "modelAnswer": "Model answer",
+    "tickWhatYouSaid": "Tick what you said",
+    "whyTheyAsk": "Why they ask",
+    "realWorldExample": "Real-world example",
+    "commonMistakes": "Common mistakes",
+    "didYouHaveIt": "Did you have it?",
+    "missedIt": "I missed it",
+    "hadIt": "I had it"
+  },
+  "trap": {
+    "kicker": "Spot the trap"
+  },
+  "codeChoice": {
+    "kicker": "Which code is better?",
+    "version": "Version {{label}}",
+    "better": "✓ better",
+    "choose": "Choose {{label}}",
+    "isBetter": "Version {{label}} is better"
+  },
+  "mcq": {
+    "notQuite": "Not quite",
+    "check": "Check answer"
+  },
+  "lesson": {
+    "kicker": "Lesson · {{unit}}",
+    "readingProgress": "Reading progress",
+    "concept": "The concept",
+    "takeaways": "Key takeaways",
+    "inCode": "In code",
+    "practiceOnly": "Practice only: this check does not change your progress."
+  }
+}

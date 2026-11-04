@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Card, Trap } from '../content/types.ts';
 import { Button } from './Button.tsx';
 import { CodeBlock } from './CodeBlock.tsx';
@@ -25,6 +26,7 @@ export function LessonView({
   /** The button fixed at the bottom that starts the questions. */
   start?: { label: string; onStart: () => void };
 }) {
+  const { t } = useTranslation();
   const { reading, scrolled } = useScroll();
   const lesson = card.lesson;
   const intro = lesson?.intro ?? lesson?.points[0] ?? card.explanation;
@@ -39,7 +41,7 @@ export function LessonView({
         }`}
       >
         <div className="flex items-center justify-between gap-3">
-          <Kicker>Lesson · {unitTitle}</Kicker>
+          <Kicker>{t('lesson.kicker', { unit: unitTitle })}</Kicker>
           {close && (
             <button
               type="button"
@@ -56,7 +58,7 @@ export function LessonView({
         <div
           className="h-1.5 overflow-hidden rounded-full bg-surface"
           role="progressbar"
-          aria-label="Reading progress"
+          aria-label={t('lesson.readingProgress')}
           aria-valuenow={Math.round(reading * 100)}
           aria-valuemin={0}
           aria-valuemax={100}
@@ -65,7 +67,7 @@ export function LessonView({
         </div>
       </header>
 
-      <LessonSection title="The concept">
+      <LessonSection title={t('lesson.concept')}>
         <p className="text-[1.05rem] leading-relaxed">
           <Text>{intro}</Text>
         </p>
@@ -74,13 +76,13 @@ export function LessonView({
       {lesson && <Takeaways card={card} />}
 
       {lesson?.code !== undefined && (
-        <LessonSection title="In code">
+        <LessonSection title={t('lesson.inCode')}>
           <CodeBlock code={lesson.code} lang={lesson.codeLang} />
         </LessonSection>
       )}
 
       {check && (
-        <LessonSection title="Quick check">
+        <LessonSection title={t('common.quickCheck')}>
           <InlineCheck trap={check} />
         </LessonSection>
       )}
@@ -132,10 +134,11 @@ function LessonSection({ title, children }: { title: string; children: ReactNode
  * its remaining lesson points as rows instead.
  */
 function Takeaways({ card }: { card: Card }) {
+  const { t } = useTranslation();
   const lesson = card.lesson!;
   if (lesson.takeaways) {
     return (
-      <LessonSection title="Key takeaways">
+      <LessonSection title={t('lesson.takeaways')}>
         <div className="overflow-hidden rounded-3xl border-2 border-b-4 border-line bg-card">
           {/* On a phone each row stacks, term above detail, so a long code term never squeezes the
               detail into a thin column; from tablet width it is a two-column table. The explicit
@@ -163,7 +166,7 @@ function Takeaways({ card }: { card: Card }) {
     return null;
   }
   return (
-    <LessonSection title="Key takeaways">
+    <LessonSection title={t('lesson.takeaways')}>
       <ol className="flex flex-col divide-y divide-line overflow-hidden rounded-3xl border-2 border-b-4 border-line bg-card">
         {rest.map((point, index) => (
           <li key={point} className="flex gap-3 px-4 py-3">
@@ -182,31 +185,32 @@ function Takeaways({ card }: { card: Card }) {
 
 /** A true/false statement answered inside the lesson. Practice only: it changes no progress. */
 function InlineCheck({ trap }: { trap: Trap }) {
+  const { t } = useTranslation();
   const [choice, setChoice] = useState<boolean | null>(null);
   const correct = choice === trap.isTrue;
   return (
     <div className="flex flex-col gap-3 rounded-3xl border-2 border-b-4 border-line bg-card p-4">
       <p className="font-semibold">
-        True or false? <Text>{trap.statement}</Text>
+        {t('common.trueOrFalse')} <Text>{trap.statement}</Text>
       </p>
       {choice === null ? (
         <div className="grid grid-cols-2 gap-3">
           <Button variant="secondary" onClick={() => setChoice(true)}>
-            True
+            {t('common.true')}
           </Button>
           <Button variant="secondary" onClick={() => setChoice(false)}>
-            False
+            {t('common.false')}
           </Button>
         </div>
       ) : (
         <div role="status" className={`rounded-2xl p-3 ${correct ? 'bg-success-soft' : 'bg-danger-soft'}`}>
-          <p className={`font-bold ${correct ? 'text-success-ink' : 'text-danger-ink'}`}>{correct ? 'Correct!' : `It's ${trap.isTrue ? 'true' : 'false'}`}</p>
+          <p className={`font-bold ${correct ? 'text-success-ink' : 'text-danger-ink'}`}>{correct ? t('common.correct') : trap.isTrue ? t('common.itIsTrue') : t('common.itIsFalse')}</p>
           <p className="text-[0.95rem]">
             <Text>{trap.why}</Text>
           </p>
         </div>
       )}
-      <p className="text-xs text-muted">Practice only: this check does not change your progress.</p>
+      <p className="text-xs text-muted">{t('lesson.practiceOnly')}</p>
     </div>
   );
 }

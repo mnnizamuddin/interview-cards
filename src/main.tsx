@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App, type ProgressStore } from './App.tsx';
+import './i18n/index.ts';
 import { loadProgress, requestPersistentStorage, saveProgress } from './play/storage.ts';
 import '@fontsource-variable/nunito/wght.css';
 import './styles.css';

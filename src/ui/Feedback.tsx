@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from './Button.tsx';
 
 /**
@@ -18,6 +19,7 @@ export function Feedback({
   onContinue: () => void;
   onReviewLesson?: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       role="status"
@@ -34,11 +36,11 @@ export function Feedback({
       <div className="mb-4 text-[0.95rem] font-medium">{children}</div>
       <div className="flex flex-col gap-2">
         <Button block variant={correct ? 'success' : 'danger'} onClick={onContinue} autoFocus>
-          Continue
+          {t('common.continue')}
         </Button>
         {!correct && onReviewLesson && (
           <Button variant="ghost" onClick={onReviewLesson}>
-            Review the lesson
+            {t('common.reviewLesson')}
           </Button>
         )}
       </div>

@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { App, type ProgressStore } from './App.tsx';
 import { CARDS } from './content/index.ts';
+import fr from './i18n/fr.json';
+import { LANGUAGE_KEY } from './i18n/language.ts';
 import { pickMockInterview } from './play/mock-interview.ts';
 import { emptyProgress, type Progress } from './play/progress.ts';
 import { SERIES_LENGTH } from './play/series.ts';
@@ -232,5 +234,48 @@ describe('App', () => {
     await user.click(await screen.findByRole('button', { name: 'Got it, ask me' }));
 
     expect(screen.getByRole('heading', { name: /worked across the whole stack/ })).toBeInTheDocument();
+  });
+});
+
+describe('App in French', () => {
+  it('switches the interface to French, remembers the choice and switches back', async () => {
+    const user = userEvent.setup();
+    render(<App store={memoryStore()} now={now} random={random} />);
+    const english = await screen.findByRole('button', { name: 'English' });
+    expect(english).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(screen.getByRole('button', { name: 'Français' }));
+    expect(screen.getByRole('button', { name: 'Français' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: fr.home.startPlaying })).toBeInTheDocument();
+    expect(screen.getByText(fr.home.topicsYouHandle)).toBeInTheDocument();
+    expect(screen.getByText('Les bases de JavaScript')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: fr.settings.toDarkTheme })).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe('fr');
+    expect(localStorage.getItem(LANGUAGE_KEY)).toBe('fr');
+
+    await user.click(screen.getByRole('button', { name: 'English' }));
+    expect(screen.getByRole('button', { name: 'Start playing' })).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe('en');
+    expect(localStorage.getItem(LANGUAGE_KEY)).toBe('en');
+  });
+
+  it('plays in French and saves progress under the same keys as in English', async () => {
+    const user = userEvent.setup();
+    const store = memoryStore();
+    render(<App store={store} now={now} random={random} />);
+    await user.click(await screen.findByRole('button', { name: 'Français' }));
+
+    await user.click(screen.getByRole('button', { name: fr.home.startPlaying }));
+    expect(await screen.findByText(fr.open.sayItOutLoud)).toBeInTheDocument();
+    expect(screen.getByLabelText(`Question 1 sur ${SERIES_LENGTH}`)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: fr.open.showAnswer }));
+    expect(screen.getByRole('heading', { name: fr.open.modelAnswer })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: fr.open.hadIt }));
+
+    expect(Object.keys(store.saved().topics)).toEqual([FIRST_MAIN_TOPIC.id]);
+    await user.click(screen.getByRole('button', { name: fr.play.stop }));
+    // One right answer is not enough to handle a topic. Testing Library turns the no-break space
+    // before % into a plain space before matching.
+    expect(screen.getByText(`0 sur ${CARDS.length} sujets · 1 réponse, 100 % justes`)).toBeInTheDocument();
   });
 });

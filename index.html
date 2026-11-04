@@ -27,6 +27,20 @@
         }
         document.documentElement.dataset.theme = theme;
       })();
+      // Sets the page language before the first paint with the rule of src/i18n/language.ts:
+      // the saved choice wins, else French for a French browser, else English. Same key.
+      (function () {
+        var language = null;
+        try {
+          language = localStorage.getItem('interview-cards-language');
+        } catch (error) {
+          language = null;
+        }
+        if (language !== 'en' && language !== 'fr') {
+          language = /^fr/i.test(navigator.language || '') ? 'fr' : 'en';
+        }
+        document.documentElement.lang = language;
+      })();
     </script>
   </head>
   <body>

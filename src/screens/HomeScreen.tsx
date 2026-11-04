@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Topic } from '../content/catalog.ts';
 import type { Unit } from '../content/types.ts';
 import { countHandled, HANDLED_FOR_MS, toCurrentProgress, topicStatus, type Progress, type TopicStatus } from '../play/progress.ts';
@@ -6,13 +7,15 @@ import { weakTopicIds } from '../play/review.ts';
 import { Button } from '../ui/Button.tsx';
 import { ProgressBar } from '../ui/ProgressBar.tsx';
 import { Text } from '../ui/Text.tsx';
+import { LanguageSelector } from '../ui/LanguageSelector.tsx';
 import { ThemeToggle } from '../ui/ThemeToggle.tsx';
 
-const STATUS_STYLES: Record<TopicStatus, { label: string; dot: string }> = {
-  new: { label: 'New', dot: 'bg-line' },
-  learning: { label: 'Learning', dot: 'bg-gold' },
-  handled: { label: 'Handled', dot: 'bg-success' },
-  stale: { label: 'Needs a check', dot: 'bg-sky-500' },
+/** The colour of each status dot; the labels are in the translation files, under `home.status`. */
+const STATUS_DOTS: Record<TopicStatus, string> = {
+  new: 'bg-line',
+  learning: 'bg-gold',
+  handled: 'bg-success',
+  stale: 'bg-sky-500',
 };
 
 const HANDLED_FOR_DAYS = HANDLED_FOR_MS / (24 * 60 * 60 * 1000);
@@ -52,6 +55,7 @@ export function HomeScreen({
   /** Deletes all progress on this device, once the learner has confirmed. */
   onReset: () => void;
 }) {
+  const { t } = useTranslation();
   const handled = countHandled(topics.map((topic) => topic.id), progress, now);
   const share = percent(handled, topics.length);
   const weakSpots = weakTopicIds(
@@ -66,11 +70,14 @@ export function HomeScreen({
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col gap-6 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
       <header className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-extrabold text-brand-ink">Interview Cards</h1>
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          <LanguageSelector />
+          <ThemeToggle />
+        </div>
       </header>
 
       <section className="rounded-3xl border-2 border-b-4 border-line bg-card p-5">
-        <p className="text-sm font-bold uppercase tracking-wider text-muted">Topics you handle</p>
+        <p className="text-sm font-bold uppercase tracking-wider text-muted">{t('home.topicsYouHandle')}</p>
         <p className="mb-2 text-4xl font-extrabold">
           {share}
           <span className="text-2xl">%</span>
@@ -79,23 +86,23 @@ export function HomeScreen({
           <ProgressBar value={share} />
         </div>
         <p className="mb-4 text-sm text-muted">
-          {handled} of {topics.length} topics · {answered} {answered === 1 ? 'answer' : 'answers'}
-          {answered > 0 ? `, ${percent(correct, answered)}% right` : ''}
+          {t('home.handledOf', { handled, total: topics.length })} · {t('home.answers', { count: answered })}
+          {answered > 0 ? t('home.rightShare', { percent: percent(correct, answered) }) : ''}
         </p>
         <Button block onClick={() => onPlay()}>
-          {answered === 0 ? 'Start playing' : 'Keep playing'}
+          {answered === 0 ? t('home.startPlaying') : t('home.keepPlaying')}
         </Button>
         <Button block variant="secondary" className="mt-3" onClick={() => onMockInterview()}>
-          Mock interview
+          {t('home.mockInterview')}
         </Button>
         <Button block variant="secondary" className="mt-3" disabled={weakSpots === 0} onClick={onReview}>
-          {weakSpots === 0 ? 'No weak spots yet' : `Review weak spots (${weakSpots})`}
+          {weakSpots === 0 ? t('home.noWeakSpots') : t('home.reviewWeakSpots', { count: weakSpots })}
         </Button>
-        <p className="mt-3 text-center text-xs text-muted">A topic counts once your last 3 answers on it are right, at least one of them a true/false, quick check or code choice, and for {HANDLED_FOR_DAYS} days after your last answer.</p>
+        <p className="mt-3 text-center text-xs text-muted">{t('home.handledRule', { days: HANDLED_FOR_DAYS })}</p>
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-extrabold">Units</h2>
+        <h2 className="text-lg font-extrabold">{t('home.units')}</h2>
         {units.map((unit) => {
           const unitTopics = topics.filter((topic) => topic.unit === unit.id);
           const unitHandled = countHandled(unitTopics.map((topic) => topic.id), progress, now);
@@ -105,7 +112,7 @@ export function HomeScreen({
               <summary className="flex flex-col gap-2 p-4">
                 <span className="flex items-baseline justify-between gap-3 pr-6">
                   <span className="font-extrabold">{unit.title}</span>
-                  <span className="shrink-0 text-sm text-muted">{unitShare}%</span>
+                  <span className="shrink-0 text-sm text-muted">{t('common.percent', { value: unitShare })}</span>
                 </span>
                 <ProgressBar value={unitShare} size="sm" />
                 <span className="text-sm text-muted">
@@ -113,16 +120,16 @@ export function HomeScreen({
                 </span>
               </summary>
               <div className="grid grid-cols-2 gap-2 px-3 pb-3">
-                <Button variant="secondary" aria-label={`Play ${unit.title}`} onClick={() => onPlay(unit.id)}>
-                  Play this unit
+                <Button variant="secondary" aria-label={t('home.playUnitLabel', { unit: unit.title })} onClick={() => onPlay(unit.id)}>
+                  {t('home.playUnit')}
                 </Button>
-                <Button variant="secondary" aria-label={`Mock interview on ${unit.title}`} onClick={() => onMockInterview(unit.id)}>
-                  Mock interview
+                <Button variant="secondary" aria-label={t('home.mockInterviewOn', { unit: unit.title })} onClick={() => onMockInterview(unit.id)}>
+                  {t('home.mockInterview')}
                 </Button>
               </div>
               <ul className="flex flex-col gap-2 px-3 pb-3">
                 {unitTopics.map((topic) => {
-                  const status = STATUS_STYLES[topicStatus(progress.topics[topic.id], now)];
+                  const status = topicStatus(progress.topics[topic.id], now);
                   return (
                     <li key={topic.id}>
                       <button
@@ -130,9 +137,9 @@ export function HomeScreen({
                         onClick={() => onOpenLesson(topic.id)}
                         className="flex w-full items-center gap-3 rounded-2xl bg-surface px-4 py-3 text-left"
                       >
-                        <span className={`size-2.5 shrink-0 rounded-full ${status.dot}`} aria-hidden />
+                        <span className={`size-2.5 shrink-0 rounded-full ${STATUS_DOTS[status]}`} aria-hidden />
                         <span className="flex-1 text-[0.95rem] font-semibold">{topic.topic}</span>
-                        <span className="shrink-0 text-xs font-bold uppercase text-muted">{status.label}</span>
+                        <span className="shrink-0 text-xs font-bold uppercase text-muted">{t(`home.status.${status}`)}</span>
                       </button>
                     </li>
                   );
@@ -162,6 +169,7 @@ function BackupSection({
   onImport: (progress: Progress) => void;
   onReset: () => void;
 }) {
+  const { t } = useTranslation();
   const fileInput = useRef<HTMLInputElement>(null);
 
   function exportProgress() {
@@ -177,38 +185,38 @@ function BackupSection({
     try {
       const parsed = toCurrentProgress(JSON.parse(await file.text()), now);
       if (!parsed) {
-        window.alert('This file is not an Interview Cards backup.');
+        window.alert(t('backup.notABackup'));
         return;
       }
-      if (window.confirm('Replace your progress on this device with this backup?')) {
+      if (window.confirm(t('backup.confirmReplace'))) {
         onImport(parsed);
       }
     } catch {
-      window.alert('This file could not be read as JSON.');
+      window.alert(t('backup.notJson'));
     }
   }
 
   function resetProgress() {
-    if (window.confirm('Delete all your progress on this device? Back it up first if you may want it again.')) {
+    if (window.confirm(t('backup.confirmReset'))) {
       onReset();
     }
   }
 
   return (
     <footer className="mt-4 flex flex-col items-center gap-1 border-t-2 border-line pt-4 text-sm">
-      <p className="text-center text-muted">Your progress is stored on this device only.</p>
-      <p className="mt-2 text-center text-xs text-muted" aria-label={`Version ${__APP_VERSION__}, build ${__APP_COMMIT__}`}>
-        Version {__APP_VERSION__} · {__APP_COMMIT__}
+      <p className="text-center text-muted">{t('backup.deviceOnly')}</p>
+      <p className="mt-2 text-center text-xs text-muted" aria-label={t('backup.versionLabel', { version: __APP_VERSION__, commit: __APP_COMMIT__ })}>
+        {t('backup.version', { version: __APP_VERSION__, commit: __APP_COMMIT__ })}
       </p>
       <div className="flex gap-2">
         <Button variant="ghost" onClick={exportProgress}>
-          Back up
+          {t('backup.backUp')}
         </Button>
         <Button variant="ghost" onClick={() => fileInput.current?.click()}>
-          Restore
+          {t('backup.restore')}
         </Button>
         <Button variant="ghost-danger" onClick={resetProgress}>
-          Reset
+          {t('backup.reset')}
         </Button>
       </div>
       <input

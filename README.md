@@ -17,6 +17,10 @@ There are 106 topics, covering every question of Mocklingo’s full-stack list. 
 
 Progress is stored in IndexedDB **on the device only**. Use "Back up" and "Restore" at the bottom of the home screen to move it or keep a copy.
 
+## Languages
+
+The interface is in English and French (`i18next` with `react-i18next`). Its text is in `src/i18n/en.json` and `fr.json`, which must have the same keys (a test checks it, and `t()` keys are typed from the English file); French unit titles are in `src/content/fr/units.ts`. The selector on the home screen saves the choice on the device; without one, a French browser gets French and any other gets English. Card content is still in English.
+
 ## Commands
 
 ```bash

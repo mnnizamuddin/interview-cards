@@ -1,3 +1,5 @@
+import type { Language } from '../i18n/language.ts';
+import { UNITS_FR } from './fr/units.ts';
 import type { Unit } from './types.ts';
 
 /** Units in the order the home screen lists them. */
@@ -118,3 +120,11 @@ export const UNITS: Unit[] = [
     description: 'AI assistants, edge functions, meta-frameworks, Web Components and Web Vitals.',
   },
 ];
+
+/** The units with their title and description in `language`, in the same order. */
+export function unitsIn(language: Language): Unit[] {
+  if (language === 'en') {
+    return UNITS;
+  }
+  return UNITS.map((unit) => ({ ...unit, ...UNITS_FR[unit.id] }));
+}

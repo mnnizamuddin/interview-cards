@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { TOPICS, UNITS, type Topic } from './content/catalog.ts';
+import { useTranslation } from 'react-i18next';
+import { TOPICS, type Topic } from './content/catalog.ts';
 import { loadContent, type Content } from './content/load.ts';
 import { toDayKey } from './play/day.ts';
 import { emptyProgress, type Progress } from './play/progress.ts';
@@ -9,6 +10,7 @@ import { MockInterviewScreen } from './screens/MockInterviewScreen.tsx';
 import { PlayScreen } from './screens/PlayScreen.tsx';
 import { Button } from './ui/Button.tsx';
 import { LessonView } from './ui/LessonView.tsx';
+import { unitTitle, useUnits } from './ui/useUnits.ts';
 
 /** Where progress is kept. The browser uses IndexedDB; tests pass an in-memory store. */
 export type ProgressStore = {
@@ -82,6 +84,8 @@ function useScreenContent(screen: Screen): Content | 'failed' | undefined {
  * @param random The random source for the occasional check on a handled topic; injected for tests.
  */
 export function App({ store, now, random }: { store: ProgressStore; now: () => Date; random?: () => number }) {
+  const { t } = useTranslation();
+  const units = useUnits();
   const [progress, setProgress] = useState<Progress | null>(null);
   const [screen, setScreen] = useState<Screen>({ name: 'home' });
   const content = useScreenContent(screen);
@@ -105,7 +109,7 @@ export function App({ store, now, random }: { store: ProgressStore; now: () => D
   }, [progress, store]);
 
   if (!progress) {
-    return <p className="p-8 text-center text-muted">Loading…</p>;
+    return <p className="p-8 text-center text-muted">{t('common.loading')}</p>;
   }
 
   const goHome = () => setScreen({ name: 'home' });
@@ -113,7 +117,7 @@ export function App({ store, now, random }: { store: ProgressStore; now: () => D
   if (screen.name === 'home') {
     return (
       <HomeScreen
-        units={UNITS}
+        units={units}
         topics={TOPICS}
         progress={progress}
         today={toDayKey(now())}
@@ -129,24 +133,24 @@ export function App({ store, now, random }: { store: ProgressStore; now: () => D
   }
 
   if (content === undefined) {
-    return <p className="p-8 text-center text-muted">Loading the questions…</p>;
+    return <p className="p-8 text-center text-muted">{t('app.loadingQuestions')}</p>;
   }
 
   if (content === 'failed') {
     return (
       <div className="mx-auto flex max-w-xl flex-col items-center gap-4 p-8 text-center">
-        <p>The questions could not be downloaded. Check your connection: once a unit has been played online, it works offline.</p>
-        <Button onClick={goHome}>Back home</Button>
+        <p>{t('app.downloadFailed')}</p>
+        <Button onClick={goHome}>{t('common.backHome')}</Button>
       </div>
     );
   }
 
   if (screen.name === 'play') {
-    const unit = UNITS.find((candidate) => candidate.id === screen.unitId);
+    const unit = units.find((candidate) => candidate.id === screen.unitId);
     return (
       <PlayScreen
         content={content}
-        title={unit ? unit.title : 'All topics'}
+        title={unit ? unit.title : t('app.allTopics')}
         teach={unit !== undefined}
         progress={progress}
         onProgress={setProgress}
@@ -161,7 +165,7 @@ export function App({ store, now, random }: { store: ProgressStore; now: () => D
     return (
       <PlayScreen
         content={content}
-        title="Weak spots"
+        title={t('app.weakSpots')}
         teach={false}
         review
         progress={progress}
@@ -189,7 +193,7 @@ export function App({ store, now, random }: { store: ProgressStore; now: () => D
   const card = content.cardsById.get(screen.cardId);
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col px-4 pt-[max(1rem,env(safe-area-inset-top))]">
-      {card && <LessonView card={card} unitTitle={UNITS.find((unit) => unit.id === card.unit)?.title ?? ''} close={{ label: 'Close the lesson', onClose: goHome }} />}
+      {card && <LessonView card={card} unitTitle={unitTitle(units, card.unit)} close={{ label: t('app.closeLesson'), onClose: goHome }} />}
     </div>
   );
 }

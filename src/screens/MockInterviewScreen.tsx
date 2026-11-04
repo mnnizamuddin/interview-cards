@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { UNITS } from '../content/catalog.ts';
+import { useTranslation } from 'react-i18next';
 import type { Content } from '../content/load.ts';
 import type { Card } from '../content/types.ts';
 import { OpenQuestion } from '../exercises/OpenQuestion.tsx';
@@ -11,8 +11,7 @@ import { Button } from '../ui/Button.tsx';
 import { LessonView } from '../ui/LessonView.tsx';
 import { ProgressBar } from '../ui/ProgressBar.tsx';
 import { Text } from '../ui/Text.tsx';
-
-const UNIT_TITLES = new Map(UNITS.map((unit) => [unit.id, unit.title]));
+import { unitTitle, useUnits } from '../ui/useUnits.ts';
 
 /**
  * A mock interview on one topic: the main question, then its follow-ups in a row, answered out
@@ -35,6 +34,8 @@ export function MockInterviewScreen({
   now: () => number;
   random?: () => number;
 }) {
+  const { t } = useTranslation();
+  const units = useUnits();
   const { cards } = content;
   const [interview, setInterview] = useState<MockInterview | undefined>(() => pickMockInterview(cards, progress, now(), random));
   const [index, setIndex] = useState(0);
@@ -70,12 +71,12 @@ export function MockInterviewScreen({
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
       {/* A lesson opened from the summary has its own header with a ×. */}
       <header className={`flex items-center gap-3 py-2 ${reviewing ? 'hidden' : ''}`}>
-        <button type="button" onClick={onExit} aria-label="Leave the interview" className="p-2 text-2xl leading-none text-muted">
+        <button type="button" onClick={onExit} aria-label={t('mock.leave')} className="p-2 text-2xl leading-none text-muted">
           ×
         </button>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold">Mock interview · {card.topic}</p>
-          <ProgressBar value={index} max={total} label="Interview progress" />
+          <p className="truncate text-sm font-bold">{t('mock.title', { topic: card.topic })}</p>
+          <ProgressBar value={index} max={total} label={t('mock.progress')} />
         </div>
         {current && (
           <span className="text-sm font-bold text-muted">
@@ -93,7 +94,7 @@ export function MockInterviewScreen({
             onDone={({ correct }) => answer(current, correct)}
           />
         ) : reviewing ? (
-          <LessonView card={card} unitTitle={UNIT_TITLES.get(card.unit) ?? ''} close={{ label: 'Back to the summary', onClose: () => setReviewing(false) }} />
+          <LessonView card={card} unitTitle={unitTitle(units, card.unit)} close={{ label: t('common.backToSummary'), onClose: () => setReviewing(false) }} />
         ) : (
           <InterviewSummary
             card={card}
@@ -128,20 +129,21 @@ function InterviewSummary({
   onNext: () => void;
   onExit: () => void;
 }) {
+  const { t } = useTranslation();
   const had = results.filter(Boolean).length;
   return (
     <div className="flex flex-1 flex-col gap-5">
       <div>
-        <p className="mb-1 text-sm font-bold uppercase tracking-wider text-gold">Interview over</p>
+        <p className="mb-1 text-sm font-bold uppercase tracking-wider text-gold">{t('mock.over')}</p>
         <h2 className="text-2xl font-extrabold">
-          You had {had} of {questions.length}
+          {t('mock.score', { had, total: questions.length })}
         </h2>
         <p className="text-muted">{card.topic}</p>
       </div>
       <ol className="flex flex-col gap-2">
         {questions.map((question, index) => (
           <li key={index} className="flex gap-3 rounded-2xl border-2 border-b-4 border-line bg-card p-3">
-            <span className={`font-extrabold ${results[index] ? 'text-success-ink' : 'text-danger-ink'}`} aria-label={results[index] ? 'Had it' : 'Missed it'}>
+            <span className={`font-extrabold ${results[index] ? 'text-success-ink' : 'text-danger-ink'}`} aria-label={results[index] ? t('mock.hadIt') : t('mock.missedIt')}>
               {results[index] ? '✓' : '✗'}
             </span>
             <span className="text-[0.95rem]">
@@ -152,13 +154,13 @@ function InterviewSummary({
       </ol>
       <div className="mt-auto flex flex-col gap-3 pb-[env(safe-area-inset-bottom)]">
         <Button block onClick={onNext} autoFocus>
-          Next interview
+          {t('mock.next')}
         </Button>
         <Button block variant="secondary" onClick={onReviewLesson}>
-          Review the lesson
+          {t('common.reviewLesson')}
         </Button>
         <Button variant="ghost" onClick={onExit}>
-          Back home
+          {t('common.backHome')}
         </Button>
       </div>
     </div>

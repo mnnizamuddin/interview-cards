@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Mcq } from '../content/types.ts';
 import { shuffledOrder } from '../play/shuffle.ts';
 import { Button } from '../ui/Button.tsx';
@@ -26,6 +27,7 @@ export function McqExercise({
   onReviewLesson?: () => void;
   random?: () => number;
 }) {
+  const { t } = useTranslation();
   const [order] = useState(() => shuffledOrder(mcq.options.length, random));
   const [selected, setSelected] = useState<number | null>(null);
   const [checked, setChecked] = useState(false);
@@ -54,7 +56,7 @@ export function McqExercise({
   return (
     <div className="flex flex-1 flex-col gap-4">
       <div className="flex flex-col gap-3">
-        <Kicker>Quick check</Kicker>
+        <Kicker>{t('common.quickCheck')}</Kicker>
         <h2 className="text-xl font-bold leading-snug">
           <TrackHtml html={mcq.q} />
         </h2>
@@ -82,12 +84,12 @@ export function McqExercise({
       </ul>
       <div className="mt-auto">
         {checked ? (
-          <Feedback correct={correct} title={correct ? 'Correct!' : 'Not quite'} onContinue={() => onDone({ correct })} onReviewLesson={onReviewLesson}>
+          <Feedback correct={correct} title={correct ? t('common.correct') : t('mcq.notQuite')} onContinue={() => onDone({ correct })} onReviewLesson={onReviewLesson}>
             <TrackHtml html={mcq.explain} />
           </Feedback>
         ) : (
           <Button block disabled={selected === null} onClick={() => setChecked(true)}>
-            Check answer
+            {t('mcq.check')}
           </Button>
         )}
       </div>

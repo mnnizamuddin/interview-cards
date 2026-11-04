@@ -1,0 +1,142 @@
+{
+  "common": {
+    "loading": "Chargement…",
+    "backHome": "Retour à l’accueil",
+    "lesson": "Leçon",
+    "reviewLesson": "Revoir la leçon",
+    "backToSummary": "Retour au bilan",
+    "backToQuestion": "Retour à la question",
+    "correct": "Bonne réponse !",
+    "true": "Vrai",
+    "false": "Faux",
+    "trueOrFalse": "Vrai ou faux ?",
+    "itIsTrue": "C’est vrai",
+    "itIsFalse": "C’est faux",
+    "continue": "Continuer",
+    "quickCheck": "Vérification rapide",
+    "percent": "{{value}} %"
+  },
+  "app": {
+    "loadingQuestions": "Chargement des questions…",
+    "downloadFailed": "Impossible de télécharger les questions. Vérifie ta connexion : une fois qu’une unité a été jouée en ligne, elle marche hors ligne.",
+    "allTopics": "Tous les sujets",
+    "weakSpots": "Points faibles",
+    "closeLesson": "Fermer la leçon"
+  },
+  "settings": {
+    "language": "Langue",
+    "toDarkTheme": "Passer au thème sombre",
+    "toLightTheme": "Passer au thème clair"
+  },
+  "home": {
+    "topicsYouHandle": "Sujets maîtrisés",
+    "handledOf": "{{handled}} sur {{total}} sujets",
+    "answers_one": "{{count}} réponse",
+    "answers_other": "{{count}} réponses",
+    "rightShare": ", {{percent}} % justes",
+    "startPlaying": "Commencer",
+    "keepPlaying": "Continuer",
+    "mockInterview": "Entretien blanc",
+    "noWeakSpots": "Aucun point faible pour l’instant",
+    "reviewWeakSpots": "Revoir les points faibles ({{count}})",
+    "handledRule": "Un sujet compte comme maîtrisé quand tes 3 dernières réponses dessus sont justes, dont au moins un vrai/faux, une vérification rapide ou un choix de code, et pendant {{days}} jours après ta dernière réponse.",
+    "units": "Unités",
+    "playUnit": "Jouer cette unité",
+    "playUnitLabel": "Jouer l’unité {{unit}}",
+    "mockInterviewOn": "Entretien blanc sur {{unit}}",
+    "status": {
+      "new": "Nouveau",
+      "learning": "En cours",
+      "handled": "Maîtrisé",
+      "stale": "À revoir"
+    }
+  },
+  "backup": {
+    "deviceOnly": "Ta progression est enregistrée sur cet appareil uniquement.",
+    "version": "Version {{version}} · {{commit}}",
+    "versionLabel": "Version {{version}}, build {{commit}}",
+    "backUp": "Sauvegarder",
+    "restore": "Restaurer",
+    "reset": "Réinitialiser",
+    "notABackup": "Ce fichier n’est pas une sauvegarde Interview Cards.",
+    "confirmReplace": "Remplacer ta progression sur cet appareil par cette sauvegarde ?",
+    "notJson": "Impossible de lire ce fichier comme du JSON.",
+    "confirmReset": "Supprimer toute ta progression sur cet appareil ? Sauvegarde-la d’abord si tu risques d’en avoir besoin."
+  },
+  "play": {
+    "stop": "Arrêter de jouer",
+    "seriesProgress": "Progression de la série",
+    "nowHandle": "✓ Sujet maîtrisé : {{topic}}",
+    "replayNotice": "Raté tout à l’heure : nouvel essai. Celui-ci ne change pas ta progression.",
+    "noWeakSpotsTitle": "Aucun point faible pour le moment",
+    "noWeakSpotsText": "Chaque sujet commencé est maîtrisé ou a reçu une bonne réponse la dernière fois.",
+    "questionOf": "Question {{current}} sur {{total}}",
+    "toRetry_one": "{{count}} question ratée à refaire",
+    "toRetry_other": "{{count}} questions ratées à refaire",
+    "cheerTop": "Excellent : ces sujets sont prêts pour l’entretien.",
+    "cheerGood": "Beau travail. Les questions ratées reviendront bientôt.",
+    "cheerPractice": "Bon entraînement. Continue : chaque erreur devient un point faible à revoir.",
+    "seriesComplete": "Série terminée",
+    "rightFirstTime": "{{correct}} sur {{total}} justes du premier coup",
+    "accuracy": "Réussite",
+    "topicsHandled_one": "Sujet maîtrisé",
+    "topicsHandled_other": "Sujets maîtrisés",
+    "youNowHandle": "Désormais maîtrisés",
+    "missedThisTime": "Ratés cette fois-ci",
+    "lessonOn": "Leçon sur {{topic}}",
+    "nextSeries": "Série suivante",
+    "gotIt": "Compris, interroge-moi",
+    "unknownQuestion": "Question inconnue."
+  },
+  "mock": {
+    "leave": "Quitter l’entretien",
+    "title": "Entretien blanc · {{topic}}",
+    "progress": "Progression de l’entretien",
+    "over": "Entretien terminé",
+    "score": "Score : {{had}} sur {{total}}",
+    "hadIt": "Réussie",
+    "missedIt": "Ratée",
+    "next": "Entretien suivant"
+  },
+  "open": {
+    "level": {
+      "junior": "junior",
+      "mid": "confirmé",
+      "senior": "senior"
+    },
+    "digsDeeper": "Le recruteur creuse",
+    "sayItOutLoud": "Réponds à voix haute",
+    "answerFirst": "Réponds comme en entretien, puis affiche la réponse.",
+    "showAnswer": "Voir la réponse",
+    "modelAnswer": "Réponse type",
+    "tickWhatYouSaid": "Coche ce que tu as dit",
+    "whyTheyAsk": "Pourquoi on te la pose",
+    "realWorldExample": "Exemple concret",
+    "commonMistakes": "Erreurs fréquentes",
+    "didYouHaveIt": "Tu avais la bonne réponse ?",
+    "missedIt": "Raté",
+    "hadIt": "Je l’avais"
+  },
+  "trap": {
+    "kicker": "Repère le piège"
+  },
+  "codeChoice": {
+    "kicker": "Quel code est le meilleur ?",
+    "version": "Version {{label}}",
+    "better": "✓ meilleur",
+    "choose": "Choisir {{label}}",
+    "isBetter": "La version {{label}} est meilleure"
+  },
+  "mcq": {
+    "notQuite": "Pas tout à fait",
+    "check": "Valider"
+  },
+  "lesson": {
+    "kicker": "Leçon · {{unit}}",
+    "readingProgress": "Progression de lecture",
+    "concept": "Le concept",
+    "takeaways": "À retenir",
+    "inCode": "En code",
+    "practiceOnly": "Entraînement seul : cette vérification ne change pas ta progression."
+  }
+}

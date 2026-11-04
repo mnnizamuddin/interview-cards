@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Card, Level } from '../content/types.ts';
 import { Button } from '../ui/Button.tsx';
 import { Text } from '../ui/Text.tsx';
@@ -32,6 +33,7 @@ export function OpenQuestion({
   /** Absent in a mock interview, where the lesson waits until the end. */
   onReviewLesson?: () => void;
 }) {
+  const { t } = useTranslation();
   const followUp = followUpIndex === undefined ? undefined : card.followUps[followUpIndex];
   const variant = variantIndex === undefined ? undefined : card.questionVariants?.[variantIndex];
   const question = followUp?.question ?? variant?.question ?? card.question;
@@ -47,9 +49,9 @@ export function OpenQuestion({
   return (
     <div className="flex flex-1 flex-col gap-5">
       <div className="flex items-center gap-2">
-        <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${LEVEL_STYLES[card.level]}`}>{card.level}</span>
+        <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${LEVEL_STYLES[card.level]}`}>{t(`open.level.${card.level}`)}</span>
         <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand-ink">
-          {followUp ? 'The interviewer digs deeper' : 'Say it out loud'}
+          {followUp ? t('open.digsDeeper') : t('open.sayItOutLoud')}
         </span>
       </div>
       {followUp && <p className="-mb-3 text-sm text-muted">{card.topic}</p>}
@@ -59,15 +61,15 @@ export function OpenQuestion({
 
       {!revealed ? (
         <div className="mt-auto flex flex-col gap-3">
-          <p className="text-center text-muted">Answer as you would in the interview, then reveal.</p>
+          <p className="text-center text-muted">{t('open.answerFirst')}</p>
           <Button block onClick={() => setRevealed(true)}>
-            Show the answer
+            {t('open.showAnswer')}
           </Button>
         </div>
       ) : (
         <>
           <section className="rounded-3xl border-2 border-b-4 border-line bg-card p-5">
-            <h3 className="mb-1 text-sm font-bold uppercase tracking-wider text-muted">Model answer</h3>
+            <h3 className="mb-1 text-sm font-bold uppercase tracking-wider text-muted">{t('open.modelAnswer')}</h3>
             {variant && (
               <p className="mb-2 font-semibold">
                 <Text>{variant.bridge}</Text>
@@ -80,7 +82,7 @@ export function OpenQuestion({
 
           {keyPoints.length > 0 && (
             <section>
-              <h3 className="mb-2 font-bold">Tick what you said</h3>
+              <h3 className="mb-2 font-bold">{t('open.tickWhatYouSaid')}</h3>
               <ul className="flex flex-col gap-2">
                 {keyPoints.map((point, index) => (
                   <li key={point}>
@@ -108,13 +110,13 @@ export function OpenQuestion({
 
           {!followUp && (
             <>
-              <InfoBlock icon="🎯" title="Why they ask">
+              <InfoBlock icon="🎯" title={t('open.whyTheyAsk')}>
                 <Text>{card.explanation}</Text>
               </InfoBlock>
-              <InfoBlock icon="🛒" title="Real-world example">
+              <InfoBlock icon="🛒" title={t('open.realWorldExample')}>
                 <Text>{card.example}</Text>
               </InfoBlock>
-              <InfoBlock icon="⚠️" title="Common mistakes">
+              <InfoBlock icon="⚠️" title={t('open.commonMistakes')}>
                 <ul className="list-disc space-y-1 pl-5">
                   {card.mistakes.map((mistake) => (
                     <li key={mistake}>
@@ -128,18 +130,18 @@ export function OpenQuestion({
 
           {onReviewLesson && (
             <Button variant="ghost" onClick={onReviewLesson}>
-              Review the lesson
+              {t('common.reviewLesson')}
             </Button>
           )}
 
           <section className="sticky bottom-0 -mx-4 mt-auto border-t border-line bg-page/95 px-4 backdrop-blur pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-            <h3 className="mb-2 text-center text-sm font-bold text-muted">Did you have it?</h3>
+            <h3 className="mb-2 text-center text-sm font-bold text-muted">{t('open.didYouHaveIt')}</h3>
             <div className="grid grid-cols-2 gap-3">
               <Button variant={suggestHadIt ? 'secondary' : 'danger'} onClick={() => onDone({ correct: false })}>
-                I missed it
+                {t('open.missedIt')}
               </Button>
               <Button variant={suggestHadIt ? 'primary' : 'secondary'} onClick={() => onDone({ correct: true })}>
-                I had it
+                {t('open.hadIt')}
               </Button>
             </div>
           </section>

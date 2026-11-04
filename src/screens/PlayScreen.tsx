@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { UNITS } from '../content/catalog.ts';
+import { useTranslation } from 'react-i18next';
 import type { Content } from '../content/load.ts';
 import type { Card, Trap } from '../content/types.ts';
 import { CodeChoiceExercise } from '../exercises/CodeChoiceExercise.tsx';
@@ -14,8 +14,7 @@ import { currentReplay, recordFirstPass, recordReplay, SERIES_LENGTH, startSerie
 import { Button } from '../ui/Button.tsx';
 import { LessonView } from '../ui/LessonView.tsx';
 import { ProgressBar } from '../ui/ProgressBar.tsx';
-
-const UNIT_TITLES = new Map(UNITS.map((unit) => [unit.id, unit.title]));
+import { unitTitle, useUnits } from '../ui/useUnits.ts';
 
 /**
  * A series of {@link SERIES_LENGTH} questions on `cards`, then the missed ones again until each
@@ -53,6 +52,8 @@ export function PlayScreen({
   now: () => number;
   random?: () => number;
 }) {
+  const { t } = useTranslation();
+  const units = useUnits();
   const { cards } = content;
   /** The first questions of a series: the weak spots in a review, else the engine's next pick. */
   function planFor(current: Progress): Exercise[] {
@@ -122,12 +123,12 @@ export function PlayScreen({
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
       {/* A lesson opened to look something up has its own header with a ×. */}
       <header className={`flex items-center gap-3 py-2 ${reviewing || reviewedCard ? 'hidden' : ''}`}>
-        <button type="button" onClick={onStop} aria-label="Stop playing" className="p-2 text-2xl leading-none text-muted">
+        <button type="button" onClick={onStop} aria-label={t('play.stop')} className="p-2 text-2xl leading-none text-muted">
           ×
         </button>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold">{title}</p>
-          <ProgressBar value={series.asked} max={series.length} label="Series progress" />
+          <ProgressBar value={series.asked} max={series.length} label={t('play.seriesProgress')} />
         </div>
         <SeriesCounter series={series} />
         {teach && current && current.kind !== 'lesson' && !reviewing && (
@@ -136,30 +137,30 @@ export function PlayScreen({
             onClick={() => setReviewing(true)}
             className="rounded-full border-2 border-line px-3 py-1 text-sm font-bold text-brand-ink"
           >
-            Lesson
+            {t('common.lesson')}
           </button>
         )}
       </header>
 
       {justHandled && series.phase !== 'done' && (
         <p role="status" className="mt-2 rounded-2xl bg-success-soft px-3 py-2 text-sm font-bold text-success-ink">
-          ✓ You now handle {justHandled}
+          {t('play.nowHandle', { topic: justHandled })}
         </p>
       )}
       {replay && !reviewing && (
-        <p className="mt-2 rounded-xl bg-surface px-3 py-2 text-sm font-bold text-muted">Missed earlier: one more try. This one does not change your progress.</p>
+        <p className="mt-2 rounded-xl bg-surface px-3 py-2 text-sm font-bold text-muted">{t('play.replayNotice')}</p>
       )}
 
       <main className="flex flex-1 flex-col pb-4 pt-3">
         {series.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-            <p className="text-lg font-bold">No weak spots right now</p>
-            <p className="text-muted">Every topic you started is handled or was answered right last time.</p>
-            <Button onClick={onStop}>Back home</Button>
+            <p className="text-lg font-bold">{t('play.noWeakSpotsTitle')}</p>
+            <p className="text-muted">{t('play.noWeakSpotsText')}</p>
+            <Button onClick={onStop}>{t('common.backHome')}</Button>
           </div>
         ) : series.phase === 'done' ? (
           reviewedCard ? (
-            <LessonView card={reviewedCard} unitTitle={UNIT_TITLES.get(reviewedCard.unit) ?? ''} close={{ label: 'Back to the summary', onClose: () => setReviewingTopic(null) }} />
+            <LessonView card={reviewedCard} unitTitle={unitTitle(units, reviewedCard.unit)} close={{ label: t('common.backToSummary'), onClose: () => setReviewingTopic(null) }} />
           ) : (
             <SeriesSummary series={series} cardsById={content.cardsById} onReviewLesson={teach ? setReviewingTopic : undefined} onNext={startNextSeries} onExit={onStop} />
           )
@@ -168,13 +169,14 @@ export function PlayScreen({
           card && (
             <>
               {reviewing && current.kind !== 'lesson' && (
-                <LessonView card={card} unitTitle={UNIT_TITLES.get(card.unit) ?? ''} close={{ label: 'Back to the question', onClose: () => setReviewing(false) }} />
+                <LessonView card={card} unitTitle={unitTitle(units, card.unit)} close={{ label: t('common.backToQuestion'), onClose: () => setReviewing(false) }} />
               )}
               <div className={reviewing ? 'hidden' : 'flex flex-1 flex-col'}>
                 <ExerciseView
                   key={turn}
                   exercise={current}
                   card={card}
+                  unitTitle={unitTitle(units, card.unit)}
                   mcqsById={content.mcqsById}
                   onLessonDone={() => finishLesson(current)}
                   onAnswer={(result) => (replay ? finishReplay(result) : finishQuestion(current, result))}
@@ -191,16 +193,17 @@ export function PlayScreen({
 
 /** "7 / 15" during the questions, then how many replays are left. */
 function SeriesCounter({ series }: { series: Series }) {
+  const { t } = useTranslation();
   if (series.phase === 'questions') {
     return (
-      <span className="text-sm font-bold text-muted" aria-label={`Question ${series.asked + 1} of ${series.length}`}>
+      <span className="text-sm font-bold text-muted" aria-label={t('play.questionOf', { current: series.asked + 1, total: series.length })}>
         {series.asked + 1}/{series.length}
       </span>
     );
   }
   if (series.phase === 'replays') {
     return (
-      <span className="text-sm font-bold text-gold" aria-label={`${series.replays.length} missed ${series.replays.length === 1 ? 'question' : 'questions'} to retry`}>
+      <span className="text-sm font-bold text-gold" aria-label={t('play.toRetry', { count: series.replays.length })}>
         ↻ {series.replays.length}
       </span>
     );
@@ -208,15 +211,15 @@ function SeriesCounter({ series }: { series: Series }) {
   return null;
 }
 
-/** The end-of-series emoji and message, by first-time accuracy. */
-function cheerFor(accuracy: number): { emoji: string; message: string } {
+/** The end-of-series emoji and the translation key of its message, by first-time accuracy. */
+function cheerFor(accuracy: number): { emoji: string; message: 'play.cheerTop' | 'play.cheerGood' | 'play.cheerPractice' } {
   if (accuracy >= 90) {
-    return { emoji: '🏆', message: 'Outstanding: interview ready on these.' };
+    return { emoji: '🏆', message: 'play.cheerTop' };
   }
   if (accuracy >= 60) {
-    return { emoji: '🎉', message: 'Nice work. The missed ones come back soon.' };
+    return { emoji: '🎉', message: 'play.cheerGood' };
   }
-  return { emoji: '💪', message: 'Good practice. Keep going: every miss is now a weak spot to review.' };
+  return { emoji: '💪', message: 'play.cheerPractice' };
 }
 
 function StatTile({ value, label }: { value: string; label: string }) {
@@ -242,6 +245,7 @@ function SeriesSummary({
   onNext: () => void;
   onExit: () => void;
 }) {
+  const { t } = useTranslation();
   const accuracy = Math.round((series.correct / Math.max(1, series.length)) * 100);
   const cheer = cheerFor(accuracy);
   return (
@@ -250,19 +254,19 @@ function SeriesSummary({
         <span aria-hidden className="pop text-7xl">
           {cheer.emoji}
         </span>
-        <p className="mt-2 text-sm font-extrabold uppercase tracking-wider text-brand-ink">Series complete</p>
+        <p className="mt-2 text-sm font-extrabold uppercase tracking-wider text-brand-ink">{t('play.seriesComplete')}</p>
         <h2 className="text-3xl font-black leading-tight">
-          {series.correct} of {series.length} right first time
+          {t('play.rightFirstTime', { correct: series.correct, total: series.length })}
         </h2>
-        <p className="font-semibold text-muted">{cheer.message}</p>
+        <p className="font-semibold text-muted">{t(cheer.message)}</p>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <StatTile value={`${accuracy}%`} label="Accuracy" />
-        <StatTile value={String(series.handledTopics.length)} label={series.handledTopics.length === 1 ? 'Topic handled' : 'Topics handled'} />
+        <StatTile value={t('common.percent', { value: accuracy })} label={t('play.accuracy')} />
+        <StatTile value={String(series.handledTopics.length)} label={t('play.topicsHandled', { count: series.handledTopics.length })} />
       </div>
       {series.handledTopics.length > 0 && (
         <section>
-          <h3 className="mb-2 font-extrabold">You now handle</h3>
+          <h3 className="mb-2 font-extrabold">{t('play.youNowHandle')}</h3>
           <ul className="flex flex-col gap-2">
             {series.handledTopics.map((cardId) => (
               <li key={cardId} className="rounded-2xl bg-success-soft px-4 py-3 font-semibold text-success-ink">
@@ -274,14 +278,14 @@ function SeriesSummary({
       )}
       {series.missedTopics.length > 0 && (
         <section>
-          <h3 className="mb-2 font-extrabold">Missed this time</h3>
+          <h3 className="mb-2 font-extrabold">{t('play.missedThisTime')}</h3>
           <ul className="flex flex-col gap-2">
             {series.missedTopics.map((cardId) => (
               <li key={cardId} className="flex items-center gap-3 rounded-2xl border-2 border-b-4 border-line bg-card px-4 py-3">
                 <span className="flex-1 font-semibold">{cardsById.get(cardId)?.topic}</span>
                 {onReviewLesson && (
-                  <Button variant="ghost" className="shrink-0 text-sky-500" onClick={() => onReviewLesson(cardId)} aria-label={`Lesson on ${cardsById.get(cardId)?.topic}`}>
-                    Lesson
+                  <Button variant="ghost" className="shrink-0 text-sky-500" onClick={() => onReviewLesson(cardId)} aria-label={t('play.lessonOn', { topic: cardsById.get(cardId)?.topic })}>
+                    {t('common.lesson')}
                   </Button>
                 )}
               </li>
@@ -291,10 +295,10 @@ function SeriesSummary({
       )}
       <div className="mt-auto flex flex-col gap-3 pb-[env(safe-area-inset-bottom)]">
         <Button block onClick={onNext} autoFocus>
-          Next series
+          {t('play.nextSeries')}
         </Button>
         <Button variant="ghost" onClick={onExit}>
-          Back home
+          {t('common.backHome')}
         </Button>
       </div>
     </div>
@@ -312,6 +316,7 @@ function trapToAsk(trap: Trap, twin: boolean | undefined): Trap {
 function ExerciseView({
   exercise,
   card,
+  unitTitle,
   mcqsById,
   onLessonDone,
   onAnswer,
@@ -319,15 +324,18 @@ function ExerciseView({
 }: {
   exercise: Exercise;
   card: Card;
+  /** The title of the card's unit, in the language on screen. */
+  unitTitle: string;
   mcqsById: Content['mcqsById'];
   onLessonDone: () => void;
   onAnswer: (result: ExerciseResult) => void;
   /** Absent in the main mode, which never shows lessons. */
   onReviewLesson?: () => void;
 }) {
+  const { t } = useTranslation();
   switch (exercise.kind) {
     case 'lesson':
-      return <LessonView card={card} unitTitle={UNIT_TITLES.get(card.unit) ?? ''} start={{ label: 'Got it, ask me', onStart: onLessonDone }} />;
+      return <LessonView card={card} unitTitle={unitTitle} start={{ label: t('play.gotIt'), onStart: onLessonDone }} />;
     case 'open':
       return <OpenQuestion card={card} variantIndex={exercise.variant} onDone={onAnswer} onReviewLesson={onReviewLesson} />;
     case 'followUp':
@@ -336,7 +344,7 @@ function ExerciseView({
       return <TrapExercise trap={trapToAsk(card.traps[exercise.index]!, exercise.twin)} onDone={onAnswer} onReviewLesson={onReviewLesson} />;
     case 'mcq': {
       const mcq = mcqsById.get(exercise.mcqId);
-      return mcq ? <McqExercise mcq={mcq} onDone={onAnswer} onReviewLesson={onReviewLesson} /> : <p>Unknown question.</p>;
+      return mcq ? <McqExercise mcq={mcq} onDone={onAnswer} onReviewLesson={onReviewLesson} /> : <p>{t('play.unknownQuestion')}</p>;
     }
     case 'codeChoice':
       return <CodeChoiceExercise choice={card.codeChoices![exercise.index]!} onDone={onAnswer} onReviewLesson={onReviewLesson} />;

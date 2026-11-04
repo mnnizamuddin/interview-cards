@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Trap } from '../content/types.ts';
 import { Button } from '../ui/Button.tsx';
 import { Feedback } from '../ui/Feedback.tsx';
@@ -16,14 +17,15 @@ export function TrapExercise({
   onDone: (result: ExerciseResult) => void;
   onReviewLesson?: () => void;
 }) {
+  const { t } = useTranslation();
   const [choice, setChoice] = useState<boolean | null>(null);
   const correct = choice === trap.isTrue;
 
   return (
     <div className="flex flex-1 flex-col gap-6">
       <div>
-        <Kicker>Spot the trap</Kicker>
-        <h2 className="mt-3 text-xl font-bold">True or false?</h2>
+        <Kicker>{t('trap.kicker')}</Kicker>
+        <h2 className="mt-3 text-xl font-bold">{t('common.trueOrFalse')}</h2>
       </div>
       <p className="rounded-3xl border-2 border-b-4 border-line bg-card p-5 text-lg">
         <Text>{trap.statement}</Text>
@@ -32,16 +34,16 @@ export function TrapExercise({
         {choice === null ? (
           <div className="grid grid-cols-2 gap-3">
             <Button variant="secondary" onClick={() => setChoice(true)}>
-              True
+              {t('common.true')}
             </Button>
             <Button variant="secondary" onClick={() => setChoice(false)}>
-              False
+              {t('common.false')}
             </Button>
           </div>
         ) : (
           <Feedback
             correct={correct}
-            title={correct ? 'Correct!' : `It's ${trap.isTrue ? 'true' : 'false'}`}
+            title={correct ? t('common.correct') : trap.isTrue ? t('common.itIsTrue') : t('common.itIsFalse')}
             onContinue={() => onDone({ correct })}
             onReviewLesson={onReviewLesson}
           >

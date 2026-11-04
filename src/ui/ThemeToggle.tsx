@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { currentTheme, setTheme, type Theme } from './theme.ts';
 
 /** A sun or moon button that switches between the light and dark themes. */
 export function ThemeToggle() {
+  const { t } = useTranslation();
   const [theme, setShownTheme] = useState<Theme>(currentTheme);
   const next: Theme = theme === 'dark' ? 'light' : 'dark';
 
@@ -15,7 +17,7 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={toggle}
-      aria-label={`Switch to the ${next} theme`}
+      aria-label={next === 'dark' ? t('settings.toDarkTheme') : t('settings.toLightTheme')}
       className="grid size-11 place-items-center rounded-full border-2 border-line text-muted"
     >
       {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
