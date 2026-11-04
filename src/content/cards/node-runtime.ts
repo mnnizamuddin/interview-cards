@@ -9,6 +9,16 @@ export const nodeRuntimeCards: Card[] = [
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'Every route of your Node API gets slow at the same time. How do you prove the event loop is blocked, and find the cause?',
+    questionVariants: [
+      {
+        question: 'At 6 pm every route of the Orders API, `/health` included, takes over 2 seconds, while PostgreSQL query times stay at 5 ms. How do you confirm the cause and find the code responsible?',
+        bridge: 'All routes slow together with a fast database is the signature of a blocked event loop: confirm it with loop delay and ELU, then name the function with a CPU profile.',
+      },
+      {
+        question: 'A colleague reads an event loop utilization of 0.95 on a pod with 4 cores and says the pod is fine because CPU is only at 25%. What do you tell them, and what would you check next?',
+        bridge: 'ELU measures how busy the single event loop is, not the CPU of the pod: near 1 means one thread is saturated, whatever the other cores do.',
+      },
+    ],
     answer:
       'A blocked loop means one callback holds the main thread while every other request waits. I check two runtime metrics from `node:perf_hooks`, usually exported by OpenTelemetry or the APM: event loop delay, how late a timer fires, and event loop utilization, the share of time the loop is busy, from 0 to 1. The signature is ELU near 1, delay p99 in the hundreds of milliseconds, every route slow together and database latency flat. Then I record a CPU profile, for example with `node --cpu-prof` on one replica, and open it as a flame graph to name the function to fix.',
     keyPoints: [
@@ -45,16 +55,28 @@ export const nodeRuntimeCards: Card[] = [
         statement: 'An event loop utilization of 0.95 means the process uses 95% of all CPU cores.',
         isTrue: false,
         why: 'ELU is the share of time the one event loop spent running callbacks rather than waiting, not the CPU usage of the process.',
+        twin: {
+          statement: 'An event loop utilization of 0.95 means the event loop spent 95% of its time running callbacks rather than waiting.',
+          why: 'ELU is the busy share of the one event loop, independent of how many CPU cores the machine has.',
+        },
       },
       {
         statement: 'When the event loop is blocked, every route of that process slows down, health checks included.',
         isTrue: true,
         why: 'All requests of a process share one main thread, so while one callback computes, no other request is read or answered.',
+        twin: {
+          statement: 'When the event loop is blocked, health checks still answer quickly because they do almost no work.',
+          why: 'A health check waits on the same main thread as every other request, so it is just as late.',
+        },
       },
       {
         statement: 'The values of the `monitorEventLoopDelay()` histogram are in milliseconds.',
         isTrue: false,
         why: 'They are in nanoseconds: divide by 1e6, then subtract the resolution to get the real delay in milliseconds.',
+        twin: {
+          statement: 'The values of the `monitorEventLoopDelay()` histogram are in nanoseconds.',
+          why: 'Divide them by 1e6 to get milliseconds, then subtract the resolution to get the real delay.',
+        },
       },
     ],
     codeChoices: [
@@ -109,6 +131,16 @@ setInterval(() => {
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'In Node, in what order do `process.nextTick`, promise callbacks, timers and `setImmediate` run, and why does it matter?',
+    questionVariants: [
+      {
+        question: 'To keep the API responsive, a colleague puts `await Promise.resolve()` between slices of a 2-second price recalculation. Requests still freeze for 2 seconds. Why, and what should they use?',
+        bridge: 'A resolved promise resumes in a microtask, drained before the loop reaches the poll phase; `setImmediate` runs in the check phase, after I/O has been read.',
+      },
+      {
+        question: 'Explain to a junior why `process.nextTick` callbacks run before a resolved `.then` in a CommonJS file, and when a recursive `nextTick` becomes a problem.',
+        bridge: 'Node drains the nextTick queue, then promise microtasks, after every callback and before any phase, so endless refills starve the loop.',
+      },
+    ],
     answer:
       'After every callback, Node empties two priority queues before moving on: first the nextTick queue, then the promise microtasks, including anything added while emptying them. Only then does the loop continue through its phases: timers for `setTimeout`, poll for I/O, check for `setImmediate`. So in a CommonJS file nextTick runs before a resolved `.then`, and at the top level the order of `setTimeout(f, 0)` and `setImmediate` is not fixed; inside an I/O callback, `setImmediate` always wins. It matters when I yield during long work: `await setImmediate()` lets requests in, `await Promise.resolve()` does not.',
     keyPoints: [
@@ -145,16 +177,28 @@ setInterval(() => {
         statement: 'In a CommonJS file, a `process.nextTick` callback runs before the `.then` callback of an already resolved promise.',
         isTrue: true,
         why: 'After the current code, Node drains the nextTick queue first, then the promise microtask queue.',
+        twin: {
+          statement: 'In a CommonJS file, the `.then` callback of an already resolved promise runs before a `process.nextTick` callback.',
+          why: 'Node drains the nextTick queue first, then the promise microtask queue, so the nextTick callback runs first.',
+        },
       },
       {
         statement: '`await Promise.resolve()` between two slices of CPU work lets pending requests be handled.',
         isTrue: false,
         why: 'The function resumes in a microtask, which runs before the loop reaches the poll phase, so no request is read in between.',
+        twin: {
+          statement: '`await setImmediate()` from `node:timers/promises` between two slices of CPU work lets pending requests be handled.',
+          why: 'It resumes in the check phase, after the poll phase has read and dispatched pending I/O.',
+        },
       },
       {
         statement: 'A `setImmediate` scheduled inside an `fs.readFile` callback runs before a `setTimeout(f, 0)` scheduled in the same callback.',
         isTrue: true,
         why: 'The callback runs in the poll phase, and the check phase comes right after it, before the loop wraps around to timers.',
+        twin: {
+          statement: 'A `setTimeout(f, 0)` scheduled inside an `fs.readFile` callback runs before a `setImmediate` scheduled in the same callback.',
+          why: 'The callback runs in the poll phase, and the check phase comes next, so `setImmediate` runs first.',
+        },
       },
     ],
     codeChoices: [
@@ -208,6 +252,16 @@ console.log('F');
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'A Node endpoint does heavy CPU work and slows the whole service down. How do you fix it?',
+    questionVariants: [
+      {
+        question: '`GET /orders/stats` loops over 40,000 orders and calls `products.find()` for each one; while it runs, checkout times out. What do you change, and in what order do you consider fixes?',
+        bridge: 'Heavy CPU on the main thread: first do less work, here a `Map` lookup instead of a nested `find`, then slicing, a worker pool or a queue only if still needed.',
+      },
+      {
+        question: 'When would you not reach for a worker thread pool to fix a slow endpoint, and what would you try first?',
+        bridge: 'Workers are the third step: an algorithm, SQL or streaming fix and slicing with `setImmediate` are cheaper, and long or durable jobs need a queue instead.',
+      },
+    ],
     answer:
       'I go from cheapest to heaviest and stop at the first fix that is enough. First, do less work: most blocking is an algorithm problem, like a `find` inside a loop that becomes a `Map` lookup, filtering moved into SQL, or an export that is streamed. Second, cut the work into slices with `await setImmediate()` between them, so requests run in between; that fails for one indivisible call like a huge `JSON.parse`. Third, a worker thread pool such as Piscina, for heavy CPU that cannot be sliced. Fourth, a queue and a separate worker service when the job takes seconds or must survive a restart.',
     keyPoints: [
@@ -244,11 +298,19 @@ console.log('F');
         statement: 'Cutting a single 150 MB `JSON.parse` into slices with `setImmediate` stops it from blocking the loop.',
         isTrue: false,
         why: '`JSON.parse` is one indivisible synchronous call: limit the body size, parse in a worker, or use a streaming parser.',
+        twin: {
+          statement: 'A single 150 MB `JSON.parse` blocks the event loop for its whole duration, whatever you schedule around it.',
+          why: 'It is one indivisible synchronous call, so slicing cannot help; limit the body size, parse in a worker or stream it.',
+        },
       },
       {
         statement: 'With Piscina, an error thrown inside the worker becomes a rejected promise in the calling code.',
         isTrue: true,
         why: '`pool.run()` returns a promise that rejects when the worker task throws.',
+        twin: {
+          statement: 'With Piscina, an error thrown inside the worker cannot be caught with `try`/`catch` around `await pool.run()`.',
+          why: '`pool.run()` returns a promise that rejects when the worker task throws, so a `try`/`catch` around the `await` catches it.',
+        },
       },
     ],
     codeChoices: [
@@ -300,6 +362,16 @@ async function toCsvLines(rows: OrderRow[]): Promise<string[]> {
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'One Node process uses one core for your JavaScript. How do you use more cores: replicas, `cluster` or worker threads?',
+    questionVariants: [
+      {
+        question: 'The Orders API runs on 8-core nodes but each pod tops out at one core while traffic grows. A teammate proposes adding PM2 cluster mode inside the container. What do you recommend instead?',
+        bridge: 'One Node process runs JavaScript on one core; on Kubernetes, more cores come from more replicas, and a process manager inside the pod hides crashes from it.',
+      },
+      {
+        question: 'Compare replicas, the `cluster` module and worker threads: when does each one fit?',
+        bridge: 'Three ways to use more cores: replicas in containers, `cluster` or PM2 on a VM without an orchestrator, worker threads for occasional CPU-heavy tasks.',
+      },
+    ],
     answer:
       'On Kubernetes, the default is one Node process per container and more replicas behind the load balancer: the orchestrator already restarts crashed processes, spreads traffic and shows per-process metrics. State such as sessions or rate limits moves to Redis or the database. Worker threads, usually through Piscina, are for occasional CPU-heavy tasks inside one service, like PDFs or image work. `cluster` or PM2 cluster mode forks copies that share a port, which fits a VM without an orchestrator; inside a pod it hides crashes and resource use from Kubernetes. I size replicas from main-thread CPU per request: 20 ms means about 50 requests per second.',
     keyPoints: [
@@ -336,11 +408,19 @@ async function toCsvLines(rows: OrderRow[]): Promise<string[]> {
         statement: 'On Kubernetes, the usual way to use more cores is one Node process per container and more replicas.',
         isTrue: true,
         why: 'The orchestrator then restarts, balances and measures each process; a process manager inside the pod would duplicate that.',
+        twin: {
+          statement: 'On Kubernetes, the usual way to use more cores is the `cluster` module inside each pod.',
+          why: 'The usual way is one Node process per container and more replicas, so the orchestrator restarts, balances and measures each one.',
+        },
       },
       {
         statement: 'Running PM2 cluster mode inside each pod gives Kubernetes better visibility of crashed processes.',
         isTrue: false,
         why: 'PM2 restarts crashed processes itself, so Kubernetes never sees the crash, and per-process metrics and limits blur.',
+        twin: {
+          statement: 'Running PM2 cluster mode inside a pod hides crashed processes from Kubernetes, because PM2 restarts them itself.',
+          why: 'Kubernetes never sees the crash, and per-process metrics and limits blur together.',
+        },
       },
     ],
     lesson: {
@@ -361,6 +441,16 @@ async function toCsvLines(rows: OrderRow[]): Promise<string[]> {
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What can Node 24 do without extra dependencies, and which packages does that replace?',
+    questionVariants: [
+      {
+        question: 'The Orders API runs `node src/server.ts` on Node 24, and a wrong type in `createOrder` reached production without any error. How did that happen, and what do you add?',
+        bridge: 'Node runs TypeScript by stripping types and never type-checks, so the check must run separately, with `tsc --noEmit` in CI.',
+      },
+      {
+        question: 'A new teammate installs `ts-node`, `dotenv`, `nodemon` and `node-fetch` in a fresh Node 24 service. Which of these does Node already cover, and with what limits?',
+        bridge: 'Node 24 built-ins replace them: type stripping, `--env-file`, `--watch` and global `fetch`, each with limits such as no type check.',
+      },
+    ],
     answer:
       'Most of the old development toolchain. `node app.ts` runs TypeScript by stripping types, so `ts-node` goes, but it never type-checks and rejects syntax that generates code, such as `enum`, so I keep `tsc --noEmit` in CI. `--env-file=.env` replaces `dotenv` for local development, and a variable already set in the environment wins over the file. `--watch` replaces nodemon. `fetch` and `WebSocket` are globals, so no `node-fetch`. `node:test` is a built-in test runner, though most product teams stay on Vitest. And `--permission` limits file system and child process access for scripts, as a seat belt, not a sandbox.',
     keyPoints: [
@@ -397,11 +487,19 @@ async function toCsvLines(rows: OrderRow[]): Promise<string[]> {
         statement: 'With `PORT=9000 node --env-file=.env server.ts` and `PORT=3000` in the file, `process.env.PORT` is "9000".',
         isTrue: true,
         why: 'A variable already set in the environment takes precedence over the one in the file.',
+        twin: {
+          statement: 'With `PORT=9000 node --env-file=.env server.ts` and `PORT=3000` in the file, `process.env.PORT` is "3000".',
+          why: 'A variable already set in the environment takes precedence over the file, so it is "9000".',
+        },
       },
       {
         statement: 'On Node 24, `node app.ts` reports type errors before running the file.',
         isTrue: false,
         why: 'Node only strips the types and never type-checks; the check belongs to `tsc --noEmit` in CI.',
+        twin: {
+          statement: 'On Node 24, `node app.ts` runs a file that contains type errors without reporting them.',
+          why: 'Node only strips the types and never type-checks; the check belongs to `tsc --noEmit` in CI.',
+        },
       },
     ],
     codeChoices: [
@@ -448,6 +546,16 @@ npx tsc --noEmit`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How do you choose between NestJS, Fastify and Express for a new Node service in 2026?',
+    questionVariants: [
+      {
+        question: 'The shop is splitting the Orders API into a payment service owned by one team and a back office API shared by three squads. Which framework would you pick for each, and why?',
+        bridge: 'The choice follows team structure: NestJS gives several squads one enforced structure, Fastify suits a lean service.',
+      },
+      {
+        question: 'A colleague says NestJS is slower than Fastify, so you should never use it. What is wrong with that comparison?',
+        bridge: 'NestJS is an application framework that runs on Express or Fastify through an adapter, so it is not a rival HTTP framework to benchmark.',
+      },
+    ],
     answer:
       'I first separate two kinds of tool. Express, Fastify and Hono are HTTP frameworks: they route requests to handlers and run shared code around them. NestJS is an application framework running on Express or Fastify through an adapter: modules, a dependency injection container, and named slots such as guards, pipes and filters. So the choice is about team size and structure, not benchmarks. Several squads in one codebase: NestJS, for one enforced structure. A lean service: Fastify, with schema validation, pino logging and a clean close built in. An existing Express codebase stays on Express 5. Edge runtimes: Hono.',
     keyPoints: [
@@ -488,16 +596,28 @@ npx tsc --noEmit`,
         statement: 'The default HTTP adapter of NestJS 12 is Fastify.',
         isTrue: false,
         why: 'Express is the default (`@nestjs/platform-express`); Fastify is an official adapter you opt into.',
+        twin: {
+          statement: 'The default HTTP adapter of NestJS 12 is Express.',
+          why: 'Express is the default (`@nestjs/platform-express`); Fastify is an official adapter you opt into.',
+        },
       },
       {
         statement: 'Hono runs on Cloudflare Workers and on Node because it is built on Web-standard `Request` and `Response`.',
         isTrue: true,
         why: 'It only uses Web standards, and runs on Node through `@hono/node-server`.',
+        twin: {
+          statement: 'Hono cannot run on Cloudflare Workers because it depends on Node-specific APIs.',
+          why: 'Hono is built only on Web-standard `Request` and `Response`, so it runs on Workers, and on Node through `@hono/node-server`.',
+        },
       },
       {
         statement: 'In Express 5, a rejected promise from an async route handler reaches the error handler without a `try`/`catch`.',
         isTrue: true,
         why: 'Express 5 forwards rejections from async handlers to the error-handling middleware.',
+        twin: {
+          statement: 'In Express 5, a rejected promise from an async route handler is lost unless the handler has its own `try`/`catch`.',
+          why: 'Express 5 forwards rejections from async handlers to the error-handling middleware.',
+        },
       },
     ],
     lesson: {
@@ -518,6 +638,16 @@ npx tsc --noEmit`,
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'How do you structure the inside of a Node service: what goes in the controller, the use case and the repository?',
+    questionVariants: [
+      {
+        question: 'The "cancel order" rule exists in the HTTP controller, and the new queue consumer for cancellations skips it, so shipped orders get cancelled. How do you restructure the code?',
+        bridge: 'Business rules belong in a use case that knows neither HTTP nor SQL, so the controller, the consumer and tests all call the same rule.',
+      },
+      {
+        question: 'Explain to a junior what ports and adapters mean in a Node service, using the Orders API as the example.',
+        bridge: 'The use case owns interfaces such as `OrderRepository`; Postgres or Stripe adapters implement them, so storage and HTTP stay outside the rules.',
+      },
+    ],
     answer:
       'Each concern gets one home. The controller translates HTTP: it reads params and body, validates their shape and picks the status code, with no SQL and no business rules. The use case, often called a service, holds the rule, like "only a paid order can be cancelled", and knows neither HTTP nor SQL; it throws domain errors that one place maps to responses. The repository does storage: queries and mapping rows to objects. With ports and adapters, the use case declares interfaces such as `OrderRepository`, and Postgres or Stripe adapters implement them, so a controller, a queue consumer and a unit test call the same rule.',
     keyPoints: [
@@ -554,11 +684,19 @@ npx tsc --noEmit`,
         statement: 'A use case should import neither the HTTP framework nor the database driver.',
         isTrue: true,
         why: 'That is what lets a controller, a queue consumer and a unit test with fakes all call the same rule.',
+        twin: {
+          statement: 'A use case may import the database driver directly, as long as it does not import the HTTP framework.',
+          why: 'A use case imports neither: storage goes through a repository it declares, so a unit test can pass a fake.',
+        },
       },
       {
         statement: 'The rule "only a paid order can be cancelled" belongs in a guard, so the handler never runs for unpaid orders.',
         isTrue: false,
         why: 'Guards are for authentication and authorisation; business rules belong in the use case so every caller applies them.',
+        twin: {
+          statement: 'The rule "only a paid order can be cancelled" belongs in the use case, so every caller applies it.',
+          why: 'Guards are for authentication and authorisation; a business rule in the use case covers HTTP, queue consumers and tests alike.',
+        },
       },
     ],
     codeChoices: [
@@ -615,6 +753,16 @@ export const makeCancelOrder = (orders: OrderRepository) => async (id: string) =
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'How do you handle configuration in a Node service so that a bad deploy fails fast?',
+    questionVariants: [
+      {
+        question: 'A deploy of the Orders API went green, then the first `POST /orders` at 3 a.m. failed with "invalid connection string". How should configuration be handled so this fails at deploy time?',
+        bridge: 'Parse and validate the whole environment once at startup into a typed object, so a bad value stops the process before it serves anything.',
+      },
+      {
+        question: 'A colleague writes `z.coerce.boolean()` for `ENABLE_REFUNDS` and `z.coerce.number()` for `PORT`. What can go wrong with environment strings?',
+        bridge: 'Environment values are strings, and coercion has traps: "false" becomes true, an empty string becomes 0.',
+      },
+    ],
     answer:
       'I parse the environment once, at startup, into a typed object, and nothing else in the code reads `process.env`. A Zod schema describes every variable: `DATABASE_URL` must be a URL, `PORT` an integer in range. If anything is missing or malformed, the process refuses to start and lists every problem, so the deploy fails within seconds instead of at the first order at 3 a.m. Environment values are strings, so I watch two traps: `z.coerce.number()` turns an empty `PORT` into 0, and `z.coerce.boolean()` turns "false" into true. Secrets come from a secret manager at runtime, never from the image.',
     keyPoints: [
@@ -651,11 +799,19 @@ export const makeCancelOrder = (orders: OrderRepository) => async (id: string) =
         statement: '`z.coerce.boolean().parse(\'false\')` returns `false`.',
         isTrue: false,
         why: 'Coercion is `Boolean(\'false\')`, and any non-empty string is truthy, so it returns `true`; use `z.stringbool()`.',
+        twin: {
+          statement: '`z.coerce.boolean().parse(\'false\')` returns `true`.',
+          why: 'Coercion is `Boolean(\'false\')`, and any non-empty string is truthy; `z.stringbool()` parses "false" as false.',
+        },
       },
       {
         statement: 'With configuration validated at startup, a missing `DATABASE_URL` stops the process before it serves any request.',
         isTrue: true,
         why: 'The schema is checked once at boot, and a failure exits the process instead of waiting for the first query.',
+        twin: {
+          statement: 'With configuration validated at startup, a missing `DATABASE_URL` is only noticed when the first query runs.',
+          why: 'The schema is checked once at boot, and a failure exits the process before it serves any request.',
+        },
       },
     ],
     codeChoices: [

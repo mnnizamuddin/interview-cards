@@ -12,6 +12,16 @@ export const reactCards: Card[] = [
     level: 'mid',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What is the virtual DOM, and how does it compare with updating the DOM directly?',
+    questionVariants: [
+      {
+        question: 'A teammate wants to drop React from the back office\'s live orders table and patch rows with `document.querySelector`, because "the virtual DOM is slow". What do you answer?',
+        bridge: 'The virtual DOM trade-off: a targeted DOM update does less work, but React\'s diff lets you describe the UI for any state and commits only the changes.',
+      },
+      {
+        question: 'Walk me through what happens between a state update and the screen changing: what does React compare, and what does it actually write to the DOM?',
+        bridge: 'The same topic as a sequence: render builds a new element tree, reconciliation diffs it with the previous one, and the commit applies only the differences.',
+      },
+    ],
     answer:
       'The virtual DOM is the tree of plain JavaScript objects that my components return: React elements describing what the UI should look like. When state changes, React renders the affected components again, compares the new tree with the previous one, and in the commit phase applies only the differences to the real DOM. It is not faster than a well-targeted direct update; its value is that I describe the result for any state and React works out the minimal changes. The cost is re-rendering work, which I keep small with good state placement and keys.',
     keyPoints: [
@@ -70,11 +80,19 @@ export const reactCards: Card[] = [
         statement: 'When a component re-renders, React rewrites all of its DOM nodes.',
         isTrue: false,
         why: 'React only commits the differences between the new and previous output; identical nodes are left untouched.',
+        twin: {
+          statement: 'When a component re-renders, React leaves the DOM nodes whose output did not change untouched.',
+          why: 'React only commits the differences between the new and previous output.',
+        },
       },
       {
         statement: 'Rendering a `<div>` where a `<section>` was before discards the state of the components inside it.',
         isTrue: true,
         why: 'A different element type at the same position makes React unmount the old subtree and mount a new one.',
+        twin: {
+          statement: 'Rendering a `<div>` where a `<section>` was before keeps the state of the components inside it.',
+          why: 'A different element type at the same position makes React unmount the old subtree, state included, and mount a new one.',
+        },
       },
     ],
     codeChoices: [
@@ -121,6 +139,16 @@ console.log(element.type, element.props);
     level: 'junior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What is the difference between state and props in React?',
+    questionVariants: [
+      {
+        question: 'In the back office, after an agent changes an order\'s status in the detail panel, the orders table still shows the old status. Each component keeps its own copy. How do you fix it?',
+        bridge: 'Two components holding their own copy of shared data: the fix is lifting the state to their closest common parent and passing it down as props.',
+      },
+      {
+        question: 'A junior asks why their `OrderRow` cannot just set `props.status = \'paid\'`. How do you explain who owns what between props and state?',
+        bridge: 'The difference between props and state: props are the parent\'s read-only input, state is owned by a component, and a child requests changes through a callback prop.',
+      },
+    ],
     answer:
       'Props are the inputs a parent passes to a component; the component reads them and must not change them. State is data a component owns and changes over time with its setter, like `useState`, and changing it makes React render that component again. Both are snapshots for one render. Data flows down through props, and a child asks for a change by calling a callback prop. When two components need the same data, I lift the state to their closest common parent, and I never copy a prop into state unless I want only its initial value.',
     keyPoints: [
@@ -183,11 +211,19 @@ console.log(element.type, element.props);
         statement: 'A child component can update its props directly to change what its parent shows.',
         isTrue: false,
         why: 'Props are read-only; the child calls a callback the parent passed, and the parent updates its own state.',
+        twin: {
+          statement: 'A child component changes what its parent shows by calling a callback the parent passed as a prop.',
+          why: 'Props are read-only, so the parent updates its own state inside that callback.',
+        },
       },
       {
         statement: 'A state value read inside an event handler is the value from the render that created that handler.',
         isTrue: true,
         why: 'Each render has its own snapshot of state, and the handler closes over it.',
+        twin: {
+          statement: 'A state value read inside an event handler always holds the latest state, even after later renders.',
+          why: 'Each render has its own snapshot of state, and the handler closes over the one from the render that created it.',
+        },
       },
     ],
     codeChoices: [
@@ -232,6 +268,16 @@ console.log(element.type, element.props);
     level: 'mid',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'Explain `useEffect`: what do its dependency array and its cleanup function do, and when should you not use it?',
+    questionVariants: [
+      {
+        question: 'In the back office, switching between orders in the detail panel leaves the previous order\'s WebSocket open and still receiving updates. The socket is opened in a `useEffect`. What is missing?',
+        bridge: 'The `useEffect` cleanup: React calls it before re-running the effect and on unmount, so it is where the socket must be closed.',
+      },
+      {
+        question: 'A colleague filters the orders list from props inside a `useEffect` and stores the result in state. What do you tell them, and when is an effect the right tool?',
+        bridge: 'When not to use `useEffect`: derived data belongs in render, and effects are for synchronising with something outside React.',
+      },
+    ],
     answer:
       '`useEffect` synchronises a component with something outside React, like a WebSocket, a timer or a browser API. It runs after the commit; the dependency array lists every reactive value it reads, and React compares them with `Object.is` to decide whether to run it again. Before re-running and on unmount, React calls the cleanup I return, so I close the socket or cancel the request. I do not use an effect to compute data from props or state, which belongs in render, or to react to a click, which belongs in the handler. Data fetching usually goes to a framework or TanStack Query.',
     keyPoints: [
@@ -275,16 +321,28 @@ console.log(element.type, element.props);
         statement: 'An effect with an empty dependency array runs once in development under Strict Mode.',
         isTrue: false,
         why: 'Strict Mode runs an extra setup and cleanup cycle in development, so setup runs twice.',
+        twin: {
+          statement: 'Under Strict Mode in development, an effect with an empty dependency array runs its setup twice.',
+          why: 'Strict Mode adds an extra setup and cleanup cycle in development.',
+        },
       },
       {
         statement: 'The cleanup function runs before the effect runs again with new dependencies.',
         isTrue: true,
         why: 'React cleans up with the old values, then runs setup with the new ones.',
+        twin: {
+          statement: 'When dependencies change, React runs the new effect setup first and the old cleanup afterwards.',
+          why: 'React cleans up with the old values first, then runs setup with the new ones.',
+        },
       },
       {
         statement: 'Filtering a list from props belongs in a `useEffect` that stores the result in state.',
         isTrue: false,
         why: 'Compute it during render; an effect adds a render with stale data and more code.',
+        twin: {
+          statement: 'Filtering a list from props belongs in render, not in a `useEffect` that stores the result in state.',
+          why: 'Computing during render avoids an extra render with stale data and the extra code.',
+        },
       },
     ],
     codeChoices: [
@@ -330,6 +388,16 @@ console.log(element.type, element.props);
     level: 'junior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What is the difference between controlled and uncontrolled form inputs in React?',
+    questionVariants: [
+      {
+        question: 'In the back office refund form, the amount field keeps the value the agent typed for the previous order, although the component now receives the new order\'s amount as `defaultValue`. Why?',
+        bridge: 'An uncontrolled input: `defaultValue` only sets the initial value and the DOM owns it afterwards, which is the core of controlled versus uncontrolled.',
+      },
+      {
+        question: 'The storefront has a search box with live suggestions and a 12-field address form. Which input style do you pick for each, and why?',
+        bridge: 'The controlled versus uncontrolled choice: controlled when the value drives other UI on every keystroke, uncontrolled for big forms read on submit.',
+      },
+    ],
     answer:
       'An input is controlled when I pass it `value` and update that value in `onChange`: React state is the source of truth, so I can validate or format on every keystroke. It is uncontrolled when the DOM keeps the value: I pass only `defaultValue` and read the result on submit, from `FormData` or a ref. Controlled suits fields that drive other UI, like a live search. Uncontrolled is simpler and renders less, and it fits React 19 form actions, which receive `FormData`. For big forms I use React Hook Form, which is uncontrolled by default.',
     keyPoints: [
@@ -383,11 +451,19 @@ console.log(element.type, element.props);
         statement: 'Updating `defaultValue` after the user has typed changes what the field shows.',
         isTrue: false,
         why: '`defaultValue` only sets the initial value; after that the DOM owns it.',
+        twin: {
+          statement: 'Updating `defaultValue` after the user has typed does not change what the field shows.',
+          why: '`defaultValue` only sets the initial value; after that the DOM owns it.',
+        },
       },
       {
         statement: 'An input with `value="7"` and no `onChange` ignores what the user types.',
         isTrue: true,
         why: 'React keeps forcing the DOM back to the `value` prop, and React warns that the field is read-only.',
+        twin: {
+          statement: 'An input with `value="7"` and no `onChange` shows whatever the user types.',
+          why: 'React keeps forcing the DOM back to the `value` prop and warns that the field is read-only.',
+        },
       },
     ],
     codeChoices: [
@@ -442,6 +518,16 @@ console.log(element.type, element.props);
     level: 'mid',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'When do you use React\'s built-in state (`useState`, `useContext`) and when a state library like Redux or Zustand?',
+    questionVariants: [
+      {
+        question: 'The back office keeps API orders, table filters, the theme and an open-dialog flag in one Redux store, and every fetch needs hand-written loading flags. How would you reorganise that state?',
+        bridge: 'Sorting state by kind: server state to a query cache, filters to the URL, local UI state to `useState`, rare values to Context, and a store only for what is left.',
+      },
+      {
+        question: 'A colleague wants one big Context holding the current user, the cart and live order counts, "so we need no library". When is Context enough, and when do you add Zustand or Redux?',
+        bridge: 'Built-in state versus a store: Context re-renders every reader on each change, so it fits rarely changing values; a store with selectors fits often-updated shared state.',
+      },
+    ],
     answer:
       'I first sort state by kind. Data from the API is server state: a cache, so I use TanStack Query, which handles loading, refetching and invalidation. Filters that a link should keep go in the URL. Local UI state stays in `useState`, lifted when siblings share it. Context is for values that rarely change, like the theme or the current user, because every reader re-renders when the value changes. I add Zustand or Redux Toolkit only for client state that many distant components read and update often, because they let components subscribe to a slice. Once server state is in a query cache, that store is usually small.',
     keyPoints: [
@@ -519,11 +605,19 @@ console.log(element.type, element.props);
         statement: 'Context is a state management tool that only re-renders components reading the field that changed.',
         isTrue: false,
         why: 'Every component that reads the context re-renders when the provider value changes.',
+        twin: {
+          statement: 'Every component that reads a context re-renders when the provider value changes, whichever field it uses.',
+          why: 'Context has no per-field subscription; a store lets components subscribe to a slice.',
+        },
       },
       {
         statement: 'TanStack Query can replace most of a Redux store that only caches API responses.',
         isTrue: true,
         why: 'It is a server-state cache with deduplication, refetching and invalidation built in.',
+        twin: {
+          statement: 'A Redux store that only caches API responses has to stay in Redux; TanStack Query cannot replace it.',
+          why: 'TanStack Query is a server-state cache with deduplication, refetching and invalidation built in, so it replaces most of such a store.',
+        },
       },
     ],
     lesson: {
@@ -545,6 +639,16 @@ console.log(element.type, element.props);
     level: 'junior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What is the `key` prop, and why does it matter when rendering lists?',
+    questionVariants: [
+      {
+        question: 'In the back office, an agent types a note in the first row of the orders table; a live update prepends a new order and the note now sits on a different order. What is wrong?',
+        bridge: 'Index keys: state stays at a position, so prepending shifts it to the wrong order. A stable key like `order.id` keeps state with its data.',
+      },
+      {
+        question: 'How would you reset the refund form completely when the agent opens another order, without clearing each field by hand?',
+        bridge: 'The other use of `key`: changing it on purpose remounts the component, so `key={order.id}` gives the form fresh state.',
+      },
+    ],
     answer:
       'A `key` tells React which item in a list is which between renders. React matches old and new children by key, so it can move, insert or remove items and keep each item\'s state and DOM attached to the right data. The key must be stable and unique among siblings, typically the database id like `order.id`. Using the array index breaks as soon as the list is reordered, filtered or prepended: state and input values stay at a position and end up on the wrong item. I also change a key on purpose to reset a component\'s state.',
     keyPoints: [
@@ -594,11 +698,19 @@ console.log(element.type, element.props);
         statement: 'Keys need to be unique only among siblings in the same list.',
         isTrue: true,
         why: 'React compares keys within one parent\'s children; two lists can reuse the same keys.',
+        twin: {
+          statement: 'Keys must be unique across the whole page, not just among siblings in one list.',
+          why: 'React compares keys within one parent\'s children, so two lists can reuse the same keys.',
+        },
       },
       {
         statement: 'A key generated with `Math.random()` in render is fine as long as it is unique.',
         isTrue: false,
         why: 'It changes on every render, so React remounts every item and loses its state and DOM.',
+        twin: {
+          statement: 'A key generated with `Math.random()` in render makes React remount every item on each render.',
+          why: 'It changes on every render, so React treats each item as new and loses its state and DOM.',
+        },
       },
     ],
     codeChoices: [
@@ -643,6 +755,16 @@ console.log(element.type, element.props);
     level: 'mid',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What is memoization in React, and how do `React.memo`, `useMemo` and `useCallback` differ?',
+    questionVariants: [
+      {
+        question: 'The back office wraps `OrderRow` in `React.memo`, yet the Profiler shows every row rendering when a filter changes. The parent passes `style={{ padding: 8 }}` and an inline `onRefund`. Why?',
+        bridge: '`memo` compares props with `Object.is`, so new objects and functions on each render defeat it; that is what `useMemo` and `useCallback` exist for.',
+      },
+      {
+        question: 'In a new project with the React Compiler enabled, a colleague adds `useMemo` and `useCallback` everywhere "to be safe". What do you tell them?',
+        bridge: 'Memoization after the compiler: it adds the caching at build time, so manual hooks become escape hatches, and measuring comes first.',
+      },
+    ],
     answer:
       'Memoization means reusing a previous result when the inputs have not changed. `React.memo` wraps a component and skips its render when its props are shallowly equal to last time. `useMemo` caches a computed value and `useCallback` caches a function between renders, mainly so a memoized child or an effect dependency gets the same reference. I measure with the Profiler first. Since React Compiler 1.0, stable since October 2025, the compiler adds this caching at build time, so in new code I keep the hooks only as escape hatches. It does not make a changed input cheap.',
     keyPoints: [
@@ -700,11 +822,19 @@ console.log(element.type, element.props);
         statement: '`useCallback(fn, deps)` is equivalent to `useMemo(() => fn, deps)`.',
         isTrue: true,
         why: 'Both return the same function reference until a dependency changes.',
+        twin: {
+          statement: '`useCallback(fn, deps)` returns a new function on every render, unlike `useMemo(() => fn, deps)`.',
+          why: 'Both return the same function reference until a dependency changes, so they are equivalent.',
+        },
       },
       {
         statement: '`React.memo` compares props deeply, so a new object with the same content does not trigger a render.',
         isTrue: false,
         why: 'It compares each prop with `Object.is`, so a new object is a change.',
+        twin: {
+          statement: '`React.memo` compares props shallowly, so a new object with the same content triggers a render.',
+          why: 'It compares each prop with `Object.is`, and a new object is a different reference.',
+        },
       },
     ],
     codeChoices: [
@@ -762,6 +892,16 @@ function OrdersTable({ orders }: { orders: Order[] }) {
     level: 'senior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'How would you render a list of thousands of items efficiently?',
+    questionVariants: [
+      {
+        question: 'Support agents want to scroll 20,000 orders in the back office table; rendering them all freezes the tab for seconds and typing in the filter lags. What do you do?',
+        bridge: 'Rendering thousands of rows: question the need first, then virtualise so only visible rows exist, and keep the filter responsive with `useDeferredValue`.',
+      },
+      {
+        question: 'After you virtualised the orders table, agents complain that Ctrl+F no longer finds an order further down. What trade-offs does virtualisation bring?',
+        bridge: 'The costs of virtualisation: rows outside the window are not in the DOM, so find-in-page misses them, and accessibility needs ARIA row counts.',
+      },
+    ],
     answer:
       'First I ask whether the user needs thousands of rows at once: server-side pagination with filters is simpler and sends less data. If they really scroll one long list, I virtualise it with TanStack Virtual, which renders only the visible rows plus a small overscan inside a spacer as tall as the full list. Then I keep each render cheap: stable keys, rows that re-render only when their own data changes, and `useDeferredValue` so typing in a filter stays responsive. Virtualising costs something: find-in-page misses hidden rows, and accessibility needs `aria-rowcount`.',
     keyPoints: [
@@ -806,11 +946,19 @@ function OrdersTable({ orders }: { orders: Order[] }) {
         statement: 'With virtualisation, the browser\'s find-in-page can match rows that are scrolled out of view.',
         isTrue: false,
         why: 'Rows outside the window are not in the DOM, so the browser cannot find them.',
+        twin: {
+          statement: 'With virtualisation, the browser\'s find-in-page cannot match rows that are scrolled out of view.',
+          why: 'Rows outside the window are not in the DOM, so the browser has nothing to find.',
+        },
       },
       {
         statement: 'A virtualised list keeps the scrollbar correct by sizing a container to the full list height.',
         isTrue: true,
         why: 'The spacer has the total height, and visible rows are positioned inside it.',
+        twin: {
+          statement: 'A virtualised list sizes its scrollbar to the rendered rows only, not to the full list.',
+          why: 'A spacer container has the full list\'s height, so the scrollbar matches the whole list.',
+        },
       },
     ],
     codeChoices: [
@@ -866,6 +1014,16 @@ visibleRange(8000, 5000); // { start: 195, end: 220 }: 25 rows instead of 5,000`
     level: 'junior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What is the difference between one-way and two-way data binding, and which does React use?',
+    questionVariants: [
+      {
+        question: 'A developer coming from Angular writes `<input value={email} />` in the storefront checkout and reports that the field "is frozen". What concept are they missing?',
+        bridge: 'React\'s one-way binding: the value flows from state to the view, and only an explicit `onChange` that calls the setter writes it back.',
+      },
+      {
+        question: 'How does Vue\'s `v-model` differ from what you write in React for the same field, and what does React gain from its approach?',
+        bridge: 'Two-way versus one-way binding: `v-model` syncs both ways automatically; React needs `value` plus `onChange`, but every change passes through one place.',
+      },
+    ],
     answer:
       'With one-way binding, data flows in one direction: from state to the view. The view never writes back by itself; a user action calls a handler that updates the state, and the view renders again. With two-way binding, the framework keeps a field and a variable in sync automatically in both directions, like Angular\'s `[(ngModel)]` or Vue\'s `v-model`. React is one-way: props flow down, and a controlled input needs `value` plus an explicit `onChange`. It is a bit more code, but every change goes through one place, which makes bugs easier to trace.',
     keyPoints: [
@@ -912,11 +1070,19 @@ visibleRange(8000, 5000); // { start: 195, end: 220 }: 25 rows instead of 5,000`
         statement: 'In React, typing in an input with a `value` prop updates the state automatically.',
         isTrue: false,
         why: 'The state changes only if `onChange` calls the setter; otherwise the field reverts.',
+        twin: {
+          statement: 'In React, typing in an input with a `value` prop changes the state only if `onChange` calls the setter.',
+          why: 'React does not write back by itself; without the setter, the field reverts.',
+        },
       },
       {
         statement: 'In React, a child asks for a change by calling a function its parent passed as a prop.',
         isTrue: true,
         why: 'That is the "callbacks up" half of one-way data flow.',
+        twin: {
+          statement: 'In React, a child changes its parent\'s data by writing to the props it received.',
+          why: 'Props are read-only; the child calls a function its parent passed, the "callbacks up" half of one-way data flow.',
+        },
       },
     ],
     codeChoices: [
@@ -965,6 +1131,16 @@ return <input value={postcode} onChange={(e) => setPostcode(e.target.value.toUpp
     level: 'mid',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'How would you test a React component?',
+    questionVariants: [
+      {
+        question: 'After a refactor of the checkout form that changed no behaviour, 40 tests fail because they assert on internal state and snapshots. How would you write those tests instead?',
+        bridge: 'Testing like a user: query by role and name, interact with `user-event`, and assert on what the screen shows, so refactors do not break tests.',
+      },
+      {
+        question: 'A colleague mocks the `useOrders` hook in every component test. What is the downside, and what would you mock instead?',
+        bridge: 'Where to mock: MSW intercepts at the HTTP level, so the component, its data hooks and TanStack Query run for real.',
+      },
+    ],
     answer:
       'I test behaviour the way a user sees it, not implementation details. With Vitest and React Testing Library, I render the component, find elements by role and accessible name, and interact with `user-event`, which simulates real typing and clicks. For async UI I wait with `findBy` queries. I mock the network with MSW at the HTTP level, so the component, its data hooks and TanStack Query run for real. I avoid asserting on state, hooks or snapshots. The checkout flow itself gets a few end-to-end tests with Playwright.',
     keyPoints: [
@@ -1023,11 +1199,19 @@ return <input value={postcode} onChange={(e) => setPostcode(e.target.value.toUpp
         statement: '`user-event` simulates the full sequence of browser events a real user triggers, unlike a single `fireEvent`.',
         isTrue: true,
         why: 'It sends focus, keyboard and input events in order, so behaviour matches a real browser more closely.',
+        twin: {
+          statement: '`user-event` dispatches a single event per action, just like `fireEvent`.',
+          why: 'It sends the focus, keyboard and input events a real user triggers, in order.',
+        },
       },
       {
         statement: 'MSW works by replacing your data-fetching hooks with mocks.',
         isTrue: false,
         why: 'It intercepts requests at the network level, so your hooks and fetch code run unchanged.',
+        twin: {
+          statement: 'MSW intercepts requests at the network level, so your data-fetching hooks run unchanged.',
+          why: 'It does not replace hooks; it answers the HTTP requests they send.',
+        },
       },
     ],
     codeChoices: [
@@ -1078,6 +1262,16 @@ return <input value={postcode} onChange={(e) => setPostcode(e.target.value.toUpp
     level: 'mid',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What are React hooks, why were they introduced, and why must they run in the same order on every render?',
+    questionVariants: [
+      {
+        question: 'In the back office, clearing the selected order crashes the panel with "Rendered fewer hooks than expected". The component returns early when no order is selected, before a `useEffect`. Why?',
+        bridge: 'The Rules of Hooks: React matches hooks to their state by call order, so an early return before a hook changes that order between renders.',
+      },
+      {
+        question: 'Class components already had state and lifecycle methods. Why did React add hooks in 16.8?',
+        bridge: 'The origin of hooks: let function components replace classes, and share stateful logic through custom hooks instead of wrapper components.',
+      },
+    ],
     answer:
       'Hooks are functions whose name starts with `use` that let a function component use React features: state with `useState`, effects, context, refs. They arrived in React 16.8 so function components could replace classes, and so stateful logic could be shared through custom hooks instead of wrapper components. The rule is to call them only at the top level of a component or custom hook, never in a condition, a loop or after an early return. React does not know hooks by name: it matches each call with its stored state by call order, so the order must never change. The lint plugin enforces this.',
     keyPoints: [
@@ -1128,16 +1322,28 @@ return <input value={postcode} onChange={(e) => setPostcode(e.target.value.toUpp
         statement: 'Two components that call the same custom hook share its state.',
         isTrue: false,
         why: 'A custom hook shares logic; each call creates its own state.',
+        twin: {
+          statement: 'Two components that call the same custom hook each get their own state.',
+          why: 'A custom hook shares logic; each call creates its own state.',
+        },
       },
       {
         statement: 'React tells hooks apart by the order in which they are called during render.',
         isTrue: true,
         why: 'Hooks have no names for React; their state is matched by call position.',
+        twin: {
+          statement: 'React tells hooks apart by the names of the variables their results are stored in.',
+          why: 'Hooks have no names for React; their state is matched by call order.',
+        },
       },
       {
         statement: 'Putting `useEffect` inside `if (orderId)` is a correct way to skip the effect when no order is selected.',
         isTrue: false,
         why: 'It breaks the call order; call the hook every time and put the condition inside it.',
+        twin: {
+          statement: 'To skip an effect when no order is selected, call `useEffect` every time and put the `if (orderId)` check inside it.',
+          why: 'The hook keeps its call position, and the condition only decides what the effect does.',
+        },
       },
     ],
     codeChoices: [
@@ -1188,6 +1394,16 @@ return <input value={postcode} onChange={(e) => setPostcode(e.target.value.toUpp
     level: 'mid',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'Explain the component lifecycle with hooks: in what order do mount, update and unmount run?',
+    questionVariants: [
+      {
+        question: 'In the back office, `OrdersPage` subscribes to live updates in a `useEffect`, and each child `OrderRow` registers with that subscription in its own `useEffect` on mount, but finds nothing to register with. Why?',
+        bridge: 'Effect order on mount: children\'s effects run before their parent\'s, so each row runs before the page has subscribed.',
+      },
+      {
+        question: 'How do `componentDidMount`, `componentDidUpdate` and `componentWillUnmount` map to hooks, and where does that mapping fall short?',
+        bridge: 'The lifecycle with hooks: an effect with `[]` and its cleanup roughly cover mount and unmount, dependencies cover updates, but effects are synchronisation.',
+      },
+    ],
     answer:
       'A component mounts, updates and unmounts, and with hooks I express that as synchronisation. On mount, React renders, commits the DOM, attaches refs, runs layout effects before the browser paints, then runs effects, children before parents. On update it renders and commits again, and for each effect whose dependencies changed it runs the old cleanup, then the new setup. On unmount it runs every remaining cleanup. Roughly, an effect with `[]` and its cleanup replace `componentDidMount` and `componentWillUnmount`, and dependencies replace `componentDidUpdate`. In development, Strict Mode adds one extra setup and cleanup cycle on mount.',
     keyPoints: [
@@ -1238,16 +1454,28 @@ return <input value={postcode} onChange={(e) => setPostcode(e.target.value.toUpp
         statement: 'On mount, a child\'s `useEffect` runs before its parent\'s `useEffect`.',
         isTrue: true,
         why: 'React runs effects from the leaves up, so children finish their effects first.',
+        twin: {
+          statement: 'On mount, a parent\'s `useEffect` runs before its children\'s `useEffect`.',
+          why: 'React runs effects from the leaves up, so children run theirs first.',
+        },
       },
       {
         statement: '`useEffect` always runs before the browser paints the new DOM.',
         isTrue: false,
         why: 'Only `useLayoutEffect` is guaranteed to run before paint; `useEffect` usually runs after it.',
+        twin: {
+          statement: '`useEffect` usually runs after the browser paints the new DOM.',
+          why: 'Only `useLayoutEffect` is guaranteed to run before paint.',
+        },
       },
       {
         statement: 'When a dependency changes, React runs the new setup first and the old cleanup afterwards.',
         isTrue: false,
         why: 'The cleanup with the old values runs first, then the setup with the new ones.',
+        twin: {
+          statement: 'When a dependency changes, React runs the old cleanup first, then the new setup.',
+          why: 'The cleanup uses the old values, then setup runs with the new ones.',
+        },
       },
     ],
     codeChoices: [
@@ -1306,6 +1534,16 @@ return <input value={postcode} onChange={(e) => setPostcode(e.target.value.toUpp
     level: 'junior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What is the difference between function components and class components?',
+    questionVariants: [
+      {
+        question: 'You join a team whose back office still has 30 class components, and a colleague wants to convert them all before upgrading to React 19. What do you advise, and what must stay a class?',
+        bridge: 'Class versus function components: classes still work, functions are recommended for new code, and error boundaries still need a class or a package.',
+      },
+      {
+        question: 'Explain to a junior how state and side effects are organised in a class component compared with a function component.',
+        bridge: 'The same comparison from the inside: `this.state` and lifecycle methods versus hooks, which group code by concern instead of by lifecycle.',
+      },
+    ],
     answer:
       'A class component extends `React.Component`, keeps state in `this.state`, changes it with `this.setState`, and spreads side effects over lifecycle methods like `componentDidMount` and `componentDidUpdate`. A function component takes props, returns JSX, and uses hooks for state, effects and context. React still supports classes, but react.dev recommends functions for new code: they are shorter, have no `this` binding bugs, group code by concern instead of by lifecycle, and share logic through custom hooks. Two things still need a class: error boundaries, which I take from `react-error-boundary`, and the rare `getSnapshotBeforeUpdate`.',
     keyPoints: [
@@ -1345,11 +1583,19 @@ return <input value={postcode} onChange={(e) => setPostcode(e.target.value.toUpp
         statement: 'Class components no longer work in React 19.',
         isTrue: false,
         why: 'React still supports them; react.dev only recommends functions for new code.',
+        twin: {
+          statement: 'Class components still work in React 19.',
+          why: 'React still supports them; react.dev only recommends functions for new code.',
+        },
       },
       {
         statement: 'An error boundary cannot be written as a function component with hooks alone.',
         isTrue: true,
         why: 'There is no hook for `getDerivedStateFromError` or `componentDidCatch`, so a class or a package is needed.',
+        twin: {
+          statement: 'An error boundary can be written as a function component with hooks alone.',
+          why: 'There is no hook for `getDerivedStateFromError` or `componentDidCatch`, so a class or a package is needed.',
+        },
       },
     ],
     codeChoices: [
@@ -1404,6 +1650,16 @@ function OrderStatus({ orderId }: { orderId: string }) {
     level: 'junior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What is JSX, and how is it converted to JavaScript?',
+    questionVariants: [
+      {
+        question: 'A teammate logs a JSX tag in the back office, expecting a DOM node they can call `.focus()` on, and gets a plain object instead. What did they get, and why?',
+        bridge: 'What JSX compiles to: a function call that returns a React element, a plain object; React creates the DOM nodes later, in the commit.',
+      },
+      {
+        question: 'Why do older React files start with `import React from \'react\'` even when they never use `React`, and why do newer files not need it?',
+        bridge: 'The JSX transform: the old one compiled tags to `React.createElement`; the new one, since React 17, imports from `react/jsx-runtime` itself.',
+      },
+    ],
     answer:
       'JSX is a syntax extension that lets me write markup inside JavaScript. Browsers cannot run it, so a compiler, TypeScript, Babel or the one in Vite, turns each tag into a function call that returns a React element: a plain object with a type, props and a key, not a DOM node. With the new transform, since React 17, the compiler imports `jsx` from `react/jsx-runtime` itself, so I no longer import React just for JSX; the old transform called `React.createElement`. Because it is JavaScript, attributes are camelCase props like `className` and `onClick`, and expressions go in curly braces.',
     keyPoints: [
@@ -1443,11 +1699,19 @@ function OrderStatus({ orderId }: { orderId: string }) {
         statement: 'With the new JSX transform, a file must `import React from \'react\'` to use JSX.',
         isTrue: false,
         why: 'The compiler adds the import from `react/jsx-runtime` itself.',
+        twin: {
+          statement: 'With the new JSX transform, the compiler adds the import from `react/jsx-runtime` itself.',
+          why: 'A file no longer needs `import React from \'react\'` just to use JSX.',
+        },
       },
       {
         statement: 'A JSX tag evaluates to a plain JavaScript object describing the UI, not to a DOM node.',
         isTrue: true,
         why: 'It returns a React element; React creates or updates DOM nodes later, in the commit.',
+        twin: {
+          statement: 'A JSX tag evaluates to a DOM node that React then inserts into the page.',
+          why: 'It returns a React element, a plain object; React creates or updates DOM nodes later, in the commit.',
+        },
       },
     ],
     codeChoices: [
@@ -1497,6 +1761,16 @@ const row = _jsxs("li", { className: "order", children: ["Order ", order.number]
     level: 'junior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What is a React Fragment, and why use one instead of a wrapper `div`?',
+    questionVariants: [
+      {
+        question: 'In the back office, an `OrderLines` component wraps its `<tr>` rows in a `<div>` inside the table\'s `<tbody>`, and the table layout breaks. How do you fix it?',
+        bridge: 'Fragments group siblings without adding a DOM node, so the rows stay direct children of `tbody` and the markup stays valid.',
+      },
+      {
+        question: 'When a `map` returns a label and a value for each order line, why can you not use `<>...</>`, and what do you write instead?',
+        bridge: 'The keyed Fragment: the shorthand takes no attributes, so a list item made of siblings needs `<Fragment key={line.id}>`.',
+      },
+    ],
     answer:
       'A Fragment groups several elements without adding a node to the DOM. A component returns one element, and wrapping siblings in a `div` adds a real node that can break things: a flex or grid parent lays out the div instead of the children, and a `div` inside a `tbody` or a `ul` is invalid HTML. I usually write the shorthand `<>...</>`. It takes no attributes, so when a `map` returns several siblings per item, I import `Fragment` and write `<Fragment key={line.id}>`. Since there is no node, there is nothing to style, and wrapping a child in one Fragment does not reset its state.',
     keyPoints: [
@@ -1536,11 +1810,19 @@ const row = _jsxs("li", { className: "order", children: ["Order ", order.number]
         statement: 'Changing `<Child />` to `<><Child /></>` resets the state of `Child`.',
         isTrue: false,
         why: 'React keeps the state across one level of Fragment; a `div` wrapper would reset it.',
+        twin: {
+          statement: 'Changing `<Child />` to `<><Child /></>` keeps the state of `Child`.',
+          why: 'React keeps the state across one level of Fragment; a `div` wrapper would reset it.',
+        },
       },
       {
         statement: 'The `<>...</>` shorthand cannot take a `key`.',
         isTrue: true,
         why: 'It accepts no attributes; a keyed Fragment needs the full `<Fragment key>` syntax.',
+        twin: {
+          statement: 'The `<>...</>` shorthand accepts a `key`, like the full `<Fragment>` syntax.',
+          why: 'It accepts no attributes; a keyed Fragment needs `<Fragment key>`.',
+        },
       },
     ],
     codeChoices: [
@@ -1595,6 +1877,16 @@ const row = _jsxs("li", { className: "order", children: ["Order ", order.number]
     level: 'junior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What is `useRef`, and what are its two main uses?',
+    questionVariants: [
+      {
+        question: 'In the back office, an auto-refresh timer id is stored in a `let` variable inside the component when the agent clicks "Auto-refresh", and the unmount cleanup finds `undefined`. Where should the id live?',
+        bridge: '`useRef` for values the screen does not show: the same ref object survives every render, and writing `current` does not trigger a render, unlike state.',
+      },
+      {
+        question: 'A colleague stores whether the refund panel is open in a ref "to avoid re-renders", and the panel never opens. What are refs for, and what belongs in state?',
+        bridge: 'The two uses of `useRef`, DOM nodes and values not shown; a value the screen shows must be state, because writing a ref does not render.',
+      },
+    ],
     answer:
       '`useRef(initial)` returns a mutable object, `{ current }`, that stays the same on every render, and changing `current` does not re-render. The first use is holding a DOM node: I pass the ref to an element\'s `ref` attribute, and after the commit `current` is the node, so I can focus an input or measure it. The second is keeping a value the screen does not show, like a timer id or an `AbortController`. I read and write refs in effects and handlers, not during render; a value shown on screen belongs in state. In React 19, a function component receives `ref` as a plain prop.',
     keyPoints: [
@@ -1635,16 +1927,28 @@ const row = _jsxs("li", { className: "order", children: ["Order ", order.number]
         statement: 'Changing `ref.current` makes the component render again.',
         isTrue: false,
         why: 'React does not track refs; only state updates and new props schedule a render.',
+        twin: {
+          statement: 'Changing `ref.current` does not make the component render again.',
+          why: 'React does not track refs; only state updates and new props schedule a render.',
+        },
       },
       {
         statement: 'In a function component, `useRef` returns the same object on every render, while `createRef` returns a new one.',
         isTrue: true,
         why: '`useRef` is stored with the component; `createRef` is a plain factory called again on each render.',
+        twin: {
+          statement: 'In a function component, `useRef` and `createRef` both return a new object on every render.',
+          why: '`useRef` is stored with the component and returns the same object; only `createRef` makes a new one each time it is called.',
+        },
       },
       {
         statement: 'A ref passed to an `<input>` already holds the DOM node during the component\'s first render.',
         isTrue: false,
         why: 'React sets `current` during the commit, after the render has returned.',
+        twin: {
+          statement: 'A ref passed to an `<input>` does not hold the DOM node yet during the component\'s first render.',
+          why: 'React sets `current` during the commit, after the render has returned.',
+        },
       },
     ],
     codeChoices: [

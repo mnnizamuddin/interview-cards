@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { UNITS } from '../content/catalog.ts';
 import type { Content } from '../content/load.ts';
-import type { Card } from '../content/types.ts';
+import type { Card, Trap } from '../content/types.ts';
 import { CodeChoiceExercise } from '../exercises/CodeChoiceExercise.tsx';
 import { McqExercise } from '../exercises/McqExercise.tsx';
 import { OpenQuestion } from '../exercises/OpenQuestion.tsx';
@@ -257,6 +257,14 @@ function SeriesSummary({
   );
 }
 
+/** The trap itself, or its twin: the same fact stated the other way, so its answer is the opposite. */
+function trapToAsk(trap: Trap, twin: boolean | undefined): Trap {
+  if (!twin || !trap.twin) {
+    return trap;
+  }
+  return { statement: trap.twin.statement, isTrue: !trap.isTrue, why: trap.twin.why };
+}
+
 function ExerciseView({
   exercise,
   card,
@@ -277,11 +285,11 @@ function ExerciseView({
     case 'lesson':
       return <LessonView card={card} unitTitle={UNIT_TITLES.get(card.unit) ?? ''} actionLabel="Got it, ask me" onDone={onLessonDone} />;
     case 'open':
-      return <OpenQuestion card={card} onDone={onAnswer} onReviewLesson={onReviewLesson} />;
+      return <OpenQuestion card={card} variantIndex={exercise.variant} onDone={onAnswer} onReviewLesson={onReviewLesson} />;
     case 'followUp':
       return <OpenQuestion card={card} followUpIndex={exercise.index} onDone={onAnswer} onReviewLesson={onReviewLesson} />;
     case 'trap':
-      return <TrapExercise trap={card.traps[exercise.index]!} onDone={onAnswer} onReviewLesson={onReviewLesson} />;
+      return <TrapExercise trap={trapToAsk(card.traps[exercise.index]!, exercise.twin)} onDone={onAnswer} onReviewLesson={onReviewLesson} />;
     case 'mcq': {
       const mcq = mcqsById.get(exercise.mcqId);
       return mcq ? <McqExercise mcq={mcq} onDone={onAnswer} onReviewLesson={onReviewLesson} /> : <p>Unknown question.</p>;

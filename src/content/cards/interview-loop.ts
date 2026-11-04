@@ -9,6 +9,18 @@ export const interviewLoopCards: Card[] = [
     level: 'mid',
     paths: ['frontend', 'backend', 'fullstack', 'react'],
     question: 'What does a typical senior interview loop look like at a Paris product company, and what does each round assess?',
+    questionVariants: [
+      {
+        question:
+          'The recruiter says the loop has five steps but gives no details, and you have two weeks to prepare. What do you ask, and why does it matter?',
+        bridge: 'Each technical round grades a different skill, so knowing the format of every round decides how you prepare.',
+      },
+      {
+        question:
+          'A friend says practising algorithm puzzles covers any senior loop. What do you tell him?',
+        bridge: 'The misconception that one kind of preparation fits all: live coding, take-home, review, debugging and design each grade something different.',
+      },
+    ],
     answer:
       'It usually runs a recruiter screen, a call with the hiring manager, technical rounds, a final round with a CTO, VP or Head of Engineering, and often a meeting with the team. The technical rounds vary most: live coding grades how I clarify, test and reason aloud; a take-home grades scope and whether I can defend every choice; code review grades what I catch first and how I say it; debugging grades method on unfamiliar code; system design grades trade-offs; behavioural rounds grade ownership and judgement. So I ask the recruiter for the format of every round and prepare each one on purpose.',
     keyPoints: [
@@ -45,11 +57,19 @@ export const interviewLoopCards: Card[] = [
         statement: 'Some companies now allow an AI assistant in a round, while others ban it and have moved rounds back in person.',
         isTrue: true,
         why: 'Both trends were reported in 2025 and 2026, so the policy must be asked, not assumed.',
+        twin: {
+          statement: 'Every company now handles AI assistants in interview rounds the same way, so there is no need to ask.',
+          why: 'Some companies allow an assistant while others ban it and have moved rounds back in person, so the policy must be asked.',
+        },
       },
       {
         statement: 'Every technical round of a senior loop grades the same skill, so one kind of preparation covers them all.',
         isTrue: false,
         why: 'Live coding, take-home, review, debugging and design each grade something different and need their own preparation.',
+        twin: {
+          statement: 'Each technical round of a senior loop grades a different skill and needs its own preparation.',
+          why: 'Live coding grades reasoning aloud, a take-home its scope and defence, a review what you catch, a design round the trade-offs.',
+        },
       },
     ],
     lesson: {
@@ -70,6 +90,18 @@ export const interviewLoopCards: Card[] = [
     level: 'mid',
     paths: ['frontend', 'backend', 'fullstack', 'react'],
     question: 'How do you handle the recruiter screen: your pitch, the salary question and the logistics?',
+    questionVariants: [
+      {
+        question:
+          'Ten minutes into the screen, the recruiter asks: "What are your salary expectations?" What exactly do you answer?',
+        bridge: 'The salary moment of the screen: a researched range for the gross annual fixed salary, and the position\'s range asked in return.',
+      },
+      {
+        question:
+          'The recruiter opens with "Tell me about yourself." How long do you talk, and what goes in?',
+        bridge: 'That opening is the screen\'s pitch: 60 to 90 seconds with your current role, one concrete result and why this company.',
+      },
+    ],
     answer:
       'I pitch in 60 to 90 seconds: what I do now, one concrete result, and why this company, with something specific about its product. For example: I own the checkout of an Orders API in Node and TypeScript, and last quarter I removed an evening freeze that slowed every route. On salary, I give a range for the gross annual fixed salary, researched on postings that show one, with a bottom I would accept, and I ask for the position\'s range in return. I close with my notice period, the remote policy and the steps of the loop, and I ask what each technical round looks like.',
     keyPoints: [
@@ -106,11 +138,19 @@ export const interviewLoopCards: Card[] = [
         statement: 'In France, the salary discussed with a recruiter is usually the gross annual fixed salary, with any variable pay on top.',
         isTrue: true,
         why: 'That is the usual figure (brut annuel fixe), so say which one you mean.',
+        twin: {
+          statement: 'In France, the salary discussed with a recruiter is usually the total including variable pay.',
+          why: 'The usual figure is the gross annual fixed salary (brut annuel fixe), with any variable pay on top.',
+        },
       },
       {
         statement: 'The best answer to the salary question at the screen is to refuse to give any figure.',
         isTrue: false,
         why: 'Salary comes up in this call; a researched range plus a question about the position\'s range keeps the process moving.',
+        twin: {
+          statement: 'At the screen, a researched salary range plus a question about the position\'s range is a good answer to the salary question.',
+          why: 'Salary comes up in this call, and a range with a question in return keeps the process moving.',
+        },
       },
     ],
     lesson: {
@@ -131,6 +171,18 @@ export const interviewLoopCards: Card[] = [
     level: 'mid',
     paths: ['frontend', 'backend', 'fullstack', 'react'],
     question: 'How do you approach a live coding round, for example a feature like "a customer may cancel an order within 30 minutes"?',
+    questionVariants: [
+      {
+        question:
+          'The interviewer says "Go ahead" and you start typing the function at once. Ten minutes later, they ask whether the 30th minute counts. What went wrong, and what should the first minutes look like?',
+        bridge: 'The opening of a live coding round: clarify aloud first, boundaries, statuses, errors and the source of time, and note the answers.',
+      },
+      {
+        question:
+          'Your first test for the cancel rule fails now and then on CI, and the function calls `Date.now()`. What do you change, and why does it matter in the round?',
+        bridge: 'A test tied to the real clock: passing the current instant in as a parameter makes a time rule testable and shows design through tests.',
+      },
+    ],
     answer:
       'I spend the first five minutes clarifying aloud and note the answers as comments: is the 30th minute included, which statuses can be cancelled, does a paid order need a refund, what the API answers otherwise, and where "now" comes from. That last one shapes the design: the function takes the current instant as a parameter, so tests fix it. Then I work in TDD, one failing test, the least code to pass, a refactor, starting with the boundaries: exactly 30 minutes, then one millisecond after. I narrate decisions, not keystrokes, and write idiomatic TypeScript: literal unions, readonly data, a result type, an exhaustive switch.',
     keyPoints: [
@@ -167,11 +219,19 @@ export const interviewLoopCards: Card[] = [
         statement: 'For a time-window rule, the boundary cases (exactly at the limit, and just after) are the ones interviewers probe most.',
         isTrue: true,
         why: 'Off-by-one errors live at the boundary, so those tests come first.',
+        twin: {
+          statement: 'For a time-window rule, the cases far from the limit are the ones interviewers probe most.',
+          why: 'Off-by-one errors live at the boundary, so exactly at the limit and just after are tested first.',
+        },
       },
       {
         statement: 'Reading the current time inside the business function makes it easier to test.',
         isTrue: false,
         why: 'Tests then depend on the real clock; pass the instant in as a parameter and fix it in tests.',
+        twin: {
+          statement: 'Passing the current time into the business function as a parameter makes it easier to test.',
+          why: 'Tests then fix the instant instead of depending on the real clock.',
+        },
       },
     ],
     lesson: {
@@ -203,6 +263,18 @@ export const interviewLoopCards: Card[] = [
     level: 'senior',
     paths: ['frontend', 'backend', 'fullstack', 'react'],
     question: 'How do you approach a take-home assignment and its live review?',
+    questionVariants: [
+      {
+        question:
+          'The take-home says "about 4 hours" and lists eight features. You can do four of them well. What do you hand in, and what goes in the README?',
+        bridge: 'Scoping is part of the grade: the core path done well, what you left out written down, and trade-offs with their cost in the README.',
+      },
+      {
+        question:
+          'In the defence, a reviewer points at your stock check: "Two buyers, one unit left. What happens?" You see the bug. What do you say?',
+        bridge: 'The live review: explain every line, concurrency included, and when a weakness is found, concede it and say how you would fix it.',
+      },
+    ],
     answer:
       'I scope it first: I ask how much time they expect and do the core path well rather than everything partly, meaning validation, the main rule, error responses, tests and one command to run it. I write down what I leave out. The README is my opening statement: how to run it, the trade-offs with their cost, and what I would do with one more day, so the reviewers pick their questions from ground I chose. In the defence I explain every line, including the concurrency of my own code, and if a reviewer finds a weakness I agree and say how I would fix it.',
     keyPoints: [
@@ -239,11 +311,19 @@ export const interviewLoopCards: Card[] = [
         statement: 'A missing feature that the README names as out of scope reads as a decision, not a failure.',
         isTrue: true,
         why: 'Scoping is part of the grade; a project that does not start is the failure.',
+        twin: {
+          statement: 'A missing feature counts as a failure even when the README names it as out of scope.',
+          why: 'Scoping is part of the grade, so a named omission reads as a decision; a project that does not start is the failure.',
+        },
       },
       {
         statement: 'Under PostgreSQL\'s default isolation level, a SELECT followed by an UPDATE stops two buyers from taking the last unit.',
         isTrue: false,
         why: 'Under Read Committed both can read one unit left; a conditional UPDATE whose row count you check lets only one through.',
+        twin: {
+          statement: 'Under PostgreSQL\'s default isolation level, a SELECT followed by an UPDATE can let two buyers take the last unit.',
+          why: 'Under Read Committed both can read one unit left; a conditional UPDATE whose row count you check lets only one through.',
+        },
       },
     ],
     lesson: {
@@ -264,6 +344,18 @@ export const interviewLoopCards: Card[] = [
     level: 'senior',
     paths: ['frontend', 'backend', 'fullstack', 'react'],
     question: 'How do you work in an AI-assisted interview round, and how do you answer "How has AI changed the way you build?"',
+    questionVariants: [
+      {
+        question:
+          'In the AI-assisted round, the assistant writes a 40-line retry helper and the tests pass. The interviewer asks: "Are you merging it?" What do you do before you answer?',
+        bridge: 'Working visibly with the assistant: read its code aloud like a reviewer, verify its claims about APIs, then accept, edit or reject it with a reason.',
+      },
+      {
+        question:
+          'The VP in the final round asks: "How do you use AI tools day to day, and how do you know their output is right?"',
+        bridge: 'The AI policy question: what you delegate, how you check it, and a real bug you caught, such as a wrong error name.',
+      },
+    ],
     answer:
       'In the round I work visibly, in a loop: I say my plan, give the assistant the context it cannot guess, meaning the files, the types and constraints such as no new dependency and the existing tests must pass, then read its answer aloud like a reviewer, run the tests, and accept, edit or reject it with a reason. I verify every claim about library behaviour: an assistant once caught a timeout as `AbortError`, but `AbortSignal.timeout` rejects with a `TimeoutError`, so the retry never ran. On policy, I say what I delegate, such as boilerplate, test scaffolding and first drafts, how I check it, and that bug.',
     keyPoints: [
@@ -300,11 +392,19 @@ export const interviewLoopCards: Card[] = [
         statement: 'A `fetch` stopped by `AbortSignal.timeout` rejects with a `DOMException` named `TimeoutError`.',
         isTrue: true,
         why: 'Only a manual `abort()` gives an `AbortError`, so code that checks only `AbortError` misses timeouts.',
+        twin: {
+          statement: 'A `fetch` stopped by `AbortSignal.timeout` rejects with a `DOMException` named `AbortError`.',
+          why: 'It rejects with a `TimeoutError`; only a manual `abort()` gives an `AbortError`.',
+        },
       },
       {
         statement: 'In an AI-assisted round, the interviewer mainly grades the quality of the code the assistant produces.',
         isTrue: false,
         why: 'They grade how you direct it, what you check and how you decide; the assistant\'s code is not the grade.',
+        twin: {
+          statement: 'In an AI-assisted round, the interviewer mainly grades how you direct the assistant, what you check and how you decide.',
+          why: 'The assistant\'s code is not the grade; your judgement about it is.',
+        },
       },
     ],
     lesson: {
@@ -335,6 +435,18 @@ export const interviewLoopCards: Card[] = [
     level: 'senior',
     paths: ['frontend', 'backend', 'fullstack'],
     question: 'What does the system design round grade in a senior loop, and how do you drive it?',
+    questionVariants: [
+      {
+        question:
+          'Twenty minutes into the design round, you have spent equal time on the CDN, the queue and the database. The interviewer asks what could oversell the flash sale. What went wrong?',
+        bridge: 'The deep dive belongs to the risky parts, the rules that must never break, such as never selling unit 10,001 or never charging twice.',
+      },
+      {
+        question:
+          'The interviewer asks: "How is system design different from the coding round you just did?" How do you answer?',
+        bridge: 'The design round grades the same habits as live coding and review at a larger scale: clarify, keep it simple, go deep on risk, name the trade-offs.',
+      },
+    ],
     answer:
       'It grades the same habits as live coding and code review, at a larger scale. I clarify the requirements, estimate the load, propose the simplest design that meets them, and go deep on the risky parts: the "must never happen" rules, such as never selling unit 10,001 in a flash sale or never charging twice. I state each trade-off as "X, which costs Y; if Z mattered more, W", and I check in with the interviewer as I go. When the company leans toward domain-driven design, I expect questions on boundaries and aggregates, so I prepare to say where each rule is enforced.',
     keyPoints: [
@@ -367,11 +479,19 @@ export const interviewLoopCards: Card[] = [
         statement: 'The system design round grades the same habits as live coding and code review, at a larger scale.',
         isTrue: true,
         why: 'Clarify, keep it simple, go deep on the risk, name the trade-offs: the habits are the same.',
+        twin: {
+          statement: 'The system design round grades habits unrelated to those of live coding and code review.',
+          why: 'It grades the same habits at a larger scale: clarify, keep it simple, go deep on the risk, name the trade-offs.',
+        },
       },
       {
         statement: 'The best use of the deep dive is to give every component equal time.',
         isTrue: false,
         why: 'The deep dive goes to the risky parts, the rules that must never break.',
+        twin: {
+          statement: 'The best use of the deep dive is to spend it on the rules that must never break.',
+          why: 'Equal time on every component leaves the risky parts, such as oversell or a double charge, shallow.',
+        },
       },
     ],
     lesson: {
@@ -391,6 +511,18 @@ export const interviewLoopCards: Card[] = [
     level: 'mid',
     paths: ['frontend', 'backend', 'fullstack', 'react'],
     question: '"Do you have any questions for us?" What do you ask, and why?',
+    questionVariants: [
+      {
+        question:
+          'The engineer interviewing you has five minutes left and says: "Over to you." What do you ask an engineer, as opposed to the CTO?',
+        bridge: 'Questions matched to the interviewer\'s role: incidents and merge-to-production time for an engineer, the biggest technical risk for a CTO.',
+      },
+      {
+        question:
+          'A friend says the questions at the end are only politeness, and skips them. What do you tell him?',
+        bridge: 'The misconception that end-of-round questions are optional: having none reads as lack of interest, and the answers help you decide.',
+      },
+    ],
     answer:
       'I ask questions whose answers I will use to decide, adapted to the person. An engineer: what their last production incident looked like and what changed after it, and how long a change takes from merge to production. The hiring manager: what success looks like in this role after six months, and how technical decisions are made and recorded. The VP or CTO: the biggest technical risk for the next year. Anyone: their policy on AI coding tools. I write the answers down and compare them across rounds, and I end each conversation by asking about the next step.',
     keyPoints: [
@@ -427,11 +559,19 @@ export const interviewLoopCards: Card[] = [
         statement: 'Having no questions at the end of a round is neutral for a senior candidate.',
         isTrue: false,
         why: 'A senior with no questions seems uninterested, and misses the answers needed to decide.',
+        twin: {
+          statement: 'Having no questions at the end of a round counts against a senior candidate.',
+          why: 'It reads as lack of interest, and the candidate misses the answers needed to decide.',
+        },
       },
       {
         statement: 'Asking how technical decisions are made and recorded can reveal whether a team uses design reviews or ADRs.',
         isTrue: true,
         why: 'The answer shows design reviews and architecture decision records, or decisions by the loudest voice.',
+        twin: {
+          statement: 'Asking how technical decisions are made and recorded reveals nothing about a team\'s design practice.',
+          why: 'The answer shows whether the team uses design reviews and ADRs, or decides by the loudest voice.',
+        },
       },
     ],
     lesson: {
@@ -452,6 +592,18 @@ export const interviewLoopCards: Card[] = [
     level: 'senior',
     paths: ['frontend', 'backend', 'fullstack', 'react'],
     question: 'Across a whole interview loop, what shows that you are senior rather than mid-level?',
+    questionVariants: [
+      {
+        question:
+          'In live coding, the interviewer asks about a library detail you are not sure of. You can guess confidently or admit it. Which do you choose, and what do you say?',
+        bridge: 'Admitting a gap with a way to close it is one of the senior habits; a guess presented as a fact costs more.',
+      },
+      {
+        question:
+          'The hiring manager asks: "What is the difference between a mid-level and a senior engineer, in how they work?"',
+        bridge: 'The same habits seen from the other side: clarifying first, production concerns unprompted, tests as design, named trade-offs, verified claims.',
+      },
+    ],
     answer:
       'The same few habits in every round. I clarify before I build: boundaries in live coding, scope in a take-home, the goal behind a one-sentence request. I think in production terms without being asked: deadlines on outgoing calls, idempotency, races between replicas, a failing provider. I use tests as a design tool, with boundary tests and a fixed clock. I name trade-offs and change my mind for a reason. I verify claims, the AI\'s included. And I communicate the order of things: severity first in a review, the plan first in coding, the action first in a story. When I do not know, I say how I would find out.',
     keyPoints: [
@@ -488,11 +640,19 @@ export const interviewLoopCards: Card[] = [
         statement: 'Saying "I don\'t know, but here is how I would find out" hurts a senior candidate more than a confident guess.',
         isTrue: false,
         why: 'A guess presented as a fact costs more than an honest gap with a way to close it.',
+        twin: {
+          statement: 'Saying "I don\'t know, but here is how I would find out" serves a senior candidate better than a confident guess.',
+          why: 'A guess presented as a fact costs more than an honest gap with a way to close it.',
+        },
       },
       {
         statement: 'Raising idempotency and races without being asked is a senior signal in a coding round.',
         isTrue: true,
         why: 'Thinking in production terms unprompted is one of the habits that separate seniors.',
+        twin: {
+          statement: 'In a coding round, idempotency and races are best left until the interviewer asks about them.',
+          why: 'Raising them unprompted is one of the habits that separate seniors.',
+        },
       },
     ],
     lesson: {

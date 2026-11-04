@@ -9,6 +9,16 @@ export const frontendGapsCards: Card[] = [
     level: 'mid',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'When do you use a `Map` or a `Set` instead of a plain object or an array, and how do you group data in modern JavaScript?',
+    questionVariants: [
+      {
+        question: 'The storefront counts search words in a plain object, and the count for "constructor" comes out as a long string ending in "1" instead of a number. What happened, and what would you use instead?',
+        bridge: 'A plain object inherits keys like `constructor` from its prototype; a `Map` has no inherited keys and accepts any key type.',
+      },
+      {
+        question: 'Group the back office orders by status without a hand-written `reduce`. Which built-ins do you use, and when does a `Map` beat a plain object?',
+        bridge: '`Object.groupBy` returns a null-prototype object and `Map.groupBy` suits object keys; a `Map` also gives `size`, order and any key type.',
+      },
+    ],
     answer:
       "A plain object is right for a record with known fields, but as a dictionary built from data it inherits keys like `constructor` and turns every key into a string. A `Map` has no inherited keys, accepts any value as a key, keeps insertion order and gives its `size`. A `Set` holds unique values and answers `has` without scanning, and since ES2025 it has `union`, `intersection` and `difference`. To group, I use `Object.groupBy`, which returns a null-prototype object, or `Map.groupBy` when the group keys are objects. A `WeakMap` is for data tied to an object's lifetime.",
     keyPoints: [
@@ -49,16 +59,28 @@ export const frontendGapsCards: Card[] = [
         statement: '`new Set([{}, {}]).size` is 2.',
         isTrue: true,
         why: 'Objects are compared by reference, and the two literals are two different objects.',
+        twin: {
+          statement: '`new Set([{}, {}]).size` is 1, because the two objects have the same content.',
+          why: 'Objects are compared by reference, and the two literals are two different objects, so the size is 2.',
+        },
       },
       {
         statement: 'The object returned by `Object.groupBy` has a `hasOwnProperty` method.',
         isTrue: false,
         why: 'It has a null prototype, so it inherits nothing; use `Object.hasOwn(groups, key)`.',
+        twin: {
+          statement: 'The object returned by `Object.groupBy` has no `hasOwnProperty` method.',
+          why: 'It has a null prototype, so it inherits nothing; use `Object.hasOwn(groups, key)`.',
+        },
       },
       {
         statement: '`cartIds.intersection(["p2"])` works with an array argument.',
         isTrue: false,
         why: 'The argument must be set-like, with `size`, `has` and `keys`; an array throws a TypeError.',
+        twin: {
+          statement: '`cartIds.intersection(["p2"])` throws a TypeError, because the argument is an array.',
+          why: 'The argument must be set-like, with `size`, `has` and `keys`; an array has no `size`.',
+        },
       },
     ],
     codeChoices: [
@@ -109,6 +131,16 @@ byStatus.refunded; // undefined when no order is refunded`,
     level: 'mid',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'How do you design errors in JavaScript so the original cause is never lost? Talk about custom error classes, `cause` and `AggregateError`.',
+    questionVariants: [
+      {
+        question: 'An Orders API log shows only "Payment failed", with no trace of the provider timeout behind it, and another log line prints `{}` for an error. How do you design errors so this stops?',
+        bridge: 'Wrapping with `{ cause }` keeps the original error attached, and `JSON.stringify` drops an error\'s `message` and `stack`, which are not enumerable.',
+      },
+      {
+        question: 'A colleague writes `throw \'invalid cart\'` in the cart code because it is shorter. What do you lose, and how would you report every invalid cart line at once?',
+        bridge: 'A thrown string has no stack trace; an `Error` subclass gives a `name` the code can test, and `AggregateError` carries several failures.',
+      },
+    ],
     answer:
       'I always throw `Error` objects, never strings, because only an `Error` records a stack trace. I subclass `Error` to give a family of failures a `name` the code can test, like `CheckoutError`. When I catch a low-level error and rethrow with context, I pass the original as `cause`: `new CheckoutError(message, { cause: error })`, so the logs show the context and the root cause, and Node prints the chain. When several things fail at once, like every invalid cart line, I throw an `AggregateError` with the list. And I never log with `JSON.stringify(error)`: `message` and `stack` are not enumerable, so they vanish.',
     keyPoints: [
@@ -146,16 +178,28 @@ byStatus.refunded; // undefined when no order is refunded`,
         statement: 'A thrown string gives you a stack trace in the `catch` block.',
         isTrue: false,
         why: 'Only `Error` objects record a stack; a string has no `stack` property, so you lose where it came from.',
+        twin: {
+          statement: 'A thrown string gives you no stack trace in the `catch` block.',
+          why: 'Only `Error` objects record a stack; a string has no `stack` property, so you lose where it came from.',
+        },
       },
       {
         statement: '`new CheckoutError(message, { cause: error })` keeps the original error on the `cause` property.',
         isTrue: true,
         why: 'The `cause` option (ES2022) is stored on the new error, and Node prints it as a `[cause]` line.',
+        twin: {
+          statement: '`new CheckoutError(message, { cause: error })` loses the original error unless you copy it onto the new one yourself.',
+          why: 'The `cause` option (ES2022) is stored on the new error\'s `cause` property, and Node prints it as a `[cause]` line.',
+        },
       },
       {
         statement: '`instanceof Error` is true for every error, whichever iframe created it.',
         isTrue: false,
         why: 'Each realm has its own `Error` constructor, so an error from an iframe fails the check; `Error.isError` works across realms.',
+        twin: {
+          statement: '`instanceof Error` can be false for an error created in another iframe.',
+          why: 'Each realm has its own `Error` constructor, so the check fails across realms; `Error.isError` works across realms.',
+        },
       },
     ],
     codeChoices: [
@@ -209,6 +253,16 @@ try {
     level: 'mid',
     paths: ['frontend', 'fullstack'],
     question: 'How can you make Back, Forward and the next page feel instant, and what can go wrong?',
+    questionVariants: [
+      {
+        question: 'A customer adds a product to the cart, opens the cart, then presses Back: the product page still shows the cart badge at 0 until a reload. What is happening, and how do you fix it?',
+        bridge: 'The bfcache restored the old page with its JavaScript state, so load code did not run; refresh the badge in `pageshow` when `event.persisted` is true.',
+      },
+      {
+        question: 'How can the storefront make the next product page appear almost instantly when a customer hovers its link, and what must you be careful with?',
+        bridge: 'Speculation rules ask Chromium to prefetch or prerender likely next pages; prerendering runs the page\'s code, so exclude URLs with side effects.',
+      },
+    ],
     answer:
       "For Back and Forward, the browser's back/forward cache, the bfcache, keeps the whole page in memory, DOM and JavaScript state, and restores it instead of reloading. The catch is that the restored page is the old page: load code does not run again, so I refresh stale data, like the cart badge, in a `pageshow` listener when `event.persisted` is true. I keep pages eligible by never using `unload` and by closing IndexedDB connections. For the next page, speculation rules tell Chromium to prefetch or prerender likely links, for example on hover. Prerendering runs the page's code, so I exclude URLs with side effects.",
     keyPoints: [
@@ -246,16 +300,28 @@ try {
         statement: 'When a page is restored from the bfcache, its `load` event fires again.',
         isTrue: false,
         why: 'The page is not loaded again; `pageshow` fires with `event.persisted` set to true.',
+        twin: {
+          statement: 'When a page is restored from the bfcache, its `load` event does not fire again.',
+          why: 'The page is not loaded again; `pageshow` fires with `event.persisted` set to true.',
+        },
       },
       {
         statement: 'A page prerendered by speculation rules runs its JavaScript before the customer clicks.',
         isTrue: true,
         why: 'Prerendering loads and renders the whole page in a hidden tab, scripts included.',
+        twin: {
+          statement: 'A page prerendered by speculation rules runs no JavaScript until the customer clicks.',
+          why: 'Prerendering loads and renders the whole page in a hidden tab, scripts included.',
+        },
       },
       {
         statement: 'An `unload` listener is a reliable place to send analytics.',
         isTrue: false,
         why: 'Chrome no longer fires it and it can keep pages out of the bfcache; use `pagehide` or `visibilitychange`.',
+        twin: {
+          statement: 'An `unload` listener is an unreliable place to send analytics.',
+          why: 'It may not fire and can keep pages out of the bfcache; use `pagehide` or `visibilitychange`.',
+        },
       },
     ],
     codeChoices: [
@@ -297,6 +363,16 @@ try {
     level: 'senior',
     paths: ['frontend', 'fullstack'],
     question: 'How would you measure Core Web Vitals on your own users, and how is that different from Lighthouse or CrUX?',
+    questionVariants: [
+      {
+        question: 'Lighthouse scores the product page 98, yet Search Console flags its LCP as poor. Which number reflects customers, and how would you find which element and which release to blame?',
+        bridge: 'Lighthouse is one lab load and Search Console uses CrUX field data; your own RUM with `web-vitals/attribution`, tagged by route and release, names the culprit.',
+      },
+      {
+        question: 'Your RUM dashboard has no INP for a large share of product-page visits. A colleague suspects a broken tracking script. What do you explain?',
+        bridge: 'INP needs an interaction, so a visit without tap, click or key press reports none; reports are sent when the page becomes hidden.',
+      },
+    ],
     answer:
       "Lighthouse is lab data: one load on one machine, good to explain and reproduce. CrUX is field data from real Chrome users, but over 28 days and without saying which element or release is to blame. So I add real user monitoring with Google's `web-vitals` library: `onLCP`, `onINP` and `onCLS` report each metric from the visitor's browser. I import the attribution build, which names what to blame, such as the LCP element or the tapped element. I send reports with `sendBeacon` when the page becomes hidden, because CLS and INP are final only then, tag them with the route template and release, and read p75 per page type and device.",
     keyPoints: [
@@ -334,16 +410,28 @@ try {
         statement: "Search Console's Core Web Vitals status comes from field data, not from Lighthouse.",
         isTrue: true,
         why: 'It uses CrUX, real Chrome users over 28 days; Lighthouse is a lab tool.',
+        twin: {
+          statement: 'Search Console\'s Core Web Vitals status comes from Lighthouse runs.',
+          why: 'It uses CrUX, field data from real Chrome users over 28 days; Lighthouse is a lab tool.',
+        },
       },
       {
         statement: 'The `web-vitals` library reports INP for every page view.',
         isTrue: false,
         why: 'INP needs an interaction; a visit with no tap, click or key press reports none.',
+        twin: {
+          statement: 'The `web-vitals` library reports no INP for a visit without any interaction.',
+          why: 'INP needs an interaction; a visit with no tap, click or key press reports none.',
+        },
       },
       {
         statement: 'Lighthouse measures INP directly during its lab load.',
         isTrue: false,
         why: 'A lab load has no real user interactions, so Lighthouse uses Total Blocking Time as its proxy.',
+        twin: {
+          statement: 'During its lab load, Lighthouse uses Total Blocking Time instead of measuring INP.',
+          why: 'A lab load has no real user interactions, so Total Blocking Time is its proxy.',
+        },
       },
     ],
     codeChoices: [
@@ -396,6 +484,16 @@ addEventListener('visibilitychange', () => {
     level: 'senior',
     paths: ['frontend', 'fullstack'],
     question: 'INP is poor in the field, but every tap feels instant on your laptop. How do you find and fix the cause?',
+    questionVariants: [
+      {
+        question: 'RUM shows a p75 INP of 450 ms on Android phones for the "Add to cart" button, while its click handler takes 20 ms in a desktop profile. Where do you look?',
+        bridge: 'An interaction has three phases; field attribution may show the time is input delay or presentation, not the handler, and Long Animation Frames name the script.',
+      },
+      {
+        question: 'A colleague says INP is just FID renamed. How do you correct them, and which phases make up an interaction\'s latency?',
+        bridge: 'FID measured only the input delay; INP covers input delay, processing and presentation delay, up to the next paint.',
+      },
+    ],
     answer:
       "My laptop is not the user's phone, so I start from field attribution. An interaction's latency has three phases: input delay, while the main thread is busy elsewhere; processing duration, my handlers; and presentation delay, rendering the update. The attribution build of `web-vitals` reports, for the worst interaction, the three phases, the tapped element, the load state at that moment and the longest script that ran, which comes from Long Animation Frames. I group that by element and phase, reproduce the worst case in DevTools with CPU throttling, fix the largest phase, and check RUM p75 after the release.",
     keyPoints: [
@@ -432,11 +530,19 @@ addEventListener('visibilitychange', () => {
         statement: 'INP measures only the delay before the first event handler starts.',
         isTrue: false,
         why: 'That was FID. INP covers input delay, processing and presentation, up to the next paint.',
+        twin: {
+          statement: 'INP measures from the input up to the next paint, not only the delay before the first event handler starts.',
+          why: 'Measuring only the delay before the handler was FID; INP covers input delay, processing and presentation.',
+        },
       },
       {
         statement: 'Input delay can be caused by a script that has nothing to do with the tapped element.',
         isTrue: true,
         why: 'Any task on the main thread, such as a tag manager, delays the handlers until it ends.',
+        twin: {
+          statement: 'Input delay can only come from scripts attached to the tapped element.',
+          why: 'Any task on the main thread, such as a tag manager, delays the handlers until it ends.',
+        },
       },
     ],
     codeChoices: [
@@ -486,6 +592,16 @@ onINP(({ rating, attribution: a }) => {
     level: 'senior',
     paths: ['frontend', 'fullstack'],
     question: 'Your product page loads 14 third-party scripts and INP suffers. How do you get them under control?',
+    questionVariants: [
+      {
+        question: 'Marketing wants a chat widget, a heatmap tool and a second analytics tag on the product page, whose INP is already borderline. How do you respond, and how would you load what is accepted?',
+        bridge: 'Each script needs an owner, a purpose and a budget; then load by need: analytics `afterInteractive` after consent, widgets `lazyOnload` or behind a facade.',
+      },
+      {
+        question: 'A colleague says third-party scripts are harmless because they come from another origin. How do you correct them, and how do you limit their cost?',
+        bridge: 'A `script` tag runs in your page with full DOM access; only iframes are isolated. CSP restricts origins and Long Animation Frames attribute the cost.',
+      },
+    ],
     answer:
       "A third-party script runs another company's code on my main thread, with my users' time and data, and I cannot optimise it, so my levers are which scripts load, when and how. I start with an inventory: each script gets an owner, a purpose and a place in a budget, or it goes. Then loading rules: in Next.js, `next/script` with `beforeInteractive` only for what must run first, `afterInteractive` for analytics once the user consents, `lazyOnload` for widgets, and a facade for heavy embeds like chat. Long Animation Frames attribution tells me which vendor causes input delay, and a CSP restricts where scripts come from.",
     keyPoints: [
@@ -522,16 +638,28 @@ onINP(({ rating, attribution: a }) => {
         statement: '`strategy="lazyOnload"` in `next/script` loads the script during browser idle time.',
         isTrue: true,
         why: 'It is meant for scripts not needed for the first interactions, such as review widgets.',
+        twin: {
+          statement: '`strategy="lazyOnload"` in `next/script` loads the script before the page becomes interactive.',
+          why: 'It loads during browser idle time, for scripts not needed for the first interactions, such as review widgets.',
+        },
       },
       {
         statement: 'Because a third-party script comes from another origin, it cannot read your page\'s DOM.',
         isTrue: false,
         why: 'A script included with a `script` tag runs in your page with full access; only iframes are isolated by origin.',
+        twin: {
+          statement: 'A third-party script included with a `script` tag can read your page\'s DOM.',
+          why: 'It runs in your page with full access; only iframes are isolated by origin.',
+        },
       },
       {
         statement: '`afterInteractive` is the default strategy of `next/script`.',
         isTrue: true,
         why: 'Without a `strategy` prop, the script loads early but after some hydration.',
+        twin: {
+          statement: '`beforeInteractive` is the default strategy of `next/script`.',
+          why: 'Without a `strategy` prop, the default is `afterInteractive`: the script loads early but after some hydration.',
+        },
       },
     ],
     codeChoices: [
@@ -578,6 +706,16 @@ export function ThirdPartyScripts({ consent }: { consent: { analytics: boolean }
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'What are Trusted Types, and how do they help stop DOM XSS?',
+    questionVariants: [
+      {
+        question: 'An audit finds a DOM XSS in the back office: a ticket note reached `innerHTML` deep inside a rich-text library. How can the browser itself block the next one?',
+        bridge: 'Trusted Types, enabled through CSP, make sinks like `innerHTML` refuse strings unless a named policy, usually wrapping a sanitiser, created the value.',
+      },
+      {
+        question: 'A colleague fears that enabling Trusted Types will break the storefront overnight. How do you roll it out, and which assignments keep working with plain strings?',
+        bridge: 'Report-only mode first finds every sink, libraries included; safe sinks such as `textContent` still take strings.',
+      },
+    ],
     answer:
       "Trusted Types are a browser API that makes dangerous DOM sinks refuse plain strings. With `require-trusted-types-for 'script'` in the Content Security Policy, sinks such as `innerHTML`, `insertAdjacentHTML`, `eval` and `script.src` throw on a string and accept only typed objects, like `TrustedHTML`, created by a named policy. The policy is a function I write, usually wrapping DOMPurify, and the `trusted-types` directive lists the allowed policy names. So instead of hoping every developer remembers to sanitise, the browser enforces it. I roll it out in report-only mode first to find every sink, including inside libraries. Safe sinks like `textContent` still take strings.",
     keyPoints: [
@@ -614,11 +752,19 @@ export function ThirdPartyScripts({ consent }: { consent: { analytics: boolean }
         statement: 'Under Trusted Types enforcement, `el.textContent = userInput` still accepts a plain string.',
         isTrue: true,
         why: '`textContent` never parses HTML, so it is a safe sink and is not restricted.',
+        twin: {
+          statement: 'Under Trusted Types enforcement, `el.textContent = userInput` throws because it receives a plain string.',
+          why: '`textContent` never parses HTML, so it is a safe sink and is not restricted.',
+        },
       },
       {
         statement: 'Trusted Types sanitise HTML themselves, so no sanitiser library is needed.',
         isTrue: false,
         why: 'The browser only enforces that a policy was used; the sanitising is whatever your policy does, usually DOMPurify.',
+        twin: {
+          statement: 'Trusted Types do not sanitise HTML themselves: your policy must call a sanitiser such as DOMPurify.',
+          why: 'The browser only enforces that a policy was used; the sanitising is whatever your policy does.',
+        },
       },
     ],
     codeChoices: [
@@ -662,6 +808,16 @@ el.textContent = reviewText;                         // safe sink: strings are f
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'The checkout embeds a payment widget in an iframe that talks to the page with `postMessage`. How do you make that channel safe?',
+    questionVariants: [
+      {
+        question: 'A pentest shows that a hostile page that opens the checkout in a popup can make it display "Payment successful" by posting a message. The listener only checks `event.data.type`. What is missing?',
+        bridge: 'Any window can post a message; the receiver must check `event.origin` exactly and `event.source`, and only the signed webhook marks an order paid.',
+      },
+      {
+        question: 'In review you see `iframe.contentWindow.postMessage({ amount }, "*")` and a listener that accepts any origin containing "pay". What do you flag?',
+        bridge: 'Send with an exact target origin, never `"*"`, and compare the received origin with strict equality, never a substring.',
+      },
+    ],
     answer:
       "Any window can post a message to any other window in the frame hierarchy, so the receiver must check who sent it. In the `message` listener I compare `event.origin` exactly with the payment provider's origin, using `!==`, never `includes` or `startsWith`. I also check that `event.source` is the payment iframe's `contentWindow`, and I validate `event.data` with a schema, never passing it to `innerHTML` or `eval`. When sending, I give the exact target origin, never `\"*\"`. And the message is only a hint for the interface: the order becomes paid when the API receives the provider's signed webhook.",
     keyPoints: [
@@ -699,16 +855,28 @@ el.textContent = reviewText;                         // safe sink: strings are f
         statement: 'A `message` listener only receives messages from windows of the same origin.',
         isTrue: false,
         why: 'Any window can post to it; only the `event.origin` check tells senders apart.',
+        twin: {
+          statement: 'A `message` listener can receive messages from windows of any origin.',
+          why: 'Any window can post to it; only the `event.origin` check tells senders apart.',
+        },
       },
       {
         statement: 'A message sent with a target origin that does not match the receiving window is dropped by the browser.',
         isTrue: true,
         why: 'The target origin is checked on delivery, which protects data if the frame navigated elsewhere.',
+        twin: {
+          statement: 'A message sent with a target origin that does not match the receiving window is still delivered.',
+          why: 'The browser checks the target origin on delivery and drops the message, which protects data if the frame navigated elsewhere.',
+        },
       },
       {
         statement: '`event.origin.startsWith("https://pay.example")` is a safe origin check.',
         isTrue: false,
         why: 'It accepts `https://pay.example.evil.example`; compare the whole origin with `===`.',
+        twin: {
+          statement: '`event.origin.startsWith("https://pay.example")` also accepts `https://pay.example.evil.example`.',
+          why: 'A prefix check lets a hostile domain through; compare the whole origin with `===`.',
+        },
       },
     ],
     codeChoices: [
@@ -761,6 +929,16 @@ frame.contentWindow?.postMessage({ type: 'checkout.ready' }, PAYMENT_ORIGIN);`,
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'How would you build an accessible modal, such as a refund confirmation, in a React app?',
+    questionVariants: [
+      {
+        question: 'Screen reader users say that after closing the refund confirmation they are lost at the top of the page, and keyboard users can tab into the orders table behind it. How do you fix the modal?',
+        bridge: 'A modal must keep focus inside, make the page behind unreachable and give focus back; native `<dialog>` with `showModal()` does all of it.',
+      },
+      {
+        question: 'A teammate built a custom side drawer and put `aria-hidden="true"` on the page behind it. Is that enough?',
+        bridge: '`aria-hidden` only hides content from assistive technology; `inert` also removes focus and clicks.',
+      },
+    ],
     answer:
       'A modal must move focus inside when it opens, keep Tab inside, close on Escape, make the rest of the page unreachable for keyboard, mouse and screen readers, and give focus back to the opener; it also needs a name, usually its title through `aria-labelledby`. Today I use the native `<dialog>` element opened with `showModal()`, which does all of that. In React, the parent owns an `open` state and an effect calls `showModal()` or `close()`; I listen to `onClose`, which fires on every closing path, Escape included. For a custom overlay like a drawer, I put `inert` on what is behind it, not just `aria-hidden`.',
     keyPoints: [
@@ -797,16 +975,28 @@ frame.contentWindow?.postMessage({ type: 'checkout.ready' }, PAYMENT_ORIGIN);`,
         statement: '`showModal()` makes the content outside the dialog inert.',
         isTrue: true,
         why: 'The page behind leaves the Tab order and the accessibility tree, and clicks hit the backdrop.',
+        twin: {
+          statement: 'After `showModal()`, keyboard users can still tab to links in the page behind the dialog.',
+          why: '`showModal()` makes the content outside the dialog inert: it leaves the Tab order and the accessibility tree.',
+        },
       },
       {
         statement: 'A click on the backdrop closes a modal `<dialog>` by default.',
         isTrue: false,
         why: 'It does not; the `closedby` attribute changes that but has limited availability.',
+        twin: {
+          statement: 'A click on the backdrop does not close a modal `<dialog>` by default.',
+          why: 'It stays open by default; the `closedby` attribute changes that but has limited availability.',
+        },
       },
       {
         statement: '`aria-hidden="true"` on the page behind a custom overlay stops keyboard users from tabbing into it.',
         isTrue: false,
         why: 'It only hides content from assistive technology; `inert` also removes focus and clicks.',
+        twin: {
+          statement: '`aria-hidden="true"` on the page behind a custom overlay leaves its links reachable with the Tab key.',
+          why: 'It only hides content from assistive technology; `inert` also removes focus and clicks.',
+        },
       },
     ],
     codeChoices: [
@@ -857,6 +1047,16 @@ frame.contentWindow?.postMessage({ type: 'checkout.ready' }, PAYMENT_ORIGIN);`,
     level: 'mid',
     paths: ['frontend', 'fullstack'],
     question: 'Beyond keyboard support, which visual accessibility rules do you check on a checkout page?',
+    questionVariants: [
+      {
+        question: 'At checkout, users who tab through the form find the focused postcode field hidden behind the sticky "Pay" bar, and the light grey hint text is hard to read. Which rules apply, and how do you fix them?',
+        bridge: 'WCAG 2.2 forbids sticky content hiding the focused element, fixed with `scroll-padding`; normal text needs at least 4.5:1 contrast.',
+      },
+      {
+        question: 'A designer marks unavailable sizes only with a red border, and wants to drop all animations for users who prefer reduced motion. What do you suggest?',
+        bridge: 'Colour must never be the only signal, and reduced motion means a short fade instead of a slide, not removing feedback.',
+      },
+    ],
     answer:
       'First contrast: WCAG asks at least 4.5 to 1 for normal text, 3 to 1 for large text, and 3 to 1 for control borders and focus indicators. Colour must never be the only signal, so a status dot also needs its text. Then motion: I honour `prefers-reduced-motion` by replacing a slide with a short fade, not by removing feedback. Then hidden focus: WCAG 2.2 says a sticky bar must not cover the focused field, which I fix with `scroll-padding-bottom` plus room at the end of the page. And touch targets of at least 24 by 24 CSS pixels, 44 being more comfortable on a phone.',
     keyPoints: [
@@ -894,11 +1094,19 @@ frame.contentWindow?.postMessage({ type: 'checkout.ready' }, PAYMENT_ORIGIN);`,
         statement: 'WCAG AA requires a contrast ratio of at least 4.5:1 for normal-size text.',
         isTrue: true,
         why: 'That is success criterion 1.4.3; large text needs 3:1.',
+        twin: {
+          statement: 'WCAG AA accepts a contrast ratio of 3:1 for normal-size text.',
+          why: 'Success criterion 1.4.3 asks at least 4.5:1 for normal text; 3:1 is for large text.',
+        },
       },
       {
         statement: 'Under `prefers-reduced-motion: reduce`, every transition should be removed.',
         isTrue: false,
         why: 'The goal is less movement, not no feedback: a short fade can replace a slide.',
+        twin: {
+          statement: 'Under `prefers-reduced-motion: reduce`, a slide can be replaced with a short fade rather than removing the feedback.',
+          why: 'The goal is less movement, not no feedback.',
+        },
       },
     ],
     codeChoices: [
@@ -942,6 +1150,16 @@ body { padding-bottom: 80px; }`,
     level: 'mid',
     paths: ['frontend', 'react'],
     question: 'Why use user-event instead of `fireEvent`, and how should a React test wait for async UI?',
+    questionVariants: [
+      {
+        question: 'A test of the storefront search box passes with `fireEvent.change`, yet in production the autocomplete breaks only while customers type letter by letter. Why did the test miss it, and how do you rewrite it?',
+        bridge: '`fireEvent` sends one event; user-event types key by key with focus and keyboard events, so per-keystroke bugs show up.',
+      },
+      {
+        question: 'A flaky back office test sleeps 500 ms before checking the refund confirmation. How should it wait instead?',
+        bridge: 'Wait for what the user sees: `findBy` retries until the element appears, and `waitFor` holds only assertions. Never a fixed sleep.',
+      },
+    ],
     answer:
       '`fireEvent` dispatches one DOM event. user-event simulates the whole interaction: focus, then keydown, input and keyup for each character, pointer events before a click, and it refuses clicks a real user could not make, such as on an element with `pointer-events: none`. So per-keystroke bugs show up. I create `const user = userEvent.setup()` before rendering and await every call. For async UI I wait for what the user would see: `findBy` queries retry until the element appears, and `waitFor` re-runs a callback until it stops throwing, so I put only assertions in it. Never a fixed sleep, and an act warning means the test raced React.',
     keyPoints: [
@@ -979,16 +1197,28 @@ body { padding-bottom: 80px; }`,
         statement: '`fireEvent.change` with a full value calls `onChange` once per character.',
         isTrue: false,
         why: 'It dispatches one event, so `onChange` runs once with the whole value; `user.type` runs it per key.',
+        twin: {
+          statement: '`fireEvent.change` with a full value calls `onChange` once, with the whole value.',
+          why: 'It dispatches one event; `user.type` is what runs the handler for each key.',
+        },
       },
       {
         statement: '`findBy` queries retry until the element appears or the timeout passes.',
         isTrue: true,
         why: 'They return a promise built on `waitFor`, one second by default.',
+        twin: {
+          statement: '`findBy` queries check the DOM once and fail at once when the element is missing.',
+          why: 'They return a promise built on `waitFor` that retries until the element appears, one second by default.',
+        },
       },
       {
         statement: 'user-event clicks an element even when it has `pointer-events: none`.',
         isTrue: false,
         why: 'It throws, because a real user could not click it; `fireEvent.click` would call the handler.',
+        twin: {
+          statement: 'user-event throws when asked to click an element with `pointer-events: none`.',
+          why: 'A real user could not click it, so user-event refuses; `fireEvent.click` would call the handler.',
+        },
       },
     ],
     codeChoices: [
@@ -1042,6 +1272,16 @@ body { padding-bottom: 80px; }`,
     level: 'mid',
     paths: ['frontend', 'react'],
     question: 'How do you test React components that use TanStack Query and context?',
+    questionVariants: [
+      {
+        question: 'The back office order detail test passes alone, but run after the orders list test it shows an order it never requested. What is the likely cause?',
+        bridge: 'The `QueryClient` holds the cache; sharing one between tests leaks data, so the render helper creates a new client for each test.',
+      },
+      {
+        question: 'A test of the orders page error state gives up on `findByText("Could not load orders")`, though the mock answers 500 at once. What do you change?',
+        bridge: 'Queries retry failed requests three times with growing delays by default; turn `retry` off in the test client.',
+      },
+    ],
     answer:
       "I put every provider in one render helper, `renderWithProviders`, that passes a `wrapper` to Testing Library's `render`. Inside it I create a new `QueryClient` for each test, because the client holds the cache: a shared one leaks data from one test into the next, and a test fails only when it runs after another. I turn retries off in that client, since queries retry failed requests three times with growing delays, so an error state takes seconds and `findBy` gives up first. Context values become options of the helper, like an empty cart. And I mock the network with MSW, not the hooks.",
     keyPoints: [
@@ -1078,11 +1318,19 @@ body { padding-bottom: 80px; }`,
         statement: 'TanStack Query retries a failed query three times by default.',
         isTrue: true,
         why: 'With growing delays, which is why tests turn `retry` off.',
+        twin: {
+          statement: 'TanStack Query shows a failed query\'s error at once, without retrying, by default.',
+          why: 'It retries three times with growing delays, which is why tests turn `retry` off.',
+        },
       },
       {
         statement: 'Sharing one `QueryClient` between tests is safe because each test renders a new component tree.',
         isTrue: false,
         why: 'The cache lives in the client, not the tree, so data from one test is served to the next.',
+        twin: {
+          statement: 'Sharing one `QueryClient` between tests can serve cached data from one test to the next.',
+          why: 'The cache lives in the client, not in the rendered tree, so a new tree does not reset it.',
+        },
       },
     ],
     codeChoices: [
@@ -1140,6 +1388,16 @@ export function renderWithProviders(ui: ReactElement) {
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'How would you write reliable end-to-end tests for the checkout with Playwright, and keep them trustworthy in CI?',
+    questionVariants: [
+      {
+        question: 'The checkout E2E test fails with a strict mode violation on `getByRole("button", { name: "Pay" })` after a "Pay later" button was added. Why, and how do you fix it?',
+        bridge: 'Locators are strict and names match a substring by default, so both buttons match; `exact: true` requires the full name.',
+      },
+      {
+        question: 'The team\'s Playwright suite is green, but everyone knows it is flaky and it is full of `waitForTimeout(2000)`. How do you make it trustworthy in CI?',
+        bridge: 'Rely on auto-waiting actions and web-first assertions instead of fixed waits, record a trace on the first retry, and fail the run on flaky tests.',
+      },
+    ],
     answer:
       'I keep E2E to a few journeys, like the happy path and a declined card. Locators follow the user: `getByRole` with a name, plus `exact: true` when one name is a prefix of another, since locators are strict and names match substrings by default. Actions auto-wait until the element is visible, stable and enabled, and web-first assertions such as `toBeEnabled()` retry, so I never add fixed waits. Error paths are mocked with `page.route`, but one happy path runs against a real API. In CI I record a trace on the first retry, fail the build on flaky tests, and run an axe scan on key pages.',
     keyPoints: [
@@ -1177,16 +1435,28 @@ export function renderWithProviders(ui: ReactElement) {
         statement: '`page.getByRole("button", { name: "Pay" })` also matches a button reading "Paying…".',
         isTrue: true,
         why: 'The name matches a case-insensitive substring by default; `exact: true` requires the full name.',
+        twin: {
+          statement: '`page.getByRole("button", { name: "Pay" })` matches only a button whose name is exactly "Pay".',
+          why: 'The name matches a case-insensitive substring by default; `exact: true` requires the full name.',
+        },
       },
       {
         statement: 'With retries on, a test that fails once and then passes fails the run by default.',
         isTrue: false,
         why: 'Playwright reports it as flaky and the run passes, unless `failOnFlakyTests` is set.',
+        twin: {
+          statement: 'With retries on, a test that fails once and then passes is reported as flaky, and the run passes by default.',
+          why: 'The run fails on flaky tests only when `failOnFlakyTests` is set.',
+        },
       },
       {
         statement: 'Web-first assertions such as `toBeEnabled()` retry until they pass or time out.',
         isTrue: true,
         why: 'They poll the locator, 5 seconds by default, so no manual wait is needed.',
+        twin: {
+          statement: 'Web-first assertions such as `toBeEnabled()` check once and fail at once if the button is still disabled.',
+          why: 'They poll the locator until they pass or time out, 5 seconds by default.',
+        },
       },
     ],
     codeChoices: [
@@ -1234,6 +1504,16 @@ expect(await pay.isEnabled()).toBe(true);`,
     level: 'senior',
     paths: ['frontend', 'react'],
     question: 'How do you design the API of a shared component like a Button or Tabs, and should it be controlled or uncontrolled?',
+    questionVariants: [
+      {
+        question: 'The shared `Button` has `primary`, `danger`, `small` and `outline` boolean props, a page ships with both `primary` and `danger` set, and `aria-label` never reaches the DOM. How would you redesign its API?',
+        bridge: 'One `variant` union makes impossible combinations fail to compile, and extending `ComponentProps<\'button\'>` with a rest spread forwards native props.',
+      },
+      {
+        question: 'The order detail Tabs must keep the selected tab in the URL, while other screens do not care. How does one component support both uses?',
+        bridge: 'Uncontrolled `defaultValue` when the component owns the state, controlled `value` plus `onValueChange` when the parent does, like `<input>`.',
+      },
+    ],
     answer:
       "I model visual options as one `variant` prop typed as a union, not booleans, so impossible combinations do not compile. I extend the native element's props with `ComponentProps<'button'>` and spread the rest on the real element, so `onClick`, `aria-*` and `ref` just work; in React 19 `ref` is a plain prop. I merge the caller's `className` and default `type` to \"button\". Content comes through `children`. For stateful components I support both modes with the names `<input>` uses: `defaultValue` when the component owns the state, `value` plus `onValueChange` when the parent does, for example to keep the selected tab in the URL.",
     keyPoints: [
@@ -1274,11 +1554,19 @@ expect(await pay.isEnabled()).toBe(true);`,
         statement: 'Changing `defaultValue` after mount changes the selected tab of an uncontrolled Tabs.',
         isTrue: false,
         why: '`defaultValue` is read once, like the argument of `useState`; later changes are ignored.',
+        twin: {
+          statement: 'Changing `defaultValue` after mount does not change the selected tab of an uncontrolled Tabs.',
+          why: '`defaultValue` is read once, like the argument of `useState`; later changes are ignored.',
+        },
       },
       {
         statement: 'In React 19, a function component receives `ref` as a regular prop.',
         isTrue: true,
         why: 'So spreading the props on the element forwards the ref without `forwardRef`.',
+        twin: {
+          statement: 'In React 19, a function component needs `forwardRef` to receive a `ref`.',
+          why: 'React 19 passes `ref` as a regular prop, so spreading the props on the element forwards it.',
+        },
       },
     ],
     codeChoices: [
@@ -1330,6 +1618,16 @@ export function Button({ variant = 'primary', type = 'button', className, ...res
     level: 'mid',
     paths: ['frontend', 'react'],
     question: 'How do you use Storybook to document and test a shared component library?',
+    questionVariants: [
+      {
+        question: 'Twice a month, a change to the shared component library looks fine in one app but breaks focus or styling in another. How could Storybook catch it on every pull request?',
+        bridge: 'Stories double as tests: play functions, the accessibility addon, visual tests against baselines, and the Vitest addon running them in CI.',
+      },
+      {
+        question: 'A designer wants to review every state of the refund `Button` without starting the back office. How does Storybook organise that, and what is a story?',
+        bridge: 'A story renders the component with given args, written in Component Story Format, and the generated site shows every state.',
+      },
+    ],
     answer:
       'Storybook is a workshop where each component is developed and documented in isolation. A story is the component rendered with given props, called args, written in Component Story Format: a default export describing the component and one named export per story. Designers review every state on the generated site. The same stories are tests: a story that renders is a smoke test, a play function runs interactions and assertions, the accessibility addon runs axe on each story, and visual tests, for example with Chromatic, compare screenshots with approved baselines. The Vitest addon runs stories as Vitest tests in a real browser, so all of it runs on every pull request.',
     keyPoints: [
@@ -1366,11 +1664,19 @@ export function Button({ variant = 'primary', type = 'button', className, ...res
         statement: 'In Component Story Format, each named export of a stories file is a story.',
         isTrue: true,
         why: 'The default export describes the component; every named export is one story.',
+        twin: {
+          statement: 'In Component Story Format, the default export of a stories file is a story.',
+          why: 'The default export describes the component; each named export is one story.',
+        },
       },
       {
         statement: 'A component whose stories pass the accessibility addon meets WCAG.',
         isTrue: false,
         why: 'axe-core catches only part of WCAG issues; keyboard and screen reader checks are still needed.',
+        twin: {
+          statement: 'Passing the accessibility addon on every story does not prove a component meets WCAG.',
+          why: 'axe-core catches only part of WCAG issues; keyboard and screen reader checks are still needed.',
+        },
       },
     ],
     codeChoices: [

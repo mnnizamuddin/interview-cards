@@ -13,6 +13,16 @@ export const reactAdvancedCards: Card[] = [
     level: 'senior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What are React Server Components, and how do they differ from server-side rendering?',
+    questionVariants: [
+      {
+        question: 'The storefront product page ships a large Markdown library to the browser only to render the product description, and its only interactive part is the "Add to cart" button. How would you cut that JavaScript?',
+        bridge: 'Server Components: render the description on the server so its code never ships, and mark only the button with `\'use client\'`.',
+      },
+      {
+        question: 'A colleague says "Server Components are just SSR with a new name". How do you correct them?',
+        bridge: 'SSR versus Server Components: SSR produces HTML but every component still hydrates; Server Components ship no code and send an RSC Payload.',
+      },
+    ],
     answer:
       'A Server Component is a component that runs only on the server, at build time or per request, and whose code never reaches the browser. Its output travels as the RSC Payload, a serialised tree with holes for the Client Components, which are the ones marked by `\'use client\'`. SSR is different: it is a moment, turning components into HTML on the server, but every component still ships its JavaScript and hydrates. Next.js combines both: everything is prerendered to HTML, and only Client Components hydrate. I keep pages on the server, fetch data there with `await`, and put `\'use client\'` on small interactive leaves.',
     keyPoints: [
@@ -62,16 +72,28 @@ export const reactAdvancedCards: Card[] = [
         statement: 'A Server Component\'s code is included in the browser bundle so that it can hydrate.',
         isTrue: false,
         why: 'Server Components never hydrate; only Client Components ship their code.',
+        twin: {
+          statement: 'A Server Component\'s code never reaches the browser bundle, because it does not hydrate.',
+          why: 'Only Client Components ship their code and hydrate.',
+        },
       },
       {
         statement: 'A Server Component can be rendered inside a Client Component if it is passed as `children`.',
         isTrue: true,
         why: 'The server renders it first and the client only places the result.',
+        twin: {
+          statement: 'A Server Component can never appear inside a Client Component.',
+          why: 'Passed as `children`, it is rendered on the server first and the client only places the result.',
+        },
       },
       {
         statement: '`\'use server\'` marks a component as a Server Component.',
         isTrue: false,
         why: 'Server Components need no directive; `\'use server\'` marks Server Functions callable from the client.',
+        twin: {
+          statement: 'Server Components need no directive; `\'use server\'` marks Server Functions callable from the client.',
+          why: 'The directive is about functions the client can call, not about where a component renders.',
+        },
       },
     ],
     codeChoices: [
@@ -122,6 +144,16 @@ export function AddToCartButton({ productId }: { productId: string }) { /* useSt
     level: 'mid',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What are higher-order components and render props, and why have custom hooks mostly replaced them?',
+    questionVariants: [
+      {
+        question: 'The back office exports `withAuth(withTheme(withOrders(OrdersPage)))`, DevTools shows a deep stack of wrappers, and nobody knows which one passes `loading`. How would you refactor it?',
+        bridge: 'HOCs add wrappers and hide where props come from; custom hooks share the same logic as plain function calls with explicit data.',
+      },
+      {
+        question: 'Compare a higher-order component with a render prop: how does each share logic, and when would you still write a HOC today?',
+        bridge: 'The two older patterns side by side, and their remaining place: hooks by default, a HOC for wrapping a component from the outside.',
+      },
+    ],
     answer:
       'A higher-order component is a function that takes a component and returns a new one with extra props or behaviour, like `withAuth(OrdersPage)`. Render props share logic the other way: a component calls a function prop, often `children`, with its data, and that function returns the UI. Both reuse stateful logic, but they add wrapper components to the tree, hide where props come from, and can collide on prop names. A custom hook shares the same logic as a plain function call, `useCurrentCustomer()`, with no extra component and explicit data. So I write hooks by default, and keep HOCs for wrapping a component from the outside.',
     keyPoints: [
@@ -181,11 +213,19 @@ export function AddToCartButton({ productId }: { productId: string }) { /* useSt
         statement: 'A higher-order component is a component that renders other components.',
         isTrue: false,
         why: 'It is a function that takes a component and returns a new component.',
+        twin: {
+          statement: 'A higher-order component is a function that takes a component and returns a new one.',
+          why: 'It wraps a component from the outside; a component that renders other components is just a component.',
+        },
       },
       {
         statement: 'Calling three custom hooks in one component adds no components to the tree.',
         isTrue: true,
         why: 'Hooks are function calls inside the component, not wrappers around it.',
+        twin: {
+          statement: 'Each custom hook a component calls adds a wrapper component to the tree.',
+          why: 'Hooks are function calls inside the component, not wrappers around it.',
+        },
       },
     ],
     codeChoices: [
@@ -243,6 +283,16 @@ function OrdersPage() {
     level: 'senior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What is the React Compiler, what problem does it solve, and how does it change `useMemo`, `useCallback` and `memo`?',
+    questionVariants: [
+      {
+        question: 'In the back office, a reviewer approved an inline `columns={[...]}` prop, and the memoized orders table now renders on every keystroke. Which tool removes this kind of regression, and how?',
+        bridge: 'The React Compiler: it caches values, callbacks and JSX at build time, so one inline array no longer breaks hand-written memoization.',
+      },
+      {
+        question: 'A colleague believes enabling the React Compiler means deleting every `useMemo` and no longer caring about the Rules of React. What do you answer?',
+        bridge: 'The compiler\'s limits: it relies on the Rules of React and skips code that breaks them, and manual hooks remain as escape hatches.',
+      },
+    ],
     answer:
       'The React Compiler is a build-time Babel plugin, stable since version 1.0 in October 2025. It rewrites components and hooks so that values, callbacks and JSX are cached and recomputed only when their inputs change: the equivalent of `memo`, `useMemo` and `useCallback` everywhere, even after an early return. The problem it solves is fragile hand-written memoization: one inline object in a review and a memoized table renders again. It relies on the Rules of React and skips code that breaks them. In new code I rely on it and keep `useMemo` only as an escape hatch; it does not make a changed input cheaper.',
     keyPoints: [
@@ -292,11 +342,19 @@ function OrdersPage() {
         statement: 'The React Compiler runs in the browser and memoizes components at runtime.',
         isTrue: false,
         why: 'It runs at build time and rewrites the code; the browser only runs the result.',
+        twin: {
+          statement: 'The React Compiler runs at build time and rewrites components; the browser only runs the result.',
+          why: 'It is a build-time plugin, not a runtime library.',
+        },
       },
       {
         statement: 'The compiler skips a component that mutates its props instead of failing the build.',
         isTrue: true,
         why: 'It skips code that breaks the Rules of React and compiles the rest.',
+        twin: {
+          statement: 'The compiler fails the build when a component mutates its props.',
+          why: 'It skips code that breaks the Rules of React and compiles the rest.',
+        },
       },
     ],
     lesson: {
@@ -326,6 +384,16 @@ export function OrdersTable({ orders, query, onOpen }: Props) {
     level: 'mid',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What is the difference between `useEffect` and `useLayoutEffect`?',
+    questionVariants: [
+      {
+        question: 'In the back office, an actions menu near the bottom of the orders table first appears cut off, then jumps above its button a frame later. Its position is computed in a `useEffect`. Why, and what fixes it?',
+        bridge: '`useLayoutEffect` runs before the paint and its state updates render before it too, so measuring there avoids the visible jump.',
+      },
+      {
+        question: 'Why is `useEffect` the default and `useLayoutEffect` the exception? What does the latter cost?',
+        bridge: 'The trade-off: `useLayoutEffect` blocks painting while it runs, so it is only for measuring layout before the user sees the frame.',
+      },
+    ],
     answer:
       'Both run after React has updated the DOM. `useEffect` usually runs after the browser has painted, so it does not block the screen; that suits fetching, subscriptions and analytics. `useLayoutEffect` runs after the DOM update but before the paint, and a state update made inside it is also handled before the paint. I use it only when I must measure the layout and adjust before the user sees anything, like flipping a tooltip or menu that would overflow the window. It blocks painting while it runs, so `useEffect` is the default, and `useLayoutEffect` does not run during server rendering.',
     keyPoints: [
@@ -365,11 +433,19 @@ export function OrdersTable({ orders, query, onOpen }: Props) {
         statement: 'A state update made inside `useLayoutEffect` is rendered before the browser paints.',
         isTrue: true,
         why: 'React processes it synchronously, so the user never sees the intermediate frame.',
+        twin: {
+          statement: 'A state update made inside `useLayoutEffect` appears only after the browser has painted an intermediate frame.',
+          why: 'React processes it before the paint, so the user never sees the intermediate frame.',
+        },
       },
       {
         statement: '`useLayoutEffect` runs before React updates the DOM.',
         isTrue: false,
         why: 'It runs after the DOM update, which is why it can measure elements, but before the paint.',
+        twin: {
+          statement: '`useLayoutEffect` runs after React updates the DOM, but before the browser paints.',
+          why: 'That is why it can measure elements and adjust them before the user sees anything.',
+        },
       },
     ],
     codeChoices: [
@@ -422,6 +498,16 @@ export function OrdersTable({ orders, query, onOpen }: Props) {
     level: 'senior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What causes unnecessary re-renders in React, and how do you find and fix them?',
+    questionVariants: [
+      {
+        question: 'In the back office, typing in the order search box makes the whole page, including a heavy chart, render on every keystroke. The search text lives in the page component. How do you find and fix it?',
+        bridge: 'Unnecessary re-renders from state kept too high: profile to confirm, then move the state down or pass the expensive part as `children`.',
+      },
+      {
+        question: 'Name the reasons a React component renders, and say which of them memoization can and cannot stop.',
+        bridge: 'The three causes: own state, parent render and context change; `memo` skips a parent-caused render with equal props, not a context change.',
+      },
+    ],
     answer:
       'A component renders when its state changes, when its parent renders, or when a context it reads changes. Unnecessary renders usually come from state kept too high, so a whole page renders for a small change, from new objects or functions passed to memoized children, and from one big context that every component reads. I find them with the React DevTools Profiler, with "why did this render" turned on. Then I fix the cause: move state down, pass expensive parts as `children`, split contexts or use a store with selectors, and memoize, or let the compiler do it, only where the profile shows real cost.',
     keyPoints: [
@@ -461,11 +547,19 @@ export function OrdersTable({ orders, query, onOpen }: Props) {
         statement: 'By default, when a parent renders, React renders all its children, even if their props did not change.',
         isTrue: true,
         why: 'Only `memo` (or the compiler) lets React skip a child whose props are equal.',
+        twin: {
+          statement: 'By default, when a parent renders, React skips any child whose props did not change.',
+          why: 'Only `memo` or the compiler lets React skip a child; otherwise every child renders.',
+        },
       },
       {
         statement: '`memo` prevents a component from re-rendering when a context it reads changes.',
         isTrue: false,
         why: 'Every reader of a context renders when the provider\'s value changes, memoized or not.',
+        twin: {
+          statement: '`memo` does not stop a component from rendering when a context it reads changes.',
+          why: 'Every reader of a context renders when the provider\'s value changes, memoized or not.',
+        },
       },
     ],
     codeChoices: [
@@ -521,6 +615,16 @@ function OrdersPage({ orders }: Props) {
     level: 'senior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'How would you profile a React app to find a performance bottleneck?',
+    questionVariants: [
+      {
+        question: 'Agents report that typing in the orders filter lags on their office laptops, but you cannot see it on your machine. How do you investigate before touching the code?',
+        bridge: 'Profiling: reproduce with CPU throttling on a production or profiling build, record with the React Profiler and the Performance panel, then re-measure.',
+      },
+      {
+        question: 'What does the React DevTools Profiler tell you that the browser\'s Performance panel does not, and the reverse?',
+        bridge: 'The two tools: the Profiler shows which components rendered, for how long and why; the Performance panel puts React next to layout, long tasks and requests.',
+      },
+    ],
     answer:
       'I start from a symptom I can reproduce, like "typing in the filter lags", and measure it before changing code. I record the interaction with the React DevTools Profiler to see which components rendered, how long each took and why. Then I record it in the browser\'s Performance panel, which since React 19.2 shows React tracks next to the browser\'s own work, so I can tell React rendering from layout, a long JavaScript task or a slow request. I measure on a production or profiling build with CPU throttling, fix the biggest cost, then record again to compare.',
     keyPoints: [
@@ -560,11 +664,19 @@ function OrdersPage({ orders }: Props) {
         statement: 'Timings measured on a React development build are representative of production.',
         isTrue: false,
         why: 'Development builds run extra checks and are slower; measure a production or profiling build.',
+        twin: {
+          statement: 'Timings measured on a React development build overstate the cost, so you measure a production or profiling build.',
+          why: 'Development builds run extra checks and are slower.',
+        },
       },
       {
         statement: 'The `<Profiler>` component calls its `onRender` callback after each commit of its subtree.',
         isTrue: true,
         why: 'It reports the phase and durations of every commit inside it.',
+        twin: {
+          statement: 'The `<Profiler>` component calls `onRender` only once, when its subtree first mounts.',
+          why: 'It calls `onRender` after each commit of its subtree, with the phase and durations.',
+        },
       },
     ],
     lesson: {
@@ -594,6 +706,16 @@ function OrdersPage({ orders }: Props) {
     level: 'mid',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'How would you test a custom hook without building a full component?',
+    questionVariants: [
+      {
+        question: 'You wrote a shared `useDebouncedValue` hook for the storefront search and want to test its 300 ms delay without building a page. How?',
+        bridge: 'Testing a hook alone: `renderHook` exposes `result.current`, `rerender` passes new arguments, and fake timers are advanced inside `act`.',
+      },
+      {
+        question: 'When is testing a custom hook in isolation a bad idea, and what would you test instead?',
+        bridge: 'Test a hook alone only when it is shared and has its own contract; a hook used by one component is better tested through that component.',
+      },
+    ],
     answer:
       'I use `renderHook` from React Testing Library. It renders a tiny test component that calls the hook and exposes the latest return value as `result.current`; `rerender` calls it again with new arguments, and the `wrapper` option adds providers. Anything that updates the hook\'s state, like calling a returned function or advancing fake timers, goes inside `act`, and async results are awaited with `waitFor`. I test a hook alone only when it is shared and has its own contract, like a debounce or a cart hook; a hook used by one component is better tested through that component.',
     keyPoints: [
@@ -633,11 +755,19 @@ function OrdersPage({ orders }: Props) {
         statement: '`result.current` always holds the hook\'s latest return value.',
         isTrue: true,
         why: 'It is updated after every render of the test component.',
+        twin: {
+          statement: '`result.current` keeps the value from the hook\'s first render and never updates.',
+          why: 'It is updated after every render of the test component.',
+        },
       },
       {
         statement: 'A custom hook can be called directly in a test like a normal function, outside any component.',
         isTrue: false,
         why: 'Hooks need a rendering component; calling one outside a component throws.',
+        twin: {
+          statement: 'A custom hook must run inside a rendering component, which is why a test calls it through `renderHook`.',
+          why: 'Calling a hook outside a component throws.',
+        },
       },
     ],
     codeChoices: [
@@ -685,6 +815,16 @@ expect(result.current).toBe('10 rue de Rivoli');`,
     level: 'mid',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'How would you debug a component that does not re-render when you expect it to?',
+    questionVariants: [
+      {
+        question: 'In the back office, an agent sorts the orders table by date and nothing moves. The click handler calls `orders.sort(byDate)` and then `setOrders(orders)`. What is going on?',
+        bridge: 'A mutation bug: the array is sorted in place and the same reference is passed, so `Object.is` sees no change and React skips the render.',
+      },
+      {
+        question: 'A colleague says "React re-renders whenever I call the setter". When is that wrong, and how would you check what happened?',
+        bridge: 'React compares the new state with `Object.is` and skips the render for the same reference; DevTools shows whether the state and the render happened.',
+      },
+    ],
     answer:
       'The usual cause is mutation: the code changes an object or array in place and passes the same reference to the setter, so React compares with `Object.is`, sees no change and skips the render. I check in React DevTools whether the state actually holds the new value and whether the component rendered. If the data changed but the reference did not, I replace it with a copy: spread the object, use `map` or `toSorted` for arrays. Other causes I check are a memoized child receiving a mutated prop, a value stored in a ref instead of state, and state copied from props that never resyncs.',
     keyPoints: [
@@ -724,11 +864,19 @@ expect(result.current).toBe('10 rue de Rivoli');`,
         statement: 'If a state updater mutates the previous object and returns it, React skips the re-render.',
         isTrue: true,
         why: 'The returned value is the same reference, and `Object.is` says nothing changed.',
+        twin: {
+          statement: 'If a state updater mutates the previous object and returns it, React re-renders with the new contents.',
+          why: 'The returned value is the same reference, so `Object.is` says nothing changed and React skips the render.',
+        },
       },
       {
         statement: '`Object.freeze` makes an object and all the objects nested in it read-only.',
         isTrue: false,
         why: 'It is shallow: nested objects stay mutable unless frozen too.',
+        twin: {
+          statement: '`Object.freeze` is shallow: objects nested in a frozen object stay mutable.',
+          why: 'Each nested object must be frozen on its own.',
+        },
       },
     ],
     codeChoices: [
@@ -772,6 +920,16 @@ setOrder((previous) => ({ ...previous, status: 'shipped' }));`,
     level: 'senior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'How would you use error boundaries in a production React app?',
+    questionVariants: [
+      {
+        question: 'After a deploy, every agent sees a blank white back office because one sidebar widget throws on a `null` customer while rendering. How should the app have contained that?',
+        bridge: 'Error boundaries placed by blast radius: one around each independent panel, so a failing widget shows a fallback instead of unmounting the root.',
+      },
+      {
+        question: 'A colleague wraps the refund button in an error boundary to catch failed API calls from its `onClick`. Does that work, and what do boundaries catch?',
+        bridge: 'The scope of error boundaries: render and effect errors below them; errors in event handlers and async code are handled in code.',
+      },
+    ],
     answer:
       'An error boundary is a component that catches errors thrown while rendering its children, or in their effects, and shows a fallback instead. Without one, a render error unmounts the whole root and the user sees a blank page. I place them by blast radius: one at the root as a last resort, one per route, and one around each independent panel, so a broken widget does not take the page down. Each fallback offers a retry, and every caught error goes to error tracking with its component stack. It is still a class component, or the react-error-boundary package; event handler and async errors are handled in code.',
     keyPoints: [
@@ -811,11 +969,19 @@ setOrder((previous) => ({ ...previous, status: 'shipped' }));`,
         statement: 'An error boundary catches an error thrown inside an `onClick` handler of one of its children.',
         isTrue: false,
         why: 'Event handlers run outside rendering; their errors do not reach boundaries.',
+        twin: {
+          statement: 'An error thrown inside a child\'s `onClick` handler does not reach the nearest error boundary.',
+          why: 'Event handlers run outside rendering, so their errors must be handled in code.',
+        },
       },
       {
         statement: 'Without any error boundary, an error thrown during rendering unmounts the whole React root.',
         isTrue: true,
         why: 'React has nothing to show instead, so it removes the entire tree.',
+        twin: {
+          statement: 'Without any error boundary, an error thrown during rendering removes only the component that threw.',
+          why: 'React has nothing to show instead, so it unmounts the whole root.',
+        },
       },
     ],
     codeChoices: [
@@ -868,6 +1034,16 @@ setOrder((previous) => ({ ...previous, status: 'shipped' }));`,
     level: 'mid',
     paths: ['react', 'frontend'],
     question: 'How would you implement client-side routing in a React app with React Router?',
+    questionVariants: [
+      {
+        question: 'In the back office, an agent filters orders to `shipped`, opens one, presses Back and lands on an unfiltered list; a reload loses the filter too. How would you fix it with React Router?',
+        bridge: 'Routing state: filters belong in search params, so the URL, the history and a reload all keep them.',
+      },
+      {
+        question: 'Walk me through setting up `/orders` and `/orders/:orderId` with a shared layout in React Router.',
+        bridge: 'The route tree: `createBrowserRouter` with `RouterProvider`, a parent layout rendering `<Outlet />`, and `useParams` to read `orderId`.',
+      },
+    ],
     answer:
       'Client-side routing means the URL changes without a full page load: the router intercepts link clicks, updates the history and renders the matching component. With React Router I define routes as a tree with `createBrowserRouter` and render `RouterProvider`. Parent routes render a layout with an `<Outlet />` where the child route appears, dynamic segments like `orders/:orderId` are read with `useParams`, and links use `<Link>`. In data mode, each route can have a `loader` that fetches its data before rendering, and route modules are lazy-loaded so each page\'s code arrives on demand. Filters belong in search params, so a reload keeps them.',
     keyPoints: [
@@ -907,11 +1083,19 @@ setOrder((previous) => ({ ...previous, status: 'shipped' }));`,
         statement: 'A route without a `path` in React Router can wrap its children in a layout without adding a URL segment.',
         isTrue: true,
         why: 'Pathless layout routes group children under a shared layout.',
+        twin: {
+          statement: 'Every React Router route that renders a layout must add a segment to the URL.',
+          why: 'A pathless layout route groups its children under a shared layout without a URL segment.',
+        },
       },
       {
         statement: 'A client-side protected route is enough to keep a customer\'s orders private.',
         isTrue: false,
         why: 'Anyone can call the API directly; the server must check access on every request.',
+        twin: {
+          statement: 'A client-side protected route only hides the page; the server must still check access to a customer\'s orders on every request.',
+          why: 'Anyone can call the API directly, bypassing the client.',
+        },
       },
     ],
     codeChoices: [
@@ -961,6 +1145,16 @@ setOrder((previous) => ({ ...previous, status: 'shipped' }));`,
     level: 'senior',
     paths: ['react', 'frontend'],
     question: 'What is the compound component pattern, and when would you use it?',
+    questionVariants: [
+      {
+        question: 'The back office `Tabs` component takes a `tabs` config array that has grown a dozen options, like `badgeCount` and `iconPosition`, one per request. Which pattern would you move to?',
+        bridge: 'Compound components: a root holding state in context and parts the caller composes in JSX, instead of a config array that grows a field per request.',
+      },
+      {
+        question: 'How do `<select>` and `<option>` illustrate the compound component pattern, and what does the pattern cost?',
+        bridge: 'The same pattern from a native example: parts that share state without wiring, at the price of a larger API and parts that need their root.',
+      },
+    ],
     answer:
       'Compound components are a set of components that work together and share state without the caller wiring it, like `<select>` and `<option>`. A root component, say `Tabs.Root`, holds the state and provides it through context; its parts, `Tabs.List`, `Tabs.Tab` and `Tabs.Panel`, read it. The caller arranges the parts in JSX, in any order and with any content in between, instead of filling a configuration array that grows a field for every request. I use it for design-system components with several related parts: tabs, menus, accordions, selects. The costs are a larger API surface and parts that only work inside their root.',
     keyPoints: [
@@ -1000,11 +1194,19 @@ setOrder((previous) => ({ ...previous, status: 'shipped' }));`,
         statement: 'In compound components, the parts usually read the shared state from a React context provided by the root.',
         isTrue: true,
         why: 'Context lets parts sit at any depth under the root without prop wiring.',
+        twin: {
+          statement: 'In compound components, the parts usually receive the shared state as props the root clones into each direct child.',
+          why: 'They usually read it from a context the root provides, so they can sit at any depth.',
+        },
       },
       {
         statement: 'Compound components only work when the parts are direct children of the root.',
         isTrue: false,
         why: 'With context, parts can be nested at any depth; only `cloneElement`-based versions need direct children.',
+        twin: {
+          statement: 'With context, compound component parts can be nested at any depth under their root.',
+          why: 'Only `cloneElement`-based versions need the parts to be direct children.',
+        },
       },
     ],
     codeChoices: [
@@ -1056,6 +1258,16 @@ function useTabs() {
     level: 'senior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'How does Suspense for data fetching differ from Suspense for code splitting?',
+    questionVariants: [
+      {
+        question: 'In the storefront, the order history page shows its Suspense skeleton while the chart\'s code loads, but never while the orders load. The orders are fetched in a `useEffect`. Why?',
+        bridge: 'Suspense only reacts to reading a not-ready value during render: `lazy` code suspends, effect fetching never does.',
+      },
+      {
+        question: 'Is Suspense for code splitting a different feature from Suspense for data? How would you explain it to a junior?',
+        bridge: 'One mechanism for both: the nearest boundary shows its fallback while a `lazy` module or a pending promise read with `use` is not ready.',
+      },
+    ],
     answer:
       'Suspense is one mechanism: a `<Suspense>` boundary shows its fallback while something inside it is not ready. For code splitting, the thing is a component loaded with `lazy(() => import(...))`: it suspends until its module arrives. For data, it is a component reading a pending promise with `use`, or a Server Component awaiting data, or a Suspense-enabled library like TanStack Query\'s `useSuspenseQuery`. Fetching in a `useEffect` does not trigger Suspense at all. The boundary does not care which; what matters is placing boundaries where the design wants loading states, and pairing each with an error boundary for failures.',
     keyPoints: [
@@ -1095,11 +1307,19 @@ function useTabs() {
         statement: 'A component that fetches data in `useEffect` makes the nearest Suspense boundary show its fallback.',
         isTrue: false,
         why: 'Only reading a not-ready value during render suspends: `lazy`, `use`, or a Suspense-enabled library.',
+        twin: {
+          statement: 'Fetching data in `useEffect` never makes the nearest Suspense boundary show its fallback.',
+          why: 'Only reading a not-ready value during render suspends: `lazy`, `use`, or a Suspense-enabled library.',
+        },
       },
       {
         statement: 'A rejected promise read with `use` is handled by the nearest error boundary.',
         isTrue: true,
         why: 'Suspense only handles the pending state; errors go to error boundaries.',
+        twin: {
+          statement: 'A rejected promise read with `use` keeps the nearest Suspense boundary showing its fallback.',
+          why: 'Suspense only handles the pending state; the error goes to the nearest error boundary.',
+        },
       },
     ],
     codeChoices: [
@@ -1148,6 +1368,16 @@ function Reviews({ reviewsPromise }: { reviewsPromise: Promise<Review[]> }) {
     level: 'senior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What are the most important React 19 features, and how do they change forms and data handling?',
+    questionVariants: [
+      {
+        question: 'The storefront\'s "update address" form has hand-written `isLoading`, `error` and `submitted` state, a `try/catch` and a submit button disabled by a prop. How would React 19 shrink that code?',
+        bridge: 'React 19 Actions: `useActionState` gives the result and a pending flag, and `useFormStatus` lets the submit button read its form\'s pending state.',
+      },
+      {
+        question: 'Beyond forms, which React 19 changes would you point out to a team upgrading from React 18?',
+        bridge: 'The rest of React 19: `use` for promises and context, stable Server Components and Functions, `ref` as a prop and a context as its own provider.',
+      },
+    ],
     answer:
       'The biggest change is Actions: async functions run in a transition, which I can pass directly to a form\'s `action` prop. `useActionState` gives me the result and a pending flag, `useFormStatus` lets a submit button read its form\'s pending state, and `useOptimistic` shows the expected result while the action runs. `use` reads a promise or a context during render, with Suspense. Server Components and Server Functions are stable. Smaller wins: `ref` is a normal prop, so no `forwardRef`, and a context can be rendered as its own provider. Forms lose most of their hand-written loading and error state.',
     keyPoints: [
@@ -1187,11 +1417,19 @@ function Reviews({ reviewsPromise }: { reviewsPromise: Promise<Review[]> }) {
         statement: 'In React 19, a function component can receive `ref` as a normal prop without `forwardRef`.',
         isTrue: true,
         why: 'React 19 passes `ref` as a prop to function components.',
+        twin: {
+          statement: 'In React 19, a function component still needs `forwardRef` to receive a `ref`.',
+          why: 'React 19 passes `ref` to function components as a normal prop.',
+        },
       },
       {
         statement: '`useFormStatus` reports the pending state of a form rendered by the same component that calls it.',
         isTrue: false,
         why: 'It only reads a `<form>` rendered by a parent; call it in a child, such as the submit button.',
+        twin: {
+          statement: '`useFormStatus` only reads a `<form>` rendered by a parent, so you call it in a child such as the submit button.',
+          why: 'It does not see a form rendered by the same component that calls it.',
+        },
       },
     ],
     codeChoices: [

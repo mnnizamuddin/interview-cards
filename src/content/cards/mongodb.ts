@@ -9,6 +9,16 @@ export const mongodbCards: Card[] = [
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'A product page in MongoDB needs the latest reviews, the average rating and the authors\' names. How do you model it without a join on every view?',
+    questionVariants: [
+      {
+        question: 'The product page loads the product, then its 2,000 reviews, then each author\'s name, and takes 600 ms at peak. How would you reshape the data?',
+        bridge: 'Model from the reads: embed the latest reviews (subset), store rating totals (computed), copy author names (extended reference).',
+      },
+      {
+        question: 'A colleague worries that copying the author\'s name into each review will go stale. When is that copy acceptable, and what does it cost?',
+        bridge: 'Schema patterns trade extra writes and possibly stale copies for one-read pages, so you copy only fields that rarely change.',
+      },
+    ],
     answer:
       "I model from the reads, with MongoDB's schema patterns, which copy or precompute data at write time so the page reads one document. The subset pattern embeds only the 10 latest reviews in the product and keeps all of them in a `reviews` collection. The computed pattern stores a rating summary, the count and the total of stars, updated on each review, and the average is computed on read. The extended reference copies the author's display name into each review next to the customer id. The cost is extra writes and copies that can go stale, so I copy fields that rarely change.",
     keyPoints: [
@@ -48,11 +58,19 @@ export const mongodbCards: Card[] = [
         statement: 'The subset pattern embeds only part of the related items in the parent and keeps the full set in its own collection.',
         isTrue: true,
         why: 'The page reads the embedded few in one document; the complete list stays referenced.',
+        twin: {
+          statement: 'The subset pattern embeds all the related items in the parent document.',
+          why: 'It embeds only the few shown, like the 10 latest reviews, and keeps the full set in its own collection.',
+        },
       },
       {
         statement: 'A value stored with the computed pattern can never be stale.',
         isTrue: false,
         why: 'Updated by a periodic job, it lags until the next run; even updated per write, a crash between two writes can leave it off.',
+        twin: {
+          statement: 'A value stored with the computed pattern can be stale.',
+          why: 'Updated by a periodic job, it lags until the next run; even updated per write, a crash between two writes can leave it off.',
+        },
       },
     ],
     codeChoices: [
@@ -101,6 +119,16 @@ type ReviewPreview = { reviewId: ObjectId; stars: number; authorName: string };`
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'Would you use the official MongoDB driver or Mongoose in a Node service, and how do you make sure the data in a collection is valid?',
+    questionVariants: [
+      {
+        question: 'Mongoose rejects reviews with 7 stars, yet the rating statistics include some. A data-import script writes to the same collection. How do you make sure every review is valid?',
+        bridge: 'Mongoose validation runs only in the app that uses it; a `$jsonSchema` validator on the collection checks every writer in the server.',
+      },
+      {
+        question: 'Official `mongodb` driver or Mongoose: when would you choose each in a Node service?',
+        bridge: 'The driver gives typed collections over one shared client; Mongoose adds models, casting, validation and hooks, but only inside its own app.',
+      },
+    ],
     answer:
       'The official `mongodb` driver gives typed collections with `Collection<T>`; I create one `MongoClient` per process and share it, since each client keeps a connection pool. Mongoose is an ODM: schemas, casting, validation, hooks and `populate`, useful when the team wants models. But TypeScript types and Mongoose validation only check our own code; a script or another service bypasses them. So for fields that feed money or statistics I add a `$jsonSchema` validator to the collection: the server checks every insert and update, whoever writes, and rejects invalid documents with error 121.',
     keyPoints: [
@@ -140,16 +168,28 @@ type ReviewPreview = { reviewId: ObjectId; stars: number; authorName: string };`
         statement: 'A Mongoose schema rejects invalid documents written from the `mongosh` shell.',
         isTrue: false,
         why: 'Mongoose validation runs only in the application that uses it; only a server-side validator sees every writer.',
+        twin: {
+          statement: 'A Mongoose schema does not check documents written from the `mongosh` shell.',
+          why: 'Mongoose validation runs only in the application that uses it; only a server-side validator sees every writer.',
+        },
       },
       {
         statement: 'A `$jsonSchema` validator with default settings rejects invalid inserts and updates.',
         isTrue: true,
         why: "The defaults are `validationLevel: 'strict'` and `validationAction: 'error'`.",
+        twin: {
+          statement: 'A `$jsonSchema` validator with default settings only logs a warning for invalid documents.',
+          why: 'The defaults are `validationLevel: \'strict\'` and `validationAction: \'error\'`, so invalid inserts and updates are rejected.',
+        },
       },
       {
         statement: 'A Node service should create a new `MongoClient` for each HTTP request.',
         isTrue: false,
         why: 'Each client keeps its own connection pool; create one per process at startup and share it.',
+        twin: {
+          statement: 'A Node service should create one `MongoClient` per process and share it across requests.',
+          why: 'Each client keeps its own connection pool, so a client per request multiplies connections.',
+        },
       },
     ],
     codeChoices: [
@@ -200,6 +240,16 @@ app.get('/products/:sku', async (req, res) => {
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How do you design a compound index in MongoDB, and which other kinds of index do you use?',
+    questionVariants: [
+      {
+        question: 'The query for a product\'s published reviews with 4 stars or more, newest first, uses an index, but `explain` shows a `SORT` stage and 20,000 keys examined for 20 returned. What would you change?',
+        bridge: 'Compound index order: equality, then sort, then range fields (ESR), so entries come out already sorted and few keys are examined.',
+      },
+      {
+        question: 'Each customer may post one review per product, and pending reviews are a tiny share of the collection. Which kinds of index serve these needs?',
+        bridge: 'Beyond compound indexes: a unique index enforces one review per customer, and a partial index covers only the pending reviews.',
+      },
+    ],
     answer:
       'I order a compound index by the ESR guideline: equality fields first, then the sort field, then range fields. For published reviews of one product with at least 4 stars, newest first, that is `{ productId, status, createdAt, stars }`: entries come out already sorted, so there is no in-memory `SORT` stage. I check with `explain(\'executionStats\')`: an `IXSCAN`, no `SORT`, and keys examined close to `nReturned`. Beyond that, an index on an array is multikey automatically, a unique index enforces one review per customer, a partial index covers only pending reviews, and a TTL index deletes expired documents.',
     keyPoints: [
@@ -239,16 +289,28 @@ app.get('/products/:sku', async (req, res) => {
         statement: 'An index on `{ productId: 1, status: 1, createdAt: -1 }` can serve a query on `status` alone.',
         isTrue: false,
         why: 'A compound index serves its prefixes; `status` alone is not a prefix.',
+        twin: {
+          statement: 'An index on `{ productId: 1, status: 1, createdAt: -1 }` cannot serve a query on `status` alone.',
+          why: 'A compound index serves its prefixes, and `status` alone is not a prefix.',
+        },
       },
       {
         statement: 'In the ESR guideline, `$ne` and `$regex` count as range conditions.',
         isTrue: true,
         why: 'The docs treat them as bounded scans, like `$gte`, so they go after the sort field.',
+        twin: {
+          statement: 'In the ESR guideline, `$ne` and `$regex` count as equality conditions.',
+          why: 'The docs treat them as range conditions, like `$gte`, so they go after the sort field.',
+        },
       },
       {
         statement: 'A TTL index deletes a document at the exact second it expires.',
         isTrue: false,
         why: 'A background task runs every 60 seconds, so deletion happens late, never early.',
+        twin: {
+          statement: 'A TTL index may delete a document some time after it expires, never before.',
+          why: 'A background task runs every 60 seconds, so deletion happens late, never early.',
+        },
       },
     ],
     codeChoices: [
@@ -291,6 +353,16 @@ const plan = await reviews
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is the MongoDB aggregation pipeline, and how would you compute review statistics with it?',
+    questionVariants: [
+      {
+        question: 'The product page runs two aggregations over all reviews, one for the star histogram and one for the average, and each scans the collection. How would you get both in one indexed round trip?',
+        bridge: '`$match` on the product first so it can use an index, then a `$facet` with two `$group` stages returns both results in one document.',
+      },
+      {
+        question: 'Explain the aggregation pipeline to a junior who knows SQL: which stages play the role of `WHERE`, `GROUP BY` and `LEFT JOIN`?',
+        bridge: 'A pipeline is a chain of stages: `$match` filters like `WHERE`, `$group` aggregates, and `$lookup` is a left outer join.',
+      },
+    ],
     answer:
       'A pipeline is an array of stages, each transforming the documents produced by the previous one, like a SQL query built step by step. `$match` filters, `$group` groups with accumulators such as `$sum` and `$avg`, `$project` reshapes, `$unwind` emits one document per array element, `$lookup` is a left outer join, and `$facet` runs several sub-pipelines on the same input. For a product\'s star histogram and average, I put `$match` on the product first so it uses an index, then a `$facet` with two `$group` stages, which returns both in one round trip. I keep `$lookup` for reports, not hot page reads.',
     keyPoints: [
@@ -330,16 +402,28 @@ const plan = await reviews
         statement: '`$lookup` performs a left outer join with another collection of the same database.',
         isTrue: true,
         why: 'Documents with no match are kept, with an empty array in the `as` field.',
+        twin: {
+          statement: '`$lookup` drops the documents that have no match in the other collection, like an inner join.',
+          why: 'It is a left outer join: documents with no match are kept, with an empty array in the `as` field.',
+        },
       },
       {
         statement: 'A `$facet` stage can return more than 16 MiB because it splits its output into several documents.',
         isTrue: false,
         why: 'It returns a single document, which must stay under the 16 MiB document limit.',
+        twin: {
+          statement: 'A `$facet` stage returns a single document, so its whole output must fit within 16 MiB.',
+          why: 'It does not split its output; the 16 MiB document limit applies to that one document.',
+        },
       },
       {
         statement: '`$facet` placed as the first stage of a pipeline uses an index.',
         isTrue: false,
         why: 'Per the docs it does a collection scan; put a `$match` before it so that stage can use an index.',
+        twin: {
+          statement: 'A `$facet` placed as the first stage of a pipeline does a collection scan.',
+          why: 'Per the docs it does not use an index; put a `$match` before it so that stage can use one.',
+        },
       },
     ],
     codeChoices: [
@@ -388,6 +472,16 @@ const plan = await reviews
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'What do write concern and read concern mean in a MongoDB replica set, and which settings do you use?',
+    questionVariants: [
+      {
+        question: 'After a primary failover, a few reviews that customers had seen confirmed vanished. The writes used `w: 1`. What happened, and which setting prevents it?',
+        bridge: 'A write acknowledged by the primary alone can be rolled back if it fails before a secondary copies it; `w: \'majority\'` survives a failover.',
+      },
+      {
+        question: 'What is the difference between read concern and read preference in MongoDB?',
+        bridge: 'Read concern decides how durable the data a read returns must be; read preference picks which member answers, and secondaries may lag.',
+      },
+    ],
     answer:
       "A replica set has one primary that takes every write and secondaries that replay its oplog; if the primary is lost, they elect a new one, and writes wait meanwhile. Write concern says when a write is acknowledged: `w: 1` once the primary has it, which can be rolled back after a failover, or `w: 'majority'`, the usual default, once a majority has it durably. Read concern says what a read may return: `local` by default, or `majority` for data that cannot roll back. Read preference picks the member, and secondaries may be stale. I keep `majority` and retryable writes, and read secondaries only for reports.",
     keyPoints: [
@@ -427,16 +521,28 @@ const plan = await reviews
         statement: 'A write acknowledged with `w: 1` can be lost if the primary fails before a secondary copies it.',
         isTrue: true,
         why: 'The docs warn such writes can be rolled back when the primary steps down; `majority` writes survive a failover.',
+        twin: {
+          statement: 'A write acknowledged with `w: 1` survives a primary failure even if no secondary copied it.',
+          why: 'Such writes can be rolled back when the primary steps down; `majority` writes survive a failover.',
+        },
       },
       {
         statement: "Read concern `'majority'` means a majority of members answer the read together.",
         isTrue: false,
         why: 'It limits which data the read may return to majority-acknowledged data; which member answers is set by read preference.',
+        twin: {
+          statement: 'Read concern `\'majority\'` limits a read to majority-acknowledged data, while read preference decides which member answers.',
+          why: 'It is about the durability of the data returned, not about how many members take part in the read.',
+        },
       },
       {
         statement: 'Retryable writes also retry `updateMany` operations automatically.',
         isTrue: false,
         why: 'Only single-document writes are retryable; `updateMany` and `w: 0` writes are not retried.',
+        twin: {
+          statement: 'Retryable writes do not retry `updateMany` operations.',
+          why: 'Only single-document writes are retryable; `updateMany` and `w: 0` writes are not retried.',
+        },
       },
     ],
     codeChoices: [
@@ -481,6 +587,16 @@ const reviewsForReports = client.db('catalogue').collection('reviews', {
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'Does MongoDB support multi-document transactions, and when would you avoid them?',
+    questionVariants: [
+      {
+        question: 'Placing an order in MongoDB writes the order document and decrements stock on three product documents. A crash between writes left the stock wrong. What would you use, and what must the code avoid?',
+        bridge: 'A cross-document invariant needs a multi-document transaction: `session.withTransaction`, the session on every operation, no side effects in the callback.',
+      },
+      {
+        question: 'A colleague wants to wrap every MongoDB write in a transaction "to be safe". What do you answer?',
+        bridge: 'Transactions cost more than single-document writes, so one-document atomicity or repairable derived data come first.',
+      },
+    ],
     answer:
       'Yes: multi-document ACID transactions exist on replica sets since 4.0 and on sharded clusters since 4.2. In the Node driver I use `session.withTransaction`, pass the session to every operation and await them one by one; it retries the callback on transient errors, so the callback must not send emails. But they cost more than single-document writes: a one-minute default limit, aborts on write conflicts, reads on the primary. So I first put what must change together in one document, which is atomic. For derived data like counters I accept two writes plus a repair job, and keep transactions for true cross-document invariants.',
     keyPoints: [
@@ -520,16 +636,28 @@ const reviewsForReports = client.db('catalogue').collection('reviews', {
         statement: 'A single-document update that changes several fields is atomic without a transaction.',
         isTrue: true,
         why: 'A write to one document is atomic, which is the main reason to keep what changes together in one document.',
+        twin: {
+          statement: 'An update that changes several fields of one document needs a transaction to be atomic.',
+          why: 'A write to one document is atomic on its own, which is the main reason to keep what changes together in one document.',
+        },
       },
       {
         statement: 'An operation in the `withTransaction` callback that is not given the session is still rolled back with the transaction.',
         isTrue: false,
         why: 'Without `{ session }` it runs outside the transaction and stays committed even if the transaction aborts.',
+        twin: {
+          statement: 'An operation in the `withTransaction` callback that is not given the session stays committed if the transaction aborts.',
+          why: 'Without `{ session }` it runs outside the transaction.',
+        },
       },
       {
         statement: 'The MongoDB manual presents multi-document transactions as a replacement for good schema design.',
         isTrue: false,
         why: 'It states the opposite: a distributed transaction usually costs more than single-document writes and should not replace schema design.',
+        twin: {
+          statement: 'The MongoDB manual says multi-document transactions should not replace good schema design.',
+          why: 'It notes that a distributed transaction usually costs more than single-document writes.',
+        },
       },
     ],
     codeChoices: [
@@ -580,6 +708,16 @@ const reviewsForReports = client.db('catalogue').collection('reviews', {
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How would you keep another service in sync with a MongoDB collection in near real time?',
+    questionVariants: [
+      {
+        question: 'The search service must reflect product price changes made in MongoDB within seconds, and must not miss any after it restarts. How would you build the sync?',
+        bridge: 'A change stream with a saved resume token gives near real-time, at-least-once delivery; the consumer upserts by SKU to stay idempotent.',
+      },
+      {
+        question: 'Your change-stream consumer was down for a long weekend and now cannot resume. Why, and what do you do?',
+        bridge: 'Resuming needs the token\'s position in the oplog; down past the oplog window, the stream cannot resume and the target needs a full resync.',
+      },
+    ],
     answer:
       "I would use a change stream: `collection.watch()` subscribes to the collection's changes, and I read it with `for await`. It needs a replica set or a sharded cluster and only reports majority-committed changes, so an event never rolls back. Each event has a resume token in its `_id`; I save it after processing and pass it as `resumeAfter` on restart. That gives at-least-once delivery, so the consumer must be idempotent, for example an upsert by SKU. With `fullDocument: 'updateLookup'`, update events carry the current document. I run one watcher, and if it stays down longer than the oplog window, it needs a full resync.",
     keyPoints: [
@@ -619,16 +757,28 @@ const reviewsForReports = client.db('catalogue').collection('reviews', {
         statement: 'A change stream can deliver a change that is later rolled back.',
         isTrue: false,
         why: 'It only reports changes written by a majority of members, which cannot roll back.',
+        twin: {
+          statement: 'A change stream only delivers changes that can no longer be rolled back.',
+          why: 'It reports changes written by a majority of members, which cannot roll back.',
+        },
       },
       {
         statement: 'Saving the resume token after processing each event gives at-least-once delivery.',
         isTrue: true,
         why: 'A crash after the write but before the save replays that event, so the consumer must be idempotent.',
+        twin: {
+          statement: 'Saving the resume token after processing each event gives exactly-once delivery.',
+          why: 'A crash after the write but before the save replays that event: delivery is at-least-once, so the consumer must be idempotent.',
+        },
       },
       {
         statement: 'Change streams work on a standalone MongoDB server.',
         isTrue: false,
         why: 'They need a replica set or a sharded cluster.',
+        twin: {
+          statement: 'Change streams need a replica set or a sharded cluster; a standalone server cannot open one.',
+          why: 'Change streams are only available on replica sets and sharded clusters.',
+        },
       },
     ],
     codeChoices: [

@@ -12,6 +12,16 @@ export const messagingCards: Card[] = [
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is a message queue, and why would you use one instead of a direct synchronous call?',
+    questionVariants: [
+      {
+        question: "When the e-mail provider is down, `POST /webhooks/payments` fails and the payment provider retries for hours. The webhook sends the confirmation e-mail inline. How would you change it?",
+        bridge: "Commit the payment, put the e-mail on a message queue and answer: an e-mail outage then delays e-mails instead of failing payments.",
+      },
+      {
+        question: "When would you not put a message queue between two services, and what does it cost you when you do?",
+        bridge: "A queue suits work the caller does not need right now; it brings eventual consistency, duplicate deliveries and a broker to run.",
+      },
+    ],
     answer:
       'A message queue is a broker that stores messages from a producer until a consumer processes and acknowledges them. Instead of calling the email or stock service inside the request, I commit the essential state, put a message on the queue and answer. That decouples the services: an email outage delays emails instead of failing payments. It smooths load, because consumers drain a burst at their own pace, and failed messages are retried automatically. The price is eventual consistency, duplicate deliveries, so consumers must be idempotent, and one more system to run and monitor. I keep synchronous calls when the caller needs the answer now.',
     keyPoints: [
@@ -54,11 +64,19 @@ export const messagingCards: Card[] = [
         statement: 'With a standard message queue, a consumer may receive the same message more than once.',
         isTrue: true,
         why: 'Delivery is at-least-once: a consumer that crashes after the work but before the acknowledgement gets the message again.',
+        twin: {
+          statement: "With a standard message queue, each message is delivered to a consumer exactly once.",
+          why: "Delivery is at-least-once: a consumer that crashes after the work but before the acknowledgement gets the message again.",
+        },
       },
       {
         statement: 'Moving work to a queue makes the system strongly consistent, because every message is eventually processed.',
         isTrue: false,
         why: 'Eventually processed means eventually consistent: for a while, other services and users see the state before the message is handled.',
+        twin: {
+          statement: "Moving work to a queue makes the system eventually consistent: for a while, others see the state before the message is handled.",
+          why: "Messages are processed later, so other services and users can read the old state until then.",
+        },
       },
     ],
     codeChoices: [
@@ -97,6 +115,16 @@ export const messagingCards: Card[] = [
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How do RabbitMQ and Kafka differ, and when is Kafka\'s distributed log the better choice?',
+    questionVariants: [
+      {
+        question: "Analytics, fraud and the warehouse each want every `order.paid` event, and analytics wants to replay last month after a bug fix. Your broker deletes messages after the ack. What would you choose?",
+        bridge: "A replicated log such as Kafka keeps events for a retention period, and each consumer group reads and replays at its own offset.",
+      },
+      {
+        question: "A teammate says Kafka is just a faster RabbitMQ. How do the two models really differ, and when is RabbitMQ the better pick?",
+        bridge: "A broker that routes to queues and deletes after the ack versus a partitioned log read by offset: RabbitMQ for jobs and routing, Kafka for shared, replayable streams.",
+      },
+    ],
     answer:
       'RabbitMQ is a broker: exchanges route each message to queues, consumers acknowledge it, and it is then deleted. Kafka is a replicated, partitioned log: events are appended and kept for a retention period, and each consumer group reads at its own offset. So Kafka lets several teams read the same stream independently and replay the past, with very high throughput and ordering per partition. RabbitMQ shines at task queues, flexible routing and per-message acknowledgements, and is lighter to run. I pick Kafka for event streams shared by teams, audit or change data capture, and RabbitMQ or a managed queue for jobs and commands.',
     keyPoints: [
@@ -139,16 +167,28 @@ export const messagingCards: Card[] = [
         statement: 'In Kafka, a message is deleted as soon as one consumer group has read it.',
         isTrue: false,
         why: 'Kafka keeps messages for the topic\'s retention period whatever the consumers do; each group only moves its own offset.',
+        twin: {
+          statement: "In Kafka, a message stays for the topic's retention period even after every consumer group has read it.",
+          why: "Each group only moves its own offset; reads never delete messages.",
+        },
       },
       {
         statement: 'Kafka guarantees order only within a partition, not across a whole topic.',
         isTrue: true,
         why: 'Each partition is an ordered log; events in different partitions have no order relative to each other.',
+        twin: {
+          statement: "Kafka guarantees the order of messages across all the partitions of a topic.",
+          why: "Each partition is an ordered log; events in different partitions have no order relative to each other.",
+        },
       },
       {
         statement: 'RabbitMQ\'s publisher confirms and consumer acknowledgements guarantee exactly-once delivery.',
         isTrue: false,
         why: 'RabbitMQ\'s docs say acknowledgements give at-least-once delivery and that consumers must deduplicate or be idempotent.',
+        twin: {
+          statement: "RabbitMQ's acknowledgements give at-least-once delivery, so consumers must deduplicate or be idempotent.",
+          why: "RabbitMQ's docs say so: confirms and acknowledgements do not give exactly-once delivery.",
+        },
       },
     ],
     lesson: {
@@ -170,6 +210,16 @@ export const messagingCards: Card[] = [
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is a dead-letter queue, and why does it matter?',
+    questionVariants: [
+      {
+        question: "One malformed `order.paid` message has been retried every few seconds since last night, and the stock updates queued behind it are hours late. What should the queue have had?",
+        bridge: "A dead-letter queue: after a receive count or delivery limit, the poison message moves aside so the healthy messages flow again.",
+      },
+      {
+        question: "A colleague says: 'We have a DLQ, so failures are handled.' What is missing from that view?",
+        bridge: "A DLQ only parks poison messages; it needs an alert, an owner and a runbook to fix the cause and replay the messages.",
+      },
+    ],
     answer:
       'A dead-letter queue is where the broker moves a message that failed too many times, a poison message, instead of retrying it forever. In SQS, a redrive policy sets `maxReceiveCount`, the number of receives before the move; RabbitMQ quorum queues dead-letter after a delivery limit. It matters because a poison message otherwise blocks or slows the queue and burns resources on every retry, while the healthy messages wait. But a DLQ only helps if it raises an alert and someone owns a runbook: find the cause, deploy a fix, then replay the messages back to the main queue.',
     keyPoints: [
@@ -212,11 +262,19 @@ export const messagingCards: Card[] = [
         statement: 'On SQS, a `maxReceiveCount` of 1 sends a message to the dead-letter queue after a single failed receive.',
         isTrue: true,
         why: 'AWS gives this exact example and advises a value high enough to allow sufficient retries.',
+        twin: {
+          statement: "On SQS, a `maxReceiveCount` of 1 still lets a message be retried several times before it reaches the dead-letter queue.",
+          why: "With 1, a single failed receive moves it; AWS advises a value high enough to allow sufficient retries.",
+        },
       },
       {
         statement: 'A message in a dead-letter queue is kept forever, so there is no hurry to process it.',
         isTrue: false,
         why: 'A DLQ has a retention period like any queue; on SQS standard queues it even counts from the original enqueue time, so set it longer than the source queue\'s.',
+        twin: {
+          statement: "A dead-letter queue has a retention period, so its messages are eventually deleted if nobody handles them.",
+          why: "On SQS standard queues it even counts from the original enqueue time, so set it longer than the source queue's.",
+        },
       },
     ],
     codeChoices: [
@@ -253,6 +311,16 @@ await addLoyaltyPoints(event); // any error throws: retried`,
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is a circuit breaker, and when would you use one?',
+    questionVariants: [
+      {
+        question: "During an outage, the delivery partner's API hangs 30 seconds per call, and soon every checkout request is stuck while the Orders API runs out of connections. What pattern would have helped?",
+        bridge: "A circuit breaker opens after repeated failures and fails calls immediately, so checkout gets a fast error or a fallback and the partner can recover.",
+      },
+      {
+        question: "A colleague says retries with backoff are enough and a circuit breaker adds nothing. When do you disagree?",
+        bridge: "Retries keep calling a failing dependency; a breaker stops calling it, fails fast while open, and tests recovery in half-open.",
+      },
+    ],
     answer:
       'A circuit breaker wraps calls to a dependency and stops calling it once it keeps failing. Closed, calls go through and failures are counted. When failures pass a threshold, it opens: every call fails immediately for a while, without touching the network. After that timeout it goes half-open and lets a few trial calls through; if they succeed it closes, if one fails it opens again. I use it on a remote dependency called on every request, like the payment provider or the delivery partner, so an outage gives fast errors or a fallback instead of requests stuck on timeouts, and the dependency gets room to recover.',
     keyPoints: [
@@ -295,11 +363,19 @@ await addLoyaltyPoints(event); // any error throws: retried`,
         statement: 'In the half-open state, a circuit breaker lets a limited number of trial calls through.',
         isTrue: true,
         why: 'Half-open tests whether the dependency recovered without flooding it; success closes the circuit, a failure reopens it.',
+        twin: {
+          statement: "In the half-open state, a circuit breaker lets every call through to test the dependency.",
+          why: "Only a limited number of trial calls pass, so a recovering dependency is not flooded.",
+        },
       },
       {
         statement: 'While the circuit is open, the breaker keeps calling the dependency but ignores its errors.',
         isTrue: false,
         why: 'An open circuit fails calls immediately without invoking the dependency; that is how it saves resources and lets the dependency recover.',
+        twin: {
+          statement: "While the circuit is open, the breaker fails calls immediately without calling the dependency.",
+          why: "That is how it saves resources and gives the dependency room to recover.",
+        },
       },
     ],
     codeChoices: [
@@ -345,6 +421,16 @@ await addLoyaltyPoints(event); // any error throws: retried`,
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'How would you process a large batch asynchronously without blocking the user?',
+    questionVariants: [
+      {
+        question: "Support uploads a CSV of 50,000 price changes; the request times out after 60 seconds with part of the rows applied and no way to know which. How would you redesign it?",
+        bridge: "An asynchronous batch: 202 with a job id, a worker processing chunks with per-row results and a saved cursor, and progress through polling or events.",
+      },
+      {
+        question: "A colleague wants to run the whole import in one transaction, 'so it is all or nothing'. What do you answer, and how do you handle the rows that fail?",
+        bridge: "Chunks committed on their own, per-row results so bad rows do not fail the batch, and idempotent rows so a restart from the cursor is safe.",
+      },
+    ],
     answer:
       'I take the work off the request. The endpoint validates the input, stores it, creates a job row and answers `202 Accepted` with the job id. A worker picks the job from a queue and processes the rows in chunks, each chunk in its own transaction, recording per-row results and a cursor of what is done. The client follows progress by polling `GET /jobs/:id` or through server-sent events. Rows that fail are recorded with their error instead of failing the whole batch, and a crashed worker restarts from the cursor. Each row is idempotent, so reprocessing a chunk is harmless.',
     keyPoints: [
@@ -387,11 +473,19 @@ await addLoyaltyPoints(event); // any error throws: retried`,
         statement: 'Running the whole batch in one database transaction is the safest way to handle partial failures.',
         isTrue: false,
         why: 'One bad row rolls back all the others and the transaction holds locks for the whole run; chunks with per-row results handle partial failure.',
+        twin: {
+          statement: "Running a large batch in one database transaction lets one bad row roll back all the others.",
+          why: "It also holds locks for the whole run; chunks with per-row results handle partial failure.",
+        },
       },
       {
         statement: 'Saving the cursor in the same transaction as the chunk it describes lets a job resume without skipping or repeating that chunk.',
         isTrue: true,
         why: 'The chunk and its cursor are committed together or not at all, so the restart point always matches the work done.',
+        twin: {
+          statement: "Saving the cursor in a separate transaction after the chunk's commit guarantees a resumed job never repeats that chunk.",
+          why: "A crash between the two commits leaves the cursor behind, so the chunk runs again; only a cursor saved in the same transaction always matches the work done.",
+        },
       },
     ],
     codeChoices: [
@@ -446,6 +540,16 @@ HTTP/1.1 200 OK
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'What is event sourcing, and what problem does it solve?',
+    questionVariants: [
+      {
+        question: "Finance asks what a customer's store credit was on 3 March and why it changed, but the `customers` table only holds the current value. What storage model would answer that?",
+        bridge: "Event sourcing stores every change as an immutable event, so past states and a full audit trail come from replaying the stream.",
+      },
+      {
+        question: "A colleague wants to event-source the whole shop, product catalogue included. When would you use event sourcing, and when not?",
+        bridge: "It pays off for ledgers and audit-heavy cores; elsewhere its costs, projections, snapshots and versioned events, outweigh the history.",
+      },
+    ],
     answer:
       'Event sourcing stores every change as an immutable event, and the current state is computed by replaying, or folding, the events of a stream. A refund is a new `PaymentRefunded` event, never an update of a row. That fixes tables that keep only the latest values: you get a complete audit trail, the state at any past moment, and new read models built by replaying history. Writers append with an expected version, so two concurrent decisions on the same stream conflict instead of both passing. The costs: projections for every query, snapshots, versioned events forever. I use it for ledgers and audit-heavy cores, not a whole system.',
     keyPoints: [
@@ -488,11 +592,19 @@ HTTP/1.1 200 OK
         statement: 'In event sourcing, the current state of an entity can be rebuilt by replaying its events in order.',
         isTrue: true,
         why: 'The state is a fold of the stream: applying each event in order to the initial state gives the current state.',
+        twin: {
+          statement: "In event sourcing, the current state of an entity cannot be rebuilt from its events and must be stored separately.",
+          why: "The state is a fold of the stream: applying each event in order to the initial state gives the current state.",
+        },
       },
       {
         statement: 'Event sourcing requires CQRS.',
         isTrue: false,
         why: 'They pair well, but each can be used without the other; CQRS is often used with an ordinary relational write model.',
+        twin: {
+          statement: "Event sourcing can be used without CQRS.",
+          why: "They pair well, but each works without the other; CQRS is often used with an ordinary relational write model.",
+        },
       },
     ],
     codeChoices: [
@@ -538,6 +650,16 @@ const order = events.reduce(evolve, undefined);
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'Cache-aside or write-through caching: how do they differ, and which would you choose?',
+    questionVariants: [
+      {
+        question: "A customer changes their delivery address, reloads \"my orders\" and sees the old one for five minutes. The cache is filled on reads with a 5-minute TTL and never cleared on writes. What would you change?",
+        bridge: "Cache-aside writes must commit, then delete the key; write-through is the option for data the same user reads right after writing it.",
+      },
+      {
+        question: "A colleague proposes write-through for the whole product catalogue so the cache is never cold. What is the trade-off, and what would you default to?",
+        bridge: "Write-through keeps the cache warm at the cost of slower writes and caching unread data; cache-aside caches only what is read.",
+      },
+    ],
     answer:
       'With cache-aside, the application reads the cache first; on a miss it loads from the database, stores the result with a TTL and returns it. On a write it commits, then deletes the key. Only data that is read gets cached, and the cache can be flushed anytime. With write-through, every write goes to the cache and the database together, so the cache is always warm and reads after a write hit it, at the cost of slower writes and caching data nobody reads. I default to cache-aside with a jittered TTL, and use write-through for data the same user reads right after writing.',
     keyPoints: [
@@ -580,11 +702,19 @@ const order = events.reduce(evolve, undefined);
         statement: 'With cache-aside, the cache can be flushed at any time without losing data.',
         isTrue: true,
         why: 'The database stays the source of truth; a flushed cache only means more misses until it warms up again.',
+        twin: {
+          statement: "With cache-aside, flushing the cache loses data that was not yet written to the database.",
+          why: "The database stays the source of truth; a flushed cache only means more misses until it warms up again.",
+        },
       },
       {
         statement: 'Write-behind is safer than write-through because the database is written in batches.',
         isTrue: false,
         why: 'Write-behind acknowledges before the database write, so a cache failure before the flush loses acknowledged data.',
+        twin: {
+          statement: "Write-behind is riskier than write-through, because it acknowledges a write before the database has it.",
+          why: "A cache failure before the batched flush loses data the caller was told was saved.",
+        },
       },
     ],
     codeChoices: [
@@ -637,6 +767,16 @@ const order = events.reduce(evolve, undefined);
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How would you guarantee message ordering with several parallel consumers?',
+    questionVariants: [
+      {
+        question: "The back office sometimes shows an order as `paid` after it was `shipped`. The `order.paid` and `order.shipped` events go through Kafka to six consumers. What would you check?",
+        bridge: "One order's events must share a partition key and be processed in sequence; a version check drops a stale event that still arrives late.",
+      },
+      {
+        question: "A colleague asks for a global order on all order events so that nothing is ever processed out of order. What do you answer?",
+        bridge: "Global order and parallelism conflict: order per entity with a partition key or a message group id, and versions to ignore stale events.",
+      },
+    ],
     answer:
       'Global order and parallelism do not go together, so I ask what really needs ordering, usually the events of one entity. Then I partition by that key: in Kafka, events with the same key go to the same partition, and each partition is read by one consumer of the group at a time, so one order\'s events are processed in sequence while different orders run in parallel. SQS FIFO does the same with a message group id. Inside a consumer, I process one partition\'s messages sequentially. And because retries and redeliveries still happen, consumers check a version or sequence number and ignore events older than the state they hold.',
     keyPoints: [
@@ -679,11 +819,19 @@ const order = events.reduce(evolve, undefined);
         statement: 'In a Kafka consumer group, each partition is consumed by exactly one consumer of the group at a time.',
         isTrue: true,
         why: 'Kafka\'s design docs state it; that is what preserves order within a partition.',
+        twin: {
+          statement: "In a Kafka consumer group, two consumers of the group can read the same partition at the same time.",
+          why: "Each partition goes to exactly one consumer of the group at a time, which preserves its order.",
+        },
       },
       {
         statement: 'Adding partitions to a Kafka topic keeps every key on the partition it was using before.',
         isTrue: false,
         why: 'Kafka\'s docs warn that the default partitioner\'s mapping changes with the partition count, so a key may move to another partition.',
+        twin: {
+          statement: "Adding partitions to a Kafka topic can move a key to a different partition.",
+          why: "Kafka's docs warn that the default partitioner's mapping changes with the partition count.",
+        },
       },
     ],
     codeChoices: [
@@ -725,6 +873,16 @@ const order = events.reduce(evolve, undefined);
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'What is the outbox pattern, and what problem does it solve?',
+    questionVariants: [
+      {
+        question: "About once a week an order is `paid` in PostgreSQL but the warehouse never receives `order.paid`. The handler commits, then publishes to the broker. What is happening, and what would you change?",
+        bridge: "A crash between commit and publish loses the event: the dual-write problem. An outbox row in the same transaction, published by a relay, fixes it.",
+      },
+      {
+        question: "A colleague suggests publishing the event first and committing after, so the event is never lost. Why does that not work either?",
+        bridge: "Either order is a dual write: publish then commit can announce a change that never happened. The outbox commits the event with the state.",
+      },
+    ],
     answer:
       'It solves the dual-write problem: the database and the broker are two systems, and no transaction covers both. Commit then publish, and a crash in between loses the event; publish then commit, and a failed commit announces something that never happened. With the outbox, I write the event as a row in an `outbox` table in the same transaction as the state change, so both are committed or neither is. A separate relay reads unpublished rows, publishes them and marks them published. Delivery is at least once, so consumers deduplicate on the outbox row id. The relay can poll the table or use change data capture.',
     keyPoints: [
@@ -767,11 +925,19 @@ const order = events.reduce(evolve, undefined);
         statement: 'With the outbox pattern, an event is published if and only if its database transaction committed.',
         isTrue: true,
         why: 'The event row is part of the same transaction: a rollback removes it, a commit keeps it for the relay to publish.',
+        twin: {
+          statement: "With the outbox pattern, an event can be published even though its database transaction rolled back.",
+          why: "The event row is part of the same transaction: a rollback removes it, so the relay never sees it.",
+        },
       },
       {
         statement: 'The outbox pattern guarantees that each event reaches the broker exactly once.',
         isTrue: false,
         why: 'A relay that crashes after publishing but before marking the row publishes it again; delivery is at least once.',
+        twin: {
+          statement: "With the outbox pattern, an event can reach the broker more than once.",
+          why: "A relay that crashes after publishing but before marking the row publishes it again, so consumers deduplicate.",
+        },
       },
     ],
     codeChoices: [

@@ -9,6 +9,16 @@ export const sqlCards: Card[] = [
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'How many rows does a join return, and why can a `LEFT JOIN` with a filter in `WHERE` lose rows?',
+    questionVariants: [
+      {
+        question: 'The back-office report of customers with their paid orders lists 40 customers, but the shop has 55. The query uses `LEFT JOIN orders o` and `WHERE o.status = \'paid\'`. Where did the other 15 go?',
+        bridge: 'A filter on the optional side placed in `WHERE` drops the `NULL`-padded rows and turns the left join into an inner join. Which rows a join keeps is the topic.',
+      },
+      {
+        question: 'A colleague says a `LEFT JOIN` from customers can never return more rows than the customers table has. Is that right, and how do you predict a join\'s row count?',
+        bridge: 'The claim forgets one-to-many repetition: a join returns one row per matching pair, plus the unmatched rows of each side it keeps.',
+      },
+    ],
     answer:
       "A join returns the matching pairs, plus the unmatched rows of each side it keeps. An inner join keeps only the pairs, a left join adds every left row that matched nothing, with `NULL` on the right, and a full join adds the unmatched rows of both sides. A join never loses rows of a side it keeps, but it repeats a row once per match, so a customer with five orders becomes five rows. A filter on the optional side belongs in `ON`: in `WHERE` it runs after the padding, drops the `NULL` rows and silently turns the left join into an inner join.",
     keyPoints: [
@@ -48,16 +58,28 @@ export const sqlCards: Card[] = [
         statement: 'A `LEFT JOIN` never returns more rows than the left table has.',
         isTrue: false,
         why: 'It returns one row per match, so a customer with five orders becomes five rows; it only guarantees that no left row is lost.',
+        twin: {
+          statement: 'A `LEFT JOIN` from customers to orders returns one row per matching order, so it can return more rows than there are customers.',
+          why: 'It guarantees that no left row is lost, not one row per left row: a customer with five orders becomes five rows.',
+        },
       },
       {
         statement: "Adding `WHERE o.status = 'paid'` after `LEFT JOIN orders o` drops the customers who have no paid order.",
         isTrue: true,
         why: "`WHERE` runs after the join, and `NULL = 'paid'` is not true, so the padded rows are dropped.",
+        twin: {
+          statement: 'Adding `WHERE o.status = \'paid\'` after `LEFT JOIN orders o` still keeps the customers who have no paid order, with `NULL` columns.',
+          why: '`WHERE` runs after the join and `NULL = \'paid\'` is not true, so those padded rows are dropped; the filter belongs in `ON`.',
+        },
       },
       {
         statement: 'An inner join of customers and orders can return fewer rows than there are orders.',
         isTrue: true,
         why: 'Orders whose `customer_id` is `NULL` match no customer, so the inner join drops them: 9 rows for 11 orders in the shop.',
+        twin: {
+          statement: 'An inner join of customers and orders always returns at least one row per order.',
+          why: 'Orders whose `customer_id` is `NULL` match no customer, so the inner join drops them: 9 rows for 11 orders in the shop.',
+        },
       },
     ],
     codeChoices: [
@@ -100,6 +122,16 @@ LEFT JOIN orders o ON o.customer_id = c.id AND o.status = 'paid';`,
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'Why can `WHERE id NOT IN (subquery)` return no rows at all, and how do you find the customers who never ordered?',
+    questionVariants: [
+      {
+        question: 'A marketing export of customers who never ordered, written `WHERE id NOT IN (SELECT customer_id FROM orders)`, has returned zero rows since guest checkout went live. Why?',
+        bridge: 'Guest orders have a `NULL` `customer_id`, and one `NULL` in a `NOT IN` list makes every comparison unknown: three-valued logic. `NOT EXISTS` fixes it.',
+      },
+      {
+        question: 'How would you explain to a junior why `WHERE deleted_at = NULL` returns no rows, even for rows where `deleted_at` is empty?',
+        bridge: 'Comparing with `NULL` returns unknown, and `WHERE` keeps only true rows; `IS NULL` is the test for a missing value.',
+      },
+    ],
     answer:
       '`NULL` means unknown, so a comparison with it returns unknown, neither true nor false: that is three-valued logic. `WHERE`, `ON` and `HAVING` keep a row only when the condition is true, so unknown is dropped like false. `x NOT IN (a, b, NULL)` expands to `x <> a AND x <> b AND x <> NULL`, and the last part is never true, so one `NULL` in the subquery empties the result. For an anti-join I write `NOT EXISTS`, which only asks whether a matching row exists. To compare with a nullable column I use `IS NULL` or `IS DISTINCT FROM`.',
     keyPoints: [
@@ -139,16 +171,28 @@ LEFT JOIN orders o ON o.customer_id = c.id AND o.status = 'paid';`,
         statement: '`NULL = NULL` evaluates to true.',
         isTrue: false,
         why: 'It is `NULL` (unknown). `NULL IS NULL` and `NULL IS NOT DISTINCT FROM NULL` are true.',
+        twin: {
+          statement: '`NULL = NULL` evaluates to `NULL`, not to true.',
+          why: 'Comparing with an unknown value gives unknown; `NULL IS NULL` and `NULL IS NOT DISTINCT FROM NULL` are the tests that return true.',
+        },
       },
       {
         statement: '`TRUE OR NULL` evaluates to true.',
         isTrue: true,
         why: '`OR` is true as soon as one side is true, whatever the unknown side would be.',
+        twin: {
+          statement: '`TRUE OR NULL` evaluates to `NULL`.',
+          why: '`OR` is true as soon as one side is true, so the result is true whatever the unknown side would be.',
+        },
       },
       {
         statement: '`NOT EXISTS` returns no rows when the subquery\'s column contains a `NULL`.',
         isTrue: false,
         why: '`NOT EXISTS` only asks whether a matching row exists, so a `NULL` cannot break it; that is the flaw of `NOT IN`.',
+        twin: {
+          statement: '`NOT EXISTS` still finds the customers who never ordered when the subquery\'s column contains a `NULL`.',
+          why: '`NOT EXISTS` only asks whether a matching row exists, so a `NULL` cannot break it; that is the flaw of `NOT IN`.',
+        },
       },
     ],
     codeChoices: [
@@ -192,6 +236,16 @@ WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id);`,
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is the difference between `WHERE` and `HAVING`, and between `count(*)` and `count(column)`?',
+    questionVariants: [
+      {
+        question: 'The back office lists customers with their number of orders, and customers who never ordered show 1 instead of 0. The query is a `LEFT JOIN` with `count(*)`. What is wrong?',
+        bridge: '`count(*)` counts the padded row a left join adds for a customer with no order, while `count(o.id)` skips its `NULL`: the difference between the two counts.',
+      },
+      {
+        question: 'A colleague writes `WHERE count(*) > 5` to find customers with more than five orders, and PostgreSQL rejects it. Why, and where does that condition go?',
+        bridge: '`WHERE` filters rows before grouping, so it cannot use an aggregate; a condition on a `count` goes in `HAVING`, which filters groups.',
+      },
+    ],
     answer:
       'PostgreSQL evaluates the joins, then `WHERE`, which filters rows, then `GROUP BY`, then `HAVING`, which filters groups and can use aggregates, then `SELECT`. So a condition on rows goes in `WHERE` and a condition on a `count` goes in `HAVING`. `count(*)` counts rows and `count(col)` counts non-null values, which matters after a left join: a customer with no order still has one padded row. To count several cases in one pass I attach `FILTER (WHERE ...)` to each aggregate, and I wrap sums in `coalesce`, because a sum over no rows is `NULL`.',
     keyPoints: [
@@ -231,16 +285,28 @@ WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id);`,
         statement: '`count(*)` and `count(o.id)` return the same number after a `LEFT JOIN`.',
         isTrue: false,
         why: 'For a customer with no order, the padded row counts 1 with `count(*)` and 0 with `count(o.id)`.',
+        twin: {
+          statement: 'After a `LEFT JOIN`, `count(*)` can return 1 where `count(o.id)` returns 0.',
+          why: 'For a customer with no order, the padded row counts with `count(*)`, but its `NULL` `o.id` is skipped by `count(o.id)`.',
+        },
       },
       {
         statement: 'A `sum` over zero rows returns `NULL`, while a `count` over zero rows returns 0.',
         isTrue: true,
         why: 'Aggregates other than `count` return `NULL` when they see no row, hence `coalesce(sum(...), 0)`.',
+        twin: {
+          statement: 'A `sum` over zero rows returns 0, like a `count`.',
+          why: 'Aggregates other than `count` return `NULL` when they see no row, hence `coalesce(sum(...), 0)`.',
+        },
       },
       {
         statement: '`GROUP BY customer_id` puts all the orders with a `NULL` customer in one group.',
         isTrue: true,
         why: 'Grouping treats all `NULL` values as one group, so the guest orders come out together.',
+        twin: {
+          statement: '`GROUP BY customer_id` puts each order with a `NULL` customer in a group of its own.',
+          why: 'Grouping treats all `NULL` values as one group, so the guest orders come out together.',
+        },
       },
     ],
     codeChoices: [
@@ -286,6 +352,16 @@ GROUP BY c.id;
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'Your revenue report joins orders and order items, and the shipping total comes out too high. What happened, and how do you fix it?',
+    questionVariants: [
+      {
+        question: 'The customer-spend dashboard shows Ada with 12 orders, but she placed 4. The query joins customers, orders and order items, then counts. What happened?',
+        bridge: 'Joining the items table repeats each order once per item, so order counts and order-level sums grow: fan-out. Aggregate the items per order before joining.',
+      },
+      {
+        question: 'A colleague suggests `sum(DISTINCT shipping_cents)` for an inflated shipping total and avoids CTEs because they "block the optimiser". How do you answer both points?',
+        bridge: '`DISTINCT` removes equal amounts, not duplicate orders; and since PostgreSQL 12 a CTE referenced once is inlined, so step-by-step CTEs cost nothing.',
+      },
+    ],
     answer:
       'That is fan-out. Joining a one-to-many table repeats every parent row once per child, so order-level values like shipping are summed once per item, and order counts grow too. `DISTINCT` does not fix sums: `sum(DISTINCT shipping)` removes equal amounts, not duplicate orders. The fix is to aggregate the child table to one row per parent first, then join. I write that with CTEs: a `WITH` clause where each named step does one job, order totals first, then spend per customer. Since PostgreSQL 12, a CTE referenced once is inlined into the main query, so the steps cost nothing.',
     keyPoints: [
@@ -325,16 +401,28 @@ GROUP BY c.id;
         statement: '`sum(DISTINCT o.shipping_cents)` fixes a shipping total inflated by fan-out.',
         isTrue: false,
         why: 'It removes equal amounts, not duplicate orders: for Ada, four orders at 500 each gave 500 instead of 2000.',
+        twin: {
+          statement: '`sum(DISTINCT o.shipping_cents)` can undercount a shipping total: four orders at 500 each add up to 500.',
+          why: '`DISTINCT` removes equal amounts, not duplicate orders, so the fix for fan-out is to aggregate items per order first.',
+        },
       },
       {
         statement: 'Since PostgreSQL 12, a CTE referenced once in a query is folded into the main query by default.',
         isTrue: true,
         why: 'A non-recursive, side-effect-free CTE referenced once is inlined, so outer filters can use indexes on its table.',
+        twin: {
+          statement: 'Since PostgreSQL 12, a CTE referenced once is still computed separately by default, as an optimisation fence.',
+          why: 'A non-recursive, side-effect-free CTE referenced once is inlined by default, so outer filters can use indexes on its table.',
+        },
       },
       {
         statement: 'A CTE referenced twice is inlined twice by default.',
         isTrue: false,
         why: 'It is materialized by default: computed once and scanned twice, unless you write `NOT MATERIALIZED`.',
+        twin: {
+          statement: 'A CTE referenced twice is materialized by default: computed once and scanned twice.',
+          why: 'Only a CTE referenced once is inlined by default; `NOT MATERIALIZED` forces inlining for one referenced twice.',
+        },
       },
     ],
     codeChoices: [
@@ -388,6 +476,16 @@ GROUP BY c.id ORDER BY spent DESC;
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: "How do you return each customer's latest order next to the customer in PostgreSQL, and what does `LATERAL` do?",
+    questionVariants: [
+      {
+        question: 'The back-office customer list adds a "last order" column with `(SELECT id FROM orders WHERE customer_id = c.id ORDER BY placed_on DESC)`, and the page fails with "more than one row returned by a subquery". What would you write instead?',
+        bridge: 'A scalar subquery may return one row only; `LEFT JOIN LATERAL ... LIMIT 1` uses the outer row and returns the whole latest order per customer.',
+      },
+      {
+        question: 'When would you write `LEFT JOIN LATERAL` rather than `CROSS JOIN LATERAL`, and what does `LATERAL` allow that a plain subquery in `FROM` does not?',
+        bridge: '`LATERAL` lets the subquery read the outer row; the left form keeps customers with no order, the cross form drops them like an inner join.',
+      },
+    ],
     answer:
       'A subquery in `FROM` normally cannot see the tables before it. `LATERAL` lets it use the outer row, so it runs once per customer and can return whole rows: `LEFT JOIN LATERAL (SELECT ... WHERE o.customer_id = c.id ORDER BY placed_on DESC, id DESC LIMIT 1) ON true`. The left join keeps customers with no order, with `NULL`; `CROSS JOIN LATERAL` drops them. A correlated scalar subquery in `SELECT` returns one value only, and without `LIMIT 1` it fails with "more than one row". With an index on `(customer_id, placed_on DESC)`, each lateral call reads only the newest index entries.',
     keyPoints: [
@@ -427,11 +525,19 @@ GROUP BY c.id ORDER BY spent DESC;
         statement: 'A scalar subquery in `SELECT` that finds several rows returns them as several output rows, like a join.',
         isTrue: false,
         why: 'It must return at most one row; a second one fails the query with error 21000.',
+        twin: {
+          statement: 'A scalar subquery in `SELECT` that finds two rows fails the whole query.',
+          why: 'It must return at most one row; a second row raises error 21000, so add `LIMIT 1` or use `LATERAL`.',
+        },
       },
       {
         statement: '`CROSS JOIN LATERAL` drops the outer rows for which the subquery returns nothing.',
         isTrue: true,
         why: 'It behaves like an inner join; `LEFT JOIN LATERAL ... ON true` keeps them with `NULL`.',
+        twin: {
+          statement: '`CROSS JOIN LATERAL` keeps the outer rows for which the subquery returns nothing, with `NULL` columns.',
+          why: 'It behaves like an inner join and drops them; `LEFT JOIN LATERAL ... ON true` is the form that keeps them.',
+        },
       },
     ],
     codeChoices: [
@@ -481,6 +587,16 @@ LEFT JOIN LATERAL (
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What are window functions, and what is the difference between `ROW_NUMBER`, `RANK` and `DENSE_RANK`?',
+    questionVariants: [
+      {
+        question: 'The monthly revenue chart shows a "change from last month" that is wildly off for March, and February had no sales at all. The query uses `lag(revenue) OVER (ORDER BY month)`. Why?',
+        bridge: '`lag` reads the previous row, not the previous calendar month: window functions work on the rows present, so a missing month must be generated first.',
+      },
+      {
+        question: 'A product manager wants a "top sellers" list where tied products share a place. Which ranking function do you use, and how do `row_number`, `rank` and `dense_rank` differ?',
+        bridge: 'The three ranking window functions differ only on ties: no ties, shared places with gaps, shared places without gaps.',
+      },
+    ],
     answer:
       'A window function computes a value for each row from a set of related rows, its window, and keeps every row, unlike `GROUP BY`. I write `OVER (PARTITION BY ... ORDER BY ...)`: the partition groups rows, the order sorts them inside it. The three ranking functions differ only on ties: `row_number` never ties, `rank` gives ties the same number then skips, and `dense_rank` does not skip. `lag` and `lead` read the previous and next row, and `sum(...) OVER (ORDER BY month)` gives a running total. I always end the window\'s `ORDER BY` with a unique column, or ties come back in an arbitrary order.',
     keyPoints: [
@@ -520,16 +636,28 @@ LEFT JOIN LATERAL (
         statement: 'With four orders tied for 5th place, the next order gets 9 with `rank()` and 6 with `dense_rank()`.',
         isTrue: true,
         why: '`rank` skips the numbers used by the tie; `dense_rank` continues without gaps.',
+        twin: {
+          statement: 'With four orders tied for 5th place, the next order gets 6 with both `rank()` and `dense_rank()`.',
+          why: '`rank` skips the numbers used by the tie and gives 9; only `dense_rank` continues with 6.',
+        },
       },
       {
         statement: 'A window function collapses the rows of each partition into one row, like `GROUP BY`.',
         isTrue: false,
         why: 'It keeps every row and adds a computed value to each; only `GROUP BY` collapses rows.',
+        twin: {
+          statement: 'A window function keeps every row of its partition and adds a computed value to each.',
+          why: 'Unlike `GROUP BY`, it collapses nothing, which is why it can show a total next to every row.',
+        },
       },
       {
         statement: "`lag(revenue) OVER (ORDER BY month)` always returns the previous calendar month's revenue.",
         isTrue: false,
         why: 'It returns the previous row\'s value; a month with no row is skipped, so build a calendar first.',
+        twin: {
+          statement: '`lag(revenue) OVER (ORDER BY month)` returns the previous row\'s value, even when a month with no row lies in between.',
+          why: 'It reads the previous row, so a month with no sales is skipped; build a calendar of months first.',
+        },
       },
     ],
     codeChoices: [
@@ -576,6 +704,16 @@ ORDER BY total DESC, id;
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: "How do you get each customer's two latest orders in SQL, and which approach would you choose?",
+    questionVariants: [
+      {
+        question: 'Support wants each customer\'s two latest orders on a dashboard. A teammate\'s query ends with `ORDER BY placed_on DESC LIMIT 2` and returns two orders for the whole shop. How do you fix it?',
+        bridge: '`LIMIT` applies to the whole result; a per-group pattern such as `row_number()` in a CTE or `LATERAL ... LIMIT 2` gives N rows per customer.',
+      },
+      {
+        question: 'For a top-N-per-group query, when would you pick `DISTINCT ON` over `row_number()`, and when `LATERAL` over both?',
+        bridge: 'The three PostgreSQL top-N patterns compared: `DISTINCT ON` for one row, `row_number` for any N, `LATERAL` with a matching index for large groups.',
+      },
+    ],
     answer:
       '`LIMIT 2` alone returns two rows in total, so I need a per-group pattern, and PostgreSQL has three. `DISTINCT ON (customer_id)` with a matching `ORDER BY` keeps one row per group: the shortest when N is 1. `row_number() OVER (PARTITION BY customer_id ORDER BY placed_on DESC, id DESC)` in a CTE, filtered one level up, is standard SQL for any N, and `rank` keeps ties. `CROSS JOIN LATERAL` with `LIMIT 2` runs per customer; with an index on `(customer_id, placed_on DESC, id DESC)` it reads about two entries per customer, so it wins on large groups.',
     keyPoints: [
@@ -615,16 +753,28 @@ ORDER BY total DESC, id;
         statement: '`SELECT ... FROM orders ORDER BY placed_on DESC LIMIT 2` returns the two latest orders of each customer.',
         isTrue: false,
         why: '`LIMIT` applies to the whole result: it returns two rows in total.',
+        twin: {
+          statement: '`SELECT ... FROM orders ORDER BY placed_on DESC LIMIT 2` returns two orders in total, whatever the number of customers.',
+          why: '`LIMIT` applies to the whole result, so a per-customer top N needs `row_number`, `DISTINCT ON` or `LATERAL`.',
+        },
       },
       {
         statement: 'With `rank() <= 3`, a top-3 query can return more than three rows for one group.',
         isTrue: true,
         why: '`rank` gives tied rows the same number, so every row tied at 3rd place is kept.',
+        twin: {
+          statement: 'With `rank() <= 3`, a top-3 query returns at most three rows per group.',
+          why: '`rank` gives tied rows the same number, so every row tied at 3rd place is kept; `row_number` is the one capped at three.',
+        },
       },
       {
         statement: '`SELECT DISTINCT ON (customer_id) ... ORDER BY placed_on DESC` is a valid query.',
         isTrue: false,
         why: 'The `DISTINCT ON` expressions must start the `ORDER BY`; otherwise PostgreSQL fails with error 42P10.',
+        twin: {
+          statement: '`SELECT DISTINCT ON (customer_id) ... ORDER BY placed_on DESC` fails with error 42P10.',
+          why: 'The `DISTINCT ON` expressions must start the `ORDER BY`, as in `ORDER BY customer_id, placed_on DESC`.',
+        },
       },
     ],
     codeChoices: [
@@ -675,6 +825,16 @@ WHERE position <= 2;
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How do you insert a row, or update it if it already exists, in PostgreSQL, and when would you use `MERGE`?',
+    questionVariants: [
+      {
+        question: 'The nightly price import selects each SKU, then inserts it when nothing came back. Since two import pods run, it sometimes fails with a duplicate key error on `sku`. What would you change?',
+        bridge: 'Select-then-insert from Node races with the other transaction; `INSERT ... ON CONFLICT (sku) DO UPDATE` does the same work in one atomic statement.',
+      },
+      {
+        question: 'When would you choose `MERGE` over `INSERT ... ON CONFLICT`, and what is its catch under concurrent inserts?',
+        bridge: '`MERGE` runs several conditional actions, deletes included, which suits batch syncs; `ON CONFLICT` stays the safe choice when concurrent inserts hit the same key.',
+      },
+    ],
     answer:
       'I use `INSERT ... ON CONFLICT (sku) DO UPDATE SET price_cents = EXCLUDED.price_cents`: it names the unique constraint, and `EXCLUDED` holds the values I tried to insert. It is one atomic statement that stays correct when another transaction inserts the same key, unlike a select-then-insert from Node. A `WHERE ... IS DISTINCT FROM` skips identical rows, and `RETURNING` sends the rows back in the same round trip, with `old` and `new` values since PostgreSQL 18. `MERGE` runs several conditional actions, deletes included, which suits a nightly catalogue sync; under concurrent inserts it can fail with a unique violation.',
     keyPoints: [
@@ -714,16 +874,28 @@ WHERE position <= 2;
         statement: '`INSERT ... ON CONFLICT DO NOTHING RETURNING id` returns the id of the existing row when the key conflicts.',
         isTrue: false,
         why: 'It returns no row for a conflicting input; read the existing id with a separate `SELECT`.',
+        twin: {
+          statement: '`INSERT ... ON CONFLICT DO NOTHING RETURNING id` returns no row when the key conflicts.',
+          why: 'The conflicting input is skipped, so nothing is returned for it; read the existing id with a separate `SELECT`.',
+        },
       },
       {
         statement: 'In `ON CONFLICT DO UPDATE`, the `EXCLUDED` table holds the values proposed for insertion.',
         isTrue: true,
         why: 'The existing row is referenced by the table name, the rejected proposal by `EXCLUDED`.',
+        twin: {
+          statement: 'In `ON CONFLICT DO UPDATE`, `EXCLUDED` holds the existing row that caused the conflict.',
+          why: '`EXCLUDED` holds the values proposed for insertion; the existing row is referenced by the table name.',
+        },
       },
       {
         statement: '`MERGE` can delete rows of the target table.',
         isTrue: true,
         why: 'A `WHEN MATCHED` clause can run `DELETE`, which is why it suits syncing a table from a feed.',
+        twin: {
+          statement: '`MERGE` can insert and update rows of the target table, but never delete them.',
+          why: 'A `WHEN MATCHED` clause can run `DELETE`, which is why it suits syncing a table from a feed.',
+        },
       },
     ],
     codeChoices: [

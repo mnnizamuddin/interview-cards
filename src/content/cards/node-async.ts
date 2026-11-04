@@ -10,6 +10,16 @@ export const nodeAsyncCards: Card[] = [
     paths: ['backend', 'fullstack'],
     question:
       'Checkout needs a stock check, a delivery quote and a loyalty discount. How do you call them, and which Promise combinator do you pick?',
+    questionVariants: [
+      {
+        question: '`POST /orders` awaits the stock check (80 ms), the delivery quote (250 ms) and the loyalty discount (120 ms) one after another, and the loyalty service being down fails checkout. What do you change?',
+        bridge: 'Independent calls start together so checkout costs the slowest one; required calls fail fast in `Promise.all`, the optional one gets its own fallback.',
+      },
+      {
+        question: 'When would you use `Promise.allSettled` or `Promise.any` instead of `Promise.all` on the server?',
+        bridge: 'The combinator follows what a failure means: `all` for required calls, `allSettled` for best-effort reporting, `any` for redundant sources.',
+      },
+    ],
     answer:
       'I start the three calls at once, so checkout costs the slowest call, not the sum; awaiting them one by one in a loop would add the latencies up. Then I choose the combinator by what a failure means. Stock and the delivery quote are required, so they go through `Promise.all`, which fails fast. The discount is optional, so its promise gets its own `.catch` that logs and returns zero before it joins the `Promise.all`. `allSettled` fits a best-effort job that reports each failure, and `any` fits redundant sources. None of them cancels the calls still running.',
     keyPoints: [
@@ -49,16 +59,28 @@ export const nodeAsyncCards: Card[] = [
         statement: 'When one input of `Promise.all` rejects, the other inputs are cancelled.',
         isTrue: false,
         why: 'A combinator receives promises that are already running; they continue, and only an `AbortSignal` passed to the work can stop it.',
+        twin: {
+          statement: 'When one input of `Promise.all` rejects, the other inputs keep running.',
+          why: 'A combinator receives promises that are already running; only an `AbortSignal` passed to the work can stop it.',
+        },
       },
       {
         statement: 'A promise given its own `.catch` that returns a fallback value can no longer make `Promise.all` reject.',
         isTrue: true,
         why: 'The `.catch` turns the rejection into a fulfilled value, so only the other inputs can fail the whole.',
+        twin: {
+          statement: 'A promise given its own `.catch` that returns a fallback value can still make `Promise.all` reject.',
+          why: 'The `.catch` turns the rejection into a fulfilled value, so only the other inputs can fail the whole.',
+        },
       },
       {
         statement: '`Promise.allSettled` rejects as soon as one of its inputs rejects.',
         isTrue: false,
         why: 'It never rejects: it waits for every input and reports each one as fulfilled or rejected.',
+        twin: {
+          statement: '`Promise.allSettled` waits for every input, even after one of them rejects.',
+          why: 'It never rejects: it reports each input as fulfilled or rejected once all have settled.',
+        },
       },
     ],
     codeChoices: [
@@ -110,6 +132,16 @@ const [stock, quote, discountCents] = await Promise.all([
     paths: ['backend', 'fullstack'],
     question:
       'How do you put a deadline on outgoing calls in a Node service, and stop the work when the client goes away?',
+    questionVariants: [
+      {
+        question: 'The delivery partner\'s API sometimes hangs for 2 minutes, and `GET /orders/:id/delivery` requests pile up until pods run out of memory, even after customers close the page. How do you fix it?',
+        bridge: 'Every outgoing call needs a deadline, and the request needs a signal for client disconnects, combined and passed down so the work stops.',
+      },
+      {
+        question: 'A colleague says aborting the payment call after 3 seconds means the payment did not happen. What do you answer?',
+        bridge: 'Cancellation only stops your side from waiting; the provider may have finished, so the outcome of an aborted write is unknown.',
+      },
+    ],
     answer:
       'Every outgoing call gets a deadline set from the dependency\'s normal latency, for example `AbortSignal.timeout(3000)` passed to `fetch` as `{ signal }`; when it fires, `fetch` rejects with a `TimeoutError`. For the whole request, I turn a client disconnect into a signal: the response closes before it was fully written. `AbortSignal.any` combines the two, and I pass that signal down through every function, which forwards it and checks it between steps, because cancellation is cooperative. And aborting undoes nothing: a timed-out payment may have gone through, so its outcome is unknown.',
     keyPoints: [
@@ -149,16 +181,28 @@ const [stock, quote, discountCents] = await Promise.all([
         statement: '`AbortSignal.any([a, b])` aborts as soon as either input aborts.',
         isTrue: true,
         why: 'It returns a signal that aborts with the reason of the first input that aborts.',
+        twin: {
+          statement: '`AbortSignal.any([a, b])` aborts only once both inputs have aborted.',
+          why: 'It aborts as soon as either input aborts, with the reason of that first input.',
+        },
       },
       {
         statement: 'Aborting a `fetch` guarantees that the server did not process the request.',
         isTrue: false,
         why: 'Aborting only stops your side from waiting and reading; the server may have run its handler to the end.',
+        twin: {
+          statement: 'After a `fetch` is aborted, the server may still have processed the request.',
+          why: 'Aborting only stops your side from waiting and reading; the server may have run its handler to the end.',
+        },
       },
       {
         statement: 'In a `node:http` server, the response\'s `close` event fires only when the client disconnects.',
         isTrue: false,
         why: 'It also fires after a normal response, so check `writableEnded` to tell a disconnect from a success.',
+        twin: {
+          statement: 'In a `node:http` server, the response\'s `close` event also fires after a normal, complete response.',
+          why: 'It fires in both cases, so check `writableEnded` to tell a disconnect from a success.',
+        },
       },
     ],
     codeChoices: [
@@ -209,6 +253,16 @@ await placeOrder(cart, signal); // forwards it to every call`,
     paths: ['backend', 'fullstack'],
     question:
       'The payment provider fails intermittently. How do you retry the payment call without charging a card twice?',
+    questionVariants: [
+      {
+        question: 'After the shop added automatic retries on the payment call, a few customers were charged twice during a provider incident. What went wrong, and what makes a retry safe?',
+        bridge: 'A retried `POST` charges again unless it is idempotent: the same idempotency key on every attempt lets the provider deduplicate.',
+      },
+      {
+        question: 'Three layers of the stack each retry 3 times, and a 5-minute provider outage turned into a traffic spike. Which retry rules would you set for the whole system?',
+        bridge: 'Retries multiply across layers: retry at one layer, only transient failures, with backoff and full jitter and a retry budget.',
+      },
+    ],
     answer:
       'I retry only when two things hold. The failure is transient, meaning the same request may succeed a moment later: a network error, a timeout, 408, 429, 502, 503 or 504; a 400 or 422 would fail identically. And the operation is idempotent: the payment `POST` carries an idempotency key, the order id, identical on every attempt, so the provider deduplicates. I space attempts with exponential backoff and full jitter, so clients do not retry in synchronized waves, and the deadline interrupts the sleeps too. I retry at one layer only, and cap retries with a budget.',
     keyPoints: [
@@ -248,16 +302,28 @@ await placeOrder(cart, signal); // forwards it to every call`,
         statement: 'Full jitter means waiting a random time between zero and the current backoff ceiling.',
         isTrue: true,
         why: 'That spreads the retries out, so clients that failed in the same second do not retry in the same second.',
+        twin: {
+          statement: 'With full jitter, every client waits the full backoff ceiling before retrying.',
+          why: 'Full jitter waits a random time between zero and the ceiling, which spreads clients that failed together.',
+        },
       },
       {
         statement: 'Retrying a `422` response a few times is a safe default.',
         isTrue: false,
         why: 'A 422 says the request itself is invalid; it fails identically on every attempt, so retrying only adds load.',
+        twin: {
+          statement: 'A `422` response should not be retried, because it fails identically on every attempt.',
+          why: 'A 422 says the request itself is invalid, so retrying only adds load.',
+        },
       },
       {
         statement: '`p-retry` 8 randomizes its delays by default.',
         isTrue: false,
         why: 'Its `randomize` option is `false` by default, so there is no jitter unless you turn it on.',
+        twin: {
+          statement: '`p-retry` 8 adds no jitter to its delays unless you set its `randomize` option.',
+          why: '`randomize` is `false` by default, so the delays are deterministic until you turn it on.',
+        },
       },
     ],
     codeChoices: [
@@ -308,6 +374,16 @@ await placeOrder(cart, signal); // forwards it to every call`,
     paths: ['backend', 'fullstack'],
     question:
       'A nightly job sends 50,000 order emails with `Promise.all(orders.map(send))`. What goes wrong, and how do you fix it?',
+    questionVariants: [
+      {
+        question: 'The nightly invoice job sends all 30,000 PDFs to the delivery partner at once, and most calls fail with 429 and `ECONNRESET`. How do you make it reliable without making it slow?',
+        bridge: 'Unbounded fan-out hits rate limits and socket limits; a pool keeps at most N calls in flight, sized from the partner\'s real limit.',
+      },
+      {
+        question: 'A colleague splits the work into batches of 20 and runs each with `Promise.all`. Why is a pool of 20 better?',
+        bridge: 'A batch waits for its slowest call before the next starts, while a pool starts a new call as soon as any one finishes.',
+      },
+    ],
     answer:
       'It starts 50,000 calls at the same moment, and every downstream resource has a limit: sockets, the database pool, the email provider\'s rate limit. So most calls fail with connection errors or 429s instead of going faster. I bound the concurrency with a pool: at most N calls in flight, and the next starts as soon as any finishes. I size N from the real downstream limit, say the provider\'s 20 concurrent requests, then measure. Batches with `Promise.all` waste capacity, because each waits for its slowest call. I use `p-map` and catch errors per item.',
     keyPoints: [
@@ -347,16 +423,28 @@ await placeOrder(cart, signal); // forwards it to every call`,
         statement: 'A hand-written limiter must release its slot in `finally`, or failed tasks leak slots.',
         isTrue: true,
         why: 'A slot released only on success is lost on every failure, and after N failures nothing starts again.',
+        twin: {
+          statement: 'A hand-written limiter that releases its slot only after a successful task keeps working after failures.',
+          why: 'Each failure keeps its slot forever, and after N failures nothing starts again; release in `finally`.',
+        },
       },
       {
         statement: 'Batches of 10 with `Promise.all` give the same throughput as a pool of 10.',
         isTrue: false,
         why: 'Each batch waits for its slowest call; on a mixed workload a pool of 10 was measured more than four times faster.',
+        twin: {
+          statement: 'On a mixed workload, a pool of 10 gets more throughput than batches of 10 with `Promise.all`.',
+          why: 'Each batch waits for its slowest call; a pool of 10 was measured more than four times faster.',
+        },
       },
       {
         statement: 'The `signal` option of `pMap` cancels the mappers already running.',
         isTrue: false,
         why: 'It makes `pMap` reject and start no new item, but running calls finish unless they received the signal too.',
+        twin: {
+          statement: 'The `signal` option of `pMap` stops new items from starting, but mappers already running finish unless they got the signal too.',
+          why: 'It makes `pMap` reject and start no new item; running calls only stop if they received the signal.',
+        },
       },
     ],
     codeChoices: [
@@ -413,6 +501,16 @@ await pMap(orders, async (order) => {
     paths: ['backend', 'fullstack'],
     question:
       'How would you read millions of orders lazily in Node, and make sure the database connection is released even if the loop stops early?',
+    questionVariants: [
+      {
+        question: 'A script that re-indexes 3 million orders stops early with `break` when it finds a bad row, and after a few runs the pool reports "too many clients". What is leaking, and how do you write it?',
+        bridge: 'An async generator that releases its connection in `finally` cleans up on `break` too, because `break` calls its `return()`.',
+      },
+      {
+        question: 'Why does reading orders with an async generator keep memory flat, compared with loading an array first?',
+        bridge: 'An async generator is pull-based: it runs to its next `yield` only when `for await` asks, so only one page is in memory.',
+      },
+    ],
     answer:
       'I write an async generator, an `async function*`, that fetches one page of orders at a time by id and `yield`s each row. The consumer reads it with `for await`, and the generator only runs up to its next `yield` when the loop asks, so memory stays at one page. I acquire the connection inside the generator and release it in `finally`, or with `await using` on a disposable lease. A `break` calls the generator\'s `return()`, which runs that cleanup, so the connection goes back to the pool on normal end, on break and on error. `for await` is sequential, so slow items need a concurrency bound.',
     keyPoints: [
@@ -452,16 +550,28 @@ await pMap(orders, async (order) => {
         statement: 'Leaving a `for await` loop with `break` runs the generator\'s `finally` block.',
         isTrue: true,
         why: 'The loop calls the generator\'s `return()`, which runs its `finally` blocks and disposes its `using` declarations.',
+        twin: {
+          statement: 'Leaving a `for await` loop with `break` skips the generator\'s `finally` block.',
+          why: 'The loop calls the generator\'s `return()`, which runs its `finally` blocks and disposes its `using` declarations.',
+        },
       },
       {
         statement: '`Array.fromAsync` with an async mapping function processes the items in parallel.',
         isTrue: false,
         why: 'It is sequential: three items of 50 ms each take over 150 ms, not 50.',
+        twin: {
+          statement: '`Array.fromAsync` with an async mapping function processes the items one after another.',
+          why: 'It is sequential: three items of 50 ms each take over 150 ms, not 50.',
+        },
       },
       {
         statement: 'An async generator fetches every page ahead, before the loop reads them.',
         isTrue: false,
         why: 'It runs only up to its next `yield` each time the consumer asks for a value.',
+        twin: {
+          statement: 'An async generator runs only up to its next `yield` each time the loop asks for a value.',
+          why: 'It is pull-based, so it never fetches pages ahead of the consumer.',
+        },
       },
     ],
     codeChoices: [
@@ -514,6 +624,16 @@ await pMap(orders, async (order) => {
     paths: ['backend', 'fullstack'],
     question:
       'Your logs show `connect ECONNREFUSED` with no order id and no request id. How do you keep context on errors and log lines across `await`s?',
+    questionVariants: [
+      {
+        question: 'Under load, some log lines of `POST /orders` carry another request\'s id. The id is stored in a module-level variable set by a middleware. Why, and what do you use instead?',
+        bridge: 'Requests interleave at every `await`, so a shared variable is overwritten; `AsyncLocalStorage` keeps one store per request across awaits.',
+      },
+      {
+        question: 'A `try`/`catch` around `return loadOrder(id)` never catches the database error, so it reaches the client unwrapped. What is wrong, and how should the error be rethrown?',
+        bridge: 'Without `await`, the promise leaves the `try` before it rejects; with `return await`, the `catch` can wrap it with `{ cause }`.',
+      },
+    ],
     answer:
       'Two fixes. Where I catch a low-level error to rethrow it, I wrap it: `new Error(\'Could not load order 42\', { cause: error })`, so the message says what failed and the original keeps its stack and code. Inside `try` I write `return await`, or the `catch` never sees the rejection. For the request id I use `AsyncLocalStorage`: a middleware calls `storage.run({ requestId }, next)`, and everything started inside, across every `await`, reads it with `getStore()`. The logger adds it to every line. A module-level variable would be overwritten by concurrent requests.',
     keyPoints: [
@@ -553,16 +673,28 @@ await pMap(orders, async (order) => {
         statement: 'Inside `try`, `return promise` without `await` lets the `catch` handle that promise\'s rejection.',
         isTrue: false,
         why: 'The promise leaves the `try` block before it settles, so the caller receives the raw rejection.',
+        twin: {
+          statement: 'Inside `try`, `return promise` without `await` lets that promise\'s rejection skip the `catch`.',
+          why: 'The promise leaves the `try` block before it settles, so the caller receives the raw rejection.',
+        },
       },
       {
         statement: 'A store set with `storage.run(store, fn)` is still visible after an `await` inside `fn`.',
         isTrue: true,
         why: 'The store follows all the async work started inside `fn`, across every `await`.',
+        twin: {
+          statement: 'A store set with `storage.run(store, fn)` is lost after the first `await` inside `fn`.',
+          why: 'The store follows all the async work started inside `fn`, across every `await`.',
+        },
       },
       {
         statement: 'A module-level `currentRequestId` variable is safe because Node runs JavaScript on one thread.',
         isTrue: false,
         why: 'Requests interleave at each `await`, so another request overwrites the variable in between.',
+        twin: {
+          statement: 'A module-level `currentRequestId` variable can be overwritten by another request between two `await`s.',
+          why: 'Node runs on one thread, but requests interleave at each `await`, so they share the variable.',
+        },
       },
     ],
     codeChoices: [
@@ -615,6 +747,16 @@ app.use((req, res, next) => context.run({ requestId: randomUUID() }, next));`,
     paths: ['backend', 'fullstack'],
     question:
       'The "export all orders" endpoint gets the pod OOM-killed. How do you rebuild it with streams, and what happens when the download breaks halfway?',
+    questionVariants: [
+      {
+        question: 'The back office "export orders" button works on staging, but in production the pod restarts with reason OOMKilled after a few seconds. What is happening, and how do you rewrite the route?',
+        bridge: 'Buffering every row grows memory with the data; a `pipeline` from cursor to response keeps it at a few chunks.',
+      },
+      {
+        question: 'A colleague uses `source.pipe(gzip).pipe(res)` for the export. What goes wrong when the client disconnects halfway, and what do you use instead?',
+        bridge: '`.pipe()` does not destroy the other streams on error, so the query stays open; `pipeline` destroys every stream and rejects once.',
+      },
+    ],
     answer:
       'The first version holds every row, then the whole CSV, in memory, so it grows with the data until Kubernetes kills the pod. I rebuild it as one `pipeline` from `node:stream/promises`: a database cursor, an async generator that formats CSV lines, `createGzip()`, then the response. `pipeline` carries backpressure, so memory stays at a few chunks even for a slow client, and on the first error it destroys every stream and rejects once; I release the connection in `finally`. If the database fails after the first byte, the 200 is already sent, so the response is destroyed and the download visibly fails.',
     keyPoints: [
@@ -659,16 +801,28 @@ app.use((req, res, next) => context.run({ requestId: randomUUID() }, next));`,
         statement: '`pipeline` destroys every stream in the chain when one of them fails.',
         isTrue: true,
         why: 'It destroys all the streams and rejects once with the first error, which releases file handles and queries.',
+        twin: {
+          statement: 'When one stream in a `pipeline` fails, the other streams stay open until you destroy them yourself.',
+          why: '`pipeline` destroys every stream in the chain and rejects once with the first error.',
+        },
       },
       {
         statement: '`source.pipe(destination)` destroys the source when the destination fails.',
         isTrue: false,
         why: 'The source is only paused, so its file handle or query stays open; `pipeline` destroys it.',
+        twin: {
+          statement: '`source.pipe(destination)` leaves the source open when the destination fails.',
+          why: 'The source is not destroyed, so its file handle or query stays open; `pipeline` destroys it.',
+        },
       },
       {
         statement: 'After the first byte is sent, the route can still answer 500 if the database fails.',
         isTrue: false,
         why: 'The status and headers are already on the wire; the only signal left is a broken download.',
+        twin: {
+          statement: 'After the first byte is sent, a database failure can only show up as a broken download, not as a 500.',
+          why: 'The status and headers are already on the wire, so the route can only destroy the response.',
+        },
       },
     ],
     codeChoices: [
@@ -723,6 +877,16 @@ await pipeline(rows, toCsvLines, createGzip(), res);`,
     paths: ['backend', 'fullstack'],
     question:
       'How do you read millions of rows for a CSV export without loading them all, and write CSV that opens safely in a spreadsheet?',
+    questionVariants: [
+      {
+        question: 'A support agent opens the orders CSV in a spreadsheet and a customer note starting with `=HYPERLINK(` becomes a clickable link. What went wrong in the export, and how should fields be written?',
+        bridge: 'CSV cells starting with `=`, `+`, `-` or `@` can run as formulas: neutralise them, and quote fields per RFC 4180.',
+      },
+      {
+        question: 'Why would you read an export with a database cursor rather than a loop of `LIMIT`/`OFFSET` queries?',
+        bridge: 'A cursor is one query with one snapshot, fetched in batches; separate offset pages can shift rows, and a cursor holds a connection to release.',
+      },
+    ],
     answer:
       'To read, I use a database cursor: one query whose rows the client fetches a batch at a time. With node-postgres that is `pg-query-stream`, an object-mode Readable; postgres.js has `.cursor(500)`. One query reads one consistent snapshot, but holds a pooled connection for the whole download, so I release it in `finally`. To write, I follow RFC 4180: quote a field containing a comma, a double quote or a line break, and double the quotes inside. Then I neutralise formulas, as OWASP advises: text starting with `=`, `+`, `-`, `@`, a tab or a line break gets a leading single quote.',
     keyPoints: [
@@ -762,16 +926,28 @@ await pipeline(rows, toCsvLines, createGzip(), res);`,
         statement: 'RFC 4180 escapes a double quote inside a field with a backslash.',
         isTrue: false,
         why: 'CSV has no backslash escaping: the field is wrapped in double quotes and each quote inside is doubled.',
+        twin: {
+          statement: 'RFC 4180 escapes a double quote inside a field by doubling it.',
+          why: 'The field is wrapped in double quotes and each quote inside is written twice; there is no backslash escaping.',
+        },
       },
       {
         statement: 'A text cell starting with `@` can be read as a formula by a spreadsheet.',
         isTrue: true,
         why: 'OWASP lists `=`, `+`, `-`, `@`, a tab and a line break as formula starters to neutralise.',
+        twin: {
+          statement: 'A text cell starting with `@` is always shown as plain text by spreadsheets, so it needs no neutralising.',
+          why: 'OWASP lists `@` with `=`, `+`, `-`, a tab and a line break as formula starters to neutralise.',
+        },
       },
       {
         statement: 'Paging with `LIMIT 500 OFFSET n` in a loop reads one consistent snapshot of the orders.',
         isTrue: false,
         why: 'Each page is a separate query with its own snapshot, so concurrent inserts can shift rows between pages.',
+        twin: {
+          statement: 'Paging with separate `LIMIT 500 OFFSET n` queries can repeat or skip orders inserted while the export runs.',
+          why: 'Each page is its own query with its own snapshot, so concurrent inserts shift rows between pages.',
+        },
       },
     ],
     codeChoices: [
@@ -817,6 +993,16 @@ csvField(-3);              // '-3'`,
     paths: ['backend', 'fullstack'],
     question:
       'A supplier file is valid UTF-8, yet "Crème brûlée" sometimes comes out garbled after your streaming import. Why, and how do you fix it?',
+    questionVariants: [
+      {
+        question: 'The product import reads a 200 MB UTF-8 file in chunks, and a few product names come out as "Cr�me", always at different places. What causes it?',
+        bridge: 'A chunk boundary can split a multi-byte UTF-8 character; decoding each chunk alone breaks it, so the decoder must keep state.',
+      },
+      {
+        question: 'A colleague limits product descriptions to 2,000 bytes with `description.length <= 2000`. Why is that wrong for "Crème brûlée"?',
+        bridge: '`.length` counts UTF-16 code units, while UTF-8 uses two to four bytes for non-ASCII characters; `Buffer.byteLength` counts bytes.',
+      },
+    ],
     answer:
       'A `Buffer` holds bytes and a string holds text, and UTF-8 encodes characters outside ASCII in two to four bytes. A stream cuts the file into chunks anywhere, so sometimes a two-byte character is split across two chunks. Calling `chunk.toString()` on each chunk decodes each half alone, and each half becomes the replacement character. The fix is a decoder that keeps state between chunks: `setEncoding(\'utf8\')` on a Node stream, `TextDecoder` with `{ stream: true }`, or `readline` for lines. Lines need the same care. And I count sizes in bytes, with `Buffer.byteLength`.',
     keyPoints: [
@@ -856,11 +1042,19 @@ csvField(-3);              // '-3'`,
         statement: 'Calling `new TextDecoder().decode(chunk)` per chunk, without options, handles characters split across chunks.',
         isTrue: false,
         why: 'Without `{ stream: true }`, each call decodes its bytes alone and a split character becomes two replacement characters.',
+        twin: {
+          statement: 'Calling `new TextDecoder().decode(chunk)` per chunk, without options, turns a character split across chunks into replacement characters.',
+          why: 'Each call decodes its bytes alone; `{ stream: true }` keeps the partial character for the next call.',
+        },
       },
       {
         statement: "`Buffer.byteLength('é')` is 2.",
         isTrue: true,
         why: 'UTF-8 encodes `é` in two bytes, while the string\'s `.length` is 1.',
+        twin: {
+          statement: '`Buffer.byteLength(\'é\')` is 1, like the string\'s `.length`.',
+          why: 'UTF-8 encodes `é` in two bytes, so the byte length is 2 while `.length` is 1.',
+        },
       },
     ],
     codeChoices: [
@@ -910,6 +1104,16 @@ decoder.decode(a, { stream: true }) + decoder.decode(b); // 'café'`,
     paths: ['backend', 'fullstack'],
     question:
       'In Node, why does `response.body` from `fetch` have no `.pipe()`, and how do you save a large download to disk?',
+    questionVariants: [
+      {
+        question: 'A job downloads the delivery partner\'s 300 MB daily CSV with `fetch` and crashes on `response.body.pipe is not a function`. Why, and how do you save the file to disk?',
+        bridge: '`fetch` bodies are Web `ReadableStream`s, not Node streams: check `response.ok`, convert with `Readable.fromWeb`, then use `pipeline`.',
+      },
+      {
+        question: 'What is the difference between Node streams and Web Streams, and when do you meet each in a Node service?',
+        bridge: 'Two stream APIs coexist: `fs`, `http` and drivers use Node streams, `fetch` and edge runtimes use WHATWG Web Streams, converted at the boundary.',
+      },
+    ],
     answer:
       'Node has two stream APIs. Node streams, from `node:stream`, are what `fs`, `http`, `zlib` and database drivers use. Web Streams, `ReadableStream`, `WritableStream` and `TransformStream`, are the WHATWG standard shared with browsers, Deno, Bun and edge runtimes, and `fetch` uses them, so `response.body` is a `ReadableStream`. I convert at the boundary: after checking `response.ok`, `Readable.fromWeb(response.body)` gives a Node Readable that I pass to `pipeline` with `createWriteStream`, with one signal for the request and the write. The other way, `Readable.toWeb` turns a Node stream into a `ReadableStream`.',
     keyPoints: [
@@ -944,16 +1148,28 @@ decoder.decode(a, { stream: true }) + decoder.decode(b); // 'café'`,
         statement: 'In Node, `response.body` from `fetch` is a Node `Readable`.',
         isTrue: false,
         why: 'It is a Web `ReadableStream`; convert it with `Readable.fromWeb` to use Node stream tools.',
+        twin: {
+          statement: 'In Node, `response.body` from `fetch` is a Web `ReadableStream`.',
+          why: 'It follows the WHATWG standard; convert it with `Readable.fromWeb` to use Node stream tools.',
+        },
       },
       {
         statement: '`Readable.fromWeb(response.body)` returns a stream that can be passed to `pipeline`.',
         isTrue: true,
         why: 'It returns a Node Readable whose chunks are `Buffer`s, which `pipeline` handles like any Node stream.',
+        twin: {
+          statement: '`Readable.fromWeb(response.body)` returns a Web stream that must be converted again before `pipeline` can use it.',
+          why: 'It returns a Node Readable with `Buffer` chunks, which `pipeline` takes directly.',
+        },
       },
       {
         statement: 'A `Response` body made of string chunks can be read as text without encoding.',
         isTrue: false,
         why: 'A body must carry `Uint8Array` chunks; reading string chunks fails with a `TypeError`.',
+        twin: {
+          statement: 'Reading a `Response` body made of string chunks with `.text()` fails with a `TypeError`.',
+          why: 'A body must carry `Uint8Array` chunks, so string chunks are rejected.',
+        },
       },
     ],
     codeChoices: [

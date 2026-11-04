@@ -9,6 +9,16 @@ export const databasesMoreCards: Card[] = [
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'You created an index, but `EXPLAIN` still shows a sequential scan. Why might PostgreSQL ignore it?',
+    questionVariants: [
+      {
+        question: 'Login looks up customers with `WHERE lower(email) = $1`. There is an index on `email`, yet the plan shows a sequential scan over 2 million customers. Why?',
+        bridge: 'A function on the column hides it from a plain index; an expression index on `lower(email)` matches the condition.',
+      },
+      {
+        question: 'A colleague says the planner "ignores indexes for no reason" since a bulk import of 5 million orders. What would you check?',
+        bridge: 'The planner trusts sampled statistics, stale after a bulk load until `ANALYZE` runs, and it may also be right that a scan is cheaper.',
+      },
+    ],
     answer:
       'The planner picks the cheapest plan from estimates, so first I check whether ignoring the index is right: if the condition keeps a large share of rows, like a status 85 % of orders have, reading the table in order beats jumping through the index. Then I check the estimates: statistics come from a sample that `ANALYZE` collects, and after a bulk load they are stale. Then the query itself: a function or cast on the column, like `lower(email)` or `created_at::date`, or a literal of another type such as `id = 42.0`, makes a plain index unusable. I fix it with an expression index or by rewriting the condition.',
     keyPoints: [
@@ -45,16 +55,28 @@ export const databasesMoreCards: Card[] = [
         statement: 'If an index exists on `status`, PostgreSQL uses it for every `WHERE status = ...` query.',
         isTrue: false,
         why: 'For a value most rows have, a sequential scan is cheaper, so the planner rightly ignores the index.',
+        twin: {
+          statement: 'With an index on `status`, PostgreSQL can rightly choose a sequential scan for a status most rows have.',
+          why: 'When a condition keeps a large share of rows, reading the table in order is cheaper than jumping through the index.',
+        },
       },
       {
         statement: 'A B-tree index on `email` cannot serve `WHERE lower(email) = $1`.',
         isTrue: true,
         why: 'The index stores `email` values, not `lower(email)`; an expression index on `lower(email)` is needed.',
+        twin: {
+          statement: 'A B-tree index on `email` serves `WHERE lower(email) = $1`.',
+          why: 'The index stores `email` values, not `lower(email)`; an expression index on `lower(email)` is needed.',
+        },
       },
       {
         statement: 'On a `bigint` primary key, `WHERE id = 42.0` still uses the primary key index.',
         isTrue: false,
         why: 'PostgreSQL casts the column to `numeric` to compare, and a cast on the column makes the index unusable.',
+        twin: {
+          statement: 'On a `bigint` primary key, `WHERE id = 42.0` cannot use the primary key index to find the row.',
+          why: 'PostgreSQL casts the column to `numeric` to compare, and a cast on the column leaves the index no condition to jump to.',
+        },
       },
     ],
     codeChoices: [
@@ -94,6 +116,16 @@ WHERE created_at >= '2026-10-29' AND created_at < '2026-10-30';`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'Beyond B-tree, which PostgreSQL index types do you know, and when would you use GIN or BRIN?',
+    questionVariants: [
+      {
+        question: 'Product search runs `WHERE name ILIKE \'%desk%\'` on 300,000 products and takes 400 ms, despite a B-tree index on `name`. Which index would you add?',
+        bridge: 'A leading wildcard gives a B-tree no prefix to jump to; a GIN index with `pg_trgm` trigrams serves `ILIKE \'%desk%\'`.',
+      },
+      {
+        question: 'Which index would you put on a huge, append-only `order_events` table queried by time range, and what makes it fit?',
+        bridge: 'BRIN stores only min and max per block range: tiny, and effective when the physical order follows the column, as with events written by time.',
+      },
+    ],
     answer:
       'A B-tree sorts whole values, which serves equality, ranges and sorting, so it is my default. GIN, the generalized inverted index, indexes the elements inside a value: keys in a JSONB document, array items, words for full-text search, or trigrams with the `pg_trgm` extension, which makes `ILIKE \'%desk%\'` fast. It serves operators such as `@>`, not arbitrary expressions. BRIN stores only the minimum and maximum of each block range, so it is tiny but coarse: it fits huge append-only tables whose physical order follows the column, like events by time. GiST covers ranges and geometry, including exclusion constraints.',
     keyPoints: [
@@ -130,16 +162,28 @@ WHERE created_at >= '2026-10-29' AND created_at < '2026-10-30';`,
         statement: 'A GIN index on `metadata` with `jsonb_path_ops` serves `WHERE metadata->>\'fraud_review\' = \'true\'`.',
         isTrue: false,
         why: 'GIN serves operators such as `@>`; the `->>` expression is not indexed, so the query stays a sequential scan.',
+        twin: {
+          statement: 'A GIN index on `metadata` with `jsonb_path_ops` can serve `metadata @> \'{"fraud_review": true}\'`, but not `metadata->>\'fraud_review\' = \'true\'`.',
+          why: 'GIN serves operators such as `@>`; the `->>` expression is not indexed, so that query stays a sequential scan.',
+        },
       },
       {
         statement: 'A BRIN index is useful only when the physical order of the table follows the indexed column.',
         isTrue: true,
         why: 'It stores min and max per block range, which narrows nothing if values are scattered across all blocks.',
+        twin: {
+          statement: 'A BRIN index helps even when the indexed values are scattered across all the table\'s blocks.',
+          why: 'It stores min and max per block range, which narrows nothing if every block holds values from the whole range.',
+        },
       },
       {
         statement: 'A B-tree index on `name` speeds up `name ILIKE \'%desk%\'`.',
         isTrue: false,
         why: 'A leading wildcard gives the sorted tree no prefix to jump to; it takes a trigram GIN index.',
+        twin: {
+          statement: 'A plain B-tree index on `name` cannot speed up `name ILIKE \'%desk%\'`.',
+          why: 'A leading wildcard gives the sorted tree no prefix to jump to; it takes a trigram GIN index.',
+        },
       },
     ],
     codeChoices: [
@@ -181,6 +225,16 @@ CREATE INDEX orders_created_brin ON orders USING brin (created_at);`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'Several replicas process a jobs table in PostgreSQL. How do you stop two of them taking the same job, and run a nightly job only once?',
+    questionVariants: [
+      {
+        question: 'Three API replicas send the `order.paid` emails from a jobs table, and some customers get the email twice. Workers read pending rows with a plain `SELECT`, then mark them `running`. What would you change?',
+        bridge: 'Two workers claimed the same rows. `FOR UPDATE SKIP LOCKED`, claiming and marking in one statement, hands each row to one worker.',
+      },
+      {
+        question: 'How do you make sure the nightly CSV export runs on only one of six API replicas, when there is no row to lock?',
+        bridge: 'An advisory lock locks a key instead of a row: `pg_try_advisory_xact_lock` returns `true` to one replica and `false` to the others.',
+      },
+    ],
     answer:
       'For the queue I claim rows with `SELECT ... FOR UPDATE SKIP LOCKED`: each worker locks the oldest pending rows nobody else holds and silently skips locked ones, so workers never wait or collide. I update them to `running` in the same statement and take a batch with `LIMIT`. For slow jobs I commit the claim at once with a lease, a `locked_until` time, so handlers must be idempotent. For "run once", there is no row to lock, so I use `pg_try_advisory_xact_lock(key)`: one replica gets `true`, the others `false` at once, and commit or rollback releases it, even if the pod dies.',
     keyPoints: [
@@ -217,11 +271,19 @@ CREATE INDEX orders_created_brin ON orders USING brin (created_at);`,
         statement: 'With `FOR UPDATE SKIP LOCKED`, a worker waits for rows another transaction has locked.',
         isTrue: false,
         why: 'It leaves those rows out and returns the next free ones, which is the point for a queue.',
+        twin: {
+          statement: 'With `FOR UPDATE SKIP LOCKED`, a worker leaves out the rows another transaction has locked and returns the next free ones.',
+          why: 'It never waits for those rows, which is the point for a queue.',
+        },
       },
       {
         statement: 'If the pod holding `pg_try_advisory_xact_lock` dies, the lock is freed when its connection closes.',
         isTrue: true,
         why: 'The lock belongs to the server session; when the connection drops, PostgreSQL releases it.',
+        twin: {
+          statement: 'If the pod holding `pg_try_advisory_xact_lock` dies, the lock stays held until an operator releases it.',
+          why: 'The lock belongs to the server session; when the connection drops, PostgreSQL releases it.',
+        },
       },
     ],
     codeChoices: [
@@ -269,6 +331,16 @@ RETURNING id, kind, payload;`,
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'Which column types do you choose for money, instants and strings, and which rules do you enforce with constraints?',
+    questionVariants: [
+      {
+        question: 'The finance export shows an order total of 0.30000000000000004 € for two items at 0.10 € and 0.20 €. The column is `double precision`. What would you change, and which other column types do you watch?',
+        bridge: 'Money is never a float: integer minor units plus a currency, or `numeric`. Column types prevent whole classes of bugs, like `timestamptz` for instants.',
+      },
+      {
+        question: 'A colleague says the API already validates everything, so the tables need no `CHECK` or `UNIQUE` constraints. What do you answer?',
+        bridge: 'Constraints guard every writer, scripts and races included; the API validates first only for friendly messages, then maps SQLSTATE codes to 409 or 422.',
+      },
+    ],
     answer:
       'Types prevent whole classes of bugs. Money is never a float: I store integer minor units, `total_cents bigint` plus a `currency`, or `numeric`. Instants are `timestamptz`, which stores an absolute instant; plain `timestamp` silently drops the offset. Strings are `text` with a named `CHECK`, since `varchar(n)` is no faster. Then every rule another writer or a race could break goes into a constraint: `NOT NULL`, `CHECK`, `UNIQUE`, foreign keys with a deliberate `ON DELETE`, and exclusion constraints for overlapping periods. The API still validates first for friendly messages, and maps SQLSTATE codes like `23505` to a 409.',
     keyPoints: [
@@ -305,16 +377,28 @@ RETURNING id, kind, payload;`,
         statement: '`timestamp with time zone` stores the time zone of the value it was given.',
         isTrue: false,
         why: 'It converts the input to UTC and stores an absolute instant; it displays it in the session\'s `TimeZone`.',
+        twin: {
+          statement: '`timestamp with time zone` stores an absolute instant and does not keep the time zone it was given.',
+          why: 'It converts the input to UTC and displays it in the session\'s `TimeZone`.',
+        },
       },
       {
         statement: 'A plain `UNIQUE` column accepts two rows with NULL.',
         isTrue: true,
         why: 'NULLs are not equal to each other; `UNIQUE NULLS NOT DISTINCT` rejects the second one.',
+        twin: {
+          statement: 'A plain `UNIQUE` column rejects a second row with NULL.',
+          why: 'NULLs are not equal to each other, so both rows are accepted; `UNIQUE NULLS NOT DISTINCT` rejects the second one.',
+        },
       },
       {
         statement: 'In PostgreSQL, `varchar(255)` performs better than `text`.',
         isTrue: false,
         why: 'The documentation states there is no performance difference; a `CHECK` expresses the real rule.',
+        twin: {
+          statement: 'In PostgreSQL, `varchar(255)` performs no better than `text`.',
+          why: 'The documentation states there is no performance difference; a `CHECK` expresses the real rule.',
+        },
       },
     ],
     codeChoices: [
@@ -363,6 +447,16 @@ RETURNING id, kind, payload;`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How would you design a multi-tenant database, and how do you stop one tenant from seeing another\'s data?',
+    questionVariants: [
+      {
+        question: 'The shop now hosts several merchants in shared tables. One merchant\'s agent saw another merchant\'s order because a query forgot `WHERE tenant_id`. Which safety nets would you add?',
+        bridge: 'Shared tables need guards beyond each query: row-level security policies that read the tenant, and composite foreign keys on `(tenant_id, id)`.',
+      },
+      {
+        question: 'You enabled row-level security on `orders`, but the API still sees every tenant\'s rows. What is the likely cause?',
+        bridge: 'Table owners and superusers bypass RLS policies by default, so the API must connect with a role that owns no tables.',
+      },
+    ],
     answer:
       'There are three models: shared tables with a `tenant_id` column, a schema per tenant, or a database per tenant. Isolation grows with each, and so does the cost: every migration and pool multiplies. I default to shared tables, then add safety nets so one forgotten `WHERE tenant_id` is not a leak. Composite foreign keys on `(tenant_id, id)` stop a row from pointing at another tenant\'s row. Row-level security adds a policy to every query on the table, reading the tenant from a transaction-local setting. The API connects with a role that owns no tables, because owners and superusers bypass policies.',
     keyPoints: [
@@ -399,11 +493,19 @@ RETURNING id, kind, payload;`,
         statement: 'The table owner bypasses row-level security unless the table has `FORCE ROW LEVEL SECURITY`.',
         isTrue: true,
         why: 'Policies do not apply to the owner by default; `FORCE` applies them to the owner too, while superusers still bypass them.',
+        twin: {
+          statement: 'Row-level security policies apply to the table owner by default.',
+          why: 'The owner bypasses them unless the table has `FORCE ROW LEVEL SECURITY`, and superusers bypass them even then.',
+        },
       },
       {
-        statement: 'With RLS, a policy\'s `USING` clause also stops inserts of rows for another tenant.',
-        isTrue: false,
-        why: '`USING` filters the rows you see; `WITH CHECK` validates the rows you write.',
+        statement: 'A `FOR ALL` RLS policy with only a `USING` clause also rejects inserts of rows for another tenant.',
+        isTrue: true,
+        why: 'Without `WITH CHECK`, PostgreSQL applies the `USING` expression to new rows too; a separate `WITH CHECK` sets a different rule for writes.',
+        twin: {
+          statement: 'A `FOR ALL` RLS policy with only a `USING` clause lets you insert rows for another tenant.',
+          why: 'Without `WITH CHECK`, PostgreSQL applies the `USING` expression to new rows too, so the insert fails with a policy violation.',
+        },
       },
     ],
     codeChoices: [
@@ -425,7 +527,7 @@ COMMIT;`,
       points: [
         'A tenant is one customer organisation sharing the system. Models: shared tables with `tenant_id` (the default), a schema per tenant, or a database per tenant, each more isolated and more costly to operate.',
         'A composite foreign key on `(tenant_id, order_id)` referencing `orders (tenant_id, id)` stops an order line from pointing at another tenant\'s order. The target needs `UNIQUE (tenant_id, id)`.',
-        'Row-level security (RLS) attaches a policy to a table that PostgreSQL adds to every query. `USING` filters the rows you see; `WITH CHECK` validates the rows you write.',
+        'Row-level security (RLS) attaches a policy that PostgreSQL adds to every query. `USING` filters the rows you see; `WITH CHECK` validates the rows you write, and without it `USING` checks them.',
         'The tenant comes from a transaction-local setting, `set_config(\'app.tenant_id\', $1, true)`, so a pooled connection never carries it to another request. A missing setting is an error, not a leak.',
         'Superusers, roles with `BYPASSRLS` and the table owner skip policies (`FORCE` covers the owner). Run the API with a role that owns no tables.',
       ],
@@ -449,6 +551,16 @@ SELECT set_config('app.tenant_id', $1, true);`,
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'Would you use soft delete? And how do you keep an audit trail of who changed what?',
+    questionVariants: [
+      {
+        question: 'A customer closed her account, then tried to sign up again with the same email and got "email already in use". Accounts are soft-deleted with `deleted_at`. What is wrong?',
+        bridge: 'A unique rule on email still sees the soft-deleted row; a partial unique index on live rows lets the email sign up again.',
+      },
+      {
+        question: 'A customer asks for her personal data to be erased, and the team answers "done, we set `deleted_at`". Is it done?',
+        bridge: 'Soft delete only marks the row, so it is not erasure: the personal data must still be deleted or anonymised.',
+      },
+    ],
     answer:
       'Soft delete marks a row with `deleted_at` instead of removing it. It costs more than it looks: every read must filter it, ideally in one view or policy; unique rules need a partial unique index on live rows; foreign keys still see the row; and it is not erasure, so personal data must still be deleted or anonymised. When "deleted" is a business state, I use a `status`; to undo mistakes or keep evidence, I hard delete and audit. For the audit I use a trigger, which catches every writer, psql included, and stores the old and new rows as JSONB with the author from a transaction-local setting.',
     keyPoints: [
@@ -485,11 +597,19 @@ SELECT set_config('app.tenant_id', $1, true);`,
         statement: 'A foreign key refuses to reference a soft-deleted customer.',
         isTrue: false,
         why: 'For the database the row still exists; only your queries know what `deleted_at` means.',
+        twin: {
+          statement: 'A foreign key still accepts a reference to a soft-deleted customer.',
+          why: 'For the database the row still exists; only your queries know what `deleted_at` means.',
+        },
       },
       {
         statement: 'A trigger-based audit trail also records changes made by hand in psql.',
         isTrue: true,
         why: 'The trigger runs inside PostgreSQL on every write, whatever client issued it.',
+        twin: {
+          statement: 'A trigger-based audit trail misses the changes made by hand in psql.',
+          why: 'The trigger runs inside PostgreSQL on every write, whatever client issued it.',
+        },
       },
     ],
     codeChoices: [
@@ -529,6 +649,16 @@ CREATE UNIQUE INDEX customers_email_live_key
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'When do you store data in a JSONB column, and when is it a missing table?',
+    questionVariants: [
+      {
+        question: 'The back office filters orders on `metadata->>\'channel\'` and sorts on `metadata->>\'priority\'`; those queries keep slowing down and their row estimates are far off. What would you change?',
+        bridge: 'Fields you filter or sort on belong in columns: a document has no types or per-field statistics. That JSONB holds a missing column.',
+      },
+      {
+        question: 'When is a JSONB column the right choice? Give an example from the payment integration.',
+        bridge: 'JSONB fits data stored and returned whole, like a raw webhook payload, not fields you query, join or constrain.',
+      },
+    ],
     answer:
       'JSONB stores a parsed JSON document in a binary form, so it does not keep key order or duplicate keys, and GIN indexes can search inside it. I use it for data stored and returned whole: raw webhook payloads from payment providers, sparse optional attributes, per-provider settings. It is a missing table when I filter, join, sort or aggregate on its fields, or when they carry rules: inside a document there are no types, no `NOT NULL`, no foreign keys and no per-field statistics, so estimates go wrong. When one field becomes hot, I promote it to a column or index it with an expression index.',
     keyPoints: [
@@ -565,16 +695,28 @@ CREATE UNIQUE INDEX customers_email_live_key
         statement: '`jsonb` keeps the keys of a document in the order they were written.',
         isTrue: false,
         why: 'It stores a decomposed form: keys are reordered and only the last duplicate is kept; `json` keeps the text.',
+        twin: {
+          statement: '`jsonb` does not keep the order in which a document\'s keys were written.',
+          why: 'It stores a decomposed form: keys are reordered and only the last duplicate is kept; `json` keeps the text.',
+        },
       },
       {
         statement: 'The `->>` operator returns `text`.',
         isTrue: true,
         why: 'It extracts the value as text, so numbers must be cast before numeric comparison.',
+        twin: {
+          statement: 'The `->>` operator returns `jsonb`.',
+          why: 'It returns `text`, so numbers must be cast before a numeric comparison; `->` is the one that returns `jsonb`.',
+        },
       },
       {
         statement: 'A foreign key can reference a value stored inside a `jsonb` document.',
         isTrue: false,
         why: 'Foreign keys only accept real columns, which is one reason referenced data belongs in columns.',
+        twin: {
+          statement: 'A foreign key cannot reference a value stored inside a `jsonb` document.',
+          why: 'Foreign keys only accept real columns, which is one reason referenced data belongs in columns.',
+        },
       },
     ],
     codeChoices: [
@@ -616,6 +758,16 @@ CREATE INDEX webhook_events_amount_idx ON webhook_events
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'How do you manage database migrations in a team, from writing them to running them in production?',
+    questionVariants: [
+      {
+        question: 'After a deploy to 8 pods, the logs show the same migration started 8 times and two pods crashed on "relation already exists". How should migrations run?',
+        bridge: 'One runner applies migrations before the new code starts, a CI/CD step or a Kubernetes Job, never every API instance at startup.',
+      },
+      {
+        question: 'A teammate edited a migration that already ran in staging, to fix a typo. Why is that a problem, and what do you do instead?',
+        bridge: 'The tool records applied files, so an edited one never reruns and environments drift; fix forward with a new migration.',
+      },
+    ],
     answer:
       'A migration is a versioned file that moves the schema one step; the tool records which files ran in a table, so each environment applies only new ones. I treat them as code: in the repository, reviewed with the application change, linted, and run against a real PostgreSQL in CI. One runner applies them, a CI/CD step or a Kubernetes Job, before the new code starts, never every API instance at startup. I never edit a migration that ran anywhere shared, and I fix forward with a new one rather than relying on down migrations, since a dropped column cannot come back.',
     keyPoints: [
@@ -652,11 +804,19 @@ CREATE INDEX webhook_events_amount_idx ON webhook_events
         statement: '`CREATE INDEX CONCURRENTLY` cannot run inside a transaction block.',
         isTrue: true,
         why: 'PostgreSQL refuses it in a transaction, so the migration must run outside one.',
+        twin: {
+          statement: '`CREATE INDEX CONCURRENTLY` can run inside a transaction block, like any other migration statement.',
+          why: 'PostgreSQL refuses it inside a transaction, so that migration must run outside one.',
+        },
       },
       {
         statement: 'A small fix to a migration that already ran in production is safe as long as the SQL stays equivalent.',
         isTrue: false,
         why: 'Tools track applied files, Flyway fails validation on a changed checksum, and environments drift; write a new migration.',
+        twin: {
+          statement: 'Even an equivalent fix to a migration that already ran in production belongs in a new migration.',
+          why: 'Tools track applied files, Flyway fails validation on a changed checksum, and environments drift.',
+        },
       },
     ],
     codeChoices: [
@@ -704,6 +864,16 @@ CREATE INDEX webhook_events_amount_idx ON webhook_events
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How do you run a database transaction correctly from Node, and what goes wrong when it is done by hand?',
+    questionVariants: [
+      {
+        question: 'After one failed checkout, every later request on some API pods fails with "current transaction is aborted, commands ignored until end of transaction block". What is wrong in the transaction code?',
+        bridge: 'A missing `ROLLBACK` left a pooled connection in an aborted transaction (`25P02`); the helper must roll back on error and release in `finally`.',
+      },
+      {
+        question: 'Why can\'t you run `pool.query(\'BEGIN\')` followed by more `pool.query` calls as a transaction in node-postgres?',
+        bridge: 'A transaction lives on one connection, and `pool.query` takes any idle one per call; check out one client and run every query on it.',
+      },
+    ],
     answer:
       'A transaction lives on one connection, so I check out a client from the pool, send `BEGIN`, run every query on that client, then `COMMIT`, or `ROLLBACK` on any error, and release the client in a `finally`. Done by hand, two things break: a missing rollback leaves the connection aborted, so the next request fails with `25P02`, and a missing release leaks connections until the pool is empty. So I wrap it in a callback helper, or use the ORM\'s, like Drizzle\'s `db.transaction`. Inside it every query must use `tx`, never `pool.query`, and nothing slow, like an HTTP call, runs inside.',
     keyPoints: [
@@ -740,11 +910,19 @@ CREATE INDEX webhook_events_amount_idx ON webhook_events
         statement: 'After `pool.query(\'BEGIN\')`, the next `pool.query` calls run in that transaction.',
         isTrue: false,
         why: '`pool.query` takes any idle connection for each call, so the statements can land on different connections.',
+        twin: {
+          statement: 'After `pool.query(\'BEGIN\')`, the next `pool.query` calls can land on other connections, outside that transaction.',
+          why: '`pool.query` takes any idle connection for each call; a transaction needs one checked-out client.',
+        },
       },
       {
         statement: 'After an error inside a transaction, PostgreSQL rejects further statements on that connection until `ROLLBACK`.',
         isTrue: true,
         why: 'The transaction is aborted and every command fails with `25P02` until the transaction block ends.',
+        twin: {
+          statement: 'After an error inside a transaction, PostgreSQL keeps running further statements on that connection as usual.',
+          why: 'The transaction is aborted and every command fails with `25P02` until the transaction block ends.',
+        },
       },
     ],
     codeChoices: [
@@ -802,6 +980,16 @@ try {
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'Which timeouts do you set between a Node API and PostgreSQL, and where?',
+    questionVariants: [
+      {
+        question: 'During an incident, one runaway report query held locks for 20 minutes, and the Orders API hung instead of returning errors. Which settings were missing?',
+        bridge: 'PostgreSQL\'s timeouts are off by default; `statement_timeout` and `lock_timeout` on the API role turn a hang into an error.',
+      },
+      {
+        question: 'The `pg` client gives up after 5 seconds, so a colleague says PostgreSQL needs no `statement_timeout`. What do you answer?',
+        bridge: 'Client timeouts only stop the waiting; the server keeps running the statement unless `statement_timeout` or a cancel stops it.',
+      },
+    ],
     answer:
       'All of PostgreSQL\'s timeouts are off by default, so an incident becomes a hang instead of an error. I set `statement_timeout` for a runaway query, `lock_timeout` for a statement waiting on a lock, and `idle_in_transaction_session_timeout` for a transaction the code forgot to end. I set them on the API\'s role with `ALTER ROLE`, not in `postgresql.conf`, so migrations and admin work keep their own, and raise them with `SET LOCAL` for a long export. On the client, the pool\'s connection timeout stops waiting for a connection. Client timeouts only stop waiting; the server keeps working, so I pair them with `statement_timeout`.',
     keyPoints: [
@@ -838,11 +1026,19 @@ try {
         statement: '`statement_timeout` is disabled by default in PostgreSQL.',
         isTrue: true,
         why: 'Its default is `0`, which means no limit; the same is true of `lock_timeout` and the idle-in-transaction timeout.',
+        twin: {
+          statement: 'PostgreSQL\'s default `statement_timeout` is 30 seconds.',
+          why: 'Its default is `0`, which means no limit; the same is true of `lock_timeout` and the idle-in-transaction timeout.',
+        },
       },
       {
         statement: 'When `pg`\'s `query_timeout` fires, the query also stops on the server.',
         isTrue: false,
         why: 'It only rejects the client\'s promise; the server keeps running the statement unless `statement_timeout` or a cancel stops it.',
+        twin: {
+          statement: 'When `pg`\'s `query_timeout` fires, the server keeps running the query.',
+          why: 'It only rejects the client\'s promise; `statement_timeout` or a cancel is what stops the statement.',
+        },
       },
     ],
     codeChoices: [
@@ -886,6 +1082,16 @@ COMMIT;  -- back to the role default`,
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What traps do you hit when PostgreSQL values reach JavaScript, and how do you handle them?',
+    questionVariants: [
+      {
+        question: 'Customers in Paris see their delivery date one day early in the API\'s JSON. The column is a `date`, read with `pg`. Why?',
+        bridge: '`pg` turns a `date` into a `Date` at local midnight, which is the previous day in UTC in Paris; calendar days are safer as strings.',
+      },
+      {
+        question: 'Why does node-postgres return `bigint` and `numeric` values as strings, and how do you handle them?',
+        bridge: 'JavaScript numbers are exact only up to 2^53 − 1 and decimals lose precision, so `pg` returns strings; decide the mapping once at the edge.',
+      },
+    ],
     answer:
       'The driver has to fit SQL types into JavaScript ones. With `pg`, `bigint`, so `count(*)`, and `numeric` come back as strings, because a JavaScript number is exact only up to 2 to the 53 minus 1 and decimals would lose precision; so `count + 1` can give `\'31\'`. `timestamptz` becomes a `Date` at the right instant, but a `date` becomes local midnight, which is the previous day in UTC in Paris. I decide the mapping once at the edge: a type parser, an SQL cast like `count(*)::int`, or an ORM column mode, and I keep money exact and calendar days as strings.',
     keyPoints: [
@@ -922,16 +1128,28 @@ COMMIT;  -- back to the role default`,
         statement: 'node-postgres returns `count(*)` as a JavaScript number.',
         isTrue: false,
         why: '`count(*)` is a `bigint`, which `pg` returns as a string to avoid losing precision.',
+        twin: {
+          statement: 'node-postgres returns `count(*)` as a string.',
+          why: '`count(*)` is a `bigint`, which `pg` returns as a string to avoid losing precision.',
+        },
       },
       {
         statement: '`Number(\'9007199254740993\')` gives back exactly 9007199254740993.',
         isTrue: false,
         why: 'It is above `Number.MAX_SAFE_INTEGER`, so it rounds to 9007199254740992.',
+        twin: {
+          statement: '`Number(\'9007199254740993\')` gives 9007199254740992.',
+          why: 'It is above `Number.MAX_SAFE_INTEGER`, so it rounds to the nearest number a double can hold.',
+        },
       },
       {
         statement: '`pg` returns a `timestamptz` value as a `Date` at the correct instant.',
         isTrue: true,
         why: 'The value is an absolute instant, so the `Date` points to the same moment whatever the process time zone.',
+        twin: {
+          statement: '`pg` returns a `timestamptz` value as a `Date` shifted by the process time zone.',
+          why: 'The value is an absolute instant, so the `Date` points to the same moment whatever the process time zone.',
+        },
       },
     ],
     codeChoices: [

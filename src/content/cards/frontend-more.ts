@@ -14,6 +14,16 @@ export const frontendMoreCards: Card[] = [
     level: 'mid',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'What is code splitting, and how do you implement it in a React app?',
+    questionVariants: [
+      {
+        question: 'The back office\'s entry bundle weighs 1.8 MB because a charting library for refund stats and a rich text editor for notes load on every screen, though few agents use them. What do you do in React?',
+        bridge: 'Code splitting: a dynamic `import()` wrapped in `React.lazy` and `Suspense` moves rarely used features into chunks loaded on demand.',
+      },
+      {
+        question: 'In a Next.js App Router app, do you still split code by hand? How does it compare with a React app built with Vite?',
+        bridge: 'The same technique per framework: Next.js splits routes automatically and offers `next/dynamic`, while a Vite app splits with `React.lazy` and `Suspense`.',
+      },
+    ],
     answer:
       'Code splitting cuts the JavaScript bundle into several files, called chunks, so the browser downloads only the code the current screen needs. The bundler starts a new chunk at every dynamic `import()`. In React I wrap it in `React.lazy`, declared at module level, and render the component inside a `Suspense` boundary that shows a fallback while the chunk downloads, with an error boundary in case it fails. I split per route first, then heavy features few people use, like a chart library or a rich text editor. In Next.js, routes are split automatically and `next/dynamic` covers the rest.',
     keyPoints: [
@@ -67,16 +77,28 @@ export const frontendMoreCards: Card[] = [
         statement: 'A dynamic `import()` makes the bundler put the imported module in a separate chunk.',
         isTrue: true,
         why: 'That is how bundlers split code: in a Vite 8 build, the dynamically imported module became its own file, absent from the entry chunk.',
+        twin: {
+          statement: 'A dynamic `import()` keeps the imported module inside the entry chunk.',
+          why: 'Bundlers start a new chunk at each dynamic `import()`: in a Vite 8 build, the module became its own file.',
+        },
       },
       {
         statement: '`React.lazy(() => import(\'./chart\'))` works when the chart component is only a named export.',
         isTrue: false,
         why: 'The promise must resolve to an object whose `default` is a component; map a named export with `.then((m) => ({ default: m.Chart }))`.',
+        twin: {
+          statement: '`React.lazy` needs the imported module\'s `default` export to be a component, so a named export must be mapped to `default`.',
+          why: 'The promise must resolve to an object whose `default` is a component, for example with `.then((m) => ({ default: m.Chart }))`.',
+        },
       },
       {
         statement: 'Declaring a `React.lazy` component inside another component\'s body is harmless.',
         isTrue: false,
         why: 'Each render creates a new lazy component that has not loaded, so it suspends again and the fallback replaces the content on every re-render; declare it at the top level of the module.',
+        twin: {
+          statement: 'Declaring a `React.lazy` component inside another component\'s body makes it suspend again on re-renders.',
+          why: 'Each render creates a new lazy component that has not loaded, so declare it at the top level of the module.',
+        },
       },
     ],
     codeChoices: [
@@ -132,6 +154,16 @@ export function ReportsPage() {
     level: 'mid',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'What is lazy loading, and where do you apply it?',
+    questionVariants: [
+      {
+        question: 'After someone added `loading="lazy"` to every image on the storefront, field LCP on product pages went from 2.1 s to 3.0 s. What went wrong, and where should lazy loading apply?',
+        bridge: 'Lazy loading must never touch what the first screen needs, above all the LCP image; it is for content below the fold.',
+      },
+      {
+        question: 'Lazy loading applies to images, code and data. Give one example of each in the shop, and the rule you never break.',
+        bridge: 'The same idea at three levels: `loading="lazy"`, a dynamic `import()`, and data loaded on scroll, never for above-the-fold content.',
+      },
+    ],
     answer:
       'Lazy loading means deferring a resource until it is actually needed, instead of loading everything up front. I apply it at three levels. Images and iframes below the fold get `loading="lazy"`, so the browser fetches them as they approach the viewport. Code for routes, modals and heavy widgets loads with a dynamic `import()` when it is first shown. Data and secondary sections load page by page or when they scroll into view, with an `IntersectionObserver`. The rule I keep is never to lazy load what the first screen needs, above all the LCP image.',
     keyPoints: [
@@ -168,11 +200,19 @@ export function ReportsPage() {
         statement: 'Adding `loading="lazy"` to the LCP image makes the page load faster.',
         isTrue: false,
         why: 'A lazy image waits for layout before it is requested; measured in Chromium behind a slow stylesheet, it started about 550 ms late instead of about 20 ms.',
+        twin: {
+          statement: 'Adding `loading="lazy"` to the LCP image delays it, because a lazy image waits for layout before it is requested.',
+          why: 'Measured in Chromium behind a slow stylesheet, it started about 550 ms late instead of about 20 ms.',
+        },
       },
       {
         statement: 'The browser can start downloading an eager `<img>` from the HTML before the page\'s CSS has finished loading.',
         isTrue: true,
         why: 'The preload scanner reads the incoming HTML and requests images it finds in `src` right away, without waiting for layout.',
+        twin: {
+          statement: 'The browser waits for the page\'s CSS to finish loading before it starts downloading an eager `<img>` from the HTML.',
+          why: 'The preload scanner reads the incoming HTML and requests images it finds in `src` right away, without waiting for layout.',
+        },
       },
     ],
     codeChoices: [
@@ -217,6 +257,16 @@ export function ReportsPage() {
     level: 'mid',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'How does image optimization affect performance, and which techniques do you use?',
+    questionVariants: [
+      {
+        question: 'On phones, the storefront\'s product page downloads a 2400 px wide, 900 KB hero image displayed 400 px wide, and the text below jumps when it arrives. What do you fix?',
+        bridge: 'Image optimization: `srcset` and `sizes` for the displayed size, modern formats, and `width` and `height` to reserve the space.',
+      },
+      {
+        question: 'A colleague says images matter little since the JavaScript is already code split. How do images affect Core Web Vitals?',
+        bridge: 'Images are the heaviest bytes and often the LCP element, and missing dimensions cause layout shift, so they weigh on LCP and CLS.',
+      },
+    ],
     answer:
       'Images are usually the heaviest bytes of a page and often the LCP element, so they drive load time, data use and layout stability. I serve modern formats like AVIF or WebP, and resize to the displayed size with `srcset` and `sizes`, so a phone does not download a desktop file. Every image gets `width` and `height` so the browser reserves its space and nothing shifts. Below the fold I use `loading="lazy"`; the hero gets the opposite: in the HTML, eager, with `fetchpriority="high"`. In practice an image CDN or `next/image` does the resizing and format choice for me.',
     keyPoints: [
@@ -253,16 +303,28 @@ export function ReportsPage() {
         statement: 'With `srcset` and `sizes`, the browser decides which file to download.',
         isTrue: true,
         why: 'They are hints: the browser picks a candidate from the slot width and the screen\'s pixel density, which is why art direction needs `<picture>`.',
+        twin: {
+          statement: 'With `srcset` and `sizes`, the developer decides exactly which file the browser downloads.',
+          why: 'They are hints: the browser picks a candidate from the slot width and pixel density, which is why art direction needs `<picture>`.',
+        },
       },
       {
         statement: 'An image shrunk to 300 pixels with CSS downloads fewer bytes than the original file.',
         isTrue: false,
         why: 'CSS only changes how the image is drawn; the full file is downloaded and decoded.',
+        twin: {
+          statement: 'An image shrunk to 300 pixels with CSS still downloads the full original file.',
+          why: 'CSS only changes how the image is drawn; the whole file is downloaded and decoded.',
+        },
       },
       {
         statement: 'A `<picture>` element without an `<img>` inside still displays the matching `<source>`.',
         isTrue: false,
         why: 'The `<source>` elements only choose the file; the `<img>` displays it, so without it no image appears.',
+        twin: {
+          statement: 'A `<picture>` element needs an `<img>` inside to display anything.',
+          why: 'The `<source>` elements only choose the file; the `<img>` displays it.',
+        },
       },
     ],
     codeChoices: [
@@ -311,6 +373,16 @@ export function ReportsPage() {
     level: 'mid',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'What is tree shaking, and what makes code tree-shakeable?',
+    questionVariants: [
+      {
+        question: 'The back office imports one `formatDate` helper from an internal utils package, yet the bundle analyzer shows the whole package, locale tables included, in the entry chunk. What can cause that?',
+        bridge: 'Tree shaking only drops unused exports when imports are static ES modules without module-level side effects; CommonJS or side effects keep code.',
+      },
+      {
+        question: 'You publish the shop\'s design system package. What do you do so that consumers\' bundlers can drop the components they do not use?',
+        bridge: 'Making code tree-shakeable: ES modules, small named exports, no work at module load, and a `sideEffects` field in `package.json`.',
+      },
+    ],
     answer:
       'Tree shaking is dead-code elimination at bundle time: the bundler follows the `import` and `export` graph from the entry point and drops exports nothing uses. It works because ES module imports are static, so the graph is known without running the code. Code is tree-shakeable when it uses ES modules, exports small named functions, and does no work at module load, or declares which files do with `sideEffects` in `package.json`. Top-level side effects, barrel files that import everything and CommonJS make the bundler keep more than needed. I check the result in a bundle analyzer on a production build.',
     keyPoints: [
@@ -347,11 +419,19 @@ export function ReportsPage() {
         statement: 'Without a `sideEffects` declaration, the bundler keeps a module that runs code at import time even if none of its exports is used.',
         isTrue: true,
         why: 'It cannot know the top-level code is useless: in a Vite 8 build the side-effect line stayed, and disappeared once the package declared `"sideEffects": false`.',
+        twin: {
+          statement: 'Without a `sideEffects` declaration, a module that runs code at import time is dropped when none of its exports is used.',
+          why: 'The bundler cannot know the top-level code is useless: in a Vite 8 build the line stayed until the package declared `"sideEffects": false`.',
+        },
       },
       {
         statement: '`"sideEffects": false` is safe for a package that imports its own CSS files.',
         isTrue: false,
         why: 'A CSS import is a side effect; the bundler may drop it, so list CSS files in a `sideEffects` array instead.',
+        twin: {
+          statement: 'A package that imports its own CSS files should list them in a `sideEffects` array rather than set `"sideEffects": false`.',
+          why: 'A CSS import is a side effect, so `false` lets the bundler drop it.',
+        },
       },
     ],
     codeChoices: [
@@ -399,6 +479,16 @@ import { formatPrice } from 'shop-utils';
     level: 'senior',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'What causes jank, and how do you fix it?',
+    questionVariants: [
+      {
+        question: 'With 20,000 rows loaded, scrolling the back office\'s orders table stutters and typing in its filter box freezes for half a second. Where do you look, and what fixes do you try?',
+        bridge: 'Jank comes from frames over budget: long tasks, layout thrashing and layout-heavy animations; virtualizing and splitting the work fix it.',
+      },
+      {
+        question: 'Why is the frame budget about 16.7 ms, and what happens when a task on the main thread takes longer?',
+        bridge: 'At 60 Hz each frame has about 16.7 ms; work that overruns it makes the browser miss frames, which users see as jank.',
+      },
+    ],
     answer:
       'Jank is visible stutter: the browser misses frames because a frame\'s work takes longer than its budget, about 16.7 ms at 60 Hz. The usual causes are long JavaScript tasks on the main thread, layout thrashing, where geometry reads and style writes alternate and force a layout each time, and animations of properties like `top` or `width` that run layout and paint every frame. I fix it by animating only `transform` and `opacity`, reading before writing, breaking long tasks with `scheduler.yield()` or moving them to a worker, and virtualizing long lists. I confirm each fix with a Performance recording.',
     keyPoints: [
@@ -435,11 +525,19 @@ import { formatPrice } from 'shop-utils';
         statement: 'Animating `transform` avoids running layout on every frame, while animating `top` does not.',
         isTrue: true,
         why: '`top` changes geometry, so each frame runs layout and paint; `transform` can be handled by the compositor without either.',
+        twin: {
+          statement: 'Animating `top` avoids running layout on every frame, while animating `transform` does not.',
+          why: 'It is the reverse: `top` changes geometry, so each frame runs layout and paint, while `transform` can skip both on the compositor.',
+        },
       },
       {
         statement: 'Putting `await Promise.resolve()` inside a long loop lets the browser paint between iterations.',
         isTrue: false,
         why: 'The continuation is a microtask, which runs before the browser can render; measured in Chromium, the click still took over 300 ms. Use `scheduler.yield()` or `setTimeout`.',
+        twin: {
+          statement: 'Putting `await Promise.resolve()` inside a long loop does not let the browser paint between iterations.',
+          why: 'The continuation is a microtask, which runs before rendering; `scheduler.yield()` or `setTimeout` gives the browser a turn.',
+        },
       },
     ],
     codeChoices: [
@@ -487,6 +585,16 @@ import { formatPrice } from 'shop-utils';
     level: 'mid',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'What is a bundle analyzer, and how would you use it to reduce bundle size?',
+    questionVariants: [
+      {
+        question: 'The storefront\'s entry chunk grew from 180 KB to 320 KB gzipped in a month, and nobody knows why. How do you find out, and how do you stop it from growing again?',
+        bridge: 'A bundle analyzer on the production build shows which modules fill each chunk; a byte budget in CI keeps the size from growing back.',
+      },
+      {
+        question: 'In a bundle analyzer report, which patterns do you look for first, and what do you do about each?',
+        bridge: 'Reading the treemap: big libraries used for one function, duplicate packages and whole-library imports, each with its own fix.',
+      },
+    ],
     answer:
       'A bundle analyzer reads the production build and draws each chunk as a treemap of the modules inside it, sized by weight, so I see what actually ships. I build for production, open the report and look for the biggest blocks in the entry chunk: a large library used for one function, two versions of the same package, whole icon sets or locale data. Then I fix each one: a smaller or tree-shakeable alternative, a lazy chunk for rarely used features, deduped versions, or rendering on the server. I compare sizes before and after, and add a byte budget in CI so it does not grow back.',
     keyPoints: [
@@ -523,11 +631,19 @@ import { formatPrice } from 'shop-utils';
         statement: 'The gzip size is the only size that matters for performance.',
         isTrue: false,
         why: 'It drives download time, but the browser parses, compiles and runs the uncompressed code on the main thread.',
+        twin: {
+          statement: 'Besides the gzip size, the uncompressed size matters for performance.',
+          why: 'Gzip drives download time, but the browser parses, compiles and runs the uncompressed code on the main thread.',
+        },
       },
       {
         statement: 'Two packages that depend on different major versions of the same library can put two copies of it in the bundle.',
         isTrue: true,
         why: 'Each needs its own version, so both get bundled; the analyzer shows the library twice.',
+        twin: {
+          statement: 'A bundler always merges two major versions of the same library into one copy.',
+          why: 'Each dependent needs its own version, so both copies get bundled and the analyzer shows the library twice.',
+        },
       },
     ],
     codeChoices: [
@@ -573,6 +689,16 @@ npx size-limit`,
     level: 'mid',
     paths: ['frontend', 'fullstack'],
     question: 'What is the difference between preload, prefetch and preconnect?',
+    questionVariants: [
+      {
+        question: 'Storefront product images come from a separate image CDN origin, and the waterfall shows 300 ms of DNS, TCP and TLS before the hero image starts downloading. Which hint helps, and how does it differ from preload?',
+        bridge: '`preconnect` opens the connection to another origin early without downloading anything; `preload` fetches a specific resource the page needs soon.',
+      },
+      {
+        question: 'The storefront\'s brand font is discovered late through CSS, and most visitors go from a category page to a product page. Which hint do you use for each case?',
+        bridge: '`preload` for a late-discovered resource of the current page, with `as` and `crossorigin` for fonts; `prefetch` for a likely next navigation.',
+      },
+    ],
     answer:
       'All three are `<link>` hints that start network work early. `preload` fetches a resource the current page needs soon, at high priority, like a font discovered late through CSS or a hero image set by JavaScript; it needs an `as` attribute, and fonts need `crossorigin`. `prefetch` fetches, at low priority, something a likely next navigation needs, and keeps it in the HTTP cache. `preconnect` downloads nothing: it sets up the DNS, TCP and TLS connection to another origin ahead of time, like an image CDN. I use them sparingly, because every hint competes for bandwidth with what the page really needs.',
     keyPoints: [
@@ -609,16 +735,28 @@ npx size-limit`,
         statement: '`preconnect` downloads the resources of the target origin in advance.',
         isTrue: false,
         why: 'It only performs the DNS lookup, TCP connection and TLS handshake; nothing is downloaded.',
+        twin: {
+          statement: '`preconnect` only sets up the DNS lookup, TCP connection and TLS handshake to an origin, and downloads nothing.',
+          why: 'It prepares the connection; each resource still needs its own request.',
+        },
       },
       {
         statement: '`prefetch` targets resources of a likely future navigation and is fetched at low priority.',
         isTrue: true,
         why: 'The current page comes first; the prefetched response waits in the HTTP cache for the next navigation.',
+        twin: {
+          statement: '`prefetch` fetches resources the current page needs, at high priority.',
+          why: 'That describes `preload`; `prefetch` targets a likely next navigation, at low priority.',
+        },
       },
       {
         statement: 'A same-origin font preload works without the `crossorigin` attribute.',
         isTrue: false,
         why: 'Fonts are fetched in CORS mode, so the preload must set `crossorigin` to match, even on the same origin.',
+        twin: {
+          statement: 'A font preload needs the `crossorigin` attribute, even when the font is on the same origin.',
+          why: 'Fonts are fetched in CORS mode, so the preload must set `crossorigin` to match.',
+        },
       },
     ],
     codeChoices: [
@@ -657,6 +795,16 @@ npx size-limit`,
     level: 'senior',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'How would you diagnose and improve a slow initial page load?',
+    questionVariants: [
+      {
+        question: 'Field data shows the storefront\'s category pages at 4.2 s LCP at the 75th percentile, while Lighthouse on your laptop says 1.3 s. How do you diagnose and fix it?',
+        bridge: 'Diagnosing a slow load starts from field data, reproduces it with throttling, then splits the time into TTFB, discovery, download and render.',
+      },
+      {
+        question: 'Your team is sure the slow first load comes from the JavaScript bundle. Which other causes would you rule out first, and how?',
+        bridge: 'Splitting the load time: a slow TTFB, a late hero request, render-blocking CSS and fonts, and long tasks each show up in a different tool.',
+      },
+    ],
     answer:
       'I start from field data, real users\' LCP, INP and CLS at the 75th percentile, then reproduce in a throttled lab run. In the Network panel and Lighthouse I split the time: a slow TTFB points to the server or a missing CDN cache; a late hero request means the image is lazy or not in the HTML; render-blocking CSS and fonts delay the first paint; heavy JavaScript shows up as long tasks in the Performance panel. Then I fix the biggest part first: cache HTML at the edge, prioritise the hero, split and trim bundles, render on the server. Finally, budgets keep it fixed.',
     keyPoints: [
@@ -711,11 +859,19 @@ npx size-limit`,
         statement: 'A page is good on LCP when its median visit renders the largest element within 2.5 s.',
         isTrue: false,
         why: 'Core Web Vitals are judged at the 75th percentile of visits, which is stricter than the median.',
+        twin: {
+          statement: 'A page is good on LCP when 75% of its visits render the largest element within 2.5 s.',
+          why: 'Core Web Vitals are judged at the 75th percentile of visits, which is stricter than the median.',
+        },
       },
       {
         statement: 'Server-side rendering can improve LCP even when it makes TTFB slower.',
         isTrue: true,
         why: 'The content and hero image are in the HTML, so they no longer wait for the JavaScript bundle and a client-side fetch.',
+        twin: {
+          statement: 'Server-side rendering always worsens LCP when it makes TTFB slower.',
+          why: 'The content and hero image arrive in the HTML, so they stop waiting for the bundle and a client-side fetch, which can outweigh a slower TTFB.',
+        },
       },
     ],
     lesson: {
@@ -746,6 +902,16 @@ onCLS(sendToRum);`,
     level: 'senior',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'What role do Web Workers play in frontend performance?',
+    questionVariants: [
+      {
+        question: 'The back office parses a 40 MB CSV export of orders in the browser, and the page ignores every click for 3 seconds. How can a Web Worker help, and what does it cost?',
+        bridge: 'CPU-bound parsing blocks the main thread; a Web Worker runs it on another thread, at the cost of copying the data through `postMessage`.',
+      },
+      {
+        question: 'A colleague wants to move the back office\'s API calls into a Web Worker to make them faster. What do you tell them?',
+        bridge: 'Workers fix long tasks and INP, not network time: they suit CPU-bound work, and their messages are copied.',
+      },
+    ],
     answer:
       'A Web Worker runs JavaScript on a separate thread with its own event loop, so heavy computation stops blocking the main thread, which handles input, rendering and React. I move CPU-bound work there: filtering or sorting large datasets, parsing a big CSV, processing images. A worker has no DOM access; it talks to the page with `postMessage`, and messages are copied with the structured clone algorithm, so sending large data has its own cost. It is my last step after doing less work and yielding, and it fixes long tasks and INP, not slow network requests.',
     keyPoints: [
@@ -782,16 +948,28 @@ onCLS(sendToRum);`,
         statement: 'Code inside a Web Worker can read and change the DOM.',
         isTrue: false,
         why: 'Workers have no DOM: `document` is undefined inside one. They send results back and the page updates the DOM.',
+        twin: {
+          statement: 'Code inside a Web Worker has no access to the DOM.',
+          why: '`document` is undefined inside a worker; it sends results back and the page updates the DOM.',
+        },
       },
       {
         statement: 'Transferring an `ArrayBuffer` with `postMessage` leaves the sender\'s buffer empty.',
         isTrue: true,
         why: 'Ownership moves to the receiver instead of copying: the sender\'s `byteLength` becomes 0.',
+        twin: {
+          statement: 'Transferring an `ArrayBuffer` with `postMessage` leaves the sender a usable copy of the buffer.',
+          why: 'Ownership moves to the receiver instead of copying: the sender\'s `byteLength` becomes 0.',
+        },
       },
       {
         statement: 'You can send a callback function to a worker with `postMessage`.',
         isTrue: false,
         why: 'Functions cannot be structured-cloned; posting one throws a `DataCloneError`.',
+        twin: {
+          statement: 'Posting a callback function to a worker with `postMessage` throws a `DataCloneError`.',
+          why: 'Functions cannot be structured-cloned, so only data can be sent.',
+        },
       },
     ],
     codeChoices: [
@@ -839,6 +1017,16 @@ worker.postMessage({ id: 1, query: 'trail' });`,
     level: 'senior',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'How would you design the frontend architecture of a large app used by many teams?',
+    questionVariants: [
+      {
+        question: 'Three teams now work on the back office: orders, refunds and customers. Merge conflicts happen daily, and a change to the refunds screen broke the orders table. How would you restructure the frontend?',
+        bridge: 'Architecture for many teams: boundaries by domain ownership, feature folders with one-way imports, shared packages and a monorepo.',
+      },
+      {
+        question: 'When would you split the back office into micro-frontends, and why would you not start there?',
+        bridge: 'Micro-frontends answer only the need for independent deploys; a modular app in a monorepo is the default for several teams.',
+      },
+    ],
     answer:
       'I start from team boundaries: each team owns a slice of the domain end to end, like orders, refunds or customers. Inside the app I organise code by feature, with imports flowing one way, from shared code to features to the app shell, and a lint rule that stops features importing each other. Shared UI comes from a versioned design system package, and data access goes through one API client. I usually keep it all in a monorepo with a task runner, so a cross-cutting change is one pull request, and I split into micro-frontends only when teams truly need independent deploys.',
     keyPoints: [
@@ -875,11 +1063,19 @@ worker.postMessage({ id: 1, query: 'trail' });`,
         statement: 'Grouping code by feature means a feature folder holds its own components, hooks and types.',
         isTrue: true,
         why: 'Everything a feature needs lives together, so a change stays local; only generic code goes to shared folders or packages.',
+        twin: {
+          statement: 'Grouping code by feature means one `components` folder for all components and one `hooks` folder for all hooks.',
+          why: 'That is grouping by type; a feature folder holds its own components, hooks and types.',
+        },
       },
       {
         statement: 'Micro-frontends are the standard way to share UI components between two apps.',
         isTrue: false,
         why: 'Sharing code is what packages are for; micro-frontends exist for independent deploys and add runtime costs.',
+        twin: {
+          statement: 'Packages, not micro-frontends, are the standard way to share UI components between two apps.',
+          why: 'Micro-frontends exist for independent deploys and add runtime costs.',
+        },
       },
     ],
     lesson: {
@@ -901,6 +1097,16 @@ worker.postMessage({ id: 1, query: 'trail' });`,
     level: 'senior',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'How would you design a scalable, reusable design system?',
+    questionVariants: [
+      {
+        question: 'The shop is rebranding and its primary blue becomes green. The storefront\'s components hard-code hex values and the back office uses other blues. How would a design system make this a small change?',
+        bridge: 'Design tokens: components use semantic tokens shipped as CSS custom properties, so a rebrand remaps them in one place.',
+      },
+      {
+        question: 'Who owns a design system, and how do you release a change to a shared `Button` without breaking the storefront or the back office?',
+        bridge: 'The non-code half of a design system: owners, a contribution process, and a versioned package with semver and a changelog.',
+      },
+    ],
     answer:
       'I build it in layers. Design tokens first: primitives like the palette, and semantic tokens like `--color-action` that components use, shipped as CSS custom properties so a theme is just a remap. Then accessible components, often on a headless library like Radix or React Aria, with a small, consistent API: variants as props, composition through children and compound components, native attributes and refs passed through. Each component is documented and tested in Storybook, accessibility included. It ships as a versioned package with semver and a changelog, while domain components stay in the apps. And it needs owners and a contribution process, not just code.',
     keyPoints: [
@@ -937,11 +1143,19 @@ worker.postMessage({ id: 1, query: 'trail' });`,
         statement: 'Components in a design system should use semantic tokens such as `--color-action` rather than palette values.',
         isTrue: true,
         why: 'A theme or rebrand then remaps the semantic tokens once, instead of editing every component.',
+        twin: {
+          statement: 'Components in a design system should use palette values such as `--blue-600` directly rather than semantic tokens.',
+          why: 'With semantic tokens such as `--color-action`, a theme or rebrand remaps them once instead of editing every component.',
+        },
       },
       {
         statement: 'Renaming a component prop can ship as a patch release if the component looks the same.',
         isTrue: false,
         why: 'Consumers using the old name break: any removed or renamed prop is a breaking change and needs a major.',
+        twin: {
+          statement: 'Renaming a component prop is a breaking change that needs a major release, even if the component looks the same.',
+          why: 'Consumers that still pass the old name break.',
+        },
       },
     ],
     codeChoices: [
@@ -986,6 +1200,16 @@ worker.postMessage({ id: 1, query: 'trail' });`,
     level: 'senior',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'What are micro-frontends, and when do they make sense?',
+    questionVariants: [
+      {
+        question: 'Five teams build parts of the storefront, and every release waits for one shared weekly deploy that blocks them all. A director proposes micro-frontends. When is it worth it, and what will it cost?',
+        bridge: 'Micro-frontends pay off when a shared release is the bottleneck for independent teams, at the cost of runtime integration and shared dependencies.',
+      },
+      {
+        question: 'A two-team project wants micro-frontends so that both apps can share a component library. What do you recommend instead, and why?',
+        bridge: 'Micro-frontends are for independent deploys, not code sharing; for one or two teams a modular monorepo gives most of the benefits without the costs.',
+      },
+    ],
     answer:
       'Micro-frontends split one web product into parts that different teams build and deploy independently, composed into one experience, usually at runtime with Module Federation or by routing whole pages to separate apps. They make sense when several teams must release parts of the same product on their own schedules and a shared release has become the bottleneck. They cost a lot: runtime integration, shared dependencies like React that must be loaded once, version skew, harder end-to-end tests and inconsistent UX. For one or two teams, a modular app in a monorepo gives most of the benefits without those costs.',
     keyPoints: [
@@ -1022,11 +1246,19 @@ worker.postMessage({ id: 1, query: 'trail' });`,
         statement: 'With Module Federation, React should be shared as a singleton between the host and the remotes.',
         isTrue: true,
         why: 'Two copies of React on one page cause the invalid hook call error, so React is declared `singleton: true`.',
+        twin: {
+          statement: 'With Module Federation, the host and each remote should load their own copy of React.',
+          why: 'Two copies of React on one page cause the invalid hook call error, so React is shared with `singleton: true`.',
+        },
       },
       {
         statement: 'With build-time composition, a team can release its part without redeploying the shell.',
         isTrue: false,
         why: 'The parts are bundled into the shell at build time, so every change needs a new shell build and deploy.',
+        twin: {
+          statement: 'With build-time composition, releasing one part requires a new build and deploy of the shell.',
+          why: 'The parts are bundled into the shell at build time.',
+        },
       },
     ],
     codeChoices: [
@@ -1071,6 +1303,16 @@ worker.postMessage({ id: 1, query: 'trail' });`,
     level: 'senior',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'How would you migrate a large legacy frontend to a modern framework without a full rewrite?',
+    questionVariants: [
+      {
+        question: 'The back office is a 2016 AngularJS app with 60 screens, and leadership wants React without freezing features for a year. How do you migrate?',
+        bridge: 'The strangler fig approach: both stacks run side by side and the new one takes over route by route, each step behind a feature flag.',
+      },
+      {
+        question: 'A colleague argues for a big-bang rewrite because maintaining two stacks is painful. How do you answer?',
+        bridge: 'The case for incremental migration: a rewrite ships nothing until the switch, while piece-by-piece moves ship value and can be rolled back.',
+      },
+    ],
     answer:
       'I use the strangler fig approach: the old and new apps run side by side, and new code takes over one piece at a time until the old one can be deleted. The seam is usually the route: a proxy or the router sends migrated pages to the new app, or I mount new components inside old pages. New features go only into the new stack. Each migrated page ships behind a feature flag so I can roll back in seconds, and I compare errors and performance with the old version. Shared concerns, like the session, the API client and design tokens, are extracted first so both stacks use them.',
     keyPoints: [
@@ -1107,11 +1349,19 @@ worker.postMessage({ id: 1, query: 'trail' });`,
         statement: 'In a strangler fig migration, the old and new frontends run in production at the same time.',
         isTrue: true,
         why: 'Traffic moves to the new app piece by piece, so both coexist until the last legacy page is removed.',
+        twin: {
+          statement: 'In a strangler fig migration, the new frontend replaces the old one in a single cutover.',
+          why: 'Traffic moves piece by piece, so both run in production until the last legacy page is removed.',
+        },
       },
       {
         statement: 'A full rewrite is lower risk than an incremental migration because the team maintains only one stack.',
         isTrue: false,
         why: 'A rewrite delivers nothing until the switch and fails all at once; incremental steps ship value and can be rolled back.',
+        twin: {
+          statement: 'An incremental migration is lower risk than a full rewrite, even though the team maintains two stacks for a while.',
+          why: 'Incremental steps ship value and can be rolled back; a rewrite delivers nothing until the switch and fails all at once.',
+        },
       },
     ],
     lesson: {
@@ -1133,6 +1383,16 @@ worker.postMessage({ id: 1, query: 'trail' });`,
     level: 'senior',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'How would you structure a frontend monorepo, and with which tools?',
+    questionVariants: [
+      {
+        question: 'Changing a `Button` in the shop\'s UI library takes three pull requests: publish the library, bump it in the storefront, bump it in the back office. And CI rebuilds everything. How would you restructure?',
+        bridge: 'A monorepo with pnpm workspaces links local packages so the change is one pull request; Turborepo or Nx cache tasks so CI rebuilds only what changed.',
+      },
+      {
+        question: 'Turborepo or Nx: how do you choose, and what do they add on top of pnpm workspaces?',
+        bridge: 'The same topic through its tooling: workspaces link packages, the task runner orders and caches tasks, and Nx adds enforced project boundaries.',
+      },
+    ],
     answer:
       'I split it into `apps`, the deployable storefront and back office, and `packages`, the shared code: the design system, tokens, the API client, and shared ESLint and TypeScript configs. pnpm workspaces link local packages with the `workspace:` protocol, so a change to the UI library and its use in both apps is one pull request. On top I use Turborepo, or Nx when there are many teams and I want enforced project boundaries: they run tasks in dependency order and cache their outputs locally and remotely, so CI only rebuilds what changed. Changesets versions the packages that are published.',
     keyPoints: [
@@ -1169,11 +1429,19 @@ worker.postMessage({ id: 1, query: 'trail' });`,
         statement: 'When a package with a `workspace:*` dependency is published with pnpm, that dependency is replaced by the real version.',
         isTrue: true,
         why: 'pnpm rewrites the workspace protocol at publish time, so outside consumers install a normal version.',
+        twin: {
+          statement: 'When a package with a `workspace:*` dependency is published with pnpm, the `workspace:*` range is published as is.',
+          why: 'pnpm rewrites the workspace protocol to the real version at publish time.',
+        },
       },
       {
         statement: 'Turborepo restores a task\'s files from the cache even when the task declares no `outputs`.',
         isTrue: false,
         why: 'Only the files listed in `outputs` are cached; without them, only the logs are replayed.',
+        twin: {
+          statement: 'Turborepo restores only the files listed in a task\'s `outputs`; without them, only the logs are replayed.',
+          why: 'Declaring `outputs` is what lets a cache hit restore the task\'s files.',
+        },
       },
     ],
     codeChoices: [
@@ -1215,6 +1483,16 @@ pnpm turbo run test --affected                 # only packages changed on this b
     level: 'mid',
     paths: ['frontend', 'fullstack'],
     question: 'In Vue, what is the difference between the Options API and the Composition API?',
+    questionVariants: [
+      {
+        question: 'The delivery tracking widget the shop embeds is a Vue component whose `data`, `methods` and `computed` options are spread over 600 lines, so one feature\'s code sits in four places. What would you suggest?',
+        bridge: 'The Options API groups code by option type; the Composition API in `<script setup>` groups it by feature and moves reusable logic into composables.',
+      },
+      {
+        question: 'As a React developer, how would you explain Vue\'s `setup` and composables by comparing them with components and custom hooks?',
+        bridge: 'Composables are close to custom hooks, but `setup` runs once per component instance instead of on every render.',
+      },
+    ],
     answer:
       'They are two ways to write Vue components on the same reactivity system; the Options API is actually implemented on top of the Composition API. With the Options API, I declare `data`, `methods`, `computed` and lifecycle hooks as options of an object and reach them through `this`. With the Composition API, usually in `<script setup>`, I call imported functions like `ref`, `computed` and `onMounted`, so code is grouped by feature and reusable logic goes into composables, close to React custom hooks. Vue recommends it for full applications. Unlike a React component, `setup` runs once per instance, not on every render.',
     keyPoints: [
@@ -1251,16 +1529,28 @@ pnpm turbo run test --affected                 # only packages changed on this b
         statement: 'In Vue 3, the Options API is implemented on top of the Composition API.',
         isTrue: true,
         why: 'Vue\'s docs describe them as two interfaces on the same system, the Options API built on the Composition API.',
+        twin: {
+          statement: 'In Vue 3, the Composition API is implemented on top of the Options API.',
+          why: 'It is the other way round: the Options API is built on the Composition API, on the same reactivity system.',
+        },
       },
       {
         statement: '`reactive()` can hold a primitive value such as a number.',
         isTrue: false,
         why: 'It only works with objects, arrays and collections such as `Map`; use `ref` for primitives.',
+        twin: {
+          statement: '`reactive()` only works with objects, arrays and collections such as `Map`; primitives need `ref`.',
+          why: 'A primitive cannot be wrapped in a reactive proxy, which is what `ref` is for.',
+        },
       },
       {
         statement: 'Destructuring a property out of a `reactive` object keeps the new variable reactive.',
         isTrue: false,
         why: 'The variable holds a plain copy and no longer goes through the proxy, so changes are not tracked.',
+        twin: {
+          statement: 'Destructuring a property out of a `reactive` object gives a plain variable that is no longer tracked.',
+          why: 'The variable holds a copy and no longer goes through the proxy, so changes are not tracked.',
+        },
       },
     ],
     codeChoices: [
@@ -1306,6 +1596,16 @@ onMounted(async () => {
     level: 'mid',
     paths: ['frontend', 'fullstack'],
     question: 'In Angular, what is dependency injection for, and how does it work?',
+    questionVariants: [
+      {
+        question: 'In an Angular version of the back office, each open order tab should keep its own unsaved notes, but notes leak between tabs because `NotesService` uses `providedIn: \'root\'`. Why, and what do you change?',
+        bridge: 'Where a service is provided decides its lifetime: root gives one shared singleton, a component\'s `providers` gives one instance per component.',
+      },
+      {
+        question: 'Why use dependency injection at all, instead of creating `OrdersService` with `new` inside the component?',
+        bridge: 'The purpose of DI: loose coupling, shared instances, and tests that provide a fake instead of the real service.',
+      },
+    ],
     answer:
       'Dependency injection means a class receives what it depends on instead of creating it. In Angular, a service such as `OrdersService` is registered with a provider, and a component asks for it with `inject(OrdersService)`; the injector creates the instance and hands it over. That gives shared singletons for API access and state, loose coupling, and easy testing, since a test can provide a fake. Injectors form a hierarchy, the root injector for app-wide services and element injectors for components, so where I provide a service decides its lifetime and who shares it. For a React developer, it is close to Context for services, built into the framework.',
     keyPoints: [
@@ -1342,11 +1642,19 @@ onMounted(async () => {
         statement: 'A service listed in a component\'s `providers` array gets one instance per instance of that component.',
         isTrue: true,
         why: 'Each component instance has its own element injector, and the service instance is destroyed with the component.',
+        twin: {
+          statement: 'A service listed in a component\'s `providers` array is shared by every instance of that component.',
+          why: 'Each component instance has its own element injector, so each gets its own service instance.',
+        },
       },
       {
         statement: 'A service with `providedIn: \'root\'` gets a new instance for every component that injects it.',
         isTrue: false,
         why: 'The root injector creates one instance and hands the same one to every consumer.',
+        twin: {
+          statement: 'A service with `providedIn: \'root\'` is one instance shared by every component that injects it.',
+          why: 'The root injector creates it once and hands the same instance to every consumer.',
+        },
       },
     ],
     codeChoices: [
@@ -1394,6 +1702,16 @@ export class OrderDetail {
     level: 'senior',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'What are signals, as in Solid, Angular, Vue or Preact, and how do they differ from React\'s state model?',
+    questionVariants: [
+      {
+        question: 'In the back office, each keystroke in the order search box re-renders the whole 500-row table, although only the query changed. A colleague says \'with signals that would not happen\'. What do they mean?',
+        bridge: 'React re-runs the component that owns the state and its children; signals update only the code that reads the changed value.',
+      },
+      {
+        question: 'Explain to a React developer what \'fine-grained reactivity\' means in Solid or Angular signals.',
+        bridge: 'Signals track who reads them and notify only those readers, while React re-runs components on each state change and diffs the result.',
+      },
+    ],
     answer:
       'A signal is a reactive value container: reading it inside a computation or template subscribes that code, and writing it notifies exactly those readers. Derived values are computed signals, and effects re-run when what they read changes. Updates are fine-grained: in Solid a component function runs once, and a change updates only the DOM that reads the signal. React works the other way: state is a snapshot per render, `setState` re-runs the component and its children, and React diffs the result. Signals avoid work by default; React keeps a simpler mental model and relies on memoization, now automated by the React Compiler.',
     keyPoints: [
@@ -1430,16 +1748,28 @@ export class OrderDetail {
         statement: 'In Solid, a component function runs once, and later updates touch only what reads the changed signal.',
         isTrue: true,
         why: 'Solid\'s docs say components run once; reactive reads in the JSX are what update.',
+        twin: {
+          statement: 'In Solid, a component function runs again every time a signal it reads changes.',
+          why: 'Solid components run once; only the reactive reads in the JSX update.',
+        },
       },
       {
         statement: 'Angular computed signals recompute eagerly every time a dependency changes, even if nobody reads them.',
         isTrue: false,
         why: 'They are lazy and memoized: the derivation runs on the first read and again only after a dependency changed.',
+        twin: {
+          statement: 'Angular computed signals are lazy: the derivation runs on the first read and again only after a dependency changed.',
+          why: 'They are memoized, so a computed nobody reads does no work.',
+        },
       },
       {
         statement: 'When React state changes, React re-runs the component that owns it and, by default, its children.',
         isTrue: true,
         why: 'Children re-render unless memoized, which is what `memo` and the React Compiler avoid.',
+        twin: {
+          statement: 'When React state changes, React re-runs only the component that owns it, never its children.',
+          why: 'Children re-render by default unless memoized, which is what `memo` and the React Compiler avoid.',
+        },
       },
     ],
     codeChoices: [
@@ -1494,6 +1824,16 @@ function StockBadge() {
     level: 'senior',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'What is islands architecture, as in Astro, and why has it become popular?',
+    questionVariants: [
+      {
+        question: 'The shop\'s marketing blog is a React SPA that ships 250 KB of JavaScript to render articles whose only interactive part is a newsletter form. Which architecture would you move it to, and why?',
+        bridge: 'Islands: static HTML by default, with only the interactive component hydrated, as Astro does with `client:*` directives.',
+      },
+      {
+        question: 'In Astro, how do you choose between `client:load`, `client:visible` and no directive at all for a component?',
+        bridge: 'Hydration per island: no directive ships no JavaScript, and each directive chooses when that one component hydrates.',
+      },
+    ],
     answer:
       'Islands architecture renders a page to static HTML on the server and hydrates only the interactive components, the islands, each on its own. In Astro, components ship no JavaScript by default; I opt in per component with a directive, like `client:load` for an add-to-cart button or `client:visible` for a reviews widget that hydrates when it scrolls into view. The rest, like the description and the footer, stays plain HTML. It became popular for content-heavy sites such as marketing pages, blogs and documentation: they load fast with little main-thread work, while keeping components from React, Vue or Svelte.',
     keyPoints: [
@@ -1530,11 +1870,19 @@ function StockBadge() {
         statement: 'In Astro, a component without a `client:*` directive is rendered to HTML and ships no JavaScript.',
         isTrue: true,
         why: 'Astro renders components to static HTML by default; a `client:*` directive opts a component into hydration.',
+        twin: {
+          statement: 'In Astro, every component ships its JavaScript to the browser unless it opts out.',
+          why: 'Components render to static HTML by default; a `client:*` directive opts one into hydration.',
+        },
       },
       {
         statement: 'A React context provider in one Astro island makes its value available to the other islands on the page.',
         isTrue: false,
         why: 'Each island hydrates in isolation as its own root; share state with a store such as Nano Stores.',
+        twin: {
+          statement: 'A React context provider in one Astro island does not share its value with the other islands.',
+          why: 'Each island hydrates in isolation as its own root; share state with a store such as Nano Stores.',
+        },
       },
     ],
     codeChoices: [

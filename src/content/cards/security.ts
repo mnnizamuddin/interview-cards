@@ -13,6 +13,16 @@ export const securityCards: Card[] = [
     level: 'mid',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'What is XSS, and how do you prevent it in a full-stack application?',
+    questionVariants: [
+      {
+        question: "A product review containing `<img src=x onerror=...>` runs code in other shoppers' browsers. The product page renders reviews with `dangerouslySetInnerHTML`. What is it, and how do you fix it?",
+        bridge: "Stored XSS through a sink React does not encode: render the review as text or sanitise it with an allow-list such as DOMPurify, with a strict CSP behind.",
+      },
+      {
+        question: "A colleague says: 'We use React, so XSS is not our problem.' Where are they wrong?",
+        bridge: "React encodes values in JSX, but XSS still gets in through the sinks it does not cover, such as `dangerouslySetInnerHTML`, odd URL schemes and server-built inline scripts.",
+      },
+    ],
     answer:
       'Cross-site scripting is an attacker\'s script running in my page, under my origin, so it can read the page and call my API as the user. It can be stored, like a malicious review, reflected from a URL, or DOM-based in my own front-end code. React encodes values rendered in JSX, so the main risks are the sinks it does not cover: `dangerouslySetInnerHTML`, refs writing HTML, URLs with odd schemes, inline scripts built on the server. I validate input, encode output by default, sanitise with DOMPurify only where HTML must render, and add a strict Content Security Policy with nonces. `HttpOnly` cookies limit what an XSS can steal.',
     keyPoints: [
@@ -60,11 +70,19 @@ export const securityCards: Card[] = [
         statement: 'React encodes a string rendered between braces in JSX, so its markup is displayed, not executed.',
         isTrue: true,
         why: 'React inserts it as a text node on the client and HTML-encodes it on the server.',
+        twin: {
+          statement: "React renders a string between braces in JSX as HTML, so its markup is executed.",
+          why: "React inserts it as a text node on the client and HTML-encodes it on the server, so the markup is only displayed.",
+        },
       },
       {
         statement: 'An `HttpOnly` session cookie stops an XSS from performing actions as the user.',
         isTrue: false,
         why: 'The script cannot read the cookie, but it can still send requests from the page, and the browser attaches the cookie.',
+        twin: {
+          statement: "An `HttpOnly` session cookie does not stop an XSS from performing actions as the user.",
+          why: "The script cannot read the cookie, but its requests from the page still carry it.",
+        },
       },
     ],
     codeChoices: [
@@ -110,6 +128,16 @@ export const securityCards: Card[] = [
     level: 'junior',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'What is SQL injection, and how do you prevent it?',
+    questionVariants: [
+      {
+        question: "Searching customers by the e-mail `x' OR '1'='1` in the back office returns every customer. The query is built with a template string. What is it, and what is the fix?",
+        bridge: "SQL injection: input glued into the SQL text changes the query. Parameterised queries send the values apart from the SQL.",
+      },
+      {
+        question: "The orders table lets agents sort by any column, and a colleague wants to pass the column name as `$1`. Why will that fail, and how do you do it safely?",
+        bridge: "Parameters carry values only, never identifiers, so sort columns come from an allow-list in code: the part of injection prevention parameters do not cover.",
+      },
+    ],
     answer:
       'SQL injection happens when user input is glued into a SQL string, so the input can change the query itself. An email like `x\' OR \'1\'=\'1` turns a lookup into "return every row". The fix is parameterised queries: the SQL text is sent with placeholders like `$1`, the values travel separately, and the database parses the statement before binding them, so a value can never become SQL. Query builders and tagged templates do this for me. Parameters only carry values, so table or sort column names go through an allow-list in code. I also review raw escape hatches like `sql.raw`, and give the app\'s database user minimal rights.',
     keyPoints: [
@@ -157,11 +185,19 @@ export const securityCards: Card[] = [
         statement: 'A table name can be passed as a `$1` parameter in PostgreSQL.',
         isTrue: false,
         why: 'Parameters stand for values only; `SELECT * FROM $1` is a syntax error, so names come from an allow-list.',
+        twin: {
+          statement: "A table name cannot be passed as a `$1` parameter in PostgreSQL.",
+          why: "Parameters stand for values only; `SELECT * FROM $1` is a syntax error, so names come from an allow-list.",
+        },
       },
       {
         statement: 'With a parameterised query, an input containing quotes and `OR 1=1` is compared as plain text.',
         isTrue: true,
         why: 'The statement is parsed before the value is bound, so the value can never change the query\'s structure.',
+        twin: {
+          statement: "With a parameterised query, an input containing quotes and `OR 1=1` can still change the query's structure.",
+          why: "The statement is parsed before the value is bound, so the value is compared as plain text.",
+        },
       },
     ],
     codeChoices: [
@@ -212,6 +248,16 @@ const orderBy = { newest: 'created_at DESC', oldest: 'created_at ASC' }[sort];`,
     level: 'mid',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'What is CSRF, and how do you protect an application against it?',
+    questionVariants: [
+      {
+        question: "A support agent opens a forum page and a refund is issued from their back-office session. The session cookie is `SameSite=None` and the refund route accepts form posts. What happened?",
+        bridge: "CSRF: another site made the browser send the request, and the cookie went with it. A Fetch Metadata or `Origin` check, or a CSRF token, stops it.",
+      },
+      {
+        question: "A colleague says: 'Our cookies are `SameSite=Lax`, so we need no CSRF protection.' What are the limits of that?",
+        bridge: "SameSite is defence in depth: `Lax` allows top-level `GET` and sibling subdomains are the same site, so writes still need a real check.",
+      },
+    ],
     answer:
       'Cross-site request forgery is another site making the victim\'s browser send a state-changing request to my app, and the browser attaching the victim\'s cookies automatically. `SameSite=Lax` or `Strict` cookies block most of it, but they are defence in depth: `Lax` still sends cookies on top-level `GET` navigations, and SameSite compares sites, so a sibling subdomain counts as the same site. So I never change state on `GET`, and I add a real check: the `Sec-Fetch-Site` header must be `same-origin` for writes, with an `Origin` check as fallback, or a CSRF token. Requiring JSON also forces cross-origin requests through a CORS preflight.',
     keyPoints: [
@@ -255,11 +301,19 @@ const orderBy = { newest: 'created_at DESC', oldest: 'created_at ASC' }[sort];`,
         statement: 'A cookie with `SameSite=Lax` is still sent when a user clicks a link from another site to yours.',
         isTrue: true,
         why: '`Lax` allows cookies on top-level `GET` navigations, which is why `GET` must never change state.',
+        twin: {
+          statement: "A cookie with `SameSite=Lax` is not sent when a user clicks a link from another site to yours.",
+          why: "`Lax` allows cookies on top-level `GET` navigations, which is why `GET` must never change state.",
+        },
       },
       {
         statement: '`SameSite=Strict` protects the back office from a script running on another subdomain of the same domain.',
         isTrue: false,
         why: 'SameSite compares registrable domains, so subdomains of `shop.example` are the same site.',
+        twin: {
+          statement: "`SameSite=Strict` does not protect the back office from a script running on another subdomain of the same domain.",
+          why: "SameSite compares registrable domains, so subdomains of `shop.example` are the same site.",
+        },
       },
     ],
     codeChoices: [
@@ -305,6 +359,16 @@ const orderBy = { newest: 'created_at DESC', oldest: 'created_at ASC' }[sort];`,
     level: 'mid',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'How do you store and manage secrets like API keys and database passwords in a full-stack application?',
+    questionVariants: [
+      {
+        question: "A researcher e-mails you the payment provider's secret key, found by searching the storefront's JavaScript in DevTools. How did it get there, and what do you do first?",
+        bridge: "A `NEXT_PUBLIC_` variable is published in the bundle: secrets stay in server code, come from a secret manager, and a leaked one is rotated first.",
+      },
+      {
+        question: "A teammate wants to commit the database password in a `.env` file, because 'the repo is private'. How do you manage secrets instead?",
+        bridge: "Secrets never go in the repo or the image: a secret manager injects them at runtime, per service, with short-lived credentials where possible.",
+      },
+    ],
     answer:
       'Secrets never go in the repository, the Docker image or the front-end bundle. They live in a secret manager, such as AWS Secrets Manager or Vault, and reach the process at runtime as environment variables or mounted files, with access limited per service. The app validates its configuration at startup and fails fast if one is missing. In the front end, anything with a `NEXT_PUBLIC_` or `VITE_` prefix is published in the bundle, so privileged calls stay in server code. Where possible I avoid static secrets entirely, with short-lived credentials through OIDC. I redact secrets from logs, and rotate a leaked one first.',
     keyPoints: [
@@ -352,11 +416,19 @@ const orderBy = { newest: 'created_at DESC', oldest: 'created_at ASC' }[sort];`,
         statement: 'Kubernetes Secrets are stored unencrypted in etcd by default.',
         isTrue: true,
         why: 'The Kubernetes docs say so; you must enable encryption at rest or use an external secret store.',
+        twin: {
+          statement: "Kubernetes Secrets are encrypted in etcd by default.",
+          why: "The Kubernetes docs say they are stored unencrypted unless you enable encryption at rest or use an external secret store.",
+        },
       },
       {
         statement: 'Minifying the front-end bundle is enough to keep an API key in it secret.',
         isTrue: false,
         why: 'Everything shipped to the browser is public; anyone can search the bundle in DevTools.',
+        twin: {
+          statement: "An API key in a minified front-end bundle is public: anyone can find it in DevTools.",
+          why: "Minifying hides nothing; everything shipped to the browser can be read.",
+        },
       },
     ],
     codeChoices: [
@@ -405,6 +477,16 @@ function loadConfig(env: NodeJS.ProcessEnv) {
     level: 'junior',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'What is HTTPS, and why does every application need it, even one without sensitive data?',
+    questionVariants: [
+      {
+        question: "Customers on a café's Wi-Fi see ads injected into the storefront's product pages, which still load over plain HTTP. What does HTTPS give you here, and how do you roll it out?",
+        bridge: "HTTPS adds integrity, confidentiality and server authentication; redirect HTTP to HTTPS and send HSTS so browsers stop using HTTP.",
+      },
+      {
+        question: "A product manager says the marketing blog has no login, so it does not need HTTPS. What do you answer?",
+        bridge: "Without TLS the network can read and inject content, and browsers reserve many features, and HTTP/2, for secure connections.",
+      },
+    ],
     answer:
       'HTTPS is HTTP over TLS. It gives three things: confidentiality, so nobody on the network reads the traffic; integrity, so nobody changes it; and authentication of the server through its certificate. Even without sensitive data, plain HTTP lets a Wi-Fi hotspot or a network attacker inject scripts or ads into my pages and steal session cookies. Browsers also reserve many features for secure contexts, like service workers, geolocation and passkeys, and only speak HTTP/2 and HTTP/3 over TLS. Certificates are free and automated with ACME, so I terminate TLS at the load balancer, redirect HTTP, and send HSTS.',
     keyPoints: [
@@ -448,11 +530,19 @@ function loadConfig(env: NodeJS.ProcessEnv) {
         statement: 'Browsers ignore a `Strict-Transport-Security` header received over plain HTTP.',
         isTrue: true,
         why: 'Otherwise a network attacker could add or shorten it; it only counts when received over HTTPS.',
+        twin: {
+          statement: "Browsers apply a `Strict-Transport-Security` header received over plain HTTP.",
+          why: "They ignore it over HTTP, since a network attacker could add or shorten it; it only counts over HTTPS.",
+        },
       },
       {
         statement: 'A site with no login and no personal data gains nothing from HTTPS.',
         isTrue: false,
         why: 'Without integrity, anyone on the network can inject scripts into its pages, and browsers restrict many features to secure contexts.',
+        twin: {
+          statement: "Even a site with no login and no personal data gains something from HTTPS.",
+          why: "Without integrity, anyone on the network can inject scripts into its pages, and browsers restrict many features to secure contexts.",
+        },
       },
     ],
     codeChoices: [
@@ -495,6 +585,16 @@ Set-Cookie: __Host-sid=...; Path=/; Secure; HttpOnly; SameSite=Lax`,
     level: 'senior',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'How would you run a basic security review of a full-stack application before launch?',
+    questionVariants: [
+      {
+        question: "The new storefront launches in three weeks and the CTO asks you to make sure nothing embarrassing ships. What do you do in those three weeks?",
+        bridge: "A pre-launch security review: a threat model, an OWASP-based checklist led by access control, scans in CI, and ranked findings where criticals block launch.",
+      },
+      {
+        question: "A colleague says the scanner in CI found nothing, so the security review is done. What would you still check, and how?",
+        bridge: "Scanners miss authorisation flaws: the review tests access control per route with two users and a non-admin, against the OWASP lists.",
+      },
+    ],
     answer:
       'I start with a short threat model: what we protect, who attacks, and the entry points. Then I walk a checklist framed by the OWASP Top 10, whose current edition is 2025, and the OWASP API Security Top 10. Access control first, since it is A01: for every route, customer A asks for customer B\'s object, and a customer calls admin routes. Then authentication and sessions, input validation and injection, output encoding and CSP, secrets, security headers and CORS, rate limits, dependencies and lockfile, logging and alerting. Automated scans and dependency audits run in CI. Findings get a severity and an owner, and criticals block the launch.',
     keyPoints: [
@@ -542,11 +642,19 @@ Set-Cookie: __Host-sid=...; Path=/; Secure; HttpOnly; SameSite=Lax`,
         statement: 'In the OWASP Top 10:2025, Broken Access Control is A01.',
         isTrue: true,
         why: 'It is first in the 2025 edition, as it was in 2021.',
+        twin: {
+          statement: "In the OWASP Top 10:2025, Injection is A01.",
+          why: "Broken Access Control is A01 in the 2025 edition, as it was in 2021.",
+        },
       },
       {
         statement: 'If an automated vulnerability scanner reports nothing, the API has no authorisation flaws.',
         isTrue: false,
         why: 'Scanners do not know who owns which order; object-level authorisation needs tests with two real users.',
+        twin: {
+          statement: "An automated vulnerability scanner that reports nothing can still miss authorisation flaws in the API.",
+          why: "Scanners do not know who owns which order; object-level authorisation needs tests with two real users.",
+        },
       },
     ],
     lesson: {
@@ -568,6 +676,16 @@ Set-Cookie: __Host-sid=...; Path=/; Secure; HttpOnly; SameSite=Lax`,
     level: 'mid',
     paths: ['frontend', 'fullstack'],
     question: 'What is a Content Security Policy, and what does it protect against?',
+    questionVariants: [
+      {
+        question: "The `dangerouslySetInnerHTML` bug is fixed, but security wants a second layer so an injected `<script>` on the storefront would not run. What header do you add, and how do you roll it out?",
+        bridge: "A Content Security Policy with a per-response nonce and `'strict-dynamic'` blocks scripts without the nonce; start in report-only mode, then enforce.",
+      },
+      {
+        question: "A colleague says a CSP means we can stop sanitising user HTML. What does a CSP protect against, and what does it not replace?",
+        bridge: "CSP limits XSS and clickjacking as defence in depth; a policy can be wrong or bypassed, so the dangerous sink still gets fixed.",
+      },
+    ],
     answer:
       'A Content Security Policy is a response header that tells the browser which scripts and other resources a page may load and run. Its main job is limiting XSS: with a strict policy, a `script-src` with a per-response nonce and `\'strict-dynamic\'`, an injected script or inline handler has no nonce, so the browser blocks it. Other directives stop clickjacking with `frame-ancestors`, plugins with `object-src \'none\'` and injected `<base>` tags with `base-uri`. It is defence in depth, not the fix: I still remove the dangerous sink. I roll it out in report-only mode first, read the reports, then enforce.',
     keyPoints: [
@@ -606,16 +724,28 @@ Set-Cookie: __Host-sid=...; Path=/; Secure; HttpOnly; SameSite=Lax`,
         statement: 'A `Content-Security-Policy-Report-Only` header blocks violating scripts and reports them.',
         isTrue: false,
         why: 'It only reports: the script still runs, which is what makes it safe for a rollout.',
+        twin: {
+          statement: "A `Content-Security-Policy-Report-Only` header reports violating scripts but lets them run.",
+          why: "It only reports, which is what makes it safe for a rollout.",
+        },
       },
       {
         statement: 'With `\'strict-dynamic\'`, browsers ignore the host allow-list in the same `script-src`.',
         isTrue: true,
         why: 'They trust only nonced or hashed scripts and the scripts those load; listed hosts no longer count.',
+        twin: {
+          statement: "With `'strict-dynamic'`, browsers still trust scripts from hosts allow-listed in the same `script-src`.",
+          why: "They trust only nonced or hashed scripts and the scripts those load; listed hosts no longer count.",
+        },
       },
       {
         statement: 'Once a strict CSP is enforced, user HTML no longer needs sanitising.',
         isTrue: false,
         why: 'CSP is defence in depth: a policy can be wrong or bypassed, so the sink is still fixed.',
+        twin: {
+          statement: "User HTML still needs sanitising once a strict CSP is enforced.",
+          why: "CSP is defence in depth: a policy can be wrong or bypassed, so the sink is still fixed.",
+        },
       },
     ],
     codeChoices: [
@@ -658,6 +788,16 @@ Reporting-Endpoints: csp="https://www.shop.example/api/csp-reports"
     level: 'senior',
     paths: ['frontend', 'fullstack'],
     question: 'Beyond XSS and CSRF, how do you secure a frontend application?',
+    questionVariants: [
+      {
+        question: "A marketing tag added to the storefront through a tag manager is found sending checkout form fields to an unknown domain. What frontend hardening would have limited this?",
+        bridge: "Every script on the page has its full power: few, owned third-party scripts, SRI on versioned files, and a CSP that blocks the rest.",
+      },
+      {
+        question: "Your XSS and CSRF defences are in place. What else would you harden in the back-office React app?",
+        bridge: "Beyond XSS and CSRF: no secrets in the bundle, controlled third-party scripts, `frame-ancestors`, `postMessage` origin checks, headers, tokens behind a BFF, dependency hygiene.",
+      },
+    ],
     answer:
       'I start from two facts: everything shipped to the browser is public, and every script on the page has its full power. So no secrets in the bundle: `NEXT_PUBLIC_` and `VITE_` variables are published, and privileged calls stay in server code. I keep third-party scripts few and owned, pin versioned ones with Subresource Integrity and let the CSP block the rest. I stop clickjacking with `frame-ancestors`, check `event.origin` on every `postMessage`, send headers like HSTS and `nosniff`, and keep tokens out of JavaScript behind a BFF. npm dependencies are third-party code too: lockfile, audits, delayed updates.',
     keyPoints: [
@@ -696,16 +836,28 @@ Reporting-Endpoints: csp="https://www.shop.example/api/csp-reports"
         statement: 'Subresource Integrity can protect a third-party script whose content changes on every request.',
         isTrue: false,
         why: 'SRI compares a fixed hash, so it only fits versioned files that never change.',
+        twin: {
+          statement: "Subresource Integrity cannot protect a third-party script whose content changes on every request.",
+          why: "SRI compares a fixed hash, so it only fits versioned files that never change.",
+        },
       },
       {
         statement: 'A cross-origin script with an `integrity` attribute also needs the `crossorigin` attribute to run.',
         isTrue: true,
         why: 'Without a CORS request the browser cannot enforce the hash, so it blocks the script.',
+        twin: {
+          statement: "A cross-origin script with an `integrity` attribute runs even without the `crossorigin` attribute.",
+          why: "Without a CORS request the browser cannot enforce the hash, so it blocks the script.",
+        },
       },
       {
         statement: 'A third-party analytics script cannot read what the user types in your checkout form.',
         isTrue: false,
         why: 'Any script on the page runs with the page\'s full power, form fields included.',
+        twin: {
+          statement: "A third-party analytics script can read what the user types in your checkout form.",
+          why: "Any script on the page runs with the page's full power, form fields included.",
+        },
       },
     ],
     codeChoices: [
@@ -748,6 +900,16 @@ Reporting-Endpoints: csp="https://www.shop.example/api/csp-reports"
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is broken access control, and how do you test for it?',
+    questionVariants: [
+      {
+        question: "A customer changed the id in `GET /orders/:id` and saw another customer's address and items. What is the flaw, and how would you catch this class of bug before release?",
+        bridge: "Broken access control, OWASP A01: ownership belongs in the query, and every route is tested in CI with two customers and a non-admin.",
+      },
+      {
+        question: "A colleague says switching order ids to random UUIDs fixes insecure direct object references. Do you agree, and what do you do instead?",
+        bridge: "Ids leak through URLs, e-mails and logs; access control means a server-side check on every request, deny by default.",
+      },
+    ],
     answer:
       'Broken access control is a user doing something they should not: reading another customer\'s order by changing an id, or a customer calling an admin route the UI hides. It is A01 in the OWASP Top 10. I prevent it with deny by default and a check on every request, on the server: ownership in the query, like `WHERE id = $1 AND customer_id = $2`, and roles from the verified session, never from the request. I test it with two customers and a non-admin per route: B asks for A\'s order and must get 404, and a customer calling the refund route must get 403, in CI.',
     keyPoints: [
@@ -787,16 +949,28 @@ Reporting-Endpoints: csp="https://www.shop.example/api/csp-reports"
         statement: 'Random UUIDs instead of sequential ids prevent insecure direct object references.',
         isTrue: false,
         why: 'Ids leak through URLs, e-mails and logs; only a check on every access prevents it.',
+        twin: {
+          statement: "Random UUIDs instead of sequential ids do not prevent insecure direct object references.",
+          why: "Ids leak through URLs, e-mails and logs; only a check on every access prevents it.",
+        },
       },
       {
         statement: 'Answering 404 rather than 403 for another customer\'s order avoids confirming that the order exists.',
         isTrue: true,
         why: 'A 403 tells an attacker the id is real, which helps them walk through ids.',
+        twin: {
+          statement: "Answering 403 rather than 404 for another customer's order hides whether the order exists.",
+          why: "A 403 tells an attacker the id is real, which helps them walk through ids.",
+        },
       },
       {
         statement: 'A customer calling an admin route is horizontal privilege escalation.',
         isTrue: false,
         why: 'Gaining a higher role\'s powers is vertical; horizontal is reaching a peer\'s data.',
+        twin: {
+          statement: "A customer calling an admin route is vertical privilege escalation.",
+          why: "Gaining a higher role's powers is vertical; horizontal is reaching a peer's data.",
+        },
       },
     ],
     codeChoices: [
@@ -849,6 +1023,16 @@ export async function findOrderForCaller(db: Pool, caller: Caller, orderId: stri
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'How would you implement secure password storage?',
+    questionVariants: [
+      {
+        question: "A backup of the `customers` table leaked, and passwords are stored as unsalted SHA-256. How bad is it, and what should have been stored instead?",
+        bridge: "Fast hashes let a GPU try billions of guesses per second: a slow password hash such as Argon2id, with a salt per password, makes cracking slow and one by one.",
+      },
+      {
+        question: "A colleague asks why you bother with Argon2id when SHA-256 is a secure cryptographic hash. How do you explain password storage?",
+        bridge: "A secure hash can still be fast; password hashing must be slow and salted, with its parameters stored so the cost can rise at the next login.",
+      },
+    ],
     answer:
       'I never store passwords, only a slow, salted hash from a password hashing function: Argon2id first, as OWASP recommends, scrypt when it is not available, bcrypt only on legacy systems. Fast hashes like SHA-256 are wrong, because a GPU tries billions of guesses per second. Each password gets its own random salt, so equal passwords hash differently and must be cracked one by one. The algorithm, parameters and salt sit in the stored string, so I can raise the cost and rehash at the next login. Around it, I cap password length, rate-limit login and give unknown e-mails the same answer and timing.',
     keyPoints: [
@@ -888,16 +1072,28 @@ export async function findOrderForCaller(db: Pool, caller: Caller, orderId: stri
         statement: 'Adding a salt is what makes each password guess slow to compute.',
         isTrue: false,
         why: 'The salt makes equal passwords hash differently; the slowness comes from the cost parameters.',
+        twin: {
+          statement: "The cost parameters, not the salt, are what make each password guess slow to compute.",
+          why: "The salt makes equal passwords hash differently; the slowness comes from the cost parameters.",
+        },
       },
       {
         statement: 'A bcrypt hash string contains its own salt.',
         isTrue: true,
         why: 'The output holds the version, the cost, the salt and the hash, so `verify` needs nothing else.',
+        twin: {
+          statement: "A bcrypt hash string does not contain its salt, so the salt needs its own column.",
+          why: "The output holds the version, the cost, the salt and the hash, so `verify` needs nothing else.",
+        },
       },
       {
         statement: 'SHA-256 is a good password hash because it is a secure cryptographic hash.',
         isTrue: false,
         why: 'It is secure but fast, so offline guessing is cheap; password hashing must be slow.',
+        twin: {
+          statement: "SHA-256 is a poor password hash even though it is a secure cryptographic hash.",
+          why: "It is fast, so offline guessing is cheap; password hashing must be slow.",
+        },
       },
     ],
     codeChoices: [
@@ -950,6 +1146,16 @@ const ok = await verify(stored, attempt); // reads salt and parameters from stor
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How would you design JWT authentication, and what are its pitfalls?',
+    questionVariants: [
+      {
+        question: "A support agent's stolen access token kept working against the Orders API for 24 hours after their account was disabled. What is wrong with the token design?",
+        bridge: "A JWT is usable until `exp` and hard to revoke: keep access tokens to a few minutes and rotate refresh tokens, which can be revoked.",
+      },
+      {
+        question: "A colleague wants to put the customer's address and phone number in the JWT to save a database call. What do you answer, and what must the verifier check?",
+        bridge: "A JWT is signed, not encrypted, so anyone can read its claims; the verifier pins the algorithm, issuer and audience and requires `exp`.",
+      },
+    ],
     answer:
       'A JWT is signed, not encrypted: anyone can read its claims, and whoever holds it can use it until `exp`. So I keep access tokens short-lived, a few minutes, with a refresh token that rotates on every use. The verifier pins the algorithm, the issuer and the audience and requires `exp`; I prefer asymmetric keys published as a JWKS, with a `kid` for rotation. The pitfalls: trusting the token\'s own `alg`, long-lived tokens nobody can revoke, personal data in the payload, and tokens in `localStorage`. For a first-party web app, a BFF with an `HttpOnly` session cookie is often simpler.',
     keyPoints: [
@@ -989,11 +1195,19 @@ const ok = await verify(stored, attempt); // reads salt and parameters from stor
         statement: 'Anyone holding a JWT can read its payload without the signing key.',
         isTrue: true,
         why: 'The payload is only base64url-encoded; the signature protects integrity, not confidentiality.',
+        twin: {
+          statement: "Nobody can read a JWT's payload without the signing key.",
+          why: "The payload is only base64url-encoded; the signature protects integrity, not confidentiality.",
+        },
       },
       {
         statement: 'Deleting the JWT in the browser at logout makes it invalid on the server.',
         isTrue: false,
         why: 'Any copy stays valid until `exp`; revoke the refresh token and keep access tokens short.',
+        twin: {
+          statement: "Deleting a JWT in the browser at logout leaves any copy of it valid until `exp`.",
+          why: "Deleting one copy changes nothing on the server; revoke the refresh token and keep access tokens short.",
+        },
       },
     ],
     codeChoices: [

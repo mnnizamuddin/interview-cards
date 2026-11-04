@@ -25,6 +25,24 @@ export type Trap = {
   statement: string;
   isTrue: boolean;
   why: string;
+  /**
+   * The same fact stated the other way, so its answer is the opposite of `isTrue`. Asked on its
+   * own, it stops the learner from remembering "this sentence is false" instead of the fact.
+   */
+  twin?: {
+    statement: string;
+    why: string;
+  };
+};
+
+/**
+ * Another way to ask the topic's main question, often as a production scenario, answered by the
+ * same model answer and key points.
+ */
+export type QuestionVariant = {
+  question: string;
+  /** Shown above the model answer: how this question maps to the topic, for a scenario which concept the symptom points to. */
+  bridge: string;
 };
 
 /**
@@ -61,6 +79,8 @@ export type Card = {
   level: Level;
   paths: Path[];
   question: string;
+  /** Other ways to ask the main question; the model answer and key points stay the same. */
+  questionVariants?: QuestionVariant[];
   /** The model answer, written to be said aloud in about a minute. */
   answer: string;
   /** What a good spoken answer must contain; the learner ticks the ones they said. */

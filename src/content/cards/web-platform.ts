@@ -13,6 +13,16 @@ export const webPlatformCards: Card[] = [
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What is the CSS box model, and how do `content-box` and `border-box` differ?',
+    questionVariants: [
+      {
+        question: 'A storefront product card is set to `width: 320px` with 20 px of padding and a 1 px border, yet DevTools shows it 362 px wide and the grid overflows. Why, and how do you make 320 mean 320?',
+        bridge: 'With the default `content-box`, `width` sizes only the content and padding and border are added on top; `border-box` makes the width include them.',
+      },
+      {
+        question: 'A junior asks why the CSS reset starts with `box-sizing: border-box` on every element. How do you explain the box model to them?',
+        bridge: 'The same topic from the reset\'s side: the four layers, what `width` measures in each `box-sizing` mode, and why teams pick `border-box`.',
+      },
+    ],
     answer:
       'Every element is laid out as a box made of four layers: the content, then padding, then border, then margin outside. The `box-sizing` property decides what `width` and `height` measure. With the default, `content-box`, they size only the content, so a 300 px box with 16 px of padding and a 2 px border takes 336 px. With `border-box`, the width includes padding and border, so it stays 300 px and the content shrinks. Margin is never included. I set `border-box` on everything in the reset, because sizes then mean what the design says.',
     keyPoints: [
@@ -61,11 +71,19 @@ export const webPlatformCards: Card[] = [
         statement: 'With `box-sizing: border-box`, `width` includes the padding and the border.',
         isTrue: true,
         why: 'That is the definition of `border-box`; only the margin stays outside.',
+        twin: {
+          statement: 'With `box-sizing: border-box`, `width` sizes the content only and the padding and border are added on top.',
+          why: 'That describes `content-box`; with `border-box` the width includes padding and border, and only the margin stays outside.',
+        },
       },
       {
         statement: 'The default value of `box-sizing` is `border-box`.',
         isTrue: false,
         why: 'The default is `content-box`; resets switch it to `border-box`.',
+        twin: {
+          statement: 'The default value of `box-sizing` is `content-box`.',
+          why: 'Browsers start with `content-box`; resets switch it to `border-box`.',
+        },
       },
     ],
     codeChoices: [
@@ -114,6 +132,16 @@ export const webPlatformCards: Card[] = [
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What is the difference between Flexbox and CSS Grid, and when do you use each?',
+    questionVariants: [
+      {
+        question: 'The back office\'s order filters are a row of chips laid out with Flexbox. The order detail page now needs a sidebar and a main area whose items line up across rows and columns. Do you keep Flexbox there?',
+        bridge: 'One axis versus two: chips sized by their content are a Flexbox case; a layout whose rows and columns must line up is a Grid case.',
+      },
+      {
+        question: 'A colleague says Grid has replaced Flexbox, so new components should only use Grid. How do you answer?',
+        bridge: 'A comparison through a misconception: each solves a different layout problem, and they are usually combined, grid for the layout and flex inside components.',
+      },
+    ],
     answer:
       'Flexbox lays items out along one axis, a row or a column, and sizes them from their content: a toolbar, a row of badges, a label next to an input. Grid lays out rows and columns together, and the container defines the tracks, so items line up in both directions: a page shell, a checkout with a form and a summary, a product grid. They combine well: a grid for the page, flex inside each card. Both support `gap`, and in both, visual reordering does not change the Tab order, which follows the DOM.',
     keyPoints: [
@@ -167,11 +195,19 @@ export const webPlatformCards: Card[] = [
         statement: 'Changing the visual order with the `order` property also changes the keyboard Tab order.',
         isTrue: false,
         why: 'The Tab order follows the DOM order, so the visual and keyboard orders drift apart.',
+        twin: {
+          statement: 'Changing the visual order with the `order` property leaves the keyboard Tab order unchanged.',
+          why: 'The Tab order follows the DOM order, so the visual and keyboard orders can drift apart.',
+        },
       },
       {
         statement: 'The `gap` property works in both Flexbox and Grid containers.',
         isTrue: true,
         why: 'Both layouts support `gap`, which replaces the old margin tricks between items.',
+        twin: {
+          statement: 'The `gap` property works in Grid containers but not in Flexbox containers.',
+          why: 'Both layouts support `gap`, so flex rows no longer need margin tricks between items.',
+        },
       },
     ],
     codeChoices: [
@@ -222,6 +258,16 @@ export const webPlatformCards: Card[] = [
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What is the difference between `position: relative`, `absolute`, `fixed` and `sticky`?',
+    questionVariants: [
+      {
+        question: 'In the back office, a \'refunded\' badge styled `position: absolute; top: 8px; right: 8px` lands in the corner of the whole page instead of its order card. What is missing?',
+        bridge: 'An `absolute` element is placed against its nearest positioned ancestor; the card needs `position: relative` to become that reference.',
+      },
+      {
+        question: 'The orders table header must stay visible while agents scroll the table. Which `position` value do you use, what does it need, and how does it differ from `fixed`?',
+        bridge: '`sticky` stays in the flow and sticks at a threshold within its scrolling ancestor; `fixed` leaves the flow and is placed against the viewport.',
+      },
+    ],
     answer:
       'They decide what an element is placed against and whether it keeps its space. `relative` keeps its place in the flow and shifts from it, and it becomes the reference for `absolute` children. `absolute` leaves the flow and is placed against the nearest positioned ancestor. `fixed` also leaves the flow and is placed against the viewport, except when an ancestor has a `transform` or `filter`. `sticky` stays in the flow and sticks once it reaches a threshold like `top: 0`, within its nearest scrolling ancestor. I use `relative` plus `absolute` for badges, `sticky` for table headers.',
     keyPoints: [
@@ -270,16 +316,28 @@ export const webPlatformCards: Card[] = [
         statement: 'An element with `position: relative` keeps its original space in the layout even when it is shifted with `top` or `left`.',
         isTrue: true,
         why: 'The offset is visual only: the other elements are laid out as if it had not moved.',
+        twin: {
+          statement: 'An element with `position: relative` gives up its original space in the layout when it is shifted with `top` or `left`.',
+          why: 'The offset is visual only: the other elements are still laid out as if it had not moved.',
+        },
       },
       {
         statement: 'An `absolute` element is always placed against its direct parent.',
         isTrue: false,
         why: 'It is placed against the nearest positioned ancestor, or the initial containing block when there is none.',
+        twin: {
+          statement: 'An `absolute` element is placed against its nearest positioned ancestor, which is not always its direct parent.',
+          why: 'When the parent is not positioned, the browser looks further up, ending at the initial containing block.',
+        },
       },
       {
         statement: '`position: sticky` with no `top`, `bottom`, `left` or `right` behaves like `position: relative`.',
         isTrue: true,
         why: 'Without a threshold it never sticks, so it acts as relatively positioned.',
+        twin: {
+          statement: '`position: sticky` with no `top`, `bottom`, `left` or `right` still sticks to the top of its scrolling ancestor.',
+          why: 'Without a threshold it never sticks, so it behaves like `position: relative`.',
+        },
       },
     ],
     codeChoices: [
@@ -322,6 +380,16 @@ export const webPlatformCards: Card[] = [
     level: 'senior',
     paths: ['frontend', 'fullstack'],
     question: 'What is the critical rendering path, and how would you optimize it to load a page faster?',
+    questionVariants: [
+      {
+        question: 'Storefront product pages stay blank for 2 seconds on 4G although the HTML arrives in 300 ms. The head holds three stylesheets and two classic scripts. Where do you look first?',
+        bridge: 'Render-blocking CSS and parser-blocking scripts sit on the critical rendering path and delay the first paint after the HTML arrives.',
+      },
+      {
+        question: 'Walk me through what the browser does between receiving the HTML and the first paint, and which of those steps you can shorten.',
+        bridge: 'The interviewer\'s wording of the same topic: DOM, CSSOM, layout and paint, then what blocks each step and how to unblock it.',
+      },
+    ],
     answer:
       'It is the sequence the browser goes through before the first paint: parse HTML into the DOM, CSS into the CSSOM, combine them, then layout and paint. Stylesheets in the head block rendering, and classic scripts block the parser. So I keep render-blocking CSS small, load scripts with `defer`, `async` or as modules, and make sure the LCP image is an `<img>` in the HTML with `fetchpriority="high"` and never lazy. I also cut the time to first byte with CDN-cached HTML. Then I verify with field LCP data, not only a lab score.',
     keyPoints: [
@@ -375,11 +443,19 @@ export const webPlatformCards: Card[] = [
         statement: 'A stylesheet with a `media` attribute that does not match the current page does not block the first paint.',
         isTrue: true,
         why: 'The browser still downloads it but does not wait for it to render, as with `media="print"`.',
+        twin: {
+          statement: 'A stylesheet whose `media` attribute does not match the page, such as `media="print"`, still blocks the first paint.',
+          why: 'The browser downloads it but does not wait for it before rendering the page.',
+        },
       },
       {
         statement: '`async` scripts run in the order they appear in the document.',
         isTrue: false,
         why: 'They run as soon as each one arrives; `defer` and module scripts keep the document order.',
+        twin: {
+          statement: '`async` scripts run as soon as each one arrives, so their order is not guaranteed.',
+          why: '`defer` and module scripts keep the document order; `async` scripts do not.',
+        },
       },
     ],
     codeChoices: [
@@ -427,6 +503,16 @@ export const webPlatformCards: Card[] = [
     level: 'junior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'What is semantic HTML, and why does it matter?',
+    questionVariants: [
+      {
+        question: 'Keyboard and screen reader users report that the back office\'s \'Refund\' control cannot be activated. In the code it is a `div` with an `onClick`. What is wrong, and what do you change?',
+        bridge: 'A `div` brings no role, focus or keyboard behaviour; a native `button` gives all three, which is what semantic HTML is about.',
+      },
+      {
+        question: 'A colleague says markup does not matter as long as the page looks right. How do you convince them otherwise?',
+        bridge: 'A misconception about semantics: the accessibility tree, built-in keyboard behaviour, SEO and readability all come from choosing elements by meaning.',
+      },
+    ],
     answer:
       'Semantic HTML means choosing elements for what they are, not how they look: `button` for actions, `a` for navigation, headings in order, `nav`, `main`, `label` for inputs. It matters because the browser builds the accessibility tree from it, with a role, a name and states, which screen readers and voice control read. Native elements also bring behaviour for free: a `button` is focusable and works with Enter and Space. It helps search engines and keeps the code readable. So in review, a `div` with an `onClick` becomes a `button`.',
     keyPoints: [
@@ -479,11 +565,19 @@ export const webPlatformCards: Card[] = [
         statement: 'Adding `role="button" tabindex="0"` to a `div` makes it respond to Enter and Space like a button.',
         isTrue: false,
         why: 'ARIA changes the accessibility tree, not the behaviour: you must handle the keys yourself.',
+        twin: {
+          statement: 'A `div` with `role="button" tabindex="0"` still needs your own key handlers to respond to Enter and Space.',
+          why: 'ARIA changes the accessibility tree, not the behaviour, so the keys must be handled in code.',
+        },
       },
       {
         statement: 'A native `button` element can be reached with the Tab key without any extra attribute.',
         isTrue: true,
         why: 'Buttons, links and form fields are focusable by default.',
+        twin: {
+          statement: 'A native `button` element needs `tabindex="0"` before the Tab key can reach it.',
+          why: 'Buttons, links and form fields are focusable by default.',
+        },
       },
     ],
     codeChoices: [
@@ -524,6 +618,16 @@ export const webPlatformCards: Card[] = [
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What is responsive web design, and which techniques do you use to implement it?',
+    questionVariants: [
+      {
+        question: 'On phones, the storefront\'s new landing page shows as a tiny zoomed-out desktop layout that users must pinch to read, although the CSS has media queries. What is missing?',
+        bridge: 'Without the viewport meta tag, mobile browsers lay the page out on a wider virtual viewport and zoom out; `width=device-width` is where responsive design starts.',
+      },
+      {
+        question: 'A junior plans to build separate mobile and desktop versions of the storefront\'s product page. What do you suggest instead, and with which techniques?',
+        bridge: 'Responsive design is one page that adapts: the viewport tag, fluid layouts, media and container queries, and responsive images.',
+      },
+    ],
     answer:
       'Responsive design means one page that adapts to any screen size instead of separate mobile and desktop sites. It starts with the viewport meta tag, `width=device-width`, then fluid layouts with grid and flex, `fr` and `minmax()`, so most of the layout adapts without breakpoints. I add media queries, mobile first with `min-width`, for page-level changes, and container queries for components that must adapt to their slot. Images use `srcset` and `sizes` so phones download smaller files, and I use `rem` so text zoom works. I check the layout at 320 CSS pixels wide.',
     keyPoints: [
@@ -576,11 +680,19 @@ export const webPlatformCards: Card[] = [
         statement: 'Container queries let a component react to the width of its container instead of the viewport.',
         isTrue: true,
         why: 'That is their purpose, and they work in every major browser.',
+        twin: {
+          statement: 'Container queries let a component react to the viewport width only, like media queries.',
+          why: 'They read the width of a container ancestor, which is their whole purpose.',
+        },
       },
       {
         statement: 'Without the viewport meta tag, mobile browsers lay the page out at the device width.',
         isTrue: false,
         why: 'They lay it out on a wider virtual viewport and zoom out; `width=device-width` fixes that.',
+        twin: {
+          statement: 'Without the viewport meta tag, mobile browsers lay the page out on a wider virtual viewport and zoom out.',
+          why: '`width=device-width` tells them to lay it out at the device width instead.',
+        },
       },
     ],
     codeChoices: [
@@ -627,6 +739,16 @@ export const webPlatformCards: Card[] = [
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What is the DOM, and how does JavaScript interact with it?',
+    questionVariants: [
+      {
+        question: 'A support agent\'s note containing `<img src=x onerror=alert(1)>` runs a script when the back office shows it. The code sets the note with `innerHTML`. What is happening, and what should it use?',
+        bridge: '`innerHTML` parses the string as HTML into DOM nodes; `textContent` inserts it as plain text, which closes this XSS hole.',
+      },
+      {
+        question: 'A colleague says the DOM is just the HTML file the server sent. Where are they wrong, and how does JavaScript work with it?',
+        bridge: 'The DOM is a live tree of objects built from the HTML, corrected by the parser and changed by scripts, not the source text.',
+      },
+    ],
     answer:
       'The DOM, the Document Object Model, is the tree of objects the browser builds from the HTML: one node per element and text, with properties and methods. It is a live structure, not the source file: the browser fixes invalid markup, and scripts can change it. JavaScript finds nodes with `querySelector` and `querySelectorAll`, changes them with `textContent`, `classList`, attributes and `append`, and listens with `addEventListener`. I use `textContent` for user data, never `innerHTML`, which parses HTML and opens the door to XSS. In React, I let React own the DOM and only use refs for focus or measuring.',
     keyPoints: [
@@ -674,11 +796,19 @@ export const webPlatformCards: Card[] = [
         statement: 'The DOM can differ from the HTML source, for example when the parser corrects invalid nesting.',
         isTrue: true,
         why: 'The parser builds a valid tree: a `<p>` inside another `<p>` becomes sibling paragraphs.',
+        twin: {
+          statement: 'The DOM always matches the HTML source exactly, even when the markup has invalid nesting.',
+          why: 'The parser corrects invalid markup: a `<p>` inside another `<p>` becomes sibling paragraphs.',
+        },
       },
       {
         statement: '`querySelectorAll` returns a live list that updates when matching elements are added.',
         isTrue: false,
         why: 'It returns a static `NodeList`; `getElementsByClassName` returns a live collection.',
+        twin: {
+          statement: '`querySelectorAll` returns a static `NodeList` that does not update when matching elements are added.',
+          why: 'It is a snapshot taken at call time; `getElementsByClassName` returns a live collection.',
+        },
       },
     ],
     codeChoices: [
@@ -724,6 +854,16 @@ list.append(item);
     level: 'mid',
     paths: ['frontend', 'fullstack'],
     question: 'What causes a reflow (layout) versus a repaint, and how does it affect performance?',
+    questionVariants: [
+      {
+        question: 'Opening the back office\'s order drawer stutters: it animates `left` from -400px to 0, and a Performance recording shows layout work in every frame. What do you change?',
+        bridge: 'Animating a geometry property runs layout and paint on each frame; `transform` and `opacity` can skip both and run on the compositor.',
+      },
+      {
+        question: 'What is layout thrashing, and how do you avoid it when a script resizes a list of order rows?',
+        bridge: 'Reading geometry like `offsetHeight` right after a style write forces a synchronous layout; batching reads before writes avoids it.',
+      },
+    ],
     answer:
       'A reflow, or layout, recomputes the size and position of boxes; a repaint fills pixels again without moving anything. A change restarts the pipeline at the earliest step it affects. Changing `width`, `top` or the content triggers layout, then paint. Changing `color` or `background` triggers only paint. `transform` and `opacity` can skip both and run on the compositor. So I animate with `transform` and `opacity`. And I avoid layout thrashing: reading a geometry value like `offsetHeight` right after a write forces a synchronous layout, so I batch all reads before all writes.',
     keyPoints: [
@@ -771,11 +911,19 @@ list.append(item);
         statement: 'Changing an element\'s `background-color` triggers a layout.',
         isTrue: false,
         why: 'It does not change geometry, so only paint and composite run.',
+        twin: {
+          statement: 'Changing an element\'s `background-color` triggers paint but not layout.',
+          why: 'It does not change geometry, so only paint and composite run.',
+        },
       },
       {
         statement: 'Reading `offsetHeight` right after changing a width forces the browser to run layout immediately.',
         isTrue: true,
         why: 'The value must be up to date, so the browser runs a forced synchronous layout.',
+        twin: {
+          statement: 'Reading `offsetHeight` right after changing a width returns the old value until the next frame.',
+          why: 'The browser runs layout immediately so the value is up to date: a forced synchronous layout.',
+        },
       },
     ],
     codeChoices: [
@@ -821,6 +969,16 @@ cards.forEach((card, i) => {
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What is CSS specificity, and how is it calculated?',
+    questionVariants: [
+      {
+        question: 'In the storefront, `.product-card .price { color: red }` has no effect because `#catalog p { color: black }` wins. Adding two more classes to the first selector still fails. Why?',
+        bridge: 'Specificity is compared column by column, so one id outweighs any number of classes; flat class selectors or `@layer` avoid this fight.',
+      },
+      {
+        question: 'How do `:where()`, `:is()` and `@layer` help you keep specificity under control in a large stylesheet?',
+        bridge: 'Tools around the same calculation: `:where()` counts zero, `:is()` takes its most specific argument, and layers sit above specificity in the cascade.',
+      },
+    ],
     answer:
       'Specificity decides which of two rules wins when they set the same property in the same layer. It is counted as three numbers: ids, then classes, attributes and pseudo-classes, then element types and pseudo-elements, compared left to right. So one id beats any number of classes. If specificity ties, the later rule wins. Inline styles and `!important` sit above specificity in the cascade, and cascade layers do too. `:where()` counts zero and `:is()` takes its most specific argument. I keep specificity low and flat with classes, and use `@layer` rather than `!important`.',
     keyPoints: [
@@ -870,11 +1028,19 @@ cards.forEach((card, i) => {
         statement: 'A selector with one id beats a selector with four classes.',
         isTrue: true,
         why: 'Specificity compares the id count first, so (1,0,0) beats (0,4,0).',
+        twin: {
+          statement: 'A selector with four classes beats a selector with one id.',
+          why: 'Specificity compares the id count first, so (1,0,0) beats (0,4,0).',
+        },
       },
       {
         statement: 'The universal selector `*` adds one to the element count.',
         isTrue: false,
         why: '`*` has no specificity at all.',
+        twin: {
+          statement: 'The universal selector `*` adds nothing to specificity.',
+          why: '`*` counts zero in every column.',
+        },
       },
     ],
     codeChoices: [
@@ -921,6 +1087,16 @@ cards.forEach((card, i) => {
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What is the difference between `localStorage`, `sessionStorage` and cookies?',
+    questionVariants: [
+      {
+        question: 'A security review finds the storefront keeps the customer\'s access token in `localStorage` so that every tab stays logged in. Why is it flagged, and where should the session live?',
+        bridge: 'Web Storage is readable by any script, so one XSS steals the token; an `HttpOnly`, `Secure`, `SameSite` cookie keeps it out of JavaScript.',
+      },
+      {
+        question: 'A customer fills the checkout form, types the storefront URL in a second tab, and the saved draft is not there. The team used `sessionStorage`. Explain it and compare the three options.',
+        bridge: '`sessionStorage` belongs to one tab, `localStorage` is shared by every tab of the origin, and cookies travel with requests.',
+      },
+    ],
     answer:
       'Cookies are small, about 4 KB each, and the browser sends them with every request to their site; the server can set them `HttpOnly` so JavaScript cannot read them. `localStorage` holds a few megabytes of strings per origin, is never sent to the server, is synchronous, and lasts until cleared, shared by all tabs. `sessionStorage` has the same API but belongs to one tab and disappears when the tab closes. So the session goes in an `HttpOnly`, `Secure`, `SameSite` cookie, never a token in Web Storage, which any XSS can read. Web Storage holds small, harmless data like a theme.',
     keyPoints: [
@@ -968,16 +1144,28 @@ cards.forEach((card, i) => {
         statement: 'A cookie set with `HttpOnly` is invisible to `document.cookie`.',
         isTrue: true,
         why: 'That is the purpose of `HttpOnly`: the browser still sends it, but scripts cannot read it.',
+        twin: {
+          statement: 'A cookie set with `HttpOnly` can still be read through `document.cookie`.',
+          why: '`HttpOnly` hides it from scripts; the browser only sends it with requests.',
+        },
       },
       {
         statement: '`localStorage` data is sent to the server with each request.',
         isTrue: false,
         why: 'Only cookies are sent automatically; Web Storage stays in the browser.',
+        twin: {
+          statement: '`localStorage` data stays in the browser and is never sent with requests.',
+          why: 'Only cookies are sent automatically; a script must read Web Storage and send it itself.',
+        },
       },
       {
         statement: '`localStorage.setItem(\'cart\', { items: 2 })` stores the object as an object.',
         isTrue: false,
         why: 'Web Storage stores strings only, so it saves "[object Object]"; use `JSON.stringify`.',
+        twin: {
+          statement: '`localStorage.setItem(\'cart\', { items: 2 })` stores the string "[object Object]".',
+          why: 'Web Storage converts values to strings, so objects need `JSON.stringify`.',
+        },
       },
     ],
     codeChoices: [
@@ -1022,6 +1210,16 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What does a CSS preprocessor like Sass give you over plain CSS?',
+    questionVariants: [
+      {
+        question: 'The storefront\'s dark theme is built with Sass variables, and switching themes at runtime means shipping a second stylesheet. What would you change, and why can Sass not help here?',
+        bridge: 'Sass variables disappear at compile time; CSS custom properties are resolved by the browser through the cascade, so a class can remap them at runtime.',
+      },
+      {
+        question: 'On a new project in 2026, would you still add Sass? What does it give you that native CSS does not?',
+        bridge: 'The same topic as a decision: native CSS now has custom properties and nesting, while Sass still adds mixins, loops, maps and functions.',
+      },
+    ],
     answer:
       'Sass compiles its own syntax to CSS at build time. It used to bring variables, nesting and partials. In 2026 native CSS covers much of that: custom properties, which are better because they work at runtime and follow the cascade, nesting in every major browser since late 2023, `color-mix()`, `calc()`, layers and container queries. What Sass still adds is compile-time logic: mixins, loops and maps to generate utilities or themes, functions, and modules with `@use`. So on a new project I start with plain CSS or CSS Modules, and keep Sass where a design system really generates code.',
     keyPoints: [
@@ -1079,11 +1277,19 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
         statement: 'A CSS custom property can change at runtime, for example under a different class or a media query.',
         isTrue: true,
         why: 'Custom properties are resolved by the browser through the cascade, unlike Sass variables, which are gone after compilation.',
+        twin: {
+          statement: 'A CSS custom property is fixed at build time and cannot change under a different class or a media query.',
+          why: 'The browser resolves custom properties through the cascade at runtime; Sass variables are the ones gone after compilation.',
+        },
       },
       {
         statement: 'Native CSS nesting supports `&__title` to build a BEM class name from its parent, as Sass does.',
         isTrue: false,
         why: 'Native nesting does not concatenate strings; that is a Sass-only feature.',
+        twin: {
+          statement: 'Native CSS nesting cannot build a BEM class name like `&__title` from its parent the way Sass does.',
+          why: 'Native nesting does not concatenate strings; that is a Sass-only feature.',
+        },
       },
     ],
     codeChoices: [
@@ -1126,6 +1332,16 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'How would you make a web application accessible to users with disabilities?',
+    questionVariants: [
+      {
+        question: 'The shop must comply with the European Accessibility Act. The axe scan in CI is green, yet a blind tester cannot finish checkout. What is your plan to make the storefront accessible?',
+        bridge: 'Scans catch only part of the issues; accessibility rests on semantic HTML, keyboard and focus management, names, contrast, and manual testing.',
+      },
+      {
+        question: 'While making the back office accessible, when do you reach for ARIA, and when is it the wrong tool?',
+        bridge: 'ARIA is the last step of an approach that starts with semantic HTML and native elements, then the keyboard and focus.',
+      },
+    ],
     answer:
       'I target WCAG 2.2 level AA, a step above the WCAG 2.1 AA that the European Accessibility Act relies on for e-commerce. First semantic HTML: real buttons, links, labels and headings, so the accessibility tree is right. Then the keyboard: everything reachable, a visible focus with `:focus-visible`, focus moved on route changes and returned when a dialog closes. Every control needs an accessible name, colours need enough contrast, and status updates go through a live region. ARIA only where no native element exists. I test with an axe scan in CI, then manually with the keyboard and a screen reader, because scans catch only part of the issues.',
     keyPoints: [
@@ -1169,11 +1385,19 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
         statement: 'A page with no violations in an axe scan meets WCAG 2.2 AA.',
         isTrue: false,
         why: 'Automated rules detect only part of the criteria; keyboard and screen reader testing are still needed.',
+        twin: {
+          statement: 'A page with no violations in an axe scan can still fail WCAG 2.2 AA.',
+          why: 'Automated rules detect only part of the criteria, so keyboard and screen reader testing are still needed.',
+        },
       },
       {
         statement: 'WCAG 2.2 AA asks for a contrast ratio of at least 4.5:1 for normal body text.',
         isTrue: true,
         why: 'Success criterion 1.4.3 requires 4.5:1 for text, and 3:1 for large text.',
+        twin: {
+          statement: 'WCAG 2.2 AA asks for a contrast ratio of at least 3:1 for normal body text.',
+          why: 'Success criterion 1.4.3 requires 4.5:1 for normal text; 3:1 applies to large text.',
+        },
       },
     ],
     codeChoices: [
@@ -1216,6 +1440,16 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'What is the difference between SSR, CSR and SSG?',
+    questionVariants: [
+      {
+        question: 'Search engines index the storefront\'s product pages as empty shells: the HTML from the server contains only an empty `div` and script tags. How were those pages rendered, and what would you switch to?',
+        bridge: 'That is CSR: JavaScript builds the page in the browser. SSR or SSG put the content in the HTML the server sends.',
+      },
+      {
+        question: 'Which rendering do you pick, and why, for the storefront\'s \'About\' page, its search results, and the back office\'s orders table?',
+        bridge: 'The same comparison applied page by page: built once at build time, built per request because it depends on the query, or built in the browser behind a login.',
+      },
+    ],
     answer:
       'They differ by when and where the HTML is built. With CSR, the server sends an almost empty page and JavaScript builds it in the browser: fine for a back office behind a login. With SSR, the server builds the HTML for each request, so content can depend on cookies or a search. With SSG, it is built once at build time and served from a CDN. In the Next.js App Router the choice is per route, even per component: static parts are prerendered, request-dependent parts render per request and can stream in, and only Client Components hydrate in the browser.',
     keyPoints: [
@@ -1275,11 +1509,19 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
         statement: 'A Server Component sends no JavaScript of its own to the browser.',
         isTrue: true,
         why: 'Its output travels as the RSC Payload; only Client Components ship code and hydrate.',
+        twin: {
+          statement: 'A Server Component ships its own JavaScript to the browser and hydrates there.',
+          why: 'Its output travels as the RSC Payload; only Client Components ship code and hydrate.',
+        },
       },
       {
         statement: 'With SSG, the HTML of a page is rebuilt on the server for every request.',
         isTrue: false,
         why: 'SSG builds the HTML once at build time; per-request rendering is SSR.',
+        twin: {
+          statement: 'With SSG, the HTML of a page is built once at build time, not on every request.',
+          why: 'Per-request rendering is SSR; SSG serves the prebuilt HTML, usually from a CDN.',
+        },
       },
     ],
     lesson: {
@@ -1301,6 +1543,16 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What is the difference between `id` and `class` in HTML and CSS, and when do you use each?',
+    questionVariants: [
+      {
+        question: 'On the storefront, two instances of a `QuantityInput` component render `<label for="qty">`, and clicking the second label focuses the first input. What is wrong, and how do you fix it in React?',
+        bridge: 'An `id` must be unique in the document; a hard-coded id collides across instances, so generate it with `useId`.',
+      },
+      {
+        question: 'A colleague styles every component with id selectors because \'each one is unique anyway\'. What problems will that cause?',
+        bridge: 'The specificity side of `id` versus `class`: one id outweighs any number of classes, so id styles are hard to override and to reuse.',
+      },
+    ],
     answer:
       'An `id` names one unique element in the document; a `class` is a reusable label, and an element can carry several. In CSS the difference is specificity: an id selector weighs (1,0,0) and a class (0,1,0), so one id beats any number of classes and is hard to override. So I style with classes only, which keeps specificity flat and components reusable. I use ids where a unique target is needed: `label for`, `aria-labelledby`, fragment links like `#reviews`, and `getElementById`. In React I generate them with `useId`, so two instances of a component never share one.',
     keyPoints: [
@@ -1335,11 +1587,19 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
         statement: 'When two elements share the same `id`, `document.getElementById` returns only the first one.',
         isTrue: true,
         why: 'Duplicate ids are invalid, and lookups by id return the first match in document order.',
+        twin: {
+          statement: 'When two elements share the same `id`, `document.getElementById` returns the last one.',
+          why: 'Lookups by id return the first match in document order, and duplicate ids are invalid anyway.',
+        },
       },
       {
         statement: 'A selector with eleven classes beats a selector with one id.',
         isTrue: false,
         why: 'Specificity is compared column by column, so (1,0,0) beats (0,11,0).',
+        twin: {
+          statement: 'A selector with one id beats a selector with eleven classes.',
+          why: 'Specificity is compared column by column, so (1,0,0) beats (0,11,0).',
+        },
       },
     ],
     codeChoices: [
@@ -1393,6 +1653,16 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
     level: 'mid',
     paths: ['frontend', 'fullstack'],
     question: 'How do the CSS cascade and inheritance work together?',
+    questionVariants: [
+      {
+        question: 'The storefront sets `body { color: #222 }` and `.promo { color: red }`, yet the link inside a `.promo` banner stays blue. Why does it not inherit red?',
+        bridge: 'Inheritance applies only when no declaration targets the element; the browser\'s own stylesheet sets a colour on links, and that declaration wins.',
+      },
+      {
+        question: 'Explain to a junior why setting `font-family` once on `body` styles the whole page, while a `margin` set on `body` does not reach the paragraphs inside.',
+        bridge: 'Inheritance: text properties take the parent\'s computed value when nothing targets them, while box properties like `margin` fall back to their initial value.',
+      },
+    ],
     answer:
       'The cascade decides which declaration wins when several set the same property on an element: origin and `!important` first, then inline styles, cascade layers, specificity, and finally source order. Inheritance only applies when no declaration targets that property on the element: then inherited properties, mostly text ones like `color` and `font-family`, take the parent\'s computed value, while the others, like `margin` or `border`, get their initial value. The keywords `inherit`, `initial`, `unset` and `revert` force one behaviour or the other. That is why I set fonts and colour once on `body` and let them flow down.',
     keyPoints: [
@@ -1427,16 +1697,28 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
         statement: 'The `color` property is inherited by default.',
         isTrue: true,
         why: 'Text properties such as `color` and `font-family` inherit; box properties such as `margin` do not.',
+        twin: {
+          statement: 'The `color` property is not inherited by default.',
+          why: 'Text properties such as `color` and `font-family` inherit; box properties such as `margin` do not.',
+        },
       },
       {
         statement: 'An inherited value beats a rule that targets the child, if the parent\'s rule is more specific.',
         isTrue: false,
         why: 'Inheritance only applies when no declaration targets the element; specificity is never compared with an inherited value.',
+        twin: {
+          statement: 'A rule that targets the child beats an inherited value, however specific the parent\'s rule is.',
+          why: 'Inheritance only applies when no declaration targets the element, so specificity is never compared with an inherited value.',
+        },
       },
       {
         statement: '`display: initial` on a `div` gives `display: block`.',
         isTrue: false,
         why: 'The initial value of `display` is `inline`; `block` comes from the browser\'s default stylesheet.',
+        twin: {
+          statement: '`display: initial` on a `div` gives `display: inline`.',
+          why: 'The initial value of `display` is `inline`; `block` comes from the browser\'s default stylesheet.',
+        },
       },
     ],
     codeChoices: [
@@ -1477,6 +1759,16 @@ button, input, select, textarea {
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What is the difference between `em`, `rem`, `%`, `vw`/`vh` and `px` in CSS?',
+    questionVariants: [
+      {
+        question: 'A customer who set a larger default font size in their browser says the storefront\'s text does not grow, while other sites do. The CSS sizes all text in `px`. What do you change?',
+        bridge: '`px` ignores the user\'s font setting; `rem` is relative to the root font size, which comes from that setting.',
+      },
+      {
+        question: 'In the back office, menu items get bigger at every level of the nested category tree. Each level sets `font-size: 1.2em`. Why, and which unit avoids it?',
+        bridge: 'In `font-size`, `em` is relative to the inherited size, so nested values compound; `rem` stays relative to the root.',
+      },
+    ],
     answer:
       '`px` is a fixed CSS pixel. `rem` is relative to the root font size, 16 px by default, and follows the user\'s browser font setting. `em` is relative to the element\'s font size, or the parent\'s inside `font-size`, so nested `em` sizes compound. A percentage is relative to the parent, usually the containing block\'s width. `vw` and `vh` are 1% of the viewport; on phones `vh` uses the largest viewport, so `svh` or `dvh` fit better. I use `rem` for text and spacing, `em` for padding that follows a component\'s text, `px` for borders, and `clamp()` for fluid sizes.',
     keyPoints: [
@@ -1511,11 +1803,19 @@ button, input, select, textarea {
         statement: 'A `font-size: 1.5em` nested inside another `font-size: 1.5em` gives text 2.25 times the outer size.',
         isTrue: true,
         why: 'In `font-size`, `em` is relative to the inherited size, so nested values multiply: 1.5 × 1.5.',
+        twin: {
+          statement: 'A `font-size: 1.5em` nested inside another `font-size: 1.5em` gives text 3 times the outer size.',
+          why: 'Nested `em` values multiply rather than add: 1.5 × 1.5 gives 2.25 times the outer size.',
+        },
       },
       {
         statement: 'Text sized in `rem` ignores the user\'s default font size setting.',
         isTrue: false,
         why: '`rem` follows the root font size, which comes from that setting unless the root is set in `px`.',
+        twin: {
+          statement: 'Text sized in `rem` follows the user\'s default font size setting, unless the root font size is set in `px`.',
+          why: '`rem` is relative to the root font size, which comes from that setting by default.',
+        },
       },
     ],
     codeChoices: [
@@ -1554,6 +1854,16 @@ h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem); }`,
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'What are pseudo-classes and pseudo-elements, and what is the difference?',
+    questionVariants: [
+      {
+        question: 'Keyboard users of the back office cannot see which button has focus, but agents using a mouse complained about focus rings on click. Which selector solves both, and what kind of selector is it?',
+        bridge: '`:focus-visible` is a pseudo-class: it selects an existing element in a state, here a focus the browser decides to show.',
+      },
+      {
+        question: 'A colleague puts the \'Free shipping\' text of a product card in `::before` content. What do you say, and how does `::before` differ from `:hover`?',
+        bridge: 'A pseudo-element targets generated content outside the DOM, fine for decoration but not real text; a pseudo-class like `:hover` selects an existing element in a state.',
+      },
+    ],
     answer:
       'A pseudo-class selects an existing element in a particular state or position: `:hover`, `:focus-visible`, `:checked`, `:nth-child()`, `:has()`. It is written with one colon. A pseudo-element targets a part of an element, or content that is not in the DOM: `::before`, `::after`, `::placeholder`, `::first-line`, written with two colons. In specificity, a pseudo-class counts like a class and a pseudo-element like an element type. I use `::before` and `::after` for decoration only, since real text belongs in the HTML, and `:focus-visible` for focus rings, so keyboard users always see where they are.',
     keyPoints: [
@@ -1588,11 +1898,19 @@ h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem); }`,
         statement: '`::before` renders nothing unless its `content` property is set.',
         isTrue: true,
         why: 'Generated content only exists when `content` has a value, even an empty string.',
+        twin: {
+          statement: '`::before` renders even when its `content` property is not set.',
+          why: 'Generated content only exists when `content` has a value, even an empty string.',
+        },
       },
       {
         statement: 'A pseudo-element counts like a class in specificity.',
         isTrue: false,
         why: 'A pseudo-element counts like an element type; a pseudo-class counts like a class.',
+        twin: {
+          statement: 'A pseudo-element counts like an element type in specificity.',
+          why: 'A pseudo-element weighs like a type selector; a pseudo-class weighs like a class.',
+        },
       },
     ],
     codeChoices: [
@@ -1638,6 +1956,16 @@ h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem); }`,
     level: 'junior',
     paths: ['frontend', 'fullstack'],
     question: 'How would you centre a `div` horizontally and vertically? Name several approaches.',
+    questionVariants: [
+      {
+        question: 'The back office\'s empty state, an icon and the message \'No orders match these filters\', must sit in the middle of a panel whose height changes. What CSS do you write, and what are the alternatives?',
+        bridge: 'A centring question: grid with `place-items: center` on the parent handles any child size; flex and absolute positioning are the alternatives.',
+      },
+      {
+        question: 'A colleague tries to centre a card vertically with `vertical-align: middle` and it does not move. Why, and what would you use instead?',
+        bridge: '`vertical-align` only applies to inline content and table cells; centring a block uses grid, flex or absolute positioning.',
+      },
+    ],
     answer:
       'My default is grid on the parent: `display: grid; place-items: center`, one declaration, and the child can be any size. Flexbox does the same with `justify-content: center` and `align-items: center`, which I use when the parent is already a flex row. For an element out of the flow, like a toast, `position: absolute` with `inset: 0` and `margin: auto` centres a known size, and `top: 50%; left: 50%; transform: translate(-50%, -50%)` an unknown one. For horizontal only, `margin-inline: auto` on a block with a width. A modal is a `<dialog>`, which the browser centres.',
     keyPoints: [
@@ -1672,11 +2000,19 @@ h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem); }`,
         statement: 'Percentages in `transform: translate()` refer to the element\'s own size.',
         isTrue: true,
         why: 'That is why `translate(-50%, -50%)` centres an element of any size after `top: 50%; left: 50%`.',
+        twin: {
+          statement: 'Percentages in `transform: translate()` refer to the size of the parent element.',
+          why: 'They refer to the element\'s own size, which is why `translate(-50%, -50%)` centres an element of any size.',
+        },
       },
       {
         statement: '`vertical-align: middle` centres a block element vertically inside its parent.',
         isTrue: false,
         why: 'It only applies to inline-level content and table cells.',
+        twin: {
+          statement: '`vertical-align: middle` only applies to inline-level content and table cells, not to block elements.',
+          why: 'To centre a block vertically, use grid, flex or absolute positioning instead.',
+        },
       },
     ],
     codeChoices: [
@@ -1722,6 +2058,16 @@ h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem); }`,
     level: 'mid',
     paths: ['frontend', 'fullstack'],
     question: 'What is BEM, and why do teams use CSS naming conventions?',
+    questionVariants: [
+      {
+        question: 'After a release, the reviews widget\'s `.title` class turns every product heading on the storefront orange: two teams wrote `.title` in global CSS. How do conventions or tooling prevent this?',
+        bridge: 'CSS has one global namespace; BEM names like `review-card__title`, or CSS Modules that rewrite class names per file, prevent such collisions.',
+      },
+      {
+        question: 'Would you still use BEM in a new React app that has CSS Modules or Tailwind? Explain what BEM gives you and what replaces it.',
+        bridge: 'The same topic as a trade-off: BEM avoids collisions and keeps specificity flat by convention, while scoping tools now do it at build time.',
+      },
+    ],
     answer:
       'BEM, Block Element Modifier, names classes by structure: a block like `order-card`, an element inside it like `order-card__title`, and a modifier for a variant like `order-card--refunded`. Teams adopted it because CSS has one global namespace: with a convention, names do not collide, every selector is a single class with flat specificity, and the HTML tells you which styles apply. In 2026, tools often do the scoping instead: CSS Modules rewrite class names per file, and Tailwind replaces most custom class names with utilities. So I use BEM for global CSS, and let the build scope component styles.',
     keyPoints: [
@@ -1756,11 +2102,19 @@ h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem); }`,
         statement: 'In BEM, `order-card--refunded` is a modifier of the `order-card` block.',
         isTrue: true,
         why: 'Two dashes mark a modifier, a variant of the block; two underscores mark an element.',
+        twin: {
+          statement: 'In BEM, `order-card--refunded` is an element inside the `order-card` block.',
+          why: 'Two dashes mark a modifier, a variant of the block; two underscores mark an element.',
+        },
       },
       {
         statement: 'CSS Modules make class names global so that any file can reuse them.',
         isTrue: false,
         why: 'They scope class names per file by rewriting them at build time.',
+        twin: {
+          statement: 'CSS Modules scope class names per file by rewriting them at build time.',
+          why: 'That is why two files can both use `.title` without colliding.',
+        },
       },
     ],
     codeChoices: [
@@ -1809,6 +2163,16 @@ export function RefundDialogTitle() {
     level: 'mid',
     paths: ['frontend', 'fullstack'],
     question: 'What are media queries and container queries, and how do they differ?',
+    questionVariants: [
+      {
+        question: 'At the same viewport width, the storefront\'s order summary looks right in the wide checkout column but cramped in the narrow cart drawer. Media queries cannot tell the two apart. What do you use?',
+        bridge: 'Media queries read the viewport; container queries read the size of an ancestor declared with `container-type`, so the component adapts to its slot.',
+      },
+      {
+        question: 'When would you still use a media query rather than a container query?',
+        bridge: 'The same comparison from the other side: media queries read the viewport and user preferences such as `prefers-reduced-motion`, which a container cannot provide.',
+      },
+    ],
     answer:
       'Both apply styles under a condition. A media query reads the environment: the viewport width, orientation, or user preferences like `prefers-reduced-motion` and `prefers-color-scheme`. A container query, `@container`, reads the size of an ancestor declared as a container with `container-type`, so a component adapts to the slot it is placed in, wherever that is. I use media queries for the page layout and preferences, and container queries for reusable components, like an order summary that is wide in the main column and narrow in a side panel. Container units like `cqi` then size things relative to that container.',
     keyPoints: [
@@ -1843,11 +2207,19 @@ export function RefundDialogTitle() {
         statement: 'A container query can style the element that carries `container-type` itself.',
         isTrue: false,
         why: 'It applies to descendants of the container; the container is styled by queries on its own ancestors.',
+        twin: {
+          statement: 'A container query styles descendants of the element that carries `container-type`, not that element itself.',
+          why: 'The container itself is styled by queries on its own ancestors.',
+        },
       },
       {
         statement: 'With no eligible container, `cqw` falls back to small viewport units.',
         isTrue: true,
         why: 'MDN documents the fallback to the `sv*` unit of the same axis.',
+        twin: {
+          statement: 'With no eligible container, `cqw` resolves to zero.',
+          why: 'MDN documents a fallback to the small viewport unit of the same axis, here `svw`.',
+        },
       },
     ],
     codeChoices: [
@@ -1893,6 +2265,16 @@ export function RefundDialogTitle() {
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'What is hydration in SSR frameworks, and what can go wrong?',
+    questionVariants: [
+      {
+        question: 'On the storefront\'s product page, the console shows a hydration error on the \'Order now, delivered by\' line, which formats `new Date()` during render. What is happening, and what else typically causes it?',
+        bridge: 'Hydration needs the first client render to match the server HTML; a date computed on both sides differs, as can browser-only data or invalid nesting.',
+      },
+      {
+        question: 'Explain hydration to a junior who thinks a server-rendered page needs no JavaScript in the browser.',
+        bridge: 'Server HTML is not interactive until the framework loads the components\' code, renders them again and attaches handlers: that step is hydration.',
+      },
+    ],
     answer:
       'Hydration is the step where the framework, in the browser, makes server-rendered HTML interactive: it loads the components\' JavaScript, renders them again and attaches event handlers to the existing DOM instead of recreating it. Two things go wrong. Mismatches: if the first client render differs from the server HTML, because of a date, `localStorage` or invalid nesting, React 19 reports an error and regenerates that subtree on the client. And cost: until hydration ends, the page looks ready but ignores taps, which hurts INP. So I keep components on the server when I can and hydrate only what is interactive.',
     keyPoints: [
@@ -1927,11 +2309,19 @@ export function RefundDialogTitle() {
         statement: 'During hydration, React reuses the DOM nodes the server rendered instead of creating new ones.',
         isTrue: true,
         why: 'It attaches handlers to the existing DOM; it only regenerates a subtree when a mismatch forces it.',
+        twin: {
+          statement: 'During hydration, React throws away the server-rendered DOM and creates new nodes.',
+          why: 'It attaches handlers to the existing DOM and only regenerates a subtree when a mismatch forces it.',
+        },
       },
       {
         statement: 'Server Components hydrate in the browser like Client Components.',
         isTrue: false,
         why: 'Server Components never run in the browser; only Client Components ship code and hydrate.',
+        twin: {
+          statement: 'Server Components never hydrate; only Client Components ship code and hydrate in the browser.',
+          why: 'Server Components run only on the server, and their output arrives as the RSC Payload.',
+        },
       },
     ],
     codeChoices: [
@@ -1984,6 +2374,16 @@ export function CartBadge() {
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'What is a single-page application, and what are its trade-offs compared with a multi-page app?',
+    questionVariants: [
+      {
+        question: 'Since the back office moved to client-side routing, screen reader users hear nothing when they open an order, and the new view stays scrolled halfway down. Why, and what does it say about SPAs?',
+        bridge: 'In an SPA the router swaps views without a new document, so scroll, focus and titles, which the browser handled for an MPA, become your job.',
+      },
+      {
+        question: 'Why is the back office an SPA while the storefront is server rendered? Compare the two models.',
+        bridge: 'The same trade-off applied to the shop: instant transitions and kept state behind a login, versus a fast first paint and SEO for public pages.',
+      },
+    ],
     answer:
       'An SPA loads one HTML shell and a JavaScript bundle; after that, a client-side router swaps views and fetches only data, with the History API keeping the URL in sync. A multi-page app asks the server for a new HTML document on every navigation. The SPA gives instant transitions and keeps state between screens, but costs a heavier first load, weaker SEO without server rendering, and work the browser used to do: scroll, focus and titles on navigation. MPAs are simpler and fast to first paint. Our back office is an SPA; the storefront is server rendered, with client navigation on top.',
     keyPoints: [
@@ -2018,11 +2418,19 @@ export function CartBadge() {
         statement: 'Calling `history.pushState()` fires a `popstate` event.',
         isTrue: false,
         why: '`popstate` fires on history traversal, such as Back or Forward, not on `pushState` itself.',
+        twin: {
+          statement: 'Calling `history.pushState()` does not fire a `popstate` event.',
+          why: '`popstate` fires on history traversal, such as Back or Forward, not on `pushState` itself.',
+        },
       },
       {
         statement: 'With `React.lazy`, a route\'s code is downloaded only when that route first renders.',
         isTrue: true,
         why: 'The dynamic `import()` runs on the first render of the lazy component, while Suspense shows the fallback.',
+        twin: {
+          statement: 'With `React.lazy`, a route\'s code is downloaded with the main bundle when the app starts.',
+          why: 'The dynamic `import()` runs on the first render of the lazy component, while Suspense shows the fallback.',
+        },
       },
     ],
     codeChoices: [
@@ -2075,6 +2483,16 @@ export function OrderRoute() {
     level: 'senior',
     paths: ['frontend', 'fullstack'],
     question: 'How do HTTP/2 and HTTP/3 change frontend performance compared with HTTP/1.1?',
+    questionVariants: [
+      {
+        question: 'On flaky mobile networks, storefront shoppers see images and scripts stall together for a moment whenever packets are lost, although everything comes over one HTTP/2 connection. Why, and what helps?',
+        bridge: 'TCP head-of-line blocking: one lost packet stalls every HTTP/2 stream, while HTTP/3 on QUIC keeps streams independent.',
+      },
+      {
+        question: 'A colleague wants to keep domain sharding and image sprites because \'browsers limit connections per host\'. Is that still right?',
+        bridge: 'Those are HTTP/1.1 workarounds; HTTP/2 multiplexes many requests over one connection, so sharding now hurts.',
+      },
+    ],
     answer:
       'With HTTP/1.1, a connection carries one request at a time, so browsers open about six connections per host, and we used to bundle, sprite and shard domains. HTTP/2 multiplexes many requests as streams over one TCP connection, with binary framing and compressed headers, so many small files become cheap and sharding hurts. But one lost TCP packet still stalls every stream. HTTP/3 runs on QUIC over UDP: streams are independent, and the TLS 1.3 handshake is built in, so most new connections are ready in one round trip. In practice I make sure the CDN serves HTTP/3, cut hostnames, and drop HTTP/1.1 workarounds.',
     keyPoints: [
@@ -2109,11 +2527,19 @@ export function OrderRoute() {
         statement: 'With HTTP/2, one lost TCP packet can stall every stream on the connection.',
         isTrue: true,
         why: 'TCP delivers bytes in order, so all streams wait for the retransmission.',
+        twin: {
+          statement: 'With HTTP/2, a lost TCP packet only delays the stream it belongs to.',
+          why: 'TCP delivers bytes in order, so every stream on the connection waits for the retransmission.',
+        },
       },
       {
         statement: 'HTTP/3 runs over TCP with TLS 1.3.',
         isTrue: false,
         why: 'HTTP/3 runs over QUIC, which uses UDP and carries the TLS 1.3 handshake itself.',
+        twin: {
+          statement: 'HTTP/3 runs over QUIC, which uses UDP and carries the TLS 1.3 handshake itself.',
+          why: 'That is why its streams are independent and most new connections are ready in one round trip.',
+        },
       },
     ],
     lesson: {
@@ -2142,6 +2568,16 @@ Link: </styles/main.css>; rel=preload; as=style`,
     level: 'mid',
     paths: ['frontend', 'fullstack'],
     question: 'What is a service worker, and what can it be used for?',
+    questionVariants: [
+      {
+        question: 'After a deploy, some storefront customers keep seeing the old version, and DevTools shows the new service worker as waiting to activate. Why, and what should have been planned?',
+        bridge: 'A new service worker waits until no open tab uses the old one; the update lifecycle and versioned caches decide how a release reaches open tabs.',
+      },
+      {
+        question: 'What could a service worker let you build for the storefront that a normal page script cannot?',
+        bridge: 'A service worker runs apart from the pages as a network proxy: offline support, caching strategies, push and background sync.',
+      },
+    ],
     answer:
       'A service worker is a script the site registers that runs apart from the pages, as a programmable network proxy: it receives a `fetch` event for every request of the pages in its scope and decides how to answer, from the Cache API, the network, or both. It needs HTTPS. I use it for offline support and fast repeat visits, for example cache-first for hashed assets and network-first for HTML with an offline fallback. It also handles push notifications and background sync. The hard part is the update lifecycle, so I version caches and plan how a new release reaches open tabs from the first deploy.',
     keyPoints: [
@@ -2176,11 +2612,19 @@ Link: </styles/main.css>; rel=preload; as=style`,
         statement: 'A new service worker activates right after installing, even while open tabs still use the old one.',
         isTrue: false,
         why: 'It waits until no client uses the old worker, unless it calls `skipWaiting()`.',
+        twin: {
+          statement: 'A new service worker waits to activate until no open tab uses the old one, unless it calls `skipWaiting()`.',
+          why: 'Open clients keep the old worker; `skipWaiting()` lets the new one take over sooner.',
+        },
       },
       {
         statement: 'A service worker cannot access the DOM directly.',
         isTrue: true,
         why: 'It runs in its own worker context; it talks to pages through messages and controls their requests.',
+        twin: {
+          statement: 'A service worker can read and change the DOM of the pages it controls.',
+          why: 'It runs in its own worker context; it talks to pages through messages and controls their requests.',
+        },
       },
     ],
     codeChoices: [
@@ -2233,6 +2677,16 @@ self.addEventListener('activate', (event) => {
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'What is WCAG, and what are its core principles?',
+    questionVariants: [
+      {
+        question: 'A B2B client\'s contract for the shop requires \'WCAG 2.2 AA\'. The product manager asks what that commits the team to. How do you explain it?',
+        bridge: 'WCAG is the W3C standard: four principles, then testable success criteria at levels A, AA and AAA, where AA includes every A criterion.',
+      },
+      {
+        question: 'Name the four WCAG principles and give one requirement from the storefront\'s checkout for each.',
+        bridge: 'POUR applied to a real page: perceivable, operable, understandable and robust, each backed by testable success criteria.',
+      },
+    ],
     answer:
       'WCAG, the Web Content Accessibility Guidelines from the W3C, is the reference standard for web accessibility, and laws and contracts rely on it. Version 2.2 is organised under four principles, POUR. Perceivable: users can perceive the content, with text alternatives, captions and contrast. Operable: everything works with a keyboard, with enough time and visible focus. Understandable: clear text, predictable behaviour, help with errors. Robust: markup that assistive technology can interpret, with correct names, roles and states. Each guideline has testable success criteria at levels A, AA and AAA, and we target 2.2 AA.',
     keyPoints: [
@@ -2267,11 +2721,19 @@ self.addEventListener('activate', (event) => {
         statement: 'Conforming to level AA means meeting every level A and level AA success criterion.',
         isTrue: true,
         why: 'Each level includes the levels below it.',
+        twin: {
+          statement: 'Conforming to level AA only requires meeting the level AA success criteria, not the level A ones.',
+          why: 'Each level includes the levels below it, so AA means every A and AA criterion.',
+        },
       },
       {
         statement: 'Most laws and contracts require WCAG level AAA.',
         isTrue: false,
         why: 'They require AA; the W3C does not recommend AAA as a general policy for whole sites.',
+        twin: {
+          statement: 'Laws and contracts usually require WCAG level AA, not AAA.',
+          why: 'The W3C does not recommend AAA as a general policy for whole sites.',
+        },
       },
     ],
     codeChoices: [
@@ -2305,6 +2767,16 @@ self.addEventListener('activate', (event) => {
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'How would you make a custom dropdown or select accessible?',
+    questionVariants: [
+      {
+        question: 'The back office\'s custom \'Status\' filter dropdown works with a mouse, but keyboard users cannot open it and screen readers announce only \'clickable\'. How do you fix it?',
+        bridge: 'A custom dropdown needs the APG combobox pattern: roles, `aria-expanded`, `aria-activedescendant` and full keyboard handling, unless a native `select` fits.',
+      },
+      {
+        question: 'A colleague says adding `role="listbox"` and `role="option"` is enough to make their dropdown accessible. What else is needed?',
+        bridge: 'ARIA only tells assistive technology what an element is; the combobox pattern also needs focus management and every key implemented.',
+      },
+    ],
     answer:
       'First I check whether a styled native `select` will do. If not, I follow the WAI-ARIA Authoring Practices combobox pattern. The trigger gets `role="combobox"`, a label, `aria-expanded`, and `aria-controls` pointing to a popup with `role="listbox"` and `role="option"` items, with `aria-selected` on the current one. DOM focus stays on the combobox, and `aria-activedescendant` names the highlighted option. Keyboard: Down Arrow opens and moves, Enter accepts, Escape closes without changing the value, Tab leaves. I scroll the active option into view and test with screen readers. In production I take a tested headless library.',
     keyPoints: [
@@ -2339,11 +2811,19 @@ self.addEventListener('activate', (event) => {
         statement: 'In the APG combobox pattern with a listbox popup, DOM focus stays on the combobox while options are highlighted.',
         isTrue: true,
         why: 'The highlighted option is exposed through `aria-activedescendant`, so typing can continue.',
+        twin: {
+          statement: 'In the APG combobox pattern with a listbox popup, DOM focus moves onto each option as it is highlighted.',
+          why: 'Focus stays on the combobox; the highlighted option is exposed through `aria-activedescendant`.',
+        },
       },
       {
         statement: 'Adding `role="listbox"` to a `ul` makes the arrow keys move between its options.',
         isTrue: false,
         why: 'ARIA only changes what assistive technology is told; you must implement every key yourself.',
+        twin: {
+          statement: 'Adding `role="listbox"` to a `ul` does not make the arrow keys move between its options.',
+          why: 'ARIA only changes what assistive technology is told; every key must be implemented in code.',
+        },
       },
     ],
     codeChoices: [
@@ -2394,6 +2874,16 @@ self.addEventListener('activate', (event) => {
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'What is `aria-live`, and when would you use it?',
+    questionVariants: [
+      {
+        question: 'When a customer adds a product, the storefront shows \'Added to cart\' in a toast, but screen reader users hear nothing. The toast `div` with `aria-live` is created together with its message. What is wrong?',
+        bridge: 'A live region must exist before its content changes; rendering it empty from the start lets screen readers announce the update.',
+      },
+      {
+        question: 'On the checkout page, when would you use `aria-live="assertive"` instead of `polite`?',
+        bridge: 'The same topic through its politeness setting: `polite` waits until the user is idle, `assertive` interrupts and fits errors that block the user.',
+      },
+    ],
     answer:
       '`aria-live` turns an element into a live region: when its content changes, screen readers announce the change without moving focus. `polite` waits until the user is idle, `assertive` interrupts, and `off` is the default. I use it for updates that happen away from focus: "Added to cart", a search result count, an order status turning `paid`. The roles `status` and `alert` are live regions with built-in politeness. Two rules matter: the region must be in the page before its text changes, so I render it empty from the start, and messages stay short, polite by default, assertive only for errors that block the user.',
     keyPoints: [
@@ -2428,11 +2918,19 @@ self.addEventListener('activate', (event) => {
         statement: '`role="status"` has an implicit `aria-live` value of `polite`.',
         isTrue: true,
         why: 'MDN documents `polite` and `aria-atomic="true"` as its implicit values.',
+        twin: {
+          statement: '`role="status"` has an implicit `aria-live` value of `assertive`.',
+          why: 'Its implicit value is `polite`, with `aria-atomic="true"`; `role="alert"` is the assertive one.',
+        },
       },
       {
         statement: 'A live region always announces its message, even when it is inserted into the page together with that message.',
         isTrue: false,
         why: 'The region should exist before its content changes; one added with its text may not be announced.',
+        twin: {
+          statement: 'A live region inserted into the page together with its message may not announce that message.',
+          why: 'The region should exist before its content changes, so render it empty first.',
+        },
       },
     ],
     codeChoices: [

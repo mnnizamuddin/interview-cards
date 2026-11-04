@@ -9,9 +9,11 @@ import { isHandled, type Progress } from './progress.ts';
 /** One screen of play. */
 export type Exercise =
   | { kind: 'lesson'; cardId: string }
-  | { kind: 'open'; cardId: string }
+  /** The main question, or with `variant` one of its other phrasings. */
+  | { kind: 'open'; cardId: string; variant?: number }
   | { kind: 'followUp'; cardId: string; index: number }
-  | { kind: 'trap'; cardId: string; index: number }
+  /** A true/false statement, or with `twin` the same fact stated the other way. */
+  | { kind: 'trap'; cardId: string; index: number; twin?: boolean }
   | { kind: 'mcq'; cardId: string; mcqId: string }
   | { kind: 'codeChoice'; cardId: string; index: number };
 
@@ -28,10 +30,12 @@ export const REST_STEPS = 2;
 export function exerciseKey(exercise: Exercise): string {
   switch (exercise.kind) {
     case 'lesson':
+      return `lesson:${exercise.cardId}`;
     case 'open':
-      return `${exercise.kind}:${exercise.cardId}`;
-    case 'followUp':
+      return exercise.variant === undefined ? `open:${exercise.cardId}` : `open:${exercise.cardId}:v${exercise.variant}`;
     case 'trap':
+      return `trap:${exercise.cardId}:${exercise.index}${exercise.twin ? ':twin' : ''}`;
+    case 'followUp':
     case 'codeChoice':
       return `${exercise.kind}:${exercise.cardId}:${exercise.index}`;
     case 'mcq':
@@ -106,16 +110,22 @@ function pickTopic(cards: readonly Card[], progress: Progress, random: () => num
 
 /**
  * Chooses the question on a topic: the one shown longest ago, never-shown first. The interview
- * question leads; traps, follow-ups, track questions and code choices then alternate.
+ * question leads; traps and their twins, follow-ups, track questions, code choices and other
+ * phrasings of the main question then alternate.
  */
 function pickQuestion(card: Card, mcqs: readonly Mcq[], progress: Progress): Exercise {
+  const traps: Exercise[] = card.traps.flatMap((trap, index): Exercise[] => {
+    const original: Exercise = { kind: 'trap', cardId: card.id, index };
+    return trap.twin ? [original, { ...original, twin: true }] : [original];
+  });
   const candidates: Exercise[] = [
     { kind: 'open', cardId: card.id },
     ...interleave<Exercise>(
-      card.traps.map((_, index) => ({ kind: 'trap', cardId: card.id, index })),
+      traps,
       card.followUps.map((_, index) => ({ kind: 'followUp', cardId: card.id, index })),
       mcqs.map((mcq) => ({ kind: 'mcq', cardId: card.id, mcqId: mcq.id })),
       (card.codeChoices ?? []).map((_, index) => ({ kind: 'codeChoice', cardId: card.id, index })),
+      (card.questionVariants ?? []).map((_, variant) => ({ kind: 'open', cardId: card.id, variant })),
     ),
   ];
   const lastShown = (exercise: Exercise) => progress.shown[exerciseKey(exercise)] ?? -1;

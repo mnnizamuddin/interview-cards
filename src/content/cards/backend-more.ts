@@ -9,6 +9,16 @@ export const backendMoreCards: Card[] = [
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'Two people edit the same order at the same time. How do you stop one from silently overwriting the other over HTTP?',
+    questionVariants: [
+      {
+        question: "A support agent's refund note on an order vanished after a colleague edited the same order a minute later. Both saves returned 200. What is missing in the API?",
+        bridge: "Two saves made from the same old version: a lost update. A version in an `ETag`, sent back in `If-Match` and checked in the `UPDATE`, turns the second save into a 412.",
+      },
+      {
+        question: "A colleague says optimistic locking is a database topic and HTTP has nothing to offer. How does HTTP itself handle concurrent edits and cheap re-reads?",
+        bridge: "HTTP's conditional requests: `ETag` with `If-Match` guards writes, and `If-None-Match` saves the body on reads.",
+      },
+    ],
     answer:
       "That is the lost update problem, and HTTP solves it with conditional requests. The server sends an `ETag` that identifies the version of the resource, ideally derived from a version column. On a write, the client sends it back in `If-Match`: if the order changed since, the server answers 412 Precondition Failed and changes nothing, so the client reloads and merges. For resources several people edit, I require it and answer 428 Precondition Required when it is missing. I check the version inside the `UPDATE`'s `WHERE` clause, never in a separate read. On reads, `If-None-Match` gives a 304 with no body when nothing changed.",
     keyPoints: [
@@ -45,16 +55,28 @@ export const backendMoreCards: Card[] = [
         statement: 'A 304 Not Modified response includes the full body so the client can compare versions.',
         isTrue: false,
         why: 'A 304 has no body: the client reuses the copy it already has.',
+        twin: {
+          statement: "A 304 Not Modified response has no body: the client reuses the copy it already has.",
+          why: "The server only confirms that the client's version is current, so nothing is sent again.",
+        },
       },
       {
         statement: 'A server can answer 428 Precondition Required to a write that arrives without `If-Match`.',
         isTrue: true,
         why: 'RFC 6585 defines 428 for requests that must be conditional, so a client cannot skip the check.',
+        twin: {
+          statement: "A server must accept a write that arrives without `If-Match`, because conditional requests are always optional.",
+          why: "RFC 6585 defines 428 Precondition Required so a server can demand a conditional write.",
+        },
       },
       {
         statement: '`If-Match` on a `GET` is how a client asks for a 304 when nothing changed.',
         isTrue: false,
         why: 'That is `If-None-Match`; `If-Match` guards writes and leads to 412 when the version differs.',
+        twin: {
+          statement: "`If-None-Match` on a `GET` is how a client asks for a 304 when nothing changed.",
+          why: "`If-None-Match` serves reads; `If-Match` guards writes and leads to 412 when the version differs.",
+        },
       },
     ],
     codeChoices: [
@@ -106,6 +128,16 @@ PATCH /orders/ord_42  If-Match: "1"     -> 412 Precondition Failed  (the stale a
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is broken object property level authorization, and how do you prevent mass assignment and excessive data exposure?',
+    questionVariants: [
+      {
+        question: "A customer sends `{\"displayName\":\"Ana\",\"role\":\"admin\"}` to `PATCH /customers/me` and becomes an admin. Another endpoint returns `passwordHash`. What single weakness links the two?",
+        bridge: "Both are property-level authorization (OWASP API3): mass assignment on the way in, excessive data exposure on the way out. Allow-list schemas fix both.",
+      },
+      {
+        question: "A teammate says: 'We just delete the sensitive fields before `res.json`.' Why is that not enough, and how do you decide who may read and write each property?",
+        bridge: "A deny-list misses fields added later. Property-level authorization means allow-list schemas in and out, with one output schema per role.",
+      },
+    ],
     answer:
       'It is API3 in the OWASP API Security Top 10, and it merges two risks. Mass assignment is accepting properties the caller should not set, like `role` in a profile update. Excessive data exposure is returning properties the caller should not see, like a password hash. The root cause is the same: nobody decided, property by property, who may write or read it. So I decide per endpoint: on the way in, a schema at the edge that allows only the editable fields; on the way out, an allow-list response schema, never deleting the fields I remember. Where roles see different fields, I use one output schema per role.',
     keyPoints: [
@@ -142,11 +174,19 @@ PATCH /orders/ord_42  If-Match: "1"     -> 412 Precondition Failed  (the stale a
         statement: 'In Zod 4, a plain `z.object` schema strips unknown keys from the parsed result by default.',
         isTrue: true,
         why: 'Unknown keys are dropped silently; `z.strictObject` reports them as an error instead.',
+        twin: {
+          statement: "In Zod 4, a plain `z.object` schema rejects a body that contains unknown keys.",
+          why: "It drops unknown keys silently; reporting them as an error is what `z.strictObject` does.",
+        },
       },
       {
         statement: 'Deleting `passwordHash` from the user object before sending it is as safe as a response allow-list.',
         isTrue: false,
         why: 'A deny-list misses every sensitive column added later; an allow-list sends only what was chosen.',
+        twin: {
+          statement: "A response allow-list is safer than deleting `passwordHash` from the user object before sending it.",
+          why: "An allow-list sends only what was chosen; a deny-list misses every sensitive column added later.",
+        },
       },
     ],
     codeChoices: [
@@ -202,6 +242,16 @@ const PublicCustomer = z.object({ id: z.string(), displayName: z.string() });
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How would you design a GraphQL schema for the back office, and how do you evolve it without versioning the endpoint?',
+    questionVariants: [
+      {
+        question: "On the back-office orders screen, one failing call to the delivery partner turned a whole order into `null` in the GraphQL response. How did the schema cause this?",
+        bridge: "A non-null field that fails nulls its parent. Fields that call another service should stay nullable: the nullability part of schema design.",
+      },
+      {
+        question: "The mobile team asks for a `/graphql/v2` endpoint because you want to rename a field. How do you change the schema without versioning the endpoint?",
+        bridge: "GraphQL schemas evolve additively: add the new field, mark the old one `@deprecated`, measure its usage, remove it at zero, with a breaking-change check in CI.",
+      },
+    ],
     answer:
       'I model the types the screens need, such as `Order`, `Customer` and `OrderItem`, and think about nullability field by field. Fields are nullable by default, and when a non-null field fails, GraphQL nulls its parent instead. So I make a field non-null only when it always comes with its parent, like an id or a status, and keep fields that call another table or service nullable. Lists are connections with a required `first` and cursors. To evolve it, I add fields, mark old ones `@deprecated` with a reason, watch who still requests them, and remove them at zero usage, with a breaking-change check in CI.',
     keyPoints: [
@@ -238,16 +288,28 @@ const PublicCustomer = z.object({ id: z.string(), displayName: z.string() });
         statement: 'GraphQL fields are non-null by default unless you mark them nullable.',
         isTrue: false,
         why: 'Fields are nullable by default; `!` marks a field as non-null.',
+        twin: {
+          statement: "GraphQL fields are nullable by default; `!` marks a field as non-null.",
+          why: "Without `!`, a field may return null, which is the default.",
+        },
       },
       {
         statement: 'Changing an output field from `String` to `String!` does not break existing clients.',
         isTrue: true,
         why: 'The promise only gets stronger: clients that handled null still work.',
+        twin: {
+          statement: "Changing an output field from `String` to `String!` breaks existing clients.",
+          why: "The promise only gets stronger: clients that handled null still work.",
+        },
       },
       {
         statement: 'Adding a new value to an enum can never cause trouble for existing clients.',
         isTrue: false,
         why: 'It is classed as dangerous: an old mobile app may not handle a status it has never seen.',
+        twin: {
+          statement: "Adding a new value to an enum can cause trouble for existing clients.",
+          why: "It is classed as dangerous: an old mobile app may not handle a status it has never seen.",
+        },
       },
     ],
     codeChoices: [
@@ -302,6 +364,16 @@ export const typeDefs = /* GraphQL */ \`
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How do you handle authorization in a GraphQL API, per object and per field?',
+    questionVariants: [
+      {
+        question: "A pentest shows a customer reading another customer's order through `node(id:)`, although the `order(id:)` resolver checks ownership. Where should the check have lived?",
+        bridge: "In GraphQL the same object is reachable from many fields, so the rule belongs in a business-layer policy that every resolver calls.",
+      },
+      {
+        question: "A REST developer joining the team asks why the permission check cannot simply sit in one place per endpoint, as before. How do you explain authorization in GraphQL?",
+        bridge: "GraphQL has many paths to each type, so checks move to a shared policy per object, plus field-level checks for sensitive fields.",
+      },
+    ],
     answer:
       'In REST the check sits in a route handler, but in GraphQL the same `Order` is reachable from `order(id:)`, from `orders`, from `node(id:)` and from any field that returns one. A check in one resolver protects one path. So I keep the rules in the business layer, a policy that GraphQL, REST and jobs all call, and pass it a fully loaded user. A resolver asks the policy, and returns `null` for a forbidden object so the client cannot tell "not yours" from "missing". Lists are filtered in SQL, and sensitive fields like a phone number get their own field-level check.',
     keyPoints: [
@@ -334,11 +406,19 @@ export const typeDefs = /* GraphQL */ \`
         statement: 'If the `order(id:)` resolver checks ownership, every way of reaching an order in the schema is protected.',
         isTrue: false,
         why: 'Other fields such as `orders` or `node(id:)` reach the same object without passing through that resolver.',
+        twin: {
+          statement: "A check in the `order(id:)` resolver leaves orders reachable through `orders` or `node(id:)` unprotected.",
+          why: "Those fields reach the same object without passing through that resolver.",
+        },
       },
       {
         statement: 'A DataLoader shared across users can serve one user\'s cached objects to another.',
         isTrue: true,
         why: 'Its cache is keyed by id, not by viewer, so it must be created per request.',
+        twin: {
+          statement: "A DataLoader can safely be shared across users, because its cache is keyed by object id.",
+          why: "Keyed by id, not by viewer, it can serve one user's cached objects to another, so it must be created per request.",
+        },
       },
     ],
     codeChoices: [
@@ -389,6 +469,16 @@ const Customer = {
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'One GraphQL request can be very expensive. How do you protect the server?',
+    questionVariants: [
+      {
+        question: "The rate limiter sees one request per second from a client, yet `/graphql` saturates the database. The query nests `orders { items { product { orders } } }`. What protection is missing?",
+        bridge: "Cost depends on the query, not on the request count: depth, alias and cost limits in validation reject it before any resolver runs.",
+      },
+      {
+        question: "A colleague says persisted queries already protect the API from expensive queries. When is that true, and what else do you put in place?",
+        bridge: "Only trusted documents registered at build time act as an allowlist; APQ blocks nothing, so depth, alias and cost limits still apply.",
+      },
+    ],
     answer:
       'A request\'s cost depends on its content, so a rate limiter that counts requests sees one cheap call. I estimate the cost before executing, as validation rules: a depth limit, smaller for nested lists; caps on aliases and top-level fields, since 100 aliases of `order` run its resolver 100 times; a cost analysis that multiplies list fields by their page size and rejects anything above a maximum; and a cap on batched operations. I configure these with a library such as GraphQL Armor rather than write them. For our own clients, the strongest guard is trusted documents: only operations registered at build time run.',
     keyPoints: [
@@ -425,11 +515,19 @@ const Customer = {
         statement: 'Depth and cost limits run as validation rules, before any resolver executes.',
         isTrue: true,
         why: 'They analyse the parsed operation, so an expensive query is rejected without touching the database.',
+        twin: {
+          statement: "Depth and cost limits run inside the resolvers, so the database is already queried when a request is rejected.",
+          why: "They are validation rules on the parsed operation, so an expensive query is rejected before any resolver runs.",
+        },
       },
       {
         statement: 'Automatic persisted queries stop clients from running arbitrary queries.',
         isTrue: false,
         why: 'Any client can register any query through APQ; only trusted documents registered at build time act as an allowlist.',
+        twin: {
+          statement: "Automatic persisted queries let any client register any query, so they do not restrict which queries run.",
+          why: "APQ only caches query texts; trusted documents registered at build time are what act as an allowlist.",
+        },
       },
     ],
     lesson: {
@@ -450,6 +548,16 @@ const Customer = {
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'You add a WebSocket endpoint to a Node API. How do you authenticate connections and keep them healthy?',
+    questionVariants: [
+      {
+        question: "A week after launch, the live order status server holds 40,000 WebSocket connections for 9,000 active users, and its memory keeps growing. What is the server not doing?",
+        bridge: "Dead connections are never detected: ping every 30 seconds, terminate sockets that miss a pong, and cut slow readers by `bufferedAmount`.",
+      },
+      {
+        question: "A junior proposes passing the access token as `?token=` in the WebSocket URL, since the browser cannot set headers. What do you suggest, and what else do you check?",
+        bridge: "Authentication happens at the HTTP upgrade: cookies go with the handshake, the `Origin` is checked against an allowlist, and tokens stay out of URLs that logs record.",
+      },
+    ],
     answer:
       'I authenticate once, at the HTTP upgrade. The browser\'s `WebSocket` cannot send an Authorization header, but it sends cookies, so I check the `Origin` against an allowlist to stop cross-site WebSocket hijacking, then the session, and answer 403 or 401 before any socket exists. Tokens never go in the URL, because logs record it. I cap message size with `maxPayload`, and close sockets when the session ends. For health, the server pings every 30 seconds and terminates sockets with no pong. A client that stops reading is cut when `bufferedAmount` passes a cap. Clients reconnect with backoff and jitter, and resume from their last event id.',
     keyPoints: [
@@ -486,16 +594,28 @@ const Customer = {
         statement: 'The browser `WebSocket` constructor lets you set an `Authorization` header on the handshake.',
         isTrue: false,
         why: 'It takes only a URL and subprotocols; cookies go with the handshake, or a token goes in the first message.',
+        twin: {
+          statement: "The browser `WebSocket` constructor cannot set an `Authorization` header on the handshake.",
+          why: "It takes only a URL and subprotocols; cookies go with the handshake, or a token goes in the first message.",
+        },
       },
       {
         statement: 'Browsers answer a server\'s WebSocket ping frame with a pong automatically.',
         isTrue: true,
         why: 'The protocol requires a pong, so the server can detect dead connections without client code.',
+        twin: {
+          statement: "Browsers ignore a server's WebSocket ping frame unless client code answers it.",
+          why: "The protocol requires a pong, and browsers send it automatically, without client code.",
+        },
       },
       {
         statement: 'The browser `WebSocket` API reconnects on its own after the connection drops.',
         isTrue: false,
         why: 'Unlike `EventSource` and Socket.io, it does not: the client code must reconnect.',
+        twin: {
+          statement: "The browser `WebSocket` API does not reconnect on its own after the connection drops.",
+          why: "Unlike `EventSource` and Socket.io, it leaves reconnecting to the client code.",
+        },
       },
     ],
     codeChoices: [
@@ -545,6 +665,16 @@ for (const socket of wss.clients) {
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'A checkout spans the orders, stock and payment services. A step fails after the payment. How do you keep the data consistent?',
+    questionVariants: [
+      {
+        question: "Checkout charged the customer, then the stock service found the item sold out. The order stays `pending_payment` and the money is gone. How should this flow work across the three services?",
+        bridge: "A saga: one local transaction per service, and compensations that undo the completed steps, newest first, such as a refund, when a later step fails.",
+      },
+      {
+        question: "An architect proposes a two-phase commit across orders, stock and the payment provider. Why would you push back, and what do you use instead?",
+        bridge: "Two-phase commit needs every participant to join, and the provider's API cannot. A saga uses local transactions and compensations instead.",
+      },
+    ],
     answer:
       'I use a saga, not a distributed transaction: two-phase commit needs every participant to join, and brokers or the payment provider\'s API cannot. A saga is a sequence of local transactions, one per service, each publishing its event through an outbox. When a later step fails for a business reason, compensating actions undo the earlier steps in business terms, newest first: refund the payment, release the stock, cancel the order. Compensations must be idempotent and retried until they succeed. I put steps that cannot be undone last, and I orchestrate anything involving money, often with a durable workflow engine such as Temporal.',
     keyPoints: [
@@ -581,11 +711,19 @@ for (const socket of wss.clients) {
         statement: 'A saga gives the same isolation as a database transaction, so other requests never see intermediate states.',
         isTrue: false,
         why: 'Each step commits on its own, so intermediate states such as `stock_reserved` are visible and must be modelled.',
+        twin: {
+          statement: "In a saga, other requests can see intermediate states such as `stock_reserved`.",
+          why: "Each step commits on its own, so intermediate states are visible and must be modelled.",
+        },
       },
       {
         statement: 'Compensations run in reverse order of the completed steps.',
         isTrue: true,
         why: 'The newest completed step is undone first, as the code pushes each compensation and runs them reversed.',
+        twin: {
+          statement: "Compensations run in the same order as the completed steps, oldest first.",
+          why: "The newest completed step is undone first: compensations run in reverse order.",
+        },
       },
     ],
     codeChoices: [
@@ -642,6 +780,16 @@ try {
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'Your confirmation e-mail says order 1043 and the next customer gets 1044. What is wrong, and how do you generate order numbers across replicas?',
+    questionVariants: [
+      {
+        question: "A competitor placed two orders a week apart and worked out your weekly volume from the numbers in the confirmation e-mails. What would you change?",
+        bridge: "Sequential public numbers leak volume and are guessable: keep a UUIDv7 key and give customers a short, non-sequential base-62 order number.",
+      },
+      {
+        question: "A colleague wants auto-increment ids for orders because random UUIDs hurt the index. How do you answer for an API running on several replicas?",
+        bridge: "UUIDv7 is time-ordered, so index-friendly, and generated anywhere without coordination; the public order number is a separate short code.",
+      },
+    ],
     answer:
       'Sequential numbers are guessable: anyone can walk them on a tracking page, and two orders a few minutes apart tell a competitor your volume. So an order gets two identifiers. The primary key is a UUIDv7: 128 bits starting with a millisecond timestamp, generated anywhere without coordination, and time-ordered, which keeps the index friendly. The public order number is short, written in base 62, so seven characters hold about 3.5 trillion values. It comes either from a sequence passed through a reversible shuffle, so it has no collisions and hides the order, or from random codes inserted with a unique constraint and a retry, because collisions come sooner than expected.',
     keyPoints: [
@@ -678,11 +826,19 @@ try {
         statement: 'Seven base-62 characters give about 3.5 trillion distinct codes.',
         isTrue: true,
         why: '62 to the power of 7 is 3,521,614,606,208.',
+        twin: {
+          statement: "Seven base-62 characters give about 3.5 billion distinct codes.",
+          why: "62 to the power of 7 is 3,521,614,606,208, about 3.5 trillion.",
+        },
       },
       {
         statement: 'With 3.5 trillion possible codes, random order numbers do not need a unique constraint.',
         isTrue: false,
         why: 'By the birthday paradox, the chance of a collision reaches 50% after about 2.2 million codes.',
+        twin: {
+          statement: "Even with 3.5 trillion possible codes, random order numbers need a unique constraint and a retry.",
+          why: "By the birthday paradox, the chance of a collision reaches 50% after about 2.2 million codes.",
+        },
       },
     ],
     codeChoices: [
@@ -731,6 +887,16 @@ function encodeBase62(id: number): string {
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'What is a bounded context, how do you find them in an existing system, and how do they relate to each other?',
+    questionVariants: [
+      {
+        question: "The `orders` table has 60 columns, half of them nullable, and the invoicing team's change to `status` broke the warehouse's picking. How would you find the boundaries in this model?",
+        bridge: "Each team means something else by \"order\": bounded contexts, found from language and ownership and related by a context map.",
+      },
+      {
+        question: "A colleague wants one shared `Customer` model for the whole company so everybody speaks the same language. Why might that be wrong?",
+        bridge: "Consistency is needed only inside a bounded context; each context keeps its own model, and a context map defines how they connect.",
+      },
+    ],
     answer:
       'A bounded context is the boundary inside which one model and its vocabulary stay consistent; the same word may mean something else next door. "Order" in Ordering is what the customer asked for; in Invoicing it is a legal document that is never edited. I find the boundaries from the language and from ownership: an EventStorming workshop with the domain experts, clusters of optional fields owned by different teams, files that change together. Then a context map says, for each pair, who is upstream and how they relate: customer-supplier, conformist, or an anticorruption layer that translates a foreign model, such as the payment provider\'s, in one place.',
     keyPoints: [
@@ -767,11 +933,19 @@ function encodeBase62(id: number): string {
         statement: 'In DDD, the same word, such as "order", may mean different things in two bounded contexts.',
         isTrue: true,
         why: 'Each context has its own model and language; consistency is required only inside a boundary.',
+        twin: {
+          statement: "In DDD, a word such as \"order\" must mean the same thing in every bounded context.",
+          why: "Each context has its own model and language; consistency is required only inside a boundary.",
+        },
       },
       {
         statement: 'A shared kernel is the recommended default relation between two contexts.',
         isTrue: false,
         why: 'It is used rarely, because every change to the shared part needs both teams to agree.',
+        twin: {
+          statement: "A shared kernel is used rarely, because every change to the shared part needs both teams to agree.",
+          why: "That coordination cost is why it is not the default relation between two contexts.",
+        },
       },
     ],
     lesson: {
@@ -792,6 +966,16 @@ function encodeBase62(id: number): string {
     level: 'senior',
     paths: ['backend'],
     question: 'What are entities, value objects and aggregates in DDD, and how do domain events and repositories fit with them?',
+    questionVariants: [
+      {
+        question: "A job adds a line to an order that is already paid, because it inserts into `order_lines` directly. The rule \"lines change only on drafts\" lives in the `Order` class. What went wrong?",
+        bridge: "The job bypassed the aggregate root, the only entry point that protects the invariants of the order and its lines.",
+      },
+      {
+        question: "Explain to a junior why `Money` should be a value object and `Order` an entity, and where an `OrderPlaced` event is recorded and saved.",
+        bridge: "Entities keep an identity, value objects are immutable and compared by value; the aggregate records domain events and its repository saves them to the outbox.",
+      },
+    ],
     answer:
       'An entity has an identity that stays while its data changes, like order `ord_42`. A value object has no identity: it is immutable and compared by value, like `Money`, which can refuse to add two currencies. An aggregate is a cluster of objects changed only through its root, which protects the invariants, such as "lines change only while the order is a draft". I keep aggregates small, reference others by id, and change one per transaction. The aggregate records domain events like `OrderPlaced` instead of calling other modules, and its repository saves it and writes those events to an outbox in the same transaction, with a version check.',
     keyPoints: [
@@ -828,11 +1012,19 @@ function encodeBase62(id: number): string {
         statement: 'Outside code should change an aggregate only through its root.',
         isTrue: true,
         why: 'The root is where the invariants are checked; any other path can break them.',
+        twin: {
+          statement: "Outside code may change an aggregate's inner objects directly, as long as it saves the whole aggregate afterwards.",
+          why: "The root is where the invariants are checked; any other path can break them.",
+        },
       },
       {
         statement: 'A repository in DDD usually maps one-to-one to a database table.',
         isTrue: false,
         why: 'There is one repository per aggregate, which may span several tables.',
+        twin: {
+          statement: "In DDD there is one repository per aggregate, and it may span several tables.",
+          why: "A repository loads and saves a whole aggregate, not a single table.",
+        },
       },
     ],
     codeChoices: [
@@ -887,6 +1079,16 @@ if (refund === order.total) {
     level: 'senior',
     paths: ['backend'],
     question: 'What is hexagonal architecture, and what is the dependency rule?',
+    questionVariants: [
+      {
+        question: "The `placeOrder` tests need a running PostgreSQL and a fake payment server and take four minutes. The business rules import the `pg` client directly. What structure would fix it?",
+        bridge: "Ports and adapters: the core declares the repository interface and adapters implement it, so the core runs with in-memory adapters in milliseconds.",
+      },
+      {
+        question: "A colleague says hexagonal architecture is just layers with a new name. What makes it different, and which way do dependencies point?",
+        bridge: "The core declares its ports, driving and driven, and adapters depend on the core: source code dependencies point inwards only.",
+      },
+    ],
     answer:
       'Hexagonal architecture, or ports and adapters, puts the application core in the middle and lets everything else talk to it through ports, interfaces the core declares. Driving ports are what the outside may ask, like a `PlaceOrder` use case called by a controller, a queue consumer or a test. Driven ports are what the core needs, like an order repository or a price list. Adapters implement them outside. The dependency rule says source code dependencies point inwards only: the domain imports nothing, adapters import the core, and dependency inversion makes that possible. The payoff is testing the core with in-memory adapters and a frozen clock, in milliseconds.',
     keyPoints: [
@@ -919,11 +1121,19 @@ if (refund === order.total) {
         statement: 'In hexagonal architecture, the core declares the repository interface and the database adapter implements it.',
         isTrue: true,
         why: 'That is dependency inversion: the core owns the port, so the dependency points inwards.',
+        twin: {
+          statement: "In hexagonal architecture, the database adapter declares the repository interface and the core imports it.",
+          why: "The core owns the port and the adapter implements it, so the dependency points inwards.",
+        },
       },
       {
         statement: 'Hexagonal architecture requires exactly six ports, one per side of the hexagon.',
         isTrue: false,
         why: 'Cockburn said the number six is not important: the shape just leaves room for many ports.',
+        twin: {
+          statement: "Hexagonal architecture allows any number of ports; six is not a rule.",
+          why: "Cockburn said the number six is not important: the shape just leaves room for many ports.",
+        },
       },
     ],
     codeChoices: [

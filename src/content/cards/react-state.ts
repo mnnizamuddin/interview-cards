@@ -14,6 +14,16 @@ export const reactStateCards: Card[] = [
     level: 'mid',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What is prop drilling, and what are the ways to avoid it?',
+    questionVariants: [
+      {
+        question: 'In the back office, `currentAgent` is passed through `Layout`, `OrdersPage`, `OrdersTable` and `OrderRow` only so a deep `AssignButton` can read it, and each refactor touches five files. What would you change?',
+        bridge: 'Prop drilling: middle layers carry data they ignore. Composition with `children`, Context for rarely changing values, or a store fix it.',
+      },
+      {
+        question: 'A colleague says prop drilling is always a code smell and wants Context for every shared prop. When is passing props down fine, and what is your first fix when it is not?',
+        bridge: 'When not to fight prop drilling: a few levels are fine, and composition with `children` or slot props comes before Context or a store.',
+      },
+    ],
     answer:
       "Prop drilling is passing a prop through several components that do not use it, only so a deep child can read it. It is not wrong for two or three levels, but it couples every middle layer to data it ignores, and each change touches all those files. My first fix is composition: the parent that owns the data renders the deep child itself and passes it down as `children` or a slot prop. For values many distant components read and that change rarely, like the current user, I use Context. For shared state that changes often, I use a store with selectors such as Zustand.",
     keyPoints: [
@@ -62,11 +72,19 @@ export const reactStateCards: Card[] = [
         statement: 'Passing a component as `children` can remove prop drilling without using Context.',
         isTrue: true,
         why: 'The owner renders the deep child with its props, and the middle layers only place `children` without seeing the data.',
+        twin: {
+          statement: 'Removing prop drilling always requires Context or a state library.',
+          why: 'Passing the deep child as `children` lets the owner render it with its props, so the middle layers never see the data.',
+        },
       },
       {
         statement: 'Wrapping a context reader in `memo` stops it from re-rendering when the context value changes.',
         isTrue: false,
         why: '`memo` only compares props; a component that reads a context re-renders whenever the provider value changes.',
+        twin: {
+          statement: 'A context reader wrapped in `memo` still re-renders when the context value changes.',
+          why: '`memo` only compares props; reading a context subscribes the component to the provider value.',
+        },
       },
     ],
     codeChoices: [
@@ -121,6 +139,16 @@ function Layout({ agent }: { agent: Agent }) {
     level: 'mid',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What problem does Redux solve, what are its three principles, and how does Zustand differ from it?',
+    questionVariants: [
+      {
+        question: 'In the back office, the selection for a bulk refund is read and changed by the table, a toolbar and a side panel far apart in the tree. What would Redux give you here, and would Zustand fit?',
+        bridge: 'What Redux solves: one predictable store for shared client state outside the tree; Zustand covers the same need with a hook store and no provider or actions.',
+      },
+      {
+        question: 'Explain the three principles of Redux to a junior who only knows `useState`.',
+        bridge: 'Redux\'s principles: a single source of truth, read-only state changed only by dispatching actions, and pure reducers that return a new state.',
+      },
+    ],
     answer:
       'Redux keeps shared client state in one store outside the component tree, so distant components read and change it in a predictable way. Its three principles: a single source of truth, state is read-only and changes only by dispatching an action, and changes are made by pure reducers that return a new state. Components subscribe with selectors. Today I write it with Redux Toolkit. Zustand solves the same problem with less ceremony: a store is a hook, you call `set` from functions in the store, and no provider or actions are needed. I pick Zustand for a little shared state, Redux where the codebase already uses it.',
     keyPoints: [
@@ -187,16 +215,28 @@ function Layout({ agent }: { agent: Agent }) {
         statement: 'In a Redux Toolkit `createSlice` reducer, writing `state.items.push(item)` is safe.',
         isTrue: true,
         why: 'RTK runs reducers through Immer, which records the change on a draft and produces a new immutable state.',
+        twin: {
+          statement: 'In a Redux Toolkit `createSlice` reducer, writing `state.items.push(item)` mutates the store\'s state in place.',
+          why: 'RTK runs reducers through Immer, which records the change on a draft and produces a new immutable state.',
+        },
       },
       {
         statement: 'Zustand needs a provider component at the root of the app, like the Redux `<Provider>`.',
         isTrue: false,
         why: 'A Zustand store created with `create` is a hook that components call directly, with no provider.',
+        twin: {
+          statement: 'A Zustand store created with `create` is a hook that components call without any provider.',
+          why: 'Unlike the Redux `<Provider>`, Zustand needs no component at the root of the app.',
+        },
       },
       {
         statement: 'A `useSelector` that returns a new object literal re-renders its component after every dispatched action.',
         isTrue: true,
         why: '`useSelector` re-runs after every action and compares with `===`, so a new object is always "different".',
+        twin: {
+          statement: 'A `useSelector` that returns a new object literal re-renders its component only when the selected fields change.',
+          why: '`useSelector` re-runs after every action and compares with `===`, so a new object is always "different".',
+        },
       },
     ],
     codeChoices: [
@@ -248,6 +288,16 @@ dispatch(cartSlice.actions.added({ productId: 'mug', quantity: 1 }));`,
     level: 'senior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'How is server state different from client state, and why does TanStack Query treat it differently?',
+    questionVariants: [
+      {
+        question: 'An agent refunds an order in the back office, but the orders table, loaded once into a Redux store, still shows it as `paid` until a page reload. What kind of state is this, and how should it be handled?',
+        bridge: 'Server state: the client only holds a copy that can go stale, so it needs a cache with invalidation after a write, which is TanStack Query\'s job.',
+      },
+      {
+        question: 'Why not keep the API\'s order list in `useState` like any other state? What does that data need that client state does not?',
+        bridge: 'Server versus client state: a copy of server-owned data needs caching, freshness, refetching, retries and invalidation.',
+      },
+    ],
     answer:
       'Client state is owned by the browser: an open dialog, the cart before checkout. Server state is owned by the server; the client only holds a copy that someone else can change, so it can go stale. That copy needs things client state never does: caching and deduplication, a freshness rule, refetching on focus or reconnect, retries, cancellation and invalidation after a write. TanStack Query is a cache built for that: each entry has a query key, `staleTime` says how long it is fresh, and mutations invalidate affected keys. So I keep API data in it and only true client state in `useState` or a store.',
     keyPoints: [
@@ -302,11 +352,19 @@ dispatch(cartSlice.actions.added({ productId: 'mug', quantity: 1 }));`,
         statement: "TanStack Query's default `staleTime` is 0, so cached data counts as stale immediately.",
         isTrue: true,
         why: 'With the default, cached data is still shown at once but a remount, window focus or reconnect triggers a background refetch.',
+        twin: {
+          statement: 'With TanStack Query\'s default `staleTime`, cached data stays fresh until you invalidate it.',
+          why: 'The default `staleTime` is 0, so data counts as stale at once and a remount, window focus or reconnect refetches it in the background.',
+        },
       },
       {
         statement: 'Two components that call `useQuery` with the same key at the same time send two requests.',
         isTrue: false,
         why: 'They share one cache entry, and a request already in flight for that key is shared.',
+        twin: {
+          statement: 'Two components that call `useQuery` with the same key at the same time share one request.',
+          why: 'They share one cache entry, and a request already in flight for that key is reused.',
+        },
       },
     ],
     codeChoices: [
@@ -356,6 +414,16 @@ const refund = useMutation({
     level: 'mid',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What does Context with `useContext` solve, and what are its performance pitfalls?',
+    questionVariants: [
+      {
+        question: 'In the storefront, a `ShopContext` holds the cart, the user and a sale countdown that ticks every second, and the Profiler shows the header and product grid rendering every second. Why, and what do you change?',
+        bridge: 'Context\'s performance pitfall: every reader re-renders when the value changes, so a fast-changing value needs its own context or a store.',
+      },
+      {
+        question: 'When would you choose Context over passing props, and when would you not use it at all?',
+        bridge: 'What Context solves, prop drilling for values many components need, and its limit: it fits rarely changing values, not frequent updates.',
+      },
+    ],
     answer:
       'Context lets any descendant read a value without passing it through every layer: a provider sets the value and components read it with `useContext`, or `use` in React 19. It solves prop drilling for values many components need. The pitfall is that every reader re-renders when the provider value changes, compared with `Object.is`, even if it uses one field, and `memo` does not stop it. An object literal as the value is new on every render, so readers re-render for nothing. I memoize the value, split contexts by how often they change, and keep fast-changing state in a store with selectors.',
     keyPoints: [
@@ -410,11 +478,19 @@ const refund = useMutation({
         statement: 'A component that reads a context re-renders only when the field it uses changes.',
         isTrue: false,
         why: 'It re-renders whenever the provider value changes by `Object.is`, whatever field it uses.',
+        twin: {
+          statement: 'A component that reads a context re-renders whenever the provider value changes, even if the field it uses did not.',
+          why: 'React compares the whole value with `Object.is`; there is no per-field subscription.',
+        },
       },
       {
         statement: 'Passing an object literal as a provider `value` makes every reader re-render each time the provider renders.',
         isTrue: true,
         why: 'The literal is a new object on every render, so `Object.is` sees a new value; `useMemo` fixes it.',
+        twin: {
+          statement: 'Passing an object literal as a provider `value` re-renders readers only when its contents change.',
+          why: 'The literal is a new object on every render, so `Object.is` sees a new value; `useMemo` fixes it.',
+        },
       },
     ],
     codeChoices: [
@@ -460,6 +536,16 @@ const CartActionsContext = createContext<CartActions | null>(null);
     level: 'junior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What is lifting state up, and how do two sibling components share state?',
+    questionVariants: [
+      {
+        question: 'In the back office, clicking an order in `OrdersList` must highlight it and show it in the sibling `OrderDetail`, but each keeps its own `selectedId` and they disagree. How do you fix it?',
+        bridge: 'Lifting state up: the closest common parent owns `selectedId`, passes it down, and gives the list an `onSelect` callback.',
+      },
+      {
+        question: 'Explain "single source of truth" in React to a junior, and say when you would lift state and when you would reach for something else.',
+        bridge: 'Lifting state gives each piece of data one owner; when the common parent is far up, composition, then Context, then a store come next.',
+      },
+    ],
     answer:
       'Siblings cannot read each other\'s state, so I move the state to their closest common parent. The parent owns it, passes the value down as props, and passes a callback such as `onSelect` so a child can ask for a change. That is lifting state up: one component owns each piece of data, the single source of truth, and the siblings can never disagree. I do it as soon as two components must stay in sync. When the common parent is far up and the value crosses many layers, I use composition, then Context, then a store.',
     keyPoints: [
@@ -508,11 +594,19 @@ const CartActionsContext = createContext<CartActions | null>(null);
         statement: 'A component can read the state of its sibling directly if both have the same parent.',
         isTrue: false,
         why: 'State is private to its component; siblings share data only through a common owner that passes props.',
+        twin: {
+          statement: 'A component cannot read its sibling\'s state directly, even when both have the same parent.',
+          why: 'State is private; siblings share data only through a common owner that passes props.',
+        },
       },
       {
         statement: 'After lifting state into a parent, each change re-renders the parent and the child components it renders.',
         isTrue: true,
         why: 'Updating state re-renders the component that owns it, and React renders the components it creates again unless they are memoized.',
+        twin: {
+          statement: 'After lifting state into a parent, a change re-renders only the child that displays the value.',
+          why: 'Updating state re-renders its owner, and React renders the components it creates again unless they are memoized.',
+        },
       },
     ],
     codeChoices: [
@@ -568,6 +662,16 @@ const CartActionsContext = createContext<CartActions | null>(null);
     level: 'senior',
     paths: ['react', 'frontend'],
     question: 'What are atoms and selectors in libraries like Jotai or Recoil, and how do they differ from one global store?',
+    questionVariants: [
+      {
+        question: 'The back office dashboard has 40 widgets with their own settings, all kept in one big Context object, and changing one widget\'s setting re-renders all 40. What state model would fit better?',
+        bridge: 'Atomic state: one atom per independent piece, with dependency tracking, so a change re-renders only the components that read that atom.',
+      },
+      {
+        question: 'How do Jotai atoms differ from a Redux store, and would you start a new project with Recoil today?',
+        bridge: 'Bottom-up atoms versus one top-down store, and the library choice: Recoil\'s repository was archived in January 2025, and Jotai is maintained.',
+      },
+    ],
     answer:
       'An atom is a small independent piece of state, and a derived atom, called a selector in Recoil, computes a value from other atoms. Components subscribe to the atoms they read, and the library tracks dependencies, so a change re-renders only the components that depend on that atom. A global store like Redux starts from one big state object that components slice with selectors. Atoms build state bottom-up instead, which suits many independent pieces such as per-widget settings. Jotai is the one I would pick today; Recoil\'s repository was archived in January 2025.',
     keyPoints: [
@@ -604,11 +708,19 @@ const CartActionsContext = createContext<CartActions | null>(null);
         statement: "Recoil's GitHub repository was archived and is read-only.",
         isTrue: true,
         why: 'Its repository was archived by the owner on 1 January 2025; Jotai is the maintained alternative.',
+        twin: {
+          statement: 'Recoil\'s GitHub repository is still open and actively maintained.',
+          why: 'It was archived by its owner on 1 January 2025 and is read-only; Jotai is the maintained alternative.',
+        },
       },
       {
         statement: 'When one Jotai atom changes, every component that uses any atom re-renders.',
         isTrue: false,
         why: 'Only components that read that atom, or an atom derived from it, re-render.',
+        twin: {
+          statement: 'When one Jotai atom changes, only components that read it, or an atom derived from it, re-render.',
+          why: 'Jotai tracks which components depend on each atom.',
+        },
       },
     ],
     codeChoices: [
@@ -666,6 +778,16 @@ function CartBadge() {
     level: 'mid',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What is the difference between `useState` and `useReducer`, and when do you choose each?',
+    questionVariants: [
+      {
+        question: 'The storefront cart uses five separate `useState` calls, and after removing an item then changing a quantity, the total and the item count disagree. How would you restructure it?',
+        bridge: '`useReducer` for values that change together: one pure reducer applies each action to the whole cart, so the values stay consistent.',
+      },
+      {
+        question: 'When would you keep `useState` rather than switch to `useReducer`, and what does a reducer give you for testing?',
+        bridge: 'The choice between them: `useState` for independent values, a reducer when updates follow rules, with pure logic testable without React.',
+      },
+    ],
     answer:
       '`useState` holds a value and gives a setter; I use it for independent values like a toggle or an input. `useReducer` takes a reducer, a pure function that receives the current state and an action and returns the next state, and gives me `dispatch`. I choose it when several values change together or updates follow rules, like a cart with add, remove and change-quantity. All the update logic lives in one function I can unit test without React, components only describe what happened, and `dispatch` keeps the same identity across renders.',
     keyPoints: [
@@ -708,11 +830,19 @@ function CartBadge() {
         statement: 'The `dispatch` function returned by `useReducer` keeps the same identity across renders.',
         isTrue: true,
         why: 'React gives it a stable identity, so it can be passed down or listed in dependencies without causing re-renders.',
+        twin: {
+          statement: 'The `dispatch` function from `useReducer` is new on every render, so it must be wrapped in `useCallback`.',
+          why: 'React gives `dispatch` a stable identity, so it can be passed down or listed in dependencies as is.',
+        },
       },
       {
         statement: 'A reducer is a good place to call the API, since it runs on every action.',
         isTrue: false,
         why: 'A reducer must be pure; React may call it twice in development. Side effects go in event handlers or effects.',
+        twin: {
+          statement: 'A reducer must stay pure, so API calls belong in event handlers or effects.',
+          why: 'React may call a reducer twice in development, and side effects do not belong in a pure function.',
+        },
       },
     ],
     codeChoices: [
@@ -768,6 +898,16 @@ function CartBadge() {
     level: 'senior',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'What is an optimistic UI update, and how do you implement one?',
+    questionVariants: [
+      {
+        question: 'Agents complain that toggling the priority flag on an order in the back office takes a second to show, although the Orders API almost never rejects it. How would you make it feel instant, safely?',
+        bridge: 'An optimistic update: show the expected value at once, keep a snapshot to roll back on error, and invalidate when settled to get the truth.',
+      },
+      {
+        question: 'Would you make the refund button optimistic? When is an optimistic update the wrong choice?',
+        bridge: 'The limits of optimistic UI: it suits frequent, low-risk edits, never money or stock, where showing a guess could mislead the user.',
+      },
+    ],
     answer:
       'An optimistic update shows the expected result before the server confirms it, so the UI feels instant. With TanStack Query, in `onMutate` I cancel in-flight queries for that key, keep a snapshot and write the expected value into the cache. In `onError` I restore the snapshot and tell the user, and in `onSettled` I invalidate the key so the server\'s answer replaces my guess. For a React 19 form Action, `useOptimistic` shows a temporary value while the Action runs and falls back on its own. I only do it for frequent, low-risk edits, never for payments or refunds.',
     keyPoints: [
@@ -810,11 +950,19 @@ function CartBadge() {
         statement: 'With `useOptimistic`, you must write rollback code for when the Action fails.',
         isTrue: false,
         why: 'The optimistic value is shown only while the Action runs; if the real state was not updated, it simply disappears.',
+        twin: {
+          statement: 'With `useOptimistic`, the optimistic value disappears on its own when the Action ends, so no rollback code is needed.',
+          why: 'It is shown only while the Action runs; if the real state was not updated, the component falls back to it.',
+        },
       },
       {
         statement: 'Before an optimistic cache write, cancelling in-flight queries for that key prevents an older response from overwriting it.',
         isTrue: true,
         why: 'A refetch started before the edit could otherwise land after it and show the old value.',
+        twin: {
+          statement: 'Cancelling in-flight queries before an optimistic cache write is unnecessary, because an older response cannot overwrite it.',
+          why: 'A refetch started before the edit can land after it and show the old value.',
+        },
       },
     ],
     codeChoices: [
@@ -864,6 +1012,16 @@ onSettled: () => queryClient.invalidateQueries({ queryKey: detailKey }),`,
     level: 'mid',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'How would you fetch data with hooks, and what are the pitfalls?',
+    questionVariants: [
+      {
+        question: 'In the back office, an agent clicks order 41 then quickly order 42, and the detail panel ends up showing order 41. The fetch runs in a `useEffect`. What is happening?',
+        bridge: 'A race in effect fetching: the older response arrives last and overwrites the newer one, so the cleanup must abort or ignore it.',
+      },
+      {
+        question: 'Your team fetches every resource with `useEffect` and `useState`. What problems will you hit as the app grows, and what would you use instead?',
+        bridge: 'The pitfalls of bare effect fetching: no cache, deduplication or retries, and waterfalls, which TanStack Query or a framework loader solve.',
+      },
+    ],
     answer:
       'The bare way is `useEffect`: start the request, store data, loading and error in state, and list the inputs, like the order id, as dependencies. The pitfalls are real: a race when the id changes before the first response arrives, so I abort in the cleanup with an `AbortController`; not reporting an `AbortError` as a failure; and no cache, so every component refetches and data goes stale. Effects also cause waterfalls when children fetch only after parents render. So in an app I use TanStack Query, which handles keys, cancellation, deduplication and retries, and keep raw effects for rare one-off cases.',
     keyPoints: [
@@ -906,11 +1064,19 @@ onSettled: () => queryClient.invalidateQueries({ queryKey: detailKey }),`,
         statement: 'Without a cleanup, an effect that fetches by id can show the response of an older id.',
         isTrue: true,
         why: 'Both requests call the setter, so whichever response arrives last wins, not the last selection.',
+        twin: {
+          statement: 'Without a cleanup, an effect that fetches by id always shows the response for the latest id.',
+          why: 'Both requests call the setter, so whichever response arrives last wins, not the last selection.',
+        },
       },
       {
         statement: 'An `async` function can be passed directly to `useEffect`.',
         isTrue: false,
         why: 'It returns a promise, and React expects the effect to return a cleanup function or nothing; define the async function inside instead.',
+        twin: {
+          statement: 'An `async` function should not be passed directly to `useEffect`; define it inside the effect and call it.',
+          why: 'An async function returns a promise, while React expects a cleanup function or nothing.',
+        },
       },
     ],
     codeChoices: [
@@ -964,6 +1130,16 @@ onSettled: () => queryClient.invalidateQueries({ queryKey: detailKey }),`,
     level: 'mid',
     paths: ['react', 'frontend', 'fullstack'],
     question: 'How do you write a custom hook, and what problem does it solve?',
+    questionVariants: [
+      {
+        question: 'Three back office pages each copy 30 lines that subscribe to live order updates and unsubscribe on unmount, and a bug fix landed in only one copy. What would you do?',
+        bridge: 'A custom hook: extract the stateful logic into one `use` function with a typed contract and its own cleanup, reused by each page.',
+      },
+      {
+        question: 'A colleague expects a `useCart()` hook to keep the cart in sync between the header and the checkout page "because they use the same hook". Are they right?',
+        bridge: 'What a custom hook shares: logic, not state. Each call gets its own state and effects, so shared data needs a common owner.',
+      },
+    ],
     answer:
       'A custom hook is a function whose name starts with `use` and that calls other hooks. It lets me reuse stateful logic, such as a subscription, a debounced value or a query, across components without copying it, and it gives that logic a name and a typed contract. It shares logic, not state: each component that calls it gets its own state and effects. The rules of hooks apply inside, so hooks are called at the top level in the same order every render. A good hook does one job, takes typed inputs, returns a small typed result, and cleans up everything it starts.',
     keyPoints: [
@@ -1006,11 +1182,19 @@ onSettled: () => queryClient.invalidateQueries({ queryKey: detailKey }),`,
         statement: 'Two components that call the same custom hook share its state.',
         isTrue: false,
         why: 'Each call runs its own hooks, so each component gets its own state and effects; only the logic is shared.',
+        twin: {
+          statement: 'Two components that call the same custom hook each get their own state and effects.',
+          why: 'Only the logic is shared; each call runs its own hooks.',
+        },
       },
       {
         statement: 'The rules of hooks apply inside a custom hook as well as inside components.',
         isTrue: true,
         why: 'React matches hook calls to their state by call order, so they must run at the top level in the same order.',
+        twin: {
+          statement: 'Inside a custom hook, hooks may be called conditionally, because the rules of hooks apply only to components.',
+          why: 'React matches hook calls to their state by call order, so custom hooks follow the same rules.',
+        },
       },
     ],
     codeChoices: [

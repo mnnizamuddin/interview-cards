@@ -9,6 +9,16 @@ export const reactGapsCards: Card[] = [
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'Why should you never declare a component inside another component?',
+    questionVariants: [
+      {
+        question: 'In the back office order detail, the internal note field loses focus after every keystroke and its draft resets whenever the parent re-renders. The input itself has no bug. What do you look for?',
+        bridge: 'A component declared inside its parent is a new function, so a new type, on every render: React remounts it, and state, DOM and focus are lost.',
+      },
+      {
+        question: 'In review, a colleague defines a small `OrderRow` component inside `OrdersTable` "to keep it close to where it is used". What do you answer?',
+        bridge: 'The same topic as a review comment: a nested declaration creates a new component type each render; declare it at module level and pass props.',
+      },
+    ],
     answer:
       "For React, the type of an element is the component function itself, compared by identity. If I declare `NoteEditor` inside `NotesPanel`, every render of the panel creates a new function, so at the same position React sees a different type. It then destroys the old subtree and mounts a new one: the child loses its state, its DOM nodes and the focus. The fix is to declare every component once, at module level, and pass what it needs as props, which also makes its dependencies visible.",
     keyPoints: [
@@ -48,11 +58,19 @@ export const reactGapsCards: Card[] = [
         statement: 'A component declared inside another one is remounted every time the outer one renders.',
         isTrue: true,
         why: 'Each render creates a new function, which React treats as a new element type at that position, so it destroys and recreates the subtree.',
+        twin: {
+          statement: 'A component declared inside another one keeps its state when the outer one renders again.',
+          why: 'Each outer render creates a new function, which React treats as a new element type at that position, so it remounts the subtree and the state is lost.',
+        },
       },
       {
         statement: 'Adding a constant `key` to the nested component keeps its state between renders.',
         isTrue: false,
         why: 'A key only distinguishes elements of the same type; the type is still a new function on each render, so React remounts it anyway.',
+        twin: {
+          statement: 'Even with a constant `key`, a component declared inside another one loses its state when the outer one renders.',
+          why: 'A key only distinguishes elements of the same type; the nested function is a new type on each render, so React remounts it anyway.',
+        },
       },
     ],
     codeChoices: [
@@ -108,6 +126,16 @@ function NotesPanel() {
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'What traps do you know in conditional rendering with `&&` and ternaries in React?',
+    questionVariants: [
+      {
+        question: 'The back office header shows a stray "0" next to the inbox icon when no refund request is waiting, and a new agent\'s refund-rate card shows "NaN". Nobody prints these values on purpose. What do you suspect?',
+        bridge: '`&&` returns its falsy left value, and React renders numbers, 0 and NaN included, as text. The condition must be a boolean.',
+      },
+      {
+        question: 'Switching the checkout address form between view and edit mode keeps the values typed before, though you expected a fresh form. Why, and how do you choose between keeping and resetting state?',
+        bridge: 'The same component at the same position in both branches of a ternary keeps its state; separate `&&` slots or different keys reset it.',
+      },
+    ],
     answer:
       "The first trap is a number on the left of `&&`. `a && b` returns `a` itself when it is falsy, and React renders nothing for `false`, `null` and `undefined`, but renders numbers as text. So `count && <Badge />` shows 0, and a 0 / 0 rate shows NaN. I write a boolean instead: `count > 0 &&`, or a ternary with `null`. The second trap is state: two branches of a ternary that render the same component at one position share its state, while two separate `&&` slots mount and unmount. I pick on purpose, and use different keys when each branch must start fresh.",
     keyPoints: [
@@ -147,11 +175,19 @@ function NotesPanel() {
         statement: '`{orders.length && <OrdersTable />}` renders nothing when the list is empty.',
         isTrue: false,
         why: '`0 && x` evaluates to 0, and React renders numbers as text, so the page shows 0.',
+        twin: {
+          statement: '`{orders.length && <OrdersTable />}` renders 0 when the list is empty.',
+          why: '`0 && x` evaluates to 0, and React renders numbers as text, so the page shows 0.',
+        },
       },
       {
         statement: 'In `{isEditing ? <AddressForm /> : <AddressForm />}`, the form keeps its state when `isEditing` changes.',
         isTrue: true,
         why: 'Both branches put the same component type at the same position, so React keeps the same instance and its state.',
+        twin: {
+          statement: 'In `{isEditing ? <AddressForm /> : <AddressForm />}`, the form loses its state when `isEditing` changes.',
+          why: 'Both branches put the same component type at the same position, so React keeps the same instance and its state.',
+        },
       },
     ],
     codeChoices: [
@@ -204,6 +240,16 @@ function NotesPanel() {
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'What does `<StrictMode>` do, and why do my components and effects run twice in development?',
+    questionVariants: [
+      {
+        question: 'In development, the back office logs "orders rendered" twice per render and an effect\'s setup and cleanup both run on mount, while production shows nothing of the kind. A colleague wants to remove a wrapper at the root. What do you say?',
+        bridge: 'StrictMode double-calls render code and runs an extra effect setup and cleanup in development only, to expose impure code: fix the code, keep the check.',
+      },
+      {
+        question: 'A junior asks why their `useState(() => loadDraft())` initializer runs twice on their machine. How do you explain what `<StrictMode>` checks and why production is not affected?',
+        bridge: 'Initializers are render-phase code that StrictMode calls twice in development; a pure initializer gives the same result, and a production build calls it once.',
+      },
+    ],
     answer:
       "StrictMode is a development-only checker I put at the root of the app. To expose impure code, it calls render-phase functions twice: component bodies, the initializers passed to `useState`, `useMemo` and `useReducer`, and updater functions. It also runs one extra setup and cleanup cycle for every effect and callback ref, to prove the cleanup works. A pure component gives the same result both times, so the double call is invisible; a difference means a bug production will hit later. None of this happens in a production build, so the answer is to fix the code, never to remove StrictMode.",
     keyPoints: [
@@ -243,11 +289,19 @@ function NotesPanel() {
         statement: 'Under StrictMode in development, React calls `onClick` handlers twice.',
         isTrue: false,
         why: 'Only render-phase code is double-called: component bodies, initializers and updaters. Event handlers run once.',
+        twin: {
+          statement: 'Under StrictMode in development, React calls an `onClick` handler once per click.',
+          why: 'Only render-phase code is double-called: component bodies, initializers and updaters. Event handlers run once.',
+        },
       },
       {
         statement: 'StrictMode checks run only in development, never in a production build.',
         isTrue: true,
         why: 'react.dev states that the double calls and the extra effect cycle are development-only checks.',
+        twin: {
+          statement: 'StrictMode\'s double calls and extra effect cycle also run in a production build.',
+          why: 'react.dev states that the double calls and the extra effect cycle are development-only checks.',
+        },
       },
     ],
     codeChoices: [
@@ -289,6 +343,16 @@ function NotesPanel() {
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'An effect keeps re-running and sends requests in a loop. What causes it, and how do you fix it?',
+    questionVariants: [
+      {
+        question: 'After a release, the back office orders page sends `GET /orders?status=paid` dozens of times a second, though nobody touches the filters. The effect depends on a `filters` object built in the component body. What is happening?',
+        bridge: 'The object is new on every render and dependencies are compared with `Object.is`, so the effect runs, sets state, renders, and runs again.',
+      },
+      {
+        question: 'A colleague disables `react-hooks/exhaustive-deps` on a line to stop an effect from re-running. Why is that the wrong fix, and what do you do instead?',
+        bridge: 'Silencing the rule hides the real cause; restructure: depend on primitives, build objects inside the effect, memoise objects from props.',
+      },
+    ],
     answer:
       "React compares effect dependencies with `Object.is`, so an object or array created during render is a new value on every render. If the effect also sets state, I get a cycle: render creates a new object, the effect sees a change and fetches, the response sets state, which renders again. A synchronous setState loop only logs \"Maximum update depth exceeded\", so it can ship unnoticed. I fix it by moving the object inside the effect and depending on primitives, memoising an object that comes from a prop, removing effects that store derived state, and never silencing the exhaustive-deps rule.",
     keyPoints: [
@@ -329,11 +393,19 @@ function NotesPanel() {
         statement: 'An object literal listed in an effect\'s dependencies makes the effect run after every render.',
         isTrue: true,
         why: 'A new object is created on each render, and `Object.is` compares by identity, so the dependency always looks changed.',
+        twin: {
+          statement: 'An object literal listed in an effect\'s dependencies is compared by content, so the effect runs only when one of its fields changes.',
+          why: '`Object.is` compares by identity and a new object is created on each render, so the dependency always looks changed and the effect runs after every render.',
+        },
       },
       {
         statement: 'An effect that calls setState with a value that always changes throws an error and stops the app.',
         isTrue: false,
         why: 'React logs "Maximum update depth exceeded" to the console, but the loop can keep running without crashing.',
+        twin: {
+          statement: 'An effect that calls setState with a value that always changes can keep looping without crashing the app.',
+          why: 'React logs "Maximum update depth exceeded" to the console, but the loop can keep running.',
+        },
       },
     ],
     codeChoices: [
@@ -379,6 +451,16 @@ useEffect(() => {
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'What is `useSyncExternalStore` for, and what rules must the store follow?',
+    questionVariants: [
+      {
+        question: 'The back office keeps the count of open refund requests in a small store outside React, read by the header and the sidebar. During a slow render, the two briefly show different counts. Which hook fixes this, and what must the store respect?',
+        bridge: '`useSyncExternalStore` keeps every component on the same store version, which prevents tearing, provided the snapshot is cached and `subscribe` is stable.',
+      },
+      {
+        question: 'A colleague\'s component built on `useSyncExternalStore` freezes the tab in an update loop. Their `getSnapshot` returns `{ count, updatedAt }` built on each call. What is wrong?',
+        bridge: '`getSnapshot` must return the same value while nothing changed; a new object on each call looks like a change, so React loops.',
+      },
+    ],
     answer:
       "It is React's built-in hook to read a value that lives outside React and changes over time: a shared store or a browser API. I pass `subscribe`, which registers a callback and returns an unsubscribe function, and `getSnapshot`, which returns the current value. React then keeps every component on the same version of the store and avoids tearing, two components showing different versions. Two rules: `getSnapshot` must return the same value while nothing changed, or React loops, and `subscribe` must be stable. For server rendering I pass `getServerSnapshot` too.",
     keyPoints: [
@@ -419,11 +501,19 @@ useEffect(() => {
         statement: '`getSnapshot` may return a new object on every call as long as its content is the same.',
         isTrue: false,
         why: 'React compares snapshots by identity; a new object each call looks like a change and causes an infinite update loop.',
+        twin: {
+          statement: '`getSnapshot` must return the same object on every call while the store has not changed.',
+          why: 'React compares snapshots by identity; a new object each call looks like a change and causes an infinite update loop.',
+        },
       },
       {
         statement: 'Without `getServerSnapshot`, server-rendering a component that uses `useSyncExternalStore` fails.',
         isTrue: true,
         why: 'React needs a value for the server render and hydration; when it is missing, it throws an error saying `getServerSnapshot` is required.',
+        twin: {
+          statement: 'Server-rendering a component that uses `useSyncExternalStore` works without `getServerSnapshot`.',
+          why: 'React needs a value for the server render and hydration; when it is missing, it throws an error saying `getServerSnapshot` is required.',
+        },
       },
     ],
     codeChoices: [
@@ -474,6 +564,16 @@ export const useOnline = () =>
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'What is a portal in React, and how do events and context behave inside one?',
+    questionVariants: [
+      {
+        question: 'In the back office, clicking "Confirm" in a refund modal also opens the order row the modal was launched from. The modal is rendered into `document.body`, far from the table in the DOM. Why does the row react?',
+        bridge: 'Events from a portal bubble through the React tree, not the DOM tree, so the row\'s `onClick` still receives the click.',
+      },
+      {
+        question: 'A size-guide tooltip on the product page is cut off by a card with `overflow: hidden`. How do you let it escape, and will the theme context still reach it?',
+        bridge: 'A portal renders into another DOM node to escape `overflow` and stacking contexts, while keeping its React position, so context still flows in.',
+      },
+    ],
     answer:
       "A portal, `createPortal(children, domNode)`, renders children into another DOM node, usually `document.body`, while keeping them at the same place in the React tree. I use it for modals, tooltips and menus that must escape a parent's `overflow` or stacking context. The trap is that events bubble through the React tree, not the DOM tree: a click in a modal rendered from a table row still reaches the row's `onClick`. Context flows in the same way. I stop propagation in the modal or render it from higher up, and for modals in 2026 I also consider a native `<dialog>` with `showModal()`.",
     keyPoints: [
@@ -508,11 +608,19 @@ export const useOnline = () =>
         statement: 'A click inside a portal rendered into `document.body` reaches the `onClick` of its React parent.',
         isTrue: true,
         why: 'Portal events bubble through the React tree, so the React parent handler fires even though the DOM node is elsewhere.',
+        twin: {
+          statement: 'A click inside a portal rendered into `document.body` does not reach the `onClick` of its React parent.',
+          why: 'Portal events bubble through the React tree, so the React parent\'s handler fires even though the DOM node is elsewhere.',
+        },
       },
       {
         statement: 'Components inside a portal cannot read the context of their React parents.',
         isTrue: false,
         why: 'A portal keeps its place in the React tree, so context providers above it still apply.',
+        twin: {
+          statement: 'Components inside a portal can read the context of their React parents.',
+          why: 'A portal keeps its place in the React tree, so context providers above it still apply.',
+        },
       },
     ],
     codeChoices: [
@@ -561,6 +669,16 @@ export const useOnline = () =>
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'How do `useTransition` and `useDeferredValue` keep typing responsive, and why does wrapping an expensive calculation in `startTransition` still freeze the input?',
+    questionVariants: [
+      {
+        question: 'The back office search filters 5,000 orders on each keystroke. You wrapped the filtering call in `startTransition`, yet the input still lags. Why, and what would actually help?',
+        bridge: '`startTransition` runs its callback at once and only defers the state updates; the filtering still runs in the keystroke handler. Make it smaller, split it or use a worker.',
+      },
+      {
+        question: 'When do you choose `useDeferredValue` over `useTransition`, and what do both do while the user keeps typing?',
+        bridge: 'Both mark a low-priority render that yields between components and is dropped for newer input; one wraps your own setter, the other a value you receive.',
+      },
+    ],
     answer:
       "Both mark work as a transition: a low-priority render that React does in slices, yielding to the browser between components so a keystroke can be painted, and dropping it when newer input arrives. I use `useTransition` when I own the setter, and `useDeferredValue` when I receive the value, with `memo` on the slow child. But `startTransition` calls its callback immediately and only defers the state updates inside it, so a calculation there runs in the keystroke handler. And React yields between components, never inside one. So I make slow work smaller, split it, or move it to a Web Worker.",
     keyPoints: [
@@ -600,11 +718,19 @@ export const useOnline = () =>
         statement: '`startTransition(fn)` schedules `fn` to run later, when the browser is idle.',
         isTrue: false,
         why: 'React calls `fn` immediately; only the state updates made during that call are marked as a transition.',
+        twin: {
+          statement: '`startTransition(fn)` calls `fn` immediately and only marks the state updates made inside it as a transition.',
+          why: 'Nothing is scheduled for later: React runs `fn` at once, and only the updates made during that call get low priority.',
+        },
       },
       {
         statement: 'A single component that computes for 150 ms in a deferred render can still delay keystrokes.',
         isTrue: true,
         why: 'React can only yield between components, so one 150 ms component is one block of main-thread work.',
+        twin: {
+          statement: 'In a deferred render, React can pause in the middle of one slow component to handle a keystroke.',
+          why: 'React can only yield between components, so one 150 ms component is one block of main-thread work.',
+        },
       },
     ],
     codeChoices: [
@@ -650,6 +776,16 @@ export const useOnline = () =>
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'Where do you keep filters, sorting and pagination of a table, and why?',
+    questionVariants: [
+      {
+        question: 'Support agents complain that a link to the filtered orders table opens unfiltered for a colleague, and that the back button loses their filters. Where should the filter state live?',
+        bridge: 'Anything a reload, a shared link or the back button should keep belongs in the query string, read from the URL on every render.',
+      },
+      {
+        question: 'After moving the orders filters into the URL, an agent must press Back fifteen times to leave the page. What went wrong, and which other details matter?',
+        bridge: 'Each tweak pushed a history entry; `replace` rewrites the current one. The other details: validate parameters and reset the cursor on filter change.',
+      },
+    ],
     answer:
       "Anything a reload, a shared link or the back button should keep goes in the query string, and the URL becomes the single source of truth. The component reads the filters from the URL on every render and writes changes back through the router: `useSearchParams` in React Router, or the navigation hooks in Next.js. Three details matter. I validate parameters, because the URL is user input. I reset the page cursor when a filter changes. And I use `replace` for filter tweaks so they do not fill the history. I never copy the URL into `useState`, which creates two truths.",
     keyPoints: [
@@ -689,11 +825,19 @@ export const useOnline = () =>
         statement: 'Copying the search parameters into `useState` on mount is a good way to keep filters in sync with the URL.',
         isTrue: false,
         why: 'It creates two sources of truth that drift apart; read from the URL on every render instead.',
+        twin: {
+          statement: 'Copying the search parameters into `useState` on mount creates a second source of truth that drifts from the URL.',
+          why: 'The copy no longer follows the URL; read the filters from the URL on every render instead.',
+        },
       },
       {
         statement: 'Updating the URL with `replace` does not add a new entry to the browser history.',
         isTrue: true,
         why: '`replace` rewrites the current entry, so filter clicks do not pile up behind the back button.',
+        twin: {
+          statement: 'Updating the URL with `replace` adds a new entry to the browser history.',
+          why: '`replace` rewrites the current entry, so filter clicks do not pile up behind the back button.',
+        },
       },
     ],
     codeChoices: [
@@ -746,6 +890,16 @@ function setStatus(next: OrderStatus) {
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'How do you build a complex form with validation in React, and when is it worth a library?',
+    questionVariants: [
+      {
+        question: 'The back office product editor has 40 fields, a list of variants and a rule that the sale price must be below the list price. Typing in any field re-renders the whole form. How would you rebuild it?',
+        bridge: 'Large forms suit React Hook Form, which keeps inputs uncontrolled, with cross-field rules in one Zod schema that the server reuses.',
+      },
+      {
+        question: 'Would you add a form library to the storefront checkout, which has five fields? When is one worth it?',
+        bridge: 'Short forms stay with native fields and an Action; a library pays off with many fields, cross-field rules or dynamic lists.',
+      },
+    ],
     answer:
       "For a short form, like checkout, I use native fields and a React 19 Action. When a form grows, with many fields, cross-field rules or dynamic lists, I use React Hook Form with a Zod schema. React Hook Form registers uncontrolled inputs through refs, so typing does not re-render the whole form. The rules live in one Zod schema, connected with `zodResolver`, and the backend validates the request with the same schema. Validation runs on submit by default, then on change once a submit has failed, and errors show next to each field.",
     keyPoints: [
@@ -785,11 +939,19 @@ function setStatus(next: OrderStatus) {
         statement: 'By default, React Hook Form validates every field on each keystroke from the first render.',
         isTrue: false,
         why: 'The default mode is `onSubmit`; after a failed submit, fields are validated again on change.',
+        twin: {
+          statement: 'By default, React Hook Form does not validate fields before the first submit.',
+          why: 'The default mode is `onSubmit`; after a failed submit, fields are validated again on change.',
+        },
       },
       {
         statement: 'A Zod schema shared by the form and the backend keeps the rules in one place.',
         isTrue: true,
         why: 'The same schema validates the form on the client and the request on the server, so the two cannot drift apart.',
+        twin: {
+          statement: 'When the form and the backend each keep their own copy of the validation rules, the two cannot drift apart.',
+          why: 'Two copies drift apart; one Zod schema used on the client and on the server keeps the rules in one place.',
+        },
       },
     ],
     codeChoices: [
@@ -840,6 +1002,16 @@ const { register, handleSubmit, formState } = useForm({
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'In the Next.js App Router, when do you write a Route Handler instead of a Server Action, and where do secrets live?',
+    questionVariants: [
+      {
+        question: 'The storefront needs an endpoint the mobile app can poll for order status, and an invoice PDF download. A colleague proposes Server Actions for both. What do you suggest?',
+        bridge: 'Server Actions are for mutations from your own forms; other callers, polling and downloads need a Route Handler exporting HTTP-method functions.',
+      },
+      {
+        question: 'A developer stored the Orders API token in `NEXT_PUBLIC_ORDERS_TOKEN` so client code can call the API directly. What is wrong, and where should it live?',
+        bridge: '`NEXT_PUBLIC_` values are inlined into the browser bundle; secrets stay unprefixed in server-only modules, with the Next.js server as a BFF.',
+      },
+    ],
     answer:
       "A Route Handler is a `route.ts` file that exports functions named after HTTP methods and works with the standard `Request` and `Response`. I use it for callers other than my own React UI: polling, webhooks, another app, downloads. Server Actions are for mutations from my own forms. The Next.js server then acts as a backend-for-frontend: the browser holds only an `HttpOnly` session cookie, and the server holds the tokens and calls the API. Secrets are unprefixed environment variables read in server-only modules; anything prefixed `NEXT_PUBLIC_` is inlined into the browser bundle at build time.",
     keyPoints: [
@@ -879,11 +1051,19 @@ const { register, handleSubmit, formState } = useForm({
         statement: 'A `route.ts` and a `page.tsx` can live in the same route folder.',
         isTrue: false,
         why: 'Next.js does not allow a Route Handler at the same segment as a page; put the handler under its own path, like `app/api/...`.',
+        twin: {
+          statement: 'A `route.ts` and a `page.tsx` cannot live in the same route segment.',
+          why: 'Next.js does not allow a Route Handler at the same segment as a page; put the handler under its own path, like `app/api/...`.',
+        },
       },
       {
         statement: 'Changing a `NEXT_PUBLIC_` variable at runtime does not change the value seen by an already built browser bundle.',
         isTrue: true,
         why: 'Public variables are inlined into the JavaScript at build time, so the bundle keeps the build value.',
+        twin: {
+          statement: 'Changing a `NEXT_PUBLIC_` variable at runtime updates the value seen by an already built browser bundle.',
+          why: 'Public variables are inlined into the JavaScript at build time, so the bundle keeps the build value.',
+        },
       },
     ],
     codeChoices: [
@@ -937,6 +1117,16 @@ export async function GET(_req: Request, ctx: RouteContext<'/api/orders/[id]/sta
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'How do you handle errors and missing pages in the Next.js App Router?',
+    questionVariants: [
+      {
+        question: 'The page of a deleted product answers with status 200 and an error message, and Google keeps it indexed. How should the App Router handle a missing product?',
+        bridge: 'Missing resources call `notFound()`, which renders `not-found.tsx` with `noindex` and, when called before streaming, a real 404.',
+      },
+      {
+        question: 'A colleague throws an exception when a coupon code is invalid at checkout, so customers land on the error page. How do you separate the kinds of errors?',
+        bridge: 'Expected errors are return values the form shows; only unexpected ones throw to `error.tsx`, and missing resources use `notFound()`.',
+      },
+    ],
     answer:
       "I split errors into three kinds. Expected errors, like an invalid form, are return values the UI shows. Unexpected errors throw to the nearest `error.tsx`, a Client Component that wraps its folder's page and nested layouts in an error boundary, logs the error and offers `retry()`. It does not catch the layout of its own folder; the root layout falls to `global-error.tsx`, which renders its own html and body. Missing resources call `notFound()`, which renders `not-found.tsx` with a `noindex` tag. Called before streaming starts, it returns a real 404; inside a streamed boundary the status stays 200.",
     keyPoints: [
@@ -976,11 +1166,19 @@ export async function GET(_req: Request, ctx: RouteContext<'/api/orders/[id]/sta
         statement: '`app/products/[slug]/error.tsx` catches errors thrown by `app/products/[slug]/layout.tsx`.',
         isTrue: false,
         why: 'An `error.tsx` does not wrap the layout of its own segment; that error goes to the parent boundary.',
+        twin: {
+          statement: 'An error thrown by `app/products/[slug]/layout.tsx` is handled by the parent segment\'s error boundary, not by `app/products/[slug]/error.tsx`.',
+          why: 'An `error.tsx` does not wrap the layout of its own segment, so that error goes up to the parent boundary.',
+        },
       },
       {
         statement: '`error.tsx` must be a Client Component.',
         isTrue: true,
         why: 'Error boundaries are client-side React features, so the file starts with `\'use client\'`.',
+        twin: {
+          statement: '`error.tsx` can be a Server Component.',
+          why: 'Error boundaries are client-side React features, so the file must start with `\'use client\'`.',
+        },
       },
     ],
     codeChoices: [
@@ -1032,6 +1230,16 @@ export default function ProductError({ error, retry }: { error: unknown; retry: 
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'How would you migrate a Next.js app from the Pages Router to the App Router without a big-bang rewrite?',
+    questionVariants: [
+      {
+        question: 'The storefront still runs on the Pages Router. The team wants Server Components, but a three-month feature freeze for a rewrite is out of the question. How do you plan the move?',
+        bridge: '`app` and `pages` coexist, so you migrate route by route, first wrapping each old page in a Client Component fed by a Server Component.',
+      },
+      {
+        question: 'After moving the product pages to `app` but leaving the cart in `pages`, customers see a full reload between them. Why, and how should you order the migration?',
+        bridge: 'Crossing between the two routers is a hard navigation, so routes customers move between often should migrate together.',
+      },
+    ],
     answer:
       "The `app` and `pages` directories run side by side, so I migrate route by route. Navigating between the two routers is a full page load, so I move together the routes customers go between often. For each page, the safe first step is to move the old component as is into a `'use client'` file, rendered by a new Server Component `page.tsx` that fetches the data and passes it as props. Then I push `'use client'` down, leaf by leaf, measuring the bundle. Along the way `getServerSideProps` becomes an async Server Component, `getStaticPaths` becomes `generateStaticParams`, and `pages/api` becomes Route Handlers.",
     keyPoints: [
@@ -1071,11 +1279,19 @@ export default function ProductError({ error, retry }: { error: unknown; retry: 
         statement: 'The `app` and `pages` directories can be used in the same Next.js project during a migration.',
         isTrue: true,
         why: 'Both routers work side by side, which is what makes a route-by-route migration possible.',
+        twin: {
+          statement: 'A Next.js project must use either the `app` or the `pages` directory, never both at once.',
+          why: 'Both routers work side by side, which is what makes a route-by-route migration possible.',
+        },
       },
       {
         statement: 'Navigating from a Pages Router page to an App Router page is a client-side transition without a full page load.',
         isTrue: false,
         why: 'Crossing between the two routers is a hard navigation, a full page load, and links do not prefetch across them.',
+        twin: {
+          statement: 'Navigating from a Pages Router page to an App Router page triggers a full page load.',
+          why: 'Crossing between the two routers is a hard navigation, and links do not prefetch across them.',
+        },
       },
     ],
     codeChoices: [

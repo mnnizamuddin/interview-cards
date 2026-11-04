@@ -11,6 +11,16 @@ export const asyncCards: Card[] = [
     level: 'mid',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'How does the event loop work, and in what order do promise callbacks and timers run?',
+    questionVariants: [
+      {
+        question: 'The back office shows a "Recalculating..." banner, then recalculates 5,000 order totals in one long chain of resolved promises. The banner only appears once the work is done. Why does the browser not paint it first?',
+        bridge: 'Rendering happens between tasks, after the microtask queue is empty. A long chain of promise callbacks keeps that queue full, so nothing is painted.',
+      },
+      {
+        question: "What does this log, and why: `setTimeout(() => log('timeout'), 0); Promise.resolve().then(() => log('promise')); log('sync');`?",
+        bridge: 'Synchronous code runs first, then the whole microtask queue, then the next task: sync, promise, timeout.',
+      },
+    ],
     answer:
       'JavaScript runs on one thread with one call stack. Waiting, for timers, the network or user events, is handled by the browser or Node, which queue a callback when it is ready. The event loop takes one task, like a timer callback or a click handler, and runs it to completion. Then it runs every microtask: promise callbacks, code after an `await`, and `queueMicrotask`, until that queue is empty. Only then can the browser render and take the next task. So promise callbacks run before a `setTimeout(fn, 0)` queued at the same time.',
     keyPoints: [
@@ -68,11 +78,19 @@ export const asyncCards: Card[] = [
         statement: 'After each task, the browser runs only one microtask before it renders.',
         isTrue: false,
         why: 'It empties the whole microtask queue, including microtasks added along the way, before it can render.',
+        twin: {
+          statement: 'After each task, the browser empties the whole microtask queue before it can render.',
+          why: 'Microtasks added along the way run too, before the browser renders or takes the next task.',
+        },
       },
       {
         statement: 'The code after an `await` runs as a microtask.',
         isTrue: true,
         why: 'The rest of the async function resumes as a promise job once the awaited value settles.',
+        twin: {
+          statement: 'The code after `await Promise.resolve()` runs after a `setTimeout(fn, 0)` that was queued before it.',
+          why: 'It resumes as a microtask, which runs before the next task, so before that timer callback.',
+        },
       },
     ],
     codeChoices: [
@@ -125,6 +143,16 @@ console.log('sync');
     level: 'mid',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'What is a Promise, and how do `Promise.all`, `allSettled`, `race` and `any` differ?',
+    questionVariants: [
+      {
+        question: "The storefront's product page loads the product, its reviews and its recommendations with `Promise.all`. When the recommendations service is down, the whole page shows an error. What do you change?",
+        bridge: '`Promise.all` rejects on the first failure; `allSettled` reports each result, so the page can render without the optional parts.',
+      },
+      {
+        question: 'You ask two delivery partners for a shipping quote and want the first successful answer, ignoring a partner that fails fast. Which combinator do you use, and how do the four differ?',
+        bridge: '`Promise.any` fulfils with the first success, while `race` would settle on that fast failure. The combinators differ in what one failure means.',
+      },
+    ],
     answer:
       'A Promise stands for a value that will be ready later: it is pending, then fulfilled or rejected, once. Compared with callbacks, promises chain with `.then`, send errors to one `.catch`, and work with `async` and `await`. To run several at once: `Promise.all` waits for all of them and rejects on the first failure; `allSettled` waits for all and reports each result; `race` settles like the first one to settle, success or failure; `any` fulfils with the first success and rejects only if all fail. I choose by what one failure should mean for the user.',
     keyPoints: [
@@ -178,11 +206,19 @@ console.log('sync');
         statement: 'When one promise given to `Promise.all` rejects, the other operations are cancelled.',
         isTrue: false,
         why: 'Promises cannot be cancelled: the other operations keep running and their results are ignored. An AbortController is what really stops a request.',
+        twin: {
+          statement: 'When one promise given to `Promise.all` rejects, the other operations keep running.',
+          why: 'Promises cannot be cancelled: their results are just ignored. An AbortController is what really stops a request.',
+        },
       },
       {
         statement: '`Promise.any` rejects only when every input has rejected.',
         isTrue: true,
         why: 'It then rejects with an AggregateError that holds every reason.',
+        twin: {
+          statement: '`Promise.any` rejects as soon as one of its inputs rejects.',
+          why: 'It waits for a success and rejects only when every input has rejected, with an AggregateError.',
+        },
       },
     ],
     codeChoices: [
@@ -232,6 +268,16 @@ if (recommendations.status === 'rejected') hideRecommendations();`,
     level: 'mid',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'How does `async`/`await` work, and how do you handle errors and parallel calls with it?',
+    questionVariants: [
+      {
+        question: '`GET /orders/:id` takes 450 ms: it awaits the order, then the customer, then the delivery status, three independent calls of about 150 ms each. How do you cut that time?',
+        bridge: 'Awaiting independent calls one after another adds their delays. Starting them together and awaiting `Promise.all` takes as long as the slowest.',
+      },
+      {
+        question: 'A colleague says `await` blocks the thread until the promise settles, so the Orders API cannot serve other requests meanwhile. Is that right? How does `async`/`await` really work?',
+        bridge: '`await` pauses only its own function. The thread keeps running other work, and the function resumes later as a microtask.',
+      },
+    ],
     answer:
       'An `async` function always returns a promise. `await` pauses that function until the promise settles, without blocking the thread: the rest of the function runs later as a microtask. A rejection becomes a thrown error, so I put `try`/`catch` around the awaited calls. The common trap is awaiting independent calls one after another, which adds up their delays. When they do not depend on each other, I start them together and `await Promise.all([...])`. And every promise should be awaited or handled, or its errors get lost.',
     keyPoints: [
@@ -274,11 +320,19 @@ if (recommendations.status === 'rejected') hideRecommendations();`,
         statement: 'Inside a `try` block, `return await promise` behaves differently from `return promise`.',
         isTrue: true,
         why: 'With `return await`, a rejection is thrown inside the `try` and its `catch` runs; with a plain `return`, the `catch` is skipped.',
+        twin: {
+          statement: 'Inside a `try` block, `return promise` and `return await promise` both let the `catch` handle a rejection.',
+          why: 'Only `return await` throws the rejection inside the `try`; with a plain `return`, the `catch` is skipped.',
+        },
       },
       {
         statement: 'An `async` function that returns 5 gives its caller the number 5.',
         isTrue: false,
         why: 'It gives a promise fulfilled with 5; the caller needs `await` or `.then` to read it.',
+        twin: {
+          statement: 'An `async` function that returns 5 gives its caller a promise fulfilled with 5.',
+          why: 'An `async` function always returns a promise; the caller reads the value with `await` or `.then`.',
+        },
       },
     ],
     codeChoices: [
@@ -324,6 +378,16 @@ const fast = await Promise.all([getCustomer(id), getHistory(id)]);`,
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'How do you cancel a `fetch`, and how do you avoid showing a stale response?',
+    questionVariants: [
+      {
+        question: 'In the back office, an agent types "dupont" quickly and the table sometimes shows the results for "dup". The search input is already debounced. What is happening, and how do you fix it?',
+        bridge: 'A stale response race: an older, slower request lands last and overwrites the newer result. Aborting the previous request fixes it.',
+      },
+      {
+        question: 'How do you stop a `fetch` that is still in flight when the agent leaves the order detail, and what should the code do with the error it produces?',
+        bridge: 'That is cancellation with an `AbortController`: `abort()` makes the fetch reject with an `AbortError`, which the code ignores.',
+      },
+    ],
     answer:
       '`fetch` accepts an `AbortSignal`: I create an `AbortController`, pass `controller.signal`, and call `abort()` when the result is no longer needed. The fetch then rejects with an `AbortError`, which I ignore instead of showing an error. The stale response race happens when an older, slower request finishes after a newer one and overwrites its result. Aborting the previous request when a new one starts fixes it. In React I abort in the effect\'s cleanup, or let a library like TanStack Query handle it through query keys.',
     keyPoints: [
@@ -381,11 +445,19 @@ const fast = await Promise.all([getCustomer(id), getHistory(id)]);`,
         statement: 'Calling `controller.abort()` makes the pending fetch promise reject.',
         isTrue: true,
         why: 'It rejects with a DOMException named "AbortError", or with the reason passed to `abort()`.',
+        twin: {
+          statement: 'Calling `controller.abort()` makes the pending fetch promise resolve with an empty response.',
+          why: 'It rejects, with a DOMException named "AbortError" or with the reason passed to `abort()`.',
+        },
       },
       {
         statement: 'Debouncing the input is enough to prevent stale responses.',
         isTrue: false,
         why: 'Debounce sends fewer requests, but two requests can still complete out of order.',
+        twin: {
+          statement: 'Even with a debounced input, two search requests can complete out of order.',
+          why: 'Debounce sends fewer requests but does not order them; aborting the previous request does.',
+        },
       },
     ],
     codeChoices: [
@@ -437,6 +509,16 @@ const fast = await Promise.all([getCustomer(id), getHistory(id)]);`,
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'What is the difference between debounce and throttle, and when do you use each?',
+    questionVariants: [
+      {
+        question: 'The storefront\'s autocomplete sends one request per keystroke: typing "blue mug" fires 8 requests. You want one request once the customer pauses. What do you use, and why not the alternative?',
+        bridge: 'Debounce runs once after the events stop for a set delay. Throttle would still send requests at regular intervals while the customer types.',
+      },
+      {
+        question: 'In a React component, a colleague calls `debounce(search, 300)` directly in the component body, and every keystroke still sends a request. Why?',
+        bridge: 'Debounce relies on a closure that keeps the timer. A new debounced function on every render starts a new timer, so nothing is debounced.',
+      },
+    ],
     answer:
       'Both limit how often a function runs during a burst of events. Debounce waits until the events stop for a set delay, then runs once: good for search as you type, auto-save, or the end of a resize. Throttle runs at most once per interval while events keep coming: good for scroll position, dragging, or tracking the mouse. Both rely on a closure that keeps a timer between calls. In React, the debounced function must stay the same across renders, otherwise each render creates a new timer and nothing is debounced.',
     keyPoints: [
@@ -490,11 +572,19 @@ const fast = await Promise.all([getCustomer(id), getHistory(id)]);`,
         statement: 'A debounced search sends a request every 300 ms while the user keeps typing.',
         isTrue: false,
         why: 'That is throttle. Debounce waits until typing has paused for 300 ms, then sends one request.',
+        twin: {
+          statement: 'A debounced search with a 300 ms delay waits until typing pauses for 300 ms, then sends one request.',
+          why: 'Sending a request every 300 ms while the user keeps typing would be throttle.',
+        },
       },
       {
         statement: 'For loading more items while scrolling, throttle usually fits better than debounce.',
         isTrue: true,
         why: 'You want regular checks during the scroll; debounce would wait until scrolling stops.',
+        twin: {
+          statement: 'For loading more items while scrolling, debounce usually fits better than throttle.',
+          why: 'Debounce would wait until scrolling stops; throttle checks at regular intervals during the scroll.',
+        },
       },
     ],
     codeChoices: [
@@ -551,6 +641,16 @@ const suggest = debounce((query) => fetchSuggestions(query), 300);`,
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'Why does a page freeze during heavy JavaScript, and how do you fix it?',
+    questionVariants: [
+      {
+        question: 'In the back office, filtering an orders table of 20,000 rows freezes the filter box for about 400 ms per keystroke, and the INP score is poor. Where does the time go, and what would you try?',
+        bridge: 'A long task blocks the main thread, so input waits. Do less (virtualize), split and yield, use `useTransition`, or move the work to a Web Worker.',
+      },
+      {
+        question: 'A colleague moves a heavy price calculation into an `async` function so it no longer blocks the page. Does that work? What actually keeps the main thread free?',
+        bridge: '`async` only helps while waiting; CPU work still runs on the main thread. Splitting the work or a Web Worker frees it.',
+      },
+    ],
     answer:
       'The main thread runs JavaScript, handles input and renders. A task longer than 50 ms is a long task: while it runs, clicks and typing wait and nothing repaints, which shows up as a poor INP score. The fixes, cheapest first: do less work, for example by memoizing or virtualizing a long list; split the work into chunks and yield to the browser between them; mark non-urgent updates with React\'s `useTransition`; and move pure computation to a Web Worker, which runs on another thread and talks through `postMessage`.',
     keyPoints: [
@@ -583,16 +683,28 @@ const suggest = debounce((query) => fetchSuggestions(query), 300);`,
         statement: 'Putting a CPU-heavy loop inside an `async` function stops it from blocking the page.',
         isTrue: false,
         why: 'The loop still runs on the main thread; `async` only helps while waiting for I/O.',
+        twin: {
+          statement: 'A CPU-heavy loop inside an `async` function still blocks the page while it runs.',
+          why: 'The loop runs on the main thread; `async` only helps while waiting for I/O.',
+        },
       },
       {
         statement: 'A task that keeps the main thread busy for more than 50 ms counts as a long task.',
         isTrue: true,
         why: '50 ms is the threshold the browser\'s Long Tasks API and Lighthouse use.',
+        twin: {
+          statement: 'A task counts as a long task only when it keeps the main thread busy for more than 200 ms.',
+          why: "The threshold is 50 ms, the one the browser's Long Tasks API and Lighthouse use.",
+        },
       },
       {
         statement: 'A Web Worker can read and update the DOM directly.',
         isTrue: false,
         why: 'Workers have no DOM access; they send their results back with `postMessage`.',
+        twin: {
+          statement: 'A Web Worker has no access to the DOM.',
+          why: 'It runs on another thread and sends its results back with `postMessage`.',
+        },
       },
     ],
     codeChoices: [

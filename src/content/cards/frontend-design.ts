@@ -9,6 +9,18 @@ export const frontendDesignCards: Card[] = [
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'In a frontend system design round, how do you use the first five minutes, and what plan do you follow?',
+    questionVariants: [
+      {
+        question:
+          'Twelve minutes into a 45-minute frontend design round, you are still asking questions and nothing is drawn. The interviewer looks at the clock. What went wrong, and what plan should you have announced?',
+        bridge: 'Requirements take about five minutes, with only questions that change a later step; then architecture, data, API, and about 40% for the deep dive.',
+      },
+      {
+        question:
+          'The interviewer says: "Design the back office orders screen." What do you ask in the first minutes, and what do you leave for later?',
+        bridge: 'Opening a frontend design round: ask only what changes a later decision, such as users and devices, core features, speed as a number and freshness.',
+      },
+    ],
     answer:
       'I announce a plan, RADIO: requirements, architecture, data model, interface, then optimisations and a deep dive. Requirements take about the first five minutes of a 45-minute slot, and I only ask questions whose answers change a later step: who uses the screen and on what device, which features are core, what "fast" means as a number, how fresh the data must be, and accessibility, browsers, offline and languages. I write the answers where the interviewer sees them. Then components and state owners, data, API, and I keep about 40% of the time for the deep dive, checking in at each step.',
     keyPoints: [
@@ -45,16 +57,28 @@ export const frontendDesignCards: Card[] = [
         statement: 'In a frontend system design round, the server side is usually treated as a black box.',
         isTrue: true,
         why: 'The architecture step draws the client components and who talks to whom; storage and scaling belong to the backend round.',
+        twin: {
+          statement: 'In a frontend system design round, you are expected to design the server\'s storage and scaling in detail.',
+          why: 'The server is usually a black box there; storage and scaling belong to the backend round.',
+        },
       },
       {
         statement: 'Most of a frontend design round should go to clarifying requirements.',
         isTrue: false,
         why: 'The RADIO playbook suggests not more than 10% for requirements and about 40% for optimisations and the deep dive.',
+        twin: {
+          statement: 'In a frontend design round, requirements should take a small share of the time, with about 40% kept for optimisations and the deep dive.',
+          why: 'The RADIO playbook suggests not more than 10% for requirements and about 40% for optimisations and the deep dive.',
+        },
       },
       {
         statement: 'Saying each choice with its cost, such as "SSE, which costs one open connection per agent", is part of what is graded.',
         isTrue: true,
         why: 'The round grades reasoning: every choice with its cost and the condition that would change it.',
+        twin: {
+          statement: 'In a frontend design round, naming each choice is enough; its cost is not part of what is graded.',
+          why: 'The round grades reasoning: every choice with its cost and the condition that would change it.',
+        },
       },
     ],
     lesson: {
@@ -75,6 +99,18 @@ export const frontendDesignCards: Card[] = [
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'Design the search autocomplete of an online shop: components, state, API, and what happens when the customer types fast.',
+    questionVariants: [
+      {
+        question:
+          'A customer types "sho" fast in the storefront search, and the list sometimes ends up showing the suggestions for "sh". The API is fast and correct. What is happening, and how does your design prevent it?',
+        bridge: 'Responses finishing out of order: keying suggestions by the normalised term and aborting stale requests keep an old answer from showing.',
+      },
+      {
+        question:
+          'A colleague proposes that the search API return ready-made HTML with `<mark>` tags for the highlights. What do you answer?',
+        bridge: 'The autocomplete\'s API contract: match ranges, not HTML, so the client renders the highlights and no server markup reaches the page.',
+      },
+    ],
     answer:
       'I keep four parts: a search box component that owns the typed text, the open state and the active option; a `useSuggestions` hook that debounces the term and reads a query cache keyed by the normalised term; the list, rendered as an accessible combobox; and an API client. The endpoint is a `GET` with the term and a fixed `limit` in the URL, so a CDN can cache popular prefixes, and it returns match ranges, not HTML, so no server markup reaches the page. Keying data by term means an old answer never shows for a new term, and the query\'s signal aborts stale requests.',
     keyPoints: [
@@ -111,16 +147,28 @@ export const frontendDesignCards: Card[] = [
         statement: 'With a debounce in place, suggestion responses can no longer arrive out of order.',
         isTrue: false,
         why: 'Debounce sends fewer requests, but two that are sent can still finish out of order; keying the data by term is what prevents the wrong list.',
+        twin: {
+          statement: 'Even with a debounce in place, two suggestion responses can arrive out of order.',
+          why: 'Debounce sends fewer requests but cannot order them; keying the data by term is what prevents the wrong list.',
+        },
       },
       {
         statement: 'Aborting a `fetch` guarantees the server never processes the request.',
         isTrue: false,
         why: 'The request may already have reached the server; it stops only if it notices the closed connection.',
+        twin: {
+          statement: 'An aborted `fetch` may still be processed by the server.',
+          why: 'The request may already have reached the server; it stops only if it notices the closed connection.',
+        },
       },
       {
         statement: 'Sending match ranges instead of HTML lets the client style highlights without inserting server markup.',
         isTrue: true,
         why: 'The client builds the marks from character ranges, so no HTML from the server reaches the page.',
+        twin: {
+          statement: 'Sending HTML instead of match ranges is the safer way to let the client style highlights.',
+          why: 'With match ranges the client builds the marks itself, so no HTML from the server reaches the page.',
+        },
       },
     ],
     lesson: {
@@ -150,6 +198,18 @@ const query = useQuery({
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'Design a live orders table for support agents: millions of orders, filters, sorting, and status changes on screen within seconds.',
+    questionVariants: [
+      {
+        question:
+          'In the back office, an order\'s row flips back from `shipped` to `paid` for a moment during busy hours, then shows `shipped` again after a reload. What is wrong in the table\'s design?',
+        bridge: 'A stale live event rolling back a newer row: buffer the events and apply them by version, keeping the highest version per order.',
+      },
+      {
+        question:
+          'A colleague wants to load all orders into the browser and filter there, "because it\'s faster". With 2 million orders, what do you answer?',
+        bridge: 'Where the data lives in a large table: filter and sort on the server, keep the view in the URL, paginate with a cursor and virtualise rows.',
+      },
+    ],
     answer:
       'With 2 million orders the data cannot live in the browser, so the server filters and sorts, and the view, meaning filters, sort and search, lives in the URL, parsed with a schema, so agents can share links. I paginate with an opaque cursor because the list grows while agents read, and virtualise once hundreds of rows are loaded. Live updates come over Server-Sent Events through the BFF, but I never write each event straight into the cache: I buffer them and apply them every 250 ms, keeping the highest version per order, so a stale event never rolls back a newer row.',
     keyPoints: [
@@ -186,16 +246,28 @@ const query = useQuery({
         statement: 'When 100 live events arrive in one burst, React batches them into a few renders.',
         isTrue: true,
         why: 'Measured with React 19, a burst caused about 3 commits; events spread over time are what cause a render per event.',
+        twin: {
+          statement: 'When 100 live events arrive in one burst, React renders once per event.',
+          why: 'Measured with React 19, a burst caused about 3 commits; events spread over time are what cause a render per event.',
+        },
       },
       {
         statement: 'Offset pagination is the best fit for a list where new orders arrive while agents read it.',
         isTrue: false,
         why: 'Rows shift between offset pages as orders arrive, and deep pages get slow; a cursor suits a growing list.',
+        twin: {
+          statement: 'For a list where new orders arrive while agents read it, cursor pagination fits better than offset pagination.',
+          why: 'Rows shift between offset pages as orders arrive, and deep pages get slow.',
+        },
       },
       {
         statement: 'The client may build the next cursor itself from the last row\'s id.',
         isTrue: false,
         why: 'The cursor is opaque: the client sends back exactly what the server returned and never builds one.',
+        twin: {
+          statement: 'The client sends the cursor back exactly as the server returned it and never builds one itself.',
+          why: 'The cursor is opaque, so only the server knows its format.',
+        },
       },
     ],
     lesson: {
@@ -216,6 +288,18 @@ const query = useQuery({
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'An agent assigns an order to herself from the table: does she wait for the server, can she do it without a mouse, and how do you know the table is fast enough?',
+    questionVariants: [
+      {
+        question:
+          'Agents complain that "Assign to me" in the orders table shows a spinner for a second before their name appears, though the request nearly always succeeds. What do you change?',
+        bridge: 'A cheap, reversible action waiting for the server: an optimistic update with a snapshot, rollback on error and a refetch when settled.',
+      },
+      {
+        question:
+          'A keyboard-only agent must press Tab hundreds of times to get past the orders table, whose cells hold buttons and menus. What is missing?',
+        bridge: 'Once cells hold controls, the APG grid pattern makes the grid a single tab stop, with the arrow keys moving between cells.',
+      },
+    ],
     answer:
       'Assigning is cheap and nearly always succeeds, so I make it optimistic: cancel in-flight refetches of the list, snapshot it, write the agent\'s name, roll back on error and refetch when settled. A refund is the opposite: I show a pending state and wait. A read-only table stays a native `<table>`, but once cells hold controls I follow the APG grid pattern: one tab stop, arrow keys between cells, `aria-sort` on the sorted header, and `aria-rowcount` with `aria-rowindex` when rows are virtualised. Then a budget: INP under 200 ms at the 75th percentile, no flush over 50 ms, about 50 rows in the DOM.',
     keyPoints: [
@@ -252,16 +336,28 @@ const query = useQuery({
         statement: 'Once table cells hold interactive controls, the APG grid pattern makes the whole grid a single tab stop.',
         isTrue: true,
         why: 'Tab enters the grid once; the arrow keys move between cells.',
+        twin: {
+          statement: 'Once table cells hold interactive controls, the APG grid pattern puts every cell in the tab order.',
+          why: 'Tab enters the grid once; the arrow keys move between cells.',
+        },
       },
       {
         statement: 'An optimistic update is a good fit for issuing a refund, because it makes the agent faster.',
         isTrue: false,
         why: 'Optimism suits cheap, reversible actions; a refund has real consequences, so show a pending state and wait.',
+        twin: {
+          statement: 'A refund should show a pending state and wait for the server rather than update optimistically.',
+          why: 'Optimism suits cheap, reversible actions; a refund has real consequences.',
+        },
       },
       {
         statement: 'web.dev counts an INP of 200 ms or less at the 75th percentile as good.',
         isTrue: true,
         why: 'That is web.dev\'s "good" threshold for Interaction to Next Paint.',
+        twin: {
+          statement: 'web.dev counts an INP of 300 ms at the 75th percentile as good.',
+          why: 'web.dev\'s "good" threshold for INP is 200 ms or less at the 75th percentile.',
+        },
       },
     ],
     lesson: {
@@ -282,6 +378,18 @@ const query = useQuery({
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'Design the product page of an online shop in Next.js: how do you render each part, and how do you make the main image load fast?',
+    questionVariants: [
+      {
+        question:
+          'On the storefront product page, the main photo appears late on mobile and LCP is 4.1 s at p75. The photo uses `next/image` with default settings. What do you suspect, and what do you change?',
+        bridge: '`next/image` lazy-loads by default, which delays the LCP photo: make it eager, high priority and sized, never lazy-loaded.',
+      },
+      {
+        question:
+          'A colleague wants the whole product page rendered per request, "so the stock is always right". What do you answer?',
+        bridge: 'Splitting a page by change rate: the shared catalogue data cached with a tag, only the stock and the cart per request inside `<Suspense>`.',
+      },
+    ],
     answer:
       'I split the page by how often each part changes and who it belongs to. The layout is a static shell served by a CDN. Title, photos, description and price are the same for everyone and needed in the HTML for search engines, so I cache them with `\'use cache\'` and a tag per product, revalidated by a catalogue webhook. Stock and the cart are per request, streamed inside `<Suspense>`. The main photo is the LCP element, so it is never lazy-loaded: `loading="eager"`, `fetchPriority="high"`, and a width and height that reserve its space. Targets: LCP within 2.5 s and CLS within 0.1 at p75.',
     keyPoints: [
@@ -318,16 +426,28 @@ const query = useQuery({
         statement: '`next/image` lazy-loads images by default.',
         isTrue: true,
         why: 'That is why the LCP photo needs `loading="eager"` and `fetchPriority="high"`.',
+        twin: {
+          statement: '`next/image` loads images eagerly by default.',
+          why: 'It lazy-loads them by default, which is why the LCP photo needs `loading="eager"` and `fetchPriority="high"`.',
+        },
       },
       {
         statement: 'With a cache tagged per product, a price change must wait for a timer before customers see it.',
         isTrue: false,
         why: 'The catalogue webhook calls `revalidateTag`, so the change shows after one background render.',
+        twin: {
+          statement: 'With a cache tagged per product, a price change shows after one background render once the catalogue webhook revalidates the tag.',
+          why: 'The webhook calls `revalidateTag`, so no timer is needed.',
+        },
       },
       {
         statement: 'web.dev advises setting `fetchpriority="high"` on every image of a product page.',
         isTrue: false,
         why: 'web.dev advises it on the LCP image, on one or two images at most.',
+        twin: {
+          statement: 'web.dev advises keeping `fetchpriority="high"` for the LCP image, on one or two images at most.',
+          why: 'web.dev does not advise it for every image of a page, only for the LCP image.',
+        },
       },
     ],
     lesson: {
@@ -356,6 +476,18 @@ const query = useQuery({
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'The customer clicks Place order on a train, the network drops and she clicks again. How does your checkout front end make sure she gets exactly one order?',
+    questionVariants: [
+      {
+        question:
+          'Support finds two identical paid orders from one customer, placed two seconds apart. The Place order button is disabled while the request is pending. How did this happen, and what is the real fix?',
+        bridge: 'A disabled button is comfort, not protection: one idempotency key per purchase intent, reused by every retry, is the guarantee.',
+      },
+      {
+        question:
+          '`POST /orders` answers 409 because a product sold out, and a colleague\'s code retries it automatically. What should the checkout do with each kind of answer?',
+        bridge: 'Designing each answer of the checkout: 409 back to the cart, 422 onto the form fields, and only 5xx and network errors retried with the same key.',
+      },
+    ],
     answer:
       'The guarantee is an `Idempotency-Key` on `POST /orders`, created once per purchase intent with `crypto.randomUUID()` and reused by every retry and every second click, so the Orders API returns the first answer instead of creating another order. I create a new key only when the cart version changes. Disabling the button is comfort, not protection: measured, a double-click still sent two POSTs, both with the same key. Behind it, a unique constraint on the cart id catches a reload that lost the key. Then I design each answer: 409 back to the cart, 422 onto the form fields, 5xx retried with the same key.',
     keyPoints: [
@@ -392,16 +524,28 @@ const query = useQuery({
         statement: 'A button disabled while the request is pending is enough to prevent a double order.',
         isTrue: false,
         why: 'Measured, a double-click sent two POSTs before the disabled state reached the button; the idempotency key is what prevents the second order.',
+        twin: {
+          statement: 'A double-click can send two POSTs even when the button is disabled while the request is pending.',
+          why: 'Measured, both POSTs left before the disabled state reached the button; the idempotency key is what prevents the second order.',
+        },
       },
       {
         statement: '`crypto.randomUUID()` is only available in secure contexts, such as HTTPS or a local address.',
         isTrue: true,
         why: 'MDN restricts it to secure contexts, so a staging site over plain HTTP breaks the key generation.',
+        twin: {
+          statement: '`crypto.randomUUID()` works on any page, including a staging site over plain HTTP.',
+          why: 'MDN restricts it to secure contexts, such as HTTPS or a local address.',
+        },
       },
       {
         statement: 'A 409 answer because the stock is gone should be retried automatically with the same key.',
         isTrue: false,
         why: 'The answer will not change; show the cart with the changed line instead. Only 5xx and network errors are retried.',
+        twin: {
+          statement: 'A 409 answer because the stock is gone should send the customer back to the cart rather than be retried.',
+          why: 'The answer will not change; only 5xx and network errors are retried with the same key.',
+        },
       },
     ],
     lesson: {
@@ -429,6 +573,18 @@ const query = useQuery({
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'Design an infinite feed for a home page: how do you load more items, keep the reader\'s place, and handle items published while she reads?',
+    questionVariants: [
+      {
+        question:
+          'On the storefront home feed, a customer opens a product, presses Back, and lands at the top of the feed instead of where she was. What is going on, and how do you fix it?',
+        bridge: 'The browser restores the scroll position only if the list is as tall as before: keep loaded pages cached and render them at once on return.',
+      },
+      {
+        question:
+          'A colleague loads the feed\'s next page from a `scroll` event handler that checks the position. What would you use instead?',
+        bridge: 'The feed\'s loading trigger: an `IntersectionObserver` on a sentinel after the last item, reporting when it comes within reach.',
+      },
+    ],
     answer:
       'I paginate with a cursor, because new items arrive at the top while she reads, and virtualise once hundreds of items are loaded. The next page loads when an invisible sentinel after the last item comes within about 800 pixels of the viewport, reported by an `IntersectionObserver` rather than a scroll handler. To restore her place after a product page and Back, I keep the loaded pages in the query cache and render them at once, or save the first visible index when virtualised. New items are never inserted above what she reads: I show a "Show 12 new items" button and prepend them on click.',
     keyPoints: [
@@ -465,16 +621,28 @@ const query = useQuery({
         statement: 'An `IntersectionObserver` keeps firing for as long as its target stays in the viewport.',
         isTrue: false,
         why: 'It reports changes of intersection, not states; a sentinel that stays in view is reported once.',
+        twin: {
+          statement: 'An `IntersectionObserver` reports changes of intersection, so a sentinel that stays in the viewport is reported once.',
+          why: 'It does not keep firing while the target stays in view.',
+        },
       },
       {
         statement: 'Layout shifts within 500 ms of a click, tap or key press are excluded from CLS.',
         isTrue: true,
         why: 'web.dev treats them as expected by the user, so a "new items" button that inserts on click is harmless.',
+        twin: {
+          statement: 'A layout shift right after a click counts toward CLS like any other shift.',
+          why: 'web.dev excludes shifts within 500 ms of a click, tap or key press, since the user expects them.',
+        },
       },
       {
         statement: 'The browser can restore the scroll position after Back only if the list is as tall as before.',
         isTrue: true,
         why: 'That is why loaded pages stay in the query cache and render at once on return.',
+        twin: {
+          statement: 'The browser can restore the scroll position after Back even when the list is shorter than before.',
+          why: 'It can restore it only if the list is as tall as before, which is why loaded pages stay in the query cache.',
+        },
       },
     ],
     lesson: {

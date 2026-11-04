@@ -57,6 +57,28 @@ enough to answer the topic's questions; it is read on a phone in under a minute.
 - For behavioural topics, the lesson teaches the technique: what the interviewer assesses, the
   shape of a strong answer, the traps.
 
+## Variants: other phrasings and trap twins
+
+Variants stop the learner from recognising a sentence and recalling its answer instead of
+reasoning. The reference is the `js-scope` card in `src/content/cards/javascript.ts`.
+
+**`questionVariants`**: **2 per card**, each `{ question, bridge }`. They are answered by the card's
+own `answer` and `keyPoints`, so each must be a question that answer really answers.
+
+- **One is a production scenario** whenever the topic allows: a symptom in the running example
+  that this topic explains, without naming the topic ("Every route freezes for 3 seconds at 6 pm
+  while PostgreSQL stays fast. What do you suspect?"). The learner must recognise the concept.
+- **The other takes another angle**: a misconception a colleague states, "when would you not use
+  it", a comparison, explaining it to a junior, or the interviewer's own wording of the same topic.
+- Behavioural cards: other ways interviewers ask for the same story ("Describe a time…", "Walk me
+  through…", "What is the hardest… you have…").
+- `question`: 260 characters at most. `bridge`: 220 characters at most, shown above the model
+  answer: which concept the question points to and how it connects, not a repeat of the answer.
+
+**`twin`** on **every trap**: `{ statement, why }`, the same fact stated so that its truth is the
+**opposite** of the trap's `isTrue`. Rewrite it as a natural sentence, never "It is not true
+that…". It must be as unambiguous as the trap. `why` is one sentence. Check it like any fact.
+
 ## Code choices ("Which code is better?")
 
 `codeChoices` (optional) holds pairs of code: two versions of the same code, one **clearly better**.

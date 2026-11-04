@@ -9,6 +9,16 @@ export const typescriptCards: Card[] = [
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How do you set up TypeScript for a Node service, and which step actually checks the types?',
+    questionVariants: [
+      {
+        question: 'A pull request renamed `Order.total` to `Order.totalCents`. CI was green, yet staging returns `NaN` totals from a file that still reads `order.total`. CI runs the tests with tsx. What is missing?',
+        bridge: 'tsx strips types without checking them. Only tsc checks, so CI must run `tsc --noEmit` and block the merge when it fails.',
+      },
+      {
+        question: 'You start a new Node 24 service in TypeScript. Which compiler options do you turn on from day one, and why not add them later?',
+        bridge: "The strict flags are cheap on day one and cost hundreds of fixes later, and `erasableSyntaxOnly` keeps the code runnable by Node's type stripping.",
+      },
+    ],
     answer:
       'I turn on `strict` from the first commit, plus `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax` and `erasableSyntaxOnly`, with `module: nodenext` so the compiler follows Node\'s own resolver. Adding those flags later to a large codebase means hundreds of fixes. Then I separate two jobs. Running TypeScript only needs the types removed: Node\'s type stripping, tsx and bundlers do that, and none of them checks types. Checking is the job of tsc, so CI runs `tsc --noEmit` on every pull request and blocks the merge when it fails. I use tsx in development, tsc for the build, and plain Node in production.',
     keyPoints: [
@@ -49,16 +59,28 @@ export const typescriptCards: Card[] = [
         statement: 'Running `node src/main.ts` on Node 24 type-checks the file before running it.',
         isTrue: false,
         why: 'Type stripping only replaces the annotations with blank space; a wrong type runs anyway.',
+        twin: {
+          statement: 'Running `node src/main.ts` on Node 24 runs the file even when it contains a type error.',
+          why: 'Type stripping only removes the annotations; it never checks them.',
+        },
       },
       {
         statement: 'With `noUncheckedIndexedAccess` on, `orders[0]` on an `Order[]` has the type `Order | undefined`.',
         isTrue: true,
         why: 'The flag adds `undefined` to every index read, because the list can be empty.',
+        twin: {
+          statement: 'With `noUncheckedIndexedAccess` on, `orders[0]` on an `Order[]` still has the type `Order`.',
+          why: 'The flag adds `undefined` to every index read, because the list can be empty.',
+        },
       },
       {
         statement: 'tsx refuses to run a file that contains a type error.',
         isTrue: false,
         why: 'tsx uses esbuild, which removes types without checking them; only tsc checks.',
+        twin: {
+          statement: 'tsx runs a file even when it contains a type error.',
+          why: 'tsx uses esbuild, which removes types without checking them; only tsc checks.',
+        },
       },
     ],
     codeChoices: [
@@ -103,6 +125,16 @@ tsc --noEmit`,
     level: 'mid',
     paths: ['backend', 'fullstack', 'frontend'],
     question: 'What is the difference between `unknown` and `any`, and how do you narrow a value safely?',
+    questionVariants: [
+      {
+        question: 'The `POST /webhooks/payments` handler reads `req.body.data.orderId`. It compiles because the body is `any`, and it crashes in production when the provider sends an event without `data`. How should the body be typed?',
+        bridge: '`any` switches checks off. Typing the body `unknown` forces a narrowing check before any property is read.',
+      },
+      {
+        question: "A colleague's type predicate `isOrder(x): x is Order` only checks that `x` has an `id`. What can go wrong, and how do you narrow values safely?",
+        bridge: "The compiler trusts a predicate's `value is T` blindly, so it must check what it claims. Built-in checks like `typeof` and `in` are verified.",
+      },
+    ],
     answer:
       '`any` switches type checking off, and it spreads: everything read from an `any` is `any` too, so code that crashes still compiles. `unknown` means "could be anything, prove it first": I cannot read a property until I narrow it. Narrowing happens inside checks the compiler understands, like `typeof`, `instanceof`, `\'key\' in value` or a comparison with a literal. For my own checks I write a type predicate returning `value is T`, or an assertion function that throws. So request bodies, webhook payloads and `JSON.parse` results are `unknown` in my code. And typing is structural: a type never removes extra fields at runtime.',
     keyPoints: [
@@ -139,16 +171,28 @@ tsc --noEmit`,
         statement: 'Reading `body.type` on a value typed `unknown` compiles.',
         isTrue: false,
         why: 'Reading a property of an `unknown` value fails (TS18046) until the value is narrowed.',
+        twin: {
+          statement: 'Reading `body.type` on a value typed `unknown` is a compile error until the value is narrowed.',
+          why: 'TypeScript reports TS18046 on any property read of an `unknown` value that was not narrowed.',
+        },
       },
       {
         statement: 'Passing an object with extra fields to a function typed `PublicOrder` removes the extra fields at runtime.',
         isTrue: false,
         why: 'Types are erased; the whole object goes through, so `JSON.stringify` prints every field.',
+        twin: {
+          statement: 'Passing an object with extra fields to a function typed `PublicOrder` keeps every field at runtime.',
+          why: 'Types are erased, so the whole object goes through and `JSON.stringify` prints every field.',
+        },
       },
       {
         statement: 'The compiler does not verify that a type predicate checks what it claims.',
         isTrue: true,
         why: 'It trusts the `value is T` return type, so a predicate that checks too little lies everywhere.',
+        twin: {
+          statement: "The compiler checks that a type predicate's body really proves `value is T`.",
+          why: 'It trusts the `value is T` return type, so a predicate that checks too little lies everywhere it is used.',
+        },
       },
     ],
     codeChoices: [
@@ -196,6 +240,16 @@ function readEventType(body: unknown): string {
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How do you stop an order id from being passed where a payment id is expected, or euros where cents are expected?',
+    questionVariants: [
+      {
+        question: 'A back office refund called `refund(paymentId, orderId)` with the two arguments swapped. Both are strings, so it compiled and failed only at the payment provider. How do you make that a compile error?',
+        bridge: 'Branded types: a compile-time marker makes `OrderId` and `PaymentId` different types even though both are strings at runtime.',
+      },
+      {
+        question: 'A colleague stores prices as euros in a `number`, like 19.99. What problems do you see, and how would you model money?',
+        bridge: 'Floats cannot hold most decimal amounts exactly, and `number` does not tell euros from cents: branded integer cents with a currency fix both.',
+      },
+    ],
     answer:
       'To the compiler, every string is the same type, and so is every number. I use branded types: `OrderId` is a string intersected with a marker property that exists only for the compiler, so a plain string or a `PaymentId` is rejected where an `OrderId` is expected. Each brand has one constructor function that checks the value once, like `toCents`, which refuses 19.99. There is no runtime cost and the JSON is unchanged. For money, I keep integer cents next to a currency and convert to euros only for display. For fixed sets like order statuses, I use literal unions from an `as const` object rather than an enum.',
     keyPoints: [
@@ -232,16 +286,28 @@ function readEventType(body: unknown): string {
         statement: 'A branded type adds a property to the value at runtime.',
         isTrue: false,
         why: 'The brand exists only for the compiler; the value and its JSON are unchanged.',
+        twin: {
+          statement: 'A branded value is the same plain string or number at runtime.',
+          why: 'The brand exists only for the compiler; the value and its JSON are unchanged.',
+        },
       },
       {
         statement: 'In JavaScript, `0.1 + 0.2` is not exactly `0.3`.',
         isTrue: true,
         why: 'Floating-point gives `0.30000000000000004`, which is why money stays in integer cents.',
+        twin: {
+          statement: 'In JavaScript, `0.1 + 0.2 === 0.3` is true.',
+          why: 'Floating-point gives `0.30000000000000004`, which is why money stays in integer cents.',
+        },
       },
       {
         statement: 'A branded `OrderId` cannot be assigned to a variable typed `string`.',
         isTrue: false,
         why: 'A brand is an intersection with `string`, so it is still assignable to `string`; only the reverse is blocked.',
+        twin: {
+          statement: 'A branded `OrderId` can be assigned to a variable typed `string`.',
+          why: 'A brand is an intersection with `string`, so it stays assignable to `string`; only the reverse is blocked.',
+        },
       },
     ],
     codeChoices: [
@@ -292,6 +358,16 @@ export function toCents(amount: number): Cents {
     level: 'mid',
     paths: ['backend', 'fullstack', 'frontend', 'react'],
     question: 'What is a discriminated union, and how would you use one to model order states or the loading state of a screen?',
+    questionVariants: [
+      {
+        question: "The back office's order screen state has `isLoading`, `isError`, `data?` and `error?`, and a bug shows the error banner and stale data together. How would you type that state so it cannot happen?",
+        bridge: 'A discriminated union on `status`: each state holds only its own fields, so impossible combinations cannot be written.',
+      },
+      {
+        question: 'Product adds a `partially_refunded` order status. How do you make the compiler point at every `switch` that does not handle it yet?',
+        bridge: 'Exhaustiveness on a discriminated union: `assertNever` in the `default` branch turns an unhandled member into a compile error.',
+      },
+    ],
     answer:
       'A discriminated union is a union of object types that share one literal field, the discriminant, like `status`. Each member holds only the fields of that state: a pending order has no `paymentId`, a loaded screen has `data` and a failed one has `error`. When I check `status`, TypeScript narrows to that member, so I can only read fields where they exist. I use it instead of optional fields and independent booleans: two booleans and two optionals allow sixteen shapes when three make sense. A `default` branch calling `assertNever` makes the switch exhaustive, so a new state is a compile error until it is handled.',
     keyPoints: [
@@ -332,16 +408,28 @@ export function toCents(amount: number): Cents {
         statement: 'Inside `if (order.status === \'paid\')`, TypeScript lets you read the fields of the paid member only.',
         isTrue: true,
         why: 'Comparing the discriminant narrows the union to the member with that literal.',
+        twin: {
+          statement: "Inside `if (order.status === 'paid')`, TypeScript still only lets you read the fields shared by every member.",
+          why: 'Comparing the discriminant narrows the union to the paid member, so its own fields become readable.',
+        },
       },
       {
         statement: 'A `switch` whose `default` returns a fallback value makes the compiler report a missing case.',
         isTrue: false,
         why: 'The fallback absorbs the new case silently; only a `never` check in `default` reports it.',
+        twin: {
+          statement: 'A `switch` whose `default` returns a fallback value lets a new case through without any compile error.',
+          why: 'The fallback absorbs the new case silently; only a `never` check in `default` reports it.',
+        },
       },
       {
         statement: 'With TanStack Query, returning early on `isLoading` guarantees that `data` is defined afterwards.',
         isTrue: false,
         why: '`isLoading` is `isFetching && isPending`, so a pending query that is not fetching passes with no data.',
+        twin: {
+          statement: 'With TanStack Query, `data` can still be `undefined` after an early return on `isLoading`.',
+          why: '`isLoading` is `isFetching && isPending`, so a pending query that is not fetching gets past it with no data.',
+        },
       },
     ],
     codeChoices: [
@@ -389,6 +477,16 @@ function assertNever(value: never): never {
     level: 'mid',
     paths: ['backend', 'fullstack', 'frontend'],
     question: 'TypeScript types disappear at runtime. How do you make sure the data entering your app really matches its types?',
+    questionVariants: [
+      {
+        question: 'The Orders API casts the delivery partner\'s tracking response with `as TrackingInfo`. After the partner renamed a field, "my orders" shows an empty delivery date and no error is logged anywhere. How do you prevent this?',
+        bridge: "`as` checks nothing at runtime. Parsing the response with a schema at the edge turns the partner's change into a clear error.",
+      },
+      {
+        question: 'A colleague says TypeScript already types the request body, so a runtime validation library is redundant. How do you answer?',
+        bridge: 'Types are erased at runtime. Only a schema such as Zod checks the data entering the process, and `z.infer` keeps the type in sync with it.',
+      },
+    ],
     answer:
       'I follow "parse, don\'t validate": every value that enters the process, a request body, a webhook, an API response in the UI, environment variables, stays `unknown` until a schema checks it once, at the edge, and turns it into a typed value. I use Zod 4: I declare the schema and derive the type with `z.infer`, so the check and the type cannot drift. In handlers I call `safeParse`, which returns issues instead of throwing, and answer 400. `z.object` drops unknown keys, which also blocks mass assignment. I never cast a response with `as`: that is a claim the compiler cannot check.',
     keyPoints: [
@@ -429,16 +527,28 @@ function assertNever(value: never): never {
         statement: '`z.object` rejects a payload that contains keys the schema does not declare.',
         isTrue: false,
         why: '`z.object` drops unknown keys from the result; `z.strictObject` rejects them.',
+        twin: {
+          statement: '`z.object` accepts a payload with undeclared keys and drops those keys from the result.',
+          why: 'Unknown keys are stripped from the result; `z.strictObject` is the one that rejects them.',
+        },
       },
       {
         statement: '`safeParse` returns a result object instead of throwing on invalid input.',
         isTrue: true,
         why: 'It returns `{ success: true, data }` or `{ success: false, error }`; `parse` is the one that throws.',
+        twin: {
+          statement: '`safeParse` throws an error on invalid input.',
+          why: 'It returns `{ success: false, error }`; `parse` is the one that throws.',
+        },
       },
       {
         statement: '`(await response.json()) as Order[]` checks the body at runtime.',
         isTrue: false,
         why: '`as` only tells the compiler what to believe; types are erased and nothing is checked.',
+        twin: {
+          statement: '`(await response.json()) as Order[]` checks nothing at runtime.',
+          why: '`as` only tells the compiler what to believe; types are erased.',
+        },
       },
     ],
     codeChoices: [
@@ -487,6 +597,16 @@ const result = OrderSummary.safeParse(body); // body: unknown`,
     level: 'mid',
     paths: ['backend', 'fullstack', 'frontend', 'react'],
     question: 'How do you use generics with constraints? Give an example from a backend and one from a React component.',
+    questionVariants: [
+      {
+        question: "In the Orders API, `bus.emit('order.payed', { orderId })` compiled, and nobody received the event: the name was misspelled and the payload lacked `amountCents`. How would you type `emit` so both fail the build?",
+        bridge: 'A generic constrained by `keyof DomainEvents`, with the payload typed by indexed access, ties each event name to its payload.',
+      },
+      {
+        question: 'You build one back office `DataTable` for orders, customers and products. How do you type it so its columns can only name fields of the rows it receives?',
+        bridge: 'A generic component: `Row` is inferred from the `rows` prop, and the columns are typed `keyof Row`.',
+      },
+    ],
     answer:
       'Generics are type parameters that keep the link between an input and an output, and a constraint, written with `extends`, says what the parameter must be. On the backend I type a domain event bus from one interface that maps each event name to its payload: `emit<E extends keyof DomainEvents>(name: E, payload: DomainEvents[E])`, so a misspelled name or a missing field fails the build. In React, a `DataTable<Row>` infers `Row` from its `rows` prop, and its columns are typed `keyof Row`, so a renamed field breaks the build instead of the screen. I stop when a type is harder to read than the bug it prevents.',
     keyPoints: [
@@ -523,11 +643,19 @@ const result = OrderSummary.safeParse(body); // body: unknown`,
         statement: 'In a `.tsx` file, `const Pill = <T>(props: PillProps<T>) => null` parses as a generic arrow function.',
         isTrue: false,
         why: '`<T>` is read as a JSX tag (TS17008); write a function declaration or `<T,>`.',
+        twin: {
+          statement: 'In a `.tsx` file, `const Pill = <T,>(props: PillProps<T>) => null` parses as a generic arrow function.',
+          why: 'The trailing comma tells the parser that `<T,>` is a type parameter list, not a JSX tag.',
+        },
       },
       {
         statement: 'With `function DataTable<Row>(props: { rows: readonly Row[] })`, TypeScript infers `Row` from the `rows` prop.',
         isTrue: true,
         why: 'Type parameters are inferred from the arguments, here the props object, so callers write no type argument.',
+        twin: {
+          statement: 'With `function DataTable<Row>(props: { rows: readonly Row[] })`, callers must write the type argument, as in `<DataTable<Order> rows={orders} />`.',
+          why: 'TypeScript infers `Row` from the `rows` prop, so callers write no type argument.',
+        },
       },
     ],
     codeChoices: [
@@ -578,6 +706,16 @@ emit('order.payed', { orderId, paymentId }); // fails: unknown event name`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'When would you return an error as a value instead of throwing it, and how do you type that in TypeScript?',
+    questionVariants: [
+      {
+        question: 'In `POST /orders`, a declined card and a lost database connection both throw, and both end up as a 500 with the same log line. How would you separate them, and how do you type it?',
+        bridge: 'A declined card is an expected business outcome, returned as a typed `Result`; a lost connection is an incident that stays thrown.',
+      },
+      {
+        question: 'A colleague wants every function in the Orders API to return a `Result` and never throw. Where would you disagree?',
+        bridge: 'Results are for expected domain outcomes. Bugs and infrastructure failures should still be thrown and reach the error middleware.',
+      },
+    ],
     answer:
       'I split failures in two. Expected outcomes of the domain, like an order that is not paid or a declined card, are part of the function\'s contract, so I return them as values: a `Result` type, a discriminated union on `ok` that holds either a value or a typed error. The caller cannot read `value` before checking `ok`, and a `switch` on `error.kind` can be exhaustive. Bugs and infrastructure failures, like the database or the provider being down, are thrown and reach the error middleware, which answers 500. When I catch, the error is `unknown`; I log it and rethrow a domain error with `{ cause }`.',
     keyPoints: [
@@ -614,11 +752,19 @@ emit('order.payed', { orderId, paymentId }); // fails: unknown event name`,
         statement: 'Under `strict`, the parameter of a `.catch((error) => …)` callback is typed `unknown`.',
         isTrue: false,
         why: '`strict` only types `catch` clause variables as `unknown`; the callback parameter is still `any`.',
+        twin: {
+          statement: 'Under `strict`, the parameter of a `.catch((error) => …)` callback is still typed `any`.',
+          why: "`strict` only types `catch` clause variables as `unknown`; the callback parameter keeps the `any` of the promise's signature.",
+        },
       },
       {
         statement: 'With `Result<T, E> = { ok: true; value: T } | { ok: false; error: E }`, reading `result.value` before checking `ok` fails to compile.',
         isTrue: true,
         why: '`value` does not exist on the failure member, so it can only be read after narrowing on `ok`.',
+        twin: {
+          statement: 'With `Result<T, E> = { ok: true; value: T } | { ok: false; error: E }`, `result.value` can be read before checking `ok`.',
+          why: '`value` does not exist on the failure member, so reading it before narrowing on `ok` fails to compile.',
+        },
       },
     ],
     codeChoices: [
@@ -666,6 +812,16 @@ declare function refundOrder(id: OrderId): Promise<Result<Order, RefundError>>;`
     level: 'senior',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'How do you keep the types of your frontend in sync with your backend API?',
+    questionVariants: [
+      {
+        question: 'The Orders API renamed `deliveryDate` to `estimatedDeliveryDate`. The back office still built and deployed, and showed empty dates until an agent complained. How do you make this break the build instead?',
+        bridge: "Derive the client's types from the server's contract, for example types generated from OpenAPI in CI, so a renamed field fails the client build.",
+      },
+      {
+        question: 'When would you pick tRPC over OpenAPI to share types between a frontend and its API, and when would you not?',
+        bridge: "tRPC shares the router's type inside one TypeScript team with no generation step; OpenAPI fits APIs used across teams and languages.",
+      },
+    ],
     answer:
       'The client\'s types must come from the server\'s contract, so a renamed field breaks the client\'s build instead of production. Across teams I use OpenAPI: the server publishes the document, openapi-typescript generates types in CI, and openapi-fetch gives a typed `fetch` client. Inside one TypeScript team in a monorepo, tRPC lets the client import the type of the server\'s router with no generation step. Between services exchanging events, a shared package exports Zod schemas, contracts only, never business logic. Generated types describe the contract but check nothing at runtime, so I still parse responses from APIs I do not control.',
     keyPoints: [
@@ -702,11 +858,19 @@ declare function refundOrder(id: OrderId): Promise<Result<Order, RefundError>>;`
         statement: 'Types generated from an OpenAPI document reject a malformed response at runtime.',
         isTrue: false,
         why: 'They exist only at compile time; a runtime check needs a schema such as Zod.',
+        twin: {
+          statement: 'Types generated from an OpenAPI document let a malformed response through at runtime.',
+          why: 'They exist only at compile time; a runtime check needs a schema such as Zod.',
+        },
       },
       {
         statement: 'tRPC shares types with the client without a schema file or a code generation step.',
         isTrue: true,
         why: 'The client imports the type of the server\'s router directly.',
+        twin: {
+          statement: "tRPC needs a code generation step to give the client the server's types.",
+          why: "The client imports the type of the server's router directly, with no generation step.",
+        },
       },
     ],
     codeChoices: [
@@ -754,6 +918,16 @@ const { data, error } = await ordersApi.GET('/orders/{orderId}', {
     level: 'mid',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'How do you type a React component\'s props, children, event handlers and refs in React 19?',
+    questionVariants: [
+      {
+        question: 'The back office\'s `Button` declares only `label` and `onClick`, so passing `disabled` or `type="submit"` fails to compile, and the team keeps adding props one by one. How would you type it?',
+        bridge: "Derive the props from the native element with `ComponentPropsWithoutRef<'button'>`, so every native attribute is typed at once.",
+      },
+      {
+        question: 'You move a component library from React 18 to React 19. What changes in how you type `ref`, and how do you type `children` and event handlers?',
+        bridge: 'In React 19 `ref` is an ordinary prop, so `forwardRef` goes. `children` stays `ReactNode`, and extracted handlers name their event type.',
+      },
+    ],
     answer:
       'I write a plain function with one props parameter declared with `type`. For a component that wraps a native element, I derive the props from it: `ComponentPropsWithoutRef<\'button\'>` intersected with my own props, so every native attribute is typed with no extra line. `children` is `ReactNode`, which accepts anything React renders; I use `ReactElement` only for a slot that must be one element, like an icon. Inline handlers infer their event type; an extracted one names it, like `ChangeEvent<HTMLInputElement>`. In React 19, `ref` is an ordinary prop, so I declare `ref?: Ref<HTMLInputElement>` and skip `forwardRef`.',
     keyPoints: [
@@ -790,16 +964,28 @@ const { data, error } = await ordersApi.GET('/orders/{orderId}', {
         statement: '`ReactNode` accepts strings, numbers, `null` and JSX elements.',
         isTrue: true,
         why: 'It is the type of anything React can render, which is why it is the default for `children`.',
+        twin: {
+          statement: '`ReactNode` accepts JSX elements only, not strings or numbers.',
+          why: 'It is the type of anything React can render, strings, numbers and `null` included.',
+        },
       },
       {
         statement: 'In React 19, a function component needs `forwardRef` to receive a `ref`.',
         isTrue: false,
         why: 'React 19 passes `ref` as an ordinary prop; react.dev says `forwardRef` is no longer necessary.',
+        twin: {
+          statement: 'In React 19, a function component receives `ref` as an ordinary prop, without `forwardRef`.',
+          why: 'React 19 passes `ref` like any other prop; react.dev says `forwardRef` is no longer necessary.',
+        },
       },
       {
         statement: '`useRef<HTMLInputElement>(null).current` is typed `HTMLInputElement`.',
         isTrue: false,
         why: 'It is `HTMLInputElement | null`, because the element is attached only after render.',
+        twin: {
+          statement: '`useRef<HTMLInputElement>(null).current` is typed `HTMLInputElement | null`.',
+          why: 'The element is attached only after render, so the type keeps `null`.',
+        },
       },
     ],
     codeChoices: [
@@ -852,6 +1038,16 @@ export function Button({ tone = 'primary', icon, children, ...rest }: ButtonProp
     level: 'senior',
     paths: ['frontend', 'react'],
     question: 'How would you type a component that is either a link or a button, but never both? And what about an `as` prop?',
+    questionVariants: [
+      {
+        question: 'A back office `Action` takes `href` or `onClick`. A developer passed both, it compiled, and the refund button navigated away instead of refunding. How do you make that a compile error?',
+        bridge: "A plain union accepts keys from any member. Marking each member's other key `never` makes passing both a compile error.",
+      },
+      {
+        question: "The design system's `Text` takes an `as` prop to render a `p`, a `span` or a `label`. How do you type it, and why not use that pattern for every component?",
+        bridge: 'A polymorphic `as` prop typed with `ComponentPropsWithoutRef<As>`. Its cost in errors and compile time keeps it to primitives.',
+      },
+    ],
     answer:
       'A link and a button have different contracts, so the props are a union of two members. A plain union is not enough: the excess property check accepts a key that exists in any member, so `href` and `onClick` together compile. I give each member the other\'s key typed `never`: the link has `onClick?: never`, the button `href?: never`. Then passing both fails, and inside, checking `href` narrows the props. A polymorphic component takes the element in an `as` prop, typed with `ComponentPropsWithoutRef<As>`. It works, but costs unreadable errors, an unchecked implementation and compile time, so I keep it to primitives like `Text`.',
     keyPoints: [
@@ -888,11 +1084,19 @@ export function Button({ tone = 'primary', icon, children, ...rest }: ButtonProp
         statement: 'With props typed `{ href: string } | { onClick: () => void }`, passing both `href` and `onClick` fails to compile.',
         isTrue: false,
         why: 'The excess property check on a union accepts a key that exists in any member, so both pass.',
+        twin: {
+          statement: 'With props typed `{ href: string } | { onClick: () => void }`, passing both `href` and `onClick` compiles.',
+          why: 'The excess property check on a union accepts a key that exists in any member.',
+        },
       },
       {
         statement: 'Typing `onClick?: never` on the link member makes `<Action href="/orders" onClick={refund} />` a compile error.',
         isTrue: true,
         why: 'No function is assignable to `never`, so the link member rejects it and the button member rejects `href`.',
+        twin: {
+          statement: 'Typing `onClick?: never` on the link member still lets `<Action href="/orders" onClick={refund} />` compile.',
+          why: 'No function is assignable to `never`, so the link member rejects it and the button member rejects `href`.',
+        },
       },
     ],
     codeChoices: [
@@ -937,6 +1141,16 @@ export function Action(props: LinkProps | ButtonProps) {
     level: 'mid',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'How do you type a React context and its custom hook so that consumers never deal with `undefined`?',
+    questionVariants: [
+      {
+        question: "The storefront's cart badge shows 0 on a new page, with no error, because that page renders outside `CartProvider`. The context was created with an empty cart as its default. How would you have caught this?",
+        bridge: 'A fake default hides a missing provider. A `null` default plus a custom hook that throws makes it fail loudly.',
+      },
+      {
+        question: 'Every consumer of `CartContext` writes `cart?.items ?? []` because the context type includes `null`. How do you remove that noise without losing safety?',
+        bridge: 'Wrap the context in a custom hook that throws on `null`: the throw narrows the type, so consumers receive a plain value.',
+      },
+    ],
     answer:
       'I create the context with `null` as the "no provider" value, `createContext<CartContextValue | null>(null)`, and never expose it directly. Consumers call a custom hook, `useCart`, which reads the context and throws a clear error when it gets `null`. That check removes `null` from the type, so callers receive a plain `CartContextValue`, and a missing provider fails loudly instead of rendering an empty cart. I avoid a fake default object, which hides that bug. In React 19 I render `<CartContext value={…}>` as the provider and read it with `use`. Custom hooks that return a pair return it `as const`.',
     keyPoints: [
@@ -973,16 +1187,28 @@ export function Action(props: LinkProps | ButtonProps) {
         statement: 'A context created with a default object makes a missing provider fail loudly.',
         isTrue: false,
         why: 'Consumers outside the provider silently get the default; only a `null` default plus a throwing hook fails.',
+        twin: {
+          statement: 'A context created with a default object lets a missing provider go unnoticed.',
+          why: 'Consumers outside the provider silently get the default; only a `null` default plus a throwing hook fails.',
+        },
       },
       {
         statement: 'After `if (cart === null) throw …`, the hook can return `cart` with a type that excludes `null`.',
         isTrue: true,
         why: 'The throw narrows the type, so the code after it only sees the non-null value.',
+        twin: {
+          statement: "After `if (cart === null) throw …`, the hook's return type still includes `null`.",
+          why: 'The throw narrows the type, so the code after it only sees the non-null value.',
+        },
       },
       {
         statement: 'Under `strict`, `useState([])` with no type argument infers `never[]`.',
         isTrue: true,
         why: 'An empty array literal gives no element type, so a later `setOrders([order])` fails to compile.',
+        twin: {
+          statement: 'Under `strict`, `useState([])` with no type argument infers `any[]`.',
+          why: 'An empty array literal gives no element type, so it infers `never[]` and a later `setOrders([order])` fails to compile.',
+        },
       },
     ],
     codeChoices: [
@@ -1035,6 +1261,16 @@ export function useCart(): CartContextValue {
     level: 'mid',
     paths: ['frontend', 'backend', 'fullstack', 'react'],
     question: 'Which TypeScript utility types do you use most, and how would you type a PATCH payload for an order?',
+    questionVariants: [
+      {
+        question: "The `PATCH /orders/:id` body is typed `Partial<Order>`, and a support tool sent `status: 'refunded'` through it without any refund. How would you type that payload?",
+        bridge: 'Derive it with `Partial<Pick<…>>`: only the editable fields, each optional, so `status` is not part of the type.',
+      },
+      {
+        question: 'A colleague writes `OrderSummary` by hand, copying three fields from `Order`. What is the risk, and which utility types would you use instead?',
+        bridge: 'Hand-written copies drift from the domain type. `Pick`, `Omit` and the other utility types derive them, so a rename breaks every payload at once.',
+      },
+    ],
     answer:
       'Utility types build a new type from an existing one, so every payload derives from one domain type and a rename breaks them all at once. `Pick` keeps some keys, `Omit` removes some, `Partial` and `Required` change optionality, `Readonly` blocks writes, `Record` maps keys to a value type, and `ReturnType` and `Awaited` name what a function returns. For `PATCH /orders/:id` I write `Partial<Pick<OrderDetail, \'shippingAddress\' | \'deliveryNote\'>>`: only the editable fields, each optional, so `status` cannot sneak in. One trap: `Omit` on a union keeps only the shared keys, so I use a distributive version there.',
     keyPoints: [
@@ -1071,11 +1307,19 @@ export function useCart(): CartContextValue {
         statement: '`Omit<A | B, \'id\'>` keeps the fields specific to `A` and those specific to `B`.',
         isTrue: false,
         why: '`Omit` works on the keys shared by every member, so member-specific fields are lost.',
+        twin: {
+          statement: "`Omit<A | B, 'id'>` loses the fields that only `A` or only `B` has.",
+          why: '`Omit` works on the keys shared by every member, so member-specific fields are lost.',
+        },
       },
       {
         statement: '`Record<OrderStatus, string>` requires one entry for every status in the union.',
         isTrue: true,
         why: 'Each member of the key union becomes a required property, so a missing status fails (TS2741).',
+        twin: {
+          statement: '`Record<OrderStatus, string>` accepts an object that leaves some statuses out.',
+          why: 'Each member of the key union becomes a required property, so a missing status fails (TS2741).',
+        },
       },
     ],
     codeChoices: [
@@ -1126,6 +1370,16 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
     level: 'senior',
     paths: ['frontend', 'react', 'fullstack'],
     question: 'Have you used template literal, mapped or conditional types? Give a practical example, and say where you would stop.',
+    questionVariants: [
+      {
+        question: "The storefront's `buildPath('/orders/:orderId', {})` compiled and produced `/orders/undefined` links. How could the type system reject the missing `orderId`?",
+        bridge: 'A conditional type with `infer` extracts the params from the pattern string, so the helper requires exactly those keys.',
+      },
+      {
+        question: "A colleague wrote a 60-line conditional type to check the design system's spacing tokens. When are template literal, mapped and conditional types worth it, and when do you stop?",
+        bridge: 'They earn their place for a few checked names and maps. Stop when the type is harder to read than the bug it prevents.',
+      },
+    ],
     answer:
       'Yes, for a few checked names and maps in a design system. A template literal type builds string types like a template string, and a union inside it expands to every combination, so four tones and two slots give eight checked color token names. A mapped type builds one property per member of a union; `Partial` and `Record` are made that way. A conditional type is an if/else on types, and with `infer` it extracts parts: I derived route params from a pattern like `/orders/:orderId`, so the URL builder rejects a missing param. I stop when a type is harder to read than the bug it prevents.',
     keyPoints: [
@@ -1162,11 +1416,19 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
         statement: 'A template literal type built from a union of 4 tones and a union of 2 slots describes 8 strings.',
         isTrue: true,
         why: 'A union inside a template literal type expands to every combination.',
+        twin: {
+          statement: 'A template literal type built from a union of 4 tones and a union of 2 slots describes 6 strings.',
+          why: 'A union inside a template literal type expands to every combination: 4 times 2 gives 8.',
+        },
       },
       {
         statement: 'Annotating an object with `: Record<OrderStatus, BadgeStyle>` keeps the literal type of each `tone`.',
         isTrue: false,
         why: 'The annotation gives every entry the type `BadgeStyle`, so `tone` widens to the whole union; `satisfies` keeps it.',
+        twin: {
+          statement: 'Annotating an object with `: Record<OrderStatus, BadgeStyle>` widens each `tone` to the type declared in `BadgeStyle`.',
+          why: 'The annotation gives every entry the type `BadgeStyle`; `satisfies` checks the object and keeps each literal.',
+        },
       },
     ],
     codeChoices: [

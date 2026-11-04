@@ -13,6 +13,18 @@ export const behaviouralCards: Card[] = [
     level: 'mid',
     paths: ['fullstack', 'frontend', 'backend'],
     question: 'Tell me about a time you worked across the whole stack, frontend and backend, to deliver a feature.',
+    questionVariants: [
+      {
+        question:
+          'Walk me through a feature you owned end to end, from the database to the screen.',
+        bridge: 'The same full-stack story: one user problem, your own actions on the API and in the UI, and the decision you made where the layers meet.',
+      },
+      {
+        question:
+          'What is the hardest feature you have shipped that needed changes on both the backend and the frontend? How did you split the work?',
+        bridge: 'Another way to ask for the full-stack story; "how did you split the work" invites the cross-layer decision, such as agreeing the contract first.',
+      },
+    ],
     answer:
       'Customers kept calling support to ask where their order was, because "my orders" only changed on reload. I owned live order status end to end. On the Orders API, I added a status events table and an SSE endpoint, fanned out across replicas through Redis, with replay from the last event id after a reconnect. In the Next.js storefront, I built the status timeline as a client component that subscribes to that stream. I agreed the event format with the app developer first, so we worked in parallel. "Where is my order" tickets fell by about 30% in a month. I learned to fix the contract before splitting the work.',
     keyPoints: [
@@ -60,11 +72,19 @@ export const behaviouralCards: Card[] = [
         statement: 'In a STAR answer, most of the time should go on the situation.',
         isTrue: false,
         why: 'The situation takes a sentence or two; most of the time goes on the actions you took.',
+        twin: {
+          statement: 'In a STAR answer, most of the time should go on the actions you took.',
+          why: 'The situation takes a sentence or two; your actions are what the interviewer assesses.',
+        },
       },
       {
         statement: 'Saying "we" throughout makes it hard for the interviewer to judge your part.',
         isTrue: true,
         why: 'The interviewer hires you, not the team, so the actions should be told with "I".',
+        twin: {
+          statement: 'Saying "we" throughout makes your own part easy for the interviewer to judge.',
+          why: 'The interviewer cannot tell your actions from the team\'s, so tell them with "I".',
+        },
       },
     ],
     lesson: {
@@ -86,6 +106,18 @@ export const behaviouralCards: Card[] = [
     level: 'senior',
     paths: ['fullstack', 'frontend', 'backend'],
     question: 'Describe a hard-to-reproduce bug you debugged that spanned several layers of the stack.',
+    questionVariants: [
+      {
+        question:
+          'Tell me about the most difficult bug you have tracked down in production.',
+        bridge: 'The same debugging story: the interviewer wants your method across layers, a reproduction, and a root-cause fix with a measured result.',
+      },
+      {
+        question:
+          'Walk me through how you investigated a bug that happened rarely and never on your machine.',
+        bridge: 'A rare bug that only shows in production is the cross-layer story: how evidence such as traces narrowed it down before you fixed it.',
+      },
+    ],
     answer:
       'About one paid order in two thousand stayed `pending_payment` on the storefront, never in staging. I owned the investigation. Traces of affected orders showed the payment webhook arriving a few hundred milliseconds after the order was created: the handler read the order from a read replica that lagged under load, found nothing, logged it and returned 200, so the provider never retried. I reproduced it in a test by delaying replication, then made the handler read from the primary and return an error for unknown orders so the provider retries. Stuck orders dropped to zero. Lesson: rare bugs are often races, and traces find them.',
     keyPoints: [
@@ -133,11 +165,19 @@ export const behaviouralCards: Card[] = [
         statement: 'A strong debugging story says how you found the cause, not only what the fix was.',
         isTrue: true,
         why: 'The interviewer is assessing your method, so the investigation is the core of the answer.',
+        twin: {
+          statement: 'A strong debugging story focuses on the fix; how you found the cause matters little.',
+          why: 'The interviewer is assessing your method, so the investigation is the core of the answer.',
+        },
       },
       {
         statement: 'A behavioural answer is stronger without numbers, because numbers sound rehearsed.',
         isTrue: false,
         why: 'A measured result, such as how often the bug happened before and after, makes the story credible.',
+        twin: {
+          statement: 'A behavioural answer is stronger with a measured result, such as how often the bug happened before and after.',
+          why: 'Numbers make the story credible and show the impact of the fix.',
+        },
       },
     ],
     lesson: {
@@ -159,6 +199,18 @@ export const behaviouralCards: Card[] = [
     level: 'mid',
     paths: ['fullstack', 'frontend', 'backend'],
     question: 'How do you decide where business logic lives: frontend, backend, or both?',
+    questionVariants: [
+      {
+        question:
+          'A security review finds that the back office hides the refund button from junior agents, but the Orders API refunds any order it is asked to. What is wrong, and where should the rule live?',
+        bridge: 'A permission rule enforced only in the browser can be bypassed: rules that protect money and permissions live on the server, which has the last word.',
+      },
+      {
+        question:
+          'A colleague wants to drop the cart total check in the Orders API, because the Next.js checkout already computes it. What do you answer?',
+        bridge: 'A misconception about client-side rules: the frontend repeats rules only for the user\'s comfort, while the server enforces money, stock and permissions.',
+      },
+    ],
     answer:
       'Rules that protect money, stock or permissions live on the backend, because anything in the browser can be bypassed: the Orders API recomputes the cart total, checks stock and decides whether a refund is allowed, even if the UI already did. The frontend repeats some rules only for the user\'s comfort: instant form validation, or hiding a refund button the agent cannot use. To keep both versions in sync, I share the validation schema, for example a Zod schema in a package used by the API and the React forms, and the server\'s answer is final. Presentation logic, like formatting a price, stays in the frontend.',
     keyPoints: [
@@ -212,11 +264,19 @@ export const behaviouralCards: Card[] = [
         statement: 'Validation in the React form is enough to protect the refund endpoint.',
         isTrue: false,
         why: 'Anyone can call the endpoint directly, so the server must enforce the rule.',
+        twin: {
+          statement: 'The refund endpoint must enforce the refund rule itself, even when the React form already validates it.',
+          why: 'Anyone can call the endpoint directly, bypassing the form.',
+        },
       },
       {
         statement: 'A Next.js Server Function must check authorisation itself, even if only signed-in users see the form.',
         isTrue: true,
         why: 'Hiding the form protects the form, not the action: anyone who can send the POST can call it.',
+        twin: {
+          statement: 'A Next.js Server Function needs no authorisation check when only signed-in users can see its form.',
+          why: 'Hiding the form does not protect the action: anyone who can send the POST can call it.',
+        },
       },
     ],
     lesson: {
@@ -238,6 +298,18 @@ export const behaviouralCards: Card[] = [
     level: 'junior',
     paths: ['fullstack', 'frontend', 'backend'],
     question: 'Tell me about a time you had to learn a new technology quickly to deliver.',
+    questionVariants: [
+      {
+        question:
+          'Describe a time you had to get productive with a language, library or API you had never used, on a deadline.',
+        bridge: 'The same learning story: what was new and how little time there was, how you learned, and how you limited the risk in the real code.',
+      },
+      {
+        question:
+          'What is the fastest you have ever had to learn something new for work? Walk me through how you did it.',
+        bridge: '"Walk me through how" asks for your method: docs, a throwaway prototype, precise questions, then a measured result and what you would reuse.',
+      },
+    ],
     answer:
       'Our delivery partner announced it would retire its REST API in six weeks, and the replacement was GraphQL, which nobody on the team had used. I volunteered for the migration. I spent two days on the official docs and built a throwaway client against their sandbox before touching our code, then asked their support two precise questions about errors. I wrapped the new client behind our existing delivery interface, so the rest of the Orders API did not change, and added tests against recorded responses. We switched a week before the deadline with no failed shipments. I learned to prototype outside the codebase first.',
     keyPoints: [
@@ -285,11 +357,19 @@ export const behaviouralCards: Card[] = [
         statement: 'A STAR story should end with a result and a lesson learned.',
         isTrue: true,
         why: 'The result shows impact and the lesson shows that you improve from experience.',
+        twin: {
+          statement: 'A STAR story is complete once the actions are told; the result and the lesson are optional.',
+          why: 'The result shows impact and the lesson shows that you improve from experience.',
+        },
       },
       {
         statement: 'For a "learned quickly" question, the best answer is that you already knew most of it.',
         isTrue: false,
         why: 'The question assesses how you learn, so the story must show something new and your method for it.',
+        twin: {
+          statement: 'For a "learned quickly" question, the story must show something new to you and how you learned it.',
+          why: 'The question assesses how you learn, so a story where you already knew most of it leaves nothing to assess.',
+        },
       },
     ],
     lesson: {
@@ -311,6 +391,18 @@ export const behaviouralCards: Card[] = [
     level: 'mid',
     paths: ['fullstack', 'frontend', 'backend'],
     question: 'Describe a time you disagreed with a technical decision. How did you handle it?',
+    questionVariants: [
+      {
+        question:
+          'Tell me about a time you pushed back on a colleague\'s technical proposal. What happened?',
+        bridge: 'The same disagreement story: state the other view fairly, understand their goal, settle it with data, and commit to the outcome.',
+      },
+      {
+        question:
+          'Have you ever disagreed with a teammate on how to build something? How did you reach a decision?',
+        bridge: '"How did you reach a decision" points to the core of the story: turning opinions into a shared test or measurement.',
+      },
+    ],
     answer:
       'A colleague proposed running PM2 in cluster mode inside each Orders API pod to use more CPU. I disagreed, because Kubernetes already runs and restarts pods, and a second process manager hides restarts and metrics. Instead of arguing in the pull request, I asked what my colleague wanted to fix: p99 latency during the evening peak. We agreed to load-test both options on staging. More single-process pods gave the same throughput with simpler health checks. Their concern about slow scale-up was valid, so we raised the minimum replicas before the peak. We shipped that, and p99 stayed under target. I learned to turn opinions into a shared test.',
     keyPoints: [
@@ -354,11 +446,19 @@ export const behaviouralCards: Card[] = [
         statement: 'The strongest disagreement story is one where the other person was clearly wrong.',
         isTrue: false,
         why: 'It suggests you do not see other views; pick one where you understood their reason.',
+        twin: {
+          statement: 'The strongest disagreement story is one where you understood the other person\'s reason.',
+          why: 'It shows you see other views; a story where they were simply wrong suggests you do not.',
+        },
       },
       {
         statement: 'Interviewers ask follow-up questions partly to check that the story is really yours.',
         isTrue: true,
         why: 'Details, alternatives and what you would change are hard to invent, so borrowed stories fall apart.',
+        twin: {
+          statement: 'Follow-up questions tell the interviewer nothing about whether a story is really yours.',
+          why: 'Details, alternatives and what you would change are hard to invent, so borrowed stories fall apart under follow-ups.',
+        },
       },
     ],
     lesson: {
@@ -380,6 +480,18 @@ export const behaviouralCards: Card[] = [
     level: 'mid',
     paths: ['fullstack', 'frontend', 'backend'],
     question: 'How do you get up to speed on an unfamiliar full-stack codebase you just joined?',
+    questionVariants: [
+      {
+        question:
+          'You join on Monday: a Next.js storefront, a BFF and the Orders API, none of which you have seen. What do you do in your first two weeks?',
+        bridge: 'The onboarding question as a concrete situation: the product first, one flow end to end, running it locally, and a small real change early.',
+      },
+      {
+        question:
+          'Tell me about the last time you joined a new codebase. How did you get productive?',
+        bridge: 'The same approach told as a story: anchor each step, such as following one flow or shipping a small ticket, in what you actually did.',
+      },
+    ],
     answer:
       'I start from the product: I use the storefront as a customer and the back office as an agent, then follow one flow end to end, like placing an order, through the Next.js code, the BFF, the Orders API and the tables it writes. I get the project running locally, read the README, the architecture decision records and recent incident reports, and look at the dashboards to see what matters in production. I ask for a small real ticket in the first week, and I keep a list of questions and confusing parts, which often turns into documentation fixes. And I meet the people who own each part.',
     keyPoints: [
@@ -423,11 +535,19 @@ export const behaviouralCards: Card[] = [
         statement: 'For a "how do you…" question, anchoring the approach in a concrete example strengthens the answer.',
         isTrue: true,
         why: 'An example shows you actually work that way, rather than describing an ideal.',
+        twin: {
+          statement: 'For a "how do you…" question, a general description of your approach is stronger than a concrete example.',
+          why: 'An example shows you actually work that way; a description alone can be an ideal.',
+        },
       },
       {
         statement: 'Asking many questions in your first weeks is a negative signal that you should avoid in your answer.',
         isTrue: false,
         why: 'Precise questions are the fastest way to learn a codebase, and interviewers expect you to ask them.',
+        twin: {
+          statement: 'Asking precise questions in your first weeks is a positive signal worth mentioning in your answer.',
+          why: 'Precise questions are the fastest way to learn a codebase, and interviewers expect you to ask them.',
+        },
       },
     ],
     lesson: {
@@ -449,6 +569,18 @@ export const behaviouralCards: Card[] = [
     level: 'senior',
     paths: ['fullstack', 'frontend', 'backend'],
     question: 'Tell me about a time you balanced technical debt against a tight deadline.',
+    questionVariants: [
+      {
+        question:
+          'Describe a time you had to choose between shipping on time and fixing something you knew was fragile.',
+        bridge: 'The same trade-off story: name the deadline and the debt, put a business cost on the debt, and negotiate scope rather than cut quality in silence.',
+      },
+      {
+        question:
+          'How have you convinced a product manager to give you time for technical debt? Give me a real example.',
+        bridge: 'Convincing a product manager is the negotiation at the heart of this story: the debt expressed as lost orders or incident time.',
+      },
+    ],
     answer:
       'Three weeks before Black Friday, product wanted gift cards at checkout, and I knew our calls to the delivery partner had no timeout and had already frozen checkout once. I owned the checkout path. I put a cost on the debt: that incident had blocked orders for 20 minutes, which at peak would mean thousands of lost orders. I proposed to the product manager to ship gift cards without partial use, and to spend the saved days on timeouts and retries with backoff. They agreed. Black Friday ran with no checkout incident, gift cards shipped on time, and partial use came in January. Lesson: talk about debt in business terms.',
     keyPoints: [
@@ -492,11 +624,19 @@ export const behaviouralCards: Card[] = [
         statement: 'Putting a business cost on technical debt makes it easier to negotiate time for it.',
         isTrue: true,
         why: 'Product managers can weigh lost orders or incident time against a feature; "messy code" gives them nothing to weigh.',
+        twin: {
+          statement: 'Describing technical debt as "messy code" persuades a product manager as well as putting a business cost on it.',
+          why: 'Product managers can weigh lost orders or incident time against a feature; "messy code" gives them nothing to weigh.',
+        },
       },
       {
         statement: 'A senior should refuse any deadline that leaves known technical debt in place.',
         isTrue: false,
         why: 'Seniors negotiate scope and plan the repayment; refusing outright ignores the business need.',
+        twin: {
+          statement: 'When a deadline leaves known technical debt in place, a senior negotiates scope and plans the repayment.',
+          why: 'Refusing outright ignores the business need; a negotiated trade keeps both the deadline and the risk in view.',
+        },
       },
     ],
     lesson: {
@@ -518,6 +658,18 @@ export const behaviouralCards: Card[] = [
     level: 'junior',
     paths: ['fullstack', 'frontend', 'backend'],
     question: 'How do you stay organized when working on several features or tasks at once?',
+    questionVariants: [
+      {
+        question:
+          'Walk me through a week when you had several things in flight at once. How did you decide what to work on?',
+        bridge: 'The same organisation story: one prioritised list agreed with the lead, limited work in progress, cheap switching and early warnings.',
+      },
+      {
+        question:
+          'Tell me about a time a task slipped because other work got in the way. What did you do?',
+        bridge: 'A slip belongs in this story: the judgement assessed is spotting the delay and announcing it early, not hiding it.',
+      },
+    ],
     answer:
       'Last spring I juggled the refund dialog in the back office, a bug in the CSV export, and reviews for a new teammate. I kept one list in our tracker, ordered with my lead by impact and deadline, and allowed myself one task in progress, with reviews at two fixed times a day. Each task had its own branch and a short note of where I stopped, so switching cost minutes, not an hour. When the export bug pushed the dialog back two days, I said so in stand-up that morning. All three shipped with no surprises. Lesson: announcing a delay early is part of being organized.',
     keyPoints: [
@@ -565,11 +717,19 @@ export const behaviouralCards: Card[] = [
         statement: 'A concrete example is stronger than a list of the tools you use.',
         isTrue: true,
         why: 'The interviewer wants to see how you work in practice, and tools alone show nothing about judgement.',
+        twin: {
+          statement: 'A list of the tools you use is stronger than a concrete example of how you worked.',
+          why: 'Tools alone show nothing about judgement; the interviewer wants to see how you work in practice.',
+        },
       },
       {
         statement: 'Mentioning that a task slipped makes an organisation story weaker.',
         isTrue: false,
         why: 'Saying how you spotted and announced the delay early shows exactly the judgement being assessed.',
+        twin: {
+          statement: 'Saying how you spotted and announced a slipping task early makes an organisation story stronger.',
+          why: 'Announcing a delay early is exactly the judgement being assessed.',
+        },
       },
     ],
     lesson: {
@@ -591,6 +751,18 @@ export const behaviouralCards: Card[] = [
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'Tell me about a time you diagnosed a production incident under time pressure.',
+    questionVariants: [
+      {
+        question:
+          'Tell me about the worst production outage you have been involved in. What was your role?',
+        bridge: 'The same incident story: the impact and your role first, mitigation before diagnosis, the evidence that led to the cause, and time to recovery.',
+      },
+      {
+        question:
+          'Walk me through what you did in the first fifteen minutes of a production incident you handled.',
+        bridge: 'The first minutes are where the key habit shows: stop the bleeding with a rollback or a flag, then find the cause.',
+      },
+    ],
     answer:
       'During a Friday evening sale, checkout started failing: about 30% of `POST /orders` returned 500, and it was growing. I was on call, so I led the response. I rolled back that afternoon\'s deploy first; nothing changed, so the cause was elsewhere. Traces showed requests waiting for database connections, and `pg_stat_activity` showed the pool full of sessions idle in transaction, from a new export that opened a transaction and then streamed to S3. I ended those sessions and turned the export off with its feature flag; errors fell to zero within ten minutes. Lesson: stop the bleeding first, then find the cause.',
     keyPoints: [
@@ -630,11 +802,19 @@ export const behaviouralCards: Card[] = [
         statement: 'During an incident, finding the root cause comes before reducing the impact.',
         isTrue: false,
         why: 'Mitigate first with a rollback, a flag or more capacity; diagnose once customers are safe.',
+        twin: {
+          statement: 'During an incident, reducing the impact comes before finding the root cause.',
+          why: 'Mitigate first with a rollback, a flag or more capacity; diagnose once customers are safe.',
+        },
       },
       {
         statement: 'A blameless postmortem looks at what in the system allowed the error, not at who made it.',
         isTrue: true,
         why: 'Blame makes people hide details; system fixes stop the next person making the same mistake.',
+        twin: {
+          statement: 'A blameless postmortem looks at who made the error, so that person does not repeat it.',
+          why: 'Blame makes people hide details; a blameless postmortem looks at what in the system allowed the error.',
+        },
       },
     ],
     lesson: {
@@ -656,6 +836,18 @@ export const behaviouralCards: Card[] = [
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'Describe a significant architectural trade-off you made, such as consistency against availability.',
+    questionVariants: [
+      {
+        question:
+          'Tell me about a design decision where you deliberately accepted a weakness to gain something else.',
+        bridge: 'Accepting a weakness on purpose is a trade-off story: the two options, what each cost, the data, and who chose the risk with you.',
+      },
+      {
+        question:
+          'Describe a time you chose availability over strict consistency, or the other way round. What did it cost?',
+        bridge: '"What did it cost" asks for the side you gave up, with numbers such as the oversells refunded, and what you kept watching.',
+      },
+    ],
     answer:
       'Checkout called the inventory service synchronously, so when it was slow during sales, checkout failed. I owned the checkout flow, and the choice was strict consistency, never selling stock we lack, against availability. I measured that oversells would be rare, since few products ran out, and each could be refunded. I proposed accepting the order when inventory did not answer within 300 ms, reserving stock asynchronously and refunding the rare oversell, except for limited editions, which kept the strict check. The product manager agreed. At the next sale, checkout errors fell to near zero, with 4 oversells refunded. Lesson: let the business choose the risk.',
     keyPoints: [
@@ -695,11 +887,19 @@ export const behaviouralCards: Card[] = [
         statement: 'A strong trade-off story says what you gave up, not only what you gained.',
         isTrue: true,
         why: 'A trade-off without a cost is not a trade-off; naming the cost shows judgement.',
+        twin: {
+          statement: 'A strong trade-off story focuses on what you gained; what you gave up is best left out.',
+          why: 'A trade-off without a cost is not a trade-off; naming the cost shows judgement.',
+        },
       },
       {
         statement: 'The best answer presents the chosen option as having no real downside.',
         isTrue: false,
         why: 'It suggests you did not see the alternatives; interviewers then probe until the cost appears.',
+        twin: {
+          statement: 'The best answer names the real downside of the option you chose.',
+          why: 'Hiding it suggests you did not see the alternatives, and interviewers probe until the cost appears.',
+        },
       },
     ],
     lesson: {
@@ -721,6 +921,18 @@ export const behaviouralCards: Card[] = [
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'A product manager asks for a feature with a serious security or scalability risk. What do you do?',
+    questionVariants: [
+      {
+        question:
+          'Product wants a "log in as any customer" button in the back office for support agents, shipping next sprint. You see the risk. What do you do?',
+        bridge: 'A feature with a security risk: understand the goal, explain impact and likelihood in business terms, and offer a safer design rather than a plain no.',
+      },
+      {
+        question:
+          'Tell me about a time you said no to a stakeholder. How did it end?',
+        bridge: 'Interviewers often ask the push-back story this way; a strong answer shows you did not just say no but offered options that met the goal.',
+      },
+    ],
     answer:
       'I first make sure I understand the goal, then explain the risk in their terms and offer options. Our product manager once wanted support agents to export every customer with their address to a spreadsheet, in one click from the back office. I explained that one stolen agent session would leak all our customers\' personal data, and that the export would load the database for minutes at peak. I proposed exports limited to the agent\'s current cases, generated asynchronously, logged, with a link that expires. They agreed; agents got what they needed within the sprint, and the full export never existed. I never just say no.',
     keyPoints: [
@@ -760,11 +972,19 @@ export const behaviouralCards: Card[] = [
         statement: 'A senior engineer should refuse any feature that carries a security risk.',
         isTrue: false,
         why: 'Most risks can be reduced with a safer design; refuse or escalate only what the business may not accept.',
+        twin: {
+          statement: 'A senior engineer reduces most security risks with a safer design, and refuses or escalates only what the business may not accept.',
+          why: 'Most risky features have a safer version that still meets the goal.',
+        },
       },
       {
         statement: 'Explaining a risk as impact and likelihood helps a non-technical person weigh it.',
         isTrue: true,
         why: 'It turns a technical worry into a business decision they can make.',
+        twin: {
+          statement: 'A risk explained in technical terms is easier for a non-technical person to weigh than one stated as impact and likelihood.',
+          why: 'Impact and likelihood turn a technical worry into a business decision they can make.',
+        },
       },
     ],
     lesson: {

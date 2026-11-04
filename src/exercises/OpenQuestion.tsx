@@ -13,23 +13,28 @@ const LEVEL_STYLES: Record<Level, string> = {
 /**
  * An open interview question: the learner answers out loud, reveals the model answer, ticks the
  * key points they said and says whether they had it. Used for a topic's main question (with its
- * key points and background) and for each follow-up question (answer only).
+ * key points and background), for its other phrasings (the same answer, introduced by a bridge),
+ * and for each follow-up question (answer only).
  */
 export function OpenQuestion({
   card,
   followUpIndex,
+  variantIndex,
   onDone,
   onReviewLesson,
 }: {
   card: Card;
   /** Set for a follow-up question; absent for the topic's main interview question. */
   followUpIndex?: number;
+  /** Set for another phrasing of the main question. */
+  variantIndex?: number;
   onDone: (result: ExerciseResult) => void;
   /** Absent in a mock interview, where the lesson waits until the end. */
   onReviewLesson?: () => void;
 }) {
   const followUp = followUpIndex === undefined ? undefined : card.followUps[followUpIndex];
-  const question = followUp?.question ?? card.question;
+  const variant = variantIndex === undefined ? undefined : card.questionVariants?.[variantIndex];
+  const question = followUp?.question ?? variant?.question ?? card.question;
   const answer = followUp?.answer ?? card.answer;
   const keyPoints = followUp ? [] : card.keyPoints;
 
@@ -63,6 +68,11 @@ export function OpenQuestion({
         <>
           <section className="rounded-2xl bg-surface p-4">
             <h3 className="mb-1 text-sm font-bold uppercase tracking-wider text-muted">Model answer</h3>
+            {variant && (
+              <p className="mb-2 font-semibold">
+                <Text>{variant.bridge}</Text>
+              </p>
+            )}
             <p>
               <Text>{answer}</Text>
             </p>

@@ -9,6 +9,18 @@ export const deliveryMoreCards: Card[] = [
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What makes a good unit test? Take a pricing rule as the example.',
+    questionVariants: [
+      {
+        question:
+          'A refactor of the shipping rule made carts of exactly 50.00 pay shipping, and every test stayed green with 90% coverage. What was missing from the tests?',
+        bridge: 'A boundary no test pinned: good unit tests of a pure rule use a table with a row per boundary, and coverage does not show what is checked.',
+      },
+      {
+        question:
+          'A junior tests the pricing function through `POST /orders` with a database. Why would you test it differently, and what does a good unit test look like?',
+        bridge: 'The same topic through a misplaced test: a pure rule runs in memory with no I/O, as a table of cases, fast and precise.',
+      },
+    ],
     answer:
       'A good unit test runs one pure rule in memory, with no database, network or clock, so it is fast and fails only when the rule is wrong. For pricing, I write the cases as a table with `it.each`: each row is an input and its expected total, and every boundary gets a row, like a cart at exactly the free-shipping threshold, a discount that takes it back under, and a rounding. The table reads like the specification and needs no test double. Coverage only tells me which lines ran, not what was checked, so for code that matters I use mutation testing to find behaviours no assertion pins.',
     keyPoints: [
@@ -45,11 +57,19 @@ export const deliveryMoreCards: Card[] = [
         statement: '100% line coverage means every behaviour of the code is checked by an assertion.',
         isTrue: false,
         why: 'Coverage says which lines ran; a test without assertions raises it too.',
+        twin: {
+          statement: 'A suite can reach 100% line coverage while some behaviours are checked by no assertion.',
+          why: 'Coverage says which lines ran; a test without assertions raises it too.',
+        },
       },
       {
         statement: 'A unit test of a pure pricing function needs no mocks.',
         isTrue: true,
         why: 'It has no dependency to replace: the inputs go in, the total comes out.',
+        twin: {
+          statement: 'A unit test of a pure pricing function needs mocks for its dependencies.',
+          why: 'A pure function has no dependency to replace: the inputs go in, the total comes out.',
+        },
       },
     ],
     codeChoices: [
@@ -98,6 +118,18 @@ export const deliveryMoreCards: Card[] = [
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How do you write integration tests against a real PostgreSQL, and how do you keep the tests isolated from each other?',
+    questionVariants: [
+      {
+        question:
+          'The Orders API\'s repository tests all pass with a mocked database, yet a migration failed in production because it relied on an extension created by hand. How would you test the data layer instead?',
+        bridge: 'A bug only a real database shows: integration tests on PostgreSQL with the real migrations, plus a strategy that keeps tests isolated.',
+      },
+      {
+        question:
+          'A colleague wraps every test in a transaction that is rolled back, and the order-cancellation tests now leave rows that break other tests. Why, and how would you isolate tests instead?',
+        bridge: 'The same topic through an isolation strategy: a rollback per test breaks when the code commits its own transaction, so reset the data before each test instead.',
+      },
+    ],
     answer:
       'I run the real SQL on a real PostgreSQL, because a mocked repository never runs the query and cannot catch a wrong `WHERE`. In CI I use Testcontainers, which starts a throwaway PostgreSQL container from the production image; locally, PGlite, PostgreSQL compiled to WebAssembly inside the Node process, gives fast feedback without Docker. Starting a database is slow, so I start it once per run or per file, apply the real migrations, and reset the data before each test, usually with `TRUNCATE`. A transaction per test with a rollback is faster but breaks when the code opens its own transaction. For parallel files, each worker gets its own database.',
     keyPoints: [
@@ -134,11 +166,19 @@ export const deliveryMoreCards: Card[] = [
         statement: 'A transaction per test with a rollback still isolates tests when the code under test commits its own transaction.',
         isTrue: false,
         why: 'The strategy breaks as soon as the code opens its own transaction or takes a second connection from the pool.',
+        twin: {
+          statement: 'A transaction per test with a rollback stops isolating tests once the code under test commits its own transaction.',
+          why: 'The strategy breaks as soon as the code opens its own transaction or takes a second connection from the pool.',
+        },
       },
       {
         statement: 'With Testcontainers, integration tests can run on the same PostgreSQL image as production.',
         isTrue: true,
         why: 'It starts a real server in a container from the image you choose, for example `postgres:18-alpine`.',
+        twin: {
+          statement: 'With Testcontainers, integration tests cannot use the same PostgreSQL image as production.',
+          why: 'It starts a real server in a container from the image you choose, for example `postgres:18-alpine`.',
+        },
       },
     ],
     codeChoices: [
@@ -187,6 +227,18 @@ afterAll(async () => {
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'How do you test an API route through its whole HTTP layer without starting the server on a port?',
+    questionVariants: [
+      {
+        question:
+          'The Orders API\'s route tests start the server on port 3000 and fail whenever two test files run in parallel. How would you restructure them?',
+        bridge: 'Port collisions in tests point to in-process route testing: build the app without listening, inject its dependencies, and send requests without a socket.',
+      },
+      {
+        question:
+          'Why not just call the route handler function directly in a test? What do you lose, and what would you do instead?',
+        bridge: 'The same topic through a shortcut: calling the handler skips hooks, validation and serialisation, which `inject` or supertest exercise in-process.',
+      },
+    ],
     answer:
       'I build the app in a function that does not listen and takes its dependencies: repositories, a payments client, a clock and an id generator. Then I send requests to it without a socket. Fastify has `app.inject()`, which runs the whole pipeline, hooks, schema validation and serialisation, and returns the response. For Express, supertest binds an app that is not listening to a random free port, and NestJS gives a testing module where I override a provider. Because the clock, the ids and the data are fixed, I can assert the exact body, the status and the stored row, rather than internal calls.',
     keyPoints: [
@@ -223,11 +275,19 @@ afterAll(async () => {
         statement: 'Fastify `inject` opens a network port for the duration of the test.',
         isTrue: false,
         why: 'It runs the request through the pipeline without a socket; `app.server.listening` stays `false`.',
+        twin: {
+          statement: 'Fastify `inject` runs a request without opening a network port.',
+          why: 'It passes the request through the pipeline without a socket; `app.server.listening` stays `false`.',
+        },
       },
       {
         statement: 'supertest can test an Express app that is not listening yet.',
         isTrue: true,
         why: 'Its README says it binds the app to a random free port for the test.',
+        twin: {
+          statement: 'supertest needs the Express app to be listening on a port before a test can call it.',
+          why: 'Its README says it binds an app that is not listening to a random free port for the test.',
+        },
       },
     ],
     codeChoices: [
@@ -278,6 +338,18 @@ await expect(stock.stockOf('prod_mug')).resolves.toBe(8);`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'What makes tests flaky, and how do you make them deterministic?',
+    questionVariants: [
+      {
+        question:
+          'A promo-code test of the Orders API fails on the last day of each month and passes every other day, with no code change. What is going on, and how do you fix it for good?',
+        bridge: 'A failure tied to the calendar means the real clock is in the test: flakes come from time, randomness and order, and an injected frozen clock fixes this one.',
+      },
+      {
+        question:
+          'Your team\'s answer to flaky tests is three automatic retries in CI. What is wrong with that, and what would you do instead?',
+        bridge: 'The same topic through a bad policy: retries hide flakes; remove their causes and quarantine the rest with an owner and a deadline.',
+      },
+    ],
     answer:
       'A flaky test passes and fails on the same code. The usual causes are the real date, randomness and order. A test that reads the real clock fails on the last day of a month or late at night in Paris, so I inject a clock and freeze it, in unit, integration and E2E tests. Randomness, like retry jitter, comes from an injected source with a seed, and ids from an injected factory. Order dependence comes from shared state, which I find with a shuffled run and a fixed seed. Until a flake is fixed, it is quarantined with an owner and a deadline, never hidden by blanket retries.',
     keyPoints: [
@@ -314,11 +386,19 @@ await expect(stock.stockOf('prod_mug')).resolves.toBe(8);`,
         statement: '`vi.useFakeTimers()` also fakes the `setTimeout` imported from `node:timers/promises`.',
         isTrue: false,
         why: 'Measured on Vitest 5: that promise-based wait resolved only after real time passed; such code needs an injected clock.',
+        twin: {
+          statement: '`vi.useFakeTimers()` does not fake the `setTimeout` imported from `node:timers/promises`.',
+          why: 'Measured on Vitest 5: that promise-based wait resolved only after real time passed; such code needs an injected clock.',
+        },
       },
       {
         statement: 'Seeded with the same value, a seeded random generator returns the same sequence on every run.',
         isTrue: true,
         why: 'That is what makes jittered delays assertable in a test.',
+        twin: {
+          statement: 'A seeded random generator returns a different sequence on every run, even with the same seed.',
+          why: 'The same seed always gives the same sequence, which is what makes jittered delays assertable in a test.',
+        },
       },
     ],
     codeChoices: [
@@ -363,6 +443,18 @@ const clock = new FixedClock('2027-01-31T23:30:00Z'); // never the real date`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'Your backend test suite takes 20 minutes. What do you do?',
+    questionVariants: [
+      {
+        question:
+          'Forty Playwright tests check the validation rules of `POST /orders` one by one against staging, and the suite takes 20 minutes. What would you change, and in what order?',
+        bridge: 'A slow suite is fixed by measuring first: profile, push cases down from E2E to in-process tests, split fast and slow tests, then parallelise and shard.',
+      },
+      {
+        question:
+          'Developers stopped waiting for the test suite, and someone proposes buying a bigger CI runner. Why would you not start there?',
+        bridge: 'The same topic through a reflex: hardware comes last, after profiling shows which tests are slow and why, and cheaper tests take over their cases.',
+      },
+    ],
     answer:
       'First I profile it: which files are slowest, and why. Usually many E2E tests check things a cheaper test could, like validation rules run one by one against staging. I push those cases down to in-process integration tests, which take milliseconds, and keep a handful of E2E journeys, such as check out, cancel and refund, with the server clock frozen. Then I split fast and slow tests into Vitest projects, so unit feedback takes seconds. I use the whole machine with parallel workers, each with its own database, and when one machine is not enough, I shard across CI jobs and merge the reports.',
     keyPoints: [
@@ -399,11 +491,19 @@ const clock = new FixedClock('2027-01-31T23:30:00Z'); // never the real date`,
         statement: 'By default, Vitest runs the tests inside one file in parallel across its workers.',
         isTrue: false,
         why: 'Files run in parallel worker processes; the tests inside one file run one after another.',
+        twin: {
+          statement: 'By default, Vitest runs test files in parallel and the tests inside one file one after another.',
+          why: 'Files run in parallel worker processes; inside a file, tests run in sequence.',
+        },
       },
       {
         statement: 'In Vitest, the `projects` setting replaces the deprecated `workspace` setting.',
         isTrue: true,
         why: 'The Vitest docs say `workspace` is deprecated since 3.2 and replaced by `projects`.',
+        twin: {
+          statement: 'In Vitest, the `workspace` setting replaces the deprecated `projects` setting.',
+          why: 'It is the other way round: the Vitest docs say `workspace` is deprecated since 3.2 and replaced by `projects`.',
+        },
       },
     ],
     lesson: {
@@ -430,6 +530,18 @@ vitest --merge-reports`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'What is OpenTelemetry, and how do you instrument a Node service with it?',
+    questionVariants: [
+      {
+        question:
+          'After adding OpenTelemetry to the ESM Orders API, outgoing `fetch` calls appear in traces, but incoming requests have no spans and pino lines have no `trace_id`. What is missing?',
+        bridge: 'Missing auto-instrumented spans point to how the SDK loads: it must start before the app imports modules, and an ESM service needs the loader hook.',
+      },
+      {
+        question:
+          'Each service sends traces straight to one vendor through that vendor\'s own SDK, and the team now wants to switch vendor. How would OpenTelemetry change that?',
+        bridge: 'The same topic through vendor lock-in: OTel gives one vendor-neutral API and protocol, and a Collector makes the backend a deployment choice.',
+      },
+    ],
     answer:
       'OpenTelemetry is a CNCF project that defines one vendor-neutral way to produce traces, metrics and logs, and one protocol, OTLP, to send them. My code and libraries call the API; I start the SDK once per process, with auto-instrumentations that patch `http`, `pg` or `pino` so spans appear without code changes. The SDK must start before the app loads those modules, so it lives in its own file preloaded with `--import`, and an ESM service also needs the loader hook. It exports OTLP to a Collector, which batches, samples and forwards, so the backend, Grafana, Datadog or Honeycomb, becomes a deployment choice.',
     keyPoints: [
@@ -470,11 +582,19 @@ vitest --merge-reports`,
         statement: 'Auto-instrumentation still traces `pg` queries if the SDK starts after the app has loaded `pg`.',
         isTrue: false,
         why: 'Instrumentation patches modules as they load, so the SDK must start first, preloaded with `--import`.',
+        twin: {
+          statement: 'Auto-instrumentation only traces `pg` queries if the SDK starts before the app loads `pg`.',
+          why: 'Instrumentation patches modules as they load, so the SDK is preloaded with `--import`.',
+        },
       },
       {
         statement: 'With services sending OTLP to a Collector, the observability backend can change without touching their code.',
         isTrue: true,
         why: 'The Collector decides where the data goes; the services only speak OTLP.',
+        twin: {
+          statement: 'With services sending OTLP to a Collector, changing the observability backend means changing every service\'s code.',
+          why: 'The Collector decides where the data goes; the services only speak OTLP.',
+        },
       },
     ],
     lesson: {
@@ -502,6 +622,18 @@ node --experimental-loader=@opentelemetry/instrumentation/hook.mjs \\
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'Which managed AWS services would you put around a Node API, and how do you give the API access to them?',
+    questionVariants: [
+      {
+        question:
+          'The Orders API runs on two VMs with PostgreSQL and Redis beside it and secrets in an `.env` file, and the team spends weekends on patches and backups. Moving to AWS, what would you hand over?',
+        bridge: 'Moving the stateful parts to managed services: RDS, ElastiCache, SNS and SQS, S3 and Secrets Manager, with one least-privilege IAM role for the API.',
+      },
+      {
+        question:
+          'A colleague gives the API\'s IAM role `s3:*` on every bucket to avoid permission errors. What would you grant instead, and why?',
+        bridge: 'The same topic through IAM: least privilege means only the actions the service needs, on only the resources it uses.',
+      },
+    ],
     answer:
       'I let AWS run the stateful parts. PostgreSQL goes on Amazon RDS, which handles patching, automated backups with point-in-time restore and Multi-AZ failover. The cache is ElastiCache for Valkey, the open-source fork of Redis. Events go through SNS, fanned out to one SQS queue per consumer, with dead-letter queues. Files go to S3 with presigned URLs, and secrets to Secrets Manager, read at runtime, never baked into the image. Then the service\'s IAM role gets least privilege: only the actions it needs, on only the resources it uses, which IAM Access Analyzer can generate from CloudTrail activity.',
     keyPoints: [
@@ -542,11 +674,19 @@ node --experimental-loader=@opentelemetry/instrumentation/hook.mjs \\
         statement: 'The standby of a Multi-AZ RDS for PostgreSQL instance serves read traffic.',
         isTrue: false,
         why: 'A Multi-AZ instance\'s standby serves no reads; only a Multi-AZ cluster has readable standbys.',
+        twin: {
+          statement: 'The standby of a Multi-AZ RDS for PostgreSQL instance serves no read traffic.',
+          why: 'It is there for failover; only a Multi-AZ cluster has readable standbys.',
+        },
       },
       {
         statement: 'A presigned S3 URL works only if its signer is allowed to perform the operation it represents.',
         isTrue: true,
         why: 'The URL carries the signer\'s permissions, so the signing role needs, for example, `s3:GetObject`.',
+        twin: {
+          statement: 'A presigned S3 URL works even if its signer is not allowed to perform the operation it represents.',
+          why: 'The URL carries the signer\'s permissions, so the signing role needs, for example, `s3:GetObject`.',
+        },
       },
     ],
     lesson: {

@@ -82,6 +82,25 @@ describe('cards', () => {
     }
   });
 
+  it.each(CARDS.map((card) => [card.id, card] as const))('%s has short variants and twins with closed code marks', (_, card) => {
+    for (const variant of card.questionVariants ?? []) {
+      expect(variant.question.length, variant.question).toBeLessThanOrEqual(260);
+      expect(variant.bridge.length, variant.bridge).toBeLessThanOrEqual(220);
+      expect(variant.question, 'a variant repeats the main question').not.toBe(card.question);
+      for (const text of [variant.question, variant.bridge]) {
+        expect(text.split('`').length % 2, text).toBe(1);
+      }
+    }
+    for (const trap of card.traps) {
+      if (trap.twin) {
+        expect(trap.twin.statement, 'a twin repeats its trap').not.toBe(trap.statement);
+        for (const text of [trap.twin.statement, trap.twin.why]) {
+          expect(text.split('`').length % 2, text).toBe(1);
+        }
+      }
+    }
+  });
+
   it('point only to track sections that were imported', () => {
     const imported = new Set(MCQS.map((mcq) => `${mcq.module}#${mcq.section}`));
     for (const card of CARDS) {

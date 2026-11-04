@@ -106,6 +106,24 @@ describe('nextExercises', () => {
     expect(kinds).toEqual(['open', 'trap', 'followUp', 'mcq', 'open']);
   });
 
+  it('asks trap twins and other phrasings of the main question as questions of their own', () => {
+    const solo: Card[] = [
+      {
+        ...card('a'),
+        traps: [{ statement: 'S', isTrue: true, why: 'W', twin: { statement: 'Not S', why: 'W' } }],
+        questionVariants: [{ question: 'Scenario', bridge: 'Bridge' }],
+      },
+    ];
+    let progress = recordLesson(emptyProgress(), 'a', 'lesson:a');
+    const keys: string[] = [];
+    for (let i = 0; i < 5; i += 1) {
+      const [exercise] = nextExercises(solo, NO_MCQS, progress, { now: NOW, random: NEVER });
+      keys.push(exerciseKey(exercise!));
+      progress = recordAnswer(progress, 'a', exerciseKey(exercise!), { correct: true, graded: isGraded(exercise!), at: NOW });
+    }
+    expect(keys).toEqual(['open:a', 'trap:a:0', 'followUp:a:0', 'open:a:v0', 'trap:a:0:twin']);
+  });
+
   it('brings back a handled topic that needs a check, as if it were being learned', () => {
     const handledAt = (lastStep: number) => ({
       lessonSeen: true,

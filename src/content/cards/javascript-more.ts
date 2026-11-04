@@ -12,6 +12,16 @@ export const javascriptMoreCards: Card[] = [
     level: 'junior',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'What is destructuring, and how do you use it with objects and arrays?',
+    questionVariants: [
+      {
+        question: "The Orders API reads `const { status = 'pending_payment' } = row` from PostgreSQL rows, yet some orders reach the client with `status: null`. Why did the default not apply?",
+        bridge: 'Destructuring defaults apply only to `undefined`. A SQL NULL arrives as `null`, which is a real value, so the default is skipped.',
+      },
+      {
+        question: 'Explain to a junior what `const { id, customer: { email }, ...rest } = order` does.',
+        bridge: 'That one line uses object destructuring by name, a nested pattern, and `...rest` to collect the remaining properties.',
+      },
+    ],
     answer:
       'Destructuring unpacks values from an object or an array into variables in one statement. With objects I pick properties by name, `const { id, status } = order`, and I can rename, nest, and collect the remaining properties with `...rest`. With arrays the position matters: `const [first, second] = items`, which works on any iterable and lets me swap two variables. A default value, like `status = \'pending_payment\'`, applies only when the value is `undefined`, not `null`. I use it everywhere for function parameters and React props, and I add defaults there.',
     keyPoints: [
@@ -69,16 +79,28 @@ export const javascriptMoreCards: Card[] = [
         statement: '`const { total = 0 } = { total: null }` gives `total` the value 0.',
         isTrue: false,
         why: 'Defaults apply only when the value is `undefined`, so `total` stays `null`.',
+        twin: {
+          statement: '`const { total = 0 } = { total: null }` leaves `total` equal to `null`.',
+          why: 'Defaults apply only when the value is `undefined`, and `null` is a real value.',
+        },
       },
       {
         statement: '`const { a } = null` throws a TypeError.',
         isTrue: true,
         why: 'Destructuring `null` or `undefined` throws, because there is no object to read the property from.',
+        twin: {
+          statement: '`const { a } = null` sets `a` to `undefined`.',
+          why: 'Destructuring `null` or `undefined` throws a TypeError, because there is no object to read the property from.',
+        },
       },
       {
         statement: '`[x, y] = [y, x]` swaps the values of two `let` variables.',
         isTrue: true,
         why: 'The right side builds a new array from the current values first, then the left side assigns them back in reverse order.',
+        twin: {
+          statement: '`[x, y] = [y, x]` sets both variables to the old value of `y`.',
+          why: 'The right side builds a new array from both current values before anything is assigned, so the values are swapped.',
+        },
       },
     ],
     codeChoices: [
@@ -125,6 +147,16 @@ console.log(order.customer?.name); // undefined`,
     level: 'junior',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'What is the spread syntax, and how does it differ from rest parameters?',
+    questionVariants: [
+      {
+        question: 'In the back office, `const draft = { ...order }; draft.customer.email = newEmail;` changes the email shown in the orders list before the agent saves. Why?',
+        bridge: 'Spread copies one level: `draft.customer` is the same object as `order.customer`, so changing it changes the original.',
+      },
+      {
+        question: 'A colleague writes `function log(...values, level)` so the level comes last. What happens, and how do rest and spread differ?',
+        bridge: 'Rest collects and must be the last parameter, so that line is a SyntaxError. Spread is the same syntax used to expand.',
+      },
+    ],
     answer:
       'They use the same three dots for opposite jobs. Spread expands: `[...items, newItem]` copies an array, `{ ...order, status: \'shipped\' }` copies an object and overrides a field, and `Math.max(...prices)` passes array items as arguments. Rest collects: `function log(label, ...values)` gathers the remaining arguments into a real array, and `const { id, ...rest } = order` gathers the remaining properties. A rest parameter must come last. The key point about spread is that the copy is shallow, so nested objects are still shared with the original.',
     keyPoints: [
@@ -172,16 +204,28 @@ console.log(order.customer?.name); // undefined`,
         statement: '`{ ...order }` creates a new object whose nested `customer` object is the same object as in `order`.',
         isTrue: true,
         why: 'Spread copies one level: the nested object is shared by reference.',
+        twin: {
+          statement: '`{ ...order }` also creates a new copy of the nested `customer` object.',
+          why: 'Spread copies one level: the nested object is shared by reference.',
+        },
       },
       {
         statement: 'A function can declare a rest parameter followed by another parameter, like `function f(...a, b)`.',
         isTrue: false,
         why: 'It is a SyntaxError: the rest parameter must be the last one.',
+        twin: {
+          statement: '`function f(...a, b)` is a SyntaxError.',
+          why: 'A rest parameter must be the last parameter of the function.',
+        },
       },
       {
         statement: '`[...{ a: 1 }]` creates an array containing 1.',
         isTrue: false,
         why: 'Array spread needs an iterable, and plain objects are not iterable, so it throws a TypeError.',
+        twin: {
+          statement: '`[...{ a: 1 }]` throws a TypeError.',
+          why: 'Array spread needs an iterable, and plain objects are not iterable.',
+        },
       },
     ],
     codeChoices: [
@@ -226,6 +270,16 @@ console.log({ ...null });                            // {}`,
     level: 'mid',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'What is event delegation, and why is it useful?',
+    questionVariants: [
+      {
+        question: 'The storefront\'s product grid loads more cards as the customer scrolls. "Add to cart" works on the first 24 cards but not on those loaded later. The listeners were attached on page load. How do you fix it?',
+        bridge: 'Event delegation: one listener on the grid catches clicks bubbling up from every card, including cards added after it was registered.',
+      },
+      {
+        question: 'Why does a listener on a `<ul>` hear a click on an `<li>` inside it? Walk through the phases of a DOM event and how you would use them.',
+        bridge: 'That is bubbling, which event delegation relies on: capture goes down, the event reaches the target, then it bubbles back up.',
+      },
+    ],
     answer:
       'Event delegation means putting one listener on a container instead of one on each child, and relying on bubbling. A click goes down through the capture phase, reaches the target, then bubbles back up, so the container\'s listener sees clicks on every child. Inside it, I use `event.target.closest(\'button[data-action]\')` to find the element that matters and check it belongs to the container. It saves listeners, and it covers elements added later, like cards loaded on scroll. React already does this: it attaches its listeners to the root container.',
     keyPoints: [
@@ -269,16 +323,28 @@ console.log({ ...null });                            // {}`,
         statement: '`addEventListener` listens in the bubble phase by default.',
         isTrue: true,
         why: 'The capture phase needs `{ capture: true }`; without it the listener runs as the event bubbles up.',
+        twin: {
+          statement: '`addEventListener` listens in the capture phase by default.',
+          why: 'Without `{ capture: true }`, the listener runs as the event bubbles up.',
+        },
       },
       {
         statement: 'A delegated listener on a list does not handle items added to the list after it was registered.',
         isTrue: false,
         why: 'The listener sits on the container, so clicks on new items bubble up to it like any other.',
+        twin: {
+          statement: 'A delegated listener on a list also handles items added to the list after it was registered.',
+          why: 'The listener sits on the container, so clicks on new items bubble up to it like any other.',
+        },
       },
       {
         statement: 'The `focus` event bubbles, so a listener on a form receives it from every input.',
         isTrue: false,
         why: '`focus` does not bubble; `focusin` does, so delegate focus with `focusin`.',
+        twin: {
+          statement: 'The `focus` event does not bubble, so delegated focus handling listens to `focusin`.',
+          why: '`focusin` is the version that bubbles, so a listener on the form receives it from every input.',
+        },
       },
     ],
     codeChoices: [
@@ -330,6 +396,16 @@ grid.addEventListener('click', (event) => {
     level: 'junior',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'What are the differences between `map()`, `forEach()`, `filter()` and `reduce()`?',
+    questionVariants: [
+      {
+        question: "In the Orders API, `orders.forEach(async (order) => { await sendReceipt(order); })` is followed by `log('all sent')`, which prints while receipts are still being sent. Why, and what do you use instead?",
+        bridge: '`forEach` returns `undefined` and ignores what its callback returns, promises included, so nothing waits. `for...of` with `await` does.',
+      },
+      {
+        question: 'When would you pick `reduce` over `map` or `filter`, and why is `forEach` the wrong tool to build a new array?',
+        bridge: 'Each method is chosen by its result: `map` and `filter` return new arrays, `reduce` folds into one value, `forEach` returns `undefined`.',
+      },
+    ],
     answer:
       'All four walk an array and call a callback for each item, but they return different things. `forEach` returns `undefined`: it is for side effects, and a `return` in its callback does not stop the loop. `map` returns a new array of the same length with each item transformed. `filter` returns a new array of the items whose callback returned a truthy value. `reduce` folds the array into one value through an accumulator, such as a total. None of them changes the original array. I choose by the result I need, and use `for...of` when I need `await` or `break`.',
     keyPoints: [
@@ -369,16 +445,28 @@ grid.addEventListener('click', (event) => {
         statement: '`forEach` returns a new array.',
         isTrue: false,
         why: 'It always returns `undefined`; `map` is the one that returns a new array.',
+        twin: {
+          statement: '`forEach` always returns `undefined`.',
+          why: 'It is for side effects; `map` is the one that returns a new array.',
+        },
       },
       {
         statement: '`[].reduce((sum, n) => sum + n)` throws a TypeError.',
         isTrue: true,
         why: 'With no initial value and no items, there is nothing to start the accumulator with.',
+        twin: {
+          statement: '`[].reduce((sum, n) => sum + n)` returns 0.',
+          why: 'With no initial value and no items there is nothing to start the accumulator with, so it throws a TypeError.',
+        },
       },
       {
         statement: 'A `return` inside a `forEach` callback stops the loop.',
         isTrue: false,
         why: 'It only ends that call of the callback; `forEach` goes on with the next item.',
+        twin: {
+          statement: 'A `return` inside a `forEach` callback only ends that call; the loop goes on.',
+          why: '`forEach` moves on to the next item; use `for...of` with `break` to stop early.',
+        },
       },
     ],
     codeChoices: [

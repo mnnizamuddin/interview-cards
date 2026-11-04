@@ -9,6 +9,16 @@ export const codingRoundCards: Card[] = [
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'How is a live frontend coding round graded, and how do you use the first five minutes?',
+    questionVariants: [
+      {
+        question: 'You have 45 minutes to build a filterable orders list, and the interviewer says "start whenever you like". What do you do before writing any code, and why?',
+        bridge: 'The round grades habits: restating, a few clarifying questions and a spoken plan score points before the feature itself does.',
+      },
+      {
+        question: 'Ten minutes before the end, your orders list sorts but has no pagination yet. How do you use the remaining time?',
+        bridge: 'Unfinished code is not an automatic fail: stop adding features, test the main path and say what you would do next.',
+      },
+    ],
     answer:
       'The interviewer grades habits, not only a finished feature: clarifying, planning, working code first, edge cases, tests, accessibility and communication. So in the first five minutes I restate the task, ask two or three questions, like how many orders there are and whether sorting happens on the server, and write the answers as comments. Then I say my plan aloud: the data shape, a working version by the half-way mark, then edge cases, one test and accessibility. I think aloud and name each trade-off. With ten minutes left, I stop adding features, write the test for the main path and list what I would do next.',
     keyPoints: [
@@ -45,11 +55,19 @@ export const codingRoundCards: Card[] = [
         statement: 'In a frontend coding round, unfinished code always means a fail.',
         isTrue: false,
         why: 'The scorecard also grades clarifying, planning, edge cases, tests and communication; clear reasoning with unfinished code can pass.',
+        twin: {
+          statement: 'In a frontend coding round, clear reasoning with unfinished code can still pass.',
+          why: 'The scorecard also grades clarifying, planning, edge cases, tests and communication, not only a finished feature.',
+        },
       },
       {
         statement: 'Asking about the data size before coding is part of what the interviewer grades.',
         isTrue: true,
         why: 'Clarifying the inputs and the expected behaviour is the first criterion, and it decides choices such as client-side or server-side sorting.',
+        twin: {
+          statement: 'Asking about the data size before coding wastes time the interviewer does not grade.',
+          why: 'Clarifying the inputs is the first criterion, and it decides choices such as client-side or server-side sorting.',
+        },
       },
     ],
     lesson: {
@@ -70,6 +88,16 @@ export const codingRoundCards: Card[] = [
     level: 'mid',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'Implement `Promise.all` from scratch. Which edge cases must it handle?',
+    questionVariants: [
+      {
+        question: 'Your hand-written `Promise.all` passes the happy test, but it never settles when the cart is empty, and prices sometimes appear next to the wrong products. What did you miss?',
+        bridge: 'An empty list must resolve at once, and results must be stored by index, not pushed, to keep the input order.',
+      },
+      {
+        question: 'The interviewer asks: one of three inputs rejects. What does your `Promise.all` return, and what happens to the other two operations?',
+        bridge: 'The first rejection settles the promise and later ones are ignored; the other operations keep running.',
+      },
+    ],
     answer:
       'I return a new promise, with a results array the size of the input and a counter of pending inputs. Each input goes through `Promise.resolve`, so plain values and thenables work too. In its `then`, I store the result at its index, not with `push`, so the order is the input order, not the completion order, and I resolve when the counter reaches zero. The first rejection calls `reject`; later ones are ignored because a promise settles once. An empty list must resolve at once, since no callback would ever run. I prove it with tests that control the completion order.',
     keyPoints: [
@@ -106,16 +134,28 @@ export const codingRoundCards: Card[] = [
         statement: '`Promise.all([])` fulfils with an empty array.',
         isTrue: true,
         why: 'With nothing to wait for, it fulfils with `[]`; a hand-written version must handle this case explicitly.',
+        twin: {
+          statement: '`Promise.all([])` never settles, because no input ever fulfils.',
+          why: 'With nothing to wait for, it fulfils with `[]` at once; a hand-written version must handle this case explicitly.',
+        },
       },
       {
         statement: 'The results of `Promise.all` are in the order in which the promises settled.',
         isTrue: false,
         why: 'They are in input order, whatever order the inputs settle in.',
+        twin: {
+          statement: 'The results of `Promise.all` follow the input order, whatever order the promises settle in.',
+          why: 'Each result is stored at the index of its input, not in settling order.',
+        },
       },
       {
         statement: 'A plain value in the input of `Promise.all` makes it reject with a TypeError.',
         isTrue: false,
         why: 'A plain value is treated as an already fulfilled promise and appears as is in the results.',
+        twin: {
+          statement: 'A plain value in the input of `Promise.all` appears as is in the results.',
+          why: 'A plain value is treated as an already fulfilled promise.',
+        },
       },
     ],
     codeChoices: [
@@ -170,6 +210,16 @@ export const codingRoundCards: Card[] = [
     level: 'mid',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'Write an event emitter with `on`, `off`, `once` and `emit`. What are the traps?',
+    questionVariants: [
+      {
+        question: 'A back office component subscribes to `order.paid` with your `once`, then unmounts and calls `off(handler)` before any payment. The handler still runs later. What is wrong in the emitter?',
+        bridge: 'If `once` stores a wrapper, `off` with the original function cannot find it; store the original with a once flag.',
+      },
+      {
+        question: 'During an emit, one listener removes another. Should the removed one still run for this emit, and how do you make your emitter predictable?',
+        bridge: 'Replace arrays instead of mutating them so emit iterates a snapshot, and name the semantics you chose: Node and the DOM differ.',
+      },
+    ],
     answer:
       'I keep a map from each event name to an array of entries, each holding the listener and a `once` flag, and `on` returns an unsubscribe function. The first trap is `once`: if it stored a wrapper, `off` with the original function would not find it, so I store the original. The second is removal during an emit: I never mutate the arrays, `on` and `off` replace them, so `emit` iterates a snapshot. A once entry is removed before its call, so a nested emit cannot run it twice. In TypeScript I type each event with its arguments, and I say which semantics I chose.',
     keyPoints: [
@@ -206,11 +256,19 @@ export const codingRoundCards: Card[] = [
         statement: 'If `once` stores a wrapper function, `off` with the original listener still removes it.',
         isTrue: false,
         why: 'The array holds the wrapper, so a lookup by the original function finds nothing unless the original is stored too.',
+        twin: {
+          statement: 'If `once` stores only a wrapper function, `off` with the original listener does not remove it.',
+          why: 'The array holds the wrapper, so a lookup by the original function finds nothing unless the original is stored too.',
+        },
       },
       {
         statement: 'In Node\'s `EventEmitter`, a listener removed by an earlier listener during an emit still runs for that emit.',
         isTrue: true,
         why: 'Node iterates a copy of the listener array taken when the emit starts.',
+        twin: {
+          statement: 'In Node\'s `EventEmitter`, a listener removed by an earlier listener during an emit is skipped for that emit.',
+          why: 'Node iterates a copy of the listener array taken when the emit starts, so the removed listener still runs that time.',
+        },
       },
     ],
     codeChoices: [
@@ -260,6 +318,16 @@ emit(event, ...args) {
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'You have ten minutes: write `debounce`, then `throttle`. Which edge cases do you handle?',
+    questionVariants: [
+      {
+        question: 'The storefront autocomplete searches for the first letter typed instead of the full word, and after leaving the page a late callback updates an unmounted component. What is wrong in the `debounce` helper?',
+        bridge: 'Debounce restarts one timer on every call so the last arguments win, and it needs `cancel()` so nothing runs after unmount.',
+      },
+      {
+        question: 'After your `debounce`, the interviewer asks for `throttle`. What do you clarify before writing it, and how do you test both without waiting?',
+        bridge: 'Throttle has leading, trailing or both variants to choose from; mock timers move time forward by hand, so no test waits.',
+      },
+    ],
     answer:
       'For debounce, I keep one timer in a closure. Each call clears it and starts a new one, so the function runs once the calls stop for the delay, with the arguments of the last call. I return a regular `function` and call `fn.apply(this, args)` so the caller\'s `this` survives, and I add `cancel()` so an unmounted component is never called later. For throttle, I first say which variant I build: leading, trailing or both, and which arguments the trailing call uses. I test both with mock timers, like `t.mock.timers` in `node:test`, so no test waits for real time.',
     keyPoints: [
@@ -296,16 +364,28 @@ emit(event, ...args) {
         statement: 'A debounced function called three times within the delay runs with the arguments of the first call.',
         isTrue: false,
         why: 'Each call restarts the timer, so it runs once with the arguments of the last call.',
+        twin: {
+          statement: 'A debounced function called three times within the delay runs once, with the arguments of the last call.',
+          why: 'Each call restarts the timer, so only the last call\'s arguments reach the function.',
+        },
       },
       {
         statement: 'Calling `fn(...args)` inside the timer passes the caller\'s `this` to `fn`.',
         isTrue: false,
         why: 'A plain call runs with `this` undefined in strict mode; `fn.apply(this, args)` from a regular function keeps it.',
+        twin: {
+          statement: 'Calling `fn(...args)` inside the timer loses the caller\'s `this`.',
+          why: 'A plain call runs with `this` undefined in strict mode; `fn.apply(this, args)` from a regular function keeps it.',
+        },
       },
       {
         statement: 'Mock timers let a debounce test check a 300 ms delay without waiting 300 ms.',
         isTrue: true,
         why: 'They replace `setTimeout`, and the test moves time forward by hand with `tick`.',
+        twin: {
+          statement: 'A debounce test of a 300 ms delay has to wait 300 ms of real time.',
+          why: 'Mock timers replace `setTimeout`, and the test moves time forward by hand with `tick`.',
+        },
       },
     ],
     codeChoices: [
@@ -357,6 +437,16 @@ emit(event, ...args) {
     level: 'senior',
     paths: ['frontend', 'fullstack', 'backend'],
     question: 'The back office must refund 200 orders, but the payment provider accepts 4 calls at a time. Write a concurrency limit.',
+    questionVariants: [
+      {
+        question: 'The nightly refund job runs `Promise.all` over 200 refunds, and the payment provider, which accepts 4 calls at a time, rejects most of them. How do you fix the job?',
+        bridge: '`Promise.all` starts everything at once; N workers sharing one iterator keep at most N calls in flight.',
+      },
+      {
+        question: 'Your `mapWithLimit` returns an array of empty slots in one test and results in completion order in another. Which two details did you miss?',
+        bridge: 'A limit of 0 starts no worker, so validate it, and store each result at its index to keep the input order.',
+      },
+    ],
     answer:
       '`Promise.all` would start all 200 calls at once, so I write `mapWithLimit(items, limit, task)`. It starts N workers, small async loops that each take the next item, await its task, and take another until the list is empty. They share one iterator from `items.entries()`, so each item is handed out once with its index, and I store each result by index to keep the input order. I validate the limit, because with 0 no worker starts and the function returns empty slots. And I decide the failure rule: reject with the first error and start no new task.',
     keyPoints: [
@@ -397,11 +487,19 @@ emit(event, ...args) {
         statement: 'Workers sharing one `items.entries()` iterator can take the same item twice.',
         isTrue: false,
         why: 'Each call to the iterator\'s `next()` hands out the next item exactly once, whichever worker asks.',
+        twin: {
+          statement: 'Workers sharing one `items.entries()` iterator never take the same item twice.',
+          why: 'Each call to the iterator\'s `next()` hands out the next item exactly once, whichever worker asks.',
+        },
       },
       {
         statement: 'Memoizing an async function by caching its promise also caches a rejection.',
         isTrue: true,
         why: 'The failed promise stays in the cache and is returned again without a retry, unless you delete it on failure.',
+        twin: {
+          statement: 'Memoizing an async function by caching its promise retries automatically after a rejection.',
+          why: 'The failed promise stays in the cache and is returned again without a retry, unless you delete it on failure.',
+        },
       },
     ],
     codeChoices: [
@@ -458,6 +556,16 @@ emit(event, ...args) {
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'Machine coding: build the back office orders table with sorting, a status filter and pagination. How do you structure it?',
+    questionVariants: [
+      {
+        question: 'In your orders table, changing the status filter while on page 7 shows an empty table, and the parent\'s list of orders turns up sorted elsewhere. What are the two bugs?',
+        bridge: 'Changing a filter must reset the page, and `sort` mutates the parent\'s array; `toSorted` returns a sorted copy.',
+      },
+      {
+        question: 'The interviewer asks why you did not keep the visible rows in state, updated by an effect. What do you answer?',
+        bridge: 'Rows copied into state are a second source of truth, one render late; a pure function derives them during render.',
+      },
+    ],
     answer:
       'I keep one piece of state, the query: the status filter, the sort key and direction, and the page. The visible rows are derived during render by a pure function, `selectOrders`, that filters, sorts with `toSorted` so the parent\'s array is never mutated, and slices one page. Copying rows into state with an effect would add a second source of truth, one render late. Every handler that changes the filter or the sort also resets the page. Sortable headers are real buttons inside `th`, with `aria-sort` on the sorted column, and rows are keyed by order id. I unit-test the pure function and test the component by role.',
     keyPoints: [
@@ -494,11 +602,19 @@ emit(event, ...args) {
         statement: 'Copying filtered rows into state with an effect keeps them in sync within the same render.',
         isTrue: false,
         why: 'The effect runs after render, so that render shows the old rows; derive them during render instead.',
+        twin: {
+          statement: 'Rows copied into state by an effect show up one render late.',
+          why: 'The effect runs after render, so that render shows the old rows; derive them during render instead.',
+        },
       },
       {
         statement: '`toSorted` returns a new sorted array and leaves the original unchanged.',
         isTrue: true,
         why: 'It is the copying version of `sort`, which sorts in place.',
+        twin: {
+          statement: '`toSorted` sorts the original array in place.',
+          why: 'It is the copying version of `sort`: it returns a new sorted array and leaves the original unchanged.',
+        },
       },
     ],
     codeChoices: [
@@ -543,6 +659,16 @@ function selectOrders(orders, { status, sort, page }) {
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'Machine coding: a Refund button opens a confirmation dialog that must be accessible. How do you build it in React?',
+    questionVariants: [
+      {
+        question: 'Your refund dialog is a `div` with `keydown` listeners that trap focus. The interviewer presses Escape and Tab and finds holes. What would you build instead?',
+        bridge: 'Native `dialog` with `showModal()` moves focus in, makes the page inert, closes on Escape and returns focus, so no listeners are needed.',
+      },
+      {
+        question: 'The interviewer asks how you keep the dialog in sync with React state, and how you would test its focus handling.',
+        bridge: 'An effect calls `showModal()` or `close()` from the `open` prop, `onClose` stays idempotent, and focus is tested in a real browser.',
+      },
+    ],
     answer:
       'An accessible modal must move focus into it when it opens, keep keyboard and mouse users out of the page behind it, close on Escape, and return focus to the button that opened it. The native `dialog` element opened with `showModal()` does all four, so I use it rather than rebuilding a focus trap with `keydown` listeners. My component takes an `open` prop, and an effect calls `showModal()` or `close()` to keep the element in sync. I name the dialog with `aria-labelledby` pointing at its heading, and keep `onClose` idempotent, because the `close` event fires for every close. I test it in a real browser.',
     keyPoints: [
@@ -579,11 +705,19 @@ function selectOrders(orders, { status, sort, page }) {
         statement: 'A `dialog` opened with `showModal()` returns focus to the element that opened it when it closes.',
         isTrue: true,
         why: 'The browser restores focus to the element that had it before the dialog opened, so no code is needed.',
+        twin: {
+          statement: 'When a `dialog` opened with `showModal()` closes, your code must move focus back to the button that opened it.',
+          why: 'The browser restores focus to the element that had it before the dialog opened, so no code is needed.',
+        },
       },
       {
         statement: 'jsdom implements `showModal`, so a dialog\'s focus handling can be fully tested in Vitest with jsdom.',
         isTrue: false,
         why: 'jsdom does not implement `showModal`; focus behaviour is tested in a real browser, for example with Playwright.',
+        twin: {
+          statement: 'jsdom does not implement `showModal`, so a dialog\'s focus handling needs a real browser to test.',
+          why: 'Tools such as Playwright drive a real browser, where `showModal` and its focus behaviour exist.',
+        },
       },
     ],
     codeChoices: [
@@ -640,6 +774,16 @@ return (
     level: 'mid',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'Take-home: fetch the orders from the API and display them with a detail view. What do reviewers look for, and how do you prepare the debrief?',
+    questionVariants: [
+      {
+        question: 'A reviewer makes the API answer 503 while your orders take-home runs, and the page says "No orders yet". What did you miss?',
+        bridge: '`fetch` resolves on an error status, so the fetch function must throw on non-2xx, and the error state with a retry must be designed first.',
+      },
+      {
+        question: 'You have one hour left on the orders take-home. What goes in the README, and how does it help in the debrief?',
+        bridge: 'The README sets the debrief agenda: how to run and test it, the structure, the trade-offs, what is left out and what comes next.',
+      },
+    ],
     answer:
       'Reviewers open the unhappy states first, so I design all four before the happy path: loading, error with a retry, empty, and data. I fetch with TanStack Query rather than `useEffect` plus `fetch`, because it handles caching, retries and stale responses, and my fetch function throws on a non-2xx status, since `fetch` only rejects on a network failure. I test the real component against MSW, which fakes the network, querying by role, with retries turned off in the test client. The README sets the debrief agenda: how to run and test it, the structure, the trade-offs, what I left out and what I would do next.',
     keyPoints: [
@@ -676,11 +820,19 @@ return (
         statement: '`fetch` rejects its promise when the server answers with a 503.',
         isTrue: false,
         why: 'It resolves with `response.ok` false; it rejects only on a network failure, so you check the status yourself.',
+        twin: {
+          statement: '`fetch` resolves its promise when the server answers with a 503.',
+          why: 'It resolves with `response.ok` false and rejects only on a network failure, so you check the status yourself.',
+        },
       },
       {
         statement: 'By default, TanStack Query retries a failed query before showing the error.',
         isTrue: true,
         why: 'It retries 3 times with exponential backoff, which is why tests turn retries off.',
+        twin: {
+          statement: 'By default, TanStack Query shows a failed query\'s error at once, without retrying.',
+          why: 'It retries 3 times with exponential backoff, which is why tests turn retries off.',
+        },
       },
     ],
     codeChoices: [
@@ -730,6 +882,16 @@ return <OrdersTable orders={orders.data} />;`,
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'In a React code review round you get a short component with hidden bugs. How do you review it, and what do you usually find?',
+    questionVariants: [
+      {
+        question: 'You get 20 lines of a back office notes component: it renders `note.body` with `dangerouslySetInnerHTML`, sorts the `notes` prop in place and uses a clickable `div`. In what order do you comment, and how?',
+        bridge: 'Review by severity: the XSS blocker first, then correctness and accessibility, each with a label, the risk in this app and the fix.',
+      },
+      {
+        question: 'Five minutes are left in a review round and you have eight findings. What do you say first, and how do you close?',
+        bridge: 'Report the blocker first so what matters is heard, and end with one thing that is good.',
+      },
+    ],
     answer:
       'I read it once for what it does, then once per risk, from the most to the least severe: security, correctness and data, accessibility, performance, then style. In React components the usual findings are user text rendered with `dangerouslySetInnerHTML`, a clickable `div` instead of a button, a missing `key`, a prop mutated by `sort`, state derived in an effect, and an ignored promise with no error handling. Each comment gets a severity label, the risk in this app and the fix. I report the blocker first, so if time runs out the interviewer has heard what matters, and I end with one thing that is good.',
     keyPoints: [
@@ -766,11 +928,19 @@ return <OrdersTable orders={orders.data} />;`,
         statement: 'React escapes text rendered with `{note.body}`, so markup in it is shown as text.',
         isTrue: true,
         why: 'Only `dangerouslySetInnerHTML` inserts a string as HTML; text children are escaped.',
+        twin: {
+          statement: 'React renders markup inside `{note.body}` as HTML.',
+          why: 'Text children are escaped and shown as text; only `dangerouslySetInnerHTML` inserts a string as HTML.',
+        },
       },
       {
         statement: 'A `div` with an `onClick` can be reached with the Tab key, like a button.',
         isTrue: false,
         why: 'A `div` is not focusable and has no role or keyboard activation; a `button` has all three.',
+        twin: {
+          statement: 'A `div` with an `onClick` cannot be reached with the Tab key.',
+          why: 'A `div` is not focusable and has no role or keyboard activation; a `button` has all three.',
+        },
       },
     ],
     codeChoices: [
@@ -814,6 +984,16 @@ return <ul>{sorted.map((note) => (
     level: 'senior',
     paths: ['frontend', 'fullstack', 'react'],
     question: 'Debugging round on the storefront: search results sometimes belong to an older word, and the Pay button does nothing in production. How do you work?',
+    questionVariants: [
+      {
+        question: 'On the storefront, typing "red" quickly sometimes shows the results for "re", though the API returns the right data for each request. What is your hypothesis, and how do you check and fix it?',
+        bridge: 'Two requests are in flight and the older response arrives last; abort it in the effect cleanup or key the query by the term.',
+      },
+      {
+        question: 'Support reports that the checkout\'s Pay button "does nothing" in production, and no error was reported. Walk through how you debug it.',
+        bridge: 'Same method: reproduce, read the console, then `elementFromPoint` to see what receives the click, such as an overlay, or check `disabled` and the button type.',
+      },
+    ],
     answer:
       'I use the same method for both: reproduce, read, state one hypothesis, check it with one observation. For the search, I type "re" then "red" with the network throttled. My hypothesis is a race: two requests are in flight and the older response arrives last, and the hook applies responses in arrival order. I give each effect run its own `AbortController` and abort it in the cleanup, or key a TanStack query by the term. For the dead button, I check the console for a startup error, then `document.elementFromPoint` at the button to see what really receives the click, for example an invisible overlay.',
     keyPoints: [
@@ -850,11 +1030,19 @@ return <ul>{sorted.map((note) => (
         statement: 'A `button` in a form without a `type` attribute submits the form when clicked.',
         isTrue: true,
         why: 'The default type of a `button` is `submit`.',
+        twin: {
+          statement: 'A `button` in a form without a `type` attribute does nothing when clicked.',
+          why: 'The default type of a `button` is `submit`, so it submits the form.',
+        },
       },
       {
         statement: 'Debouncing the search input removes the race between an old and a new response.',
         isTrue: false,
         why: 'Debounce sends fewer requests, but two can still be in flight and arrive out of order; abort the old one or key the query by the term.',
+        twin: {
+          statement: 'Debouncing the search input still lets an old response arrive after a new one.',
+          why: 'Debounce sends fewer requests, but two can still be in flight and arrive out of order; abort the old one or key the query by the term.',
+        },
       },
     ],
     codeChoices: [

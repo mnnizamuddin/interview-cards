@@ -13,6 +13,16 @@ export const databaseCards: Card[] = [
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is the difference between SQL and NoSQL databases, and how do you choose?',
+    questionVariants: [
+      {
+        question: 'A teammate wants to move orders, customers and stock from PostgreSQL to MongoDB "to scale", while the API handles 200 orders a minute without trouble. How do you respond?',
+        bridge: 'Choosing SQL or NoSQL starts from access patterns: joins, constraints and transactions suit orders and stock, and a NoSQL store answers a specific need.',
+      },
+      {
+        question: 'A junior says NoSQL simply means "a database without a schema, like MongoDB". How do you correct them?',
+        bridge: 'NoSQL is a family of stores shaped around access patterns (document, key-value, wide-column, graph), each giving up some of what relational databases enforce.',
+      },
+    ],
     answer:
       'A relational database like PostgreSQL stores rows in tables with a fixed schema, joins them with SQL and enforces rules with constraints and transactions. NoSQL is a family: document stores like MongoDB, key-value stores like Redis or DynamoDB, wide-column stores like Cassandra and graph databases. Each one is shaped around a few access patterns and often scales out more easily, but gives up joins or cross-record constraints. I start with PostgreSQL by default, since `jsonb` covers a few flexible fields, and pick a NoSQL store when a specific access pattern needs it: whole documents of varying shape, a cache, or writes beyond one primary.',
     keyPoints: [
@@ -60,11 +70,19 @@ export const databaseCards: Card[] = [
         statement: 'A single MongoDB document can grow without limit.',
         isTrue: false,
         why: 'A document is capped at 16 MiB, which is why an unbounded array of reviews inside a product eventually fails.',
+        twin: {
+          statement: 'A single MongoDB document is capped at 16 MiB.',
+          why: 'That limit is why an unbounded array of reviews inside a product eventually fails.',
+        },
       },
       {
         statement: 'PostgreSQL can store and index JSON documents.',
         isTrue: true,
         why: 'A `jsonb` column stores a document next to typed columns and can be indexed, for example with a GIN index.',
+        twin: {
+          statement: 'PostgreSQL can store JSON documents but cannot index what is inside them.',
+          why: 'A `jsonb` column can be indexed, for example with a GIN index, so queries can search inside the documents.',
+        },
       },
     ],
     lesson: {
@@ -92,6 +110,16 @@ SELECT id FROM products WHERE attrs @> '{"color": "red"}';`,
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is normalization, and what are the trade-offs of denormalizing?',
+    questionVariants: [
+      {
+        question: 'The order list shows a total of 89 € for an order whose lines add up to 104 €. The total is a stored column on `orders`. What probably happened, and what would you put in place?',
+        bridge: 'A denormalized copy drifted from the rows it summarizes because one write path forgot it: every copy needs an owner and a drift check.',
+      },
+      {
+        question: 'A colleague wants to replace `unit_price_cents` on order lines with a foreign key to the product\'s current price, "to normalize". What do you say?',
+        bridge: 'Normalization stores each fact once; the price at order time is its own fact, so keeping it on the line is not denormalization.',
+      },
+    ],
     answer:
       'Normalizing means storing each fact once and pointing to it by key, so an update happens in one place and two rows can never disagree. In practice, third normal form says every column describes the key, the whole key and nothing else. Denormalizing keeps a copy or a derived value on purpose to make reads cheaper, like a stored order total. The cost is that the copy can drift, so it needs an owner: the same transaction, a trigger or an event consumer, plus a query that detects drift. I normalize by default and denormalize only for a measured read problem.',
     keyPoints: [
@@ -139,11 +167,19 @@ SELECT id FROM products WHERE attrs @> '{"color": "red"}';`,
         statement: 'Storing the unit price on each order line breaks normalization.',
         isTrue: false,
         why: 'The price at the time of the order is its own fact; a foreign key to the current catalogue price would rewrite history.',
+        twin: {
+          statement: 'Storing the unit price on each order line respects normalization, because the price at order time is its own fact.',
+          why: 'A foreign key to the current catalogue price would rewrite history whenever the price changes.',
+        },
       },
       {
         statement: 'A denormalized total can disagree with the rows it summarizes if one write path forgets to update it.',
         isTrue: true,
         why: 'Nothing in the database links the copy to its source unless you add a trigger or a check, which is why it needs an owner.',
+        twin: {
+          statement: 'PostgreSQL keeps a denormalized total in sync with the rows it summarizes automatically.',
+          why: 'Nothing links the copy to its source unless you add a trigger or a check, which is why it needs an owner.',
+        },
       },
     ],
     codeChoices: [
@@ -187,6 +223,16 @@ HAVING o.total_cents <> sum(l.quantity * l.unit_price_cents);`,
     level: 'junior',
     paths: ['backend', 'fullstack'],
     question: 'What is a database index, and how does it speed up queries?',
+    questionVariants: [
+      {
+        question: '`GET /orders?customerId=42` takes 900 ms on a 3-million-row `orders` table, and the plan shows a sequential scan. What is missing, and what does adding it cost?',
+        bridge: 'Without an index on `customer_id` PostgreSQL reads every row; a B-tree jumps to the matches, at the price of slower writes and extra space.',
+      },
+      {
+        question: 'A colleague suggests indexing every column of `orders` "so every query is fast". What do you answer?',
+        bridge: 'Every index is maintained on each insert and update and takes space, so you index what queries actually filter, join and sort on.',
+      },
+    ],
     answer:
       'An index is a separate structure that keeps a copy of some columns sorted, each entry pointing to its row, like the index at the back of a book. Without one, PostgreSQL reads every row of the table to find the matches. The default index is a B-tree: a shallow tree whose leaves hold the sorted entries, so the database jumps to the first match and reads the next ones in order. That also serves `ORDER BY` and lets a `LIMIT` stop early. The cost is on writes: every insert or update maintains every index, so I index what queries actually filter, join and sort on.',
     keyPoints: [
@@ -239,11 +285,19 @@ HAVING o.total_cents <> sum(l.quantity * l.unit_price_cents);`,
         statement: 'PostgreSQL creates an index on a foreign key column automatically.',
         isTrue: false,
         why: 'It indexes primary keys and unique constraints only; foreign keys you join or delete through need an index you create.',
+        twin: {
+          statement: 'PostgreSQL does not index a foreign key column automatically.',
+          why: 'It indexes primary keys and unique constraints only; foreign keys you join or delete through need an index you create.',
+        },
       },
       {
         statement: 'An index on `(customer_id, created_at)` can serve a query that filters on `customer_id` alone.',
         isTrue: true,
         why: 'A composite B-tree serves its leftmost columns, so the first column alone is enough.',
+        twin: {
+          statement: 'An index on `(customer_id, created_at)` cannot serve a query that filters on `customer_id` alone.',
+          why: 'A composite B-tree serves its leftmost columns, so the first column alone is enough.',
+        },
       },
     ],
     codeChoices: [
@@ -284,6 +338,16 @@ WHERE customer_id = 42 ORDER BY created_at DESC LIMIT 20;
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How would you diagnose and fix a slow SQL query in production?',
+    questionVariants: [
+      {
+        question: 'After Black Friday, the database CPU stays at 90 % and every endpoint is slower, yet no single request stands out in the logs. How do you find the culprit?',
+        bridge: 'Diagnosis starts from the statements that cost the most in total, in `pg_stat_statements`, not from the one someone noticed; then you read its plan.',
+      },
+      {
+        question: 'What do you look for in an `EXPLAIN (ANALYZE, BUFFERS)` output, and how do you ship the fix to production safely?',
+        bridge: 'Reading the plan: estimated against actual rows and rows removed by filter; then fix the cause and build any index `CONCURRENTLY`.',
+      },
+    ],
     answer:
       'First I find the statement that costs the most, not the one someone noticed: `pg_stat_statements` sorted by total time, and traces to link it to an endpoint. Then I read its plan with `EXPLAIN (ANALYZE, BUFFERS)` on a copy with realistic data, comparing estimated and actual rows and looking for a large "Rows Removed by Filter". The fix depends on the cause: a missing index, stale statistics, a query that fetches too much or an N+1 loop. In production I create the index with `CONCURRENTLY` so writes are not blocked, then check that the plan and the latency really changed.',
     keyPoints: [
@@ -331,11 +395,19 @@ WHERE customer_id = 42 ORDER BY created_at DESC LIMIT 20;
         statement: '`EXPLAIN ANALYZE` only estimates the plan without running the statement.',
         isTrue: false,
         why: 'It executes the statement to measure it; plain `EXPLAIN` is the one that only estimates.',
+        twin: {
+          statement: '`EXPLAIN ANALYZE` executes the statement to measure it.',
+          why: 'That is how it reports actual rows and times; plain `EXPLAIN` is the one that only estimates.',
+        },
       },
       {
         statement: 'A plain `CREATE INDEX` blocks writes to the table while it builds.',
         isTrue: true,
         why: 'It locks out inserts, updates and deletes for the whole build; `CONCURRENTLY` avoids that at the cost of a slower build.',
+        twin: {
+          statement: 'A plain `CREATE INDEX` lets inserts and updates continue while it builds.',
+          why: 'It locks out inserts, updates and deletes for the whole build; `CONCURRENTLY` avoids that at the cost of a slower build.',
+        },
       },
     ],
     codeChoices: [
@@ -379,6 +451,16 @@ CREATE INDEX CONCURRENTLY orders_pending_idx
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is a transaction, and what do the ACID properties mean?',
+    questionVariants: [
+      {
+        question: 'Checkout inserts the order, then its lines, then decrements the stock, each as a separate statement. A crash in the middle left an order with no lines. What should have prevented it?',
+        bridge: 'Atomicity: inside one transaction, the writes are all committed or none are. That is the A of ACID.',
+      },
+      {
+        question: 'Explain each letter of ACID to a junior, with what PostgreSQL uses to provide it.',
+        bridge: 'Each property in turn: all or nothing, rules that hold at commit, isolation levels, and durability through the write-ahead log.',
+      },
+    ],
     answer:
       'A transaction groups statements so the database treats them as one unit: `BEGIN`, then `COMMIT` to keep everything or `ROLLBACK` to undo it. Atomicity means all of it is written or none. Consistency means the declared rules, like constraints and foreign keys, hold at commit. Isolation means others do not see my half-done work, and the isolation level decides how much concurrent transactions see of each other. Durability means a committed change survives a crash, thanks to the write-ahead log. In Node, a transaction must run on one pooled connection, and a transaction alone does not prevent a lost update.',
     keyPoints: [
@@ -426,11 +508,19 @@ CREATE INDEX CONCURRENTLY orders_pending_idx
         statement: 'After an error inside a PostgreSQL transaction, a `COMMIT` still saves the statements that succeeded before it.',
         isTrue: false,
         why: 'The transaction is aborted: every later statement fails, and `COMMIT` performs a rollback.',
+        twin: {
+          statement: 'After an error inside a PostgreSQL transaction, a `COMMIT` rolls back the statements that succeeded before it.',
+          why: 'The transaction is aborted: every later statement fails, and `COMMIT` performs a rollback.',
+        },
       },
       {
         statement: 'PostgreSQL\'s default isolation level is Read Committed.',
         isTrue: true,
         why: '`SHOW transaction_isolation` returns `read committed` on a default installation.',
+        twin: {
+          statement: 'PostgreSQL\'s default isolation level is Serializable.',
+          why: 'It is Read Committed: `SHOW transaction_isolation` returns `read committed` on a default installation.',
+        },
       },
     ],
     codeChoices: [
@@ -477,6 +567,16 @@ COMMIT;`,
     level: 'junior',
     paths: ['backend', 'fullstack'],
     question: 'How do you model a many-to-many relationship in a relational database?',
+    questionVariants: [
+      {
+        question: 'In the back office, a product appears twice in the "Desks" category listing. Products and categories are linked through `product_categories`. What is missing from that table?',
+        bridge: 'A junction table needs the pair of foreign keys as its primary key, so the same link cannot be stored twice.',
+      },
+      {
+        question: 'A colleague added a `category_id` foreign key to `products`, then learned a product can sit in several categories. How do you model it?',
+        bridge: 'One foreign key column models one-to-many; many-to-many needs a junction table with two foreign keys.',
+      },
+    ],
     answer:
       'With a junction table between the two tables. For products and categories, `product_categories` has a `product_id` and a `category_id`, each a foreign key, and the pair is the primary key, so the same link cannot be stored twice. To list a category\'s products I join through it. The primary key index serves lookups by product, so I add an index on `(category_id, product_id)` for the other direction. When the link has its own data, like a position or the date it was added, those columns go in the junction table, which often becomes an entity with its own name.',
     keyPoints: [
@@ -524,11 +624,19 @@ COMMIT;`,
         statement: 'A primary key on `(product_id, category_id)` stops the same product from being linked to the same category twice.',
         isTrue: true,
         why: 'The primary key is unique on the pair, so a second insert of the same pair fails with a unique violation.',
+        twin: {
+          statement: 'A primary key on `(product_id, category_id)` still lets the same product be linked to the same category twice.',
+          why: 'The primary key is unique on the pair, so a second insert of the same pair fails with a unique violation.',
+        },
       },
       {
         statement: 'A many-to-many relationship can be modelled with one foreign key column on either table.',
         isTrue: false,
         why: 'A single foreign key column holds one value per row, which models one-to-many; many-to-many needs a junction table.',
+        twin: {
+          statement: 'A single foreign key column cannot model a many-to-many relationship on its own.',
+          why: 'It holds one value per row, which models one-to-many; many-to-many needs a junction table.',
+        },
       },
     ],
     codeChoices: [
@@ -575,6 +683,16 @@ CREATE INDEX product_categories_category_idx
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is connection pooling, and why does a backend need it?',
+    questionVariants: [
+      {
+        question: 'After scaling the Orders API from 4 to 12 pods, each with a pool of 10, the logs fill with "sorry, too many clients already". What happened?',
+        bridge: 'Pool size times pods must stay under `max_connections`, 100 by default; past that, an external pooler such as PgBouncer shares server connections.',
+      },
+      {
+        question: 'Why not open a new PostgreSQL connection for each request, and how do you size the pool?',
+        bridge: 'Connections are expensive server processes that run one query at a time; a shared pool, sized against the database limit, avoids both costs.',
+      },
+    ],
     answer:
       'Opening a PostgreSQL connection is expensive: the server starts a process for each one, and each connection runs one query at a time. So a service keeps a pool of open connections and lends them out: a request checks one out, runs its queries and releases it, and when all are busy the next request waits in the pool\'s queue. I create one pool per process, set a timeout for getting a connection, and size it against the database limit: pool size times the maximum number of pods must stay under `max_connections`. Beyond that, an external pooler such as PgBouncer shares a few server connections.',
     keyPoints: [
@@ -618,11 +736,19 @@ CREATE INDEX product_categories_category_idx
         statement: 'PostgreSQL\'s default `max_connections` is 100.',
         isTrue: true,
         why: 'That is the default, and a few of them are reserved for superusers.',
+        twin: {
+          statement: 'PostgreSQL\'s default `max_connections` is 1,000.',
+          why: 'The default is 100, and a few of them are reserved for superusers.',
+        },
       },
       {
         statement: 'A bigger pool always makes a busy API faster.',
         isTrue: false,
         why: 'Past what the database can run in parallel, extra connections only move the queue into PostgreSQL and use more memory.',
+        twin: {
+          statement: 'Past what the database can run in parallel, a bigger pool does not make a busy API faster.',
+          why: 'Extra connections only move the queue into PostgreSQL and use more memory.',
+        },
       },
     ],
     codeChoices: [
@@ -669,6 +795,16 @@ export const pool = new pg.Pool({
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'What is sharding, and which sharding strategies exist?',
+    questionVariants: [
+      {
+        question: 'The order-events store is sharded by `created_at` range, and one shard runs at 95 % CPU while the others sit idle. Why, and what would you change?',
+        bridge: 'A monotonic shard key sends every new insert to the shard holding the latest range; hash sharding or another key spreads the writes.',
+      },
+      {
+        question: 'A colleague wants to shard the 50 GB orders database now, "to be ready". What would you try first, and which strategies would you compare later?',
+        bridge: 'Sharding comes last, after indexes, replicas, partitioning and archiving; then range, hash or directory, chosen from the main queries.',
+      },
+    ],
     answer:
       'Sharding splits one dataset across several database servers by a shard key, so each server holds and writes only part of the data. Range sharding gives each shard a range of key values: range queries stay targeted, but a key that always grows, like a date, sends every insert to one hot shard. Hash sharding spreads writes evenly but scatters range queries. Directory sharding keeps a lookup table from key to shard, which is flexible but adds a component. I choose the key from the main queries, such as the tenant or customer, and shard only after indexes, read replicas, partitioning and archiving are no longer enough.',
     keyPoints: [
@@ -716,11 +852,19 @@ export const pool = new pg.Pool({
         statement: 'Hash sharding on a monotonic id spreads new writes across shards.',
         isTrue: true,
         why: 'Hashing breaks the ordering, so consecutive ids land on different shards.',
+        twin: {
+          statement: 'Hash sharding on a monotonic id sends every new write to the same shard.',
+          why: 'Hashing breaks the ordering, so consecutive ids land on different shards; range sharding is the one that creates a hot shard.',
+        },
       },
       {
         statement: 'PostgreSQL declarative partitioning spreads a table across several servers.',
         isTrue: false,
         why: 'Partitions live in the same server; spreading data across servers needs an extension such as Citus or routing in the application.',
+        twin: {
+          statement: 'PostgreSQL declarative partitioning splits a table inside one server; it does not by itself spread it across servers.',
+          why: 'Spreading data across servers needs an extension such as Citus or routing in the application.',
+        },
       },
     ],
     lesson: {
@@ -742,6 +886,16 @@ export const pool = new pg.Pool({
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is an ORM, and what are its benefits and drawbacks?',
+    questionVariants: [
+      {
+        question: 'The back-office orders page, built with Prisma, sends 51 queries to show 50 orders, because it loads each order\'s customer in a loop. Nobody wrote SQL by hand. What does this say about ORMs?',
+        bridge: 'ORMs hide the SQL they generate, and loading a relation in a loop is the classic N+1: one of their main drawbacks next to their benefits.',
+      },
+      {
+        question: 'What is the difference between an ORM like Prisma or Drizzle and a query builder like Kysely, and when would you drop to raw SQL?',
+        bridge: 'ORMs map tables and relations and generate the SQL; a query builder types the SQL you write. Raw SQL stays for the few hot or complex queries.',
+      },
+    ],
     answer:
       'An ORM, an object-relational mapper, describes tables and relations once and generates the SQL, returning typed objects. In Node today that means Prisma, with its schema file and generated client, or Drizzle, with tables declared in TypeScript. Kysely is a query builder: you write SQL as typed calls. The benefits are types that follow the schema, less boilerplate and integrated migrations. The drawbacks are hidden SQL: N+1 queries from loading relations in a loop, inefficient queries for complex reports, and an abstraction to learn. I use one for everyday queries and drop to raw SQL for the few hot or complex ones.',
     keyPoints: [
@@ -789,11 +943,19 @@ export const pool = new pg.Pool({
         statement: 'Kysely is a type-safe query builder rather than a full ORM.',
         isTrue: true,
         why: 'It types the SQL you write but does not own your schema or manage relations for you.',
+        twin: {
+          statement: 'Kysely is a full ORM that manages your schema and relations.',
+          why: 'It is a type-safe query builder: it types the SQL you write but does not own your schema or manage relations.',
+        },
       },
       {
         statement: 'Using an ORM removes the need for a connection pool.',
         isTrue: false,
         why: 'ORMs run on a database driver, and their connections come from that driver\'s pool.',
+        twin: {
+          statement: 'An ORM still relies on a connection pool, through the driver it runs on.',
+          why: 'ORMs run on a database driver, and their connections come from that driver\'s pool.',
+        },
       },
     ],
     codeChoices: [
@@ -834,6 +996,16 @@ SELECT * FROM customers WHERE id = ANY($1);`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How would you design a schema for an activity feed, like a social feed of events?',
+    questionVariants: [
+      {
+        question: 'The storefront wants a feed of restocks and price drops from the brands each customer follows, and one brand has 400,000 followers. How would you store and build that feed?',
+        bridge: 'Activity feed design: one events table, then fan-out on read or on write; a source with many followers makes fan-out on write expensive.',
+      },
+      {
+        question: 'Compare fan-out on read and fan-out on write for a feed: what does each cost, and how do you paginate it?',
+        bridge: 'The two ways to build a feed trade write cost against read cost; either way, an index by user and time with keyset pagination.',
+      },
+    ],
     answer:
       'I store each event once: who did what to which object, when, with a small payload. The feed is then built one of two ways. Fan-out on read queries the events of everything a user follows at read time: cheap writes, slower reads. Fan-out on write inserts one row per follower into a `feed_items` table when the event happens: fast reads, but a popular source multiplies writes. Large feeds often mix both. Either way I index `(user_id, created_at DESC, id DESC)` and paginate with a keyset cursor, not `OFFSET`, and I write the event in the same transaction as the change.',
     keyPoints: [
@@ -877,11 +1049,19 @@ SELECT * FROM customers WHERE id = ANY($1);`,
         statement: 'Fan-out on write makes reading a feed cheap because each user\'s items are already stored together.',
         isTrue: true,
         why: 'The work is done at write time, so a read is one indexed range scan on the user\'s rows.',
+        twin: {
+          statement: 'Fan-out on write makes reading a feed expensive, because each read gathers the events of every followed source.',
+          why: 'That describes fan-out on read; fan-out on write stores each user\'s items together, so a read is one indexed range scan.',
+        },
       },
       {
         statement: '`OFFSET` pagination stays fast at any depth if the table is indexed.',
         isTrue: false,
         why: 'The database still reads and discards every skipped row; a keyset condition on `(created_at, id)` jumps straight to the page.',
+        twin: {
+          statement: '`OFFSET` pagination gets slower with depth, even on an indexed table.',
+          why: 'The database still reads and discards every skipped row; a keyset condition on `(created_at, id)` jumps straight to the page.',
+        },
       },
     ],
     codeChoices: [
@@ -926,6 +1106,16 @@ LIMIT 20;`,
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is a race condition, and how do you prevent one in a backend?',
+    questionVariants: [
+      {
+        question: 'Two customers both got a confirmation for the last console in stock, and the stock shows 0. Checkout reads the stock, checks it in Node, then writes the new value. What happened?',
+        bridge: 'A read-compute-write race: both requests read 1 before either wrote. The fix moves the check into the database, for example one conditional `UPDATE`.',
+      },
+      {
+        question: 'A colleague proposes a mutex in Node around checkout to stop overselling. Why is it not enough with several replicas, and what would you use?',
+        bridge: 'Each replica has its own memory, so the guarantee must live in the database: an atomic statement, a row lock, a version or a constraint.',
+      },
+    ],
     answer:
       'A race condition is a bug whose result depends on the timing of concurrent operations. The classic one is read, compute, write: two checkouts read a stock of 1, both decide there is enough, both write 0, and two customers get the last console. With several API replicas, a lock in Node memory does not help, so I put the rule in the database: one atomic `UPDATE ... WHERE stock >= 1`, a row lock with `SELECT ... FOR UPDATE`, a version column, or a unique constraint that rejects the second insert. For requests that can arrive twice, an idempotency key makes the duplicate harmless.',
     keyPoints: [
@@ -965,11 +1155,19 @@ LIMIT 20;`,
         statement: 'A mutex inside the Node process prevents races between two replicas of the API.',
         isTrue: false,
         why: 'Each replica is a separate process with its own memory, so the guarantee must live in the database or another shared system.',
+        twin: {
+          statement: 'A mutex inside one Node process cannot prevent races between two replicas of the API.',
+          why: 'Each replica is a separate process with its own memory, so the guarantee must live in the database or another shared system.',
+        },
       },
       {
         statement: '`UPDATE products SET stock = stock - 1 WHERE id = 7 AND stock >= 1` cannot take the stock below zero, even with concurrent checkouts.',
         isTrue: true,
         why: 'The row lock makes concurrent updates take turns, and at Read Committed a waiting update re-checks its condition on the new row version.',
+        twin: {
+          statement: '`UPDATE products SET stock = stock - 1 WHERE id = 7 AND stock >= 1` can take the stock below zero under concurrent checkouts.',
+          why: 'The row lock makes concurrent updates take turns, and at Read Committed a waiting update re-checks its condition on the new row version.',
+        },
       },
     ],
     codeChoices: [
@@ -1016,6 +1214,16 @@ RETURNING id;`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'What is database replication, and how do synchronous and asynchronous replication differ?',
+    questionVariants: [
+      {
+        question: 'A customer changes her delivery address, lands on her profile and sees the old one; a refresh a second later shows the new one. Profile reads go to a replica. What is happening?',
+        bridge: 'Asynchronous replicas lag slightly behind the primary, so reading your own write right after it needs the primary.',
+      },
+      {
+        question: 'When would you choose synchronous replication over asynchronous, and what does it cost?',
+        bridge: 'Synchronous makes each commit wait for a standby, so no acknowledged commit is lost, at the cost of latency and of writes that wait.',
+      },
+    ],
     answer:
       'Replication keeps copies of the database on other servers, called replicas or standbys, by shipping the primary\'s changes to them; in PostgreSQL that is streaming replication of the write-ahead log. Asynchronous, the default, lets the primary commit without waiting, so writes stay fast, but replicas lag slightly and a crash of the primary can lose the last commits. Synchronous makes each commit wait until a standby confirms it, so no acknowledged commit is lost, at the cost of latency and of writes that wait if no standby answers. I use replicas for failover and to scale reads, and read from the primary right after a write.',
     keyPoints: [
@@ -1055,11 +1263,19 @@ RETURNING id;`,
         statement: 'PostgreSQL streaming replication is asynchronous by default.',
         isTrue: true,
         why: 'Commits do not wait for standbys unless `synchronous_standby_names` is set.',
+        twin: {
+          statement: 'PostgreSQL streaming replication is synchronous by default.',
+          why: 'Commits do not wait for standbys unless `synchronous_standby_names` is set, so the default is asynchronous.',
+        },
       },
       {
         statement: 'PostgreSQL promotes a standby automatically when the primary fails.',
         isTrue: false,
         why: 'Its documentation says it does not provide the software to detect a failed primary; tools such as Patroni or a managed service do it.',
+        twin: {
+          statement: 'PostgreSQL itself does not promote a standby automatically when the primary fails.',
+          why: 'Its documentation says it does not provide the software to detect a failed primary; tools such as Patroni or a managed service do it.',
+        },
       },
     ],
     lesson: {
@@ -1091,6 +1307,16 @@ SELECT application_name, replay_lag FROM pg_stat_replication;`,
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'What is the N+1 query problem, and how do you fix it?',
+    questionVariants: [
+      {
+        question: '`GET /orders` takes 40 ms with 5 orders in staging and 800 ms with 200 in production, yet every SQL query in the trace takes about 2 ms. What do you look for?',
+        bridge: 'Many short queries one after the other, one for the list then one per row: the N+1 pattern, which grows with the page size.',
+      },
+      {
+        question: 'In a GraphQL API, the `order.customer` resolver queries the database for each order. Why is that a problem, and what fixes it?',
+        bridge: 'A resolver per field runs one query per parent row, an N+1; a DataLoader per request batches the ids into one query.',
+      },
+    ],
     answer:
       'N+1 is one query to load a list, then one more query per row to load something related: 20 orders, then 20 queries for their items. Each query is a network round trip paid one after the other, so the page slows down as the data grows and holds a pooled connection all along. ORMs hide it, through lazy relations, a lookup inside a loop or a GraphQL resolver. I fix it by loading the relation in the query, with a join or the ORM\'s eager loading, or by batching the ids into one `WHERE id = ANY($1)` query. In GraphQL, a DataLoader per request does that batching.',
     keyPoints: [
@@ -1130,11 +1356,19 @@ SELECT application_name, replay_lag FROM pg_stat_replication;`,
         statement: 'N+1 is harmless when each extra query takes only 1 ms.',
         isTrue: false,
         why: 'The queries run one after the other, so 200 rows add 200 ms of waiting, and the request holds a pooled connection the whole time.',
+        twin: {
+          statement: 'Even at 1 ms per query, N+1 adds 200 ms to a page of 200 rows.',
+          why: 'The queries run one after the other, and the request holds a pooled connection the whole time.',
+        },
       },
       {
         statement: 'Loading items with one `WHERE order_id = ANY($1)` query for the whole page removes the N+1.',
         isTrue: true,
         why: 'The number of queries no longer grows with the number of orders: two queries in total, whatever the page size.',
+        twin: {
+          statement: 'Loading items with one `WHERE order_id = ANY($1)` query still runs one query per order.',
+          why: '`ANY($1)` takes the ids of the whole page at once: two queries in total, whatever the page size.',
+        },
       },
     ],
     codeChoices: [
@@ -1178,6 +1412,16 @@ const { rows } = await db.query('SELECT * FROM order_items WHERE order_id = ANY(
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'What are transaction isolation levels, and which anomalies does each one prevent?',
+    questionVariants: [
+      {
+        question: 'Two support agents refund the same order at the same moment. Each transaction checked that refunds stay under the order total, inserted its own refund row and committed; together they exceed it. Which isolation level catches that?',
+        bridge: 'Each transaction read a valid state and wrote a different row: write skew. PostgreSQL\'s Serializable level detects it and fails one with `40001`.',
+      },
+      {
+        question: 'A colleague sets Serializable on every transaction "to be safe". What changes for the application code?',
+        bridge: 'Stricter levels fail conflicting transactions with `40001` instead of letting the anomaly through, so the code must retry the whole transaction.',
+      },
+    ],
     answer:
       'The isolation level decides what a transaction sees of others running at the same time. The SQL standard defines four levels by the anomalies they forbid: Read Uncommitted allows dirty reads, Read Committed forbids them, Repeatable Read also forbids non-repeatable reads, and Serializable also phantoms, so the result matches some one-at-a-time order. PostgreSQL builds them on snapshots: Read Committed, the default, takes one per statement, Repeatable Read one per transaction, which also stops phantoms, and Serializable adds checks for write skew. The stricter levels fail conflicts with error `40001`, so the code must retry the whole transaction.',
     keyPoints: [
@@ -1217,11 +1461,19 @@ const { rows } = await db.query('SELECT * FROM order_items WHERE order_id = ANY(
         statement: 'In PostgreSQL, Repeatable Read prevents phantom reads.',
         isTrue: true,
         why: 'The whole transaction reads one snapshot; the documentation notes this goes beyond what the standard requires.',
+        twin: {
+          statement: 'In PostgreSQL, Repeatable Read still allows phantom reads, as the SQL standard permits.',
+          why: 'The whole transaction reads one snapshot, so new rows never appear; the documentation notes this goes beyond what the standard requires.',
+        },
       },
       {
         statement: 'At PostgreSQL\'s Serializable level, conflicting transactions wait for each other instead of failing.',
         isTrue: false,
         why: 'Its predicate locks never block; when a conflict could break serial order, one transaction fails with `40001` and must be retried.',
+        twin: {
+          statement: 'At PostgreSQL\'s Serializable level, a conflicting transaction fails with `40001` and must be retried.',
+          why: 'Its predicate locks never block; when a conflict could break serial order, one transaction fails instead of waiting.',
+        },
       },
     ],
     codeChoices: [
@@ -1264,6 +1516,16 @@ COMMIT;`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How would you migrate a production database schema with zero downtime?',
+    questionVariants: [
+      {
+        question: 'A migration ran `ALTER TABLE orders ADD COLUMN ...` at noon and the whole Orders API froze for 40 seconds, though the change itself is instant. What happened?',
+        bridge: 'The `ALTER` waited behind a long query for its lock, and every query after it queued behind the `ALTER`; `lock_timeout` prevents that.',
+      },
+      {
+        question: 'How would you rename `orders.total` to `total_cents` without breaking the pods still running the old code during a rolling deploy?',
+        bridge: 'Expand and contract: add the new column, write both, backfill, switch reads, stop writing the old one, then drop it, one deploy per step.',
+      },
+    ],
     answer:
       'Two things cause downtime: a statement that holds a strong lock for long, and old code that breaks on the new schema during a rolling deploy. So I avoid table rewrites and full scans under an exclusive lock, set `lock_timeout` so a waiting `ALTER` does not queue every query behind it, and build indexes `CONCURRENTLY`. For breaking changes I use expand and contract: add the new column next to the old one, write both, backfill in batches, switch reads, stop writing the old one, then drop it, each step its own deploy. Every intermediate schema works with both the old and the new code.',
     keyPoints: [
@@ -1303,11 +1565,19 @@ COMMIT;`,
         statement: 'Adding a column with a constant default, like `DEFAULT \'EUR\'`, rewrites the whole table in current PostgreSQL.',
         isTrue: false,
         why: 'Since PostgreSQL 11 the default is stored in the catalog, so the change takes only a brief lock.',
+        twin: {
+          statement: 'Since PostgreSQL 11, adding a column with a constant default, like `DEFAULT \'EUR\'`, does not rewrite the table.',
+          why: 'The default is stored in the catalog, so the change takes only a brief lock.',
+        },
       },
       {
         statement: 'An `ALTER TABLE` waiting for its lock also blocks the queries that arrive after it on that table.',
         isTrue: true,
         why: 'Later conflicting requests queue behind the waiting one, which is why migrations set `lock_timeout`.',
+        twin: {
+          statement: 'Queries that arrive after a waiting `ALTER TABLE` run normally on that table until the `ALTER` gets its lock.',
+          why: 'Later conflicting requests queue behind the waiting one, which is why migrations set `lock_timeout`.',
+        },
       },
     ],
     codeChoices: [
@@ -1348,6 +1618,16 @@ ALTER TABLE orders ALTER COLUMN total_cents SET NOT NULL;`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'What is a deadlock, and how do you diagnose and prevent one?',
+    questionVariants: [
+      {
+        question: 'At peak, a few bundle checkouts fail with error `40P01` after about a second. Each one locks two product rows to reserve stock. What is happening, and how do you stop it?',
+        bridge: 'Two transactions locked the same rows in opposite order and waited on each other: a deadlock, found after `deadlock_timeout`. One lock order fixes it.',
+      },
+      {
+        question: 'How do you diagnose a deadlock in PostgreSQL after the fact, and why keep a retry even after fixing the lock order?',
+        bridge: 'The error detail and server log name the processes and locks; prevention lowers the odds, and retrying the whole transaction handles the rest.',
+      },
+    ],
     answer:
       'A deadlock is two transactions each waiting for a lock the other holds, so neither can move. In the shop it happens when two bundle checkouts lock the same two product rows in opposite order. PostgreSQL checks for such a cycle once a lock wait lasts `deadlock_timeout`, one second by default, and aborts one transaction with error `40P01`. To diagnose, I read the error detail and the server log, which name the processes and the locks they wait for, and match them to code paths. To prevent it, I take locks in one consistent order, keep transactions short, and still retry the whole transaction on `40P01`.',
     keyPoints: [
@@ -1387,11 +1667,19 @@ ALTER TABLE orders ALTER COLUMN total_cents SET NOT NULL;`,
         statement: 'PostgreSQL resolves a deadlock by aborting one of the transactions involved.',
         isTrue: true,
         why: 'It detects the cycle and fails one transaction with `40P01`; the documentation says which one is hard to predict.',
+        twin: {
+          statement: 'PostgreSQL leaves deadlocked transactions waiting until an operator kills one.',
+          why: 'It detects the cycle and fails one transaction with `40P01`; the documentation says which one is hard to predict.',
+        },
       },
       {
         statement: 'A deadlock needs at least two tables.',
         isTrue: false,
         why: 'Two rows of one table locked in opposite order by two transactions are enough.',
+        twin: {
+          statement: 'Two rows of a single table are enough to cause a deadlock.',
+          why: 'Two transactions locking the same two rows in opposite order wait on each other, whatever the number of tables.',
+        },
       },
     ],
     codeChoices: [
@@ -1438,6 +1726,16 @@ FOR NO KEY UPDATE;`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'What is the difference between a clustered and a non-clustered index?',
+    questionVariants: [
+      {
+        question: 'A team coming from MySQL ran `CLUSTER orders USING orders_customer_idx` once; months later, customer lookups read many more pages again. Why?',
+        bridge: 'PostgreSQL has no clustered index: `CLUSTER` reorders the heap once, and new rows do not follow the index order.',
+      },
+      {
+        question: 'Why does a long, random primary key matter more for row order in MySQL InnoDB than in PostgreSQL?',
+        bridge: 'InnoDB stores rows in the primary key\'s B-tree and secondary indexes store that key; PostgreSQL keeps rows in a heap and every index is secondary.',
+      },
+    ],
     answer:
       'A clustered index stores the table\'s rows themselves in index order, so the leaves of the B-tree are the rows. A non-clustered, or secondary, index is a separate structure whose entries point to the rows. In MySQL InnoDB the primary key is the clustered index, and secondary indexes store the primary key, so a lookup through them searches twice. SQL Server lets you choose the clustered index. PostgreSQL has none: rows sit in an unordered heap and every index is secondary; `CLUSTER` reorders the table once, but new rows do not follow. So in InnoDB I keep the primary key short and increasing.',
     keyPoints: [
@@ -1477,11 +1775,19 @@ FOR NO KEY UPDATE;`,
         statement: 'When a MySQL InnoDB table has a primary key, that key is its clustered index.',
         isTrue: true,
         why: 'InnoDB stores the rows in the primary key\'s B-tree; without one it uses the first unique NOT NULL index, or a hidden row id.',
+        twin: {
+          statement: 'A MySQL InnoDB table with a primary key stores its rows in a heap, separate from the primary key index.',
+          why: 'InnoDB stores the rows in the primary key\'s B-tree: the primary key is the clustered index.',
+        },
       },
       {
         statement: 'After `CLUSTER orders USING orders_customer_idx`, PostgreSQL stores new rows in that index order.',
         isTrue: false,
         why: 'The documentation calls clustering a one-time operation: later inserts and updates are not stored in index order.',
+        twin: {
+          statement: 'After `CLUSTER orders USING orders_customer_idx`, new rows are not stored in that index order.',
+          why: 'The documentation calls clustering a one-time operation: later inserts and updates do not follow the index order.',
+        },
       },
     ],
     lesson: {
@@ -1511,6 +1817,16 @@ SELECT ctid, customer_id FROM orders WHERE customer_id = 0;
     level: 'mid',
     paths: ['backend', 'fullstack'],
     question: 'How do you choose between a relational database and a key-value store such as Redis?',
+    questionVariants: [
+      {
+        question: 'The login rate limiter keeps attempt counters in a PostgreSQL table that takes 3,000 updates a second at peak. A colleague suggests Redis. Is it a good fit?',
+        bridge: 'Rate-limit counters are read by key and can be lost without harm: a key-value store\'s sweet spot, while orders stay in PostgreSQL.',
+      },
+      {
+        question: 'A colleague wants to move orders from PostgreSQL to Redis "because it is faster". What do you answer?',
+        bridge: 'Redis finds data by key only, has no constraints across keys and its persistence can lose recent writes, so the source of truth stays relational.',
+      },
+    ],
     answer:
       'A relational database stores typed rows, joins them, enforces constraints and runs multi-row transactions, and each commit is durable. A key-value store such as Redis maps a key to a value, like a string, a hash, a list or a sorted set, and answers very fast because it keeps the data in memory, but it finds data only by key, with no joins or foreign keys, and its persistence can lose recent writes. So I keep the source of truth in PostgreSQL and use Redis for data read by key that I can rebuild or afford to lose: a cache, sessions, rate-limit counters, queues and leaderboards.',
     keyPoints: [
@@ -1550,11 +1866,19 @@ SELECT ctid, customer_id FROM orders WHERE customer_id = 0;
         statement: 'With the append-only file enabled and its default fsync policy, a Redis crash can lose about one second of writes.',
         isTrue: true,
         why: 'The default `appendfsync everysec` flushes the file to disk once per second.',
+        twin: {
+          statement: 'With the append-only file and its default fsync policy, a Redis crash loses no acknowledged write.',
+          why: 'The default `appendfsync everysec` flushes the file to disk once per second, so about one second of writes can be lost.',
+        },
       },
       {
         statement: 'Redis can enforce a foreign key between two keys.',
         isTrue: false,
         why: 'Redis has no constraints across keys; references between keys are kept correct by the application.',
+        twin: {
+          statement: 'Redis cannot enforce a foreign key between two keys.',
+          why: 'Redis has no constraints across keys; references between keys are kept correct by the application.',
+        },
       },
     ],
     codeChoices: [

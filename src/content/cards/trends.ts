@@ -13,6 +13,18 @@ export const trendsCards: Card[] = [
     level: 'mid',
     paths: ['fullstack', 'frontend', 'backend'],
     question: 'How are AI coding assistants changing full-stack development practice?',
+    questionVariants: [
+      {
+        question:
+          'A teammate\'s pull request, written mostly by an agent, adds an npm dependency nobody on the team has heard of. Types and tests pass. What do you check before approving?',
+        bridge: 'Assistants can invent plausible package names that attackers then register; types, tests and CI are the gate, and every new dependency is checked.',
+      },
+      {
+        question:
+          'A junior says the agent\'s code passed the tests it generated, so it is safe to merge. What do you tell them?',
+        bridge: 'Generated tests can share the code\'s wrong assumption; you review them against the requirement and stay accountable for what you merge.',
+      },
+    ],
     answer:
       'They moved from autocomplete to agents that read the repository, edit several files and run the tests. In my work that shifts time from typing code to framing the task, reviewing diffs and writing the tests that prove the result. I give the agent context, like an `AGENTS.md` with our conventions and commands, and keep changes small so a review stays real. The risks are code that looks right but is subtly wrong, outdated APIs, and invented package names, so the type checker, tests and CI stay the gate. I remain accountable for every line I merge.',
     keyPoints: [
@@ -71,11 +83,19 @@ export const trendsCards: Card[] = [
         statement: 'Code that compiles and passes the generated tests is guaranteed to be correct.',
         isTrue: false,
         why: 'Generated tests can share the same wrong assumption as the code; they need human review against the requirement.',
+        twin: {
+          statement: 'Code that compiles and passes the generated tests can still be wrong.',
+          why: 'Generated tests can share the code\'s wrong assumption, so they need human review against the requirement.',
+        },
       },
       {
         statement: 'An assistant can suggest a package name that does not exist on npm.',
         isTrue: true,
         why: 'Models can invent plausible names, and attackers can register them, so every new dependency is checked.',
+        twin: {
+          statement: 'Every package name an assistant suggests exists on npm.',
+          why: 'Models can invent plausible names, and attackers can register them.',
+        },
       },
     ],
     lesson: {
@@ -97,6 +117,18 @@ export const trendsCards: Card[] = [
     level: 'senior',
     paths: ['fullstack', 'frontend', 'backend'],
     question: 'What role do edge computing and edge functions play in modern full-stack architecture?',
+    questionVariants: [
+      {
+        question:
+          'The team moved product page rendering to edge functions to help customers in Asia. Pages got slower there, and every render still queries PostgreSQL in Europe. Why?',
+        bridge: 'Edge code close to users gains nothing when each query crosses the distance to a single-region database: render near the data, cache at the CDN.',
+      },
+      {
+        question:
+          'Which tasks would you move to edge functions, and which would you keep next to the database?',
+        bridge: 'Edge functions shine for work that needs no central data, such as redirects, A/B assignment or session checks; data-heavy rendering stays near the database.',
+      },
+    ],
     answer:
       'Edge functions run small pieces of server code in many locations close to users, often in lightweight runtimes with Web APIs instead of the full Node API. They shine for work that needs no central data: redirects, A/B assignment, geolocation, checking a session cookie, or rewriting headers in front of a cache. They do not help when the code talks to one database in one region, because each query then crosses the distance anyway. So I keep data-heavy rendering next to the database and cache at the CDN. Next.js now marks its Edge Runtime as deprecated and defaults to Node.js.',
     keyPoints: [
@@ -145,11 +177,19 @@ export const trendsCards: Card[] = [
         statement: 'Moving server rendering to the edge always lowers latency for users far from the server.',
         isTrue: false,
         why: 'If the render queries a database in one region, each query travels that distance, which can make it slower.',
+        twin: {
+          statement: 'Moving server rendering to the edge can make pages slower when each render queries a database in one region.',
+          why: 'Each query then travels the distance from the edge location to the database.',
+        },
       },
       {
         statement: 'In Next.js 16, `proxy` runs on the Node.js runtime by default.',
         isTrue: true,
         why: 'The Next.js docs state that Proxy defaults to the Node.js runtime since version 16.',
+        twin: {
+          statement: 'In Next.js 16, `proxy` runs on the Edge Runtime by default.',
+          why: 'The Next.js docs state that Proxy defaults to the Node.js runtime since version 16.',
+        },
       },
     ],
     lesson: {
@@ -171,6 +211,18 @@ export const trendsCards: Card[] = [
     level: 'mid',
     paths: ['fullstack', 'frontend'],
     question: 'How are meta-frameworks like Next.js, Remix or Nuxt changing full-stack JavaScript development?',
+    questionVariants: [
+      {
+        question:
+          'A colleague wants to build the new storefront with plain React and a router wired by hand, "to avoid lock-in". What do you weigh?',
+        bridge: 'A meta-framework adds routing, server rendering and data loading, and react.dev recommends one for a new app; the cost is coupling to its conventions.',
+      },
+      {
+        question:
+          'An audit finds anyone can call the storefront\'s "add to wishlist" Server Function with another customer\'s id, though the button only shows to signed-in users. What went wrong?',
+        bridge: 'Meta-frameworks blur server and client: a Server Function is still a public HTTP endpoint that must check the session and permissions itself.',
+      },
+    ],
     answer:
       'A meta-framework adds routing, server rendering, data loading and a build setup on top of a UI library: Next.js and React Router for React, Nuxt for Vue. Remix merged into React Router v7 in November 2024. The change is that one codebase now holds both the server and the client: with Next.js Server Components, a page reads data on the server and ships less JavaScript, and Server Functions handle mutations. react.dev recommends starting a new app with a framework. The trade-off is coupling to the framework\'s conventions, and a server function is still a public endpoint that needs authorization.',
     keyPoints: [
@@ -218,11 +270,19 @@ export const trendsCards: Card[] = [
         statement: 'Remix was merged into React Router, which became its successor with v7.',
         isTrue: true,
         why: 'The Remix team announced it in May 2024 and released React Router v7 in November 2024 as the upgrade path.',
+        twin: {
+          statement: 'Remix apps have no upgrade path into React Router v7.',
+          why: 'The Remix team released React Router v7 in November 2024 as the upgrade path for Remix.',
+        },
       },
       {
         statement: 'A Server Function can only be called by your own components, so it needs no authorization check.',
         isTrue: false,
         why: 'It is exposed as an HTTP endpoint that anyone can call, so it checks the session and permissions itself.',
+        twin: {
+          statement: 'A Server Function must check authorization itself, because anyone can call its HTTP endpoint.',
+          why: 'Being called only from your own components does not stop direct calls to the endpoint.',
+        },
       },
     ],
     lesson: {
@@ -252,6 +312,18 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     level: 'mid',
     paths: ['fullstack', 'frontend'],
     question: 'What are Web Components, and how do they differ from framework components like React\'s?',
+    questionVariants: [
+      {
+        question:
+          'The design team ships a `<shop-button>` web component. The storefront\'s global `.btn-primary` rule has no effect inside it, but changing `--brand-color` on the page does. Why?',
+        bridge: 'Shadow DOM scopes styles so outside selectors do not match, while CSS custom properties inherit through the boundary as the theming hook.',
+      },
+      {
+        question:
+          'When would you build a widget as a Web Component rather than as a React component?',
+        bridge: 'Web Components are framework-agnostic browser standards, fit for design systems shared across stacks and embeddable widgets, but have no rendering model.',
+      },
+    ],
     answer:
       'Web Components are browser standards for reusable elements: custom elements define a new tag with a class, Shadow DOM encapsulates its markup and styles, and templates with slots handle content. They work in any framework or none, which makes them good for design systems shared across stacks and for embeddable widgets. Unlike React components, they have no built-in rendering model or state: you update the DOM yourself or use a helper like Lit, attributes are strings, and server rendering needs declarative Shadow DOM. React 19 supports them fully, setting properties and listening to custom events.',
     keyPoints: [
@@ -305,11 +377,19 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         statement: 'CSS custom properties defined on the page can be used inside a shadow root.',
         isTrue: true,
         why: 'Custom properties inherit through the shadow boundary, which is why they are the usual theming hook.',
+        twin: {
+          statement: 'CSS custom properties defined on the page cannot reach elements inside a shadow root.',
+          why: 'Custom properties inherit through the shadow boundary, which is why they are the usual theming hook.',
+        },
       },
       {
         statement: 'A class selector in the page\'s global stylesheet styles matching elements inside a shadow root.',
         isTrue: false,
         why: 'Shadow DOM scopes styles: outside selectors do not match elements inside it.',
+        twin: {
+          statement: 'Elements inside a shadow root are out of reach of class selectors in the page\'s global stylesheet.',
+          why: 'Shadow DOM scopes styles, so outside selectors do not match elements inside it.',
+        },
       },
     ],
     lesson: {
@@ -340,6 +420,18 @@ customElements.define('delivery-tracker', DeliveryTracker);
     level: 'mid',
     paths: ['fullstack', 'frontend'],
     question: 'How is the focus on Core Web Vitals changing full-stack development priorities?',
+    questionVariants: [
+      {
+        question:
+          'Lab tests on a fast laptop show the product page loading in 1.8 s, yet Search Console reports its LCP as not good on mobile. How can both be true?',
+        bridge: 'Core Web Vitals are judged on field data at the 75th percentile of real visits, not on one lab run.',
+      },
+      {
+        question:
+          'A product manager asks why performance work should come before the next feature. How do you answer?',
+        bridge: 'Core Web Vitals made performance a product requirement rather than polish: Google Search uses them and they track conversion.',
+      },
+    ],
     answer:
       'Core Web Vitals are three field metrics: LCP for loading, good at 2.5 seconds or less; INP for responsiveness, good at 200 milliseconds or less; and CLS for visual stability, good at 0.1 or less, each judged at the 75th percentile of real visits. Because Google Search uses them and they track conversion, performance became a product requirement rather than a final polish. In practice that means rendering on the server and shipping less JavaScript, fast image delivery, breaking up long tasks for INP, reserving space for content, measuring real users with the `web-vitals` library, and budgets in CI.',
     keyPoints: [
@@ -385,11 +477,19 @@ customElements.define('delivery-tracker', DeliveryTracker);
         statement: 'A page passes a Core Web Vital when its median visit meets the threshold.',
         isTrue: false,
         why: 'The assessment uses the 75th percentile of visits, which is stricter than the median.',
+        twin: {
+          statement: 'A page passes a Core Web Vital when its 75th percentile visit meets the threshold.',
+          why: 'The assessment uses the 75th percentile of visits, which is stricter than the median.',
+        },
       },
       {
         statement: 'INP replaced First Input Delay as a Core Web Vital.',
         isTrue: true,
         why: 'INP became stable in March 2024 and measures every interaction until the next paint.',
+        twin: {
+          statement: 'First Input Delay is still a Core Web Vital alongside INP.',
+          why: 'INP replaced FID as a Core Web Vital when it became stable in March 2024.',
+        },
       },
     ],
     lesson: {
@@ -421,6 +521,18 @@ onLCP(sendToAnalytics);`,
     level: 'junior',
     paths: ['fullstack', 'frontend', 'backend'],
     question: 'How do you stay current with the fast-moving full-stack landscape?',
+    questionVariants: [
+      {
+        question:
+          'A teammate wants to adopt, in the back office, a framework feature announced last week. How do you decide whether it is worth it?',
+        bridge: 'Your filter for adopting something new: stable, solving a problem you actually have, worth the migration cost, and tried first in a small project.',
+      },
+      {
+        question:
+          'Where do you get your technical news, and how do you avoid chasing every launch?',
+        bridge: 'Staying current through primary sources such as official blogs, release notes and Baseline, plus a newsletter you skim rather than every launch.',
+      },
+    ],
     answer:
       'I follow primary sources for the tools I use every day: the React and Next.js blogs, Node.js release notes, and web.dev\'s Baseline to know when a browser feature is safe to use. A weekly newsletter covers the rest, and I skim rather than chase every launch. I learn by doing: I try a new feature in a small side project before proposing it at work. Before an upgrade I read the full upgrade guide. My filter for adopting something is simple: it must be stable, solve a problem we actually have, and be worth the migration cost.',
     keyPoints: [
@@ -477,11 +589,19 @@ onLCP(sendToAnalytics);`,
         statement: 'Baseline, shown on MDN and web.dev, tells you whether a web feature works across the major browsers.',
         isTrue: true,
         why: 'It marks features as newly or widely available across the core browser set.',
+        twin: {
+          statement: 'Baseline only covers Chrome, so it tells you nothing about other browsers.',
+          why: 'It marks features as newly or widely available across the core browser set.',
+        },
       },
       {
         statement: 'Staying current means upgrading every dependency to its latest major version as soon as it ships.',
         isTrue: false,
         why: 'Upgrades are planned against their benefit and risk, usually after reading the guide and waiting for early fixes.',
+        twin: {
+          statement: 'Staying current means planning each major upgrade against its benefit and risk.',
+          why: 'Reading the upgrade guide and waiting for early fixes beats upgrading as soon as a version ships.',
+        },
       },
     ],
     lesson: {
@@ -503,6 +623,18 @@ onLCP(sendToAnalytics);`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'What role does serverless play in backend architecture, and what are its trade-offs?',
+    questionVariants: [
+      {
+        question:
+          'The nightly CSV export of orders runs as a Lambda and, as order volume grew, it now fails every night after exactly 15 minutes. What is happening, and where should it run?',
+        bridge: 'A Lambda invocation stops at 15 minutes; a longer job belongs in a container task.',
+      },
+      {
+        question:
+          'A colleague says moving the Orders API to Lambda will cut the bill, since you only pay for what you use. Traffic is steady, PostgreSQL is behind it. What do you answer?',
+        bridge: 'Serverless trade-offs: per-request billing, cold starts and connections per environment usually favour containers for steady traffic.',
+      },
+    ],
     answer:
       'Serverless means the provider runs and scales the compute, and I pay per request and duration: AWS Lambda, for example, scales to zero. It fits event-driven and spiky work: a nightly export, a queue consumer, a webhook with bursts. The trade-offs are cold starts when a new environment initialises, limits such as 15 minutes per Lambda invocation, one request per environment so each opens its own database connections, and a bill that grows with every request. So the Orders API, with steady traffic and PostgreSQL behind it, stays in containers, while scheduled and event-driven jobs go to functions, with RDS Proxy in front of the database.',
     keyPoints: [
@@ -542,16 +674,28 @@ onLCP(sendToAnalytics);`,
         statement: 'Serverless is always cheaper than containers, because you only pay for what you use.',
         isTrue: false,
         why: 'At sustained traffic, per-request billing can cost more than containers that stay busy.',
+        twin: {
+          statement: 'At sustained traffic, serverless can cost more than containers that stay busy.',
+          why: 'Per-request billing grows with every request, while busy containers are already paid for.',
+        },
       },
       {
         statement: 'A function\'s concurrency is roughly its requests per second multiplied by its duration in seconds.',
         isTrue: true,
         why: 'That is the Lambda docs\' formula: 300 requests per second of 0.2 s need about 60 environments.',
+        twin: {
+          statement: 'A function\'s concurrency is roughly its requests per second divided by its duration in seconds.',
+          why: 'The Lambda docs multiply them: 300 requests per second of 0.2 s need about 60 environments.',
+        },
       },
       {
         statement: 'A single AWS Lambda invocation can run for an hour.',
         isTrue: false,
         why: 'An invocation stops at 15 minutes; longer jobs belong in a container task.',
+        twin: {
+          statement: 'A single AWS Lambda invocation stops at 15 minutes at most.',
+          why: 'Longer jobs belong in a container task.',
+        },
       },
     ],
     lesson: {
@@ -573,6 +717,18 @@ onLCP(sendToAnalytics);`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How are event-driven architecture and the modern data stack changing backend design?',
+    questionVariants: [
+      {
+        question:
+          'A loyalty service added in March must award points for every `order.paid` since January, but the events went through SQS. What is the problem, and what would have helped?',
+        bridge: 'A queue deletes processed messages; a retained log such as Kafka lets a new consumer replay history.',
+      },
+      {
+        question:
+          'When payments publish `order.paid` instead of calling stock and loyalty directly, what changes in how those consumers must be designed?',
+        bridge: 'Event-driven design: events become versioned contracts, consumers are idempotent because delivery is at least once, and the system is eventually consistent.',
+      },
+    ],
     answer:
       'Services increasingly publish facts, like `order.paid`, instead of calling each other: stock, loyalty and analytics react on their own, so the producer does not know them, and an outage delays their work instead of failing the payment. A log such as Kafka keeps events for a retention period, so a new consumer can replay history, and change data capture streams database changes into the warehouse instead of analysts querying production. The consequences for design: events become versioned public contracts, consumers must be idempotent because delivery is at least once, an outbox publishes reliably after the commit, and the system is eventually consistent.',
     keyPoints: [
@@ -612,11 +768,19 @@ onLCP(sendToAnalytics);`,
         statement: 'With a queue such as SQS, a consumer added today can replay last week\'s messages.',
         isTrue: false,
         why: 'A queue deletes processed messages; replay needs a retained log such as Kafka.',
+        twin: {
+          statement: 'A consumer added today cannot replay last week\'s messages from a queue such as SQS.',
+          why: 'A queue deletes processed messages; replay needs a retained log such as Kafka.',
+        },
       },
       {
         statement: 'Kafka guarantees ordering within a partition, not across a whole topic.',
         isTrue: true,
         why: 'That is why events are keyed by order id: one order\'s events land in one partition.',
+        twin: {
+          statement: 'Kafka guarantees ordering across a whole topic.',
+          why: 'It guarantees ordering within a partition only, which is why events are keyed by order id.',
+        },
       },
     ],
     lesson: {
@@ -638,6 +802,18 @@ onLCP(sendToAnalytics);`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How is platform engineering changing how backend teams work?',
+    questionVariants: [
+      {
+        question:
+          'Creating a new service at the shop takes two weeks: pipeline, secrets, dashboards and alerts, each set up by hand with a different team. What would you propose?',
+        bridge: 'Platform engineering\'s golden path: a template that creates a service with CI, monitoring and secrets already wired.',
+      },
+      {
+        question:
+          'Leadership wants to force every team onto the new internal platform by June. What do you advise?',
+        bridge: 'A platform run as a product earns adoption by being the easiest path; measure adoption and keep escape hatches rather than force it.',
+      },
+    ],
     answer:
       'Platform engineering means a team builds an internal developer platform, run as a product, so other teams can ship without becoming experts in Kubernetes, CI or cloud accounts. Its core is golden paths: a template that creates a service with its pipeline, monitoring, secrets and dashboards already wired, often behind a portal like Backstage. For backend teams, effort moves from assembling infrastructure to product work, and services are built, deployed and observed the same way. The risk is a platform nobody wants, so I treat developers as customers, measure adoption and delivery metrics, and keep an escape hatch for teams with real needs.',
     keyPoints: [
@@ -677,11 +853,19 @@ onLCP(sendToAnalytics);`,
         statement: 'A successful internal platform is one that every team is forced to use.',
         isTrue: false,
         why: 'Platform engineering earns adoption by making the golden path the easiest way; forced use hides whether it helps.',
+        twin: {
+          statement: 'A successful internal platform earns adoption by making the golden path the easiest way.',
+          why: 'Forced use hides whether the platform actually helps.',
+        },
       },
       {
         statement: 'Platform engineering treats the internal platform as a product, with developers as its customers.',
         isTrue: true,
         why: 'Their needs and feedback drive the roadmap, and adoption measures success.',
+        twin: {
+          statement: 'Platform engineering treats the internal platform as infrastructure imposed on teams, not as a product with customers.',
+          why: 'It is run as a product, with developers as customers whose needs and feedback drive the roadmap.',
+        },
       },
     ],
     lesson: {

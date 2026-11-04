@@ -13,6 +13,18 @@ export const systemDesignCards: Card[] = [
     level: 'senior',
     paths: ['fullstack', 'backend'],
     question: 'How would you design a URL shortener, end to end?',
+    questionVariants: [
+      {
+        question:
+          'The shop\'s shipping SMS must carry a tracking link that fits in one message, and marketing wants click counts. How would you build the short-link service?',
+        bridge: 'Short codes, fast redirects and click counts make up the URL shortener: estimates, base-62 codes, a cache on the redirect path and counting off it.',
+      },
+      {
+        question:
+          'A colleague wants the short-link redirect to answer 301 and run `UPDATE links SET clicks = clicks + 1` on every request. What would you change, and why?',
+        bridge: 'The same topic through two design choices: a 302 keeps requests reaching you, and clicks go through a queue, never as an update on the redirect path.',
+      },
+    ],
     answer:
       'I start with requirements: create a link, redirect fast, count clicks, optional alias and expiry. Then estimates: at 100 million links a month that is about 39 writes and 3,900 reads per second, and 3 TB over five years, so it is read-heavy and one PostgreSQL primary handles the writes. Codes come from a sequence encoded in base 62, shuffled if they must not be guessable, with a unique constraint. Redirects read a Redis cache in front of the database and answer 302, not 301, so clicks keep reaching us. Clicks go to a queue and are counted asynchronously, never as an update on the redirect path.',
     keyPoints: [
@@ -56,16 +68,28 @@ export const systemDesignCards: Card[] = [
         statement: '301 is the better default for a short link, because the link is permanent.',
         isTrue: false,
         why: 'A 301 may be reused by caches without asking again, so you lose click counts and the ability to change the target; 302 keeps the requests coming.',
+        twin: {
+          statement: '302 is the better default for a short link, even when the link is permanent.',
+          why: 'A 301 may be reused by caches without asking again, which loses click counts and the ability to change the target.',
+        },
       },
       {
         statement: 'Six base-62 characters give more than 56 billion possible codes.',
         isTrue: true,
         why: '62 to the power 6 is 56,800,235,584, which lasts decades at 1.2 billion links a year.',
+        twin: {
+          statement: 'Six base-62 characters give fewer than a billion possible codes.',
+          why: '62 to the power 6 is 56,800,235,584, which lasts decades at 1.2 billion links a year.',
+        },
       },
       {
         statement: 'Sharding links by creation date spreads the redirect load evenly.',
         isTrue: false,
         why: 'New links get most of the clicks, so they would all land on the newest shard.',
+        twin: {
+          statement: 'Sharding links by creation date would put most of the redirect load on the newest shard.',
+          why: 'New links get most of the clicks, so they would all land on the same shard.',
+        },
       },
     ],
     codeChoices: [
@@ -102,6 +126,18 @@ Location: https://shop.example/products/mug`,
     level: 'senior',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'How would you design the architecture of a real-time chat?',
+    questionVariants: [
+      {
+        question:
+          'In the support chat, customers on flaky mobile connections see their messages twice, and agents on another replica miss messages until they reload. How would you design the chat to fix both?',
+        bridge: 'Duplicates and messages lost across replicas are the core of chat design: client ids with a unique constraint, fan-out through pub/sub, and replay.',
+      },
+      {
+        question:
+          'What does a chat need that a plain request-response API does not? Walk me through the architecture you would build.',
+        bridge: 'The same topic from first principles: two-way traffic calls for WebSockets, and several replicas need fan-out, order per conversation and replay.',
+      },
+    ],
     answer:
       'I clarify scope first: one conversation per order between a customer and agents, history kept, order preserved within a conversation, read receipts, typing, and a push when the customer is offline. Chat is two-way, so I use WebSockets. A message carries a client-generated id and is stored in PostgreSQL, in one transaction that also takes the conversation\'s next sequence number; a unique constraint on the client id makes resends harmless. The server acks, then publishes through Redis pub/sub so the replica holding the agent\'s socket delivers it. Pub/sub can drop messages, so on reconnect the client asks for everything after its last sequence.',
     keyPoints: [
@@ -155,11 +191,19 @@ Location: https://shop.example/products/mug`,
         statement: 'Redis pub/sub delivers messages that a subscriber missed during a short disconnect.',
         isTrue: false,
         why: 'The Redis docs describe pub/sub as at-most-once: a missed message is lost, so clients replay from the database.',
+        twin: {
+          statement: 'Redis pub/sub loses a message sent while a subscriber was briefly disconnected.',
+          why: 'The Redis docs describe pub/sub as at-most-once, so clients replay what they missed from the database.',
+        },
       },
       {
         statement: 'A sequence number per conversation is enough to order chat messages; no global order is needed.',
         isTrue: true,
         why: 'Users only see order within one conversation, so a counter incremented under the conversation\'s row lock is sufficient.',
+        twin: {
+          statement: 'Chat messages need one global order across all conversations.',
+          why: 'Users only see order within a conversation, so a counter per conversation, incremented under its row lock, is enough.',
+        },
       },
     ],
     codeChoices: [
@@ -195,6 +239,18 @@ VALUES ($1, $2);`,
     level: 'mid',
     paths: ['fullstack', 'backend'],
     question: 'What is the difference between horizontal and vertical scaling, and how would you apply each to a full-stack app?',
+    questionVariants: [
+      {
+        question:
+          'For a sale, the autoscaler takes the Orders API from 4 to 16 pods, and the new pods fail with `too_many_connections`. What does this tell you about how each tier should scale?',
+        bridge: 'API copies scale out, but the database does not scale the same way: this is horizontal versus vertical scaling, tier by tier.',
+      },
+      {
+        question:
+          'A colleague says: just move the API to the biggest instance the cloud offers and stop worrying about scaling. When is that reasonable, and when is it not?',
+        bridge: 'The same topic as a trade-off: vertical scaling needs no code change but has a ceiling and costs more per step; horizontal needs stateless copies.',
+      },
+    ],
     answer:
       'Vertical scaling means a bigger machine: more CPU and memory for the same instance. It needs no code change, but it has a ceiling and each step costs more. Horizontal scaling means more copies behind a load balancer: no hard ceiling, and one copy can fail, but the copies must be stateless, so sessions, caches and uploads move to Redis, the database or object storage. In a full-stack app I scale the Next.js and API tiers horizontally, since they are stateless. PostgreSQL I scale vertically first, then add read replicas for reads, and shard only when one primary is genuinely too small.',
     keyPoints: [
@@ -252,16 +308,28 @@ VALUES ($1, $2);`,
         statement: 'Adding read replicas increases PostgreSQL\'s write capacity.',
         isTrue: false,
         why: 'Replicas only serve reads; every write still goes to the single primary.',
+        twin: {
+          statement: 'Adding read replicas does not increase PostgreSQL\'s write capacity.',
+          why: 'Replicas only serve reads; every write still goes to the single primary.',
+        },
       },
       {
         statement: 'Horizontal scaling requires the application to be stateless, or its state to live in a shared store.',
         isTrue: true,
         why: 'Any copy can receive the next request, so it cannot rely on memory another copy holds.',
+        twin: {
+          statement: 'Horizontally scaled copies can safely rely on state that only one copy holds in memory.',
+          why: 'Any copy can receive the next request, so the app must be stateless or keep its state in a shared store.',
+        },
       },
       {
         statement: 'In the cloud, vertical scaling has no upper limit.',
         isTrue: false,
         why: 'Every provider has a largest instance size, and each step up costs more.',
+        twin: {
+          statement: 'In the cloud, vertical scaling stops at the provider\'s largest instance size.',
+          why: 'Every provider has a largest instance size, and each step up costs more.',
+        },
       },
     ],
     codeChoices: [
@@ -300,6 +368,18 @@ const found = sessions.get(sessionId);`,
     level: 'senior',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'How would you handle image uploads and serving at scale?',
+    questionVariants: [
+      {
+        question:
+          'Agents upload 15 to 20 MB product photos through the Orders API, memory spikes on every catalogue import, and phones download the full originals. How would you redesign uploads and serving?',
+        bridge: 'Bytes passing through the API and oversized images are an image-pipeline problem: presigned uploads, an async resize worker, a CDN and responsive images.',
+      },
+      {
+        question:
+          'A colleague adds `loading="lazy"` to every image on the product page, including the main photo, to speed it up. What do you say, and how should images be served?',
+        bridge: 'The same topic from the serving side: the LCP photo is never lazy-loaded, and each device gets the right width through `srcset` and `sizes` from a CDN.',
+      },
+    ],
     answer:
       'I separate upload, processing and serving. For uploads, the API checks the user\'s rights and returns a presigned URL, so the browser sends the file straight to S3 and the API never handles the bytes; it only records the key. An event then triggers a worker that validates the file, strips its metadata and generates resized versions in modern formats like AVIF and WebP. Serving goes through a CDN with long cache lifetimes, on URLs that change when the image changes. On the storefront, `srcset` and `sizes` let each device download the right width, and the main product photo is never lazy-loaded.',
     keyPoints: [
@@ -347,11 +427,19 @@ const found = sessions.get(sessionId);`,
         statement: 'With a presigned URL, the file bytes pass through your API server.',
         isTrue: false,
         why: 'The client sends them straight to the bucket; the API only signs the URL and records the key.',
+        twin: {
+          statement: 'With a presigned URL, the client sends the file straight to the bucket, not through your API.',
+          why: 'The API only signs the URL and records the key.',
+        },
       },
       {
         statement: '`next/image` lazy-loads images by default.',
         isTrue: true,
         why: 'That is why the hero photo needs `loading="eager"` or `fetchPriority="high"`.',
+        twin: {
+          statement: '`next/image` loads images eagerly by default.',
+          why: 'It lazy-loads them by default, which is why the hero photo needs `loading="eager"` or `fetchPriority="high"`.',
+        },
       },
     ],
     codeChoices: [
@@ -393,6 +481,18 @@ await db.query(
     level: 'mid',
     paths: ['fullstack', 'backend'],
     question: 'Monolith or microservices: how do you decide?',
+    questionVariants: [
+      {
+        question:
+          'A new CTO wants to split the Orders API into twelve microservices next quarter, for one team of six developers. What do you recommend?',
+        bridge: 'A split with no concrete reason is the monolith-or-microservices decision: start modular, and extract a service only for scale, pace, security or ownership.',
+      },
+      {
+        question:
+          'Two services read each other\'s tables in a shared database, and every schema change needs both to deploy together. What went wrong, and what would you do?',
+        bridge: 'The same topic through its failure mode: boundaries hold only if each module owns its data and exposes a small public API.',
+      },
+    ],
     answer:
       'I start from a modular monolith: one deployable, split into modules that each own their data and expose a small public API, with the boundaries enforced, for example imports checked in CI and one database schema per module. That keeps transactions, refactoring and deploys simple. Microservices buy independent deploys and scaling, but you pay in network failures, distributed data, tracing and on-call for many services. So I extract a service only for a concrete reason: a part scales very differently, needs its own release pace, needs security isolation, or a separate team owns it. And I record that decision in an architecture decision record.',
     keyPoints: [
@@ -440,11 +540,19 @@ await db.query(
         statement: 'In a modular monolith, each module should own its data and expose it only through its public API.',
         isTrue: true,
         why: 'Otherwise boundaries erode and extracting a module later means untangling shared tables.',
+        twin: {
+          statement: 'In a modular monolith, modules can freely read each other\'s tables, since they share one deployable.',
+          why: 'Then the boundaries erode, and extracting a module later means untangling shared tables.',
+        },
       },
       {
         statement: 'Microservices that read each other\'s tables in a shared database are still independently deployable.',
         isTrue: false,
         why: 'A schema change in one breaks the others, so they must ship together: a distributed monolith.',
+        twin: {
+          statement: 'Microservices that read each other\'s tables in a shared database end up having to deploy together.',
+          why: 'A schema change in one breaks the others: a distributed monolith.',
+        },
       },
     ],
     lesson: {
@@ -466,6 +574,18 @@ await db.query(
     level: 'senior',
     paths: ['fullstack', 'backend'],
     question: 'How would you design a caching strategy for a full-stack application?',
+    questionVariants: [
+      {
+        question:
+          'During the sale load test, `GET /products/:id` takes about 2,000 requests a second and saturates PostgreSQL, while products change a few times a day. What would you do?',
+        bridge: 'Hot, rarely changing reads call for caching at the outermost layer that allows it: CDN headers for public responses, Redis cache-aside inside the API.',
+      },
+      {
+        question:
+          'A colleague wants to cache every API response in Redis for an hour, customers\' carts included. What questions would you ask, and how would you design the caching?',
+        bridge: 'The same topic through its first question: for each piece of data, who it belongs to and how stale it may be decides where and how long it is cached.',
+      },
+    ],
     answer:
       'I decide per piece of data who it belongs to and how stale it may be, then cache it at the outermost layer that allows that. Public responses get `Cache-Control`, so the browser and the CDN keep them, with `s-maxage` and `stale-while-revalidate`; anything per user is `private, no-store`. Inside the API, I use Redis with cache-aside: read the cache, load from PostgreSQL on a miss, store with a jittered TTL. On a write, I commit, then delete the key, and the TTL bounds whatever invalidation misses. At the database, indexes come before another cache. And I protect hot keys from stampedes with single flight.',
     keyPoints: [
@@ -524,16 +644,28 @@ await db.query(
         statement: '`Cache-Control: no-cache` means the response must not be stored.',
         isTrue: false,
         why: 'It may be stored but must be revalidated before each reuse; `no-store` forbids storing.',
+        twin: {
+          statement: '`Cache-Control: no-cache` allows storing a response but requires revalidation before each reuse.',
+          why: 'Forbidding storage is what `no-store` does.',
+        },
       },
       {
         statement: 'With cache-aside, flushing the whole cache loses no data.',
         isTrue: true,
         why: 'The cache is never the source of truth: the API only gets slower until the cache refills.',
+        twin: {
+          statement: 'With cache-aside, flushing the whole cache loses data that was never saved to the database.',
+          why: 'The cache is never the source of truth: the API only gets slower until the cache refills.',
+        },
       },
       {
         statement: 'After a write, overwriting the cached value is safer than deleting the key.',
         isTrue: false,
         why: 'Two concurrent writers can overwrite in the opposite order to their commits; a delete has no order to get wrong.',
+        twin: {
+          statement: 'After a write, deleting the cached key is safer than overwriting its value.',
+          why: 'Two concurrent writers can overwrite in the opposite order to their commits; a delete has no order to get wrong.',
+        },
       },
     ],
     codeChoices: [
@@ -572,6 +704,18 @@ Cache-Control: public, s-maxage=60`,
     level: 'senior',
     paths: ['fullstack', 'backend'],
     question: 'How would you design an e-commerce checkout that stays reliable and consistent?',
+    questionVariants: [
+      {
+        question:
+          'Support finds duplicate orders placed a few seconds apart, and some customers get two confirmation e-mails for one payment. How would you make checkout reliable?',
+        bridge: 'Retries after lost responses and repeated webhooks are what a reliable checkout absorbs: idempotency keys, one transaction, webhooks processed once, an outbox.',
+      },
+      {
+        question:
+          'The handler marks the order `paid` in PostgreSQL, then publishes `order.paid` to the broker. What can go wrong between those two steps, and how do you design around it?',
+        bridge: 'The same topic through the dual write: the order update and the event go in one transaction with an outbox, and a relay publishes afterwards.',
+      },
+    ],
     answer:
       'The requirements are: never charge twice, never sell stock we do not have, never lose a paid order. The storefront sends `POST /orders` with an idempotency key, so a retry after a lost response returns the same order. One PostgreSQL transaction creates the order as `pending_payment` and takes the stock with a conditional update. The payment result arrives through a signed webhook, which I process once per event id, because providers retry. Marking the order `paid` and writing an `order.paid` row to an outbox table happen in the same transaction, and a relay publishes it, so e-mails and shipping never miss a payment.',
     keyPoints: [
@@ -619,11 +763,19 @@ Cache-Control: public, s-maxage=60`,
         statement: 'A payment provider can guarantee that each webhook event is delivered exactly once.',
         isTrue: false,
         why: 'Over a network, delivery is at-least-once; your handler must make duplicates harmless.',
+        twin: {
+          statement: 'A payment provider delivers webhook events at least once, so a handler can see the same event twice.',
+          why: 'Over a network, delivery cannot be exactly once; the handler must make duplicates harmless.',
+        },
       },
       {
         statement: 'Writing the outbox row in the same transaction as the order update removes the dual-write problem.',
         isTrue: true,
         why: 'Both commit or neither does, and the relay publishes the row afterwards, possibly more than once.',
+        twin: {
+          statement: 'Writing the outbox row in the same transaction as the order update still leaves the dual-write problem.',
+          why: 'Both commit or neither does, and the relay publishes the row afterwards, possibly more than once.',
+        },
       },
     ],
     codeChoices: [
@@ -668,6 +820,18 @@ await tx.query(
     level: 'mid',
     paths: ['fullstack', 'backend'],
     question: 'What is a load balancer, and which load-balancing algorithms exist?',
+    questionVariants: [
+      {
+        question:
+          'After the Orders API scaled from 4 to 12 pods, the new pods get almost no traffic from the BFF, which keeps long-lived keep-alive connections. Why, and what would you change?',
+        bridge: 'Load stuck on kept-alive connections is a load-balancing question: layer 4 routes connections, layer 7 routes each request.',
+      },
+      {
+        question:
+          'Some Orders API requests take 5 ms and CSV exports take 20 s, and round robin leaves a few pods overloaded. Which algorithm would you pick, and what are the alternatives?',
+        bridge: 'The same topic through the algorithms: round robin ignores current load, while least connections or least outstanding requests suit varied durations.',
+      },
+    ],
     answer:
       'A load balancer receives traffic on one address and spreads it over several copies of a service. It stops sending to copies that fail their health check, so instances can be added, removed or redeployed without downtime. A layer 4 balancer routes TCP connections; a layer 7 balancer reads HTTP, so it can route by path or header and terminate TLS. The common algorithms are round robin, weighted round robin for unequal machines, least connections or least outstanding requests when request durations vary, and hashing a key such as the client IP when a client should keep reaching the same instance.',
     keyPoints: [
@@ -715,11 +879,19 @@ await tx.query(
         statement: 'A layer 4 load balancer can route requests by URL path.',
         isTrue: false,
         why: 'It sees connections, not HTTP; routing by path needs a layer 7 balancer.',
+        twin: {
+          statement: 'Routing requests by URL path needs a layer 7 load balancer.',
+          why: 'A layer 4 balancer sees connections, not HTTP, so it cannot read the path.',
+        },
       },
       {
         statement: 'Round robin ignores how busy each instance currently is.',
         isTrue: true,
         why: 'It hands requests out in turn; least connections or least outstanding requests look at current load.',
+        twin: {
+          statement: 'Round robin sends each request to the least busy instance.',
+          why: 'It hands requests out in turn; least connections or least outstanding requests look at current load.',
+        },
       },
     ],
     lesson: {
@@ -741,6 +913,18 @@ await tx.query(
     level: 'senior',
     paths: ['fullstack', 'backend'],
     question: 'How would you design a notification system for email, push and SMS?',
+    questionVariants: [
+      {
+        question:
+          'The 9:50 push announcing the sale went to every app user, and customers waited minutes for their login codes. How would you design notifications so that cannot happen?',
+        bridge: 'A campaign delaying login codes points to queue design: one queue per channel and priority, sized for the peak, with retries and dedup.',
+      },
+      {
+        question:
+          'A colleague sizes the notification queues and workers on the daily average send rate. What is missing, and how would you design the system?',
+        bridge: 'The same topic through sizing: a campaign push can reach about 29 times the average, and queues, priorities and retries are designed for that peak.',
+      },
+    ],
     answer:
       'I clarify channels, triggers, user preferences, priorities, and that nothing is lost while duplicates stay rare. Then I size for the peak: a campaign push to 10 million users in 10 minutes is about 16,700 per second, roughly 29 times the average. Events reach a notification service that checks preferences, renders the template, and writes the notification and an outbox row in one transaction. A relay publishes to one queue per channel and priority, so a campaign never delays a login code. Workers call APNs, FCM or the e-mail and SMS providers with rate limits, retries with backoff, a dead-letter queue and a dedup key per notification and channel.',
     keyPoints: [
@@ -784,11 +968,19 @@ await tx.query(
         statement: 'With an outbox and retries, a notification can be published more than once, so workers must deduplicate.',
         isTrue: true,
         why: 'The relay and the queue deliver at least once; a key per notification and channel makes repeats harmless.',
+        twin: {
+          statement: 'With an outbox and retries, each notification is published exactly once, so workers need no deduplication.',
+          why: 'The relay and the queue deliver at least once; a key per notification and channel makes repeats harmless.',
+        },
       },
       {
         statement: 'The daily average rate is the right number for sizing the queues and workers.',
         isTrue: false,
         why: 'A campaign can be about 29 times the average, and that peak decides the design.',
+        twin: {
+          statement: 'Notification queues and workers should be sized for the campaign peak, not the daily average.',
+          why: 'A campaign can be about 29 times the average, and that peak decides the design.',
+        },
       },
     ],
     lesson: {
@@ -810,6 +1002,18 @@ await tx.query(
     level: 'senior',
     paths: ['fullstack', 'backend', 'frontend'],
     question: 'How would you approach real-time collaborative editing, like Google Docs?',
+    questionVariants: [
+      {
+        question:
+          'Two agents edit the same product description in the back office, and the last save silently erases the other\'s work. The content team now wants live co-editing. How would you approach it?',
+        bridge: 'Concurrent edits that must merge without loss are the core of collaborative editing: OT or CRDTs, and in practice a library such as Yjs.',
+      },
+      {
+        question:
+          'Explain to a junior the difference between operational transformation and CRDTs, and which you would build on in a product today.',
+        bridge: 'The same topic as a comparison: OT transforms operations, usually through a central server; CRDTs merge in any order, and Yjs implements one.',
+      },
+    ],
     answer:
       'The hard part is concurrent edits: two agents typing in the same product description must end with the same text, without losing either change. There are two families. Operational transformation, which Google Docs adopted, transforms each operation against concurrent ones, usually with a central server ordering them. CRDTs give every element an identity so copies merge in any order and converge without a central authority, which also allows offline edits. I would not write either: I would use Yjs, a CRDT library with bindings for editors like ProseMirror and Tiptap, sync it over WebSockets, persist its updates, and show cursors through its awareness feature.',
     keyPoints: [
@@ -857,16 +1061,28 @@ await tx.query(
         statement: 'CRDT replicas converge to the same state whatever order they receive the updates in.',
         isTrue: true,
         why: 'That is the defining property: merges are order-independent, so no central server must decide.',
+        twin: {
+          statement: 'CRDT replicas converge only if they receive the updates in the same order.',
+          why: 'Merges are order-independent by design, so replicas converge whatever order the updates arrive in.',
+        },
       },
       {
         statement: 'Yjs needs a central server as the source of truth.',
         isTrue: false,
         why: 'Its docs say it does not need a central source of truth; servers are just one way to relay and store updates.',
+        twin: {
+          statement: 'Yjs does not need a central server as the source of truth.',
+          why: 'Its docs say so; servers are just one way to relay and store updates.',
+        },
       },
       {
         statement: 'Yjs stores awareness data, such as cursor positions, inside the shared document.',
         isTrue: false,
         why: 'Awareness is kept outside the document and is not persisted, since it does not need to survive a session.',
+        twin: {
+          statement: 'Yjs keeps awareness data, such as cursor positions, outside the shared document.',
+          why: 'Awareness is not persisted, since it does not need to survive a session.',
+        },
       },
     ],
     lesson: {
@@ -888,6 +1104,18 @@ await tx.query(
     level: 'mid',
     paths: ['fullstack', 'backend'],
     question: 'How do you estimate and plan the technical scope of a new full-stack feature in sprint planning?',
+    questionVariants: [
+      {
+        question:
+          'Product wants order returns next sprint: a storefront form, a back-office screen and return labels from the delivery partner. How do you estimate it in planning?',
+        bridge: 'A feature that crosses every layer is estimated by slicing it through the stack, naming the unknowns and spiking the risky ones.',
+      },
+      {
+        question:
+          'Your estimate for a feature does not fit the sprint, and the product owner asks you to just lower it. What do you do?',
+        bridge: 'The same topic through its pressure point: when the work does not fit, cut the scope, for example a first version behind a flag, never the estimate.',
+      },
+    ],
     answer:
       'Before estimating, I make sure we agree on the outcome and the acceptance criteria. Then I slice the feature through the stack: data model and migration, API endpoint and contract, frontend screens and their states, tests, and the rollout. Each slice exposes unknowns, like a third-party API or a migration on a big table; for the risky ones I propose a short, time-boxed spike first. I estimate relative to work we have already done, and add explicit items for review, QA and monitoring. If it does not fit the sprint, I propose a smaller first version behind a feature flag, rather than a smaller estimate.',
     keyPoints: [
@@ -935,11 +1163,19 @@ await tx.query(
         statement: 'A spike is meant to produce production-ready code.',
         isTrue: false,
         why: 'Its output is knowledge, such as whether an approach works and what it costs; the code is usually thrown away.',
+        twin: {
+          statement: 'A spike is meant to produce knowledge, and its code is usually thrown away.',
+          why: 'It answers whether an approach works and what it costs.',
+        },
       },
       {
         statement: 'Slicing a feature into thin end-to-end slices lets you ship part of it earlier.',
         isTrue: true,
         why: 'Each slice works from the database to the screen, so the first one can be released on its own.',
+        twin: {
+          statement: 'A feature split into thin end-to-end slices can only ship once every slice is done.',
+          why: 'Each slice works from the database to the screen, so the first one can be released on its own.',
+        },
       },
     ],
     lesson: {
@@ -961,6 +1197,18 @@ await tx.query(
     level: 'senior',
     paths: ['fullstack', 'backend'],
     question: 'How would you diagnose a full-stack application that suddenly has high latency in production?',
+    questionVariants: [
+      {
+        question:
+          'Right after a deploy, the p99 of `GET /orders/:id` goes from 120 ms to 2 s. Walk me through what you check, in order.',
+        bridge: 'A sudden tail-latency jump is diagnosed by scoping it, then following percentiles and traces to the slow span, and mitigating first.',
+      },
+      {
+        question:
+          'During a slowdown, a colleague\'s first move is to double the API replicas. Why might that not help, and what would you do first?',
+        bridge: 'The same topic through a reflex: more replicas can worsen a database-bound slowdown, so scope it and find the slow span before acting.',
+      },
+    ],
     answer:
       'First I scope it: which routes, which percentiles, all users or some, and what changed at that time, like a deploy, a traffic spike or a dependency. Latency percentiles per route tell me where; a trace of a slow request tells me which span takes the time: the database, an external call, or waiting before any span starts. Then I follow the evidence: slow query plans or a saturated connection pool, event loop delay if the time is spent inside Node, a slow third party. I mitigate first, by rolling back or turning off a flag, and fix the root cause after, with an alert for next time.',
     keyPoints: [
@@ -1008,11 +1256,19 @@ await tx.query(
         statement: 'Average latency is the best signal for a sudden latency problem.',
         isTrue: false,
         why: 'Averages hide the tail; p95 and p99 per route show what the slowest users get.',
+        twin: {
+          statement: 'For a sudden latency problem, p95 and p99 per route are better signals than the average.',
+          why: 'Averages hide the tail; high percentiles show what the slowest users get.',
+        },
       },
       {
         statement: 'Adding API replicas can make a database-bound slowdown worse.',
         isTrue: true,
         why: 'Each replica brings its own connections and queries to a database that is already the bottleneck.',
+        twin: {
+          statement: 'Adding API replicas always relieves a slowdown, even when the database is the bottleneck.',
+          why: 'Each replica brings its own connections and queries to a database that is already the bottleneck.',
+        },
       },
     ],
     codeChoices: [
@@ -1051,6 +1307,18 @@ alertIf(average(lastMinute) > 1_000);`,
     level: 'senior',
     paths: ['fullstack', 'backend'],
     question: 'How do you approach a system design interview question?',
+    questionVariants: [
+      {
+        question:
+          'The interviewer says "Design the flash-sale checkout" and waits. What do you do in the first five minutes, and how do you run the rest of the round?',
+        bridge: 'An open prompt calls for the system design method: requirements, written estimates, the simplest design, a deep dive and named trade-offs.',
+      },
+      {
+        question:
+          'A candidate opens a design round by drawing Kafka, Redis and ten microservices. What would the interviewer think, and what should the candidate have done?',
+        bridge: 'The same topic through a common mistake: the design follows from requirements and numbers, starts simple, and states every choice as a trade-off.',
+      },
+    ],
     answer:
       'I announce a plan and follow it: requirements, estimates, API and data model, high-level design, deep dives, trade-offs. In the first five minutes I ask the questions whose answers change the design: how many users and how fast, which operations must be fast, how stale data may be, and what must never happen. Then a quick estimate, written down, to decide whether I need a cache, a queue or sharding. I draw the simplest design that meets the numbers, walk one request through it, go deep on the hardest part, and say every choice as: I pick X, it costs Y, and if Z mattered more I would pick W.',
     keyPoints: [
@@ -1090,11 +1358,19 @@ alertIf(average(lastMinute) > 1_000);`,
         statement: 'A system design round is mainly graded on whether the final diagram matches the expected architecture.',
         isTrue: false,
         why: 'There is no single right design; the reasoning from requirements and numbers to trade-offs is what is graded.',
+        twin: {
+          statement: 'A system design round is mainly graded on the reasoning from requirements and numbers to trade-offs.',
+          why: 'There is no single right design to match; the reasoning is what is graded.',
+        },
       },
       {
         statement: 'A back-of-the-envelope estimate is only worth doing if it can change a decision.',
         isTrue: true,
         why: 'Its purpose is to decide things such as whether a cache, a queue or sharding is needed; a number that changes nothing is time lost.',
+        twin: {
+          statement: 'A back-of-the-envelope estimate is worth doing in full even when no decision depends on it.',
+          why: 'Its purpose is to decide things such as whether a cache, a queue or sharding is needed; a number that changes nothing is time lost.',
+        },
       },
     ],
     lesson: {
@@ -1116,6 +1392,18 @@ alertIf(average(lastMinute) > 1_000);`,
     level: 'senior',
     paths: ['fullstack', 'backend'],
     question: 'What is the CAP theorem, and what does it imply for the systems you design?',
+    questionVariants: [
+      {
+        question:
+          'During a sale the shop oversold a console because `POST /orders` decided from a cache one second behind the database. What does this say about consistency, and how would you decide it?',
+        bridge: 'Stale data where only the latest value is safe is a consistency choice made per feature: the practical side of CAP and PACELC.',
+      },
+      {
+        question:
+          'A colleague says CAP means we can only pick two of three, so we picked availability everywhere. What is wrong with that?',
+        bridge: 'The same topic through its common misreading: CAP constrains behaviour during a partition, PACELC covers the normal case, and the choice is per feature.',
+      },
+    ],
     answer:
       'CAP says that when a network partition separates the replicas of a store, the system must choose between consistency, where every read returns the latest write or an error, and availability, where every working node answers, possibly with stale data. Without a partition you can have both, so "pick two of three" is a misreading. PACELC adds the everyday case: else, without a partition, you trade latency against consistency. In practice I choose per feature: taking the last unit of stock reads the PostgreSQL primary and pays the latency, while the stock count on a product page may come from a cache a second old.',
     keyPoints: [
@@ -1155,11 +1443,19 @@ alertIf(average(lastMinute) > 1_000);`,
         statement: 'CAP says a distributed system can only ever have two of consistency, availability and partition tolerance.',
         isTrue: false,
         why: 'It constrains behaviour during a partition only; without one, a system can be both consistent and available.',
+        twin: {
+          statement: 'Without a network partition, a distributed system can be both consistent and available.',
+          why: 'CAP constrains behaviour during a partition only.',
+        },
       },
       {
         statement: 'A store that waits for a remote replica before acknowledging each write trades latency for consistency, even with no partition.',
         isTrue: true,
         why: 'That is the "Else" branch of PACELC: every write pays a cross-region round trip to stay consistent.',
+        twin: {
+          statement: 'A store that waits for a remote replica before acknowledging each write adds no latency when there is no partition.',
+          why: 'That is the "Else" branch of PACELC: every write pays a cross-region round trip to stay consistent.',
+        },
       },
     ],
     lesson: {
@@ -1181,6 +1477,18 @@ alertIf(average(lastMinute) > 1_000);`,
     level: 'senior',
     paths: ['fullstack', 'backend'],
     question: 'How would you design a standalone rate limiter service?',
+    questionVariants: [
+      {
+        question:
+          'At the sale opening, scripts send thousands of checkout attempts a second from a few accounts, and the first in-memory limit let each customer through ten times. How would you design rate limiting?',
+        bridge: 'Abusive bursts and a limit multiplied by the replicas call for a shared rate limiter: a token bucket in Redis, updated atomically.',
+      },
+      {
+        question:
+          'What should happen when the Redis behind your rate limiter goes down, and what should a refused client receive?',
+        bridge: 'The same topic through its edges: refused clients get a 429 with `Retry-After`, and the limiter fails open except for security limits like login attempts.',
+      },
+    ],
     answer:
       'Requirements first: limits per API key, customer or IP, a few milliseconds of added latency at most, correct across every replica, and a clear answer to refused clients. I would use a token bucket, which allows a burst up to its capacity and then a steady refill rate, with each key\'s state in Redis or Valkey. The read, refill and write must be atomic, so they run as one Lua script that also reads the Redis clock. The gateway calls it on each request and answers 429 with `Retry-After` rounded up. If Redis fails, the limiter fails open, except for security limits like login attempts, which fail closed.',
     keyPoints: [
@@ -1220,11 +1528,19 @@ alertIf(average(lastMinute) > 1_000);`,
         statement: 'A fixed window counter can let a client send up to twice the limit in a short span around the window boundary.',
         isTrue: true,
         why: 'The counter resets at the boundary, so a full burst just before it and another just after both pass.',
+        twin: {
+          statement: 'A fixed window counter never lets a client exceed its limit within a short span.',
+          why: 'The counter resets at the boundary, so a full burst just before it and another just after both pass: up to twice the limit.',
+        },
       },
       {
         statement: 'With several API replicas, an in-memory token bucket in each replica enforces the configured limit.',
         isTrue: false,
         why: 'Each replica counts separately, so a client spread over 10 replicas gets up to 10 times the limit.',
+        twin: {
+          statement: 'With several API replicas, an in-memory token bucket in each replica lets a client exceed the configured limit.',
+          why: 'Each replica counts separately, so a client spread over 10 replicas gets up to 10 times the limit.',
+        },
       },
     ],
     codeChoices: [
@@ -1268,6 +1584,18 @@ await redis.set(key, count + 1,
     level: 'senior',
     paths: ['fullstack', 'backend'],
     question: 'How would you design a system for 1 million concurrent users?',
+    questionVariants: [
+      {
+        question:
+          'Marketing expects about a million customers on the storefront at once on Black Friday. How do you prepare the system, and what number do you design for?',
+        bridge: 'A million concurrent users must first become requests per second; then come the CDN, a stateless autoscaled API, caches and a protected database.',
+      },
+      {
+        question:
+          'A colleague reads one million concurrent users as one million requests per second and proposes sharding PostgreSQL. How do you respond?',
+        bridge: 'The same topic through its first trap: concurrent sessions are mostly idle, so estimate the real request rate before choosing the architecture.',
+      },
+    ],
     answer:
       'First I ask what concurrent means: a million open sessions is not a million requests per second. If each user makes a request every 30 seconds, that is about 33,000 per second, plus the peak, and that is what I design for. Public content goes through a CDN. Stateless API replicas autoscale behind a load balancer, with sessions in Redis. Hot reads come from a cache; PostgreSQL takes writes on one primary, with read replicas and a pooler; slow work goes to queues. If users hold live connections, the sockets spread over many pods, with pub/sub between them. Then a load test finds the first bottleneck.',
     keyPoints: [
@@ -1307,11 +1635,19 @@ await redis.set(key, count + 1,
         statement: 'A million concurrent users means the backend must handle a million requests per second.',
         isTrue: false,
         why: 'Concurrent users are mostly idle between actions; at one request every 30 seconds each, that is about 33,000 per second.',
+        twin: {
+          statement: 'A million concurrent users who each make a request every 30 seconds send about 33,000 requests per second.',
+          why: 'Concurrent users are mostly idle between actions: a million divided by 30 is about 33,000.',
+        },
       },
       {
         statement: 'Keeping sessions in a shared store lets any stateless replica serve any user\'s next request.',
         isTrue: true,
         why: 'No replica holds the session in memory, so the load balancer can send each request anywhere.',
+        twin: {
+          statement: 'With sessions in a shared store, each user must still be pinned to the replica that created their session.',
+          why: 'No replica holds the session in memory, so the load balancer can send each request anywhere.',
+        },
       },
     ],
     lesson: {
@@ -1333,6 +1669,18 @@ await redis.set(key, count + 1,
     level: 'senior',
     paths: ['fullstack', 'backend'],
     question: 'How would you ensure exactly-once processing of queue messages?',
+    questionVariants: [
+      {
+        question:
+          'The loyalty service gave a customer their points twice: it crashed after adding them but before deleting the SQS message. How would you make the processing safe?',
+        bridge: 'A redelivery after a crash is at-least-once delivery: exactly-once effects come from a consumer that records the message id with the effect.',
+      },
+      {
+        question:
+          'A colleague says the team switched to a broker with exactly-once delivery, so duplicates are solved. What do you answer?',
+        bridge: 'The same topic through a misconception: delivery over a network is at least once, so exactly-once is built as effects, with idempotency in the consumer.',
+      },
+    ],
     answer:
       'Exactly-once delivery is not available over a network, so I build exactly-once effects instead. The queue delivers at least once: the consumer acknowledges only after the work, so a crash means a redelivery, never a loss. Then the consumer is idempotent. Some effects are idempotent by nature, like setting an order\'s status to `paid`. For the others, I insert the message id into a processed-messages table in the same transaction as the effect, and the primary key rejects a duplicate. On the producer side, a transactional outbox makes sure the event is published at all. Messages that keep failing go to a dead-letter queue with an alert.',
     keyPoints: [
@@ -1372,11 +1720,19 @@ await redis.set(key, count + 1,
         statement: 'Kafka\'s exactly-once support also guarantees exactly-once effects in your PostgreSQL database.',
         isTrue: false,
         why: 'It covers read-process-write between Kafka topics; other systems need their own idempotency.',
+        twin: {
+          statement: 'Kafka\'s exactly-once support does not cover effects in your PostgreSQL database.',
+          why: 'It covers read-process-write between Kafka topics; other systems need their own idempotency.',
+        },
       },
       {
         statement: 'Acknowledging a message only after the work is done gives at-least-once delivery.',
         isTrue: true,
         why: 'A crash before the acknowledgement makes the broker deliver it again, so nothing is lost but duplicates happen.',
+        twin: {
+          statement: 'Acknowledging a message only after the work is done gives at-most-once delivery.',
+          why: 'A crash before the acknowledgement makes the broker deliver it again: nothing is lost but duplicates happen, which is at least once.',
+        },
       },
     ],
     codeChoices: [
@@ -1423,6 +1779,18 @@ await addPoints(db, customerId, points);`,
     level: 'senior',
     paths: ['fullstack', 'backend'],
     question: 'How would you design a real-time leaderboard for millions of players?',
+    questionVariants: [
+      {
+        question:
+          'The loyalty game\'s "your rank" runs `SELECT count(*)` over 3 million players and takes about a second at peak. How would you redesign the leaderboard?',
+        bridge: 'Ranking millions of players fast is the leaderboard design: a Redis sorted set fed by events, with the database as the source of truth.',
+      },
+      {
+        question:
+          'Which data structure would you use for a leaderboard that must return both the top 100 and any player\'s own rank, and what does each operation cost?',
+        bridge: 'The same topic through the data structure: a sorted set keeps members ordered, so updates, ranks and top-N reads are logarithmic.',
+      },
+    ],
     answer:
       'I clarify which boards exist, global, weekly or per region, how fresh they must be, and whether players need their own rank or only the top 100. The core is a Redis sorted set: members are player ids, scores are points, and it stays ordered, so updating a score with `ZADD`, reading a rank with `ZREVRANK` and the top 100 with `ZRANGE` and `REV` are all logarithmic in the number of players, plus the rows returned. PostgreSQL stays the source of truth: each score change commits with an outbox event, a consumer applies it to the sorted set, and the set can always be rebuilt from the table.',
     keyPoints: [
@@ -1462,16 +1830,28 @@ await addPoints(db, customerId, points);`,
         statement: 'In a Redis sorted set, members with the same score are ordered lexicographically by member.',
         isTrue: true,
         why: 'The Redis docs say equal scores are ordered by the member\'s bytes, so ties need an explicit rule when order matters.',
+        twin: {
+          statement: 'In a Redis sorted set, members with the same score keep the order in which they were added.',
+          why: 'The Redis docs say equal scores are ordered lexicographically by member, so ties need an explicit rule when order matters.',
+        },
       },
       {
         statement: 'Getting a player\'s rank from a Redis sorted set requires scanning all its members.',
         isTrue: false,
         why: 'A sorted set keeps a skip list, so `ZRANK` and `ZREVRANK` run in O(log N).',
+        twin: {
+          statement: 'Getting a player\'s rank from a Redis sorted set takes O(log N), with no scan of the members.',
+          why: 'A sorted set keeps a skip list, so `ZRANK` and `ZREVRANK` run in O(log N).',
+        },
       },
       {
         statement: 'A Redis sorted set score can hold any 64-bit integer exactly.',
         isTrue: false,
         why: 'Scores are 64-bit doubles, exact only for integers between -(2^53) and 2^53.',
+        twin: {
+          statement: 'A Redis sorted set score holds integers exactly only between -(2^53) and 2^53.',
+          why: 'Scores are 64-bit doubles, so larger integers lose precision.',
+        },
       },
     ],
     codeChoices: [
@@ -1506,6 +1886,18 @@ ZADD leaderboard:weekly 1480 player:42`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How would you design deduplication for high-volume ingestion?',
+    questionVariants: [
+      {
+        question:
+          'Mobile retries duplicate about 2% of the storefront\'s 50 million daily analytics events, inflating conversion figures. How would you deduplicate them?',
+        bridge: 'Duplicates at high volume call for a dedup design: an identity key, a bounded window, an exact check, and a Bloom filter in front.',
+      },
+      {
+        question:
+          'A colleague proposes a unique index on every event id, kept forever, to drop duplicates. What questions would you ask, and what would you design?',
+        bridge: 'The same topic through its first questions: what counts as a duplicate, how long retries keep arriving, and how to check cheaply at volume.',
+      },
+    ],
     answer:
       'First I ask what a duplicate is and what a missed one costs. If the source sends an event id, that is the key; otherwise I hash the fields that define identity. Then the window: retries arrive within hours, so keys can expire. For an exact check, a unique constraint where the data lands, or `SET` with `NX` and an expiry in Redis for a short window. At very high volume, a Bloom filter in memory answers "definitely new" for most events with about 10 bits each, and only the "maybe seen" ones pay the exact lookup. The final store stays idempotent on the event id.',
     keyPoints: [
@@ -1545,11 +1937,19 @@ ZADD leaderboard:weekly 1480 player:42`,
         statement: 'A Bloom filter can report an item as absent when it was actually added.',
         isTrue: false,
         why: 'It has no false negatives: adding the item set all its bits, so a lookup always answers "maybe present".',
+        twin: {
+          statement: 'A Bloom filter never reports an item as absent once it has been added.',
+          why: 'Adding the item set all its bits, so a lookup always answers "maybe present".',
+        },
       },
       {
         statement: 'Doubling a Bloom filter\'s bits per item, with the hash count re-tuned, lowers its false-positive rate by far more than half.',
         isTrue: true,
         why: 'The rate falls exponentially with bits per item: about 1% at 9.6 bits, about 0.01% at 19.2 bits.',
+        twin: {
+          statement: 'Doubling a Bloom filter\'s bits per item, with the hash count re-tuned, only halves its false-positive rate.',
+          why: 'The rate falls exponentially with bits per item: about 1% at 9.6 bits, about 0.01% at 19.2 bits.',
+        },
       },
     ],
     codeChoices: [
@@ -1582,6 +1982,18 @@ SET dedup:evt_8f2c 1 NX`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How would you design driver matching for a ride-sharing app?',
+    questionVariants: [
+      {
+        question:
+          'The delivery partner offered two same-day orders to the same courier at once, and its database struggles with courier positions sent every 4 seconds. How would you design the matching?',
+        bridge: 'Frequent position writes and a double-booked courier are the two cores of ride matching: an in-memory geo index and an atomic claim.',
+      },
+      {
+        question:
+          'Why not store every driver position in PostgreSQL and match with a nearest-neighbour query? Estimate the load and explain your design.',
+        bridge: 'The same topic through estimates: a million drivers every 4 seconds is 250,000 writes a second, so the latest positions live in an in-memory geo index.',
+      },
+    ],
     answer:
       'I clarify scale and rules: how many drivers are online, how often they send a position, how fast a match must be. With a million drivers sending a position every 4 seconds, that is 250,000 location writes per second, so positions live in memory, in a geospatial index such as a Redis geo set per city, not in PostgreSQL. To match, I search drivers within a radius with `GEOSEARCH`, rank them by distance or estimated arrival time, and offer the ride to the best one. The key decision is that the driver is claimed atomically, so two riders never get the same driver, and every offer expires.',
     keyPoints: [
@@ -1621,11 +2033,19 @@ SET dedup:evt_8f2c 1 NX`,
         statement: 'Driver positions should be written durably to the main database at every update.',
         isTrue: false,
         why: 'A position is stale within seconds anyway; keep the latest in memory and archive history asynchronously.',
+        twin: {
+          statement: 'Driver positions are better kept in memory, with their history archived asynchronously, than written durably at every update.',
+          why: 'A position is stale within seconds anyway.',
+        },
       },
       {
         statement: 'Reading that a driver is available and then writing "offered" in a second step can double-book the driver.',
         isTrue: true,
         why: 'It is a check-then-act race; `SET` with `NX` or a conditional update decides in one step.',
+        twin: {
+          statement: 'Reading that a driver is available, then writing "offered" in a second step, cannot double-book the driver.',
+          why: 'It is a check-then-act race; `SET` with `NX` or a conditional update decides in one step.',
+        },
       },
     ],
     lesson: {
@@ -1647,6 +2067,18 @@ SET dedup:evt_8f2c 1 NX`,
     level: 'senior',
     paths: ['backend', 'fullstack'],
     question: 'How would you reliably process webhooks from third parties?',
+    questionVariants: [
+      {
+        question:
+          'The payment provider retried a webhook because the Orders API answered too slowly, and the customer got two confirmation e-mails. How would you redesign `POST /webhooks/payments`?',
+        bridge: 'Retries after a slow answer are the webhook problem: verify, store by event id, answer 2xx fast, and process asynchronously and idempotently.',
+      },
+      {
+        question:
+          'A provider says its webhooks may arrive out of order and be retried for days. What does that change in how you write the handler?',
+        bridge: 'The same topic through delivery guarantees: idempotency by event id, and a handler that checks the state or refetches the object instead of assuming order.',
+      },
+    ],
     answer:
       'I split receiving from processing. The endpoint verifies the signature over the raw body, with a timestamp tolerance against replays, stores the event under a unique constraint on its id, and answers 2xx at once. Providers retry anything else, often for days, so the endpoint must be fast and idempotent: a known id is acknowledged and skipped. A worker then processes stored events, with retries, backoff and a dead-letter state. Delivery order is not guaranteed, so the handler applies a change only if it moves the state forward, or fetches the current object from the provider, instead of assuming order.',
     keyPoints: [
@@ -1686,11 +2118,19 @@ SET dedup:evt_8f2c 1 NX`,
         statement: 'A webhook endpoint should answer 2xx quickly and do slow work afterwards.',
         isTrue: true,
         why: 'Providers treat a slow or non-2xx answer as a failure and retry, which creates duplicates.',
+        twin: {
+          statement: 'A webhook endpoint should finish all its work before answering, even if that takes several seconds.',
+          why: 'Providers treat a slow or non-2xx answer as a failure and retry, which creates duplicates.',
+        },
       },
       {
         statement: 'Verifying the signature over the parsed and re-serialised JSON body is as good as over the raw body.',
         isTrue: false,
         why: 'Re-serialising can change the bytes, for example the whitespace, so a valid signature no longer matches.',
+        twin: {
+          statement: 'A webhook signature must be verified over the raw body, not over re-serialised JSON.',
+          why: 'Re-serialising can change the bytes, for example the whitespace, so a valid signature no longer matches.',
+        },
       },
     ],
     codeChoices: [
