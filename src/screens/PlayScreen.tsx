@@ -5,7 +5,7 @@ import { McqExercise } from '../exercises/McqExercise.tsx';
 import { OpenQuestion } from '../exercises/OpenQuestion.tsx';
 import { TrapExercise } from '../exercises/TrapExercise.tsx';
 import type { ExerciseResult } from '../exercises/types.ts';
-import { exerciseKey, nextExercises, type Exercise } from '../play/engine.ts';
+import { exerciseKey, isGraded, nextExercises, type Exercise } from '../play/engine.ts';
 import { countHandled, isHandled, recordAnswer, recordLesson, type Progress } from '../play/progress.ts';
 import { LessonView } from '../ui/LessonView.tsx';
 
@@ -26,6 +26,7 @@ export function PlayScreen({
   progress,
   onProgress,
   onStop,
+  now,
   random = Math.random,
 }: {
   cards: Card[];
@@ -34,9 +35,11 @@ export function PlayScreen({
   progress: Progress;
   onProgress: (progress: Progress) => void;
   onStop: () => void;
+  /** The clock in milliseconds, injected so tests can freeze it. */
+  now: () => number;
   random?: () => number;
 }) {
-  const [queue, setQueue] = useState<Exercise[]>(() => nextExercises(cards, MCQS_BY_CARD, progress, random, { teach }));
+  const [queue, setQueue] = useState<Exercise[]>(() => nextExercises(cards, MCQS_BY_CARD, progress, { now: now(), random, teach }));
   const [turn, setTurn] = useState(0);
   const [reviewing, setReviewing] = useState(false);
   const [sitting, setSitting] = useState({ answered: 0, correct: 0 });
@@ -44,11 +47,11 @@ export function PlayScreen({
 
   const current = queue[0];
   const card = current ? CARDS_BY_ID.get(current.cardId) : undefined;
-  const handledShare = Math.round((countHandled(cards.map((c) => c.id), progress) / Math.max(1, cards.length)) * 100);
+  const handledShare = Math.round((countHandled(cards.map((c) => c.id), progress, now()) / Math.max(1, cards.length)) * 100);
 
   function advance(updated: Progress) {
     const rest = queue.slice(1);
-    setQueue(rest.length > 0 ? rest : nextExercises(cards, MCQS_BY_CARD, updated, random, { teach }));
+    setQueue(rest.length > 0 ? rest : nextExercises(cards, MCQS_BY_CARD, updated, { now: now(), random, teach }));
     setTurn((value) => value + 1);
     setReviewing(false);
   }
@@ -61,11 +64,12 @@ export function PlayScreen({
   }
 
   function finishQuestion(exercise: Exercise, { correct }: ExerciseResult) {
-    const wasHandled = isHandled(progress.topics[exercise.cardId]);
-    const updated = recordAnswer(progress, exercise.cardId, exerciseKey(exercise), correct);
+    const at = now();
+    const wasHandled = isHandled(progress.topics[exercise.cardId], at);
+    const updated = recordAnswer(progress, exercise.cardId, exerciseKey(exercise), { correct, graded: isGraded(exercise), at });
     onProgress(updated);
     setSitting((value) => ({ answered: value.answered + 1, correct: value.correct + (correct ? 1 : 0) }));
-    const nowHandled = !wasHandled && isHandled(updated.topics[exercise.cardId]);
+    const nowHandled = !wasHandled && isHandled(updated.topics[exercise.cardId], at);
     setJustHandled(nowHandled ? (CARDS_BY_ID.get(exercise.cardId)?.topic ?? null) : null);
     advance(updated);
   }

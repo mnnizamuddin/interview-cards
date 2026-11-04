@@ -40,7 +40,7 @@ describe('App', () => {
     }
     await user.click(screen.getByRole('button', { name: 'I had it' }));
 
-    expect(store.saved()).toMatchObject({ step: 1, topics: { 'js-scope': { lessonSeen: false, results: [true] } } });
+    expect(store.saved()).toMatchObject({ step: 1, topics: { 'js-scope': { lessonSeen: false, results: [{ correct: true, graded: false }] } } });
     expect(screen.queryByText(/^Lesson ·/)).not.toBeInTheDocument();
     expect(screen.getByLabelText('1 right out of 1 this time')).toBeInTheDocument();
   });
@@ -84,7 +84,7 @@ describe('App', () => {
     }
 
     // The main question and up to four follow-ups of the topic the same random draw picks.
-    const expected = pickMockInterview(CARDS, emptyProgress(), random)!.questions.length;
+    const expected = pickMockInterview(CARDS, emptyProgress(), now().getTime(), random)!.questions.length;
     expect(answered).toBe(expected);
     expect(screen.getByRole('heading', { name: `You had ${expected - 1} of ${expected}` })).toBeInTheDocument();
     expect(store.saved().step).toBe(expected);

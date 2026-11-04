@@ -26,9 +26,10 @@ export type MockInterview = {
 export function pickMockInterview(
   cards: readonly Card[],
   progress: Progress,
+  now: number,
   random: () => number = Math.random,
 ): MockInterview | undefined {
-  const notHandled = cards.filter((card) => !isHandled(progress.topics[card.id]));
+  const notHandled = cards.filter((card) => !isHandled(progress.topics[card.id], now));
   const pool = notHandled.length > 0 ? notHandled : cards;
   const card = pool[Math.floor(random() * pool.length)];
   if (!card) {

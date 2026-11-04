@@ -37,19 +37,31 @@ export function exerciseKey(exercise: Exercise): string {
   }
 }
 
+/** True for exercises the app grades itself; open questions and follow-ups are self-checked. */
+export function isGraded(exercise: Exercise): boolean {
+  return exercise.kind === 'trap' || exercise.kind === 'mcq';
+}
+
+export type NextOptions = {
+  /** The current time in milliseconds, which decides whether a handled topic has gone stale. */
+  now: number;
+  /** Returns a number in [0, 1); injected so tests get a fixed choice. */
+  random?: () => number;
+  /** Unit practice (`true`, the default) opens a new topic with its lesson; the main mode does not. */
+  teach?: boolean;
+};
+
 /**
  * Returns the next exercises: one question, preceded by the topic's lesson the first time the
- * topic comes up when `teach` is set (unit practice). The main mode passes `teach: false` and
- * gets questions only. Returns `[]` only when `cards` is empty.
+ * topic comes up when `teach` is set. Returns `[]` only when `cards` is empty.
  */
 export function nextExercises(
   cards: readonly Card[],
   mcqsByCard: ReadonlyMap<string, readonly Mcq[]>,
   progress: Progress,
-  random: () => number = Math.random,
-  { teach = true }: { teach?: boolean } = {},
+  { now, random = Math.random, teach = true }: NextOptions,
 ): Exercise[] {
-  const card = pickTopic(cards, progress, random);
+  const card = pickTopic(cards, progress, random, now);
   if (!card) {
     return [];
   }
@@ -64,18 +76,19 @@ export function nextExercises(
  * 2. now and then, a rested handled topic is checked again;
  * 3. while fewer than {@link TOPICS_IN_PROGRESS} topics are being learned, a new one starts;
  * 4. otherwise, the topic being learned that was seen longest ago, rested ones first.
+ * A handled topic that has gone stale counts as being learned, so it comes back for a check.
  */
-function pickTopic(cards: readonly Card[], progress: Progress, random: () => number): Card | undefined {
+function pickTopic(cards: readonly Card[], progress: Progress, random: () => number, now: number): Card | undefined {
   const stateOf = (card: Card) => progress.topics[card.id];
   const byLastStep = (a: Card, b: Card) => stateOf(a)!.lastStep - stateOf(b)!.lastStep;
   const hasRested = (card: Card) => progress.step - stateOf(card)!.lastStep > REST_STEPS;
 
   const fresh = cards.filter((card) => !stateOf(card));
-  const learning = cards.filter((card) => stateOf(card) && !isHandled(stateOf(card))).toSorted(byLastStep);
-  const handled = cards.filter((card) => isHandled(stateOf(card))).toSorted(byLastStep);
+  const learning = cards.filter((card) => stateOf(card) && !isHandled(stateOf(card), now)).toSorted(byLastStep);
+  const handled = cards.filter((card) => isHandled(stateOf(card), now)).toSorted(byLastStep);
   const restedLearning = learning.filter(hasRested);
   const restedHandled = handled.filter(hasRested);
-  const missed = restedLearning.filter((card) => stateOf(card)!.results.at(-1) === false);
+  const missed = restedLearning.filter((card) => stateOf(card)!.results.at(-1)?.correct === false);
 
   if (missed.length > 0) {
     return missed[0];

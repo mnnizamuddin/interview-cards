@@ -20,15 +20,18 @@ export function MockInterviewScreen({
   progress,
   onProgress,
   onExit,
+  now,
   random = Math.random,
 }: {
   cards: Card[];
   progress: Progress;
   onProgress: (progress: Progress) => void;
   onExit: () => void;
+  /** The clock in milliseconds, injected so tests can freeze it. */
+  now: () => number;
   random?: () => number;
 }) {
-  const [interview, setInterview] = useState<MockInterview | undefined>(() => pickMockInterview(cards, progress, random));
+  const [interview, setInterview] = useState<MockInterview | undefined>(() => pickMockInterview(cards, progress, now(), random));
   const [index, setIndex] = useState(0);
   const [results, setResults] = useState<boolean[]>([]);
   const [reviewing, setReviewing] = useState(false);
@@ -42,7 +45,8 @@ export function MockInterviewScreen({
   const current = interview.questions[index];
 
   function answer(question: Exercise, correct: boolean) {
-    onProgress(recordAnswer(progress, question.cardId, exerciseKey(question), correct));
+    // Interview questions are all open, so self-checked.
+    onProgress(recordAnswer(progress, question.cardId, exerciseKey(question), { correct, graded: false, at: now() }));
     setResults((previous) => [...previous, correct]);
     setIndex((previous) => previous + 1);
   }
@@ -50,7 +54,7 @@ export function MockInterviewScreen({
   /** Starts another interview, on a different topic whenever there is one. */
   function startNext() {
     const others = cards.filter((candidate) => candidate.id !== interview?.cardId);
-    setInterview(pickMockInterview(others.length > 0 ? others : cards, progress, random));
+    setInterview(pickMockInterview(others.length > 0 ? others : cards, progress, now(), random));
     setIndex(0);
     setResults([]);
     setReviewing(false);

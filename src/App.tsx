@@ -20,7 +20,8 @@ type Screen =
   | { name: 'lesson'; cardId: string };
 
 /**
- * @param now The clock, used only to name backup files; injected so tests can freeze it.
+ * @param now The clock: it decides when a handled topic needs a check and names backup files;
+ *   injected so tests can freeze it.
  * @param random The random source for the occasional check on a handled topic; injected for tests.
  */
 export function App({ store, now, random }: { store: ProgressStore; now: () => Date; random?: () => number }) {
@@ -61,6 +62,7 @@ export function App({ store, now, random }: { store: ProgressStore; now: () => D
         progress={progress}
         onProgress={setProgress}
         onStop={goHome}
+        now={() => now().getTime()}
         random={random}
       />
     );
@@ -73,6 +75,7 @@ export function App({ store, now, random }: { store: ProgressStore; now: () => D
         progress={progress}
         onProgress={setProgress}
         onExit={goHome}
+        now={() => now().getTime()}
         random={random}
       />
     );
@@ -95,6 +98,7 @@ export function App({ store, now, random }: { store: ProgressStore; now: () => D
       cards={CARDS}
       progress={progress}
       today={toDayKey(now())}
+      now={now().getTime()}
       onPlay={(unitId) => setScreen({ name: 'play', unitId })}
       onMockInterview={(unitId) => setScreen({ name: 'mock', unitId })}
       onOpenLesson={(cardId) => setScreen({ name: 'lesson', cardId })}

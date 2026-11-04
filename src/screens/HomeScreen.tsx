@@ -1,24 +1,17 @@
 import { useRef } from 'react';
 import type { Card, Unit } from '../content/types.ts';
-import { countHandled, isHandled, isProgress, type Progress } from '../play/progress.ts';
+import { countHandled, HANDLED_FOR_MS, toCurrentProgress, topicStatus, type Progress, type TopicStatus } from '../play/progress.ts';
 import { Button } from '../ui/Button.tsx';
 import { Text } from '../ui/Text.tsx';
-
-type TopicStatus = 'new' | 'learning' | 'handled';
 
 const STATUS_STYLES: Record<TopicStatus, { label: string; dot: string }> = {
   new: { label: 'New', dot: 'bg-line' },
   learning: { label: 'Learning', dot: 'bg-gold' },
   handled: { label: 'Handled', dot: 'bg-brand' },
+  stale: { label: 'Needs a check', dot: 'bg-sky-500' },
 };
 
-function topicStatus(card: Card, progress: Progress): TopicStatus {
-  const state = progress.topics[card.id];
-  if (!state) {
-    return 'new';
-  }
-  return isHandled(state) ? 'handled' : 'learning';
-}
+const HANDLED_FOR_DAYS = HANDLED_FOR_MS / (24 * 60 * 60 * 1000);
 
 function percent(part: number, total: number): number {
   return Math.round((part / Math.max(1, total)) * 100);
@@ -29,6 +22,7 @@ export function HomeScreen({
   cards,
   progress,
   today,
+  now,
   onPlay,
   onMockInterview,
   onOpenLesson,
@@ -39,6 +33,8 @@ export function HomeScreen({
   progress: Progress;
   /** The current day as `YYYY-MM-DD`, used to name the backup file. */
   today: string;
+  /** The current time in milliseconds: handled topics older than the validity need a check. */
+  now: number;
   /** Starts playing on one unit, or on every topic when `unitId` is undefined. */
   onPlay: (unitId?: string) => void;
   /** Starts a mock interview on a topic from one unit, or from every unit when `unitId` is undefined. */
@@ -46,7 +42,7 @@ export function HomeScreen({
   onOpenLesson: (cardId: string) => void;
   onImport: (progress: Progress) => void;
 }) {
-  const handled = countHandled(cards.map((card) => card.id), progress);
+  const handled = countHandled(cards.map((card) => card.id), progress, now);
   const share = percent(handled, cards.length);
   const answered = Object.values(progress.topics).reduce((sum, topic) => sum + topic.answered, 0);
   const correct = Object.values(progress.topics).reduce((sum, topic) => sum + topic.correct, 0);
@@ -76,14 +72,14 @@ export function HomeScreen({
         <Button block variant="secondary" className="mt-3" onClick={() => onMockInterview()}>
           Mock interview
         </Button>
-        <p className="mt-3 text-center text-xs text-muted">A topic counts once your last 3 answers on it are right.</p>
+        <p className="mt-3 text-center text-xs text-muted">A topic counts once your last 3 answers on it are right, at least one of them a true/false or quick check, and for {HANDLED_FOR_DAYS} days after your last answer.</p>
       </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-extrabold">Units</h2>
         {units.map((unit) => {
           const unitCards = cards.filter((card) => card.unit === unit.id);
-          const unitHandled = countHandled(unitCards.map((card) => card.id), progress);
+          const unitHandled = countHandled(unitCards.map((card) => card.id), progress, now);
           const unitShare = percent(unitHandled, unitCards.length);
           return (
             <details key={unit.id} className="unit rounded-2xl border-2 border-line">
@@ -109,7 +105,7 @@ export function HomeScreen({
               </div>
               <ul className="flex flex-col gap-2 px-3 pb-3">
                 {unitCards.map((card) => {
-                  const status = STATUS_STYLES[topicStatus(card, progress)];
+                  const status = STATUS_STYLES[topicStatus(progress.topics[card.id], now)];
                   return (
                     <li key={card.id}>
                       <button
@@ -130,13 +126,13 @@ export function HomeScreen({
         })}
       </section>
 
-      <BackupSection progress={progress} today={today} onImport={onImport} />
+      <BackupSection progress={progress} today={today} now={now} onImport={onImport} />
     </div>
   );
 }
 
 /** Progress lives on this device only; the backup file is how it survives a reset or a new phone. */
-function BackupSection({ progress, today, onImport }: { progress: Progress; today: string; onImport: (progress: Progress) => void }) {
+function BackupSection({ progress, today, now, onImport }: { progress: Progress; today: string; now: number; onImport: (progress: Progress) => void }) {
   const fileInput = useRef<HTMLInputElement>(null);
 
   function exportProgress() {
@@ -150,8 +146,8 @@ function BackupSection({ progress, today, onImport }: { progress: Progress; toda
 
   async function importProgress(file: File) {
     try {
-      const parsed: unknown = JSON.parse(await file.text());
-      if (!isProgress(parsed)) {
+      const parsed = toCurrentProgress(JSON.parse(await file.text()), now);
+      if (!parsed) {
         window.alert('This file is not an Interview Cards backup.');
         return;
       }

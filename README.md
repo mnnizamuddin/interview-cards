@@ -10,7 +10,7 @@ There are 106 topics, covering every question of Mocklingo’s full-stack list. 
 - The engine (`src/play/engine.ts`) keeps about 3 topics in progress at a time.
 - A topic whose last answer was wrong comes back after a short rest; now and then a handled topic is checked again (15%).
 - Each topic cycles through its questions, the one shown longest ago first.
-- A topic is **handled** when your last 3 answers on it were right. The home screen shows the share handled, overall and per unit.
+- A topic is **handled** when your last 3 answers on it were right, at least one of them graded by the app (a true/false trap or a quick check), and for 3 days after your last answer. After that it shows as "Needs a check" and comes back in the stream until you answer it again. The home screen shows the share handled, overall and per unit.
 - Lessons are also browsable from each unit's topic list.
 - "Play this unit" limits the stream to one unit.
 - **Mock interview** (home screen, or per unit) picks a topic you do not handle yet and asks its main question, then up to 4 follow-ups in a row, with no lesson until the summary at the end. Answers count toward the topic like any other.

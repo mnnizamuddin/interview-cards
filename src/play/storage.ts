@@ -1,4 +1,4 @@
-import { emptyProgress, isProgress, type Progress } from './progress.ts';
+import { emptyProgress, toCurrentProgress, type Progress } from './progress.ts';
 
 /**
  * Keeps the progress document in IndexedDB, on this device only. One object store, one key:
@@ -38,9 +38,10 @@ function run<T>(mode: IDBTransactionMode, action: (store: IDBObjectStore) => IDB
   );
 }
 
+/** Loads the stored progress, upgraded to the current format, or an empty one. */
 export async function loadProgress(): Promise<Progress> {
   const stored: unknown = await run('readonly', (store) => store.get(KEY));
-  return isProgress(stored) ? stored : emptyProgress();
+  return toCurrentProgress(stored, Date.now()) ?? emptyProgress();
 }
 
 export async function saveProgress(progress: Progress): Promise<void> {
