@@ -21,7 +21,7 @@ const GRAMMARS: Record<string, string> = {
 };
 
 const THEME: PrismTheme = {
-  plain: { color: 'var(--text)', backgroundColor: 'transparent' },
+  plain: { color: 'var(--code-text)', backgroundColor: 'transparent' },
   styles: [
     { types: ['comment', 'prolog', 'doctype', 'cdata'], style: { color: 'var(--tok-comment)', fontStyle: 'italic' } },
     { types: ['keyword', 'atrule', 'important', 'selector'], style: { color: 'var(--tok-keyword)' } },
@@ -55,7 +55,7 @@ export function CodeBlock({
           <code className="table w-full">
             {tokens.map((line, index) => (
               <span key={index} {...getLineProps({ line })} className="table-row">
-                <span aria-hidden className="table-cell select-none pr-3 text-right text-[0.9em] text-muted opacity-60">
+                <span aria-hidden className="table-cell select-none pr-3 text-right text-[0.9em] text-[color:var(--tok-comment)]">
                   {index + 1}
                 </span>
                 <span className="table-cell">

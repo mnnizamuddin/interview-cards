@@ -33,7 +33,7 @@ export function McqExercise({
 
   function optionStyle(index: number): string {
     if (!checked) {
-      return index === selected ? 'border-brand bg-brand-soft ring-2 ring-brand/30' : 'border-line bg-card';
+      return index === selected ? 'border-brand bg-brand-soft' : 'border-line bg-card';
     }
     if (index === mcq.answer) {
       return 'border-success bg-success-soft';
@@ -43,12 +43,12 @@ export function McqExercise({
 
   function badgeStyle(index: number): string {
     if (checked && index === mcq.answer) {
-      return 'bg-success text-white';
+      return 'border-success bg-success text-white';
     }
     if (checked && index === selected) {
-      return 'bg-danger text-white';
+      return 'border-danger bg-danger text-white';
     }
-    return index === selected ? 'bg-brand text-white' : 'bg-surface text-muted';
+    return index === selected ? 'border-brand-strong bg-brand-strong text-white' : 'border-line bg-card text-muted';
   }
 
   return (
@@ -68,9 +68,9 @@ export function McqExercise({
               disabled={checked}
               aria-pressed={selected === index}
               onClick={() => setSelected(index)}
-              className={`press flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left ${optionStyle(index)}`}
+              className={`press flex w-full items-center gap-3 rounded-2xl border-2 px-3 py-3 text-left font-semibold ${optionStyle(index)}`}
             >
-              <span aria-hidden className={`grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold ${badgeStyle(index)}`}>
+              <span aria-hidden className={`grid size-9 shrink-0 place-items-center rounded-xl border-2 text-sm font-extrabold ${badgeStyle(index)}`}>
                 {LETTERS[position]}
               </span>
               <span>

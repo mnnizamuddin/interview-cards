@@ -1,5 +1,5 @@
 /**
- * Draws the app icon (a white speech bubble with three dots on blue) as PNG files, with no
+ * Draws the app icon (a white speech bubble with three dots on orange) as PNG files, with no
  * image library: pixels are computed, supersampled for smooth edges, and encoded with node:zlib.
  * The bubble stays inside the central 80% circle, so the same image works as a maskable icon.
  *
@@ -11,7 +11,7 @@ import { deflateSync } from 'node:zlib';
 
 type Rgb = [number, number, number];
 
-const BLUE: Rgb = [37, 99, 235];
+const ORANGE: Rgb = [234, 88, 12];
 const WHITE: Rgb = [255, 255, 255];
 const SAMPLES = 4;
 
@@ -20,10 +20,10 @@ function colourAt(x: number, y: number): Rgb {
   const inBubble = ((x - 0.5) / 0.31) ** 2 + ((y - 0.46) / 0.24) ** 2 <= 1;
   const inTail = y >= 0.6 && y <= 0.76 && x >= 0.3 && x <= 0.42 && x - 0.3 <= (0.76 - y) * 0.75;
   if (!inBubble && !inTail) {
-    return BLUE;
+    return ORANGE;
   }
   const inDot = [0.38, 0.5, 0.62].some((dotX) => (x - dotX) ** 2 + (y - 0.46) ** 2 <= 0.045 ** 2);
-  return inDot ? BLUE : WHITE;
+  return inDot ? ORANGE : WHITE;
 }
 
 function renderPixels(size: number): Buffer {

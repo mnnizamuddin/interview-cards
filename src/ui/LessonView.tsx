@@ -108,7 +108,7 @@ function Takeaways({ card }: { card: Card }) {
   if (lesson.takeaways) {
     return (
       <LessonSection title="Key takeaways">
-        <div className="overflow-hidden rounded-3xl border border-line bg-card shadow-sm">
+        <div className="overflow-hidden rounded-3xl border-2 border-b-4 border-line bg-card">
           {/* On a phone each row stacks, term above detail, so a long code term never squeezes the
               detail into a thin column; from tablet width it is a two-column table. The explicit
               roles keep it a table for screen readers when the cells are displayed as blocks. */}
@@ -116,7 +116,7 @@ function Takeaways({ card }: { card: Card }) {
             <tbody role="rowgroup" className="block sm:table-row-group">
               {lesson.takeaways.map((row) => (
                 <tr key={row.term} role="row" className="block border-b border-line align-top last:border-b-0 sm:table-row">
-                  <th role="rowheader" scope="row" className="block px-4 pb-1 pt-3 font-semibold text-brand sm:table-cell sm:w-[34%] sm:py-3">
+                  <th role="rowheader" scope="row" className="block px-4 pb-1 pt-3 font-semibold text-brand-ink sm:table-cell sm:w-[34%] sm:py-3">
                     <Text>{row.term}</Text>
                   </th>
                   <td role="cell" className="block px-4 pb-3 leading-snug sm:table-cell sm:py-3 sm:pl-0">
@@ -136,10 +136,10 @@ function Takeaways({ card }: { card: Card }) {
   }
   return (
     <LessonSection title="Key takeaways">
-      <ol className="flex flex-col divide-y divide-line overflow-hidden rounded-3xl border border-line bg-card shadow-sm">
+      <ol className="flex flex-col divide-y divide-line overflow-hidden rounded-3xl border-2 border-b-4 border-line bg-card">
         {rest.map((point, index) => (
           <li key={point} className="flex gap-3 px-4 py-3">
-            <span aria-hidden className="font-bold text-brand">
+            <span aria-hidden className="font-bold text-brand-ink">
               {index + 1}
             </span>
             <span className="leading-snug">
@@ -157,7 +157,7 @@ function InlineCheck({ trap }: { trap: Trap }) {
   const [choice, setChoice] = useState<boolean | null>(null);
   const correct = choice === trap.isTrue;
   return (
-    <div className="flex flex-col gap-3 rounded-3xl border border-line bg-card p-4 shadow-sm">
+    <div className="flex flex-col gap-3 rounded-3xl border-2 border-b-4 border-line bg-card p-4">
       <p className="font-semibold">
         True or false? <Text>{trap.statement}</Text>
       </p>
@@ -172,7 +172,7 @@ function InlineCheck({ trap }: { trap: Trap }) {
         </div>
       ) : (
         <div role="status" className={`rounded-2xl p-3 ${correct ? 'bg-success-soft' : 'bg-danger-soft'}`}>
-          <p className={`font-bold ${correct ? 'text-success' : 'text-danger'}`}>{correct ? 'Correct!' : `It's ${trap.isTrue ? 'true' : 'false'}`}</p>
+          <p className={`font-bold ${correct ? 'text-success-ink' : 'text-danger-ink'}`}>{correct ? 'Correct!' : `It's ${trap.isTrue ? 'true' : 'false'}`}</p>
           <p className="text-[0.95rem]">
             <Text>{trap.why}</Text>
           </p>

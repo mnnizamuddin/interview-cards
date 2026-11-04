@@ -4,17 +4,26 @@
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 @theme {
-  /* Blue is the brand: buttons, progress, selection. Green only ever means "correct". */
-  --color-brand: #2563eb;
-  --color-brand-dark: #1d4ed8;
-  --color-brand-soft: #dbeafe;
+  /*
+   * Orange is the brand. `brand` is the vivid fill (progress, highlights, borders), `brand-strong`
+   * the face of buttons with white text (3.6:1, so their text is large and bold), `brand-edge` the
+   * darker 3D edge under them, `brand-ink` the orange for text. Green only ever means "correct".
+   */
+  --color-brand: #f97316;
+  --color-brand-strong: #ea580c;
+  --color-brand-edge: #c2410c;
+  --color-brand-ink: #c2410c;
+  --color-brand-soft: #ffedd5;
   --color-success: #16a34a;
+  --color-success-edge: #15803d;
   --color-success-soft: #dcfce7;
+  --color-success-ink: #15803d;
   --color-danger: #dc2626;
-  --color-danger-dark: #b91c1c;
+  --color-danger-edge: #b91c1c;
   --color-danger-soft: #fee2e2;
-  --color-gold: #d97706;
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --color-danger-ink: #b91c1c;
+  --color-gold: #ca8a04;
+  --font-sans: 'Nunito Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
 }
 
@@ -29,48 +38,33 @@
 }
 
 :root {
-  --bg: #f3f6fb;
+  --bg: #ffffff;
   --card: #ffffff;
-  --surface: #edf1f8;
-  --border: #dde4ef;
-  --text: #0f172a;
-  --muted: #5a6478;
-  --code-bg: #f1f4fa;
-  /* Code colours, read by the syntax highlighter (src/ui/CodeBlock.tsx). */
-  --tok-comment: #64748b;
-  --tok-keyword: #1d4ed8;
-  --tok-string: #047857;
-  --tok-number: #b45309;
-  --tok-function: #7c3aed;
-  --tok-type: #0e7490;
-  --tok-property: #be185d;
-  --tok-punctuation: #475569;
+  --surface: #f4f4f5;
+  --border: #e4e4e7;
+  --text: #1c1917;
+  --muted: #6b6762;
+  --inline-code-bg: #f4f1ee;
   color-scheme: light;
 }
 
 /* `data-theme` is set on <html> by the script in index.html: the saved choice, else the system setting. */
 :root[data-theme='dark'] {
-  --bg: #0b1120;
-  --card: #131b2e;
-  --surface: #1a2337;
-  --border: #26324a;
-  --text: #e7ecf5;
-  --muted: #9aa5ba;
-  --code-bg: #0f1729;
-  --tok-comment: #7d8aa3;
-  --tok-keyword: #7aa7ff;
-  --tok-string: #6ee7b7;
-  --tok-number: #fbbf24;
-  --tok-function: #c4a5ff;
-  --tok-type: #67e8f9;
-  --tok-property: #f9a8d4;
-  --tok-punctuation: #a3adc2;
-  --color-brand: #3b82f6;
-  --color-brand-dark: #2563eb;
-  --color-brand-soft: #172a52;
-  --color-success-soft: #12301f;
-  --color-danger-soft: #3b1515;
-  --color-gold: #fbbf24;
+  /* Neutral greys, no blue tint, so the orange stays the only colour. */
+  --bg: #141414;
+  --card: #1e1e1f;
+  --surface: #2a2a2b;
+  --border: #363637;
+  --text: #f5f5f4;
+  --muted: #a8a29e;
+  --inline-code-bg: #2e2c2a;
+  --color-brand-ink: #fdba74;
+  --color-brand-soft: #3a2413;
+  --color-success-soft: #14301c;
+  --color-success-ink: #4ade80;
+  --color-danger-soft: #3b1717;
+  --color-danger-ink: #f87171;
+  --color-gold: #facc15;
   color-scheme: dark;
 }
 
@@ -92,21 +86,41 @@ code {
   /* `===` and `=>` must show as typed, not as ligatures. */
   font-variant-ligatures: none;
   font-feature-settings: 'calt' 0, 'liga' 0;
-  font-size: 0.9em;
-  background: var(--code-bg);
-  border-radius: 0.3rem;
+  font-size: 0.88em;
+  background: var(--inline-code-bg);
+  border-radius: 0.35rem;
   padding: 0.05rem 0.3rem;
 }
 
+/*
+ * Code blocks are dark in both themes, so they stand out on the white page and read like an
+ * editor. Their colours, read by the syntax highlighter (src/ui/CodeBlock.tsx), live here.
+ */
 .code-block {
+  --code-text: #e7e5e4;
+  --tok-comment: #8b8580;
+  --tok-keyword: #fb923c;
+  --tok-string: #86efac;
+  --tok-number: #fcd34d;
+  --tok-function: #c4b5fd;
+  --tok-type: #67e8f9;
+  --tok-property: #f9a8d4;
+  --tok-punctuation: #b8b2ad;
   margin: 0;
   overflow-x: auto;
-  background: var(--code-bg);
+  color: var(--code-text);
+  background: #1f1d1b;
   border-radius: 1rem;
   padding: 0.85rem 0.9rem;
   font-family: var(--font-mono);
   font-size: 0.82rem;
   line-height: 1.6;
+}
+
+/* In dark mode the block is darker than the page, with an edge, so it still stands out. */
+[data-theme='dark'] .code-block {
+  background: #0b0b0b;
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 /* Code to compare side by side in a list: long lines wrap so the difference is never scrolled out of view. */
@@ -120,17 +134,76 @@ code {
   background: none;
   padding: 0;
   font-size: inherit;
+  color: inherit;
 }
 
-/* Buttons sink slightly when pressed. */
+/*
+ * A chunky, pressable 3D surface: a thicker bottom edge in a darker colour that flattens when
+ * pressed, used by buttons, answer tiles and cards.
+ */
 .press {
+  border-bottom-width: 4px;
   transition:
     transform 80ms ease,
-    background-color 120ms ease;
+    border-bottom-width 80ms ease,
+    filter 120ms ease;
+}
+
+.press:hover:not(:disabled) {
+  filter: brightness(1.04);
 }
 
 .press:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: translateY(2px);
+  border-bottom-width: 2px;
+}
+
+/* A short pop when something good appears, such as the end-of-series trophy. */
+@keyframes pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.pop {
+  animation: pop 420ms ease-out both;
+}
+
+/* The feedback panel slides up from the bottom after a check. */
+@keyframes slide-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.slide-up {
+  animation: slide-up 220ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pop,
+  .slide-up {
+    animation: none;
+  }
+
+  .press,
+  .press:active:not(:disabled) {
+    transition: none;
+    transform: none;
+  }
 }
 
 details > summary {

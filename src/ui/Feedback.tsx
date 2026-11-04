@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 import { Button } from './Button.tsx';
 
 /**
- * The coloured panel shown after a check, with the explanation and the button to move on. After a
- * miss, it also offers the topic's lesson.
+ * The coloured panel that slides up from the bottom after a check, with a big ✓ or ✕, the
+ * explanation and the button to move on. After a miss, it also offers the topic's lesson.
  */
 export function Feedback({
   correct,
@@ -19,14 +19,19 @@ export function Feedback({
   onReviewLesson?: () => void;
 }) {
   return (
-    <div role="status" className={`rounded-3xl p-4 ${correct ? 'bg-success-soft' : 'bg-danger-soft'}`}>
-      <p className={`mb-1 flex items-center gap-2 text-lg font-extrabold ${correct ? 'text-success' : 'text-danger'}`}>
-        <span aria-hidden className={`grid size-7 place-items-center rounded-full text-sm text-white ${correct ? 'bg-success' : 'bg-danger'}`}>
+    <div
+      role="status"
+      className={`slide-up sticky bottom-0 -mx-4 rounded-t-3xl border-t-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 ${
+        correct ? 'border-success bg-success-soft' : 'border-danger bg-danger-soft'
+      }`}
+    >
+      <p className={`mb-2 flex items-center gap-3 text-2xl font-black ${correct ? 'text-success-ink' : 'text-danger-ink'}`}>
+        <span aria-hidden className={`pop grid size-10 place-items-center rounded-full text-xl text-white ${correct ? 'bg-success' : 'bg-danger'}`}>
           {correct ? '✓' : '✕'}
         </span>
         {title}
       </p>
-      <div className="mb-4 text-[0.95rem]">{children}</div>
+      <div className="mb-4 text-[0.95rem] font-medium">{children}</div>
       <div className="flex flex-col gap-2">
         <Button block variant={correct ? 'success' : 'danger'} onClick={onContinue} autoFocus>
           Continue

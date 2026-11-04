@@ -48,7 +48,7 @@ export function OpenQuestion({
     <div className="flex flex-1 flex-col gap-5">
       <div className="flex items-center gap-2">
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${LEVEL_STYLES[card.level]}`}>{card.level}</span>
-        <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand">
+        <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand-ink">
           {followUp ? 'The interviewer digs deeper' : 'Say it out loud'}
         </span>
       </div>
@@ -66,7 +66,7 @@ export function OpenQuestion({
         </div>
       ) : (
         <>
-          <section className="rounded-3xl border border-line bg-card p-5 shadow-sm">
+          <section className="rounded-3xl border-2 border-b-4 border-line bg-card p-5">
             <h3 className="mb-1 text-sm font-bold uppercase tracking-wider text-muted">Model answer</h3>
             {variant && (
               <p className="mb-2 font-semibold">
@@ -107,7 +107,7 @@ export function OpenQuestion({
           )}
 
           {!followUp && (
-            <div className="flex flex-col divide-y divide-line rounded-3xl border border-line bg-card">
+            <div className="flex flex-col divide-y divide-line rounded-3xl border-2 border-b-4 border-line bg-card">
               <Details title="Why they ask">
                 <Text>{card.explanation}</Text>
               </Details>

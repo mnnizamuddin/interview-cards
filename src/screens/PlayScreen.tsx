@@ -13,6 +13,7 @@ import { pickReview, trackMissed } from '../play/review.ts';
 import { currentReplay, recordFirstPass, recordReplay, SERIES_LENGTH, startSeries, type Series } from '../play/series.ts';
 import { Button } from '../ui/Button.tsx';
 import { LessonView } from '../ui/LessonView.tsx';
+import { ProgressBar } from '../ui/ProgressBar.tsx';
 
 const UNIT_TITLES = new Map(UNITS.map((unit) => [unit.id, unit.title]));
 
@@ -125,16 +126,7 @@ export function PlayScreen({
         </button>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold">{title}</p>
-          <div
-            className="h-2.5 overflow-hidden rounded-full bg-surface"
-            role="progressbar"
-            aria-label="Series progress"
-            aria-valuenow={series.asked}
-            aria-valuemin={0}
-            aria-valuemax={series.length}
-          >
-            <div className="h-full rounded-full bg-brand transition-[width] duration-300" style={{ width: `${(series.asked / Math.max(1, series.length)) * 100}%` }} />
-          </div>
+          <ProgressBar value={series.asked} max={series.length} label="Series progress" />
         </div>
         <SeriesCounter series={series} />
         {teach && current && current.kind !== 'lesson' && !reviewing && (
@@ -149,7 +141,7 @@ export function PlayScreen({
       </header>
 
       {justHandled && series.phase !== 'done' && (
-        <p role="status" className="mt-2 rounded-2xl bg-success-soft px-3 py-2 text-sm font-bold text-success">
+        <p role="status" className="mt-2 rounded-2xl bg-success-soft px-3 py-2 text-sm font-bold text-success-ink">
           ✓ You now handle {justHandled}
         </p>
       )}
@@ -215,6 +207,26 @@ function SeriesCounter({ series }: { series: Series }) {
   return null;
 }
 
+/** The end-of-series emoji and message, by first-time accuracy. */
+function cheerFor(accuracy: number): { emoji: string; message: string } {
+  if (accuracy >= 90) {
+    return { emoji: '🏆', message: 'Outstanding: interview ready on these.' };
+  }
+  if (accuracy >= 60) {
+    return { emoji: '🎉', message: 'Nice work. The missed ones come back soon.' };
+  }
+  return { emoji: '💪', message: 'Good practice. Keep going: every miss is now a weak spot to review.' };
+}
+
+function StatTile({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="flex flex-col items-center rounded-2xl border-2 border-b-4 border-line bg-card px-3 py-3">
+      <span className="text-2xl font-black text-brand-ink">{value}</span>
+      <span className="text-xs font-bold uppercase tracking-wide text-muted">{label}</span>
+    </div>
+  );
+}
+
 function SeriesSummary({
   series,
   cardsById,
@@ -229,20 +241,30 @@ function SeriesSummary({
   onNext: () => void;
   onExit: () => void;
 }) {
+  const accuracy = Math.round((series.correct / Math.max(1, series.length)) * 100);
+  const cheer = cheerFor(accuracy);
   return (
     <div className="flex flex-1 flex-col gap-5">
-      <div>
-        <p className="mb-1 text-sm font-bold uppercase tracking-wider text-brand">Series complete</p>
-        <h2 className="text-2xl font-extrabold">
+      <div className="flex flex-col items-center gap-1 pt-4 text-center">
+        <span aria-hidden className="pop text-7xl">
+          {cheer.emoji}
+        </span>
+        <p className="mt-2 text-sm font-extrabold uppercase tracking-wider text-brand-ink">Series complete</p>
+        <h2 className="text-3xl font-black leading-tight">
           {series.correct} of {series.length} right first time
         </h2>
+        <p className="font-semibold text-muted">{cheer.message}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <StatTile value={`${accuracy}%`} label="Accuracy" />
+        <StatTile value={String(series.handledTopics.length)} label={series.handledTopics.length === 1 ? 'Topic handled' : 'Topics handled'} />
       </div>
       {series.handledTopics.length > 0 && (
         <section>
           <h3 className="mb-2 font-extrabold">You now handle</h3>
           <ul className="flex flex-col gap-2">
             {series.handledTopics.map((cardId) => (
-              <li key={cardId} className="rounded-2xl bg-success-soft px-4 py-3 font-semibold text-success">
+              <li key={cardId} className="rounded-2xl bg-success-soft px-4 py-3 font-semibold text-success-ink">
                 ✓ {cardsById.get(cardId)?.topic}
               </li>
             ))}
@@ -254,7 +276,7 @@ function SeriesSummary({
           <h3 className="mb-2 font-extrabold">Missed this time</h3>
           <ul className="flex flex-col gap-2">
             {series.missedTopics.map((cardId) => (
-              <li key={cardId} className="flex items-center gap-3 rounded-2xl border border-line bg-card px-4 py-3">
+              <li key={cardId} className="flex items-center gap-3 rounded-2xl border-2 border-b-4 border-line bg-card px-4 py-3">
                 <span className="flex-1 font-semibold">{cardsById.get(cardId)?.topic}</span>
                 {onReviewLesson && (
                   <Button variant="ghost" className="shrink-0 text-sky-500" onClick={() => onReviewLesson(cardId)} aria-label={`Lesson on ${cardsById.get(cardId)?.topic}`}>

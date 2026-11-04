@@ -4,6 +4,7 @@ import type { Unit } from '../content/types.ts';
 import { countHandled, HANDLED_FOR_MS, toCurrentProgress, topicStatus, type Progress, type TopicStatus } from '../play/progress.ts';
 import { weakTopicIds } from '../play/review.ts';
 import { Button } from '../ui/Button.tsx';
+import { ProgressBar } from '../ui/ProgressBar.tsx';
 import { Text } from '../ui/Text.tsx';
 import { ThemeToggle } from '../ui/ThemeToggle.tsx';
 
@@ -64,18 +65,18 @@ export function HomeScreen({
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col gap-6 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
       <header className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-extrabold text-brand">Interview Cards</h1>
+        <h1 className="text-xl font-extrabold text-brand-ink">Interview Cards</h1>
         <ThemeToggle />
       </header>
 
-      <section className="rounded-3xl border border-line bg-card p-5 shadow-sm">
+      <section className="rounded-3xl border-2 border-b-4 border-line bg-card p-5">
         <p className="text-sm font-bold uppercase tracking-wider text-muted">Topics you handle</p>
         <p className="mb-2 text-4xl font-extrabold">
           {share}
           <span className="text-2xl">%</span>
         </p>
-        <div className="mb-2 h-3 overflow-hidden rounded-full bg-surface">
-          <div className="h-full rounded-full bg-brand" style={{ width: `${share}%` }} />
+        <div className="mb-2">
+          <ProgressBar value={share} />
         </div>
         <p className="mb-4 text-sm text-muted">
           {handled} of {topics.length} topics · {answered} {answered === 1 ? 'answer' : 'answers'}
@@ -100,15 +101,13 @@ export function HomeScreen({
           const unitHandled = countHandled(unitTopics.map((topic) => topic.id), progress, now);
           const unitShare = percent(unitHandled, unitTopics.length);
           return (
-            <details key={unit.id} className="unit rounded-3xl border border-line bg-card shadow-sm">
+            <details key={unit.id} className="unit rounded-3xl border-2 border-b-4 border-line bg-card">
               <summary className="flex flex-col gap-2 p-4">
                 <span className="flex items-baseline justify-between gap-3 pr-6">
                   <span className="font-extrabold">{unit.title}</span>
                   <span className="shrink-0 text-sm text-muted">{unitShare}%</span>
                 </span>
-                <span className="h-2 overflow-hidden rounded-full bg-surface" aria-hidden>
-                  <span className="block h-full rounded-full bg-brand" style={{ width: `${unitShare}%` }} />
-                </span>
+                <ProgressBar value={unitShare} size="sm" />
                 <span className="text-sm text-muted">
                   <Text>{unit.description}</Text>
                 </span>

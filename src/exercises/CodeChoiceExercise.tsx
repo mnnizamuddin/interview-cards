@@ -34,7 +34,7 @@ export function CodeChoiceExercise({
       return 'border-line';
     }
     if (version === 'better') {
-      return 'border-success ring-2 ring-success/25';
+      return 'border-success bg-success-soft';
     }
     return version === picked ? 'border-danger' : 'border-line opacity-60';
   }
@@ -50,10 +50,10 @@ export function CodeChoiceExercise({
       {versions.map((version, index) => {
         const label = index === 0 ? 'A' : 'B';
         return (
-          <section key={version} aria-label={`Version ${label}`} className={`flex flex-col gap-2 rounded-3xl border bg-card p-3 shadow-sm ${blockStyle(version)}`}>
+          <section key={version} aria-label={`Version ${label}`} className={`flex flex-col gap-2 rounded-3xl border-2 border-b-4 bg-card p-3 ${blockStyle(version)}`}>
             <p className="flex items-center gap-2 text-sm font-extrabold">
               Version {label}
-              {picked !== null && version === 'better' && <span className="text-success">✓ better</span>}
+              {picked !== null && version === 'better' && <span className="text-success-ink">✓ better</span>}
             </p>
             <CodeBlock code={choice[version]} lang={choice.codeLang} wrap />
             {picked === null && (

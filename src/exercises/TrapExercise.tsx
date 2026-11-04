@@ -25,7 +25,7 @@ export function TrapExercise({
         <Kicker>Spot the trap</Kicker>
         <h2 className="mt-3 text-xl font-bold">True or false?</h2>
       </div>
-      <p className="rounded-3xl border border-line bg-card p-5 text-lg shadow-sm">
+      <p className="rounded-3xl border-2 border-b-4 border-line bg-card p-5 text-lg">
         <Text>{trap.statement}</Text>
       </p>
       <div className="mt-auto flex flex-col gap-3">
