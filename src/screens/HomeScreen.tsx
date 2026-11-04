@@ -30,6 +30,7 @@ export function HomeScreen({
   progress,
   today,
   onPlay,
+  onMockInterview,
   onOpenLesson,
   onImport,
 }: {
@@ -40,6 +41,8 @@ export function HomeScreen({
   today: string;
   /** Starts playing on one unit, or on every topic when `unitId` is undefined. */
   onPlay: (unitId?: string) => void;
+  /** Starts a mock interview on a topic from one unit, or from every unit when `unitId` is undefined. */
+  onMockInterview: (unitId?: string) => void;
   onOpenLesson: (cardId: string) => void;
   onImport: (progress: Progress) => void;
 }) {
@@ -70,6 +73,9 @@ export function HomeScreen({
         <Button block onClick={() => onPlay()}>
           {answered === 0 ? 'Start playing' : 'Keep playing'}
         </Button>
+        <Button block variant="secondary" className="mt-3" onClick={() => onMockInterview()}>
+          Mock interview
+        </Button>
         <p className="mt-3 text-center text-xs text-muted">A topic counts once your last 3 answers on it are right.</p>
       </section>
 
@@ -93,9 +99,12 @@ export function HomeScreen({
                   <Text>{unit.description}</Text>
                 </span>
               </summary>
-              <div className="px-3 pb-3">
-                <Button block variant="secondary" onClick={() => onPlay(unit.id)}>
+              <div className="grid grid-cols-2 gap-2 px-3 pb-3">
+                <Button variant="secondary" onClick={() => onPlay(unit.id)}>
                   Play this unit
+                </Button>
+                <Button variant="secondary" aria-label={`Mock interview on ${unit.title}`} onClick={() => onMockInterview(unit.id)}>
+                  Mock interview
                 </Button>
               </div>
               <ul className="flex flex-col gap-2 px-3 pb-3">

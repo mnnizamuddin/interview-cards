@@ -25,7 +25,8 @@ export function OpenQuestion({
   /** Set for a follow-up question; absent for the topic's main interview question. */
   followUpIndex?: number;
   onDone: (result: ExerciseResult) => void;
-  onReviewLesson: () => void;
+  /** Absent in a mock interview, where the lesson waits until the end. */
+  onReviewLesson?: () => void;
 }) {
   const followUp = followUpIndex === undefined ? undefined : card.followUps[followUpIndex];
   const question = followUp?.question ?? card.question;
@@ -115,9 +116,11 @@ export function OpenQuestion({
             </div>
           )}
 
-          <Button variant="ghost" onClick={onReviewLesson}>
-            Review the lesson
-          </Button>
+          {onReviewLesson && (
+            <Button variant="ghost" onClick={onReviewLesson}>
+              Review the lesson
+            </Button>
+          )}
 
           <section className="sticky bottom-0 -mx-4 mt-auto border-t-2 border-line bg-page px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
             <h3 className="mb-2 text-center text-sm font-bold text-muted">Did you have it?</h3>

@@ -12,6 +12,7 @@ There are 106 topics, covering every question of Mocklingo’s full-stack list. 
 - A topic is **handled** when your last 3 answers on it were right. The home screen shows the share handled, overall and per unit.
 - After a miss, "Review the lesson" opens the topic’s lesson; lessons are also browsable from each unit.
 - "Play this unit" limits the stream to one unit.
+- **Mock interview** (home screen, or per unit) picks a topic you do not handle yet and asks its main question, then up to 4 follow-ups in a row, with no lesson until the summary at the end. Answers count toward the topic like any other.
 
 Progress is stored in IndexedDB **on the device only**. Use "Back up" and "Restore" at the bottom of the home screen to move it or keep a copy.
 

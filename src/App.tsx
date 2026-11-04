@@ -3,6 +3,7 @@ import { CARDS, CARDS_BY_ID, UNITS } from './content/index.ts';
 import { toDayKey } from './play/day.ts';
 import type { Progress } from './play/progress.ts';
 import { HomeScreen } from './screens/HomeScreen.tsx';
+import { MockInterviewScreen } from './screens/MockInterviewScreen.tsx';
 import { PlayScreen } from './screens/PlayScreen.tsx';
 import { LessonView } from './ui/LessonView.tsx';
 
@@ -12,7 +13,11 @@ export type ProgressStore = {
   save: (progress: Progress) => Promise<void>;
 };
 
-type Screen = { name: 'home' } | { name: 'play'; unitId?: string } | { name: 'lesson'; cardId: string };
+type Screen =
+  | { name: 'home' }
+  | { name: 'play'; unitId?: string }
+  | { name: 'mock'; unitId?: string }
+  | { name: 'lesson'; cardId: string };
 
 /**
  * @param now The clock, used only to name backup files; injected so tests can freeze it.
@@ -60,6 +65,18 @@ export function App({ store, now, random }: { store: ProgressStore; now: () => D
     );
   }
 
+  if (screen.name === 'mock') {
+    return (
+      <MockInterviewScreen
+        cards={screen.unitId ? CARDS.filter((card) => card.unit === screen.unitId) : CARDS}
+        progress={progress}
+        onProgress={setProgress}
+        onExit={goHome}
+        random={random}
+      />
+    );
+  }
+
   if (screen.name === 'lesson') {
     const card = CARDS_BY_ID.get(screen.cardId);
     if (card) {
@@ -78,6 +95,7 @@ export function App({ store, now, random }: { store: ProgressStore; now: () => D
       progress={progress}
       today={toDayKey(now())}
       onPlay={(unitId) => setScreen({ name: 'play', unitId })}
+      onMockInterview={(unitId) => setScreen({ name: 'mock', unitId })}
       onOpenLesson={(cardId) => setScreen({ name: 'lesson', cardId })}
       onImport={setProgress}
     />
