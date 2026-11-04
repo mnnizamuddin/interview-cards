@@ -104,6 +104,16 @@ export const securityCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Cross-site scripting is an attacker\'s script running in your page, under your origin, so it can read the page and call your API as the user. React covers most rendering, so the work is guarding the sinks it skips.',
+      takeaways: [
+        { term: 'Stored, reflected, DOM-based', detail: 'From saved data like a review, from a URL echoed into the page, or from your own front-end code.' },
+        { term: 'Sink', detail: 'Where a string becomes markup or code: `dangerouslySetInnerHTML`, `innerHTML` through a ref, user-controlled URLs.' },
+        { term: 'Encoding', detail: 'Makes text inert. React encodes values rendered in JSX by default.' },
+        { term: 'DOMPurify', detail: 'Sanitises HTML to an allow-list of tags, right before a sink that must render HTML. A `<script>` regex is not that.' },
+        { term: 'CSP with nonces', detail: 'Only script tags the server marked can run: a second layer, not the fix.' },
+        { term: '`HttpOnly` cookies', detail: 'Hide the session from scripts, but an injected script can still send requests as the user.' },
+      ],
       points: [
         'Cross-site scripting (XSS) is an attacker\'s script running in your page, under your origin. It can read the page and call your API as the user, and the browser adds the user\'s cookies.',
         'Stored XSS comes from saved data, such as a review; reflected XSS from a URL echoed into the page; DOM-based XSS from your own front-end code writing untrusted data into the page.',
@@ -221,6 +231,16 @@ const { rows } = await db.query(
       },
     ],
     lesson: {
+      intro:
+        'SQL injection happens when user input is pasted into the SQL text, so the input can change the query itself. Parameterised queries remove it by sending values apart from the SQL.',
+      takeaways: [
+        { term: '`x\' OR \'1\'=\'1`', detail: 'Pasted into a lookup by email, it turns the query into "return every row".' },
+        { term: 'Parameterised query', detail: 'SQL with placeholders like `$1`, values sent separately. PostgreSQL parses before binding, so a value never becomes SQL.' },
+        { term: 'Identifiers', detail: 'Parameters carry values only: `SELECT * FROM $1` is a syntax error. Sort columns come from an allow-list.' },
+        { term: '`WHERE id = ANY($1)`', detail: 'Pass a list as one array parameter.' },
+        { term: '`sql.raw`', detail: 'Raw escape hatches in query builders paste text as is: review every use.' },
+        { term: 'Least-privilege user', detail: 'The app\'s database user has only the rights it needs, so a missed injection cannot drop tables.' },
+      ],
       points: [
         'SQL injection happens when input is pasted into the SQL text, so the input can change the query. With `x\' OR \'1\'=\'1` as an email, a lookup by email returns every customer.',
         'A parameterised query sends the SQL with placeholders such as `$1`, and the values separately. PostgreSQL parses the statement before binding the values, so a value can never become SQL.',
@@ -332,6 +352,16 @@ const orderBy = { newest: 'created_at DESC', oldest: 'created_at ASC' }[sort];`,
       },
     ],
     lesson: {
+      intro:
+        'Cross-site request forgery is another site making the victim\'s browser send a state-changing request to your app, with the victim\'s cookies attached automatically. `SameSite` cookies reduce it, but a real server-side check is still needed.',
+      takeaways: [
+        { term: '`SameSite=Strict`', detail: 'The cookie is never sent on cross-site requests.' },
+        { term: '`SameSite=Lax`', detail: 'Still sent on top-level `GET` navigations, so a `GET` must never change state.' },
+        { term: 'Site vs origin', detail: 'A site is scheme plus registrable domain: `admin.shop.example` and `www.shop.example` are the same site.' },
+        { term: '`Sec-Fetch-Site`', detail: 'Accept writes only when it is `same-origin`; fall back to an `Origin` allow-list or a CSRF token.' },
+        { term: 'CORS', detail: 'Does not stop CSRF: a form `POST` is sent without asking. Requiring JSON forces cross-origin scripts through a preflight.' },
+        { term: 'Bearer token in a header', detail: 'Never attached automatically by the browser, so it is not exposed to CSRF.' },
+      ],
       points: [
         'Cross-site request forgery (CSRF): another site makes the victim\'s browser send a state-changing request to your app, and the browser attaches the victim\'s cookies automatically.',
         'The `SameSite` cookie attribute limits this. `Strict` never sends the cookie on cross-site requests; `Lax` still sends it on top-level `GET` navigations, so a `GET` must never change state.',
@@ -450,6 +480,16 @@ export const searchAdmin = createSearchClient({
       },
     ],
     lesson: {
+      intro:
+        'A secret is any value that grants access, like a database password, an API key or a signing key. It must live outside code and images and reach each process at runtime, with the least access possible.',
+      takeaways: [
+        { term: 'Never stored in', detail: 'The repository, a Docker image, CI logs or the front-end bundle.' },
+        { term: 'Secret manager', detail: 'AWS Secrets Manager or Vault, injected at runtime as env vars or files, each service reading only its own.' },
+        { term: '`NEXT_PUBLIC_` / `VITE_`', detail: 'Written into the browser bundle, readable by anyone. Privileged calls use unprefixed variables in server code.' },
+        { term: 'Kubernetes Secrets', detail: 'Only base64-encoded in etcd unless encryption at rest is turned on.' },
+        { term: 'Build args and `ENV`', detail: 'Persist in the Docker image, so they are no place for secrets.' },
+        { term: 'Leaked secret', detail: 'Rotate it first: deleting the commit does not un-leak it. OIDC short-lived credentials remove static keys.' },
+      ],
       points: [
         'A secret is any value that grants access: a database password, an API key, a signing key. It must never sit in the repository, a Docker image, CI logs or the front-end bundle.',
         'Secrets live in a secret manager, such as AWS Secrets Manager or HashiCorp Vault, and reach the process at runtime as environment variables or mounted files, each service reading only its own.',
@@ -557,6 +597,16 @@ Set-Cookie: sid=8f3a; Path=/; HttpOnly; SameSite=Lax`,
       },
     ],
     lesson: {
+      intro:
+        'HTTPS is HTTP over TLS, which keeps traffic private, unaltered and from the real server. Every site needs it, because without integrity any network in between can inject content, and many browser features require it.',
+      takeaways: [
+        { term: 'TLS guarantees', detail: 'Confidentiality, integrity, and authentication of the server through its certificate.' },
+        { term: 'Plain HTTP risk', detail: 'A hotspot can inject scripts or ads, and read cookies that lack the `Secure` flag.' },
+        { term: 'Secure contexts', detail: 'Service workers, geolocation and passkeys need HTTPS; browsers speak HTTP/2 and HTTP/3 only over TLS.' },
+        { term: 'ACME', detail: 'The protocol for free, automatically renewed certificates, for example from Let\'s Encrypt.' },
+        { term: 'TLS termination', detail: 'Usually at the load balancer or ingress, which also redirects HTTP to HTTPS.' },
+        { term: 'HSTS', detail: 'Forces HTTPS for the host, counts only over HTTPS. Preload needs a `max-age` of a year or more.' },
+      ],
       points: [
         'HTTPS is HTTP over TLS (Transport Layer Security). TLS gives confidentiality (nobody reads the traffic), integrity (nobody changes it) and authentication of the server through its certificate.',
         'Integrity matters even without secrets: over plain HTTP, a hotspot or a network attacker can inject scripts or ads into your pages, and read cookies that lack the `Secure` flag.',
@@ -658,6 +708,16 @@ Set-Cookie: __Host-sid=...; Path=/; Secure; HttpOnly; SameSite=Lax`,
       },
     ],
     lesson: {
+      intro:
+        'A pre-launch security review checks an application against known risks before real users and attackers arrive. It starts from a threat model, walks the OWASP lists route by route, and ends with ranked findings that can block the launch.',
+      takeaways: [
+        { term: 'Threat model', detail: 'What you protect, who might attack, and the entry points: routes, webhooks, uploads, the back office.' },
+        { term: 'OWASP Top 10 (2025)', detail: 'The checklist for web applications; Broken Access Control is A01.' },
+        { term: 'OWASP API Top 10 (2023)', detail: 'The checklist for APIs; BOLA, one user reaching another\'s object, is API1.' },
+        { term: 'Access control tests', detail: 'Every route with two customers and with a non-admin: scanners rarely find these flaws.' },
+        { term: 'Rest of the checklist', detail: 'Auth and sessions, injection, encoding and CSP, secrets, headers and CORS, rate limits, dependencies, logging.' },
+        { term: 'Findings', detail: 'Each ranked with an owner; critical ones block the launch. Tests and audits keep running in CI.' },
+      ],
       points: [
         'Start with a threat model: what you protect (orders, payments, customer data), who might attack, and the entry points (routes, the payment webhook, uploads, the back office).',
         'Use two checklists: the OWASP Top 10 (2025 edition) for web applications and the OWASP API Security Top 10 (2023 edition) for APIs. Tie each risk to your own routes and data.',
@@ -762,6 +822,16 @@ Set-Cookie: __Host-sid=...; Path=/; Secure; HttpOnly; SameSite=Lax`,
       },
     ],
     lesson: {
+      intro:
+        'A Content Security Policy is a response header that tells the browser which scripts and other resources a page may load and run. It limits the damage of XSS and clickjacking, as a layer on top of fixing the vulnerable code.',
+      takeaways: [
+        { term: 'Nonce in `script-src`', detail: 'Random and new on every response; an injected script or inline handler has no nonce, so it does not run.' },
+        { term: '`\'strict-dynamic\'`', detail: 'Lets nonced scripts load more scripts, such as bundle chunks.' },
+        { term: 'Host allow-lists', detail: 'Weak: allowed CDNs host code an attacker can reuse.' },
+        { term: '`object-src \'none\'`, `base-uri`', detail: 'Block plugins and injected `<base>` tags.' },
+        { term: '`frame-ancestors`', detail: 'Stops clickjacking by controlling who may frame the page.' },
+        { term: 'Report-only rollout', detail: '`Content-Security-Policy-Report-Only` blocks nothing and reports violations. Fix them, then enforce.' },
+      ],
       points: [
         'A Content Security Policy (CSP) is a response header that tells the browser which scripts, styles, frames and other resources a page may load and run. The browser blocks anything else.',
         'A strict CSP puts a random nonce, new on every response, in `script-src` and on each legitimate `<script>`. An injected script or inline `onerror` handler has no nonce, so it does not run.',
@@ -876,6 +946,16 @@ Reporting-Endpoints: csp="https://www.shop.example/api/csp-reports"
       },
     ],
     lesson: {
+      intro:
+        'Frontend hardening starts from two facts: everything shipped to the browser is public, and every script on the page has its full power. So secrets stay on the server, third-party code stays few and verified, and headers close the remaining gaps.',
+      takeaways: [
+        { term: 'Public bundle', detail: '`NEXT_PUBLIC_` and `VITE_` variables are written in at build time: no secrets, privileged calls on the server.' },
+        { term: 'Third-party scripts', detail: 'Read the DOM and call your API as the user: keep them few and owned, self-host, let the CSP block the rest.' },
+        { term: 'Subresource Integrity', detail: '`integrity` holds the file\'s hash; a changed file is refused. Cross-origin needs `crossorigin` and CORS.' },
+        { term: 'Clickjacking', detail: 'Stopped with `frame-ancestors` in the CSP.' },
+        { term: '`postMessage`', detail: 'Compare `event.origin` exactly and validate the data.' },
+        { term: 'Headers, tokens, npm', detail: 'HSTS and `nosniff`; tokens behind a BFF; lockfile, audits and delayed updates.' },
+      ],
       points: [
         'Everything shipped to the browser is public. `NEXT_PUBLIC_` (Next.js) and `VITE_` (Vite) variables are written into the bundle at build time, so secrets and privileged calls stay in server code.',
         'A third-party script runs with your page\'s full power: it reads the DOM and calls your API as the user. Keep the list short and owned, self-host what you can, and let a strict CSP block the rest.',
@@ -996,6 +1076,16 @@ Reporting-Endpoints: csp="https://www.shop.example/api/csp-reports"
       },
     ],
     lesson: {
+      intro:
+        'Broken access control is a user acting outside their rights: reading another customer\'s data or using a higher role\'s functions. It is A01 in the OWASP Top 10, and scanners rarely catch it, so you prevent it by design and test it per route.',
+      takeaways: [
+        { term: 'Horizontal escalation (IDOR)', detail: 'Reaching a peer\'s data, such as customer B reading A\'s order by changing an id.' },
+        { term: 'Vertical escalation', detail: 'Gaining a higher role\'s functions, such as a customer issuing refunds.' },
+        { term: 'Deny by default', detail: 'Check every request on the server. A hidden button is not a check.' },
+        { term: 'Ownership in the query', detail: '`WHERE id = $1 AND customer_id = $2`, with the caller\'s id and role from the verified session.' },
+        { term: '404 for others\' objects', detail: 'Same answer as a missing id. Random UUIDs do not help: ids leak through URLs, e-mails and logs.' },
+        { term: 'Tests in CI', detail: 'Every id route with two users, every admin route as a non-admin.' },
+      ],
       points: [
         'Broken access control: a user acts outside their permissions, reading or changing someone else\'s data or using a higher role\'s functions. It is A01 in the OWASP Top 10 (2025).',
         'Horizontal escalation reaches a peer\'s data, such as customer B reading A\'s order: an insecure direct object reference (IDOR). Vertical escalation gains a higher role, such as a customer issuing refunds.',
@@ -1118,6 +1208,16 @@ async function hashPassword(password: string) {
       },
     ],
     lesson: {
+      intro:
+        'Secure password storage means never storing passwords, only a slow, salted hash from a password hashing function. That makes a stolen database expensive to crack, one password at a time.',
+      takeaways: [
+        { term: 'Argon2id', detail: 'OWASP\'s first choice; scrypt when missing (built into `node:crypto`), bcrypt for legacy, PBKDF2 for FIPS-140.' },
+        { term: 'SHA-256', detail: 'Built to be fast, so a GPU tries billions of guesses per second: the wrong tool.' },
+        { term: 'Salt', detail: 'A random value per password, so equal passwords hash differently and must be attacked one by one.' },
+        { term: 'Hash string', detail: 'Holds the algorithm, parameters and salt, generated and stored by the library.' },
+        { term: 'Rehash at login', detail: 'After a successful login, rehash when stored parameters are weaker than today\'s.' },
+        { term: 'Around the login', detail: 'Cap length, rate-limit per account and IP, same answer and timing for unknown e-mails, check breached lists.' },
+      ],
       points: [
         'Never store passwords, only a password hash. A password hashing function is deliberately slow and memory-hungry, so each guess costs an attacker real time. SHA-256 is built to be fast: the wrong tool.',
         'OWASP ranks them: Argon2id first, scrypt when it is missing (it is built into `node:crypto`), bcrypt for legacy systems, PBKDF2 when FIPS-140 compliance is required.',
@@ -1227,6 +1327,16 @@ const ok = await verify(stored, attempt); // reads salt and parameters from stor
       },
     ],
     lesson: {
+      intro:
+        'A JWT is a signed token carrying claims about a user: anyone can read it, and whoever holds it can use it until it expires. Designing JWT auth means short lifetimes, strict verification and keeping tokens away from scripts.',
+      takeaways: [
+        { term: 'Structure', detail: '`header.payload.signature` in base64url. Signed, not encrypted: anyone can read the claims.' },
+        { term: 'Claims', detail: '`sub` the user, `iss` the issuer, `aud` the intended API, `exp` the expiry.' },
+        { term: 'Short access token', detail: 'Lives minutes; a refresh token, rotated on each use, obtains new ones. Revocation needs a lookup.' },
+        { term: 'Verifier pins', detail: 'The algorithm, issuer and audience, and requires `exp`. Never trust the token\'s own `alg`.' },
+        { term: 'JWKS and `kid`', detail: 'Asymmetric keys (ES256, RS256) published as a JWKS, each with a `kid` for rotation.' },
+        { term: 'Storage', detail: 'Never `localStorage`. For a first-party web app, a BFF with an `HttpOnly` session cookie is simpler.' },
+      ],
       points: [
         'A JWT (JSON Web Token) is `header.payload.signature` in base64url. The payload holds claims: `sub` (the user), `iss` (issuer), `aud` (the intended API), `exp` (expiry). It is signed, not encrypted: anyone can read it.',
         'A bearer token works for whoever holds it until `exp`, and revoking it needs a lookup. So access tokens live minutes, and a refresh token, rotated on each use, obtains new ones.',

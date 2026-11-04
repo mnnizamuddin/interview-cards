@@ -108,6 +108,16 @@ export const backendApiCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'REST and GraphQL are two ways to shape an API. REST exposes resources whose response shape the server decides; GraphQL lets each client ask for exactly the fields it needs in one query.',
+      takeaways: [
+        { term: 'REST', detail: 'Resources at URLs, the method says the action; status codes and HTTP caching work as HTTP intends.' },
+        { term: 'GraphQL', detail: 'One endpoint, a typed schema, usually a `POST`. Removes over-fetching and under-fetching.' },
+        { term: 'Query cost limit', detail: 'One GraphQL query can be very expensive, so the server limits query cost.' },
+        { term: 'N+1 and DataLoader', detail: 'Resolving `customer` for 50 orders one by one makes 51 queries; a per-request DataLoader batches them.' },
+        { term: 'GraphQL errors and caching', detail: 'Errors usually come in a 200 body, missed by status monitoring; `POST`s to one URL are not cached by CDNs.' },
+        { term: 'Choosing', detail: 'REST for public and partner APIs; GraphQL when several frontends need different views of many entities.' },
+      ],
       points: [
         'REST exposes resources at URLs, such as `/orders/1042`, and the HTTP method says the action. The server decides the shape of each response, so status codes and HTTP caching work as HTTP intends.',
         'GraphQL exposes one endpoint and a typed schema. The client sends a query naming exactly the fields it wants, across related entities, and gets them in one round trip, usually as a `POST`.',
@@ -232,6 +242,16 @@ Content-Type: application/json
       },
     ],
     lesson: {
+      intro:
+        '401 and 403 are the two HTTP answers to a failed access check: 401 when the server does not know who you are, 403 when it knows and refuses. The client must react very differently to each.',
+      takeaways: [
+        { term: '401 Unauthorized', detail: 'No valid credentials: the token is missing, expired or invalid. It really means unauthenticated.' },
+        { term: '`WWW-Authenticate`', detail: 'RFC 9110 requires it on a 401, saying how to authenticate.' },
+        { term: '403 Forbidden', detail: 'The caller is known and refused, like a customer on the refund route. New credentials will not help.' },
+        { term: '404 instead of 403', detail: 'RFC 9110 allows it to hide that a resource exists, such as another customer\'s order.' },
+        { term: 'Client on 401', detail: 'The BFF refreshes the token once or sends the user to log in.' },
+        { term: 'Client on 403', detail: 'The UI says which permission is missing, and never sends the user back to log in.' },
+      ],
       points: [
         'Authentication answers "who are you?"; authorisation answers "are you allowed to do this?". HTTP has one status code for each failure: 401 for the first, 403 for the second.',
         '401 Unauthorized means the request has no valid credentials: the token is missing, expired or invalid. RFC 9110 requires a `WWW-Authenticate` header saying how to authenticate.',
@@ -352,6 +372,16 @@ WWW-Authenticate: Bearer error="invalid_token", error_description="The access to
       },
     ],
     lesson: {
+      intro:
+        'A RESTful API models the domain as resources named by nouns, and lets HTTP methods and status codes carry the meaning. Done well, clients, caches and retries all behave predictably.',
+      takeaways: [
+        { term: 'Resources and actions', detail: 'Nouns: `/orders`, `/orders/:id`. A refund is a sub-resource, `POST /orders/:id/refunds`, not `/refundOrder`.' },
+        { term: 'Create', detail: '`POST /orders` answers 201 with a `Location` header.' },
+        { term: 'Safe and idempotent', detail: '`GET` changes nothing; `PUT` and `DELETE` repeat safely. `POST` and `PATCH` are neither.' },
+        { term: '`Idempotency-Key`', detail: 'Sent with a `POST` and reused on retries; the server replays the first response. Still an IETF draft.' },
+        { term: 'Problem Details (RFC 9457)', detail: 'One body format for every error, with honest status codes: never a 200 with an error inside.' },
+        { term: 'Cursor pagination', detail: 'An opaque pointer to the next page with a capped `limit`; new rows do not shift pages.' },
+      ],
       points: [
         'Resources are nouns (`/orders`, `/orders/:id`) and the method carries the intent. An action such as a refund becomes a sub-resource you create, `POST /orders/:id/refunds`, not a `/refundOrder` URL.',
         'A safe method (`GET`) changes nothing; an idempotent one (`PUT`, `DELETE`) has the same effect when repeated. `POST` and `PATCH` are neither, so a retried `POST /orders` can create a second order.',
@@ -473,6 +503,16 @@ app.get('/orders/:id', async (req, res) => {
       },
     ],
     lesson: {
+      intro:
+        'Middleware is a function that runs between the incoming request and the route handler, for concerns many routes share. Its order and its error path are part of the design.',
+      takeaways: [
+        { term: '`(req, res, next)`', detail: 'An Express middleware sends a response or calls `next()`; doing neither leaves the request hanging.' },
+        { term: 'Registration order', detail: 'Runs in `app.use` order: request id and logger first, error handler last, after the routes.' },
+        { term: '`next(err)`', detail: 'Skips the remaining normal middleware and jumps to the error handler.' },
+        { term: '`(err, req, res, next)`', detail: 'Four parameters mark an error-handling middleware.' },
+        { term: 'Express 5 async', detail: 'A rejected promise from an async handler reaches the error handler too.' },
+        { term: 'NestJS slots', detail: 'Middleware, guards, interceptors, pipes, then the handler; exception filters build error responses.' },
+      ],
       points: [
         'Middleware is a function that runs between the incoming request and the route handler, for concerns many routes share: request ids, logging, body parsing, authentication.',
         'In Express a middleware receives `req`, `res` and `next`. It must either send a response or call `next()`; doing neither leaves the request hanging until a timeout.',
@@ -609,6 +649,16 @@ async function hashPassword(password: string, salt: string) {
       },
     ],
     lesson: {
+      intro:
+        'Node runs all your JavaScript on one main thread. Asynchronous I/O frees that thread while waiting, while a synchronous call holds it and makes every other request wait.',
+      takeaways: [
+        { term: 'Event loop', detail: 'Takes the next ready callback and runs it to the end before taking another.' },
+        { term: 'libuv thread pool', detail: 'Runs file, `dns.lookup`, async crypto and zlib work, 4 threads by default; the OS watches network sockets.' },
+        { term: '`readFileSync`, `pbkdf2Sync`', detail: 'Sync calls hold the main thread, so every other request waits, health checks included.' },
+        { term: '`async` is not a thread', detail: 'An async function runs on the main thread until its first `await`; CPU work still blocks.' },
+        { term: '`monitorEventLoopDelay`', detail: 'From `perf_hooks`: measures blocking as event loop delay.' },
+        { term: '`UV_THREADPOOL_SIZE`', detail: 'Raising it helps only when the libuv pool is the bottleneck, never for slow JavaScript.' },
+      ],
       points: [
         'Node runs all your JavaScript on one main thread, driven by the event loop: a loop that takes the next ready callback and runs it to the end before taking another.',
         'Asynchronous I/O starts an operation and gives the thread back. The OS watches network sockets, and libuv runs file, `dns.lookup`, async crypto and zlib work on a pool of 4 threads by default.',
@@ -732,6 +782,16 @@ pbkdf2Sync('secret', 'salt', 600_000, 64, 'sha512');
       },
     ],
     lesson: {
+      intro:
+        'Authentication proves who the user is. A modern web app delegates it to an identity provider and keeps tokens out of the browser, so it never handles passwords and no script can steal a token.',
+      takeaways: [
+        { term: 'OpenID Connect', detail: 'An identity layer on OAuth 2.0; the app delegates login to an IdP such as Auth0, Entra ID or Keycloak.' },
+        { term: 'Code flow with PKCE', detail: 'The IdP returns a one-time code exchanged for tokens; PKCE ties it to a secret verifier, so a stolen code is useless.' },
+        { term: 'BFF session cookie', detail: 'The BFF keeps tokens server-side; the browser gets a cookie that is `HttpOnly`, `Secure` and `SameSite`.' },
+        { term: '`localStorage`', detail: 'Never holds tokens: an XSS could steal them from there.' },
+        { term: 'JWT verification', detail: 'Pinned algorithm, then issuer (`iss`), audience (`aud`) and expiry (`exp`). Short lifetimes limit theft.' },
+        { term: 'CSRF', detail: 'Cookies are sent automatically: add a token or a `Sec-Fetch-Site` check. `HttpOnly` does not stop CSRF.' },
+      ],
       points: [
         'An identity provider (IdP), such as Auth0, Entra ID or Keycloak, handles passwords, MFA and SSO. Your app delegates login to it through OpenID Connect (OIDC), an identity layer on top of OAuth 2.0.',
         'In the authorization code flow, the IdP redirects back with a one-time code that the app exchanges for tokens. PKCE ties the code to a secret verifier, so a stolen code is useless without it.',
@@ -858,6 +918,16 @@ app.use((req, res, next) => {
       },
     ],
     lesson: {
+      intro:
+        'The same-origin policy stops a script from reading responses from another origin. CORS is how a server relaxes that rule for chosen origins; the browser enforces it, and it is not access control.',
+      takeaways: [
+        { term: 'Origin', detail: 'Scheme, host and port: `https://shop.example` and `https://api.shop.example` are different origins.' },
+        { term: 'Simple request', detail: '`GET`, `HEAD`, or a `POST` with a form or `text/plain` body: sent directly, without a preflight.' },
+        { term: 'Preflight `OPTIONS`', detail: 'Sent first for JSON bodies, custom headers or `PUT`; the real request follows only if allowed.' },
+        { term: 'Credentials', detail: 'Name the exact origin, never `*`, and send `Access-Control-Allow-Credentials: true`.' },
+        { term: '`Vary: Origin`', detail: 'Needed when echoing an allow-listed origin, so caches keep the answers apart.' },
+        { term: 'Not authorisation', detail: 'curl and servers ignore CORS, and a simple request reaches the server anyway. Nor is it CSRF protection.' },
+      ],
       points: [
         'An origin is scheme, host and port: `https://shop.example` and `https://api.shop.example` are different origins. The same-origin policy lets a script send cross-origin requests but not read the answers.',
         'CORS (Cross-Origin Resource Sharing) is a set of response headers with which a server lets chosen origins read its responses. The browser enforces it; curl and other servers ignore it.',
@@ -987,6 +1057,16 @@ Vary: Origin`,
       },
     ],
     lesson: {
+      intro:
+        'File uploads go straight from the client to object storage through a short-lived presigned URL, and the database keeps only metadata. The API stays in control without ever carrying the bytes.',
+      takeaways: [
+        { term: 'Object storage', detail: 'S3 or similar keeps the bytes under keys; PostgreSQL keeps key, owner, content type, size and status.' },
+        { term: 'Presigned URL', detail: 'Allows one operation, like `PUT` on one key, until it expires. Anyone holding it can use it.' },
+        { term: 'Upload flow', detail: 'The API checks the user, picks the key and signs a URL; the browser uploads to the bucket, then confirms.' },
+        { term: 'Server-side checks', detail: 'A presigned POST policy can enforce a size range; after upload, check the object\'s real size and type.' },
+        { term: 'After upload', detail: 'A worker makes resized versions and a CDN serves them; a lifecycle rule expires unconfirmed uploads.' },
+        { term: 'SigV4 expiry', detail: 'Presigned URLs last at most 7 days; an upload needs minutes, so keep them short.' },
+      ],
       points: [
         'Object storage, such as S3, keeps files as objects under keys, cheaply and at any size. PostgreSQL keeps only the metadata: key, owner, content type, size and status.',
         'A presigned URL is signed with the server\'s credentials and allows one operation, such as `PUT` on one key, until it expires. Anyone holding it can use it, like a bearer token.',
@@ -1114,6 +1194,16 @@ async function allowLogin(email: string): Promise<boolean> {
       },
     ],
     lesson: {
+      intro:
+        'Rate limiting caps how many requests one key may make per period. It protects the service from abuse and keeps one client from starving the others.',
+      takeaways: [
+        { term: 'The key', detail: 'User or API key on authenticated routes, IP on anonymous ones, both account and IP on login.' },
+        { term: '429 Too Many Requests', detail: 'The answer over the limit, with `Retry-After`. A 503 would say the whole service is down.' },
+        { term: 'Fixed window', detail: 'Counts per clock period and lets through up to twice the limit around a boundary.' },
+        { term: 'Token bucket', detail: 'Up to N tokens, refilled at a steady rate, one per request: short bursts, steady average.' },
+        { term: 'Shared counters', detail: 'With several replicas, keep counters in Redis, or each replica allows the full limit.' },
+        { term: 'Client IP behind a proxy', detail: 'Read it only from headers your own proxy sets.' },
+      ],
       points: [
         'Rate limiting caps how many requests one key may make per period. The key is the design choice: user or API key on authenticated routes, IP on anonymous ones, both account and IP on login.',
         'Over the limit, answer 429 Too Many Requests with `Retry-After` saying when to try again. A 503 would wrongly tell clients that the whole service is down.',
@@ -1249,6 +1339,16 @@ async function allowLogin(email: string): Promise<boolean> {
       },
     ],
     lesson: {
+      intro:
+        'Production error handling separates expected domain errors from bugs, and logging turns every failure into something you can search and alert on. Clients get a clean answer; the details stay in the logs.',
+      takeaways: [
+        { term: 'Typed domain errors', detail: 'Thrown by the domain, like cancelling a shipped order; one global handler maps them to status codes.' },
+        { term: 'Unexpected error', detail: 'A generic 500 with a request id; the stack trace and the SQL message go to the logs only.' },
+        { term: 'Structured logs', detail: 'JSON to stdout, each line with level, request id and trace id; personal data and secrets redacted.' },
+        { term: 'pino `err` key', detail: 'An `Error`\'s `message` and `stack` are not enumerable; pino serialises errors only under `err`: `log.error({ err })`.' },
+        { term: 'Unhandled rejection', detail: 'Crashes the process since Node 15. Log, exit, and let Kubernetes restart the pod.' },
+        { term: 'Alerting', detail: 'On error rates and SLOs, not on single log lines.' },
+      ],
       points: [
         'Expected errors belong to the domain, like cancelling an order already shipped; bugs do not. The domain throws typed errors, and one global error handler maps them to status codes.',
         'Clients get Problem Details (RFC 9457) bodies. An unexpected error becomes a generic 500 with a request id; the stack trace and the SQL message go to the logs, never to the client.',
@@ -1376,6 +1476,16 @@ export async function cancelOrder(orderId: string) {
       },
     ],
     lesson: {
+      intro:
+        'Dependency injection means code receives what it depends on instead of creating or importing it. Wiring then lives in one place, and swapping a real service for a fake in a test is trivial.',
+      takeaways: [
+        { term: 'Composition root', detail: 'One startup function, written by hand, that builds every object once and passes it in.' },
+        { term: 'DI container', detail: 'Does that wiring for you; NestJS reads constructor parameter types to inject providers.' },
+        { term: '`@Injectable()`', detail: 'Marks a NestJS provider; modules declare and export providers.' },
+        { term: 'Injection token', detail: 'Interfaces vanish at runtime: register under a token with `useClass`, `useValue` or `useFactory`, then `@Inject` it.' },
+        { term: 'Singleton scope', detail: 'NestJS providers are singletons by default.' },
+        { term: 'Circular dependency', detail: 'Hints that a shared responsibility belongs in a third service.' },
+      ],
       points: [
         'A dependency is anything code needs to work: a repository, a payment gateway, a clock. Dependency injection (DI) means the code receives them instead of creating or importing them.',
         'Something else builds every object once and passes it in: a composition root (one startup function) written by hand, or a DI container that does the wiring for you.',
@@ -1492,6 +1602,16 @@ export function makeCancelOrder({ orders, payments, now }: Deps) {
       },
     ],
     lesson: {
+      intro:
+        'A long task such as a large report cannot run inside one HTTP request: proxies time out and a deploy kills the work. The API records a job and answers at once, and a worker does the work.',
+      takeaways: [
+        { term: '202 Accepted', detail: 'Accepted for processing but not finished (RFC 9110). Send a `Location` to `GET /exports/:id`.' },
+        { term: 'Job row', detail: 'Holds the status: `queued`, `running`, `done` or `failed`.' },
+        { term: 'Queue and worker', detail: 'A worker outside the API pods does the work and writes the result to object storage.' },
+        { term: 'Download link', detail: 'Short-lived, given by the status resource once the job is done.' },
+        { term: 'Completion', detail: 'Polling the status URL, server-sent events in a browser, or a signed webhook for server clients.' },
+        { term: 'Idempotent jobs', detail: 'Queues redeliver after a crash: same object key, update by job id. Add retries, a timeout, a dead-letter queue.' },
+      ],
       points: [
         'Holding a request open for minutes fails: proxies and load balancers time out, the pod is tied up, and a deploy kills the work. So the API only records the job and answers at once.',
         '202 Accepted means accepted for processing but not finished (RFC 9110). Send it with a `Location` to a status resource, `GET /exports/:id`, whose job row says `queued`, `running`, `done` or `failed`.',
@@ -1615,6 +1735,16 @@ Retry-After: 5`,
       },
     ],
     lesson: {
+      intro:
+        'API versioning lets existing clients keep working when a contract must change in a breaking way. The best version is the one you avoid by keeping changes additive.',
+      takeaways: [
+        { term: 'Breaking change', detail: 'Removing or renaming a field, changing a type or meaning, adding a required input.' },
+        { term: 'Tolerant reader', detail: 'Ignores unknown fields and handles unknown enum values; an exhaustive `switch` can crash on a new value.' },
+        { term: 'URL version', detail: '`/v2/orders`: visible, easy to route, the simplest default.' },
+        { term: 'Header or account pinning', detail: 'A version header, often dated as at GitHub, or each account pinned to a version, as at Stripe.' },
+        { term: 'Translate at the edge', detail: 'One internal model; old versions are mapped at the edge, so business logic is not duplicated.' },
+        { term: '`Deprecation` and `Sunset`', detail: 'Headers from RFC 9745 and RFC 8594 that announce retirement; measure who still calls the version.' },
+      ],
       points: [
         'A breaking change makes existing clients fail: removing or renaming a field, changing a type or meaning, adding a required input. Adding optional fields or endpoints is additive and needs no version.',
         'Additive changes are safe only for tolerant readers, clients that ignore unknown fields and handle unknown enum values. A client with an exhaustive `switch` on `status` can crash on a new value.',
@@ -1723,6 +1853,16 @@ function getQuote(path: string, onResponse: OnResponse) {
       },
     ],
     lesson: {
+      intro:
+        'An HTTP request crosses DNS, a TCP connection and a TLS handshake, then the server\'s middleware and handler, before the response comes back. Knowing the steps tells you where latency hides.',
+      takeaways: [
+        { term: 'DNS', detail: 'Turns the host name into an IP address, usually from a cache.' },
+        { term: 'TCP handshake', detail: 'SYN, SYN-ACK, ACK: one round trip before data flows.' },
+        { term: 'TLS handshake', detail: 'Checks the certificate and agrees on keys: one round trip in TLS 1.3, two in TLS 1.2.' },
+        { term: 'Keep-alive', detail: 'HTTP/1.1 and Node 24\'s default agent reuse connections, so later requests skip DNS and both handshakes.' },
+        { term: 'HTTP/2', detail: 'Multiplexes many requests as streams over one TCP connection, with compressed headers.' },
+        { term: 'HTTP/3', detail: 'Does the same over QUIC, on UDP, so one lost packet no longer stalls every stream.' },
+      ],
       points: [
         'DNS turns the host name into an IP address, usually from a cache. Then TCP opens a connection with a three-way handshake (SYN, SYN-ACK, ACK): one round trip before data flows.',
         'For HTTPS, a TLS handshake checks the server certificate and agrees on encryption keys. TLS 1.3 needs one round trip for a new connection; TLS 1.2 needed two.',
@@ -1827,6 +1967,16 @@ function getQuote(path: string, onResponse: OnResponse) {
       },
     ],
     lesson: {
+      intro:
+        'An HTTP status code\'s first digit gives its class, and the rest says what happened. Load balancers, caches, retries and alerts read only that code, so it must be honest.',
+      takeaways: [
+        { term: 'Five classes', detail: '1xx informational, 2xx success, 3xx redirection, 4xx client error, 5xx server error.' },
+        { term: 'Unknown code', detail: 'A client treats it as the x00 of its class.' },
+        { term: '201, 202, 204', detail: 'Created, with a `Location` header; accepted but queued, not done; success with no body.' },
+        { term: '400, 409, 422', detail: 'Malformed request; conflict with the current state; valid syntax but invalid content.' },
+        { term: '429 or 503', detail: 'One client over its quota, or an overloaded service. Both can carry `Retry-After`.' },
+        { term: '502, 504', detail: 'From a gateway whose upstream failed (502) or timed out (504).' },
+      ],
       points: [
         'The first digit is the class: 1xx informational, 2xx success, 3xx redirection, 4xx client error, 5xx server error. A client treats an unknown code as the x00 of its class.',
         'Success codes say what happened: 200 OK, 201 Created with a `Location` header, 202 Accepted for work queued but not done, 204 No Content.',
@@ -1943,6 +2093,14 @@ async function saveCart(sessionId: string, cart: Cart) {
       },
     ],
     lesson: {
+      intro:
+        'A stateless server keeps nothing about a client in its memory between requests. That makes replicas interchangeable, which lets the load balancer and the autoscaler move traffic freely.',
+      takeaways: [
+        { term: 'Request carries context', detail: 'A token or a session id; the server looks up the rest.' },
+        { term: 'Stateful server', detail: 'Keeps sessions or carts in process memory: the client must return to the same instance, and a restart loses them.' },
+        { term: 'Shared stores', detail: 'State moves to PostgreSQL, Redis, object storage or the signed token; they become the part to scale.' },
+        { term: 'WebSockets', detail: 'Open connections stay in a process: broadcast through Redis pub/sub and let clients reconnect to any pod.' },
+      ],
       points: [
         'A stateless server keeps nothing about a client in its memory between requests. Each request carries what is needed, such as a token or a session id, and the server looks up the rest.',
         'A stateful server keeps sessions, carts or subscriptions in process memory, so a client must return to the same instance. A restart or a deploy loses that state.',
@@ -2062,6 +2220,16 @@ async function saveCart(sessionId: string, cart: Cart) {
       },
     ],
     lesson: {
+      intro:
+        'An operation is idempotent when doing it twice has the same effect as doing it once. Networks lose responses and clients retry, so order and payment endpoints must be idempotent or they duplicate.',
+      takeaways: [
+        { term: 'Idempotent methods', detail: '`GET`, `PUT` and `DELETE` by definition; `POST` and `PATCH` are not.' },
+        { term: 'Lost response', detail: 'A client cannot tell "never arrived" from "succeeded, response lost", so it retries.' },
+        { term: 'Idempotency key', detail: 'A UUID generated once per intended operation and sent on every retry. Stripe\'s API is the usual model.' },
+        { term: 'Atomic reservation', detail: 'Reserve the key with a request fingerprint before the work; store the response in the order\'s transaction.' },
+        { term: 'Replay, 409, 422', detail: 'Finished: replay the stored response. Still running: 409. Same key, different body: 422.' },
+        { term: 'Exactly-once effects', detail: 'At-least-once delivery plus an idempotent receiver. Exactly-once delivery does not exist over a network.' },
+      ],
       points: [
         'An operation is idempotent when doing it twice has the same effect as doing it once. `GET`, `PUT` and `DELETE` are idempotent by definition; `POST` and `PATCH` are not.',
         'A client cannot tell "never arrived" from "succeeded, response lost", so it retries. Without protection, a retried `POST /orders` creates a second order or charges twice.',
@@ -2169,6 +2337,16 @@ RETURNING key;
       },
     ],
     lesson: {
+      intro:
+        '`GET` reads a resource and `POST` asks the server to process a body. Their guarantees differ, and caches, crawlers and retry logic rely on those guarantees.',
+      takeaways: [
+        { term: 'Safe', detail: 'Asks for no state change. `GET` is safe; `POST` is not.' },
+        { term: 'Idempotent', detail: 'Same effect when repeated. `GET` is; `POST` is not, so clients do not retry it blindly.' },
+        { term: 'Query string', detail: '`GET` parameters live in the URL, which stays in access logs and browser history: no secrets there.' },
+        { term: 'State change on `GET`', detail: 'Never: crawlers and link scanners call it.' },
+        { term: '`POST /orders/search`', detail: 'For a search too big for a URL. The new `QUERY` method is safe and has a body.' },
+        { term: '`GET` with a body', detail: 'Has no defined meaning, and `fetch` refuses it.' },
+      ],
       points: [
         'A safe method asks for no state change; an idempotent one has the same effect when repeated. `GET` is both; `POST` is neither.',
         '`GET` puts its parameters in the URL, and generic software caches, prefetches and retries it. `POST` sends a body the server processes, and clients do not retry it blindly.',
@@ -2269,6 +2447,15 @@ res.end();`,
       },
     ],
     lesson: {
+      intro:
+        'Backpressure is the signal a slow consumer sends a fast producer to say "wait". Without it, work piles up in buffers and queues until memory runs out or latency explodes.',
+      takeaways: [
+        { term: '`write()` returns `false`', detail: 'How a Node stream signals a full buffer; `pipeline` or `for await` pause the source until it drains.' },
+        { term: 'Bound everything', detail: 'Queue sizes, concurrency and timeouts between services; never unbounded buffers.' },
+        { term: 'Load shedding', detail: 'When saturated, reject early with 503 and `Retry-After`, or 429 for one client over its quota.' },
+        { term: 'Circuit breaker', detail: 'Closed lets calls through; open fails them at once; half-open lets one trial call test recovery.' },
+        { term: 'Consumer lag', detail: 'With a broker, consumers pull at their pace and the queue absorbs bursts; a growing backlog shows the pressure.' },
+      ],
       points: [
         'Backpressure is the signal a slow consumer sends to a fast producer to say "wait". Without it, work piles up in buffers and queues until memory runs out or latency explodes.',
         'Node streams have it built in: `write()` returns `false` when the buffer is full, and `pipeline` or `for await` pause the source until the consumer catches up.',
@@ -2375,6 +2562,16 @@ LIMIT 21;`,
       },
     ],
     lesson: {
+      intro:
+        'Paginating millions of rows with offsets gets slower with every page and shifts rows as data changes. Keyset pagination continues after the last row seen, so every page costs the same.',
+      takeaways: [
+        { term: '`LIMIT 20 OFFSET 40`', detail: 'The database walks every skipped row, so deep pages are slow.' },
+        { term: 'Keyset condition', detail: '`WHERE (created_at, id) < ($1, $2)` in the same order, with an index on the sort key.' },
+        { term: 'Total sort order', detail: 'Add the id as tie-breaker, `ORDER BY created_at DESC, id DESC`, or rows sharing a timestamp are skipped or repeated.' },
+        { term: 'Opaque cursor', detail: 'Not secret: base64 decodes easily. Validate it, and sign it with an HMAC to stop tampering.' },
+        { term: 'One extra row', detail: 'Fetch one row more than the page size to know whether a next page exists.' },
+        { term: 'When to keep offsets', detail: 'Small admin tables where people jump to a page; keyset gives up page jumps and cheap totals.' },
+      ],
       points: [
         'Offset pagination (`LIMIT 20 OFFSET 40`) skips rows by counting them. It slows down with depth, because the database walks every skipped row, and rows shift when data changes.',
         'Keyset (cursor) pagination remembers where the last page ended and asks for the rows after it. With an index on the sort key, each page costs the same at any depth.',
@@ -2465,6 +2662,16 @@ LIMIT 21;  -- page size + 1: the extra row says whether a next page exists`,
       },
     ],
     lesson: {
+      intro:
+        'gRPC is an RPC framework: you describe services in a `.proto` file and call them like typed functions, with Protocol Buffers over HTTP/2. It shines between internal services, less so at the browser edge.',
+      takeaways: [
+        { term: '`.proto` file', detail: 'Describes services and messages; tools generate typed clients and servers for many languages.' },
+        { term: 'Protocol Buffers', detail: 'A binary format that sends field numbers instead of field names, over HTTP/2.' },
+        { term: 'Streaming', detail: 'A method is unary or streaming: from the server, from the client, or both ways.' },
+        { term: '`DEADLINE_EXCEEDED`', detail: 'What a call fails with once the deadline the client set has expired.' },
+        { term: 'Field numbers', detail: 'They are the contract: never change or reuse one, and mark removed numbers `reserved`.' },
+        { term: 'gRPC-Web', detail: 'Browsers need it through a proxy; partners expect REST, which is easier to debug and cache.' },
+      ],
       points: [
         'gRPC is an RPC (remote procedure call) framework: you describe services and messages in a `.proto` file, and tools generate typed clients and servers for many languages.',
         'Messages are Protocol Buffers, a binary format that sends field numbers instead of field names. They travel over HTTP/2, so many calls share one connection.',
@@ -2579,6 +2786,16 @@ LIMIT 21;  -- page size + 1: the extra row says whether a next page exists`,
       },
     ],
     lesson: {
+      intro:
+        'Authentication proves who the caller is; authorization decides whether that caller may do this action on this object. It belongs in code close to the data, denied by default.',
+      takeaways: [
+        { term: 'Route-level check', detail: 'May this role call this route at all, such as refunds.' },
+        { term: 'Object-level check', detail: 'Does this order belong to the caller? OWASP ranks missing ones as API risk number one.' },
+        { term: 'RBAC, ABAC, ReBAC', detail: 'Permissions through roles; decisions from attributes; decisions from relationships such as account membership.' },
+        { term: 'Ownership in the query', detail: '`WHERE id = $1 AND customer_id = $2`, so a forgotten check returns nothing.' },
+        { term: 'Policy module', detail: 'One place for rules such as `order:refund`; never test role names in handlers.' },
+        { term: 'Deny by default', detail: 'Test every id route as a second customer (expect 404) and every admin route as a customer (expect 403).' },
+      ],
       points: [
         'Authentication proves who the caller is (401 when it fails). Authorization decides whether that caller may do this action on this object (403, or 404 to hide the object).',
         'Route-level checks ask whether the role may call the route, such as refunds. Object-level checks ask whether this order belongs to the caller; OWASP ranks missing ones as API risk number one.',
@@ -2697,6 +2914,16 @@ if (!result.success) {
       },
     ],
     lesson: {
+      intro:
+        'Problem Details (RFC 9457) is the standard JSON error body for HTTP APIs. One format for every error lets clients branch reliably and lets support find the matching logs.',
+      takeaways: [
+        { term: '`application/problem+json`', detail: 'Its media type. RFC 9457 obsoletes RFC 7807 and keeps the same format.' },
+        { term: '`type`', detail: 'A URI identifying the kind of problem; clients branch on it.' },
+        { term: '`title` and `detail`', detail: '`title` is a short summary that stays stable; `detail` explains this occurrence to a human.' },
+        { term: '`status` and `instance`', detail: '`status` must match the response code; `instance` identifies the occurrence, such as a request id.' },
+        { term: 'Extension members', detail: 'Data a program needs, like an `errors` array with a JSON pointer per invalid field, all reported at once.' },
+        { term: '5xx body', detail: 'No stack trace or SQL: a generic message and the request id.' },
+      ],
       points: [
         'Problem Details (RFC 9457) is the standard error body for HTTP APIs: a JSON object served as `application/problem+json`. It obsoletes RFC 7807 and keeps the same format.',
         '`type` is a URI that identifies the kind of problem, and clients branch on it. `title` is a short summary that stays stable; `detail` explains this occurrence to a human.',
@@ -2809,6 +3036,16 @@ Content-Type: application/problem+json
       },
     ],
     lesson: {
+      intro:
+        '`PUT` replaces a whole resource and `PATCH` applies a set of changes. The difference decides what happens to the fields you leave out, and whether a retry is safe.',
+      takeaways: [
+        { term: '`PUT`', detail: 'Sends the complete representation: omitted fields are reset or removed. Idempotent.' },
+        { term: '`PATCH` (RFC 5789)', detail: 'Changes in a format named by `Content-Type`; neither safe nor idempotent by definition.' },
+        { term: 'JSON Merge Patch (RFC 7396)', detail: 'Listed fields replace, nested objects merge, `null` removes a field, arrays are replaced whole.' },
+        { term: 'JSON Patch (RFC 6902)', detail: 'Ordered operations (`add`, `remove`, `replace`, `move`, `copy`, `test`) applied atomically.' },
+        { term: '415, 422, 409 or 412', detail: 'Unsupported patch format, with `Accept-Patch`; a patch that cannot be applied; a conflict.' },
+        { term: '`If-Match` with the `ETag`', detail: 'Prevents lost updates between concurrent edits.' },
+      ],
       points: [
         '`PUT` sends the complete new representation of a resource: a field left out is reset or removed. Sending the same `PUT` twice has the same effect, so it is idempotent.',
         '`PATCH` sends only changes, in a format named by `Content-Type`. RFC 5789 defines it as neither safe nor idempotent, though a given patch can be idempotent.',
@@ -2920,6 +3157,16 @@ Content-Type: application/json-patch+json
       },
     ],
     lesson: {
+      intro:
+        'Internal services depend on each other\'s APIs and events as much as external clients do. Treating each one as an owned, published contract lets teams change them without breaking each other.',
+      takeaways: [
+        { term: 'Schema', detail: 'OpenAPI, a `.proto` file, or an Avro or JSON schema; the provider owns it and changes it on purpose.' },
+        { term: 'Additive by default', detail: 'New optional fields, endpoints or event types are safe when consumers ignore unknown fields.' },
+        { term: 'Expand and contract', detail: 'Add the new shape next to the old, migrate consumers while measuring usage, then remove the old.' },
+        { term: 'Pact', detail: 'Records what each consumer reads; the provider replays those contracts in its own pipeline.' },
+        { term: '`can-i-deploy`', detail: 'Blocks a release that would break a consumer\'s recorded contract.' },
+        { term: '`BACKWARD` compatibility', detail: 'In a schema registry: consumers on the new schema read old data, so consumers deploy first.' },
+      ],
       points: [
         'A contract is the schema of what a service accepts and returns, or of an event it publishes: OpenAPI, a `.proto` file, an Avro or JSON schema. The provider owns it and changes it on purpose.',
         'Additive changes are safe when consumers are tolerant readers that ignore unknown fields. Removing, renaming or retyping a field, or adding a required one, is breaking.',

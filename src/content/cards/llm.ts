@@ -100,6 +100,16 @@ const chatClient = new Anthropic();`,
       },
     ],
     lesson: {
+      intro:
+        'An LLM is a remote dependency like a payment provider: slow, billed per request and non-deterministic. You call it from the server and plan for its failures with timeouts, retries, fallbacks and a degraded mode.',
+      takeaways: [
+        { term: 'Server-side SDK', detail: 'The provider\'s official SDK keeps the key out of the browser and brings retries, timeouts, streaming and types.' },
+        { term: 'SDK retries', detail: 'The Anthropic SDK retries network errors, 429, 5xx and 529 (overloaded) twice by default.' },
+        { term: 'Timeout', detail: 'The SDK default is 10 minutes: set a short one when a user waits.' },
+        { term: 'Fallback', detail: 'Another model with its own rate limit, or the same model through another provider such as AWS Bedrock.' },
+        { term: '400 Bad Request', detail: 'Never falls back: the request is wrong everywhere.' },
+        { term: 'Degraded mode', detail: 'A fixed message without the model, such as a link to the order page.' },
+      ],
       points: [
         'A large language model (LLM) is reached over HTTPS, like a payment provider. A call takes seconds, is billed by the text in and out, and the same input can give a different answer.',
         'Call it from your server with the provider\'s official SDK: the API key stays server-side, and the SDK brings retries, timeouts, streaming helpers and types.',
@@ -225,6 +235,16 @@ function isWorthAFallback(error: unknown): boolean {
       },
     ],
     lesson: {
+      intro:
+        'Providers bill LLM calls in tokens, the pieces of text the model reads and writes. Estimating a feature\'s cost means counting tokens per answer, and reducing it means sending fewer, cheaper or cached ones.',
+      takeaways: [
+        { term: 'Token', detail: 'A piece of text; a word is often one or two. Input and output are priced apart, output higher.' },
+        { term: 'Cost of one answer', detail: 'Input tokens × input price + output tokens × output price, read from the response\'s `usage`.' },
+        { term: 'Prompt caching', detail: 'Reuses a byte-for-byte identical prefix like system prompt and tools; put timestamps and ids after it.' },
+        { term: 'Small model, `effort`, `max_tokens`', detail: 'A small model for classification or extraction, a lower `effort` and a capped `max_tokens` all cut the bill.' },
+        { term: 'Batch API', detail: '50% off for work that can wait.' },
+        { term: 'Per-minute limits', detail: 'Requests, input and output tokens per minute, per model: check the peak hour, not only the bill.' },
+      ],
       points: [
         'Tokens are the pieces of text a model reads and writes; a word is often one or two of them. Providers bill input and output tokens at separate prices, and output costs more.',
         'Every response reports its `usage`. Cost of one answer = input tokens × input price + output tokens × output price, with cache reads and writes priced apart.',
@@ -332,6 +352,15 @@ await stream.finalMessage();`,
       },
     ],
     lesson: {
+      intro:
+        'Streaming sends an LLM answer in small pieces as the model writes it, so the user reads the start right away. Your API relays the provider\'s server-sent events and must stop the generation, and the billing, when the user leaves.',
+      takeaways: [
+        { term: 'Server-sent events', detail: 'One long response with `content-type: text/event-stream`; each event is `event:` and `data:` lines ended by a blank line.' },
+        { term: 'Relay', detail: 'One event per text delta, then a final event with the stop reason.' },
+        { term: 'Client closes', detail: 'Abort the provider stream, which aborts its HTTP request: no more tokens paid for nobody.' },
+        { term: 'Errors after the 200', detail: 'Travel as an `error` event inside the stream, as the provider does with `overloaded_error`.' },
+        { term: '`EventSource`', detail: 'Cannot send a POST body, so a chat uses `fetch` and reads `response.body` with a stream reader.' },
+      ],
       points: [
         'Streaming sends the answer in small pieces as the model generates them, so the user reads the start while the rest is written.',
         'Server-sent events (SSE) are one long HTTP response with `content-type: text/event-stream`. Each event is an `event:` line and a `data:` line, ended by a blank line.',
@@ -444,6 +473,15 @@ return routeTo(triage.intent);`,
       },
     ],
     lesson: {
+      intro:
+        'Structured output constrains the model to return JSON that matches a schema you give, so your code can act on it. Even then, the shape can break on a refusal or a cut, and a valid shape says nothing about valid values.',
+      takeaways: [
+        { term: 'Not "answer in JSON"', detail: 'A prompt request is not obeyed reliably; answers start with a sentence and parsing fails.' },
+        { term: '`output_config.format`', detail: 'Where the schema goes on the Claude API.' },
+        { term: '`zodOutputFormat()`', detail: 'Builds the schema from Zod; `messages.parse()` returns the typed object as `parsed_output`.' },
+        { term: '`stop_reason`', detail: 'Check it is `end_turn` and the object exists: a refusal or `max_tokens` can break the output.' },
+        { term: 'Untrusted values', detail: 'An order number from the model is input: check its format and ownership before any query.' },
+      ],
       points: [
         'Structured output constrains the model to produce JSON that matches a schema you give it, instead of hoping a prompt saying "answer in JSON" is obeyed.',
         'On the Claude API the schema goes in `output_config.format`. The SDK builds it from Zod with `zodOutputFormat()`, and `messages.parse()` returns the typed object as `parsed_output`.',
@@ -554,6 +592,16 @@ if (message.stop_reason !== 'end_turn' || !message.parsed_output) {
       },
     ],
     lesson: {
+      intro:
+        'Tool calling lets the model ask your code to run a function; the model only asks and your code decides. That split is where authorization and human confirmation keep an AI assistant\'s actions safe.',
+      takeaways: [
+        { term: 'Tool definition', detail: 'A name, a description and a JSON Schema for the input.' },
+        { term: '`tool_use`', detail: 'The `stop_reason` and a block with an id, the tool name and its input.' },
+        { term: '`tool_result`', detail: 'Your reply carrying the same id; a failure goes back with `is_error: true`.' },
+        { term: 'User identity', detail: 'Comes from the session, never from the model; tools take business ids like an order number.' },
+        { term: 'Actions', detail: 'The model proposes, a person confirms on a normal authenticated route, a unique constraint makes the write idempotent.' },
+        { term: 'Round cap', detail: 'Each tool round is a paid call; capping rounds stops loops.' },
+      ],
       points: [
         'Tool calling lets the model ask your code to run a function. You describe each tool with a name, a description and a JSON Schema for its input.',
         'When it needs a tool, the model stops with `stop_reason` `tool_use` and returns a `tool_use` block: id, name, input. Your code runs it and replies with a `tool_result` carrying that id.',
@@ -665,6 +713,16 @@ LIMIT 20;`,
       },
     ],
     lesson: {
+      intro:
+        'RAG, retrieval-augmented generation, finds the passages of your own data that answer a question, puts them in the prompt, and asks the model to answer from them with citations. The quality of the answer depends on the retrieval.',
+      takeaways: [
+        { term: 'Chunking', detail: 'Cut documents into passages on headings and keep the title with each.' },
+        { term: 'Embedding', detail: 'A vector where similar meanings are close; use one embedding model for every passage and question.' },
+        { term: 'pgvector HNSW index', detail: 'Fast but approximate; its operator class must match the query\'s operator, like `<=>` for cosine.' },
+        { term: 'Permission filters', detail: 'Enforced inside the retrieval query.' },
+        { term: 'Hybrid search with RRF', detail: 'Full-text search catches exact words and codes; reciprocal rank fusion merges it with vector results.' },
+        { term: 'Citable blocks', detail: 'The chosen passages go to the model so each claim links to its source.' },
+      ],
       points: [
         'RAG (retrieval-augmented generation) finds the passages of your own data that answer the question, puts them in the prompt, and asks the model to answer from them and cite them.',
         'Indexing: cut documents into passages on headings, keep the title with each, and store an embedding per passage, a vector where similar meanings are close. Use one embedding model for all.',
@@ -770,6 +828,16 @@ LIMIT 20;`,
       },
     ],
     lesson: {
+      intro:
+        'Prompt injection is text that turns the model against your instructions, typed by the user or hidden in content the model reads. Since no fool-proof prevention is known, you limit what a successful injection can do, in code.',
+      takeaways: [
+        { term: 'Direct vs indirect', detail: 'In the user\'s own message, or hidden in content the model reads, like a review or a tool result.' },
+        { term: 'OWASP LLM01 (2025)', detail: 'Top of the LLM Top 10; OWASP says it is unclear whether fool-proof prevention exists.' },
+        { term: 'Limit the damage', detail: 'User-scoped tools, human confirmation, filtered retrieval, escaped output, token budgets.' },
+        { term: 'System prompt', detail: 'Assume it leaks: no keys, discount codes or internal rules in it.' },
+        { term: 'Untrusted content', detail: 'Passed as data in tool or search results, never in the system prompt.' },
+        { term: 'Data minimisation', detail: 'Send the provider only needed fields, with an opaque user id instead of a name or e-mail.' },
+      ],
       points: [
         'Prompt injection is text that turns the model against your instructions. Direct injection is in the user\'s message; indirect injection hides in content the model reads, like a review or a tool result.',
         'OWASP ranks it LLM01 in its 2025 Top 10 for LLM applications and says it is unclear whether fool-proof prevention exists. So design as if it will sometimes succeed.',
@@ -867,6 +935,16 @@ it('answers order status questions', async () => {
       },
     ],
     lesson: {
+      intro:
+        'An LLM is non-deterministic, so you do not assert exact answers: you run an evaluation that scores the feature on realistic cases. Running it on every change and monitoring production calls tells you when quality or cost drifts.',
+      takeaways: [
+        { term: 'Eval set', detail: 'Realistic inputs with expected outcomes, run against the real model, producing a score.' },
+        { term: 'Sources', detail: 'Anonymised real conversations, every intent, tricky cases, injection attempts and every production bug.' },
+        { term: 'Code grading', detail: 'Check the intent, the tool called and its arguments in code where possible.' },
+        { term: 'Model as judge', detail: 'Only for what code cannot check, with a rubric checked against people.' },
+        { term: 'When it runs', detail: 'In CI on prompt, model or tool description changes, and nightly; a score drop is a regression.' },
+        { term: 'Production log', detail: 'Model, tokens, cost, latency, stop reason, request id per call, no conversation text. Alert on cost and fallbacks.' },
+      ],
       points: [
         'An evaluation (eval) is a set of realistic inputs with expected outcomes, run against the real model, that produces a score rather than a pass or a fail.',
         'Build it from anonymised real conversations: every intent, tricky cases, injection attempts and every production bug. Compare scores between versions, not single answers.',

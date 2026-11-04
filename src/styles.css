@@ -133,21 +133,6 @@ code {
   transform: scale(0.98);
 }
 
-/* A horizontal carousel that snaps one card at a time, with no visible scrollbar. */
-.carousel {
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
-}
-
-.carousel::-webkit-scrollbar {
-  display: none;
-}
-
-.carousel > * {
-  scroll-snap-align: center;
-}
-
 details > summary {
   cursor: pointer;
   list-style: none;

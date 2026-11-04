@@ -124,6 +124,16 @@ export const deliveryCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Tests differ by how much real code and infrastructure they run: one function, a module with its real neighbours, or the whole deployed system. Choosing the right level for each kind of bug keeps a suite fast and trustworthy.',
+      takeaways: [
+        { term: 'Unit test', detail: 'One function in memory, no network, database or real clock. Fast and precise, ideal for pure rules like a discount.' },
+        { term: 'Integration test', detail: 'Your code with its real neighbours, such as a route against a real PostgreSQL. Catches wrong SQL, validation and error mapping.' },
+        { term: 'End-to-end (E2E) test', detail: 'Drives the deployed system from outside, for example Playwright in a browser. Catches wiring and configuration, but slow and easily flaky.' },
+        { term: 'Mock', detail: 'Replaces a dependency so its code never runs: a mocked repository cannot catch a bug in its SQL.' },
+        { term: 'Testing trophy', detail: 'Static analysis at the base, integration tests as the widest layer. For a Node API: mostly integration, unit for rules, a few E2E.' },
+        { term: 'Contract test (Pact)', detail: 'Checks that two separately deployed services still agree on their API.' },
+      ],
       points: [
         'A unit test runs one function in memory, with no network, database or real clock. It is fast and precise, and ideal for pure rules such as a discount or a shipping fee.',
         'An integration test runs your code with its real neighbours, for example an HTTP route against a real PostgreSQL, so it catches wrong SQL, validation and error mapping.',
@@ -231,6 +241,16 @@ docker push "$IMAGE:production"`,
       },
     ],
     lesson: {
+      intro:
+        'CI/CD automates the path from a commit to production: every change is checked, then shipped through the same automated steps. A good pipeline is fast, safe, and promotes exactly what it tested.',
+      takeaways: [
+        { term: 'Continuous integration', detail: 'Runs the checks (lint, type-check, tests) on every change, typically on each pull request.' },
+        { term: 'Delivery vs deployment', detail: 'Continuous delivery keeps each passing change releasable, maybe behind an approval; continuous deployment ships it with no human step.' },
+        { term: '`.github/workflows`', detail: 'Where GitHub Actions YAML workflows live, triggered by events like `pull_request` or `push`. Jobs run in parallel unless `needs` orders them.' },
+        { term: 'Service container', detail: 'A job can start PostgreSQL for integration tests. Environment protection rules can require a reviewer before a deploy job.' },
+        { term: 'One image per commit', detail: 'Tag it with the commit and promote the same image from staging to production. Rebuilding per environment ships untested bytes.' },
+        { term: 'Pipeline security', detail: 'Minimal `permissions` for `GITHUB_TOKEN`, third-party actions pinned to a full commit SHA, OIDC for short-lived cloud credentials.' },
+      ],
       points: [
         'Continuous integration (CI) runs the checks on every change. Continuous delivery keeps each passing change releasable, possibly behind a manual approval; continuous deployment ships it with no human step.',
         'In GitHub Actions, a workflow is a YAML file in `.github/workflows`, triggered by events such as `pull_request` or `push`. Its jobs run in parallel unless `needs` makes one wait for others.',
@@ -338,6 +358,16 @@ RUN npm run build`,
       },
     ],
     lesson: {
+      intro:
+        'Docker packages an application with its runtime and dependencies into an image and runs it as an isolated process. It gives the same environment on every laptop, in CI and in production.',
+      takeaways: [
+        { term: 'Image vs container', detail: 'An image is a read-only package of the app and its runtime; a container is an isolated process started from it.' },
+        { term: 'Container vs virtual machine', detail: 'Containers share the host kernel while a VM boots its own, so a container starts in seconds and uses less memory.' },
+        { term: 'Layer cache', detail: 'One cached layer per instruction; a change rebuilds every later layer. Copy the manifests and install before copying the source.' },
+        { term: 'Multi-stage build', detail: 'Several `FROM` stages: one compiles with dev dependencies, the last copies only built files. Small image, run as non-root.' },
+        { term: '`docker compose up`', detail: 'Starts several containers from one file, such as PostgreSQL and the API, for local development.' },
+        { term: 'Secrets', detail: 'Never bake secrets or the `.env` file into an image.' },
+      ],
       points: [
         'An image is a read-only package of an application with its runtime and dependencies. A container is an isolated process started from an image.',
         'Containers share the host\'s kernel, while a virtual machine boots its own, so a container starts in seconds and uses less memory.',
@@ -486,6 +516,16 @@ RUN npm run build`,
       },
     ],
     lesson: {
+      intro:
+        'Code that calls an outside API is tested without the real network: tests must be fast, deterministic and unable to charge a card. You replace the boundary, not your own code, and test failures as well as success.',
+      takeaways: [
+        { term: 'Mock the boundary', detail: 'Replace the HTTP client, never your own code, and never call the real partner API from a test.' },
+        { term: 'MSW (Mock Service Worker)', detail: 'Keeps the real `fetch` and intercepts requests, so URL building and JSON parsing still run. Unhandled requests should fail.' },
+        { term: 'Cases to cover', detail: 'Success, an error status, a network failure and a timeout, not only the happy path.' },
+        { term: '`await expect(...).rejects`', detail: 'An async function returns a rejected promise. Without `await`, the test ends before the check runs.' },
+        { term: '`expect.assertions(1)`', detail: 'Fails the test if no assertion ran, catching an `expect` placed only in a `catch` that never executes.' },
+        { term: '`vi.useFakeTimers()`', detail: 'Replaces `setTimeout`; `await vi.advanceTimersByTimeAsync(1000)` moves time and settles promises, so a retry test runs in milliseconds.' },
+      ],
       points: [
         'A test must never call the real partner API: it would be slow, flaky, and could charge a card. Replace the boundary, the HTTP client, rather than your own code.',
         'Either inject the client and pass a stub, or keep the real `fetch` and intercept requests with MSW (Mock Service Worker), so URL building and JSON parsing still run. Unhandled requests should fail.',
@@ -599,6 +639,16 @@ terraform apply -auto-approve  # plans again, then applies`,
       },
     ],
     lesson: {
+      intro:
+        'Infrastructure as code describes servers, databases, queues and permissions in files kept in git. Every infrastructure change is then reviewed, versioned and repeatable, and environments can be rebuilt identically.',
+      takeaways: [
+        { term: 'Terraform / OpenTofu', detail: 'Read HCL files; OpenTofu is the open-source fork. Providers are plugins that call each cloud\'s API.' },
+        { term: 'State file', detail: 'Maps each block to the real resource. Holds attributes in plain text, secrets included: remote backend with locking, never in git.' },
+        { term: '`terraform plan`', detail: 'Compares code, state and reality, and lists creates, updates and deletes without changing anything.' },
+        { term: '`apply`', detail: 'Carries out the plan. Apply the saved, reviewed plan from CI, never from a laptop.' },
+        { term: 'Drift', detail: 'Reality no longer matches the code, often after a manual console fix. The next plan shows it.' },
+        { term: '`prevent_destroy`', detail: 'Makes Terraform reject a plan that would destroy the resource, such as a database.' },
+      ],
       points: [
         'Infrastructure as code (IaC) describes servers, databases, queues and permissions in files kept in git, so every change is reviewed, versioned and repeatable.',
         'Terraform and OpenTofu, its open-source fork, read HCL files. Providers are plugins that call each cloud\'s API, and the state file maps each block to the real resource it manages.',
@@ -696,6 +746,16 @@ terraform apply tfplan        # applies exactly that plan`,
       },
     ],
     lesson: {
+      intro:
+        'A bug that only appears in production is solved with evidence, not guesses. You limit the damage first, then use traces, logs and metrics to find what differs from staging, and close the loop so it cannot return unnoticed.',
+      takeaways: [
+        { term: 'Mitigate first', detail: 'If a recent deploy or flag is the likely cause, roll back or switch the flag off. The evidence stays in logs, traces and metrics.' },
+        { term: 'Trace id', detail: 'A trace follows one request across services; with its id on every log line you filter all logs of a failing request.' },
+        { term: 'What differs from staging', detail: 'Real data shape and volume, concurrency, configuration, third parties and browsers.' },
+        { term: 'One hypothesis at a time', detail: 'Reproduce with production-like data or add targeted logging behind a flag. Never copy personal data into logs or onto laptops.' },
+        { term: 'Close the loop', detail: 'A regression test, an alert that would have caught it, and a blameless post-mortem.' },
+        { term: 'Node memory leak', detail: 'Compare two heap snapshots taken minutes apart.' },
+      ],
       points: [
         'Mitigate before you investigate: if a recent deploy or flag is the likely cause, roll back or switch the flag off. The evidence stays in the logs, traces and metrics.',
         'A trace follows one request across services. With the trace id in every log line, you can filter all the logs of a failing request, next to error-tracker events and metrics split by version.',
@@ -810,6 +870,16 @@ terraform apply tfplan        # applies exactly that plan`,
       },
     ],
     lesson: {
+      intro:
+        'A feature flag is a switch read at runtime that decides which code path runs. It separates deploying code from releasing a feature, which enables gradual rollouts and rollbacks in seconds.',
+      takeaways: [
+        { term: 'Gradual rollout', detail: 'Internal users, then a percentage or segment of customers, while watching the metrics.' },
+        { term: 'Kill switch', detail: 'Turning the flag off is a rollback in seconds, with no deploy.' },
+        { term: 'Targeting key', detail: 'Evaluate with a stable key such as the customer id, so a percentage rollout gives the same customer the same answer.' },
+        { term: 'Default value', detail: 'Returned whenever evaluation fails, so it must be the old, safe behaviour.' },
+        { term: 'Limits', detail: 'A flag only switches code paths: it cannot undo a database migration.' },
+        { term: 'OpenFeature', detail: 'A CNCF standard API with providers such as flagd, LaunchDarkly or Unleash. Remove flags once fully released.' },
+      ],
       points: [
         'A feature flag is a switch read at runtime that decides which code path runs, so deploying the code and releasing the feature become two separate steps.',
         'Roll out gradually: internal users, then a percentage or a segment of customers, while watching the metrics. Turning the flag off is a rollback in seconds, with no deploy.',
@@ -926,6 +996,16 @@ ALTER TABLE orders RENAME COLUMN note TO delivery_note;`,
       },
     ],
     lesson: {
+      intro:
+        'Blue-green and canary are release strategies that limit the risk of a new version: one switches all traffic between two full copies, the other moves a growing share of users while comparing metrics.',
+      takeaways: [
+        { term: 'Blue-green', detail: 'A full new copy (green) beside the live one (blue), then all traffic switches at once. Fast switch back, double capacity.' },
+        { term: 'Canary', detail: 'A growing share of traffic, like 1%, 10%, 50%, compared on error rate and latency; stop if they degrade.' },
+        { term: 'Rolling update', detail: 'Kubernetes default: pods replaced a few at a time, at most 25% extra and 25% unavailable by default.' },
+        { term: 'Expand and contract', detail: 'Add the new column, write both, backfill, switch reads, then drop the old one, so both versions work on one database.' },
+        { term: 'Traffic is not schema', detail: 'Switching traffic changes which code runs, never the schema: a dropped column stays dropped.' },
+        { term: 'Argo Rollouts', detail: 'Automates canary steps and their analysis.' },
+      ],
       points: [
         'Blue-green runs a full copy of the new version (green) next to the live one (blue), then switches all traffic at once. Switching back is just as fast, but you pay for double capacity.',
         'A canary sends a small, growing share of traffic to the new version, such as 1%, then 10%, then 50%, compares its error rate and latency with the stable version, and stops if they degrade.',
@@ -1024,6 +1104,16 @@ ALTER TABLE orders RENAME COLUMN note TO delivery_note;`,
       },
     ],
     lesson: {
+      intro:
+        'Code review is a conversation aimed at better code, not at winning. A good reviewer looks for risk first and writes comments the author can act on; a good author receives them without ego.',
+      takeaways: [
+        { term: 'Review by risk', detail: 'Security and data integrity first, then failure handling and concurrency, then design. Style is for the linter and formatter.' },
+        { term: 'A useful comment', detail: 'Says what breaks, shows the evidence (an input or a race) and proposes a fix. Ask a question when unsure.' },
+        { term: 'Conventional Comments', detail: 'Labels such as `issue`, `suggestion`, `question`, `nitpick`, `praise`, plus decorations like "(blocking)".' },
+        { term: 'Google\'s review guide', detail: 'Approve once a change clearly improves code health, even if not perfect; prefix polish with "Nit:".' },
+        { term: 'Small pull requests', detail: 'Small, single-purpose pull requests get better reviews.' },
+        { term: 'Receiving feedback', detail: 'Assume good intent, answer every comment by fixing or explaining; move long threads to a call and write the outcome back.' },
+      ],
       points: [
         'Review by risk: security and data integrity first, then failure handling and concurrency, then design. Leave formatting and style to the linter and formatter.',
         'A useful comment says what breaks, shows the evidence, such as an input or a race that triggers it, and proposes a fix. When you are unsure, ask a question instead of asserting.',
@@ -1130,6 +1220,16 @@ const reviews = await getReviews(productId);`,
       },
     ],
     lesson: {
+      intro:
+        'Full-stack performance work starts from measurements of real users and real requests, then fixes the biggest cost first, on the page or in the API, one change at a time.',
+      takeaways: [
+        { term: 'Field data at p75', detail: 'Core Web Vitals from real users, judged at the 75th percentile. Lighthouse is a lab tool and misses real devices.' },
+        { term: 'Core Web Vitals thresholds', detail: 'Good at: LCP 2.5 s or less, INP 200 ms or less, CLS 0.1 or less.' },
+        { term: 'Page fixes', detail: 'CDN caching, LCP image loaded early with high priority, less JavaScript, space reserved for media, long tasks split for INP.' },
+        { term: 'API fixes', detail: 'From traces: remove N+1 queries, add the missing index, parallel calls with `Promise.all`, cache hot reads.' },
+        { term: 'Percentiles over averages', detail: 'Averages hide the slow tail users feel; watch p95 for the API.' },
+        { term: 'Budgets in CI', detail: 'Change one thing at a time, compare before and after, and set budgets in CI to stop regressions.' },
+      ],
       points: [
         'Measure first. Pages: Core Web Vitals from real users, judged at the 75th percentile. API: traces and latency percentiles such as p95. Lighthouse, a lab tool, simulates one load and misses real devices.',
         'The Core Web Vitals are good at: LCP (Largest Contentful Paint, main content shown) 2.5 s or less, INP (Interaction to Next Paint, reaction to input) 200 ms or less, CLS (layout shift) 0.1 or less.',
@@ -1249,6 +1349,15 @@ const [stock, reviews] = await Promise.all([
       },
     ],
     lesson: {
+      intro:
+        'A snapshot test saves an output to a file and fails when a later run differs. It is cheap to write, but it proves only that the output is unchanged, not that it is correct.',
+      takeaways: [
+        { term: 'How it works', detail: 'The first run serialises the output, such as HTML or a payload, to a file; later runs fail on any difference.' },
+        { term: 'Unchanged is not correct', detail: 'It records today\'s output, right or wrong, only for the states the test reaches.' },
+        { term: 'Large DOM snapshots', detail: 'Fail on harmless changes like a renamed class, so teams run `vitest -u` without reading and they catch nothing.' },
+        { term: '`toMatchInlineSnapshot()`', detail: 'Writes the value into the test file. Use small snapshots for values that are the spec, like an error message or CSV header.' },
+        { term: '`toMatchAriaSnapshot`', detail: 'Playwright compares the accessibility tree, ignoring classes and layout. For components, prefer asserting behaviour by role.' },
+      ],
       points: [
         'A snapshot test serialises an output, such as rendered HTML or a generated payload, into a file on the first run. Later runs compare with that file and fail on any difference.',
         'It records what the code produces today, right or wrong, and only for the states the test reaches. A passing snapshot proves "unchanged", not "correct".',
@@ -1335,6 +1444,16 @@ const [stock, reviews] = await Promise.all([
       },
     ],
     lesson: {
+      intro:
+        'Test-driven development writes a failing test before the code that makes it pass, in short cycles. It shapes the interface from the caller\'s side and leaves a test behind for every behaviour.',
+      takeaways: [
+        { term: 'Red', detail: 'Write one failing test. Seeing it fail proves it can detect the missing behaviour.' },
+        { term: 'Green', detail: 'Write the smallest code that makes the test pass.' },
+        { term: 'Refactor', detail: 'Clean the code with the test still passing.' },
+        { term: 'Caller-first design', detail: 'Writing the test first designs the interface from the caller\'s side: small functions with clear inputs and outputs.' },
+        { term: 'Where it fits in front end', detail: 'Pure logic, validation, reducers, custom hooks, and bug fixes starting with a reproducing test. Exploratory UI is prototyped first.' },
+        { term: 'Test the public interface', detail: 'By role and visible text, never internal state or CSS classes, or every refactor breaks the tests.' },
+      ],
       points: [
         'Test-driven development (TDD) repeats a short cycle: write one failing test (red), write the smallest code that passes it (green), then clean the code with the test still passing (refactor).',
         'Seeing the test fail first proves it can detect the missing behaviour. A test written after the code may pass for the wrong reason and check nothing.',
@@ -1437,6 +1556,16 @@ expect(onRemove).toHaveBeenCalledWith('prod_mug');`,
       },
     ],
     lesson: {
+      intro:
+        'Accessibility testing combines automated layers, from lint rules to axe scans in CI, with keyboard tests and manual screen reader passes, because machines catch only part of the issues.',
+      takeaways: [
+        { term: '`eslint-plugin-jsx-a11y`', detail: 'Flags invalid ARIA in JSX as you type.' },
+        { term: 'Query by role and name', detail: 'Component tests that query by role and accessible name fail when, say, a button has no name.' },
+        { term: '`@axe-core/playwright`', detail: 'Runs axe on key pages and their open states in CI. Its README claims about 57% of WCAG issues on average.' },
+        { term: 'What machines miss', detail: 'Meaningful alt text, logical focus order, clear announcements, focus traps, reflow at 320 CSS px or 200% zoom.' },
+        { term: 'Keyboard tests', detail: 'Tab order, arrows in widgets, Escape closing a dialog and focus returning to its trigger. Custom widgets follow the APG.' },
+        { term: 'Manual passes', detail: 'Keyboard-only and screen reader passes on critical journeys, such as NVDA on Windows and VoiceOver with Safari.' },
+      ],
       points: [
         'Automate in layers: `eslint-plugin-jsx-a11y` flags invalid ARIA in JSX, component tests query by role and accessible name, and an axe scan runs on key pages in CI.',
         'axe-core checks what a machine can decide: missing labels, contrast, invalid ARIA, duplicate ids. Its README claims about 57% of WCAG issues on average, only in rendered states.',
@@ -1554,6 +1683,16 @@ expect(orders.save).toHaveBeenCalledWith(
       },
     ],
     lesson: {
+      intro:
+        'A test double stands in for a real dependency in a test. Knowing the kinds, and which dependencies to keep real, decides whether a suite catches real bugs or only checks its own mocks.',
+      takeaways: [
+        { term: 'Stub', detail: 'Returns canned answers so the code can run.' },
+        { term: 'Mock', detail: 'Records its calls, and the test asserts on them. Fits where the call is the behaviour, like publishing `order.paid`.' },
+        { term: 'Spy', detail: 'Records calls to a real function, by default still running it: `vi.spyOn(mailer, \'send\')`.' },
+        { term: 'Fake', detail: 'A small working version, such as an in-memory orders repository on a `Map`.' },
+        { term: 'Keep real vs replace', detail: 'Keep your modules and the database (Testcontainers or PGlite); replace payments, email and the clock.' },
+        { term: 'Don\'t mock what you don\'t own', detail: 'Wrap an outside service in your adapter, test it with MSW, and fake the adapter elsewhere.' },
+      ],
       points: [
         'A test double is anything that stands in for a real dependency in a test. A stub returns canned answers. A mock records its calls, and the test asserts on them.',
         "A spy records calls to a real function, by default still running it: `vi.spyOn(mailer, 'send')`. A fake is a small working version, such as an in-memory orders repository on a `Map`.",
@@ -1646,6 +1785,16 @@ expect(send).toHaveBeenCalledTimes(1);`,
       },
     ],
     lesson: {
+      intro:
+        'A contract test checks that a consumer and a provider still agree on an API without deploying them together. It catches a renamed field that both sides\' own tests miss, and lets teams release independently.',
+      takeaways: [
+        { term: 'Consumer side (Pact)', detail: 'The real client runs against a Pact mock server and writes a pact file of requests and the minimal responses it relies on.' },
+        { term: 'Provider verification', detail: 'The provider replays the pact against its real code in its own pipeline.' },
+        { term: 'Provider state', detail: 'A named setup before each interaction, such as "customer cus_1 has a valid card".' },
+        { term: 'Matchers', detail: 'Pin shapes, not exact values.' },
+        { term: '`can-i-deploy`', detail: 'Asks the Pact Broker whether a version works with what is deployed; `record-deployment` records what shipped.' },
+        { term: 'Unknown consumers', detail: 'For a public API, publish an OpenAPI document and check each change for breaking ones instead.' },
+      ],
       points: [
         "A contract test checks that a consumer and a provider still agree on an API, without running them together. It catches a renamed field that both sides' own tests miss.",
         'With Pact, the consumer runs its real client against a Pact mock server. The test writes a pact file listing each request and the minimal response the consumer relies on.',
@@ -1755,6 +1904,16 @@ export default function () {
       },
     ],
     lesson: {
+      intro:
+        'A load test checks that a system meets its latency and error targets at a given load. It starts from a target derived from real traffic and finds the first bottleneck before customers do.',
+      takeaways: [
+        { term: 'Target load', detail: 'Expected peak requests per second per endpoint, from past traffic and the forecast, plus a margin.' },
+        { term: 'Closed model (`constant-vus`)', detail: 'Waits for each response before the next iteration, so a slow server gets less load.' },
+        { term: 'Arrival-rate executor', detail: 'Starts iterations on a schedule, so the load does not drop when the API slows down.' },
+        { term: 'Realistic data', detail: 'Real journeys and data on a production-like environment; a tiny database or one repeated request lets caches hide problems.' },
+        { term: 'Ramp, hold, push', detail: 'Ramp up, hold at the target, then push past it to find the breaking point.' },
+        { term: 'Thresholds', detail: 'On p95 latency and error rate, they make k6 exit non-zero. Watch CPU, event loop lag, pool waits and locks meanwhile.' },
+      ],
       points: [
         'A load test checks that a system meets its latency and error targets at a given load. Start from a target: the expected peak requests per second per endpoint, plus a margin.',
         "A closed model, like k6's `constant-vus`, waits for each response before the next iteration, so a slow server gets less load. Arrival-rate executors start iterations on a schedule instead.",
@@ -1849,6 +2008,16 @@ export default function () {
       },
     ],
     lesson: {
+      intro:
+        'Legacy code here means code without tests, so every change is a risk. You add tests where risk and change meet, pinning today\'s behaviour first, without stopping delivery.',
+      takeaways: [
+        { term: 'Where to start', detail: 'Where risk and change meet, such as money or order code touched often. No pause for a testing project.' },
+        { term: 'Characterization test', detail: 'Records what the code does today, not what it should: call it, observe, assert exactly that.' },
+        { term: 'Test from outside', detail: 'HTTP requests against a real database cover code not built for unit tests.' },
+        { term: 'Seams', detail: 'Break dependencies by injecting, for example, the clock or the payment client.' },
+        { term: 'Compounding rules', detail: 'Every bug fix starts with a failing test, every change adds tests, CI runs them on each pull request from day one.' },
+        { term: 'Prioritise with data', detail: 'Git history for most-changed files, incidents for costly ones. Track coverage of changed code, not a global target.' },
+      ],
       points: [
         'Legacy code here means code without tests, so every change is a risk. Do not pause delivery for a testing project: add tests where risk and change meet.',
         'A characterization test records what the code does today, not what it should do: call it, observe the output, assert exactly that. It protects behaviour clients may rely on.',
@@ -1944,6 +2113,16 @@ export default function () {
       },
     ],
     lesson: {
+      intro:
+        'Code quality is kept by automating the basics, so review can focus on design, and by measuring outcomes such as escaped bugs rather than chasing one score.',
+      takeaways: [
+        { term: 'Automated standards', detail: 'TypeScript `strict`, a formatter, lint rules that catch bugs like floating promises, tests with each change.' },
+        { term: 'CI blocks the merge', detail: 'Type-check, lint, tests and a dependency audit must pass, so review is for design, naming and risk.' },
+        { term: 'Recurring comments', detail: 'A comment that keeps coming back should become a lint rule, a type or a test helper.' },
+        { term: 'ESLint bulk suppressions', detail: 'Record existing violations in `eslint-suppressions.json`, so only new code must follow a new strict rule.' },
+        { term: 'Outcome metrics', detail: 'Escaped bugs, change failure rate, flaky tests, time to merge, and hotspots that change and break often.' },
+        { term: 'Mutation testing', detail: 'Coverage counts executed lines; Stryker changes the code and reports changes no test caught.' },
+      ],
       points: [
         'Make standards automatic: TypeScript `strict`, a formatter, lint rules that catch bugs such as floating promises, and tests with each change. CI blocks the merge when one fails.',
         'Review is then for design, naming and risk. A comment that keeps coming back in review should become a lint rule, a type or a test helper.',
@@ -2047,6 +2226,16 @@ app.get('/livez', async (request, reply) => {
       },
     ],
     lesson: {
+      intro:
+        'Kubernetes probes are endpoints that tell the cluster whether to restart a container or send it traffic. Each probe answers a different question, and mixing them up can restart every pod at once.',
+      takeaways: [
+        { term: 'Liveness', detail: '"Is the process stuck?" On failure the kubelet restarts the container. Never check the database here.' },
+        { term: 'Readiness', detail: '"Should traffic come here now?" On failure the pod leaves the Service endpoints but keeps running. Fails during shutdown.' },
+        { term: 'Startup probe', detail: 'Covers a slow boot: liveness and readiness wait until it succeeds.' },
+        { term: 'Defaults', detail: 'Every 10 s (`periodSeconds`), 1 s timeout, action after 3 consecutive failures (`failureThreshold`).' },
+        { term: 'Per-check timeout', detail: 'Each check needs its own short timeout so the probe never hangs.' },
+        { term: 'Response content', detail: 'Ok or fail per check, never error text, since endpoints are often reachable from anywhere in the cluster.' },
+      ],
       points: [
         'Kubernetes calls probes, usually HTTP endpoints, at intervals. Liveness asks "is the process stuck?": on failure, the kubelet, the agent on each node, restarts the container.',
         'Readiness asks "should traffic come here now?": on failure the pod leaves the Service endpoints but keeps running, and returns when the probe passes. It should also fail during shutdown.',
@@ -2153,6 +2342,16 @@ app.get('/livez', async (request, reply) => {
       },
     ],
     lesson: {
+      intro:
+        'Observability means the data a system emits lets you answer new questions, like why only card checkouts are slow, without shipping new code. It rests on three linked signals: metrics, traces and logs.',
+      takeaways: [
+        { term: 'Monitoring vs observability', detail: 'Monitoring watches conditions chosen in advance; observability answers questions you did not plan for.' },
+        { term: 'Metrics', detail: 'Numbers aggregated over time (counters, gauges, histograms). Cost does not grow with traffic: feed dashboards and alerts.' },
+        { term: 'RED', detail: 'Rate, errors, duration: the metrics to track for each service.' },
+        { term: 'Traces and spans', detail: 'The tree of timed spans of one request across services; shows where time went. Usually sampled, as cost grows with traffic.' },
+        { term: 'Logs with trace id', detail: 'Structured events with details; the trace id links them, from an alert to a trace to its logs.' },
+        { term: 'Metric labels', detail: 'Keep few values, like the route pattern: each label combination is a new time series. OpenTelemetry instruments once.' },
+      ],
       points: [
         'Monitoring watches conditions chosen in advance. Observability means the data a system emits lets you answer new questions, such as "are only card checkouts slow?", without shipping code.',
         'Metrics are numbers aggregated over time: counters, gauges, histograms. Their cost does not grow with traffic, so they feed dashboards and alerts. For services, track RED: rate, errors, duration.',
@@ -2257,6 +2456,15 @@ app.get('/livez', async (request, reply) => {
       },
     ],
     lesson: {
+      intro:
+        'Graceful shutdown lets a service stop during a deploy without failing requests: it stops taking traffic, finishes the work in flight, releases its resources and exits before it is killed.',
+      takeaways: [
+        { term: 'Kubernetes sequence', detail: 'Runs any `preStop` hook, sends SIGTERM, waits `terminationGracePeriodSeconds` (30 s default), then SIGKILL.' },
+        { term: 'Endpoint removal', detail: 'Happens about the same time as SIGTERM, not before: fail readiness and keep serving a few seconds.' },
+        { term: '`server.close()`', detail: 'Refuses new connections and waits for in-flight requests. Busy keep-alive connections need a deadline to close them.' },
+        { term: 'Release resources', detail: 'Close the database pool, flush logs and telemetry, and exit within the grace period.' },
+        { term: '`CMD` runs `node` directly', detail: '`npm start` swallows SIGTERM, so start `node` in the Dockerfile and handle SIGTERM in code.' },
+      ],
       points: [
         'On a deploy, Kubernetes runs any `preStop` hook, sends SIGTERM, waits `terminationGracePeriodSeconds` (30 s by default), then sends SIGKILL to whatever still runs.',
         'The pod leaves the Service endpoints at about the same time as SIGTERM, not before. So fail readiness and keep serving a few seconds before you stop accepting connections.',
@@ -2352,6 +2560,16 @@ app.get('/livez', async (request, reply) => {
       },
     ],
     lesson: {
+      intro:
+        'Capacity planning prepares a system for a known traffic spike, such as a sale: a target load from data, a load test to find the first bottleneck, pre-scaling, and a plan for the day itself.',
+      takeaways: [
+        { term: 'Target load', detail: 'Past peaks per endpoint, the business forecast and the journey mix (many views per checkout), plus a margin.' },
+        { term: 'First bottleneck', detail: 'Often not the stateless API but the database, its connections, a slow query or a third party\'s rate limit.' },
+        { term: 'Autoscaling lag', detail: 'The Kubernetes HPA checks every 15 s by default and new pods must start; pre-scale minimum replicas instead.' },
+        { term: 'Before the event', detail: 'Raise minimum replicas, warm caches, check cloud quotas and partners\' limits.' },
+        { term: 'Degradation plan', detail: 'Flags to switch off heavy features, a waiting room or rate limits, timeouts and circuit breakers on third parties.' },
+        { term: 'On the day', detail: 'Deploy freeze, dashboards on the SLOs, a rehearsed rollback with owners and clear triggers.' },
+      ],
       points: [
         'Capacity planning sets a target load from data: past peaks per endpoint, the business forecast, and the journey mix, such as many product views per checkout, plus a margin.',
         "A load test at that target shows the first bottleneck. It is often not the stateless API but the database, its connections, a slow query or a third party's rate limit.",
@@ -2437,6 +2655,16 @@ app.get('/livez', async (request, reply) => {
       },
     ],
     lesson: {
+      intro:
+        'Incident response is the routine for detecting, coordinating and resolving an outage, then learning from it. Its first goal is to stop the user impact, and its last is a blameless postmortem with tracked actions.',
+      takeaways: [
+        { term: 'Detection', detail: 'Alerts on user-facing symptoms against SLOs, each with a runbook, routed to an on-call rota.' },
+        { term: 'Declare with a severity', detail: 'Acknowledge, assess the impact, declare an incident with a severity.' },
+        { term: 'Roles', detail: 'For a serious one: a commander coordinates, responders investigate, one person communicates.' },
+        { term: 'Mitigate before diagnosing', detail: 'Roll back, turn off a flag, scale out or fail over; the evidence stays for later.' },
+        { term: 'Communication', detail: 'Updates to support and customers on a fixed cadence, and a timeline of actions kept as you go.' },
+        { term: 'Blameless postmortem', detail: 'Timeline, impact, contributing causes and actions, each with an owner, a date and a ticket, tracked to done.' },
+      ],
       points: [
         'Detection: alerts on symptoms users feel, errors and latency against SLOs, each linked to a runbook and routed to an on-call rota.',
         'Response: acknowledge, assess impact, declare an incident with a severity. For a serious one, separate roles: a commander coordinates, responders investigate, one person communicates.',

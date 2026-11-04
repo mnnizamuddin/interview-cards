@@ -100,6 +100,16 @@ function NotesPanel() {
       },
     ],
     lesson: {
+      intro:
+        'React keeps a component\'s state only while the same type stays at the same position. A component declared inside another gets a new type on every render, so its subtree is destroyed and remounted each time.',
+      takeaways: [
+        { term: 'Element type', detail: 'The component function itself, compared by identity, together with the position in the tree.' },
+        { term: 'Nested declaration', detail: 'Each render of the parent creates a new function, so React sees a different type at the same position.' },
+        { term: 'Remount', detail: 'The old subtree is destroyed: state, DOM nodes and focus are lost.' },
+        { term: 'Symptom', detail: 'An input inside the nested component loses focus after every keystroke.' },
+        { term: 'Fix', detail: 'Declare every component once at module level and pass what it needs as props.' },
+        { term: '`useCallback` or a fixed `key`', detail: 'They only hide the problem; they do not fix it.' },
+      ],
       points: [
         "React decides whether to keep a component's state by looking at its position in the tree and its type. The type of `<NoteEditor />` is the `NoteEditor` function itself, compared by identity.",
         'A component declared inside another is created again on every render of the outer one. React sees a different type at the same position and destroys the old subtree: state, DOM nodes and focus are lost.',
@@ -214,6 +224,15 @@ function NotesPanel() {
       },
     ],
     lesson: {
+      intro:
+        'Conditional rendering looks trivial but hides two traps: a number on the left of `&&` leaks into the page, and branches that render the same component may share or lose state depending on how they are written.',
+      takeaways: [
+        { term: '`a && b`', detail: 'Returns `a` itself when it is falsy, not `false`.' },
+        { term: 'What React renders', detail: 'Nothing for `false`, `true`, `null` and `undefined`; numbers as text, 0 and NaN included.' },
+        { term: 'Boolean condition', detail: 'Write `count > 0 && ...` or a ternary that returns `null`, so 0 never shows.' },
+        { term: 'Ternary, same component', detail: 'Same type at one position: both branches share its state across a switch.' },
+        { term: 'Separate slots or keys', detail: 'Two `&&` slots or different `key` values unmount one and mount the other with fresh state.' },
+      ],
       points: [
         'In JavaScript, `a && b` returns `a` itself when `a` is falsy. React renders nothing for `false`, `true`, `null` and `undefined`, but renders numbers as text, 0 and NaN included.',
         'So a number on the left of `&&` leaks into the page. Write a boolean condition, `count > 0 && ...`, or a ternary that returns `null`.',
@@ -319,6 +338,15 @@ function NotesPanel() {
       },
     ],
     lesson: {
+      intro:
+        'StrictMode is a development-only checker that runs render code and effects an extra time to expose impure components and missing cleanups before production does.',
+      takeaways: [
+        { term: '`<StrictMode>`', detail: 'Wraps the app or any subtree. Development only: a production build changes nothing.' },
+        { term: 'Double render calls', detail: 'Component bodies, `useState`, `useMemo` and `useReducer` initializers, and updater functions run twice.' },
+        { term: 'Extra effect cycle', detail: 'One extra setup and cleanup per effect and callback ref on mount; a missing cleanup shows as a double connection.' },
+        { term: 'Pure component', detail: 'Returns the same output on both calls, so the double call is invisible.' },
+        { term: 'A difference appears', detail: 'It reveals impure code production will hit later: fix the code, keep StrictMode on.' },
+      ],
       points: [
         'StrictMode is a development-only checker that you wrap around the app, or any subtree, with `<StrictMode>`. It changes nothing in a production build.',
         'It calls render-phase code twice: component bodies, the functions passed to `useState`, `useMemo` and `useReducer`, and updater functions like `setCount((c) => c + 1)`.',
@@ -423,6 +451,16 @@ useEffect(() => {
       },
     ],
     lesson: {
+      intro:
+        'An effect that sets state and depends on a value recreated every render never stops running. Knowing how React compares dependencies is what lets you spot and break the loop.',
+      takeaways: [
+        { term: '`Object.is`', detail: 'How React compares each dependency. For objects and arrays it means identity, not content.' },
+        { term: 'Object built during render', detail: 'A new value every render, so the effect sees a change every time.' },
+        { term: 'The loop', detail: 'Render, effect, setState, render again, without end.' },
+        { term: '"Maximum update depth exceeded"', detail: 'Logged by a synchronous setState loop, which may not crash and can ship unnoticed.' },
+        { term: 'Fixes', detail: 'Build objects inside the effect, depend on primitives, memoise prop objects, derive data during render.' },
+        { term: 'exhaustive-deps', detail: 'Never silence it: when the list feels wrong, restructure the code.' },
+      ],
       points: [
         'React compares each effect dependency with the previous one using `Object.is`. For objects and arrays that means identity: a new object is a change, even with the same content.',
         'An object built during render is new every render. If the effect sets state, the cycle never ends: render, effect, setState, render again.',
@@ -536,6 +574,15 @@ useEffect(() => {
       },
     ],
     lesson: {
+      intro:
+        '`useSyncExternalStore` is React\'s built-in hook to read a value that lives outside React, such as a shared store or a browser API, and re-render consistently when it changes.',
+      takeaways: [
+        { term: '`subscribe`', detail: 'Registers a callback and returns an unsubscribe function. Keep it stable, declared outside the component.' },
+        { term: '`getSnapshot`', detail: 'Returns the current value, and must return the same value while nothing changed, or React loops.' },
+        { term: '`getServerSnapshot`', detail: 'Third argument, needed whenever the component can be server-rendered.' },
+        { term: 'Tearing', detail: 'Two components showing different versions of the store; the hook prevents it.' },
+        { term: 'Copying into state', detail: 'Copying store values into state with an effect can cause tearing.' },
+      ],
       points: [
         '`useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot?)` reads a value that lives outside React, like a shared store or a browser API, and re-renders when it changes.',
         '`subscribe` registers a callback and returns an unsubscribe function. `getSnapshot` returns the current value.',
@@ -643,6 +690,16 @@ export const useOnline = () =>
       },
     ],
     lesson: {
+      intro:
+        'A portal renders part of a component into another DOM node while keeping it at the same place in the React tree. It lets modals, tooltips and menus escape a parent that clips or layers them.',
+      takeaways: [
+        { term: '`createPortal(children, domNode)`', detail: 'From `react-dom`; renders into another DOM node, usually `document.body`.' },
+        { term: 'Use case', detail: 'Escape a parent\'s `overflow: hidden` or its stacking context, where `z-index` values are compared.' },
+        { term: 'Event bubbling', detail: 'Follows the React tree, not the DOM tree: a click in the modal reaches the React parent\'s `onClick`.' },
+        { term: 'Context', detail: 'Flows into the portal like into any child.' },
+        { term: 'Fix for bubbling', detail: 'Stop propagation in the modal, or render it from higher up.' },
+        { term: '`<dialog>` + `showModal()`', detail: 'Reaches the top layer without a portal.' },
+      ],
       points: [
         '`createPortal(children, domNode)` from `react-dom` renders children into another DOM node, usually `document.body`, while they stay at the same place in the React tree.',
         "It is used for modals, tooltips and menus that must escape a parent's `overflow: hidden` or its stacking context, the group in which `z-index` values are compared.",
@@ -752,6 +809,16 @@ export const useOnline = () =>
       },
     ],
     lesson: {
+      intro:
+        'Transitions let React keep typing responsive by rendering low-priority updates in interruptible slices. They make waiting interruptible, not slow work cheaper.',
+      takeaways: [
+        { term: 'Transition', detail: 'A low-priority render done in slices, yielding between components and dropped when newer input arrives.' },
+        { term: '`useTransition`', detail: 'Returns `[isPending, startTransition]`, for state updates you own.' },
+        { term: '`useDeferredValue(value)`', detail: 'A lagging copy of a value you receive; wrap the slow child in `memo`.' },
+        { term: '`startTransition` callback', detail: 'Runs immediately; only the state updates inside are deferred, any computation runs in the handler.' },
+        { term: 'Yield points', detail: 'React never yields inside one component: one slow component is still one block.' },
+        { term: 'Slow work', detail: 'Reduce it, split it, or move it to a Web Worker.' },
+      ],
       points: [
         'React separates urgent updates, like the text of an input, from transitions, which may lag. It renders a transition in slices, yields to the browser between components, and drops it when newer input arrives.',
         '`useTransition` returns `[isPending, startTransition]` for state updates you own. `useDeferredValue(value)` gives a lagging copy of a value you receive; wrap the slow child in `memo`.',
@@ -863,6 +930,16 @@ export const useOnline = () =>
       },
     ],
     lesson: {
+      intro:
+        'Filters, sort and pagination that a reload, a shared link or the back button should keep belong in the query string, with the URL as the single source of truth.',
+      takeaways: [
+        { term: 'What goes in the URL', detail: 'Filters, sort, page cursor and search: anything a reload or shared link should keep.' },
+        { term: 'Reading', detail: 'Parse the filters from the URL on every render; it costs nothing.' },
+        { term: 'Writing', detail: 'Through the router, like `useSearchParams` in React Router.' },
+        { term: 'Validation', detail: 'The URL is user input: check each parameter against the allowed values.' },
+        { term: 'Page cursor', detail: 'Delete it when a filter changes; it only made sense in the old list.' },
+        { term: '`replace`', detail: 'Use it for filter tweaks so the history does not grow on each click. Never copy the URL into `useState`.' },
+      ],
       points: [
         'State that a reload, a shared link or the back button should keep belongs in the query string, the part of the URL after `?`. The URL is then the single source of truth.',
         'Read the filters from the URL on every render and write changes through the router, like `useSearchParams` in React Router. Parsing a few parameters costs nothing.',
@@ -975,6 +1052,16 @@ function setStatus(next: OrderStatus) {
       },
     ],
     lesson: {
+      intro:
+        'Large forms with many fields, cross-field rules or dynamic lists need more than native inputs. React Hook Form with a Zod schema keeps typing fast and the rules in one place shared with the server.',
+      takeaways: [
+        { term: 'Short form', detail: 'Native fields and a React 19 Action are enough.' },
+        { term: 'Controlled input', detail: 'Takes its value from state and re-renders on every keystroke; in a large form the whole form re-renders.' },
+        { term: 'React Hook Form', detail: 'Registers inputs as uncontrolled through refs, so typing does not re-render the whole form.' },
+        { term: 'Validation timing', detail: 'On submit by default, then on change after a failed submit.' },
+        { term: 'Zod + `zodResolver`', detail: 'One schema holds the rules, cross-field ones via `refine`; `@hookform/resolvers` connects it.' },
+        { term: 'Server', detail: 'Validates again with the same schema: client checks help the user, server checks protect the data.' },
+      ],
       points: [
         'A controlled input takes its value from React state and re-renders on every keystroke. In a large form, that means the whole form re-renders as the user types.',
         'React Hook Form registers inputs as uncontrolled through refs, so typing does not re-render the whole form. Validation runs on submit by default, then on change after a failed submit.',
@@ -1090,6 +1177,15 @@ export async function getOrder(id: string) {
       },
     ],
     lesson: {
+      intro:
+        'A Route Handler is an HTTP endpoint inside a Next.js app. With it the Next.js server acts as a backend-for-frontend, holding the tokens so the browser only keeps a session cookie.',
+      takeaways: [
+        { term: '`route.ts`', detail: 'Exports `GET`, `POST`... using the Web `Request` and `Response`; `params` is a promise.' },
+        { term: 'Route Handler vs Action', detail: 'Handlers for other callers (polling, webhooks, downloads); Server Actions for your own forms.' },
+        { term: 'BFF', detail: 'The browser holds an `HttpOnly` session cookie; the server holds the API tokens and returns minimal JSON.' },
+        { term: '`NEXT_PUBLIC_`', detail: 'Variables with this prefix are inlined into the browser bundle at build time; the rest stay server-only.' },
+        { term: '`import \'server-only\'`', detail: 'Marks the modules that read secrets.' },
+      ],
       points: [
         'A Route Handler is an `app/.../route.ts` file that exports functions named after HTTP methods, `GET`, `POST` and so on, using the Web `Request` and `Response`. In route handlers, `params` is a promise.',
         'Use one for callers other than your own React UI: polling, webhooks, other apps, file downloads. Use a Server Action for mutations from your own forms.',
@@ -1205,6 +1301,16 @@ try {
       },
     ],
     lesson: {
+      intro:
+        'The App Router separates expected failures, unexpected errors and missing resources, each with its own file convention. Knowing which boundary catches what decides what users see and what status code is sent.',
+      takeaways: [
+        { term: 'Expected errors', detail: 'Return values the UI shows, like an invalid form, not exceptions.' },
+        { term: '`error.tsx`', detail: 'A Client Component boundary around its folder\'s page and nested layouts, not its own folder\'s layout.' },
+        { term: '`global-error.tsx`', detail: 'Catches the root layout, replaces it, and must render its own `<html>` and `<body>`.' },
+        { term: '`digest`', detail: 'In production, Server Component errors reach the browser with a generic message and a digest for the logs.' },
+        { term: '`notFound()`', detail: 'Throws, renders `not-found.tsx` and adds `noindex`.' },
+        { term: '404 vs 200', detail: 'Before streaming starts the status is 404; inside a streamed boundary it stays 200.' },
+      ],
       points: [
         'Expected failures, like an invalid form, are return values the UI shows. Unexpected ones throw to the nearest `error.tsx`.',
         "`error.tsx` is a Client Component that wraps its folder's page, loading, not-found and nested layouts in an error boundary. It does not wrap the layout of its own folder.",
@@ -1312,6 +1418,16 @@ export default function ProductError({ error, retry }: { error: unknown; retry: 
       },
     ],
     lesson: {
+      intro:
+        'The App Router and the Pages Router run side by side, so a Next.js app migrates one route at a time. The safe path wraps each old page unchanged, then moves code out of the client step by step.',
+      takeaways: [
+        { term: '`app` and `pages`', detail: 'Coexist; migrate route by route. Crossing routers is a full page load, so move related routes together.' },
+        { term: 'First step per page', detail: 'Old component as is in a `\'use client\'` file, rendered by a Server Component `page.tsx` that passes props.' },
+        { term: '`getServerSideProps`', detail: 'Becomes an async Server Component.' },
+        { term: '`getStaticPaths`', detail: 'Becomes `generateStaticParams` with `dynamicParams`.' },
+        { term: '`pages/api`, `_app`, `_document`', detail: 'Become Route Handlers and the root layout.' },
+        { term: 'Async request APIs', detail: '`params`, `searchParams`, `cookies()`, `headers()` are async since Next.js 15; `middleware.ts` is `proxy.ts` in 16.' },
+      ],
       points: [
         'The `app` and `pages` directories work side by side, so you migrate one route at a time. Moving between a page of each router is a full page load.',
         "First step per page: move the old component as is into a `'use client'` file, render it from a new Server Component `page.tsx` that fetches the data and passes props, then push `'use client'` down.",

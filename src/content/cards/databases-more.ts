@@ -92,6 +92,16 @@ WHERE created_at::date = '2026-10-29';`,
       },
     ],
     lesson: {
+      intro:
+        "PostgreSQL's planner picks the plan it estimates cheapest, so it sometimes skips an index you created. The cause is a correct choice, stale estimates, or a query that hides the column.",
+      takeaways: [
+        { term: 'Selectivity', detail: 'The share of rows a condition keeps. When it is large, a sequential scan really is cheaper.' },
+        { term: '`ANALYZE`', detail: 'Samples each column into `pg_stats`; run it yourself after a bulk load.' },
+        { term: 'Function or cast', detail: '`lower(email)`, `created_at::date` or `id = 42.0` on a `bigint` hides the column from a plain index.' },
+        { term: 'Expression index', detail: 'An index on `(lower(email))` serves conditions on that same expression.' },
+        { term: 'Rewritten condition', detail: 'Compare the bare column, like a date range instead of a cast.' },
+        { term: '`CREATE STATISTICS`', detail: 'With `(dependencies)`, it corrects estimates for related columns such as city and country.' },
+      ],
       points: [
         'The planner estimates the cost of each possible plan and picks the cheapest. Ignoring an index is often right: when a condition keeps a large share of rows, reading the table in order costs less.',
         'Selectivity, the share of rows a condition keeps, is estimated from statistics: a sample of each column that `ANALYZE` stores in `pg_stats`. After a bulk load they are stale, so run `ANALYZE` yourself.',
@@ -198,6 +208,16 @@ WHERE metadata->>'fraud_review' = 'true';`,
       },
     ],
     lesson: {
+      intro:
+        "B-tree is PostgreSQL's default index, but other types answer other questions: searching inside values, fuzzy text matching or huge append-only tables. Each is chosen with `USING` in `CREATE INDEX`.",
+      takeaways: [
+        { term: 'B-tree', detail: 'Sorts whole values: serves `=`, ranges, `IN` and `ORDER BY`.' },
+        { term: 'GIN', detail: 'Indexes each element inside a value: JSONB keys and values, array items, words.' },
+        { term: 'GIN operators', detail: 'Serves operators such as `@>` (contains), not expressions such as `->>`.' },
+        { term: '`pg_trgm`', detail: "Trigrams under a GIN index make `ILIKE '%desk%'` fast; a term under three characters gets no help." },
+        { term: 'BRIN', detail: 'Min and max per range of pages: tiny and coarse, useful only when physical order follows the column.' },
+        { term: 'GiST', detail: 'Overlapping shapes and ranges: geometry, nearest neighbour, exclusion constraints.' },
+      ],
       points: [
         'A B-tree sorts whole values. It serves `=`, ranges, `IN` and `ORDER BY`, and stays the default. Other index types answer other questions and are chosen with `USING` in `CREATE INDEX`.',
         'GIN, the generalized inverted index, indexes each element inside a value: JSONB keys and values, array items, words. It serves operators such as `@>` (contains), not expressions such as `->>`.',
@@ -305,6 +325,16 @@ RETURNING id, kind;`,
       },
     ],
     lesson: {
+      intro:
+        "With several replicas, two workers must never take the same job, and a nightly task must run only once. PostgreSQL's `SKIP LOCKED` and advisory locks solve both without an extra service.",
+      takeaways: [
+        { term: '`FOR UPDATE SKIP LOCKED`', detail: 'Leaves out rows another transaction holds, so workers claim different rows without waiting.' },
+        { term: 'Claim and mark', detail: 'One `UPDATE` whose sub-select picks pending rows `FOR UPDATE SKIP LOCKED` with a `LIMIT`.' },
+        { term: 'Lease (`locked_until`)', detail: 'For slow jobs, commit the claim and reclaim expired leases; handlers must be idempotent.' },
+        { term: 'Advisory lock', detail: 'A lock on a number your application chooses: no row needed.' },
+        { term: '`pg_try_advisory_xact_lock`', detail: 'Returns `true` or `false` at once, and is released at commit or rollback.' },
+        { term: '`pg_advisory_lock`', detail: 'Session-level: a rollback does not release it, and it breaks behind a pooler in transaction mode.' },
+      ],
       points: [
         'A locking read normally waits for rows another transaction holds. `SKIP LOCKED` silently leaves those rows out, so several workers can each claim different rows of a queue table without waiting.',
         'Claim and mark in one statement: an `UPDATE` whose sub-select picks pending rows `FOR UPDATE SKIP LOCKED` with a `LIMIT`. A transaction does not skip its own locks, so take a batch at once.',
@@ -421,6 +451,16 @@ RETURNING id, kind, payload;`,
       },
     ],
     lesson: {
+      intro:
+        'Column types and constraints let the database reject whole classes of bugs, whoever writes. The classic choices are money, instants and strings, then rules every writer must respect.',
+      takeaways: [
+        { term: 'Money', detail: 'Never a float: integer cents (`total_cents bigint`) plus a `currency`, or `numeric(12, 2)`.' },
+        { term: '`timestamptz`', detail: "Stores an instant, shown in the session's time zone. Plain `timestamp` drops the offset; `date` is for days." },
+        { term: '`text` with a named `CHECK`', detail: 'As fast as `varchar(n)`, and never silently truncates the way a cast to `varchar(5)` does.' },
+        { term: 'Constraints', detail: '`NOT NULL`, `CHECK`, `UNIQUE`, foreign keys and `EXCLUDE`, checked on every write. Index foreign keys yourself.' },
+        { term: 'SQLSTATE codes', detail: '`23505` unique, `23503` foreign key, `23514` check, `23P01` exclusion.' },
+        { term: 'API mapping', detail: 'Validate first for friendly messages, then map violations to 409 or 422.' },
+      ],
       points: [
         'Money is never a float: `0.1 + 0.2` gives `0.30000000000000004` in `float8`. Store integer minor units (`total_cents bigint`) plus a `currency`, or `numeric(12, 2)`.',
         '`timestamptz` converts the input to UTC and stores an instant, shown in the session\'s time zone. Plain `timestamp` silently drops any offset. Use `date` for calendar days.',
@@ -524,6 +564,16 @@ COMMIT;`,
       },
     ],
     lesson: {
+      intro:
+        'A multi-tenant database serves many customer organisations from one system. The design choice is how to isolate them, and the real work is making sure one forgotten filter is not a data leak.',
+      takeaways: [
+        { term: 'Three models', detail: 'Shared tables with `tenant_id`, a schema per tenant, a database per tenant: more isolation, more cost.' },
+        { term: 'Composite foreign key', detail: '`(tenant_id, order_id)` referencing `orders (tenant_id, id)` blocks cross-tenant links; needs `UNIQUE (tenant_id, id)`.' },
+        { term: 'Row-level security', detail: 'A policy added to every query: `USING` filters the rows you see, `WITH CHECK` validates the rows you write.' },
+        { term: '`set_config(..., true)`', detail: 'A transaction-local tenant setting, so a pooled connection never carries it to another request.' },
+        { term: 'RLS bypass', detail: 'Superusers, `BYPASSRLS` roles and the table owner skip policies; `FORCE` covers the owner.' },
+        { term: 'API role', detail: 'Owns no tables, so the policies always apply.' },
+      ],
       points: [
         'A tenant is one customer organisation sharing the system. Models: shared tables with `tenant_id` (the default), a schema per tenant, or a database per tenant, each more isolated and more costly to operate.',
         'A composite foreign key on `(tenant_id, order_id)` referencing `orders (tenant_id, id)` stops an order line from pointing at another tenant\'s order. The target needs `UNIQUE (tenant_id, id)`.',
@@ -627,6 +677,16 @@ CREATE UNIQUE INDEX customers_email_key
       },
     ],
     lesson: {
+      intro:
+        'Soft delete marks rows as deleted instead of removing them, and an audit trail records who changed what. Both look simple but cost something in every query, index and privacy rule.',
+      takeaways: [
+        { term: '`deleted_at`', detail: 'Every read must filter it; a view or a row-level security policy puts the filter in one place.' },
+        { term: 'Partial unique index', detail: "Unique among live rows only, so a closed account's email can sign up again." },
+        { term: 'Not erasure', detail: 'Foreign keys ignore the flag, and personal data must still be deleted or anonymised.' },
+        { term: '`status` column', detail: 'Where a real business state belongs, like a canceled order.' },
+        { term: 'Audit trigger', detail: 'Catches every writer, manual fixes included; `to_jsonb(OLD)` and `to_jsonb(NEW)` store both versions.' },
+        { term: 'Audit costs', detail: 'Two writes per audited write, a log that grows forever, personal data in it. Change data capture is the alternative.' },
+      ],
       points: [
         'Soft delete marks a row as deleted (`deleted_at timestamptz`) instead of removing it. Every read must then filter it; a view or a row-level security policy puts the filter in one place.',
         'A partial unique index, an index with a `WHERE` clause, enforces uniqueness among live rows only, so a closed account\'s email can sign up again.',
@@ -735,6 +795,16 @@ LIMIT 10;`,
       },
     ],
     lesson: {
+      intro:
+        'A JSONB column stores a parsed JSON document that PostgreSQL can index and search. It fits data kept and returned whole; fields you query or constrain belong in real columns.',
+      takeaways: [
+        { term: '`jsonb`', detail: 'Parsed binary form: keys reordered, only the last duplicate kept.' },
+        { term: '`json`', detail: 'Keeps the exact text, useful only to verify a signature later.' },
+        { term: 'Good fit', detail: 'Raw provider payloads, sparse optional attributes, settings: stored and returned whole.' },
+        { term: 'Missing column', detail: 'Inside a document: no types, no `NOT NULL`, no foreign keys, no per-field statistics.' },
+        { term: 'Operators', detail: '`->` returns `jsonb`, `->>` and `#>>` return `text`, `@>` tests containment and is served by GIN.' },
+        { term: 'Hot field', detail: 'Promote it with an expression index. On PostgreSQL 18, generated columns are virtual by default and cannot be indexed.' },
+      ],
       points: [
         '`jsonb` stores a parsed JSON document in a binary form: keys are reordered and only the last duplicate kept. Plain `json` keeps the exact text, useful only to verify a signature later.',
         'Use JSONB for data stored and returned whole: raw provider payloads, sparse optional attributes, settings. Keep the fields you query as real columns next to it.',
@@ -838,6 +908,16 @@ CREATE INDEX webhook_events_amount_idx ON webhook_events
       },
     ],
     lesson: {
+      intro:
+        'Migrations are versioned files that move the schema one step at a time, tracked by a table in each database. Treating them as code and running them once, before the new code, keeps deploys safe.',
+      takeaways: [
+        { term: 'Migrations table', detail: 'Records which files ran, so each environment applies only the new ones.' },
+        { term: 'Treated as code', detail: 'In the repository, reviewed with the change, run on a real PostgreSQL in CI, linted with Squawk.' },
+        { term: 'One runner', detail: 'A CI/CD step or a Kubernetes Job before the new code starts, never every instance at startup.' },
+        { term: 'Runner lock', detail: 'Tools take a lock, so two runners cannot apply the same file.' },
+        { term: 'Fix forward', detail: "Never edit a migration that ran anywhere shared; a down migration cannot restore a dropped column's data." },
+        { term: 'No-transaction migrations', detail: "For `CREATE INDEX CONCURRENTLY`: opt out of the tool's transaction, drop a leftover invalid index before retrying." },
+      ],
       points: [
         'A migration is a versioned file that changes the schema, and sometimes data, by one step. The tool records applied files in a table, so each environment runs only the new ones.',
         'Migrations are code: in the repository, reviewed with the application change, run against a real PostgreSQL in CI, and linted (Squawk flags locking or breaking statements).',
@@ -952,6 +1032,16 @@ try {
       },
     ],
     lesson: {
+      intro:
+        'A transaction lives on one database connection, so Node code must run every query of it on the same pooled client. Done by hand, it easily leaks connections or leaves them aborted.',
+      takeaways: [
+        { term: '`pool.connect()`', detail: 'Check out one client; run `BEGIN`, every query and `COMMIT` on it, and `ROLLBACK` on any error.' },
+        { term: 'Release in `finally`', detail: 'A missing release leaks a connection, until the pool is empty.' },
+        { term: '`25P02`', detail: 'What the next request gets on a connection that a missing rollback left aborted.' },
+        { term: 'Callback helper', detail: 'Commits when your function resolves, rolls back when it throws. Every query inside uses its `tx`.' },
+        { term: '"idle in transaction"', detail: 'An HTTP call or upload inside holds the connection and its row locks: keep transactions short.' },
+        { term: 'Savepoint', detail: 'Lets inner work fail without aborting the outer transaction. A retry re-runs the whole callback.' },
+      ],
       points: [
         'A transaction lives on one connection. Check out a client with `pool.connect()`, run `BEGIN`, every query and `COMMIT` on it, and `ROLLBACK` on any error.',
         'Release the client in `finally`. A missing release leaks a connection; a missing rollback leaves it aborted, and the next request fails with `25P02`.',
@@ -1057,6 +1147,16 @@ COMMIT;`,
       },
     ],
     lesson: {
+      intro:
+        "PostgreSQL's timeouts are all off by default, so a runaway query or a forgotten transaction becomes a hang instead of an error. Timeouts on server and client turn incidents into fast failures.",
+      takeaways: [
+        { term: '`statement_timeout`', detail: 'Cancels any single statement that runs too long (`57014`).' },
+        { term: '`lock_timeout`', detail: 'Fails a statement that waits too long for a lock (`55P03`).' },
+        { term: 'Idle-in-transaction timeout', detail: '`idle_in_transaction_session_timeout` ends a session idle in an open transaction, which holds locks and blocks vacuum.' },
+        { term: '`transaction_timeout`', detail: 'PostgreSQL 17+: limits a whole transaction.' },
+        { term: '`ALTER ROLE`', detail: 'Set them on the API role, so they apply through any pooler; raise them per transaction with `SET LOCAL`.' },
+        { term: 'Client timeouts', detail: "The pool's connection timeout and `query_timeout` stop your waiting, not the server: pair them with `statement_timeout`." },
+      ],
       points: [
         '`statement_timeout` cancels any single statement that runs too long (`57014`). `lock_timeout` fails a statement that waits too long for a lock (`55P03`).',
         '`idle_in_transaction_session_timeout` ends a session idle inside an open transaction, which holds locks and blocks vacuum. `transaction_timeout` (PostgreSQL 17+) limits a whole transaction.',
@@ -1168,6 +1268,16 @@ return rows[0].orders + queued.length;`,
       },
     ],
     lesson: {
+      intro:
+        'The driver must fit PostgreSQL types into JavaScript ones, and some do not fit cleanly. Large integers, decimals and dates are where silent bugs appear.',
+      takeaways: [
+        { term: '`Number.MAX_SAFE_INTEGER`', detail: '2^53 − 1: beyond it, a JavaScript number is no longer exact.' },
+        { term: '`bigint`, `count(*)`, `numeric`', detail: "`pg` returns them as strings, so `'3' + 1` gives `'31'`." },
+        { term: '`timestamptz`', detail: 'Becomes a `Date` at the right instant.' },
+        { term: '`date` and `timestamp`', detail: "Read as Node's local time: a `date` becomes local midnight, the previous day in UTC east of Greenwich." },
+        { term: 'Mapping at the edge', detail: 'Decide it once: a `pg` type parser, an SQL cast like `count(*)::int`, or an ORM column mode.' },
+        { term: 'Money and days', detail: 'Integer cents or decimal strings with a decimal library; days as `YYYY-MM-DD`. `JSON.stringify` throws on a `BigInt`.' },
+      ],
       points: [
         'A JavaScript number is exact only up to 2^53 − 1 (`Number.MAX_SAFE_INTEGER`). So `pg` returns `bigint`, including `count(*)`, and `numeric` as strings: `\'3\' + 1` gives `\'31\'`.',
         '`timestamptz` becomes a `Date` at the right instant. A plain `timestamp` is read as the Node process\'s local time, and a `date` as local midnight, the previous day in UTC east of Greenwich.',

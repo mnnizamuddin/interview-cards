@@ -108,6 +108,16 @@ Location: https://shop.example/products/mug`,
       },
     ],
     lesson: {
+      intro:
+        'A URL shortener maps a short code to a long URL and redirects fast. It is a classic design round because it is read-heavy and tests estimates, code generation, caching and HTTP semantics.',
+      takeaways: [
+        { term: 'Estimates', detail: '100 million links a month at 100 reads per write: about 39 writes and 3,900 reads per second, 3 TB over five years.' },
+        { term: 'Base 62 codes', detail: 'A sequence written in digits plus both letter cases; six characters give about 56.8 billion codes.' },
+        { term: 'Unguessable codes', detail: 'Shuffle the sequence reversibly, and keep a unique constraint on the code.' },
+        { term: 'Cache on the redirect path', detail: 'Redis or Valkey in front of PostgreSQL. A viral link is a hot key.' },
+        { term: '302, not 301', detail: 'RFC 9110 lets caches reuse a 301 without asking, so clicks go uncounted and the target can never change.' },
+        { term: 'Counting and sharding', detail: 'Count clicks from queued events, never an `UPDATE` on redirect. Shard by a hash of the code, not by date.' },
+      ],
       points: [
         'A URL shortener is read-heavy: with 100 million new links a month and 100 reads per write, that is about 39 writes and 3,900 reads per second on average, and about 3 TB over five years at 500 bytes a link.',
         'Codes come from a database sequence written in base 62 (digits plus lower and upper case letters). Six characters give 62^6, about 56.8 billion codes; shuffle them reversibly if they must not be guessable.',
@@ -221,6 +231,16 @@ VALUES ($1, $2);`,
       },
     ],
     lesson: {
+      intro:
+        'A real-time chat needs messages delivered in order, stored once, and pushed across many server replicas. The guarantees live in the database; the socket and pub/sub only carry messages fast.',
+      takeaways: [
+        { term: 'WebSocket vs SSE', detail: 'A WebSocket is one two-way connection, which suits chat; SSE only pushes from server to client.' },
+        { term: 'Client message id', detail: 'Guarded by a unique constraint, so a resend after a lost acknowledgement is stored once.' },
+        { term: 'Per-conversation sequence', detail: 'Taken under the conversation\'s row lock in the insert transaction; no global order needed.' },
+        { term: 'Redis pub/sub fan-out', detail: 'Reaches the replica holding the receiver\'s socket. It is at-most-once, so it can drop messages.' },
+        { term: 'Replay on reconnect', detail: 'The client asks for everything after its last sequence number.' },
+        { term: 'Presence and typing', detail: 'Ephemeral: presence is a Redis key with a TTL refreshed by heartbeat; typing goes over pub/sub, never stored.' },
+      ],
       points: [
         'A WebSocket keeps one two-way connection open, which suits chat; server-sent events (SSE) only push from the server to the client.',
         'Guarantees live in the database, not the socket: each message carries a client-generated id guarded by a unique constraint, so a resend after a lost acknowledgement is stored once.',
@@ -350,6 +370,16 @@ const found = sessions.get(sessionId);`,
       },
     ],
     lesson: {
+      intro:
+        'Scaling vertically gives one machine more resources; scaling horizontally adds copies behind a load balancer. Real systems mix both: stateless tiers scale out, the database scales up first.',
+      takeaways: [
+        { term: 'Vertical scaling', detail: 'More CPU and memory, no code change, but every provider has a largest instance and each step costs more.' },
+        { term: 'Horizontal scaling', detail: 'More copies behind a load balancer; any copy may get the next request, so the copies must be stateless.' },
+        { term: 'Shared state', detail: 'Sessions, caches and uploads move to Redis, the database or object storage.' },
+        { term: 'Database path', detail: 'Bigger primary, then read replicas for reads only (writes still hit one primary), shard last.' },
+        { term: 'Connection budget', detail: 'Pool size times max pods must fit under `max_connections` (100 by default); beyond, add PgBouncer.' },
+        { term: 'Autoscaling metric', detail: 'One that tracks load: CPU for the API, queue depth or oldest message age for workers.' },
+      ],
       points: [
         'Vertical scaling gives one instance more CPU and memory. It needs no code change, but every provider has a largest instance size and each step up costs more.',
         'Horizontal scaling runs more copies behind a load balancer. Any copy may get the next request, so sessions, caches and uploads must live in shared stores: Redis, the database or object storage.',
@@ -463,6 +493,16 @@ await db.query(
       },
     ],
     lesson: {
+      intro:
+        'Image uploads at scale separate three jobs: getting the bytes into storage without passing through the API, processing them asynchronously, and serving the right size to each device through a CDN.',
+      takeaways: [
+        { term: 'Presigned URL', detail: 'A short-lived signed URL: the browser uploads straight to S3; the API checks rights and records the key.' },
+        { term: '`content-length-range`', detail: 'A presigned POST policy condition that caps file size. Keep the expiry short; the worker rechecks the object.' },
+        { term: 'Async worker', detail: 'Decodes the image (never trusting name or `Content-Type`), strips metadata, writes widths in AVIF and WebP.' },
+        { term: 'CDN with new URLs', detail: 'Long cache lifetimes, and a changed image gets a new URL, such as a content hash, so nothing needs purging.' },
+        { term: '`srcset` and `sizes`', detail: 'Let the browser pick the right width for each device.' },
+        { term: 'LCP photo', detail: '`next/image` lazy-loads by default, so the main photo needs `loading="eager"` or `fetchPriority="high"`.' },
+      ],
       points: [
         'A presigned URL is a short-lived URL signed by the API that lets the browser upload one object straight to storage such as S3. The API checks rights and records the key; it never holds the bytes.',
         'A presigned POST can carry a policy with `content-length-range` to cap the file size. Keep the expiry short, and let the worker check the stored object again.',
@@ -556,6 +596,16 @@ await db.query(
       },
     ],
     lesson: {
+      intro:
+        'The choice is between one deployable split into modules and many independently deployed services. Start with a modular monolith and extract a service only when a concrete reason justifies its operational cost.',
+      takeaways: [
+        { term: 'Modular monolith', detail: 'One deployable; each module owns its data, such as its own schema, and exposes a small public API.' },
+        { term: 'Enforced boundaries', detail: 'Imports checked in CI, for example with dependency-cruiser; no module reads another\'s tables.' },
+        { term: 'Microservices cost', detail: 'Network failures, data spread over databases, distributed tracing, on-call for many services.' },
+        { term: 'Reasons to extract', detail: 'Very different scaling, its own release pace, security isolation, or a separate owning team.' },
+        { term: 'ADR', detail: 'An architecture decision record documents why a service was extracted.' },
+        { term: 'Strangler fig', detail: 'A facade in front, features moved one by one, data synced until the new store is the system of record.' },
+      ],
       points: [
         'A modular monolith is one deployable split into modules. Each module owns its data, for example its own database schema, and exposes a small public API to the others.',
         'Boundaries hold only when enforced: imports between modules checked in CI, for example with dependency-cruiser, and no module reading another module\'s tables.',
@@ -686,6 +736,16 @@ Cache-Control: public, s-maxage=60`,
       },
     ],
     lesson: {
+      intro:
+        'A caching strategy decides, for each piece of data, who it belongs to and how stale it may be, then caches it at the outermost layer that allows it: browser, CDN, API cache, then database indexes.',
+      takeaways: [
+        { term: '`s-maxage`', detail: 'Freshness for shared caches such as CDNs.' },
+        { term: '`stale-while-revalidate`', detail: 'Serves a stale copy while refreshing in the background.' },
+        { term: '`no-cache` vs `no-store`', detail: '`no-cache` means revalidate before use; `no-store` means never store. Per-user data is `private, no-store`.' },
+        { term: 'Cache-aside', detail: 'Read Redis; on a miss, load from PostgreSQL and store with a TTL plus jitter. The cache is never the source of truth.' },
+        { term: 'Invalidate on write', detail: 'Commit, then delete the key. A delete has no order to get wrong; the TTL bounds any missed invalidation.' },
+        { term: 'Stampede and single flight', detail: 'Many requests load the same expired key; single flight lets one load while others wait for its result.' },
+      ],
       points: [
         'Decide per piece of data who it belongs to and how stale it may be, then cache it at the outermost layer that allows it: browser, CDN, API cache, then indexes in the database.',
         '`Cache-Control` drives HTTP caches: `s-maxage` applies to shared caches such as CDNs, `stale-while-revalidate` serves a stale copy while refreshing, `no-cache` means revalidate first, `no-store` means never store.',
@@ -800,6 +860,15 @@ await tx.query(
       },
     ],
     lesson: {
+      intro:
+        'A reliable checkout survives retries from the customer, the payment provider and workers without charging twice, overselling, or losing a paid order. Idempotency, one transaction and an outbox carry those guarantees.',
+      takeaways: [
+        { term: 'Three invariants', detail: 'Never charge twice, never sell stock you do not have, never lose a paid order.' },
+        { term: 'Idempotency key', detail: 'Sent with `POST /orders` and repeated on retry; the server replays the stored result. Same key, different body: rejected.' },
+        { term: 'Order transaction', detail: 'Creates the order as `pending_payment` and takes stock with a conditional update. Never call the provider inside it.' },
+        { term: 'Payment webhook', detail: 'At least once: verify the signature, record the event id, do nothing when it was already processed.' },
+        { term: 'Transactional outbox', detail: 'The `order.paid` row is written with the status change; a relay publishes it, possibly twice, so consumers deduplicate.' },
+      ],
       points: [
         'Checkout has three invariants: never charge twice, never sell stock you do not have, never lose a paid order. Every retry, the customer\'s, the provider\'s or a worker\'s, must respect them.',
         'An idempotency key is a unique id the client sends with `POST /orders` and repeats on every retry. The server stores it with the result and replays that result; the same key with a different body is rejected.',
@@ -895,6 +964,16 @@ await tx.query(
       },
     ],
     lesson: {
+      intro:
+        'A load balancer receives traffic on one address and spreads it over several copies of a service, removing failing ones. It is what makes horizontal scaling and zero-downtime deploys possible.',
+      takeaways: [
+        { term: 'Health checks', detail: 'Take failing copies out of rotation, allowing deploys without downtime.' },
+        { term: 'Layer 4', detail: 'Sees TCP connections only; with long keep-alive connections it keeps sending to old copies.' },
+        { term: 'Layer 7', detail: 'Reads HTTP: routes by path or header, terminates TLS, balances each request.' },
+        { term: 'Algorithms', detail: 'Round robin; weighted for bigger machines; least connections or least outstanding requests when durations vary.' },
+        { term: 'Hash-based affinity', detail: 'Hashing a key like the client IP keeps a client on one copy, at the cost of uneven load. Prefer a shared session store.' },
+        { term: 'Kubernetes probes', detail: 'Failing readiness removes the pod from traffic; failing liveness restarts it, so liveness never checks the database.' },
+      ],
       points: [
         'A load balancer receives traffic on one address and spreads it over several copies of a service. Health checks take failing copies out, which allows deploys without downtime.',
         'Layer 4 sees TCP connections only; layer 7 reads HTTP, so it can route by path or header, terminate TLS and balance each request. With long keep-alive connections, layer 4 keeps sending to the old copies.',
@@ -984,6 +1063,16 @@ await tx.query(
       },
     ],
     lesson: {
+      intro:
+        'A notification system turns events into push, e-mail and SMS messages that respect user preferences. It must absorb campaign peaks, keep urgent messages fast, and lose nothing while keeping duplicates rare.',
+      takeaways: [
+        { term: 'Size for the peak', detail: '50 million a day is about 580 per second; 10 million pushes in 10 minutes is about 16,700 per second, roughly 29 times more.' },
+        { term: 'Outbox in one transaction', detail: 'Check preferences, render, write the notification and an outbox row together; a relay publishes to queues.' },
+        { term: 'Queue per channel and priority', detail: 'Such as `push.urgent` and `push.bulk`, so a campaign never delays a login code.' },
+        { term: 'Dedup key', detail: 'Delivery is at least once: workers deduplicate on (notification id, channel).' },
+        { term: 'Retries', detail: 'Exponential backoff with jitter and a cap, then a dead-letter queue; remove invalid device tokens.' },
+        { term: 'Preferences at send time', detail: 'Read from the primary, so a user who unsubscribed a minute before a campaign does not get it.' },
+      ],
       points: [
         'Size for the peak, not the average: 50 million notifications a day is about 580 per second, but a push to 10 million users in 10 minutes is about 16,700 per second, roughly 29 times more.',
         'The flow: an event reaches the notification service, which checks preferences, renders the template and writes the notification plus an outbox row in one transaction; a relay publishes to queues.',
@@ -1086,6 +1175,16 @@ await tx.query(
       },
     ],
     lesson: {
+      intro:
+        'Collaborative editing lets several people change the same document at once and still end with the same text, without losing anyone\'s change. Two families of algorithms solve it; in practice you use a library.',
+      takeaways: [
+        { term: 'Convergence', detail: 'Every copy ends with the same text and no change is lost. Last-write-wins on the whole document drops one.' },
+        { term: 'Operational transformation', detail: 'Rewrites each operation against concurrent ones, usually with a central server ordering them. Google Docs adopted it.' },
+        { term: 'CRDT', detail: 'Gives every element an identity, so replicas merge in any order without a central authority, allowing offline edits.' },
+        { term: 'Yjs', detail: 'A CRDT library with ProseMirror and Tiptap bindings; sync updates over WebSockets and persist them.' },
+        { term: 'Awareness', detail: 'Yjs feature for cursors and presence, kept outside the document.' },
+        { term: '`ETag` and `If-Match`', detail: 'When conflicts are rare, optimistic concurrency is enough: a stale save fails with 412 Precondition Failed.' },
+      ],
       points: [
         'Concurrent edits must converge: every copy ends with the same text and nobody\'s change is lost. Saving the whole document with last-write-wins silently drops one of them.',
         'Operational transformation (OT) rewrites each operation against concurrent ones, usually with a central server that orders them. Google Docs adopted it.',
@@ -1179,6 +1278,16 @@ await tx.query(
       },
     ],
     lesson: {
+      intro:
+        'Estimating a full-stack feature means agreeing on the outcome, slicing it through the stack, and exposing its unknowns. An honest estimate is protected by cutting scope, never by shrinking the number.',
+      takeaways: [
+        { term: 'Acceptance criteria', detail: 'Agree on the outcome first: an estimate of an unclear feature is only a guess.' },
+        { term: 'Slices', detail: 'Schema and migration, API contract, screens and their states, tests, rollout. Thin slices can each ship alone.' },
+        { term: 'Spike', detail: 'A time-boxed experiment for a risky unknown; its output is knowledge and its code is usually thrown away.' },
+        { term: 'Relative estimate', detail: 'Compare with work already done, and list review, QA and monitoring as explicit items.' },
+        { term: 'Large migration steps', detail: 'Add the column, backfill in batches, switch the code, clean up.' },
+        { term: 'Too big for the sprint', detail: 'Cut scope, such as a first version behind a feature flag. Never quietly shrink the estimate or the tests.' },
+      ],
       points: [
         'Agree on the outcome and the acceptance criteria first: an estimate of an unclear feature is only a guess.',
         'Slice the feature through the stack: schema and migration, API contract, screens and their states, tests, rollout. Thin end-to-end slices can each ship on their own.',
@@ -1289,6 +1398,16 @@ alertIf(average(lastMinute) > 1_000);`,
       },
     ],
     lesson: {
+      intro:
+        'Diagnosing a latency spike means scoping it, locating the slow part with percentiles and traces, and following the evidence to the cause, while mitigating user impact first.',
+      takeaways: [
+        { term: 'Scope', detail: 'Which routes, which percentiles, which users, since when, and what changed: a deploy, traffic, a dependency.' },
+        { term: 'p99', detail: 'The latency 99% of requests stay under; it shows the slow tail an average hides.' },
+        { term: 'Wait before the first query', detail: 'Points at a saturated connection pool.' },
+        { term: '`monitorEventLoopDelay`', detail: 'From `node:perf_hooks`; rising event loop delay means synchronous work blocks Node.' },
+        { term: 'More replicas', detail: 'On a database-bound problem they add connections and make it worse. Mitigate by rollback or flag instead.' },
+        { term: 'Field data', detail: 'If the API looks fine, read LCP and INP from real users with the `web-vitals` library, split by page.' },
+      ],
       points: [
         'Scope it first: which routes, which percentiles, which users, since when, and what changed at that time, such as a deploy, a traffic spike or a dependency.',
         'Use percentiles, not averages: the p99 is the latency that 99% of requests stay under, so it shows the slow tail an average hides. A trace of a slow request then shows which span takes the time.',
@@ -1374,6 +1493,16 @@ alertIf(average(lastMinute) > 1_000);`,
       },
     ],
     lesson: {
+      intro:
+        'A system design round is a 45-minute conversation graded on reasoning, not on one right diagram. A fixed plan keeps you on track: clarify, estimate, design, go deep, and name what each choice costs.',
+      takeaways: [
+        { term: 'The plan', detail: 'Requirements, estimates, API and data model, high-level design, deep dives, trade-offs and wrap-up.' },
+        { term: 'Functional vs non-functional', detail: 'What the system does versus how well: latency, availability, consistency.' },
+        { term: 'What must never happen', detail: 'Ask it early: the answer becomes the deep dive.' },
+        { term: 'Estimates', detail: '1 million requests a day is about 12 per second. State inputs as assumptions; each number drives a decision.' },
+        { term: 'Simplest design', detail: 'Draw the simplest design that meets the numbers and walk one request through it.' },
+        { term: 'Trade-off sentence', detail: '"I choose X, which costs Y; if Z mattered more, I would choose W."' },
+      ],
       points: [
         'A system design round is a 45-minute conversation graded on reasoning: clarify, estimate, design, go deep, and name what each choice costs. There is no single right diagram.',
         'Announce a fixed plan: requirements, estimates, API and data model, high-level design, deep dives, then trade-offs and wrap-up. Follow the interviewer when they steer, and say where you are.',
@@ -1459,6 +1588,16 @@ alertIf(average(lastMinute) > 1_000);`,
       },
     ],
     lesson: {
+      intro:
+        'CAP and PACELC describe the trade-offs of a replicated data store: what it gives up during a network partition, and what it trades on every request otherwise. They guide which reads must be consistent.',
+      takeaways: [
+        { term: 'Network partition', detail: 'Communication between replicas is cut. CAP, proved by Gilbert and Lynch in 2002, forces a choice then.' },
+        { term: 'Consistency (CAP)', detail: 'Every read returns the latest write or an error.' },
+        { term: 'Availability (CAP)', detail: 'Every request to a working node gets a non-error answer, possibly stale.' },
+        { term: '"Pick two of three"', detail: 'A misreading: without a partition, both consistency and availability are possible.' },
+        { term: 'PACELC', detail: 'By Daniel Abadi: else, without a partition, choose latency or consistency, a trade paid on every request.' },
+        { term: 'Eventual consistency', detail: 'Replicas may disagree but converge once writes stop. Choose per feature: the last unit is sold on the primary.' },
+      ],
       points: [
         'A network partition cuts communication between the replicas of a store. CAP, proved by Gilbert and Lynch in 2002, says that during one a system must choose between consistency and availability.',
         'Consistency in CAP means every read returns the latest write or an error. Availability means every request to a working node gets a non-error answer, possibly stale.',
@@ -1566,6 +1705,16 @@ await redis.set(key, count + 1,
       },
     ],
     lesson: {
+      intro:
+        'A rate limiter caps how many requests each key, such as an API key, customer or IP, may make over time, and refuses the excess cheaply. It must be fast and correct across every replica.',
+      takeaways: [
+        { term: '429 and `Retry-After`', detail: 'The answer to a refused request: 429 Too Many Requests with a `Retry-After` header, rounded up.' },
+        { term: 'Fixed window', detail: 'Resets a counter each minute, so a client can double the limit around the boundary.' },
+        { term: 'Sliding window counter', detail: 'Weights the previous window to approximate a rolling limit.' },
+        { term: 'Token bucket', detail: 'Up to `capacity` tokens, refilled at a steady rate, one per request: allows short bursts. Stripe documents using it.' },
+        { term: 'Atomic Lua script', detail: 'State in one Redis or Valkey; read-refill-write as one script, so two replicas never take the last token.' },
+        { term: 'Failure mode', detail: 'Fail open when Redis is down, but fail closed for security limits such as login attempts.' },
+      ],
       points: [
         'A rate limiter caps how many requests each key (an API key, a customer, an IP) may make over time, and refuses the excess cheaply with 429 Too Many Requests and a `Retry-After` header.',
         'A fixed window resets a counter each minute, so a client can double the limit around the boundary. A sliding window counter weights the previous window to approximate a rolling limit.',
@@ -1651,6 +1800,16 @@ await redis.set(key, count + 1,
       },
     ],
     lesson: {
+      intro:
+        'Designing for a million users starts by turning users into requests per second, then putting each job where it is cheapest and protecting the database, which scales last.',
+      takeaways: [
+        { term: 'Concurrent users vs RPS', detail: 'A million users acting every 30 seconds make about 33,000 requests per second. Design for that and its peak.' },
+        { term: 'CDN', detail: 'Serves static and public pages.' },
+        { term: 'Stateless API', detail: 'Replicas autoscale behind a load balancer, with sessions and hot data in Redis.' },
+        { term: 'Database last', detail: 'A pooler like PgBouncer caps connections, read replicas take reads, one primary writes, shard only when needed.' },
+        { term: 'Queues and live connections', detail: 'Slow work like e-mails goes to queues; sockets spread over pods with pub/sub to reach the right one.' },
+        { term: 'Load test and pre-scale', detail: 'Test above the expected peak; pre-scale for known events since new pods need time to start.' },
+      ],
       points: [
         'Concurrent users are not requests per second: a million users each acting every 30 seconds make about 33,000 requests per second. Design for that rate and its peak.',
         'Put each job where it is cheapest: a CDN for static and public pages, stateless API replicas that autoscale behind a load balancer, sessions and hot data in Redis.',
@@ -1759,6 +1918,16 @@ await addPoints(db, customerId, points);`,
       },
     ],
     lesson: {
+      intro:
+        'Exactly-once delivery is not available over a network, so systems build exactly-once effects instead: at-least-once delivery plus an idempotent consumer that applies each message only once.',
+      takeaways: [
+        { term: 'At-most-once', detail: 'Acknowledge before the work: a crash loses the message.' },
+        { term: 'At-least-once', detail: 'Acknowledge after the work: a crash causes a redelivery. SQS is at-least-once.' },
+        { term: 'Kafka exactly-once', detail: 'Covers processing between Kafka topics, not your own database or an e-mail provider.' },
+        { term: 'Idempotent consumer', detail: 'Insert the message id and apply the effect in one transaction; the primary key rejects repeats.' },
+        { term: 'Anti-patterns', detail: 'A `SELECT` check first races; recording the id in a separate transaction means a failed effect is never retried.' },
+        { term: 'Dead-letter queue', detail: 'For messages that fail every time; useful only with an alert and a runbook to fix and replay.' },
+      ],
       points: [
         'At-most-once acknowledges before the work, so a crash loses the message. At-least-once acknowledges after it, so a crash causes a redelivery. Queues such as SQS are at-least-once.',
         'Exactly-once delivery is not available towards your own database or an e-mail provider; Kafka\'s exactly-once covers processing between Kafka topics. You build exactly-once effects instead.',
@@ -1868,6 +2037,16 @@ ZADD leaderboard:weekly 1480 player:42`,
       },
     ],
     lesson: {
+      intro:
+        'A real-time leaderboard ranks millions of players and answers top-N and own-rank queries fast. A Redis sorted set does the ranking, fed by events from the database, which stays the source of truth.',
+      takeaways: [
+        { term: 'Sorted set', detail: 'Unique members with numeric scores, kept ordered: a skip list plus a hash table, so updates and ranks take O(log N).' },
+        { term: '`ZADD` / `ZINCRBY`', detail: '`ZADD` sets a score, `ZINCRBY` adds to it. `ZADD` with `GT` only raises a score, so late events cannot lower it.' },
+        { term: '`ZREVRANK`', detail: 'A member\'s 0-based rank from the top.' },
+        { term: '`ZRANGE key 0 99 REV WITHSCORES`', detail: 'Returns the top 100 with their scores.' },
+        { term: 'Ties', detail: 'Equal scores are ordered by member bytes; fold time into the score. Scores are doubles, exact for integers up to 2^53.' },
+        { term: 'One set per board', detail: 'Weekly or per region, segment in the key. Rebuildable from the database, fed by outbox events.' },
+      ],
       points: [
         'A Redis sorted set stores unique members, each with a numeric score, kept ordered by score. Redis uses a skip list plus a hash table, so updates and rank lookups take O(log N).',
         '`ZADD` sets a score, `ZINCRBY` adds to it, `ZREVRANK` gives a member\'s 0-based rank from the top, and `ZRANGE key 0 99 REV WITHSCORES` returns the top 100.',
@@ -1964,6 +2143,16 @@ SET dedup:evt_8f2c 1 NX`,
       },
     ],
     lesson: {
+      intro:
+        'Deduplication drops events that were already processed, usually retries. It needs a key that defines a duplicate, a time window, and an exact check, with a Bloom filter in front at very high volume.',
+      takeaways: [
+        { term: 'Dedup key', detail: 'The event id the source sends, or a hash of the fields that define identity.' },
+        { term: 'Window', detail: 'Retries arrive within minutes or hours, so keys can expire.' },
+        { term: '`SET key 1 NX EX 86400`', detail: 'Succeeds only for the first writer within a day. A unique constraint where the data lands is the other exact check.' },
+        { term: 'Bloom filter', detail: 'Bit array plus k hashes: "definitely absent" or "maybe present". No false negatives, some false positives.' },
+        { term: 'Bits per item', detail: 'About 9.6 for 1% false positives, 14.4 for 0.1%. Filling beyond planned size raises the rate quickly.' },
+        { term: 'Deletes', detail: 'A standard Bloom filter cannot delete; a counting Bloom filter or cuckoo filter can, or rotate one per day.' },
+      ],
       points: [
         'Deduplication starts with the key: an id the source sends, or a hash of the fields that define identity. Then a window: retries arrive within minutes or hours, so keys can expire.',
         'Exact checks are a unique constraint where the data lands, or Redis `SET key 1 NX EX 86400`, which succeeds only for the first writer. Both cost storage per key.',
@@ -2049,6 +2238,16 @@ SET dedup:evt_8f2c 1 NX`,
       },
     ],
     lesson: {
+      intro:
+        'Driver matching combines a lossy, write-heavy stream of positions with one decision that must be exact: which driver gets the ride. Positions live in memory; the claim on a driver is atomic.',
+      takeaways: [
+        { term: 'Position stream', detail: 'A million drivers every 4 seconds is 250,000 writes per second, so positions stay in memory, not in PostgreSQL.' },
+        { term: 'Geo index per city', detail: 'A Redis geo set stores longitude and latitude per member, latest position only.' },
+        { term: '`GEOSEARCH`', detail: '`GEOSEARCH key FROMLONLAT lon lat BYRADIUS 3 km ASC COUNT 20` returns the 20 nearest drivers.' },
+        { term: 'Ranking', detail: 'Rank candidates by distance or estimated arrival time, then offer the best.' },
+        { term: 'Atomic claim', detail: '`SET` with `NX` or a conditional update. Reading then writing is a check-then-act race that double-books drivers.' },
+        { term: 'Offer expiry', detail: 'No acceptance in time or an expired heartbeat key: release the claim and offer the next candidate.' },
+      ],
       points: [
         'Matching mixes a lossy, write-heavy stream of positions with one decision that must be exact: which driver gets the ride.',
         'Estimate the stream: a million drivers sending a position every 4 seconds is 250,000 writes per second. Keep the latest position in memory, in a geospatial index per city.',
@@ -2154,6 +2353,16 @@ const valid = given.length === expected.length
       },
     ],
     lesson: {
+      intro:
+        'A webhook is a provider calling your endpoint when something happens. Deliveries are retried and unordered, so you verify, store and acknowledge fast, then process separately and idempotently.',
+      takeaways: [
+        { term: 'Delivery guarantees', detail: 'At least once, retried after any non-2xx or timeout, and not guaranteed in order.' },
+        { term: 'HMAC signature', detail: 'Keyed hash over the id, timestamp and raw body. Recompute on raw bytes and compare with `timingSafeEqual`.' },
+        { term: 'Timestamp tolerance', detail: 'Reject timestamps more than a few minutes off, to stop replays.' },
+        { term: 'Store, then 2xx', detail: 'Unique constraint on the event id, answer 2xx at once; a known id is acknowledged and skipped.' },
+        { term: 'Worker and ordering', detail: 'Retries, backoff, dead-letter state. Apply a change only if it moves state forward, or refetch the object.' },
+        { term: 'Oldest unprocessed age', detail: 'Shows processing falling behind before customers notice; also watch error rate and dead-letter count.' },
+      ],
       points: [
         'A webhook is the provider calling your endpoint when something happens. It is delivered at least once, retried after any non-2xx answer or timeout, and not guaranteed to arrive in order.',
         'The signature is an HMAC, a hash keyed with a shared secret, over the id, the timestamp and the raw body. Recompute it on the raw bytes and compare in constant time with `timingSafeEqual`.',

@@ -93,6 +93,15 @@ export const deliveryMoreCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Business rules such as prices, discounts and shipping fees are best unit tested: pure functions run in memory, many cases, no I/O. A good suite fails only when the rule is wrong.',
+      takeaways: [
+        { term: 'Pure rule', detail: 'One function in memory, no database, network or real clock: fast, and needs no test double.' },
+        { term: '`it.each`', detail: 'Writes the cases as a table: each row an input and its expected result. It reads like the specification.' },
+        { term: 'Boundary rows', detail: 'Exactly at a threshold, just under it, and a rounding, each in its own row.' },
+        { term: 'Coverage', detail: 'The share of lines that ran. A test without assertions raises it too: a signal, not a target.' },
+        { term: 'Mutation testing (Stryker)', detail: 'Changes the code slightly, like `>=` into `>`, and reruns the tests. An unnoticed change is a behaviour nothing checks.' },
+      ],
       points: [
         'A unit test runs one function in memory, with no database, network or real clock. It suits pure rules with many cases, such as a price, a discount or a shipping fee.',
         'Write the cases as a table with `it.each`: each row is an input and its expected result. Give every boundary its own row: exactly at a threshold, just under it, and a rounding.',
@@ -200,6 +209,16 @@ beforeEach(async () => {
       },
     ],
     lesson: {
+      intro:
+        'An integration test runs the repository\'s real SQL on a real PostgreSQL. A mocked repository never runs the query, so only a real database catches a wrong `WHERE` or a missing constraint.',
+      takeaways: [
+        { term: 'Testcontainers', detail: 'Starts a throwaway PostgreSQL container from the production image: full fidelity, needs Docker. Suits CI.' },
+        { term: 'PGlite', detail: 'PostgreSQL compiled to WebAssembly inside the Node process: fast local runs without Docker, one connection.' },
+        { term: 'Real migrations', detail: 'Start the database once per run or per file and apply the real migrations, so they are tested too.' },
+        { term: '`TRUNCATE` before each test', detail: 'Resets the data so every test starts from a known state.' },
+        { term: 'Transaction + `ROLLBACK`', detail: 'Faster reset, but breaks when the code under test opens its own transaction.' },
+        { term: 'Parallel files', detail: 'Give each worker its own database.' },
+      ],
       points: [
         'An integration test runs your repository\'s real SQL on a real PostgreSQL. A mocked repository never runs the query, so it cannot catch a wrong `WHERE` or a missing constraint.',
         'Testcontainers starts a throwaway PostgreSQL container from the production image: full fidelity, needs Docker. PGlite runs PostgreSQL as WebAssembly inside Node: fast, one connection.',
@@ -311,6 +330,16 @@ server.close();`,
       },
     ],
     lesson: {
+      intro:
+        'HTTP routes can be tested without opening a socket by building the app in a function that does not listen and takes its dependencies. Requests then run the full pipeline in milliseconds with exact, predictable results.',
+      takeaways: [
+        { term: '`buildApp(deps)`', detail: 'Builds the app without listening; receives repositories, outside clients, a clock and an id generator.' },
+        { term: 'Fastify `app.inject()`', detail: 'Runs a request through hooks, schema validation and serialisation, and returns the response without a port.' },
+        { term: 'supertest (Express)', detail: 'Binds an app that is not listening to a random free port.' },
+        { term: '`overrideProvider` (NestJS)', detail: 'Swaps a provider in the testing module.' },
+        { term: 'Fixed inputs', detail: 'Freeze the clock, the ids and the data, so the expected body can be exact.' },
+        { term: 'What to assert', detail: 'Status, body and the stored row, not log lines or internal calls.' },
+      ],
       points: [
         'Build the app in a function that does not listen, such as `buildApp(deps)`, and pass it its dependencies: repositories, outside clients, a clock and an id generator.',
         'Fastify\'s `app.inject()` runs a request through hooks, schema validation and serialisation, and returns the response without opening a port.',
@@ -417,6 +446,15 @@ await expect(stock.stockOf('prod_mug')).resolves.toBe(8);`,
       },
     ],
     lesson: {
+      intro:
+        'A flaky test passes and fails on the same code, which destroys trust in the suite. The usual causes are the real date, randomness and test order, and each has a deterministic cure.',
+      takeaways: [
+        { term: 'Injected clock', detail: 'Code asks a `Clock` instead of calling `new Date()`. Tests pass a frozen one whose `sleep` moves time instantly.' },
+        { term: 'Seeded randomness', detail: 'Production passes `Math.random`, tests a seeded generator that always gives the same numbers, such as for retry jitter.' },
+        { term: 'Id factory', detail: 'An injected id factory lets a test expect `ord_1`.' },
+        { term: 'Shuffled, seeded run', detail: 'Makes an order-dependent failure repeatable. Cure: fresh state in `beforeEach`, `ORDER BY` with a tiebreaker.' },
+        { term: 'Quarantine', detail: 'Out of the blocking pipeline, with a ticket, an owner and a deadline. Blanket retries only hide the flake.' },
+      ],
       points: [
         'A flaky test passes and fails on the same code. The usual causes are the real date, randomness and the order in which tests run.',
         'Inject the clock: the code asks a `Clock` object for the time instead of calling `new Date()`. Tests pass a frozen one whose `sleep` moves time instantly, so retries run in microseconds.',
@@ -507,6 +545,16 @@ const clock = new FixedClock('2027-01-31T23:30:00Z'); // never the real date`,
       },
     ],
     lesson: {
+      intro:
+        'A slow suite is sped up by measuring first, then moving checks to the cheapest test that catches them, separating fast from slow tests, and using parallelism before buying hardware.',
+      takeaways: [
+        { term: 'Profile first', detail: 'Find the slowest files, and why. Often E2E tests check what a cheaper test could.' },
+        { term: 'Push cases down', detail: 'A validation rule is a property of the route, checked in milliseconds by an in-process test.' },
+        { term: 'Few E2E journeys', detail: 'Keep a handful, such as check out, cancel and refund, for wiring and configuration.' },
+        { term: 'Vitest projects', detail: 'Split fast and slow tests, each with its own files and options: `vitest run --project unit` answers in seconds.' },
+        { term: 'Parallel workers', detail: 'Vitest runs files in worker processes; give each worker its own database.' },
+        { term: 'Sharding', detail: 'When one machine is not enough, shard files across CI jobs and merge the reports.' },
+      ],
       points: [
         'Profile before buying hardware: find the slowest files. Often E2E tests check what a cheaper test could, like validation rules run one by one against staging.',
         'Push cases down: a validation rule is a property of the route, checked in milliseconds by an in-process test. Keep a few E2E journeys for wiring and configuration.',
@@ -598,6 +646,16 @@ vitest --merge-reports`,
       },
     ],
     lesson: {
+      intro:
+        'OpenTelemetry is a CNCF project that gives one vendor-neutral way to produce traces, metrics and logs, and one protocol to send them, so the observability backend becomes a deployment choice.',
+      takeaways: [
+        { term: 'API vs SDK', detail: 'Libraries and your code call the API; the app starts the SDK once per process.' },
+        { term: 'OTLP', detail: 'The OpenTelemetry protocol for exporting traces, metrics and logs.' },
+        { term: 'Auto-instrumentation', detail: 'Patches modules such as `http`, `pg` and `pino` as they load, so spans appear without code changes.' },
+        { term: '`node --import`', detail: 'Preloads the SDK file before the app loads those modules. An ESM service also needs the loader hook.' },
+        { term: 'Collector', detail: 'Receives OTLP, batches, samples and forwards, so Grafana, Datadog or Honeycomb can change without touching services.' },
+        { term: 'JavaScript signal status', detail: 'As of October 2026, traces and metrics are stable; logs are still in development.' },
+      ],
       points: [
         'OpenTelemetry (OTel) is a CNCF project with one vendor-neutral API, SDK and protocol (OTLP) for traces, metrics and logs. Libraries call the API; the app starts the SDK once.',
         'Instrumentation libraries patch modules such as `http`, `pg` and `pino` as they load, so spans appear without code changes.',
@@ -690,6 +748,16 @@ node --experimental-loader=@opentelemetry/instrumentation/hook.mjs \\
       },
     ],
     lesson: {
+      intro:
+        'On AWS, an API team lets managed services run the stateful parts, such as the database, cache, queues, files and secrets, and keeps its own work to the code and to tight permissions.',
+      takeaways: [
+        { term: 'Amazon RDS for PostgreSQL', detail: 'Patching, automated backups with point-in-time restore (up to 35 days) and Multi-AZ failover. Queries stay yours.' },
+        { term: 'ElastiCache for Valkey', detail: 'Managed Valkey, the open-source fork of Redis.' },
+        { term: 'SNS to SQS', detail: 'SNS fans an event out to one SQS queue per consumer, with dead-letter queues. At-least-once: consumers stay idempotent.' },
+        { term: 'S3 presigned URL', detail: 'Lets a browser upload or download directly, with the signer\'s permissions.' },
+        { term: 'Secrets Manager', detail: 'Stores and rotates secrets, read at runtime, never baked into the image.' },
+        { term: 'Least-privilege IAM role', detail: 'One role per service; IAM Access Analyzer can generate a policy from CloudTrail activity.' },
+      ],
       points: [
         'Amazon RDS for PostgreSQL handles patching, automated backups with point-in-time restore (retention up to 35 days) and Multi-AZ failover. Connection limits and queries stay yours.',
         'ElastiCache for Valkey runs Valkey, the open-source fork of Redis. SNS fans an event out to one SQS queue per consumer; delivery is at least once, so consumers stay idempotent.',

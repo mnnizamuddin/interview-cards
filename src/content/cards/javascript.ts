@@ -121,6 +121,16 @@ export const javascriptCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Scope decides where a name can be used, and hoisting decides what it holds before its line runs. `var`, `let` and `const` differ on both, which explains most "impossible" `undefined` values and ReferenceErrors.',
+      takeaways: [
+        { term: '`var`', detail: 'Function scope. Hoisted with the value `undefined`, so an early read gives `undefined`, not an error.' },
+        { term: '`let`', detail: 'Block scope. Hoisted but uninitialized: reading it before its line throws a ReferenceError (the TDZ).' },
+        { term: '`const`', detail: 'Like `let`, and cannot be reassigned. The object it holds can still change: `items.push()` works.' },
+        { term: '`let` in a `for`', detail: 'A fresh variable on each iteration, so each callback keeps its own value.' },
+        { term: 'Function declaration', detail: 'Hoisted with its body: it can be called above its line.' },
+        { term: 'Default choice', detail: '`const` first, `let` when you reassign, never `var`.' },
+      ],
       points: [
         'Scope is where a name is visible. `var` belongs to the whole function; `let` and `const` belong to the nearest block `{}`. A `let` in a `for` header even gets a fresh variable on each iteration.',
         'Hoisting means the engine creates every declared name when it enters the scope, before any line runs. A `var` is created with the value `undefined`, so reading it early gives `undefined`, not an error.',
@@ -246,6 +256,16 @@ items.push('mug');                 // allowed: mutation, not reassignment`,
       },
     ],
     lesson: {
+      intro:
+        'A closure is a function together with the variables of the scope where it was created. It keeps them alive after the outer function returns, which gives private state, `debounce` and every React handler.',
+      takeaways: [
+        { term: 'Closure', detail: 'A function plus the variables of the scope it was created in. Every function has one; you do not opt in.' },
+        { term: 'Live link, not a copy', detail: 'Captured variables stay alive while the function is reachable, and later changes are visible inside it.' },
+        { term: 'One scope per call', detail: 'Each call of a factory creates a new scope: two counters from the same factory keep separate counts.' },
+        { term: 'Typical uses', detail: 'Private state, a memoization cache, callbacks that need context, and `debounce`, which keeps its timer.' },
+        { term: 'Stale closure', detail: 'A callback created once, like an interval in an effect, keeps reading the first render\'s state.' },
+        { term: 'Stale closure fix', detail: 'Use a functional state update or a ref, so the callback reads the current value.' },
+      ],
       points: [
         'A closure is a function together with the variables of the scope where it was created. Every JavaScript function remembers that scope; you do not opt into it.',
         'The captured variables stay alive after the outer function has returned, as long as the function is reachable. The closure keeps a live link to them, not a copy: later changes are visible inside it.',
@@ -375,6 +395,16 @@ const cart = new Cart();
       },
     ],
     lesson: {
+      intro:
+        '`this` is a hidden parameter set by how a function is called, not where it is written. Knowing the call rules explains why a method passed as a callback suddenly loses its object.',
+      takeaways: [
+        { term: '`obj.method()`', detail: '`this` is `obj`, the object before the dot.' },
+        { term: 'Plain call `f()`', detail: '`this` is `undefined` in strict mode, which covers ES modules and classes.' },
+        { term: '`new`', detail: '`this` is the new object being created.' },
+        { term: '`call`, `apply`, `bind`', detail: '`call` and `apply` set `this` for one call; `bind` returns a function with `this` fixed for good.' },
+        { term: 'Arrow function', detail: 'No `this` of its own: it uses the surrounding scope\'s, and `call`, `apply` and `bind` cannot change it.' },
+        { term: 'Lost method', detail: 'Passing `cart.remove` as a callback detaches it: wrap it, `() => cart.remove(id)`, or bind it.' },
+      ],
       points: [
         '`this` is a hidden parameter set by how a function is called, not by where it is written. The same function can get a different `this` on each call.',
         'Called as `obj.method()`, `this` is `obj`. Called plainly as `f()`, it is `undefined` in strict mode, which covers ES modules and classes. In a listener added with `addEventListener`, it is the element.',
@@ -495,6 +525,16 @@ console.log(detached.call(cart)); // 1`,
       },
     ],
     lesson: {
+      intro:
+        'Every object links to another object, its prototype, and a missing property is looked up along that chain. ES classes are built on this mechanism, with a few real features of their own.',
+      takeaways: [
+        { term: 'Prototype chain', detail: 'A property the object lacks is searched on its prototype, then on that one\'s prototype, until `null`.' },
+        { term: '`Class.prototype`', detail: 'The object instances link to. Class methods live there once and are shared, not copied.' },
+        { term: '`extends`', detail: '`class B extends A` links `B.prototype` to `A.prototype`, so instances find the methods of both.' },
+        { term: '`instanceof`', detail: 'Checks whether `A.prototype` is anywhere in the chain. Fails across realms: use `Array.isArray` for arrays.' },
+        { term: 'Class extras', detail: 'Calling a class without `new` throws a TypeError, and the class body runs in strict mode.' },
+        { term: '`#private` fields', detail: 'Truly private: not readable from outside, not even with bracket access.' },
+      ],
       points: [
         'Every object has a hidden link to another object, its prototype. Reading a property the object lacks makes the engine look on the prototype, then on its prototype, up the chain until `null`.',
         '`Class.prototype` is the object new instances link to; `Object.getPrototypeOf(obj)`, or the old `__proto__`, reads an object\'s actual link. Class methods live once on `Class.prototype` and are shared, not copied.',
@@ -641,6 +681,16 @@ try { PaymentError('x'); } catch (e) { console.log(e.name); }        // TypeErro
       },
     ],
     lesson: {
+      intro:
+        'JavaScript has two equality operators and two "empty" values. Knowing when `==` converts types and what `null` and `undefined` mean avoids a whole family of silent bugs.',
+      takeaways: [
+        { term: '`===`', detail: 'Strict equality: no conversion, so values of different types are never equal. Use it everywhere.' },
+        { term: '`==`', detail: 'Loose equality converts first (coercion): `\'\' == 0` and `[] == false` are both true.' },
+        { term: '`x == null`', detail: 'The one accepted `==`: true only for `null` and `undefined`, never for 0 or an empty string.' },
+        { term: '`undefined` vs `null`', detail: '`undefined` means never set; `null` is assigned on purpose to mean empty.' },
+        { term: '`typeof null`', detail: 'Returns "object": an old bug kept for compatibility.' },
+        { term: '`??` vs `||`', detail: '`??` falls back only on `null` and `undefined`; `||` falls back on any falsy value, 0 included.' },
+      ],
       points: [
         '`===`, strict equality, compares without converting: values of different types are never equal. `==`, loose equality, first converts the operands to a common type, which is called coercion.',
         'Coercion rules surprise people: `\'\' == 0` and `[] == false` are both true, because each side ends up as the number 0. So use `===` everywhere.',
@@ -751,6 +801,16 @@ const template = readFileSync(
       },
     ],
     lesson: {
+      intro:
+        'JavaScript has two module systems: CommonJS, Node\'s original `require`, and the standard ES modules with `import` and `export`. Their loading model explains tree shaking, live bindings and code splitting.',
+      takeaways: [
+        { term: 'CommonJS', detail: '`require()` loads synchronously at run time; values destructured from `module.exports` do not update later.' },
+        { term: 'Static `import`', detail: 'Resolved before any code runs, so bundlers know the graph and drop unused exports: tree shaking.' },
+        { term: 'Live bindings', detail: 'Importers always read the exporter\'s current value. Assigning to an import throws a TypeError.' },
+        { term: '`import()`', detail: 'Loads a module on demand and returns a promise: the basis of code splitting.' },
+        { term: 'ES module extras', detail: 'Always strict mode, and top-level `await` is allowed.' },
+        { term: '`"type": "module"`', detail: 'In `package.json`, makes `.js` files ES modules in Node; otherwise use `.mjs`.' },
+      ],
       points: [
         'CommonJS is Node\'s original module system: `require()` loads a file synchronously while the code runs, and `module.exports` is a plain object. Values you destructure from it do not follow later changes.',
         'ES modules use `import` and `export`. Static imports are resolved before any code runs, so tools know the whole dependency graph and bundlers can drop unused exports: that is tree shaking.',
@@ -897,6 +957,16 @@ console.log(count); // 1: a live binding, not a copy
       },
     ],
     lesson: {
+      intro:
+        'The iteration protocol is what `for...of`, spread and destructuring rely on, and a generator is the easy way to implement it. Generators produce values lazily, one at a time.',
+      takeaways: [
+        { term: 'Iterator', detail: 'An object whose `next()` returns `{ value, done }`.' },
+        { term: 'Iterable', detail: 'Has a `[Symbol.iterator]()` method returning an iterator. Plain objects are not iterable: use `Object.entries`.' },
+        { term: '`function*`', detail: 'Calling it runs nothing; each `next()` runs the body up to the next `yield`, which pauses it.' },
+        { term: 'Single use', detail: 'A generator is consumed once. `break` in `for...of` calls `return()`, so its `finally` block runs.' },
+        { term: '`async function*`', detail: 'Can `await` between yields; read it with `for await...of` for paginated APIs and streams.' },
+        { term: 'Iterator helpers', detail: '`.map()` and `.take()` (ES2025) transform iterators while keeping them lazy.' },
+      ],
       points: [
         'An iterator is an object whose `next()` returns `{ value, done }`. An iterable has a `[Symbol.iterator]()` method that returns an iterator. `for...of`, spread and array destructuring all use this protocol.',
         'Arrays, strings, Maps, Sets and generators are iterable. Plain objects are not, and neither are array-likes that only have a `length`: loop over an object with `Object.entries(obj)`.',
@@ -1019,6 +1089,16 @@ for (const id of ids) {
       },
     ],
     lesson: {
+      intro:
+        'Copying an object can duplicate only the top level or every level. Knowing which one spread and `structuredClone` give you prevents edits that silently change the original.',
+      takeaways: [
+        { term: 'Shallow copy', detail: 'New top-level object, nested ones shared: editing `copy.lines[0]` also edits the original.' },
+        { term: 'Shallow tools', detail: 'Spread `{ ...x }`, `Object.assign` and `slice()`.' },
+        { term: '`structuredClone`', detail: 'Built-in deep copy: keeps Dates, Maps, Sets, typed arrays and cyclic references.' },
+        { term: '`structuredClone` limits', detail: 'Throws a DataCloneError on functions and DOM nodes; class instances lose their prototype.' },
+        { term: 'JSON round trip', detail: 'Lossy: Dates become strings, `undefined` and function properties vanish, cycles throw.' },
+        { term: 'React state', detail: 'Copy only the path that changed: deep cloning everything gives new references and defeats memoization.' },
+      ],
       points: [
         'A shallow copy creates a new top-level object but shares the nested ones. Spread `{ ...x }`, `Object.assign` and `slice()` are shallow, so editing `copy.lines[0]` also edits the original.',
         'A deep copy duplicates every level. `structuredClone(x)` is the built-in way: it keeps Dates, Maps, Sets, typed arrays and cyclic references.',
@@ -1132,6 +1212,16 @@ console.log(typeof JSON.parse(JSON.stringify(order)).at);         // string`,
       },
     ],
     lesson: {
+      intro:
+        'The garbage collector frees memory that nothing can reach any more. A leak is data you no longer need that is still reachable, and on a long-lived server or page it keeps growing.',
+      takeaways: [
+        { term: 'Reachability', detail: 'An object is freed when no chain of references leads to it from a root: a global or the call stack.' },
+        { term: 'Mark-and-sweep', detail: 'Marks what is reachable, frees the rest. Objects that only reference each other are collected.' },
+        { term: 'Leak', detail: 'Memory you no longer need that is still reachable.' },
+        { term: 'Usual causes', detail: 'Listeners and intervals never removed, open subscriptions, caches that only grow, closures over big objects.' },
+        { term: 'Server caches', detail: 'A module-level `Map` lives as long as the process: use a bounded LRU cache, or a `WeakMap` for object keys.' },
+        { term: 'Heap snapshots', detail: 'Take one, repeat the action, take another and compare what grew.' },
+      ],
       points: [
         'The garbage collector frees objects that are no longer reachable: no chain of references leads to them from a root, such as a global variable or a variable on the current call stack.',
         'Engines use mark-and-sweep: they mark everything reachable from the roots, then free the rest. Two objects that only reference each other are unreachable, so cycles are collected.',

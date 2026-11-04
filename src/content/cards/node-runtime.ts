@@ -103,6 +103,15 @@ setInterval(() => {
       },
     ],
     lesson: {
+      intro:
+        'A blocked event loop means one callback holds Node\'s main thread while every request, timer and health check waits behind it. Two runtime metrics prove it, and a CPU profile names the function to fix.',
+      takeaways: [
+        { term: '`monitorEventLoopDelay()`', detail: 'From `node:perf_hooks`: how late a timer fires. Values are in nanoseconds and include the sampling interval.' },
+        { term: '`eventLoopUtilization()`', detail: 'On `performance`: the share of time the loop spent running callbacks instead of waiting, from 0 to 1.' },
+        { term: 'Blocked-loop signature', detail: 'ELU near 1, delay p99 in hundreds of milliseconds, every route slow at once, database latency flat.' },
+        { term: '`node --cpu-prof`', detail: 'Writes a `.cpuprofile` file when the process exits; Chrome DevTools shows it as a flame graph naming the hot function.' },
+        { term: 'Exporting the metrics', detail: 'OpenTelemetry and APMs such as Datadog export event loop delay and ELU, so you can graph and alert on them.' },
+      ],
       points: [
         'A blocked event loop means one callback runs so long that every other callback, new requests, timers and `/health` included, waits behind it on the main thread.',
         'Event loop delay, from `monitorEventLoopDelay()` in `node:perf_hooks`, measures how late a timer fires. Its values are in nanoseconds and include the sampling interval.',
@@ -226,6 +235,16 @@ async function toCsvLines(rows: OrderRow[]) {
       },
     ],
     lesson: {
+      intro:
+        'Node runs callbacks in a fixed order: two priority queues after every callback, then the event loop phases. That order explains surprising log sequences, and why some ways of yielding let requests in and others do not.',
+      takeaways: [
+        { term: '`process.nextTick`', detail: 'Its queue is emptied first after every callback, including ticks added while emptying it.' },
+        { term: 'Promise microtasks', detail: '`.then`, code after `await` and `queueMicrotask`. Emptied right after the nextTick queue, before the loop moves on.' },
+        { term: 'Loop phases', detail: 'Timers (`setTimeout`, `setInterval`), then poll (I/O, new requests), then check (`setImmediate`).' },
+        { term: '`setTimeout(f, 0)` or `setImmediate`', detail: 'Their order is not fixed at the top level. Inside an I/O callback, `setImmediate` always runs first.' },
+        { term: '`await setImmediate()`', detail: 'From `node:timers/promises`: lets poll run, so requests get in. `await Promise.resolve()` resumes before poll.' },
+        { term: 'ES module top level', detail: 'Promises run before nextTick there, because the module body runs inside a promise job.' },
+      ],
       points: [
         'Besides its phases, Node has two priority queues: the nextTick queue for `process.nextTick`, and the microtask queue for `.then` callbacks, code after `await` and `queueMicrotask`.',
         'After every callback, Node empties the nextTick queue, then the microtask queue, completely, including jobs added meanwhile. Only then does the loop move on.',
@@ -334,6 +353,14 @@ console.log('F');
       },
     ],
     lesson: {
+      intro:
+        'When an endpoint burns CPU on the main thread, every other request of the process waits behind it. The fixes range from cheap to heavy, and you stop at the first one that is enough.',
+      takeaways: [
+        { term: 'Do less work', detail: 'A `find` inside a loop is quadratic; a `Map` lookup makes it linear. Filter in SQL, paginate or stream large exports.' },
+        { term: 'Slices', detail: 'Process 1,000 rows, then `await setImmediate()`. One indivisible call such as a huge `JSON.parse` cannot be sliced.' },
+        { term: 'Worker pool (Piscina)', detail: 'Each worker thread has its own V8 engine and event loop. Data is copied between threads, so send compact inputs.' },
+        { term: 'Queue and worker service', detail: 'BullMQ or SQS for jobs that take seconds or must survive a restart; the API answers `202 Accepted`.' },
+      ],
       points: [
         'Try fixes from cheapest to heaviest and stop at the first one that is enough: do less work, cut into slices, use worker threads, move the job to a queue.',
         'Do less work: a `find` inside a loop is quadratic, a `Map` lookup makes it linear. Filter in SQL, paginate or stream large exports.',
@@ -424,6 +451,15 @@ async function toCsvLines(rows: OrderRow[]): Promise<string[]> {
       },
     ],
     lesson: {
+      intro:
+        'One Node process runs your JavaScript on one main thread, so it uses one core for it. Using more cores means choosing between replicas, worker threads and `cluster`, depending on where the service runs.',
+      takeaways: [
+        { term: 'Main-thread CPU per request', detail: 'Sets each process\'s ceiling: 20 ms per request means about 50 requests per second.' },
+        { term: 'Replicas', detail: 'The default on Kubernetes: one process per container. Sessions and rate limits must then live in Redis or the database.' },
+        { term: 'Worker threads', detail: 'Inside one process, usually through Piscina, for occasional CPU-heavy tasks: PDFs, images, parsing.' },
+        { term: '`cluster` or PM2 cluster mode', detail: 'Forks copies sharing the listening port. Fits VMs; inside a pod it hides crashes and resource use from Kubernetes.' },
+        { term: 'Blocking endpoint', detail: 'Replicas do not fix it: in each replica, the slow handler still freezes the other requests of that process.' },
+      ],
       points: [
         'One Node process runs your JavaScript on one main thread, so main-thread CPU per request sets its ceiling: 20 ms per request means about 50 requests per second.',
         'More replicas: one process per container, scaled by Kubernetes behind a load balancer. It is the default in 2026; sessions and rate limits must then live in Redis or the database.',
@@ -520,6 +556,16 @@ export type OrderStatus =
       },
     ],
     lesson: {
+      intro:
+        'Node 24 ships much of the old development toolchain: it runs TypeScript, loads `.env` files, watches files, fetches and tests. Knowing the limits of each built-in tells you which packages you can drop.',
+      takeaways: [
+        { term: '`node app.ts`', detail: 'Type stripping erases types. It never type-checks and ignores `tsconfig.json`, so keep `tsc --noEmit` in CI.' },
+        { term: '`ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`', detail: 'Thrown for syntax that generates code, such as `enum` and parameter properties.' },
+        { term: '`--env-file=.env`', detail: 'Replaces dotenv; `process.loadEnvFile()` does it from code. A variable already set in the environment wins.' },
+        { term: '`--watch`', detail: 'Restarts the process on file changes, instead of nodemon.' },
+        { term: 'Globals and `node --test`', detail: '`fetch` and `WebSocket` are globals; `node --test` runs the built-in `node:test` runner, though most teams keep Vitest.' },
+        { term: '`--permission`', detail: 'Blocks file system, child processes, workers, addons and WASI unless allowed; not the network in Node 24.' },
+      ],
       points: [
         'Type stripping: `node app.ts` runs TypeScript by erasing types. It never type-checks, ignores `tsconfig.json`, and rejects `enum` and parameter properties with `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`.',
         '`--env-file=.env` loads variables before your code starts, and `process.loadEnvFile()` does it from code. A variable already set in the real environment wins over the file.',
@@ -621,6 +667,16 @@ npx tsc --noEmit`,
       },
     ],
     lesson: {
+      intro:
+        'Express, Fastify and Hono route HTTP requests; NestJS is an application framework that runs on top of one of them. The right choice depends on team size and structure more than on benchmarks.',
+      takeaways: [
+        { term: 'HTTP framework', detail: 'Express, Fastify, Hono: route each request to a handler and run shared code around it.' },
+        { term: 'NestJS', detail: 'Adds modules, a DI container and request slots. Runs on Express (the default) or Fastify through an adapter.' },
+        { term: 'Fastify 5', detail: 'Builds in JSON Schema validation, pino logging, plugin encapsulation, `inject()` for tests and a close sequence.' },
+        { term: 'Express 5', detail: 'Sends rejected async handlers to the error handler. An existing Express codebase stays on it.' },
+        { term: 'Hono', detail: 'Built on Web-standard `Request` and `Response`: runs on Cloudflare Workers, Deno, Bun, AWS Lambda and Node.' },
+        { term: 'Choosing', detail: 'NestJS for several squads in one codebase, Fastify for a lean service, Hono for edge runtimes.' },
+      ],
       points: [
         'An HTTP framework (Express, Fastify, Hono) routes each request to a handler and runs shared code around it. An application framework (NestJS) adds modules, a DI container and request slots.',
         'NestJS handles no HTTP itself: it runs on Express (the default) or Fastify through an adapter. NestJS 12 shipped in August 2026, so many codebases still run 11.',
@@ -725,6 +781,16 @@ npx tsc --noEmit`,
       },
     ],
     lesson: {
+      intro:
+        'Inside a Node service, each concern gets one home: HTTP in the controller, business rules in the use case, storage in the repository. That split lets a route, a queue consumer and a test call the same rule.',
+      takeaways: [
+        { term: 'Controller', detail: 'Reads params and body, validates their shape, picks the status code. No SQL, no business rules.' },
+        { term: 'Use case (service)', detail: 'Holds rules like "only a paid order can be cancelled"; knows neither HTTP nor SQL and throws domain errors.' },
+        { term: 'Repository', detail: 'Queries and mapping rows to objects; knows neither HTTP nor business rules.' },
+        { term: 'Port', detail: 'An interface the core declares and owns for what it needs from outside, such as `OrderRepository`.' },
+        { term: 'Adapter', detail: 'Postgres, Stripe, HTTP or Kafka code that implements or calls a port.' },
+        { term: 'Plain CRUD', detail: 'No rules, no ports: a thin controller over a repository is enough.' },
+      ],
       points: [
         'The controller translates HTTP into a call and back: it reads params and body, validates their shape and picks the status code. It holds no SQL and no business rules.',
         'The use case (often called a service) holds the business rule, like "only a paid order can be cancelled". It knows neither HTTP nor SQL and throws domain errors.',
@@ -832,6 +898,16 @@ export const config = EnvSchema.parse(process.env);`,
       },
     ],
     lesson: {
+      intro:
+        'Configuration is fixed when the process starts, so validate it there. A service that refuses to boot on bad config fails the deploy in seconds instead of failing the first order hours later.',
+      takeaways: [
+        { term: 'Parse once at startup', detail: 'Into a typed object; nothing else reads `process.env`. On error, list every problem and exit.' },
+        { term: 'Zod schema', detail: '`z.url()` for `DATABASE_URL`, `z.coerce.number().int()` for `PORT`; `safeParse` and `z.prettifyError` for the report.' },
+        { term: '`z.coerce.number()`', detail: 'Turns an empty `PORT` into 0 and skips the default, because environment values are strings.' },
+        { term: '`z.coerce.boolean()`', detail: 'Turns "false" into true. Use `z.stringbool()` for flags.' },
+        { term: 'NestJS `ConfigModule`', detail: '`ConfigModule.forRoot({ validationSchema })` from `@nestjs/config` takes the schema and stops the app when it fails.' },
+        { term: 'Secrets', detail: 'From a secret manager at runtime, as variables or mounted files. A Dockerfile `ENV` line persists in the image.' },
+      ],
       points: [
         'Configuration is fixed at startup, so parse it once into a typed object. If anything is missing or malformed, exit and list every problem. Nothing else reads `process.env`.',
         'A Zod schema describes each variable: `z.url()` for `DATABASE_URL`, `z.coerce.number().int()` for `PORT`. `safeParse` and `z.prettifyError` give a readable report.',

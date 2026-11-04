@@ -57,6 +57,23 @@ enough to answer the topic's questions; it is read on a phone in under a minute.
 - For behavioural topics, the lesson teaches the technique: what the interviewer assesses, the
   shape of a strong answer, the traps.
 
+## Lesson page: intro and takeaways table
+
+The lesson is one scrollable page: **the concept** (`lesson.intro`), **key takeaways** as a
+reference table (`lesson.takeaways`), **in code** (`lesson.code`), then a quick true/false check
+taken from the card's first trap. The reference is `js-scope` in `src/content/cards/javascript.ts`.
+
+- **`intro`** (300 characters at most): one or two plain sentences, what the concept is and why it
+  matters in real work. Define the topic, do not list details: the table holds them.
+- **`takeaways`**: **3 to 6 rows** `{ term, detail }`, one fact per row, ordered as you would teach
+  them. `term` (36 characters at most) is the keyword, API, rule or option, often inline code
+  (`` `let` ``, `` `SKIP LOCKED` ``, "Read Committed", "Situation"). `detail` (150 characters at most)
+  is the fact to remember about it, a short full sentence or two. Terms are unique on a card.
+- Behavioural and process topics: terms are the steps or criteria ("Situation", "Your action",
+  "Measured result"), details say what a strong answer puts there.
+- Build them from the card's own verified `lesson.points`, `answer` and `keyPoints`: rephrase,
+  regroup, do not add a fact you have not checked. Keep `points` as they are.
+
 ## Variants: other phrasings and trap twins
 
 Variants stop the learner from recognising a sentence and recalling its answer instead of

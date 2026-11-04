@@ -73,6 +73,16 @@ export const interviewLoopCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'A loop is the full sequence of interviews for one job. Each round grades a different skill, so knowing the format of every round lets you prepare each one on purpose.',
+      takeaways: [
+        { term: 'Usual sequence', detail: 'Recruiter screen, hiring manager, technical rounds, engineering leadership (CTO, VP or Head), often the team.' },
+        { term: 'Live coding and take-home', detail: 'Live coding grades clarifying, testing and reasoning aloud; a take-home grades scope and defending every choice.' },
+        { term: 'Review, debugging, design', detail: 'Code review grades what you catch first; debugging grades method; system design grades trade-offs.' },
+        { term: 'Behavioural and leadership', detail: 'Grade ownership, judgement and communication, and often settle the level you are hired at.' },
+        { term: 'Trends', detail: 'Take-homes defended live, more debugging and review rounds, and an explicit AI policy: allowed or banned.' },
+        { term: 'Ask the recruiter', detail: 'Get the list and format of every round, then prepare each one on purpose.' },
+      ],
       points: [
         'A loop is the full sequence of interviews for one job. In Paris product companies it usually runs: recruiter screen, hiring manager, technical rounds, a final round with engineering leadership, often the team.',
         'Technical rounds vary most: live coding (clarify, test, reason aloud), take-home (scope, defend every choice), code review (what you catch first), debugging (method), system design (trade-offs).',
@@ -154,6 +164,16 @@ export const interviewLoopCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'The recruiter screen, often about 30 minutes, decides whether engineers spend time on you. Prepare three things: the pitch, the salary answer and the logistics.',
+      takeaways: [
+        { term: 'Pitch', detail: '60 to 90 seconds: what you do now, one concrete result, and why this company, with something specific about it.' },
+        { term: 'The figure in France', detail: 'Usually the gross annual fixed salary (brut annuel fixe), variable on top. Say which figure you mean.' },
+        { term: 'Research', detail: 'Base your range on postings that show a salary.' },
+        { term: 'Give a range', detail: 'Its bottom is a figure you would accept; a single figure set too low is hard to raise later.' },
+        { term: 'Ask theirs', detail: 'Ask for the position\'s range in return.' },
+        { term: 'Logistics', detail: 'Notice period, remote policy, the loop\'s steps and timing, and what each technical round looks like.' },
+      ],
       points: [
         'The recruiter screen, often about 30 minutes, decides whether engineers spend time on you. Prepare three things: the pitch, the salary answer and the logistics.',
         'Pitch in 60 to 90 seconds: what you do now, one concrete result you are proud of, and why this company, with something specific about its product or engineering.',
@@ -235,6 +255,16 @@ export const interviewLoopCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Live coding grades how you work more than the code: clarifying, testing and reasoning aloud. Some teams ask for TDD with idiomatic TypeScript.',
+      takeaways: [
+        { term: 'Clarify first', detail: 'Ask what changes the code: inclusive boundaries, which statuses apply, the error response, the source of time.' },
+        { term: 'TDD', detail: 'Red: one failing test. Green: the least code that passes. Refactor. Repeat.' },
+        { term: 'Boundary tests first', detail: 'Start at the edge, such as exactly 30 minutes, then one millisecond after.' },
+        { term: 'Pass `now` in', detail: 'Take the current instant as a parameter so tests fix it and never read the real clock.' },
+        { term: 'Result type', detail: 'Return a result for expected refusals instead of throwing.' },
+        { term: 'Idiomatic TypeScript', detail: 'Literal unions over `enum`, `readonly` data, an exhaustive `switch` whose `default` assigns to `never`.' },
+      ],
       points: [
         'Live coding grades how you work more than the code: clarifying, testing and reasoning aloud. Some teams ask for TDD with idiomatic TypeScript.',
         'Spend the first minutes on questions whose answers change the code: inclusive boundaries, which statuses apply, the error response, and where the current time comes from.',
@@ -327,6 +357,15 @@ export const interviewLoopCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'A take-home is won in its review: since an AI could have written the code, reviewers check that you can explain every line and every choice.',
+      takeaways: [
+        { term: 'Scope', detail: 'Ask the expected time and do the core path well rather than everything partly. Write down what you leave out.' },
+        { term: 'Core path', detail: 'Validation, the main rule, error responses, tests and one command to run it.' },
+        { term: 'README', detail: 'Your opening statement: how to run it, each trade-off with its cost, what you would do with one more day.' },
+        { term: 'Concurrency questions', detail: 'Under Read Committed, SELECT then UPDATE can oversell; one conditional UPDATE with a checked row count cannot.' },
+        { term: 'Concede a weak choice', detail: 'Agree, give the reason, and name the fix and the test that would prove it: a senior signal.' },
+      ],
       points: [
         'A take-home is won in its review: since an AI could have written the code, reviewers check that you can explain every line and every choice.',
         'Scope it first: ask the expected time, do the core path well (validation, the main rule, error responses, tests, one run command), and write down what you leave out.',
@@ -408,6 +447,15 @@ export const interviewLoopCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Some loops allow an AI assistant and grade how you direct and check it; others ban it. Ask the recruiter which applies, and practise both.',
+      takeaways: [
+        { term: 'Precise context', detail: 'Give what it cannot guess: the files, the types, and constraints such as no new dependency.' },
+        { term: 'Work visibly', detail: 'Say your plan, read its answer aloud like a reviewer, run the tests, then accept, edit or reject with a reason.' },
+        { term: 'Verify API claims', detail: '`AbortSignal.timeout` rejects `fetch` with a `TimeoutError`, not `AbortError`: checking only `AbortError` misses it.' },
+        { term: 'Frontend slips', detail: 'Clickable `div`s, effects without cleanup, index keys, missing loading and error states, tests by test id.' },
+        { term: 'Policy answer', detail: 'What you delegate, how you check it (tests, docs, every diff reviewed), and one bug you caught.' },
+      ],
       points: [
         'Some loops allow an AI assistant and grade how you direct and check it; others ban it. Ask the recruiter which applies, and practise both.',
         'Work visibly: say your plan, give the context it cannot guess (files, types, constraints), read its answer aloud like a reviewer, run the tests, then accept, edit or reject with a reason.',
@@ -495,6 +543,15 @@ export const interviewLoopCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'The system design round asks you to design a service on a whiteboard, such as a flash-sale checkout. It grades trade-offs at scale, the same habits as live coding and review.',
+      takeaways: [
+        { term: 'Order', detail: 'Clarify the requirements, estimate the load, propose the simplest design that meets them, then go deep.' },
+        { term: 'Deep dive', detail: 'On the risky parts: the "must never happen" rules, such as never selling unit 10,001 or never charging twice.' },
+        { term: 'Trade-off phrasing', detail: '"X, which costs Y; if Z mattered more, W".' },
+        { term: 'Check in', detail: 'Check in with the interviewer as you go.' },
+        { term: 'DDD-leaning companies', detail: 'Expect questions on boundaries and aggregates: prepare where each rule is enforced.' },
+      ],
       points: [
         'The system design round asks you to design a service on a whiteboard, such as the checkout for a flash sale. It grades trade-offs at scale.',
         'Drive it in order: clarify the requirements, estimate, propose the simplest design that meets them, then go deep on the risky parts.',
@@ -575,6 +632,16 @@ export const interviewLoopCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Every round ends with "Do you have any questions for us?". A senior with none seems uninterested, and you need the answers to decide whether to join.',
+      takeaways: [
+        { term: 'An engineer', detail: 'The last production incident and what changed, and how long a change takes from merge to production.' },
+        { term: 'The hiring manager', detail: 'What success looks like after six months, and how technical decisions are made and recorded.' },
+        { term: 'The VP or CTO', detail: 'The biggest technical risk for the next year.' },
+        { term: 'Anyone', detail: 'Their policy on AI coding tools.' },
+        { term: 'Write answers down', detail: 'Compare them across rounds: consistency across people is a signal about the team.' },
+        { term: 'Close', detail: 'End each conversation by asking about the next step.' },
+      ],
       points: [
         'Every round ends with "Do you have any questions for us?". A senior with none seems uninterested, and you need the answers to decide.',
         'Ask an engineer about the last production incident and what changed, and how long a change takes from merge to production: they reveal on-call, deploy frequency and CI health.',
@@ -656,6 +723,16 @@ export const interviewLoopCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Seniority shows as the same few habits in every round, not as a harder exercise: a mid-level and a senior can both finish the task.',
+      takeaways: [
+        { term: 'Clarify before building', detail: 'Boundaries in live coding, scope in a take-home, the goal behind a one-sentence request.' },
+        { term: 'Production terms, unprompted', detail: 'Deadlines on outgoing calls, idempotency, races between replicas, a failing provider.' },
+        { term: 'Tests as design', detail: 'Boundary tests and a fixed clock.' },
+        { term: 'Trade-offs and verification', detail: 'Name trade-offs, change your mind for a stated reason, and verify claims, the AI\'s included.' },
+        { term: 'Order of things', detail: 'Severity first in a review, the plan first in coding, the action first in a story.' },
+        { term: 'Gaps and time', detail: 'Say you do not know and how you would find out; when time runs out, say where you are and what remains.' },
+      ],
       points: [
         'Seniority shows as the same habits in every round, not as a harder exercise: a mid-level and a senior can both finish the task.',
         'Clarify before you build, and think in production terms without being asked: deadlines on outgoing calls, idempotency, races between replicas, provider failures.',

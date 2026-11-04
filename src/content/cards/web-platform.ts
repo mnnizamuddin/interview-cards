@@ -105,6 +105,15 @@ export const webPlatformCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Every element is laid out as a box of content, padding, border and margin. `box-sizing` decides what `width` and `height` measure, which is why a card set to 320px can render wider than its grid slot.',
+      takeaways: [
+        { term: 'Four layers', detail: 'From the inside out: content, padding, border, margin. Padding shows the background; margin is transparent.' },
+        { term: '`content-box`', detail: 'The default: `width` sizes the content only, padding and border are added on top. 300px + 16px padding + 2px border = 336px.' },
+        { term: '`border-box`', detail: '`width` includes padding and border; the content shrinks to fit. Resets set it on all elements and pseudo-elements.' },
+        { term: 'Margin', detail: 'Never part of the width, in either mode.' },
+        { term: 'Margin collapsing', detail: 'Vertical margins of adjacent blocks in normal flow collapse into the larger one. Flex and grid items never collapse theirs.' },
+      ],
       points: [
         'Every element is laid out as a box of four layers, from the inside out: content, padding, border and margin. Padding sits inside the border and shows the background; margin is outside and transparent.',
         '`box-sizing` decides what `width` and `height` measure. The default, `content-box`, sizes the content only: padding and border are added on top.',
@@ -229,6 +238,16 @@ export const webPlatformCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Flexbox and Grid are the two CSS layout systems. Flexbox arranges items along one axis from their content; Grid places them on rows and columns the container defines. Real layouts combine both.',
+      takeaways: [
+        { term: 'Flexbox', detail: 'One axis, a row or a column; each item\'s content drives its size. Toolbars, rows of badges, a label next to an input.' },
+        { term: 'Grid', detail: 'Rows and columns at once; the container defines the tracks, so items line up in both directions. Page shells, product grids.' },
+        { term: 'Combining them', detail: 'Grid for the page or the list, flex inside each card. Both support `gap`.' },
+        { term: '`auto-fill` with `minmax()`', detail: '`repeat(auto-fill, minmax(14rem, 1fr))`: as many columns of at least 14rem as fit, sharing the leftover space: a responsive grid with no media query.' },
+        { term: '`order` and grid placement', detail: 'Change only what you see: the Tab order and screen readers follow the DOM.' },
+        { term: '`place-items: center`', detail: 'With `display: grid` on the parent, centres the child on both axes.' },
+      ],
       points: [
         'Flexbox lays items out along one axis, a row or a column, and lets each item\'s content drive its size. It suits toolbars, rows of badges and a label next to an input.',
         'Grid lays out rows and columns at once. The container defines the tracks (the rows and columns), so items line up in both directions: page shells, a checkout form beside its summary, a product grid.',
@@ -357,6 +376,16 @@ export const webPlatformCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        '`position` decides what an element is placed against and whether it keeps its space in the flow. It explains badges on cards, sticky table headers and fixed bars that suddenly scroll away.',
+      takeaways: [
+        { term: '`static`', detail: 'The default: ignores the insets `top`, `right`, `bottom` and `left`.' },
+        { term: '`relative`', detail: 'Keeps its space and shifts only visually. Becomes the reference for `absolute` children.' },
+        { term: '`absolute`', detail: 'Leaves the flow; placed against the nearest positioned ancestor, or the initial containing block if none.' },
+        { term: '`fixed`', detail: 'Leaves the flow; placed against the viewport, unless an ancestor has a `transform`, `perspective` or `filter`.' },
+        { term: '`sticky`', detail: 'Stays in the flow and sticks at a threshold like `top: 0`, within its nearest scrolling ancestor. `overflow: hidden` breaks it.' },
+        { term: '`z-index`', detail: 'Competes only inside a stacking context. `fixed` and `sticky` always create one; a child cannot escape its parent\'s context.' },
+      ],
       points: [
         '`position` decides what an element is placed against and whether it keeps its space. The default, `static`, ignores the offsets `top`, `right`, `bottom` and `left`, also called insets.',
         '`relative` keeps its space and shifts only visually. `absolute` leaves the flow and is placed against the nearest positioned ancestor (any `position` but `static`), or the initial containing block if none.',
@@ -474,6 +503,16 @@ export const webPlatformCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'The critical rendering path is the work the browser does before the first paint: building the DOM and CSSOM, then layout and paint. Whatever blocks it delays everything the user sees.',
+      takeaways: [
+        { term: 'The steps', detail: 'HTML to DOM, CSS to CSSOM, combine them, then layout and paint.' },
+        { term: 'Stylesheets in `<head>`', detail: 'Block rendering until they load, unless their `media` does not match, like `media="print"`.' },
+        { term: 'Classic `<script>`', detail: 'Blocks the HTML parser while it downloads and runs.' },
+        { term: '`defer` / `async`', detail: 'Download in parallel. `defer` runs after parsing, in order; `async` runs each on arrival. Module scripts defer.' },
+        { term: 'Preload scanner', detail: 'Reads the raw HTML ahead to start downloads, but cannot see images set in CSS or added by JavaScript.' },
+        { term: 'LCP image', detail: 'An `<img>` in the HTML with `fetchpriority="high"`, never lazy. LCP of 2.5 s or less is good; judge on field data.' },
+      ],
       points: [
         'The critical rendering path is the work before the first paint: parse HTML into the DOM, CSS into the CSSOM (the tree of styles), combine them, then compute layout and paint pixels.',
         'Stylesheets in the `<head>` block rendering: nothing paints until they load, unless their `media` does not match, like `media="print"`. A classic `<script>` blocks the HTML parser while it downloads and runs.',
@@ -594,6 +633,16 @@ export const webPlatformCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Semantic HTML means choosing elements for what they are, not how they look. The browser builds the accessibility tree from it, and native elements bring focus and keyboard behaviour for free.',
+      takeaways: [
+        { term: '`button` vs `a`', detail: '`button` for an action, `a` for navigation. A `div` with an `onClick` becomes a `button` in review.' },
+        { term: 'Accessibility tree', detail: 'For each element: a role, a name and states. Screen readers and voice control read it.' },
+        { term: 'Native behaviour', detail: 'A `button` is in the Tab order and activates with Enter and Space. `role="button"` on a `div` only changes the tree.' },
+        { term: 'Landmarks', detail: '`header`, `nav`, `main` and `footer` create regions that screen reader users jump between.' },
+        { term: 'Headings', detail: 'Levels follow the page structure, never the font size you want.' },
+        { term: 'First rule of ARIA', detail: 'Use a native element when one exists. ARIA is for widgets with none, like tabs, and you write the keyboard behaviour.' },
+      ],
       points: [
         'Semantic HTML means choosing elements for what they are, not how they look: `button` for an action, `a` for navigation, `label` for a field, headings in order, `nav`, `main`, `header` and `footer`.',
         'The browser turns the DOM into an accessibility tree: for each element, a role (button, link), a name (its text or label) and states (checked, expanded). Screen readers and voice control read that tree.',
@@ -711,6 +760,16 @@ export const webPlatformCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Responsive design is one page that adapts to every screen width instead of separate mobile and desktop sites. Fluid layouts do most of the work; queries handle the rest.',
+      takeaways: [
+        { term: 'Viewport meta tag', detail: '`width=device-width`. Without it, phones lay the page out on a wider virtual viewport and zoom out.' },
+        { term: 'Fluid layouts', detail: 'Grid and flex with `fr`, `minmax()` and percentages adapt without any breakpoint.' },
+        { term: 'Mobile first', detail: 'Base styles for small screens, then `min-width` media queries that add layout as the screen grows.' },
+        { term: 'Container queries', detail: 'Adapt a component to its container: `container-type: inline-size` on the parent, `@container` on the child.' },
+        { term: '`srcset` and `sizes`', detail: 'Responsive images, so phones download smaller files.' },
+        { term: '`rem` and 320px', detail: 'Size text in `rem` so the user\'s font setting applies, and check the layout at 320 CSS pixels wide.' },
+      ],
       points: [
         'Responsive design is one page that adapts to every screen width, instead of separate mobile and desktop sites. Without the viewport meta tag, phones lay the page out on a wider virtual viewport and zoom out.',
         'Fluid layouts do most of the work: grid and flex with `fr`, `minmax()` and percentages adapt without any breakpoint (a width where the layout changes).',
@@ -829,6 +888,16 @@ export const webPlatformCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'The DOM is the live tree of objects the browser builds from the HTML, which JavaScript reads and changes. Knowing how to query, update and listen to it safely is the base of every UI framework.',
+      takeaways: [
+        { term: 'DOM vs source', detail: 'Not the source text: the parser repairs invalid markup (a `<p>` in a `<p>` becomes two siblings), and scripts change the tree.' },
+        { term: '`querySelectorAll`', detail: 'Returns a static `NodeList` snapshot. `getElementsByClassName` returns a live `HTMLCollection`.' },
+        { term: '`addEventListener`', detail: 'How you listen to events on a node.' },
+        { term: '`textContent` vs `innerHTML`', detail: '`textContent` inserts plain text. `innerHTML` parses HTML, so user data there allows XSS.' },
+        { term: 'Forced layout', detail: 'Reading geometry such as `offsetHeight` right after a style change makes the browser run layout at once.' },
+        { term: 'In React', detail: 'Let React own the DOM; use refs only for focus, measuring or third-party widgets.' },
+      ],
       points: [
         'The DOM, Document Object Model, is the tree of objects the browser builds from the HTML: one node per element and per piece of text, with properties and methods that scripts can use.',
         'The DOM is not the source text. The parser repairs invalid markup, for example a `<p>` inside a `<p>` becomes two sibling paragraphs, and scripts can change the tree at any time.',
@@ -941,6 +1010,16 @@ cards.forEach((card, i) => {
       },
     ],
     lesson: {
+      intro:
+        'After a change the browser runs style, layout, paint and composite, restarting at the earliest step the change affects. Choosing which properties to change decides whether animations stay smooth.',
+      takeaways: [
+        { term: 'Layout (reflow)', detail: 'Computes size and position. `width`, `top`, `font-size` or content changes trigger layout, then paint.' },
+        { term: 'Paint', detail: 'Fills pixels: colours, text, shadows. `color` or `background-color` repaint without layout.' },
+        { term: '`transform` / `opacity`', detail: 'Can skip layout and paint and run on the compositor: animate those.' },
+        { term: 'Layout thrashing', detail: 'Reading `offsetHeight` or `getBoundingClientRect()` after a write, in a loop. Batch all reads, then all writes.' },
+        { term: '`visibility` vs `display`', detail: '`visibility: hidden` keeps the space; `display: none` removes the element from layout.' },
+        { term: '`IntersectionObserver`', detail: 'Tells when an element enters the screen, instead of reading positions on scroll.' },
+      ],
       points: [
         'After a change, the browser runs a pipeline: style, layout, paint, composite. A change restarts it at the earliest step it affects, so cheaper changes skip steps.',
         'Layout, also called reflow, computes the size and position of boxes. Changing `width`, `top`, `font-size` or the content triggers layout, then paint and composite.',
@@ -1060,6 +1139,16 @@ cards.forEach((card, i) => {
       },
     ],
     lesson: {
+      intro:
+        'Specificity decides which of two rules wins when they set the same property in the same layer. Keeping it low and flat is what keeps a stylesheet easy to override.',
+      takeaways: [
+        { term: 'Three counts', detail: 'Ids; then classes, attributes and pseudo-classes; then types and pseudo-elements. `#cart .item p` is (1,1,1).' },
+        { term: 'Comparison', detail: 'Left to right, never added: one id beats any number of classes. `*` and combinators count nothing.' },
+        { term: 'Tie', detail: 'The rule that comes later in the source wins.' },
+        { term: '`:is()` / `:not()` / `:where()`', detail: '`:is()` and `:not()` take their most specific argument; `:where()` always counts zero.' },
+        { term: 'Cascade layers', detail: 'Compared before specificity: a later `@layer` wins, and unlayered styles beat layered ones.' },
+        { term: 'Inline and `!important`', detail: 'Inline styles beat selectors; `!important` beats both and reverses layer order.' },
+      ],
       points: [
         'When two rules set the same property on an element, the cascade picks one. Within the same layer, specificity decides; if it ties, the rule that comes later in the source wins.',
         'Specificity is three counts: ids; then classes, attributes and pseudo-classes like `:hover`; then element types and pseudo-elements like `::before`. `#cart .item p` is (1,1,1).',
@@ -1186,6 +1275,16 @@ const res = await fetch('/bff/orders', {
       },
     ],
     lesson: {
+      intro:
+        'Cookies, `localStorage` and `sessionStorage` all keep data in the browser, but differ in size, lifetime, scope and whether the server sees them. The choice decides how exposed a session is to XSS.',
+      takeaways: [
+        { term: 'Cookie', detail: 'About 4 KB, sent with every request to its site. Set with the `Set-Cookie` header.' },
+        { term: '`HttpOnly` / `Secure` / `SameSite`', detail: 'Hidden from scripts; HTTPS only; limits sending with cross-site requests.' },
+        { term: '`localStorage`', detail: 'Strings per origin, a few MB, never sent. Lasts until cleared, shared by all tabs, which get a `storage` event.' },
+        { term: '`sessionStorage`', detail: 'Same API, but belongs to one tab and is deleted when the tab closes.' },
+        { term: 'Synchronous API', detail: 'Web Storage blocks while it reads and writes, so keep values small; IndexedDB for large or structured data.' },
+        { term: 'Sessions', detail: 'In an `HttpOnly` cookie, never a token in Web Storage, which any XSS can read.' },
+      ],
       points: [
         'A cookie is a small value, about 4 KB at most, that the browser sends with every request to its site. The server sets it with the `Set-Cookie` header and attributes such as `HttpOnly`, `Secure` and `SameSite`.',
         '`HttpOnly` hides a cookie from scripts and `document.cookie`, while the browser still sends it. `Secure` sends it over HTTPS only, and `SameSite` limits sending it with cross-site requests.',
@@ -1306,6 +1405,16 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
       },
     ],
     lesson: {
+      intro:
+        'Sass is a preprocessor that compiles its own syntax to plain CSS at build time. Native CSS now covers its basics, so the question is what compile-time logic still earns a build step.',
+      takeaways: [
+        { term: 'Build step', detail: 'You write `.scss`; it compiles to plain CSS. Nothing of Sass reaches the browser.' },
+        { term: 'Native CSS today', detail: 'Custom properties, nesting in every major browser since late 2023, `calc()`, `color-mix()`, layers, container queries.' },
+        { term: 'Custom properties vs Sass vars', detail: 'Custom properties live at runtime and follow the cascade; Sass variables are replaced at compile time.' },
+        { term: 'Native nesting', detail: 'Cannot glue strings: `&__title` does not build a BEM name. The `&` counts like `:is()` for specificity.' },
+        { term: 'What Sass still adds', detail: 'Mixins, loops, maps and functions that generate CSS.' },
+        { term: '`@use` / `@forward`', detail: 'Load modules. Sass `@import` is deprecated since Dart Sass 1.80.0.' },
+      ],
       points: [
         'Sass is a CSS preprocessor: you write its syntax in `.scss` files and a build step compiles them to plain CSS. Nothing of Sass reaches the browser.',
         'Native CSS has caught up on the basics: custom properties (`--brand`), nesting in every major browser since late 2023, `calc()`, `color-mix()`, cascade layers and container queries.',
@@ -1415,6 +1524,16 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
       },
     ],
     lesson: {
+      intro:
+        'Accessibility means people using keyboards, screen readers or zoom can use the app. In practice it is semantic HTML, keyboard and focus work, and testing against a WCAG level, often a legal requirement.',
+      takeaways: [
+        { term: 'Target', detail: 'WCAG 2.2 AA. The European Accessibility Act relies on WCAG 2.1 AA through EN 301 549.' },
+        { term: 'Accessible name', detail: 'Every control needs one: its text, a `label`, an `alt` or `aria-label`.' },
+        { term: 'Contrast', detail: 'Normal text 4.5:1, large text 3:1.' },
+        { term: 'Keyboard and focus', detail: 'Everything works by keyboard with a visible focus; style `:focus-visible`. Move focus to the heading on route change.' },
+        { term: 'Modal', detail: 'Takes focus, makes the page inert, closes on Escape, returns focus. `<dialog>` with `showModal()` does most of it.' },
+        { term: 'Testing', detail: 'Axe in CI finds only part of the issues; also test by hand with the keyboard and a screen reader.' },
+      ],
       points: [
         'WCAG, the Web Content Accessibility Guidelines, is the standard. Aim for WCAG 2.2 level AA; the European Accessibility Act, which covers e-commerce, relies on WCAG 2.1 AA through the EN 301 549 standard.',
         'Start with semantic HTML so the accessibility tree is right. Every control needs an accessible name, from its text, a `label`, an `alt` or `aria-label`. Normal text needs a contrast of 4.5:1, large text 3:1.',
@@ -1525,6 +1644,16 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
       },
     ],
     lesson: {
+      intro:
+        'CSR, SSR and SSG differ by when and where the HTML is built: in the browser, on the server per request, or once at build time. The choice drives first load, SEO and server cost.',
+      takeaways: [
+        { term: 'CSR', detail: 'Near-empty page; JavaScript builds it in the browser. Fine behind a login, weak for SEO and first load.' },
+        { term: 'SSR', detail: 'HTML built per request, so it can depend on cookies, headers or the query. Costs server work every request.' },
+        { term: 'SSG', detail: 'HTML built once at build time, served from a CDN.' },
+        { term: 'ISR', detail: 'Rebuilds a static page in the background after a delay or when its cache tag is revalidated.' },
+        { term: 'Hydration', detail: 'React attaches handlers to the server HTML; the first client render must match, so SSR still ships JavaScript.' },
+        { term: 'Next.js App Router', detail: 'Per route or component: static parts prerender, dynamic ones stream behind `<Suspense>`, only Client Components hydrate.' },
+      ],
       points: [
         'The three differ by when and where the HTML is built. CSR, client-side rendering: the server sends a near-empty page and JavaScript builds it in the browser. Fine behind a login, weak for SEO and first load.',
         'SSR, server-side rendering: the server builds the HTML for each request, so it can depend on cookies, headers or the search query. The price is server work on every request.',
@@ -1628,6 +1757,16 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
       },
     ],
     lesson: {
+      intro:
+        'An `id` names one unique element; a `class` is a reusable label. The difference matters for CSS specificity and for every reference that must point to exactly one element.',
+      takeaways: [
+        { term: '`id`', detail: 'Names a single element and must be unique in the document.' },
+        { term: '`class`', detail: 'Reusable: an element can carry several, and many elements can share one.' },
+        { term: 'Weight', detail: 'An id selector is (1,0,0), a class (0,1,0): one id beats any number of classes.' },
+        { term: 'Styling', detail: 'Use classes, which keeps specificity flat and components reusable.' },
+        { term: 'Where ids belong', detail: '`<label for>`, `aria-labelledby`, `aria-controls`, fragment links like `#reviews`, `getElementById`.' },
+        { term: '`useId`', detail: 'Generates ids in React. Duplicate ids are invalid; `getElementById` returns only the first match.' },
+      ],
       points: [
         'An `id` names a single element and must be unique in the document. A `class` is a reusable label: an element can carry several, and many elements can share one.',
         'In CSS, an id selector weighs (1,0,0) and a class (0,1,0). The columns are compared left to right, so one id beats any number of classes, and an id rule is hard to override.',
@@ -1734,6 +1873,16 @@ button, input, select, textarea {
       },
     ],
     lesson: {
+      intro:
+        'The cascade picks one winning declaration per property; inheritance fills in only when no declaration targets the element. Together they explain why a style applies or silently does not.',
+      takeaways: [
+        { term: 'Cascade order', detail: 'Origin and `!important`, inline styles, cascade layers, specificity, then source order.' },
+        { term: 'Inheritance', detail: 'Applies only when no declaration targets that property: the parent\'s computed value is used.' },
+        { term: 'Inherited properties', detail: 'Mostly text ones: `color`, `font-family`, `line-height`.' },
+        { term: 'Not inherited', detail: '`margin`, `border`, `background`, `display` get their initial value from the specification.' },
+        { term: 'Keywords `inherit` to `revert`', detail: '`inherit`: parent value; `initial`: initial value; `unset`: either, by property; `revert`: the browser\'s default style.' },
+        { term: '`font: inherit`', detail: 'Browsers give form controls their own font, so resets add it to them.' },
+      ],
       points: [
         'The cascade picks one winner when several declarations set the same property on an element. It compares, in order: origin and `!important`, inline styles, cascade layers, specificity, then source order.',
         'Inheritance fills in only when no declaration targets that property on the element. Inherited properties, mostly text ones like `color`, `font-family` and `line-height`, take the parent\'s computed value.',
@@ -1830,6 +1979,16 @@ body { font-size: 14px; }`,
       },
     ],
     lesson: {
+      intro:
+        'CSS units differ by what they are relative to: nothing, the root font, the element\'s font, the parent or the viewport. The choice decides whether zoom and the user\'s font setting work.',
+      takeaways: [
+        { term: '`px`', detail: 'A CSS pixel, fixed whatever the context. Good for thin borders.' },
+        { term: '`rem`', detail: 'Relative to the root font size, 16px by default, following the user\'s browser font setting. Use it for text.' },
+        { term: '`em`', detail: 'Relative to the element\'s font size; nested sizes compound: 1.5em inside 1.5em is 2.25 times.' },
+        { term: '`%`', detail: 'Relative to the parent: the containing block\'s width for `width`, the parent\'s font size for `font-size`.' },
+        { term: '`vh` / `svh` / `dvh`', detail: 'On phones `vh` uses the largest viewport; `svh` the smallest; `dvh` follows the browser bars.' },
+        { term: 'Zoom and font setting', detail: 'Zoom enlarges `px`, `rem`, `em` but not viewport units; the font setting scales only `rem` and `em`.' },
+      ],
       points: [
         '`px` is a CSS pixel, fixed whatever the context. `rem` is relative to the root element\'s font size, 16px by default, which follows the user\'s browser font setting.',
         '`em` is relative to the element\'s font size, or to the inherited size inside `font-size` itself, so nested `em` sizes compound: 1.5em inside 1.5em is 2.25 times the outer size.',
@@ -1928,6 +2087,16 @@ h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem); }`,
       },
     ],
     lesson: {
+      intro:
+        'Pseudo-classes select an existing element in a state or position; pseudo-elements target a part of an element or generated content. They differ in syntax and in specificity.',
+      takeaways: [
+        { term: 'Pseudo-class', detail: 'One colon, an existing element in a state: `:hover`, `:checked`, `:nth-child(2n)`, `:has(img)`.' },
+        { term: 'Pseudo-element', detail: 'Two colons, a part or generated content: `::before`, `::after`, `::placeholder`, `::selection`.' },
+        { term: '`content`', detail: '`::before` and `::after` render nothing without it. Use them for decoration; real text belongs in the HTML.' },
+        { term: 'Specificity', detail: 'A pseudo-class counts like a class, a pseudo-element like an element type.' },
+        { term: '`:nth-child()`', detail: 'Counts siblings in the DOM, hidden ones included.' },
+        { term: '`:focus-visible`', detail: 'Matches only when the browser judges a ring is needed, as with the keyboard. Style focus rings with it.' },
+      ],
       points: [
         'A pseudo-class selects an existing element in a given state or position, with one colon: `:hover`, `:focus-visible`, `:checked`, `:disabled`, `:nth-child(2n)`, `:has(img)`.',
         'A pseudo-element targets a part of an element, or content that is not in the DOM, with two colons: `::before`, `::after`, `::placeholder`, `::first-line`, `::selection`.',
@@ -2032,6 +2201,16 @@ h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem); }`,
       },
     ],
     lesson: {
+      intro:
+        'Centring an element has several CSS answers depending on the layout around it. Knowing which fits grid, flex, out-of-flow or horizontal-only cases is a quick test of CSS fluency.',
+      takeaways: [
+        { term: 'Grid', detail: '`display: grid; place-items: center` on the parent, whatever the child\'s size.' },
+        { term: 'Flexbox', detail: '`justify-content: center` along the row, `align-items: center` across it.' },
+        { term: 'Absolute, known size', detail: '`position: absolute; inset: 0; margin: auto`.' },
+        { term: 'Absolute, unknown size', detail: '`top: 50%; left: 50%; transform: translate(-50%, -50%)`.' },
+        { term: 'Horizontal only', detail: '`margin-inline: auto` on a block with a width, or `text-align: center` for inline content.' },
+        { term: '`<dialog>`', detail: 'Opened with `showModal()`, the browser centres it in the top layer.' },
+      ],
       points: [
         'Grid is the shortest: `display: grid; place-items: center` on the parent centres the child on both axes, whatever its size. `place-items` sets `align-items` and `justify-items` at once.',
         'Flexbox: `display: flex; justify-content: center; align-items: center`. `justify-content` works along the row, `align-items` across it. Several children stay together on one line.',
@@ -2135,6 +2314,16 @@ export function RefundDialogTitle() {
       },
     ],
     lesson: {
+      intro:
+        'BEM is a naming convention that gives each class a unique, structural name, because CSS has one global namespace. Today build tools often do that scoping instead.',
+      takeaways: [
+        { term: 'Block', detail: 'A standalone component: `order-card`.' },
+        { term: 'Element', detail: 'A part of a block: `order-card__title`, never `card__body__title`.' },
+        { term: 'Modifier', detail: 'A variant: `order-card--refunded`.' },
+        { term: 'Flat specificity', detail: 'Every selector is a single class at (0,1,0), so source order decides and nothing needs `!important`.' },
+        { term: 'Scoping tools', detail: 'CSS Modules rewrite class names per file; Tailwind composes utilities in the markup.' },
+        { term: 'Next.js App Router', detail: 'Prefer static CSS like CSS Modules or Tailwind; runtime CSS-in-JS needs Client Components.' },
+      ],
       points: [
         'BEM, Block Element Modifier, is a naming convention: a block is a standalone component (`order-card`), an element is a part of it (`order-card__title`), and a modifier is a variant (`order-card--refunded`).',
         'CSS has one global namespace, so two `.title` rules in different files collide. A convention gives every class a unique, readable name, and each selector stays a single class.',
@@ -2237,6 +2426,16 @@ export function RefundDialogTitle() {
       },
     ],
     lesson: {
+      intro:
+        'Media queries style by the environment, container queries by the size of an ancestor. Container queries let a reusable component adapt to whatever slot it is placed in.',
+      takeaways: [
+        { term: 'Media query', detail: 'Reads the viewport and user preferences such as `prefers-reduced-motion` and `prefers-color-scheme`.' },
+        { term: '`container-type`', detail: 'Declares the container: `inline-size` for its width, `size` for both axes.' },
+        { term: '`@container`', detail: 'Styles the container\'s descendants, never the container itself.' },
+        { term: 'Containment', detail: 'The container cannot size from its content: a shrink-to-fit container collapses to zero width.' },
+        { term: '`cqi` / `cqw`', detail: '1% of the container\'s inline size or width; with no container, they fall back to small viewport units.' },
+        { term: 'When to use which', detail: 'Media queries for the page and preferences, container queries for components reused in slots.' },
+      ],
       points: [
         'A media query applies styles based on the environment: viewport width, orientation, or user preferences such as `prefers-reduced-motion` and `prefers-color-scheme`.',
         'A container query, `@container`, applies styles based on the size of an ancestor declared as a container with `container-type: inline-size` (its width) or `size` (both axes).',
@@ -2345,6 +2544,16 @@ export function RefundDialogTitle() {
       },
     ],
     lesson: {
+      intro:
+        'Hydration is the browser step that makes server-rendered HTML interactive by attaching handlers to the existing DOM. Mismatches and the time before it finishes are the two things that go wrong.',
+      takeaways: [
+        { term: 'What it does', detail: 'Loads the components\' code, renders again and attaches event handlers to the existing DOM nodes.' },
+        { term: 'Matching rule', detail: 'The first client render must match the server HTML.' },
+        { term: 'Mismatch causes', detail: 'Dates and time zones, `window` or `localStorage` read during render, invalid nesting like `<p>` in `<p>`.' },
+        { term: 'On a mismatch', detail: 'React 19 reports an error and regenerates the subtree on the client. `suppressHydrationWarning`: one leaf only.' },
+        { term: 'Before it ends', detail: 'The page looks ready but ignores taps. React hydrates per Suspense boundary; Server Components never hydrate.' },
+        { term: 'Islands', detail: 'Astro ships static HTML and hydrates only marked components: at load, when idle or when visible.' },
+      ],
       points: [
         'Hydration makes server-rendered HTML interactive: in the browser, the framework loads the components\' code, renders them again and attaches event handlers to the existing DOM nodes.',
         'The first client render must match the server HTML. Dates and time zones, `window` or `localStorage` read during render, and invalid nesting like a `<p>` inside a `<p>` cause mismatches.',
@@ -2454,6 +2663,15 @@ window.addEventListener('popstate', () => {
       },
     ],
     lesson: {
+      intro:
+        'A single-page app loads one shell and swaps views with a client router; a multi-page app gets a new HTML document per navigation. Each trades first load and simplicity against smooth transitions.',
+      takeaways: [
+        { term: 'SPA', detail: 'One HTML shell and a bundle; a client router swaps views and fetches only data.' },
+        { term: 'MPA', detail: 'A new document per navigation: simpler, fast first paint, easy to index, but every navigation reloads.' },
+        { term: 'History API', detail: '`pushState` adds an entry without reloading; Back fires `popstate`, and the router renders the matching view.' },
+        { term: 'SPA duties', detail: 'Restore scroll, move focus to the heading, set the title, answer every deep link with the shell.' },
+        { term: 'Route splitting', detail: 'Each route is a dynamic `import()`, through `lazy()` in React, downloaded on first visit.' },
+      ],
       points: [
         'A single-page application (SPA) loads one HTML shell and a JavaScript bundle. Then a client-side router swaps views and fetches only data, without loading a new document.',
         'A multi-page application (MPA) asks the server for a new HTML document on each navigation. It is simpler, fast to first paint and easy to index, but every navigation reloads the page.',
@@ -2543,6 +2761,16 @@ export function OrderRoute() {
       },
     ],
     lesson: {
+      intro:
+        'HTTP/2 and HTTP/3 change how many requests share a connection and how losses and handshakes affect them. They made several HTTP/1.1 performance workarounds useless or harmful.',
+      takeaways: [
+        { term: 'HTTP/1.1', detail: 'One request at a time per connection, so about six connections per host. Hence bundling, sprites, sharding.' },
+        { term: 'HTTP/2', detail: 'Many requests as streams over one TCP connection, binary framing, compressed headers. Sharding only adds connections.' },
+        { term: 'Head-of-line blocking', detail: 'With HTTP/2 over TCP, one lost packet stalls every stream until it is resent.' },
+        { term: 'HTTP/3', detail: 'QUIC over UDP: a loss stalls only its stream; TLS 1.3 is built in, so most connections are ready in one round trip.' },
+        { term: 'Server push', detail: 'Gone: Chrome disabled it in version 106. Use `<link rel="preload">` or 103 Early Hints.' },
+        { term: '`nextHopProtocol`', detail: 'In Navigation Timing, shows `h2` or `h3` on real visits.' },
+      ],
       points: [
         'HTTP/1.1 sends one request at a time per connection, so browsers open about six connections per host. Workarounds followed: bundling, image sprites and domain sharding.',
         'HTTP/2 multiplexes many requests as streams over one TCP connection, with binary framing and compressed headers. Many small files become cheap, and sharding now only adds connections.',
@@ -2649,6 +2877,16 @@ Link: </styles/main.css>; rel=preload; as=style`,
       },
     ],
     lesson: {
+      intro:
+        'A service worker is a script that runs apart from the pages and acts as a programmable network proxy for them. It enables offline pages and instant repeat visits, at the cost of an update lifecycle to plan.',
+      takeaways: [
+        { term: 'Proxy', detail: 'Gets a `fetch` event for every request of the pages in its scope. No DOM access.' },
+        { term: 'Requirements', detail: 'HTTPS or `localhost`.' },
+        { term: 'Cache-first', detail: 'For hashed assets that never change.' },
+        { term: 'Network-first', detail: 'For HTML and fresh data, with a cached fallback. Stale-while-revalidate where slightly old is fine.' },
+        { term: 'Update lifecycle', detail: 'A new worker waits until no tab uses the old one. `skipWaiting()` activates it; `clients.claim()` takes open pages.' },
+        { term: 'Cache versioning', detail: 'Version cache names and delete old caches in the `activate` event.' },
+      ],
       points: [
         'A service worker is a script a site registers that runs apart from its pages, with no access to the DOM. It acts as a proxy: it gets a `fetch` event for every request of the pages in its scope.',
         'It answers from the Cache API, the network, or both, which enables offline pages and instant repeat visits. It also handles push notifications and background sync, and requires HTTPS or `localhost`.',
@@ -2749,6 +2987,16 @@ self.addEventListener('activate', (event) => {
       },
     ],
     lesson: {
+      intro:
+        'WCAG is the W3C standard for web accessibility that laws and contracts reference. It is organised under four principles with testable success criteria at three levels.',
+      takeaways: [
+        { term: 'WCAG 2.2', detail: 'A W3C Recommendation since 5 October 2023. 2.2 AA covers 2.1 AA.' },
+        { term: 'Perceivable', detail: 'Text alternatives, captions, contrast.' },
+        { term: 'Operable', detail: 'Keyboard access, enough time, visible focus, nothing that flashes enough to cause seizures.' },
+        { term: 'Understandable', detail: 'Readable text, predictable behaviour, help with input errors.' },
+        { term: 'Robust', detail: 'Markup assistive technology can interpret: correct names, roles, states and status messages.' },
+        { term: 'Levels A, AA, AAA', detail: 'AA means every A and AA criterion. Organisations target AA; the W3C advises against requiring AAA site-wide.' },
+      ],
       points: [
         'WCAG, the Web Content Accessibility Guidelines, is the W3C standard for web accessibility. Version 2.2 became a W3C Recommendation on 5 October 2023; laws and contracts reference WCAG.',
         'It rests on four principles, POUR. Perceivable: text alternatives, captions, contrast. Operable: keyboard access, enough time, visible focus, nothing that flashes enough to cause seizures.',
@@ -2847,6 +3095,16 @@ self.addEventListener('activate', (event) => {
       },
     ],
     lesson: {
+      intro:
+        'A custom dropdown must reproduce what a native `select` gives for free: roles, states and full keyboard support. The WAI-ARIA Authoring Practices combobox pattern describes how.',
+      takeaways: [
+        { term: 'Native `select` first', detail: 'Accessible by default and shown with the phone\'s own picker. Otherwise prefer a tested headless library.' },
+        { term: 'Roles', detail: '`role="combobox"` with a label, `aria-expanded` and `aria-controls` to a `listbox` of `option` items.' },
+        { term: '`aria-activedescendant`', detail: 'Focus stays on the combobox; this holds the id of the highlighted option so it is announced.' },
+        { term: '`aria-selected`', detail: '`"true"` marks the chosen option.' },
+        { term: 'Keyboard', detail: 'Down Arrow opens and moves, Enter accepts, Escape closes without changing the value, Alt+Down opens only.' },
+        { term: 'ARIA adds no behaviour', detail: 'Every key and scrolling the active option into view are yours to implement and test.' },
+      ],
       points: [
         'First choice: a native `select`, accessible by default and shown with the phone\'s own picker. Build a custom one only when the design truly needs it, ideally from a tested headless library.',
         'The WAI-ARIA Authoring Practices Guide (APG) defines the combobox: `role="combobox"`, a label, `aria-expanded`, and `aria-controls` pointing to a `role="listbox"` popup of `role="option"` items.',
@@ -2956,6 +3214,16 @@ self.addEventListener('activate', (event) => {
       },
     ],
     lesson: {
+      intro:
+        '`aria-live` makes an element a live region: screen readers announce its content changes without moving focus. It is how updates away from focus, like "Added to cart", reach screen reader users.',
+      takeaways: [
+        { term: '`polite` / `assertive` / `off`', detail: 'Waits until the user is idle; interrupts; the default.' },
+        { term: '`role="status"` / `role="alert"`', detail: 'Polite and assertive live regions. Both imply `aria-atomic="true"`: the whole region is read.' },
+        { term: 'Region first', detail: 'It must be in the page before its content changes: render it empty, then change only its text.' },
+        { term: 'Use cases', detail: 'Cart additions, result counts, order status, a finished export. Keep `alert` for what blocks the user.' },
+        { term: 'Repeating a message', detail: 'Clear the region first: the same text is not a change.' },
+        { term: 'Hiding it', detail: 'Use a visually-hidden class, never `display: none`.' },
+      ],
       points: [
         'A live region is an element whose content changes are read by screen readers without moving focus. `aria-live="polite"` waits until the user is idle, `"assertive"` interrupts, and `"off"` is the default.',
         '`role="status"` is a polite live region and `role="alert"` an assertive one. Both imply `aria-atomic="true"`, so the whole region is read, not just the part that changed.',

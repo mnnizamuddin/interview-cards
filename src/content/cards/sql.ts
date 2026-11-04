@@ -96,6 +96,16 @@ WHERE o.status = 'cancelled';`,
       },
     ],
     lesson: {
+      intro:
+        'A join pairs rows from two tables on a condition. Predicting how many rows it returns, and which ones it keeps, is how you catch most report bugs before they ship.',
+      takeaways: [
+        { term: '`JOIN` (inner)', detail: 'Keeps only the pairs of rows that match the `ON` condition.' },
+        { term: '`LEFT JOIN`', detail: "Also keeps every left row that matched nothing, with `NULL` in the right side's columns." },
+        { term: '`FULL JOIN`', detail: 'Keeps the unmatched rows of both sides, padded with `NULL`.' },
+        { term: 'Row count', detail: 'Matching pairs plus the unmatched rows of each side the join keeps.' },
+        { term: 'One-to-many', detail: 'A row repeats once per match: a customer with 5 orders becomes 5 rows.' },
+        { term: 'Filter on the optional side', detail: 'Put it in `ON`. In `WHERE` it drops the `NULL` rows and turns the left join into an inner join.' },
+      ],
       points: [
         'An inner join (`JOIN`) keeps only the pairs of rows that match the `ON` condition. A left join also keeps every left row that matched nothing, with `NULL` in the right side\'s columns.',
         'So the row count is the matching pairs plus the unmatched rows of each side you keep. A full join keeps the unmatched rows of both sides.',
@@ -211,6 +221,16 @@ WHERE c.id NOT IN (
       },
     ],
     lesson: {
+      intro:
+        '`NULL` means a missing, unknown value, and SQL compares it with three-valued logic. That explains filters that silently drop rows and the `NOT IN` that returns nothing.',
+      takeaways: [
+        { term: 'Three-valued logic', detail: 'Any comparison with `NULL`, even `NULL = NULL`, returns unknown: neither true nor false.' },
+        { term: '`WHERE`, `ON`, `HAVING`', detail: 'Keep a row only when the condition is true, so unknown is dropped like false.' },
+        { term: '`IS NULL`', detail: 'Tests for a missing value. `= NULL` matches nothing.' },
+        { term: '`IS DISTINCT FROM`', detail: 'Compares two values with `NULL` treated like an ordinary value.' },
+        { term: '`NOT IN` with a `NULL`', detail: '`x <> NULL` is never true, so one `NULL` in the subquery returns 0 rows.' },
+        { term: '`NOT EXISTS`', detail: 'The safe anti-join: it only asks whether a matching row exists, and PostgreSQL runs it as an anti join.' },
+      ],
       points: [
         '`NULL` marks a missing, unknown value. Any comparison with it, even `NULL = NULL`, returns unknown (shown as `NULL`): neither true nor false. This is three-valued logic.',
         "`WHERE`, `ON` and `HAVING` keep a row only when the condition is true, so unknown is dropped like false. `city <> 'Paris'` also drops the customers with no city.",
@@ -325,6 +345,15 @@ GROUP BY c.id;`,
       },
     ],
     lesson: {
+      intro:
+        'Aggregates such as `count` and `sum` turn many rows into one value per group. Knowing when each clause runs tells you where a condition belongs and why some counts come out wrong.',
+      takeaways: [
+        { term: 'Evaluation order', detail: '`FROM` and joins, `WHERE`, `GROUP BY`, `HAVING`, `SELECT`, then `ORDER BY` and `LIMIT`.' },
+        { term: '`WHERE` vs `HAVING`', detail: '`WHERE` filters rows before grouping; `HAVING` filters groups and can use aggregates.' },
+        { term: '`count(*)` vs `count(col)`', detail: '`count(*)` counts rows, `count(col)` non-null values. After a left join, count a column of the joined table.' },
+        { term: '`FILTER (WHERE ...)`', detail: 'Restricts one aggregate to its subset, so one pass counts paid and cancelled orders side by side.' },
+        { term: 'Empty input', detail: 'A `sum` or `max` over zero rows is `NULL` while a `count` is 0: wrap sums in `coalesce(..., 0)`.' },
+      ],
       points: [
         'An aggregate such as `count`, `sum` or `max` turns many rows into one value. `GROUP BY` decides which rows form a group, and the aggregate runs once per group.',
         'PostgreSQL evaluates `FROM` and joins, then `WHERE` (rows), then `GROUP BY`, then `HAVING` (groups), then `SELECT`, then `ORDER BY` and `LIMIT`. So aggregates go in `HAVING`, not `WHERE`.',
@@ -448,6 +477,16 @@ GROUP BY c.id;`,
       },
     ],
     lesson: {
+      intro:
+        'Fan-out happens when a join to a one-to-many table repeats parent rows and inflates sums and counts. CTEs let you aggregate each level first and read the report as a pipeline.',
+      takeaways: [
+        { term: 'Fan-out', detail: "Joining a one-to-many table repeats each parent row per child, so an order's shipping is summed once per item." },
+        { term: '`count(DISTINCT o.id)`', detail: 'Repairs a count, but not a sum.' },
+        { term: '`sum(DISTINCT ...)`', detail: 'Removes equal amounts, not duplicate orders, so it does not fix fan-out.' },
+        { term: 'The fix', detail: 'Aggregate the child table to one row per parent first, then join.' },
+        { term: 'CTE (`WITH`)', detail: 'A named subquery. Each step can use the previous ones, so a report reads top to bottom.' },
+        { term: 'Inlining (PostgreSQL 12+)', detail: 'A non-recursive CTE without side effects, referenced once, is inlined. `AS MATERIALIZED` forces it to be computed first.' },
+      ],
       points: [
         'Fan-out: joining a one-to-many table repeats each parent row once per child. An order with 2 items becomes 2 rows, so its shipping is summed twice and the order counted twice.',
         '`count(DISTINCT o.id)` repairs a count but not a sum: `sum(DISTINCT shipping)` removes equal amounts, not duplicate orders.',
@@ -560,6 +599,16 @@ CROSS JOIN LATERAL (
       },
     ],
     lesson: {
+      intro:
+        "A subquery in `FROM` normally cannot see the tables before it. `LATERAL` lets it use the outer row, the clean way to fetch each customer's latest order with all its columns.",
+      takeaways: [
+        { term: 'Scalar subquery', detail: 'Stands for one value; if it finds two rows it fails with error 21000.' },
+        { term: 'Correlated subquery', detail: "Refers to the outer query's row, so logically it runs once per outer row." },
+        { term: '`LATERAL`', detail: 'Lets a `FROM` subquery use the outer row and return several columns and rows.' },
+        { term: '`ORDER BY ... LIMIT 1`', detail: 'Picks the latest row inside it; `id DESC` after the date breaks ties between same-day orders.' },
+        { term: '`LEFT JOIN LATERAL ... ON true`', detail: 'Keeps the customers for whom it returns nothing, with `NULL`. `CROSS JOIN LATERAL` drops them.' },
+        { term: 'Matching index', detail: 'With `(customer_id, placed_on DESC)`, each lateral call reads only the newest index entries.' },
+      ],
       points: [
         'A subquery is a `SELECT` inside another query. A scalar one stands for one value and must return at most one row; a set one follows `IN` or `EXISTS`; a derived table sits in `FROM`.',
         "A correlated subquery refers to the outer query's row, so logically it runs once per outer row. A scalar one fails with error 21000 when it finds two rows.",
@@ -676,6 +725,16 @@ FROM orders WHERE status = 'paid';`,
       },
     ],
     lesson: {
+      intro:
+        'A window function computes a value for each row from related rows and keeps every row, unlike `GROUP BY`. It powers rankings, comparisons with the previous row and running totals.',
+      takeaways: [
+        { term: '`OVER (...)`', detail: '`PARTITION BY` groups rows, `ORDER BY` sorts inside the window. Without `PARTITION BY`, the whole result is one window.' },
+        { term: '`row_number`', detail: 'Numbers 1, 2, 3 with no ties. End the `ORDER BY` with a unique column, or ties get an arbitrary order.' },
+        { term: '`rank`', detail: 'Ties share a number, then it skips: 5, 5, 5, 5, 9.' },
+        { term: '`dense_rank`', detail: 'Ties share a number with no gap: 5, then 6.' },
+        { term: '`lag` and `lead`', detail: 'Read the previous and next row, not the previous period: use `generate_series` when periods can be missing.' },
+        { term: '`sum(x) OVER (ORDER BY month)`', detail: 'A running total. The default `RANGE` frame includes rows with the same sort value; `ROWS` goes row by row.' },
+      ],
       points: [
         'A window function computes a value for each row from related rows, its window, and keeps every row. Syntax: `fn() OVER (PARTITION BY ... ORDER BY ...)`; without `PARTITION BY`, the whole result is one window.',
         '`row_number` numbers 1, 2, 3 with no ties. `rank` gives ties the same number, then skips (5, 5, 5, 5, 9). `dense_rank` does not skip (5, then 6).',
@@ -797,6 +856,15 @@ LIMIT 2;`,
       },
     ],
     lesson: {
+      intro:
+        'Top-N per group means N rows for each customer, not N in total. `LIMIT` alone cannot do it, so PostgreSQL offers three patterns with different strengths.',
+      takeaways: [
+        { term: '`LIMIT` alone', detail: 'Applies to the whole result: N rows in total, not per group.' },
+        { term: '`DISTINCT ON (customer_id)`', detail: 'PostgreSQL only: keeps the first row of each group in `ORDER BY` order, which must start with those columns. Best for N = 1.' },
+        { term: '`row_number()` in a CTE', detail: 'Then `WHERE position <= N` one level up: standard SQL, any N. Use `rank` to keep ties.' },
+        { term: '`CROSS JOIN LATERAL ... LIMIT N`', detail: 'Runs per customer. With a matching index it reads about N entries per customer, so it wins on large groups.' },
+        { term: 'Tie-breaker', detail: 'End every `ORDER BY` with a unique column such as `id`, so ties break the same way on every run.' },
+      ],
       points: [
         'Top-N per group means N rows for each customer, not N in total. `LIMIT` applies to the whole result, so it needs one of three patterns.',
         '`DISTINCT ON (customer_id)`, PostgreSQL only, keeps the first row of each group in the `ORDER BY` order, so its columns must start the `ORDER BY`. Shortest for N = 1.',
@@ -919,6 +987,16 @@ if (found.rowCount === 0) {
       },
     ],
     lesson: {
+      intro:
+        'An upsert inserts a row, or updates it when its key already exists. One statement keeps it correct under concurrent requests, which a select-then-insert from Node is not.',
+      takeaways: [
+        { term: '`ON CONFLICT (sku) DO UPDATE`', detail: 'Names the unique constraint. One atomic statement, safe when another transaction inserts the same key.' },
+        { term: '`EXCLUDED`', detail: 'Holds the values you tried to insert: `SET price_cents = EXCLUDED.price_cents`.' },
+        { term: '`WHERE ... IS DISTINCT FROM`', detail: 'Added to the update, it skips rows that are already identical.' },
+        { term: '`RETURNING`', detail: 'Sends the affected rows back in the same round trip; PostgreSQL 18 adds `old` and `new`. `DO NOTHING` returns no row on conflict.' },
+        { term: '`MERGE`', detail: 'Since PostgreSQL 15: `WHEN MATCHED` and `WHEN NOT MATCHED` actions, deletes included. `RETURNING` since 17.' },
+        { term: 'Which one', detail: '`ON CONFLICT` for API and webhook upserts by key, `MERGE` for batch syncs: a concurrent insert can make `MERGE` fail.' },
+      ],
       points: [
         'An upsert inserts a row or updates it if its key exists. `INSERT ... ON CONFLICT (sku) DO UPDATE SET ...` names the unique constraint; `EXCLUDED` holds the values you tried to insert.',
         'It is one atomic statement, safe when another transaction inserts the same key, unlike a `SELECT` then `INSERT` from Node, which races and costs two round trips.',

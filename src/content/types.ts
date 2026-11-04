@@ -45,11 +45,22 @@ export type QuestionVariant = {
   bridge: string;
 };
 
+/** One row of a lesson's reference table: a term, keyword or rule, and the fact to remember. */
+export type Takeaway = {
+  term: string;
+  detail: string;
+};
+
 /**
  * The bite-sized lesson shown before a topic's first question and after a miss: what you need
  * to know to answer, in a few short points, with an optional short code example.
  */
 export type Lesson = {
+  /** The concept in one or two plain sentences: what it is and why it matters. */
+  intro?: string;
+  /** The key takeaways as a compact reference table, one fact per row. */
+  takeaways?: Takeaway[];
+  /** The lesson as short points, used when the card has no intro and takeaways yet. */
   points: string[];
   code?: string;
   codeLang?: 'js' | 'ts' | 'tsx' | 'sql' | 'css' | 'html' | 'bash' | 'http';

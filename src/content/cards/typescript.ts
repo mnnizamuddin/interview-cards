@@ -101,6 +101,16 @@ export type OrderStatus =
       },
     ],
     lesson: {
+      intro:
+        'A strict `tsconfig` from the first commit catches null bugs and loose types before they spread, and a CI check makes sure nothing unchecked reaches the main branch, since running TypeScript never checks it.',
+      takeaways: [
+        { term: '`strict`', detail: 'Adds null checks and refuses implicit `any`. Adding it later to a large codebase means hundreds of fixes.' },
+        { term: '`noUncheckedIndexedAccess`', detail: 'Makes `list[0]` possibly `undefined`.' },
+        { term: '`exactOptionalPropertyTypes`', detail: 'Refuses `{ key: undefined }` for an optional key.' },
+        { term: '`module: nodenext`', detail: 'tsc follows Node\'s resolver, file extensions included.' },
+        { term: '`erasableSyntaxOnly`', detail: 'Bans enums and other syntax that generates code, so Node can strip the types.' },
+        { term: '`tsc --noEmit` in CI', detail: 'Type stripping, tsx and bundlers never check types: CI runs tsc on every pull request and blocks the merge.' },
+      ],
       points: [
         'The defaults are too lax. `strict` adds null checks and refuses implicit `any`; `noUncheckedIndexedAccess` makes `list[0]` possibly `undefined`; `exactOptionalPropertyTypes` refuses `{ key: undefined }`.',
         '`module: nodenext` makes tsc follow Node\'s resolver, file extensions included. `verbatimModuleSyntax` forces `type` on type imports; `erasableSyntaxOnly` bans enums and other syntax that generates code.',
@@ -213,6 +223,16 @@ tsc --noEmit`,
       },
     ],
     lesson: {
+      intro:
+        '`unknown` forces you to prove what a value is before using it, while `any` silently switches checking off. Narrowing is how the compiler learns what a check proved.',
+      takeaways: [
+        { term: '`any`', detail: 'Switches type checking off and spreads: anything read from it is `any` too.' },
+        { term: '`unknown`', detail: 'Could be anything: property reads are refused until you narrow it.' },
+        { term: 'Narrowing checks', detail: '`typeof`, `instanceof`, `\'key\' in value` or a literal comparison refine the type inside the `if`.' },
+        { term: 'Type predicate', detail: 'A function returning `value is T`. The compiler trusts it blindly, so it must check all it claims.' },
+        { term: 'Assertion function', detail: 'Returns `asserts value is T` and throws when the check fails.' },
+        { term: 'Structural typing', detail: 'A value fits when it has at least the fields. Extra fields are never removed, so secrets can leak.' },
+      ],
       points: [
         '`any` switches type checking off and spreads: anything read from it is `any` too. `unknown` means "could be anything": the compiler refuses property reads until you narrow it.',
         'Narrowing: inside an `if` on `typeof`, `instanceof`, `\'key\' in value` or a literal comparison, the compiler refines the type to what the check proved.',
@@ -331,6 +351,16 @@ declare function refundPayment(
       },
     ],
     lesson: {
+      intro:
+        'To the compiler, every string is the same type, so an order id fits where a payment id is expected. Branded types and literal unions make such mix-ups compile errors at no runtime cost.',
+      takeaways: [
+        { term: 'Branded type', detail: 'The base type intersected with a marker property that exists only at compile time.' },
+        { term: 'Brand constructor', detail: 'One function per brand checks the value and casts once, like `toCents`, which refuses 19.99.' },
+        { term: 'Runtime cost', detail: 'None: the JSON is unchanged.' },
+        { term: 'Money', detail: 'Integer cents next to a currency code; convert to euros only for display.' },
+        { term: 'Literal type', detail: 'The type `\'paid\'` accepts only that string.' },
+        { term: '`as const` object', detail: 'Gives runtime constants plus a union type, without an enum that generates code.' },
+      ],
       points: [
         'To the compiler, all strings are one type and all numbers another, so an order id fits where a payment id is expected, and euros fit where cents are expected.',
         'A branded type intersects the base type with a marker property that exists only at compile time. `OrderId` and `PaymentId` then stop being interchangeable, at zero runtime cost.',
@@ -449,6 +479,16 @@ export function toCents(amount: number): Cents {
       },
     ],
     lesson: {
+      intro:
+        'A discriminated union models each state as its own object type, tagged by one literal field. It makes impossible states unrepresentable and turns a forgotten case into a compile error.',
+      takeaways: [
+        { term: 'Discriminant', detail: 'One literal field, such as `status`, shared by every member of the union.' },
+        { term: 'Narrowing', detail: 'After `status === \'success\'`, `data` exists; before any check, reading it fails to compile.' },
+        { term: 'Impossible states', detail: '`isLoading`, `isError`, `error?` and `data?` allow 16 shapes, of which only three make sense.' },
+        { term: '`assertNever`', detail: 'Called in `default` with a `never` parameter: a new, unhandled member becomes a compile error.' },
+        { term: 'Repository', detail: 'On the server, convert database rows into the union once, in the repository.' },
+        { term: 'TanStack Query', detail: 'Results are already a union: narrow on `isPending`, not `isLoading`.' },
+      ],
       points: [
         'A discriminated union is a union of object types that share one literal field, the discriminant, such as `status`. Each member holds only the fields that exist in that state.',
         'Checking the discriminant narrows the value to one member: after `status === \'success\'`, `data` exists; before any check, reading it fails to compile.',
@@ -569,6 +609,16 @@ async function fetchOrders(): Promise<OrderSummary[]> {
       },
     ],
     lesson: {
+      intro:
+        'Types are erased at run time, so data entering the process proves nothing until it is checked. A schema parses it once at the edge and hands the rest of the code a typed value.',
+      takeaways: [
+        { term: 'Parse, don\'t validate', detail: 'External data stays `unknown` until a schema checks it once, at the edge, and returns a typed value.' },
+        { term: '`as Order[]`', detail: 'A claim the compiler cannot check: `response.json()` returns `any`.' },
+        { term: '`z.infer`', detail: '`z.infer<typeof Schema>` derives the type from the schema, so they cannot drift apart.' },
+        { term: '`safeParse` vs `parse`', detail: '`safeParse` returns `{ success, data }` or `{ success, error }`; `parse` throws a `ZodError`.' },
+        { term: 'Unknown keys', detail: '`z.object` drops them, which blocks mass assignment; `z.strictObject` rejects them.' },
+        { term: 'Boundaries', detail: 'Request bodies, webhooks, queue messages, API responses in the UI, and `process.env` at startup.' },
+      ],
       points: [
         'Types are erased when the code runs, so a type on API data proves nothing. `response.json()` returns `any`, and `as Order[]` is a claim the compiler cannot check.',
         '"Parse, don\'t validate": data entering the process stays `unknown` until a schema, a runtime description of the shape, checks it once at the edge and returns a typed value.',
@@ -678,6 +728,16 @@ const result = OrderSummary.safeParse(body); // body: unknown`,
       },
     ],
     lesson: {
+      intro:
+        'Generics are type parameters that keep the link between what goes into a function or component and what comes out. They let one typed helper serve many shapes without falling back to `any`.',
+      takeaways: [
+        { term: 'Type parameter `<T>`', detail: 'Links inputs and outputs; TypeScript usually infers it from the arguments.' },
+        { term: 'Constraint `extends`', detail: '`T extends Something` limits the parameter; `K extends keyof T` limits it to the keys of `T`.' },
+        { term: 'Indexed access', detail: '`DomainEvents[E]` looks up the type of one key, tying each event name to its payload.' },
+        { term: 'Generic component', detail: '`DataTable<Row>` infers `Row` from `rows`, then checks columns typed `keyof Row`.' },
+        { term: 'Generics in `.tsx`', detail: 'Write generic components as function declarations: `<T>` on an arrow function parses as JSX.' },
+        { term: 'When to stop', detail: 'When a type is harder to read than the bug it prevents.' },
+      ],
       points: [
         'A generic is a type parameter, like `<T>`, that keeps the link between what goes in and what comes out. TypeScript usually infers it from the arguments.',
         'A constraint, written `T extends Something`, limits what the parameter can be. `K extends keyof T` limits it to the keys of `T`.',
@@ -787,6 +847,16 @@ emit('order.payed', { orderId, paymentId }); // fails: unknown event name`,
       },
     ],
     lesson: {
+      intro:
+        'Not every failure is an exception. Expected business outcomes belong in the function\'s return type, so callers must handle them, while bugs and outages are thrown to one central handler.',
+      takeaways: [
+        { term: 'Expected failure', detail: 'A domain outcome, like an unpaid order or a declined card: return it as a value.' },
+        { term: 'Incident', detail: 'A bug or outage, like the database being down: throw it to the error middleware, which answers 500.' },
+        { term: '`Result` type', detail: 'A discriminated union on `ok`, holding either `value` or a typed `error`.' },
+        { term: 'Checking `ok`', detail: 'The caller cannot read `value` before checking `ok`; a `switch` on `error.kind` can be exhaustive.' },
+        { term: '`catch` variable', detail: 'Typed `unknown` under `strict`, since JavaScript can throw anything: narrow it first.' },
+        { term: '`{ cause }`', detail: 'Rethrow a domain error with `{ cause: error }` to keep the original stack.' },
+      ],
       points: [
         'Expected failures are outcomes of the domain: an order not paid, a declined card, an item out of stock. Incidents are bugs and outages: the database or the provider is down.',
         'A `Result` type returns expected failures as values: a discriminated union on `ok` holding either `value` or a typed `error`. The caller must check `ok` before reading `value`.',
@@ -891,6 +961,16 @@ type Order = {
       },
     ],
     lesson: {
+      intro:
+        'When the client\'s types come from the server\'s contract, a renamed field breaks the client build instead of production. The right tool depends on who owns both sides.',
+      takeaways: [
+        { term: 'Contract', detail: 'The machine-readable description of routes and response shapes the client types come from.' },
+        { term: 'OpenAPI', detail: 'The server publishes the document; openapi-typescript generates types in CI. Best across teams and languages.' },
+        { term: 'openapi-fetch', detail: 'A thin typed `fetch` client built on the generated types.' },
+        { term: 'tRPC', detail: 'The client imports the type of the server\'s router, with no generation step: one TypeScript team, one monorepo.' },
+        { term: 'Shared Zod schemas', detail: 'A workspace package for events between TypeScript services: contracts only, never business logic.' },
+        { term: 'No runtime check', detail: 'Generated types check nothing at run time: parse third-party API responses with a schema.' },
+      ],
       points: [
         'End-to-end typing: the client\'s types come from the server\'s contract, the machine-readable description of routes and response shapes, so a rename fails the client build.',
         'OpenAPI: the server publishes a document, openapi-typescript generates TypeScript types in CI, and openapi-fetch is a thin typed `fetch` client. Best across teams and languages.',
@@ -1010,6 +1090,16 @@ export function Badge({ tone, children }: BadgeProps) {
       },
     ],
     lesson: {
+      intro:
+        'React components are plain functions with one typed props parameter. Deriving props from native elements and knowing the few React types for children, events and refs covers most real code.',
+      takeaways: [
+        { term: '`ComponentPropsWithoutRef`', detail: '`ComponentPropsWithoutRef<\'button\'>` gives every native prop of that element, typed.' },
+        { term: '`ReactNode`', detail: 'Anything React can render: elements, text, numbers, `null`, arrays. Use it for `children`.' },
+        { term: '`ReactElement`', detail: 'Only a JSX element: for a slot that must be one element, like an icon.' },
+        { term: 'Event types', detail: 'Inline handlers infer them; extracted ones name them, like `ChangeEvent<HTMLInputElement>`.' },
+        { term: '`ref` in React 19', detail: 'A plain prop: declare `ref?: Ref<HTMLInputElement>` and skip `forwardRef`.' },
+        { term: '`JSX` namespace', detail: 'The React 19 types have no global `JSX`: import it from `react` when needed.' },
+      ],
       points: [
         'Write components as plain functions with one typed props parameter. To wrap a native element, start from `ComponentPropsWithoutRef<\'button\'>`: every native prop, typed for that element.',
         '`ReactNode` is anything React can render: elements, text, numbers, `null`, arrays. Use it for `children`. `ReactElement` accepts only a JSX element, for a slot that must be one element.',
@@ -1113,6 +1203,16 @@ type ActionProps = LinkProps | ButtonProps;`,
       },
     ],
     lesson: {
+      intro:
+        'Some components accept one of two prop shapes, like a link or a button, never both. A union with `never` keys enforces that, and a polymorphic `as` prop is a heavier tool kept for primitives.',
+      takeaways: [
+        { term: 'Props union', detail: 'One member per contract: the link props or the button props.' },
+        { term: 'Excess property check', detail: 'Accepts a key that exists in any member, so a plain union lets `href` and `onClick` pass together.' },
+        { term: '`never` key', detail: 'Type the other member\'s key `onClick?: never` or `href?: never`: passing both fails to compile.' },
+        { term: 'Narrowing inside', detail: '`props.href !== undefined` narrows the props, so each branch spreads only its own props.' },
+        { term: '`as` prop', detail: 'Renders the given element, with props typed by `ComponentPropsWithoutRef<As>`.' },
+        { term: 'Polymorphic costs', detail: 'Long errors, an unchecked implementation and slower type-checking: keep it to primitives like `Text`.' },
+      ],
       points: [
         'A link and a button have different contracts, so model the props as a union of two members, one per contract.',
         'A plain union does not forbid both: the excess property check accepts any key that exists in some member. Typing the other member\'s key as `never` makes passing both a compile error.',
@@ -1233,6 +1333,16 @@ export function useCart(): Cart {
       },
     ],
     lesson: {
+      intro:
+        'A React context typed with `null` for "no provider" plus a custom hook that throws gives consumers a plain, non-null value and makes a missing provider fail loudly.',
+      takeaways: [
+        { term: '`createContext`', detail: '`createContext<CartContextValue | null>(null)`: `null` means no provider.' },
+        { term: 'Fake default', detail: 'Avoid a default object: it hides a missing provider behind an empty cart.' },
+        { term: 'Custom hook', detail: '`useCart` throws when it reads `null`, so callers get a plain `CartContextValue`.' },
+        { term: 'React 19 provider', detail: 'Render `<CartContext value={value}>` and read it with `use(CartContext)`. Memoize the value.' },
+        { term: 'Tuples `as const`', detail: 'A hook returning a pair returns it `as const`, or each element is typed as the union of both.' },
+        { term: '`useState([])`', detail: 'Infers `never[]`: pass a type argument, as in `useState<OrderSummary[]>([])`.' },
+      ],
       points: [
         'Create the context with `null` as the "no provider" value: `createContext<CartContextValue | null>(null)`. Avoid a fake default object, which hides a missing provider.',
         'Expose a custom hook that reads the context and throws when it gets `null`. The check removes `null` from the type, so callers get a plain value.',
@@ -1342,6 +1452,16 @@ declare function patchOrder(
       },
     ],
     lesson: {
+      intro:
+        'Utility types build new types from an existing one, so every payload derives from one domain type and a renamed field breaks them all at compile time.',
+      takeaways: [
+        { term: '`Pick` and `Omit`', detail: '`Pick<T, K>` keeps keys, `Omit<T, K>` removes them.' },
+        { term: '`Partial` and `Required`', detail: 'Make every key optional or required; `Readonly` blocks writes.' },
+        { term: '`Record<K, V>`', detail: 'One `V` per key of `K`.' },
+        { term: '`ReturnType`, `Awaited`', detail: 'Name what a function returns or resolves to; both are conditional types with `infer`.' },
+        { term: 'Patch body', detail: '`Partial<Pick<OrderDetail, \'shippingAddress\' | \'deliveryNote\'>>`: `status` cannot sneak in.' },
+        { term: '`Omit` on a union', detail: 'Keeps only the keys every member shares: use a distributive version.' },
+      ],
       points: [
         'Utility types are generic types that build a new type from an existing one. Deriving every payload from one domain type means a renamed field breaks them all at compile time.',
         '`Pick<T, K>` keeps keys, `Omit<T, K>` removes them, `Partial` and `Required` make every key optional or required, `Readonly` blocks writes, `Record<K, V>` gives one `V` per key of `K`.',
@@ -1449,6 +1569,16 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
       },
     ],
     lesson: {
+      intro:
+        'Template literal, mapped and conditional types compute types from other types. In a few places, like design tokens or route params, they turn typos into compile errors.',
+      takeaways: [
+        { term: 'Template literal type', detail: 'Builds string types; a union inside expands to every combination: 4 tones times 2 slots give 8 names.' },
+        { term: 'Mapped type', detail: '`{ [K in Keys]: V }` creates one property per member; `Partial` and `Record` are built this way.' },
+        { term: 'Conditional type', detail: '`T extends U ? X : Y` is an if/else on types; on a union type parameter it runs once per member.' },
+        { term: '`infer`', detail: 'Captures a part of a type, such as the `:param` names of a route pattern like `/orders/:orderId`.' },
+        { term: '`as const satisfies`', detail: 'Makes a variant map exhaustive while each value keeps its literal type.' },
+        { term: 'When to stop', detail: 'When a type is harder to read than the bug it prevents.' },
+      ],
       points: [
         'A template literal type builds string types like a template string builds strings. A union inside expands to every combination: 4 tones times 2 slots give 8 token names.',
         'A mapped type, `{ [K in Keys]: V }`, creates one property per member of a union; `Partial` and `Record` are built this way.',

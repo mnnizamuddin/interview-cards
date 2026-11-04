@@ -105,6 +105,16 @@ export const frontendGapsCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'A plain object makes a poor dictionary built from data. `Map`, `Set`, the grouping helpers and `WeakMap` each fit a job objects do badly: any key type, uniqueness, grouping, data tied to an object.',
+      takeaways: [
+        { term: 'Object as dictionary', detail: 'Inherits keys like `constructor` and turns every key into a string: an object key becomes "[object Object]".' },
+        { term: '`Map`', detail: 'Any value as key, even `NaN` or an object; insertion order, `size`, no inherited keys.' },
+        { term: '`Set`', detail: 'Unique values and `has` without a scan.' },
+        { term: 'ES2025 set methods', detail: '`union`, `intersection`, `difference`; the argument must be set-like, an array throws a TypeError.' },
+        { term: '`Object.groupBy` / `Map.groupBy`', detail: 'ES2024. The first returns a null-prototype object (use `Object.hasOwn`); the second a `Map`, for object keys.' },
+        { term: '`WeakMap`', detail: 'Object keys held weakly: the entry goes with the key object. Not iterable, no `size`.' },
+      ],
       points: [
         'A plain object used as a dictionary inherits keys from `Object.prototype`, so `counts["constructor"]` is already a function, and every key becomes a string: an object key turns into "[object Object]".',
         'A `Map` accepts any value as a key, even `NaN` or an object, keeps insertion order, has no inherited keys and gives its `size`. Use it for dictionaries built from data: counts, lookups, caches.',
@@ -226,6 +236,15 @@ byStatus.refunded; // undefined when no order is refunded`,
       },
     ],
     lesson: {
+      intro:
+        'Good error handling keeps both the context of a failure and its root cause. Throwing real `Error` objects, naming them, and chaining them with `cause` makes logs and dashboards say what actually went wrong.',
+      takeaways: [
+        { term: 'Throw `Error` objects', detail: 'An `Error` records a stack trace; a thrown string has none.' },
+        { term: '`class CheckoutError extends Error`', detail: 'A subclass gives a family of failures a `name` that code and dashboards can test.' },
+        { term: '`{ cause }`', detail: 'ES2022: `new CheckoutError(msg, { cause: error })` keeps the original; Node prints it on a `[cause]` line.' },
+        { term: '`AggregateError`', detail: 'Carries several errors in `errors`; `Promise.any` rejects with one when all promises fail.' },
+        { term: '`JSON.stringify(error)`', detail: 'Keeps own enumerable properties only: `message` and `stack` vanish. Let the logger serialize errors.' },
+      ],
       points: [
         'Throw `Error` objects, never strings: an `Error` records a stack trace, the list of calls that led to it. A thrown string has none.',
         'Subclass `Error`, as in `class CheckoutError extends Error`, to give a family of failures a `name` that code and dashboards can test.',
@@ -340,6 +359,16 @@ try {
       },
     ],
     lesson: {
+      intro:
+        'The back/forward cache restores a whole page from memory on Back and Forward, and speculation rules prepare the likely next page. Both make navigations instant, but each changes when your code runs.',
+      takeaways: [
+        { term: 'bfcache', detail: 'Keeps the page in memory, DOM and JavaScript state included, and restores it instead of reloading.' },
+        { term: '`pageshow` + `event.persisted`', detail: 'Load code does not run again on restore: refresh stale data, like a cart badge, here.' },
+        { term: 'Blockers', detail: '`unload` listeners, open IndexedDB connections, `Cache-Control: no-store` on the HTML.' },
+        { term: '`notRestoredReasons`', detail: 'On the navigation entry: says why a page was not restored.' },
+        { term: 'Speculation rules', detail: 'A JSON script, supported by Chromium, to prefetch (HTML only) or prerender (run and render hidden) next pages.' },
+        { term: '`document.prerendering`', detail: 'Prerender runs code before the click: delay analytics until `prerenderingchange`, exclude side-effect URLs.' },
+      ],
       points: [
         'The back/forward cache (bfcache) keeps a page in memory, DOM and JavaScript state included, when you leave it, and restores it on Back or Forward instead of loading it again.',
         'A restored page is the old page, and its load code does not run again. `pageshow` fires with `event.persisted` true: refresh stale data, like a cart badge, there.',
@@ -456,6 +485,16 @@ addEventListener('load', () => {
       },
     ],
     lesson: {
+      intro:
+        'Real user monitoring measures Core Web Vitals in your visitors\' browsers on every visit, with the attribution lab tools and CrUX cannot give: which element, which page, which release.',
+      takeaways: [
+        { term: 'Lab data', detail: 'One load on one machine, such as Lighthouse: explains and reproduces.' },
+        { term: 'Field data', detail: 'Real visits: what users actually get.' },
+        { term: 'CrUX', detail: 'Chrome\'s public field data over 28 days, with no element or release to blame.' },
+        { term: '`web-vitals/attribution`', detail: '`onLCP`, `onINP`, `onCLS` plus what to blame: LCP element, tapped element, biggest shift.' },
+        { term: '`navigator.sendBeacon`', detail: 'Send batched reports when `visibilityState` becomes `hidden`: CLS and INP are final only then.' },
+        { term: 'Reading the data', detail: 'Tag by route template and release; read p75 per page type and device.' },
+      ],
       points: [
         'Lab data comes from a tool such as Lighthouse loading the page once on one machine: it explains and reproduces. Field data comes from real visits: it is what users get.',
         "CrUX, Chrome's public field data, covers 28 days and does not say which element or release is to blame. Real user monitoring (RUM) collects the metrics yourself on every visit.",
@@ -564,6 +603,16 @@ addEventListener('visibilitychange', () => {
       },
     ],
     lesson: {
+      intro:
+        'Interaction to Next Paint measures how long the page takes to show a response to a tap, click or key press. Diagnosing it starts from field attribution, because a developer\'s laptop is not the user\'s phone.',
+      takeaways: [
+        { term: 'INP', detail: 'Latency from an interaction to the next painted frame, reported about the worst interaction of the visit.' },
+        { term: 'Input delay', detail: 'The main thread is busy elsewhere when the user interacts.' },
+        { term: 'Processing duration', detail: 'Your event handlers run.' },
+        { term: 'Presentation delay', detail: 'Style, layout and paint of the update.' },
+        { term: 'Long Animation Frames', detail: 'Records frames over 50 ms and names the scripts in them, with URL and function.' },
+        { term: 'Method', detail: 'Group by element and phase, reproduce with CPU throttling, fix the largest phase, recheck p75.' },
+      ],
       points: [
         'Interaction to Next Paint (INP) measures the latency from a tap, click or key press until the next frame is painted, and reports about the worst interaction of the visit.',
         'Each interaction has three phases: input delay (the main thread is busy elsewhere), processing duration (your handlers run), presentation delay (style, layout and paint of the update).',
@@ -678,6 +727,16 @@ onINP(({ rating, attribution: a }) => {
       },
     ],
     lesson: {
+      intro:
+        'A third-party script runs another company\'s code on your main thread with your page\'s rights. You cannot optimise it, so you govern which scripts load, when and how.',
+      takeaways: [
+        { term: 'Inventory', detail: 'Each script has an owner, a purpose and a place in a budget, or it goes.' },
+        { term: '`beforeInteractive`', detail: '`next/script` strategy only for what must run first.' },
+        { term: '`afterInteractive`', detail: 'The default strategy, for analytics after consent.' },
+        { term: '`lazyOnload`', detail: 'For widgets that can wait.' },
+        { term: 'Facade', detail: 'A static lookalike that loads the real widget on click: non-users never pay for it.' },
+        { term: 'Tag manager', detail: 'Count its tags in the budget, attribute cost with Long Animation Frames, restrict origins with a CSP.' },
+      ],
       points: [
         "A third-party script is another company's code running on your main thread with your page's rights. You cannot optimise it, so the levers are which scripts load, when and how.",
         'Governance makes it a process: an inventory with an owner and a purpose per script, a budget on number and weight, a review before adding one, and loading rules.',
@@ -782,6 +841,16 @@ export function ThirdPartyScripts({ consent }: { consent: { analytics: boolean }
       },
     ],
     lesson: {
+      intro:
+        'Trusted Types make the browser enforce sanitising: dangerous DOM sinks refuse plain strings and accept only objects created by a reviewed policy, which blocks DOM XSS by construction.',
+      takeaways: [
+        { term: 'Sink', detail: 'A DOM API that turns a string into HTML or code: `innerHTML`, `insertAdjacentHTML`, `eval`, `script.src`.' },
+        { term: '`require-trusted-types-for \'script\'`', detail: 'CSP directive: sinks throw a TypeError on strings, accept only `TrustedHTML`, `TrustedScript`, `TrustedScriptURL`.' },
+        { term: '`trustedTypes.createPolicy`', detail: 'Creates a named policy, usually wrapping DOMPurify, that produces the typed objects.' },
+        { term: '`trusted-types`', detail: 'CSP directive listing the allowed policy names. Keep few, reviewed policies.' },
+        { term: 'Safe sinks', detail: '`textContent` and similar still accept strings.' },
+        { term: 'Report-only rollout', detail: '`Content-Security-Policy-Report-Only` finds every string sink, libraries included, before enforcing.' },
+      ],
       points: [
         'A sink is a DOM API that turns a string into HTML or code: `innerHTML`, `insertAdjacentHTML`, `eval`, `script.src`. Attacker data reaching one is DOM XSS.',
         "With the CSP directive `require-trusted-types-for 'script'`, those sinks throw a TypeError on plain strings and accept only `TrustedHTML`, `TrustedScript` or `TrustedScriptURL` objects.",
@@ -901,6 +970,15 @@ window.addEventListener('message', (event) => {
       },
     ],
     lesson: {
+      intro:
+        '`postMessage` lets windows of different origins talk, such as a page and a payment iframe. Any window in the frame hierarchy can send, so the receiver must check the sender and treat the message as untrusted data.',
+      takeaways: [
+        { term: '`event.origin`', detail: 'Compare with the exact expected origin using `!==`; `includes` or `startsWith` accept look-alike domains.' },
+        { term: '`event.source`', detail: 'Check it is the expected iframe\'s `contentWindow`.' },
+        { term: '`event.data`', detail: 'Validate with a schema; never pass it to `innerHTML` or `eval`.' },
+        { term: 'Target origin', detail: 'Send with the exact origin, never `"*"`: the browser drops the message if the window shows another origin.' },
+        { term: 'Payment status', detail: 'A message is a hint for the UI; the server marks the order paid from the provider\'s signed webhook.' },
+      ],
       points: [
         '`postMessage` lets windows of different origins talk, such as a page and an embedded iframe. Any window in the frame hierarchy can send to any other, so the receiver must check the sender.',
         'In the `message` listener, compare `event.origin` with the exact expected origin using `!==`. `includes` or `startsWith` would accept `https://pay.example.evil.example`.',
@@ -1019,6 +1097,16 @@ frame.contentWindow?.postMessage({ type: 'checkout.ready' }, PAYMENT_ORIGIN);`,
       },
     ],
     lesson: {
+      intro:
+        'A modal dialog must manage focus and hide the page behind it from every kind of user. The native `<dialog>` element opened with `showModal()` does that work, so React only has to keep it in sync.',
+      takeaways: [
+        { term: 'Modal requirements', detail: 'Focus moves in, Tab stays inside, Escape closes, page behind unreachable, focus returns to the opener.' },
+        { term: '`showModal()`', detail: 'Opens `<dialog>` as modal: the page behind becomes inert; Escape fires `cancel` then `close`. `show()` is not modal.' },
+        { term: 'React pattern', detail: 'Parent owns `open`; an effect calls `showModal()` or `close()`; `onClose` fires on every closing path.' },
+        { term: '`form method="dialog"`', detail: 'Closes the dialog and sets `returnValue` to the clicked button\'s `value`.' },
+        { term: 'Backdrop click', detail: 'Does not close the dialog by default.' },
+        { term: '`inert` vs `aria-hidden`', detail: '`inert` removes Tab order, clicks and accessibility tree; `aria-hidden` only the last.' },
+      ],
       points: [
         'A modal must move focus inside on open, keep Tab inside, close on Escape, make the page behind unreachable, and return focus to the opener. Its title names it via `aria-labelledby`.',
         'The native `<dialog>` opened with `showModal()` does this: the page behind becomes inert, and Escape fires `cancel` then `close`. `show()` opens it without being modal.',
@@ -1125,6 +1213,16 @@ frame.contentWindow?.postMessage({ type: 'checkout.ready' }, PAYMENT_ORIGIN);`,
       },
     ],
     lesson: {
+      intro:
+        'Perceivable means everyone can see and follow the interface: enough contrast, more than colour alone, motion that respects user settings, focus never hidden, and targets big enough to hit.',
+      takeaways: [
+        { term: 'WCAG 1.4.3 contrast', detail: '4.5:1 for text, 3:1 for large text (about 24 px, or 18.5 px bold).' },
+        { term: 'WCAG 1.4.11 non-text', detail: '3:1 for control borders and focus indicators.' },
+        { term: 'WCAG 1.4.1 colour', detail: 'Never the only signal: a status dot also needs text, such as "Refunded".' },
+        { term: '`prefers-reduced-motion`', detail: 'Reflects the system setting; replace movement with a short fade, keep the feedback.' },
+        { term: 'WCAG 2.4.11 focus', detail: 'A sticky bar must not hide the focused element: `scroll-padding-bottom` plus end padding.' },
+        { term: 'WCAG 2.5.8 target size', detail: 'At least 24 by 24 CSS pixels unless spaced apart; 44 px (AAA) is more comfortable.' },
+      ],
       points: [
         'WCAG 1.4.3 (AA) asks a contrast ratio of 4.5:1 for text and 3:1 for large text (about 24 px, or 18.5 px bold). 1.4.11 asks 3:1 for control borders and focus indicators.',
         'Colour must never be the only signal (WCAG 1.4.1): a red or green status dot also needs its text, such as "Refunded".',
@@ -1245,6 +1343,16 @@ body { padding-bottom: 80px; }`,
       },
     ],
     lesson: {
+      intro:
+        'UI tests should interact and wait the way a user does. user-event simulates real interactions, and the async queries wait for what appears on screen, so tests catch per-keystroke bugs without fixed sleeps.',
+      takeaways: [
+        { term: '`fireEvent`', detail: 'Dispatches one DOM event.' },
+        { term: 'user-event', detail: 'Focus, then keydown, input and keyup per character; refuses clicks a user could not make.' },
+        { term: '`userEvent.setup()`', detail: 'Create the user before rendering and `await` every call.' },
+        { term: '`findBy` queries', detail: 'Retry until the element appears, one second by default.' },
+        { term: '`waitFor(callback)`', detail: 'Re-runs the callback until it stops throwing: only assertions inside, never actions.' },
+        { term: '"not wrapped in act"', detail: 'The test looked while React still had work: wait for the final state.' },
+      ],
       points: [
         '`fireEvent` dispatches one DOM event. user-event simulates a real interaction: focus, then keydown, input and keyup per character, and pointer events before a click.',
         'user-event refuses what a user could not do: clicking an element with `pointer-events: none` throws. Create `const user = userEvent.setup()` before rendering and `await` every call.',
@@ -1361,6 +1469,15 @@ export function renderWithProviders(ui: ReactElement) {
       },
     ],
     lesson: {
+      intro:
+        'Components that use TanStack Query or context need their providers in tests. A shared render helper with a fresh client per test keeps tests isolated and error states fast.',
+      takeaways: [
+        { term: '`renderWithProviders`', detail: 'One helper passing every provider through the `wrapper` option of `render`.' },
+        { term: 'New `QueryClient` per test', detail: 'The client holds the cache: a shared one leaks data, and a test fails only after another.' },
+        { term: '`retry: false`', detail: 'Queries retry 3 times by default with growing delays; mutations are not retried by default.' },
+        { term: 'Component `retry` option', detail: 'Overrides the client defaults: keep retry settings out of components.' },
+        { term: 'MSW, not hook mocks', detail: 'A fake `useOrder` skips the loading state, the error state and the cache, where the bugs are.' },
+      ],
       points: [
         "A `QueryClient` holds TanStack Query's cache. Share one between tests and cached data leaks: a test can pass alone and fail after another one.",
         'Create a new client per test inside a `renderWithProviders` helper, and pass every provider through the `wrapper` option of `render`.',
@@ -1479,6 +1596,16 @@ expect(await pay.isEnabled()).toBe(true);`,
       },
     ],
     lesson: {
+      intro:
+        'Playwright end-to-end tests drive real browsers through a few critical journeys. Strict user-facing locators, auto-waiting and strict CI settings keep them reliable rather than flaky.',
+      takeaways: [
+        { term: '`page.getByRole`', detail: 'Strict locator; `name` matches a case-insensitive substring unless you add `exact: true`.' },
+        { term: 'Auto-waiting', detail: 'Actions wait until the element is visible, stable and enabled.' },
+        { term: 'Web-first assertions', detail: '`expect(locator).toBeEnabled()` retries, 5 s by default. Never add fixed waits.' },
+        { term: '`page.route`', detail: 'Intercepts requests, answered with `route.fulfill`: for error paths. Keep one real happy path.' },
+        { term: '`failOnFlakyTests`', detail: 'A test that passes only on retry turns the build red. Record a trace on the first retry.' },
+        { term: '`@axe-core/playwright`', detail: 'Scans pages for detectable accessibility violations; manual checks stay.' },
+      ],
       points: [
         'Playwright drives Chromium, Firefox and WebKit. Locators such as `page.getByRole` are strict, and `name` matches a case-insensitive substring unless you add `exact: true`.',
         'Actions auto-wait until the element is visible, stable and enabled; web-first assertions like `expect(locator).toBeEnabled()` retry, 5 s by default. Never add fixed waits.',
@@ -1591,6 +1718,16 @@ expect(await pay.isEnabled()).toBe(true);`,
       },
     ],
     lesson: {
+      intro:
+        'A component\'s API is its props. A good one makes wrong combinations impossible, behaves like the native element it wraps, and supports both controlled and uncontrolled use.',
+      takeaways: [
+        { term: '`variant` union', detail: 'One prop like `"primary" | "danger"` instead of booleans, so impossible combinations do not compile.' },
+        { term: '`ComponentProps<"button">`', detail: 'Extend the native props and spread the rest on the real element.' },
+        { term: '`ref` in React 19', detail: 'A plain prop, forwarded without `forwardRef`.' },
+        { term: 'Defaults', detail: 'Merge the caller\'s `className`, default `type` to "button", content through `children`.' },
+        { term: 'Uncontrolled: `defaultValue`', detail: 'The component owns its state, started from `defaultValue`, read once.' },
+        { term: 'Controlled: `value`', detail: 'Parent passes `value` and stores updates from `onValueChange`; if it never updates `value`, the UI freezes.' },
+      ],
       points: [
         'A component\'s API is its props. Model visual options as one union, `variant: "primary" | "danger"`, not booleans, so `<Btn primary danger>` cannot compile.',
         'Extend the native props with `ComponentProps<"button">` and spread the rest on the real element. Since React 19, `ref` is a prop, so it is forwarded without `forwardRef`.',
@@ -1701,6 +1838,16 @@ export function Button({ variant = 'primary', type = 'button', className, ...res
       },
     ],
     lesson: {
+      intro:
+        'Storybook is a workshop to develop, document and test components in isolation. The same stories serve designers as documentation and run in CI as tests.',
+      takeaways: [
+        { term: 'Story and args', detail: 'A story is the component rendered with given props, called args.' },
+        { term: 'Component Story Format', detail: 'A default export, `meta`, describes the component; each named export is a story.' },
+        { term: 'Play function', detail: 'Runs interactions and assertions after render, turning a story into a test.' },
+        { term: 'a11y addon', detail: 'Runs axe-core on each story; keyboard and screen reader checks stay manual.' },
+        { term: 'Visual tests', detail: 'Compare screenshots with approved baselines, for example with Chromatic.' },
+        { term: 'Vitest addon', detail: 'Runs stories as Vitest tests in a real browser, so they run in CI.' },
+      ],
       points: [
         'Storybook is a workshop to develop, document and test components in isolation. A story is a component rendered with given props, called args.',
         'Stories use Component Story Format: a default export, `meta`, describes the component, and each named export is a story. Storybook builds a documentation site from them.',

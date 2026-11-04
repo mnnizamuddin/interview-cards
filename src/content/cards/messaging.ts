@@ -97,6 +97,16 @@ export const messagingCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'A message queue is a broker that stores messages from a producer until a consumer processes and acknowledges them. It lets a request commit what matters and hand the rest to background work, so slow services stop failing requests.',
+      takeaways: [
+        { term: 'Acknowledgement', detail: 'The consumer acks each message once done, and the broker then deletes it.' },
+        { term: 'Decoupling', detail: 'A slow or failing consumer delays its work instead of failing the request.' },
+        { term: 'Load levelling', detail: 'A burst fills the queue, and consumers drain it at a steady rate.' },
+        { term: 'Automatic retries', detail: 'A message whose processing fails is delivered again later.' },
+        { term: 'Queue vs pub/sub', detail: 'In a queue each message goes to one competing consumer; in pub/sub every subscriber gets a copy.' },
+        { term: 'Costs', detail: 'Eventual consistency, duplicates (consumers must be idempotent), a broker to run. Stay synchronous when the answer is needed now.' },
+      ],
       points: [
         'A message queue is a broker that stores messages from a producer until a consumer processes them. The consumer acknowledges each message once done, and the broker then deletes it.',
         'It decouples services: the request commits the essential state, enqueues the rest and answers. A slow or failing consumer delays its work instead of failing the request.',
@@ -192,6 +202,16 @@ export const messagingCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'RabbitMQ is a broker that routes messages to queues and deletes them once acknowledged; Kafka is a replicated log that keeps events for a retention period. The choice follows the need: jobs and routing, or shared, replayable streams.',
+      takeaways: [
+        { term: 'RabbitMQ exchange', detail: 'Routes each published message to queues by rules; the queue deletes it after the consumer\'s ack.' },
+        { term: 'Kafka partition', detail: 'A topic is split into partitions; events are appended and kept for a retention period.' },
+        { term: 'Consumer group offset', detail: 'Each group reads at its own position, so teams read the same stream independently and can replay it.' },
+        { term: 'Ordering in Kafka', detail: 'Kept within a partition; events with the same key land in the same partition.' },
+        { term: 'Exactly-once', detail: 'Kafka transactions cover read-process-write between topics; database effects still need idempotent consumers.' },
+        { term: 'When to pick which', detail: 'RabbitMQ or SQS for jobs, commands and routing; Kafka for shared streams, audit, replay and CDC.' },
+      ],
       points: [
         'RabbitMQ is a broker: producers publish to an exchange, which routes each message to queues by rules. A consumer acknowledges the message after processing, and the queue deletes it.',
         'Kafka is a replicated log: a topic is split into partitions, events are appended and kept for a retention period. Each consumer group reads at its own position, called the offset.',
@@ -293,6 +313,16 @@ await addLoyaltyPoints(event); // any error throws: retried`,
       },
     ],
     lesson: {
+      intro:
+        'A dead-letter queue receives messages that failed too many times, so a poison message stops blocking the healthy ones. It only helps when someone is alerted and knows how to fix and replay what lands there.',
+      takeaways: [
+        { term: 'Poison message', detail: 'Fails every time, like an event with a field the consumer cannot parse.' },
+        { term: '`maxReceiveCount`', detail: 'In an SQS redrive policy, the number of receives before the message moves to the DLQ.' },
+        { term: 'Transient vs permanent', detail: 'Retry timeouts and 503 with backoff; send invalid payloads to the DLQ at once.' },
+        { term: 'Runbook', detail: 'Alert on DLQ size, an owner, then find the cause, deploy a fix and redrive to the main queue.' },
+        { term: 'Idempotent consumers', detail: 'Replayed messages arrive again, so processing twice must be harmless.' },
+        { term: 'DLQ retention on SQS', detail: 'Set it longer than the source queue\'s, or messages expire before you replay them.' },
+      ],
       points: [
         'A poison message is one that fails every time, for example an event with a field the consumer cannot parse. Retried forever, it wastes work and can hold back the healthy messages.',
         'A dead-letter queue (DLQ) receives messages that failed too many times. On SQS, a redrive policy sets `maxReceiveCount`, the number of receives before the move.',
@@ -403,6 +433,15 @@ await addLoyaltyPoints(event); // any error throws: retried`,
       },
     ],
     lesson: {
+      intro:
+        'A circuit breaker sits between your code and a remote dependency and stops calling it once it keeps failing. During an outage you get fast errors or a fallback instead of requests stuck on timeouts, and the dependency gets room to recover.',
+      takeaways: [
+        { term: 'Closed', detail: 'The normal state: calls go through and recent failures are counted.' },
+        { term: 'Threshold', detail: 'When failures pass it within a time window, the breaker opens and starts a timer.' },
+        { term: 'Open', detail: 'Every call fails immediately, or returns a fallback, without touching the network.' },
+        { term: 'Half-open', detail: 'After the timer, a few trial calls go through: success closes the breaker, a failure reopens it.' },
+        { term: 'With retries and timeouts', detail: 'Retries cover short blips, the timeout bounds each call, the breaker stops calls during a lasting outage.' },
+      ],
       points: [
         'A circuit breaker sits between your code and a remote dependency. It counts recent failures and decides whether to call the dependency or fail at once.',
         'Closed is the normal state: calls go through. When failures pass a threshold within a time window, the breaker opens and starts a timer.',
@@ -512,6 +551,16 @@ await addLoyaltyPoints(event); // any error throws: retried`,
       },
     ],
     lesson: {
+      intro:
+        'Long batch work does not belong in a request: proxies time out, deploys restart pods and users close tabs. The endpoint creates a job and answers at once, and a worker processes it in resumable chunks.',
+      takeaways: [
+        { term: '`202 Accepted`', detail: 'The endpoint validates and stores the input, creates a job row and answers with the job id.' },
+        { term: 'Chunks', detail: 'A worker processes a few hundred rows at a time, each chunk committed on its own.' },
+        { term: 'Per-row status', detail: 'Failed rows keep their error; the job ends "completed with errors" so only those rows are resent.' },
+        { term: 'Cursor', detail: 'The last row done, saved in the same transaction as each chunk, so a restarted job continues after it.' },
+        { term: 'Idempotent rows', detail: 'Reprocessing a chunk after a crash is harmless.' },
+        { term: 'Progress', detail: 'Counters on the job row, read by polling `GET /jobs/:id` or through server-sent events.' },
+      ],
       points: [
         'Long work does not belong in a request: proxies time out, deploys restart pods and users close tabs. Store the input, create a job and answer `202 Accepted` with the job id.',
         'A worker takes the job from a queue and processes it in chunks of a few hundred rows. Each chunk commits on its own, so one failure never rolls back the whole batch.',
@@ -623,6 +672,16 @@ FROM events WHERE stream_id = $1;`,
       },
     ],
     lesson: {
+      intro:
+        'Event sourcing stores every change as an immutable event and computes the current state by replaying them. It gives a full history, at the price of projections and events you must version forever, so it fits ledgers and audit-heavy cores.',
+      takeaways: [
+        { term: 'Event stream', detail: 'Immutable events, such as one stream per payment. A refund is a new event, never an update.' },
+        { term: 'Fold', detail: 'Start from an initial state and apply each event in order; replaying the first events gives a past state.' },
+        { term: 'Expected version', detail: 'Writers append with the version they read; a second writer on the same version gets a conflict.' },
+        { term: 'Projections', detail: 'Read tables updated from the events; this read and write split is CQRS.' },
+        { term: 'Snapshots', detail: 'Save a computed state so long streams do not replay from the start.' },
+        { term: 'Correcting event', detail: 'Mistakes are fixed by appending a new event, never by editing history.' },
+      ],
       points: [
         'Event sourcing stores each change as an immutable event in a stream, for example one stream per payment. Nothing is updated or deleted; a refund is a new event.',
         'The current state is a fold: start from an initial state and apply each event in order. Replaying only the first events gives the state at a past moment.',
@@ -738,6 +797,16 @@ const order = events.reduce(evolve, undefined);
       },
     ],
     lesson: {
+      intro:
+        'Cache-aside and write-through are two ways to keep a cache in front of a database. They trade write cost and caching unread data against misses and staleness.',
+      takeaways: [
+        { term: 'Cache-aside read', detail: 'Read the cache; on a miss, load from the database, store with a TTL and return. Only read data is cached.' },
+        { term: 'Cache-aside write', detail: 'Commit to the database, then delete the key; the TTL bounds anything invalidation misses.' },
+        { term: 'Write-through', detail: 'Writes the cache and the database together: reads after a write hit, but writes are slower.' },
+        { term: 'Write-behind', detail: 'Writes the cache, persists later: fast, but a cache failure before the flush loses acknowledged writes.' },
+        { term: 'Stampede', detail: 'Many misses on one hot key: single flight per key, serve stale while refreshing, jitter the TTLs.' },
+        { term: 'Default choice', detail: 'Cache-aside with a jittered TTL; write-through for data a user reads right after writing it.' },
+      ],
       points: [
         'Cache-aside (lazy loading): read the cache; on a miss, load from the database, store with a TTL and return. Only data that is read gets cached.',
         'On a write with cache-aside, commit to the database, then delete the key. Deleting avoids races between two writers; the TTL bounds anything invalidation misses.',
@@ -855,6 +924,16 @@ const order = events.reduce(evolve, undefined);
       },
     ],
     lesson: {
+      intro:
+        'Global order and parallel consumers do not go together, so you order only what needs it, usually the events of one entity. Partitioning by that key keeps each entity in sequence while different entities run in parallel.',
+      takeaways: [
+        { term: 'Kafka key', detail: 'Events with the same key go to the same partition, read by one consumer of a group at a time.' },
+        { term: 'SQS FIFO message group id', detail: 'Orders messages per group, the same idea as a Kafka key.' },
+        { term: 'RabbitMQ single active consumer', detail: 'Only one consumer reads the queue at a time.' },
+        { term: 'Inside the consumer', detail: 'Process one key\'s messages sequentially; concurrent handling breaks the order again.' },
+        { term: 'Versions', detail: 'Check a version or sequence number to ignore stale or redelivered events.' },
+        { term: 'Partition count', detail: 'No more active consumers than partitions; Kafka cannot reduce them, and adding some remaps keys.' },
+      ],
       points: [
         'Global order and parallel consumers do not go together. What usually needs ordering is the events of one entity, such as one order.',
         'In Kafka, events with the same key go to the same partition, and each partition is read by one consumer of a group at a time. Key by order id to keep each order in sequence.',
@@ -964,6 +1043,16 @@ const order = events.reduce(evolve, undefined);
       },
     ],
     lesson: {
+      intro:
+        'The transactional outbox solves the dual-write problem: a database and a broker cannot share a transaction. The event is saved as a row in the same transaction as the change, then a relay publishes it.',
+      takeaways: [
+        { term: 'Dual write', detail: 'Commit then publish loses events on a crash; publish then commit announces changes that failed.' },
+        { term: '`outbox` table', detail: 'The event row is inserted in the same transaction as the state change: both commit or neither does.' },
+        { term: 'Relay', detail: 'Reads unpublished rows, publishes them and marks them published.' },
+        { term: '`FOR UPDATE SKIP LOCKED`', detail: 'Lets several relays claim rows without taking the same ones.' },
+        { term: 'At least once', detail: 'A crash between publishing and marking republishes the row: consumers deduplicate on the event id.' },
+        { term: 'Change data capture', detail: 'Debezium reading the PostgreSQL write-ahead log replaces polling; monitor its replication slot.' },
+      ],
       points: [
         'The dual-write problem: a database and a broker cannot share a transaction. Commit then publish loses events on a crash; publish then commit announces failed changes.',
         'The transactional outbox writes the event as a row of an `outbox` table in the same transaction as the state change: both commit or neither does.',

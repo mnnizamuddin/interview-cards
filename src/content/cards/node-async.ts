@@ -108,6 +108,16 @@ export const nodeAsyncCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'A fan-out starts several independent calls at once and waits for them together, so the request costs the slowest call instead of the sum. The combinator you pick decides what one failure does to the whole.',
+      takeaways: [
+        { term: '`Promise.all`', detail: 'Fails fast when any input rejects. Use it for the calls the operation requires.' },
+        { term: '`Promise.allSettled`', detail: 'Waits for all and reports each result. Fits a best-effort job that reports each failure.' },
+        { term: '`Promise.any`', detail: 'Takes the first success. Fits redundant sources.' },
+        { term: '`Promise.race`', detail: 'Takes the first to settle, success or failure.' },
+        { term: 'Optional call', detail: 'Give it its own `.catch` returning a fallback before it joins `Promise.all`, so it cannot fail the whole.' },
+        { term: 'No cancellation', detail: 'Combinators get promises already running; stopping the others needs an `AbortSignal` passed to the work.' },
+      ],
       points: [
         'A fan-out starts several independent calls at once and waits for them together, so the total time is the slowest call, not the sum. An `await` per call in a loop runs them one after another.',
         '`Promise.all` fails fast when any input rejects; `allSettled` waits for all and reports each result; `any` takes the first success; `race` takes the first to settle, success or failure.',
@@ -226,6 +236,16 @@ const [stock, quote, discountCents] = await Promise.all([
       },
     ],
     lesson: {
+      intro:
+        'A deadline is a time budget after which a call gives up, and cancellation stops work nobody is waiting for any more. In Node both travel as an `AbortSignal` passed down through every function.',
+      takeaways: [
+        { term: '`AbortSignal.timeout(ms)`', detail: 'A signal that aborts by itself. Pass it as `{ signal }` to `fetch`, `pipeline` or `node:timers/promises`.' },
+        { term: 'Deadline value', detail: 'Per call, from the dependency\'s normal latency, above its p99.' },
+        { term: '`TimeoutError` or `AbortError`', detail: '`fetch` rejects with `TimeoutError` when a timeout signal fires, with `AbortError` after a manual `abort()`.' },
+        { term: '`AbortSignal.any`', detail: 'Combines the client disconnect (response closed before `writableEnded`) with the request deadline.' },
+        { term: '`signal.throwIfAborted()`', detail: 'Cancellation is cooperative: forward the signal to every call and check it before side effects.' },
+        { term: 'Aborting a write', detail: 'Undoes nothing: a timed-out payment may be authorized, so a retry needs an idempotency key.' },
+      ],
       points: [
         'A deadline is a time budget after which a call gives up. `AbortSignal.timeout(ms)` returns a signal that aborts by itself; pass it as `{ signal }` to `fetch`, `pipeline` or `node:timers/promises`.',
         'Set it per call from the dependency\'s normal latency, above its p99. When it fires, `fetch` rejects with a `TimeoutError`; a manual `abort()` gives an `AbortError`.',
@@ -346,6 +366,16 @@ await placeOrder(cart, signal); // forwards it to every call`,
       },
     ],
     lesson: {
+      intro:
+        'Retrying turns a brief failure into a success, but a careless retry charges a card twice or floods a struggling dependency. Retry only what is transient and idempotent, spaced out and bounded.',
+      takeaways: [
+        { term: 'Transient failures', detail: 'Network error, timeout, 408, 429, 502, 503, 504. A 400 or 422 would fail the same way again.' },
+        { term: 'Idempotency key', detail: 'The same value on every attempt, such as the order id, so the server deduplicates a retried `POST`.' },
+        { term: 'Exponential backoff', detail: 'Waits longer after each failure (100, 200, 400 ms…) up to a cap.' },
+        { term: 'Full jitter', detail: 'Waits a random time between zero and the backoff value, so clients do not retry in waves.' },
+        { term: 'Deadline during sleeps', detail: 'Pass the signal to `setTimeout` from `node:timers/promises`, so the deadline cuts the waiting short.' },
+        { term: 'One layer, one budget', detail: 'Retries multiply across layers: retry at one layer only, capped, for example under 10% of requests.' },
+      ],
       points: [
         'Retry only when the failure is transient (network error, timeout, 408, 429, 502, 503, 504) and the operation is idempotent: running it twice has the same effect as running it once.',
         'A `POST` becomes safe to retry with an idempotency key: a unique value per operation, the same on every attempt, that the server uses to deduplicate. For a payment, the order id.',
@@ -473,6 +503,16 @@ await placeOrder(cart, signal); // forwards it to every call`,
       },
     ],
     lesson: {
+      intro:
+        'Bounded concurrency keeps at most N calls in flight while working through a large list. It protects the sockets, pools and rate limits that an unbounded `Promise.all` over thousands of items would exhaust.',
+      takeaways: [
+        { term: 'Unbounded `Promise.all`', detail: 'Starts every call at once: connection errors and 429s instead of speed.' },
+        { term: 'Pool', detail: 'At most N calls in flight; the next starts as soon as any finishes.' },
+        { term: 'Batches of N', detail: 'Each batch waits for its slowest call while the other slots sit idle.' },
+        { term: 'Sizing N', detail: 'From the downstream limit (documented concurrency, pool size, rate limit), then measure.' },
+        { term: '`p-map` or `p-limit`', detail: 'Ready-made limiters. Catch errors per item so one failure does not stop the job.' },
+        { term: 'Release in `finally`', detail: 'A hand-written limiter that skips it leaks a slot per failure, until it starts nothing.' },
+      ],
       points: [
         'An unbounded `Promise.all` over a large list starts every call at once and hits real limits: sockets, the database pool (10 connections by default in node-postgres), a partner\'s rate limit.',
         'Bounded concurrency keeps at most N calls in flight, and the next one starts as soon as any finishes. That mechanism is called a pool.',
@@ -595,6 +635,16 @@ await pMap(orders, async (order) => {
       },
     ],
     lesson: {
+      intro:
+        'An async generator produces values over time, and a `for await` loop pulls them one at a time. It reads millions of rows with one page in memory, and its cleanup still runs if the loop stops early.',
+      takeaways: [
+        { term: '`async function*`', detail: 'Produces values with `yield` and can `await` between them.' },
+        { term: 'Pull-based', detail: 'The generator runs to its next `yield` only when the loop asks, so one page per fetch keeps memory at one page.' },
+        { term: '`break` or throw', detail: 'Calls the generator\'s `return()`, which runs its `finally` blocks.' },
+        { term: '`finally`', detail: 'Where the connection goes back to the pool, on normal end, on `break` and on error.' },
+        { term: '`await using`', detail: 'Runs `[Symbol.asyncDispose]()` on every exit path, in reverse order. Node 24 supports it; many libraries do not yet.' },
+        { term: 'Sequential by design', detail: '`for await` and `Array.fromAsync` handle one item at a time; slow independent items need a concurrency bound.' },
+      ],
       points: [
         'An async generator (`async function*`) produces values over time with `yield` and can `await` between them. A `for await` loop reads it one value at a time.',
         'It is pull-based: the generator runs up to its next `yield` only when the loop asks. Fetching one page per request keeps memory at one page.',
@@ -721,6 +771,15 @@ await pMap(orders, async (order) => {
       },
     ],
     lesson: {
+      intro:
+        'An error rethrown, or a log line written deep in a call chain, often loses the order id and request id. Error causes keep the original error, and `AsyncLocalStorage` carries request context across awaits.',
+      takeaways: [
+        { term: '`new Error(msg, { cause })`', detail: 'Wraps the original error with a clearer message. Node prints the chain with a `[cause]` line.' },
+        { term: '`return await` in `try`', detail: 'Without `await`, the promise leaves the `try` before it settles and the `catch` never sees the rejection.' },
+        { term: 'Module-level variable', detail: 'Cannot hold the request id: concurrent requests interleave at each `await` and overwrite it.' },
+        { term: '`AsyncLocalStorage`', detail: 'From `node:async_hooks`. `storage.run(store, fn)` makes `store` visible to everything `fn` starts, and nothing else.' },
+        { term: '`getStore()`', detail: 'Reads the current store across every `await`; the logger uses it to add the request id to each line.' },
+      ],
       points: [
         'When you catch an error to rethrow a clearer one, pass the original as `cause`: `new Error(\'Could not load order 42\', { cause: error })`. Node prints the chain with a `[cause]` line.',
         'Inside `try`, write `return await promise`. Without `await`, the promise leaves the `try` before it settles and the `catch` never sees its rejection.',
@@ -850,6 +909,16 @@ app.use((req, res, next) => context.run({ requestId: randomUUID() }, next));`,
       },
     ],
     lesson: {
+      intro:
+        'Buffering a whole export makes memory grow with the data until Kubernetes kills the pod. A stream pipeline moves the data in chunks, so memory depends on the chunk size, not on the size of the export.',
+      takeaways: [
+        { term: 'OOM kill', detail: 'Past the container\'s memory limit, Kubernetes kills the pod.' },
+        { term: '`pipeline()`', detail: 'From `node:stream/promises`: source, transforms, destination. Resolves when the destination has finished.' },
+        { term: 'Backpressure', detail: '`pipeline` carries it from each step to the one before, so memory stays at a few chunks even for a slow client.' },
+        { term: 'Error handling', detail: 'On the first error, `pipeline` destroys every stream and rejects once. `.pipe()` leaves streams open.' },
+        { term: 'Async generator transform', detail: 'Receives the previous step as an async iterable and yields what it produces.' },
+        { term: 'After the first byte', detail: 'The status cannot change. Validate and authorize first; a later failure destroys the response.' },
+      ],
       points: [
         'Buffering a whole export makes memory grow with the data; past the container\'s limit, Kubernetes kills the pod (an OOM kill). A stream moves data in chunks, so memory depends on the chunk size.',
         '`pipeline(source, ...transforms, destination)` from `node:stream/promises` carries backpressure from each step to the one before it, and resolves when the destination has finished.',
@@ -966,6 +1035,16 @@ await pipeline(rows, toCsvLines, createGzip(), res);`,
       },
     ],
     lesson: {
+      intro:
+        'A large CSV export needs two things: reading the rows in batches without loading them all, and writing fields that spreadsheets parse correctly and never run as formulas.',
+      takeaways: [
+        { term: 'Cursor', detail: 'Runs a query once; the client fetches its rows a batch at a time, from one consistent snapshot.' },
+        { term: '`pg-query-stream`', detail: 'Wraps a node-postgres cursor in an object-mode Readable. postgres.js offers `.cursor(500)`.' },
+        { term: 'Pooled connection', detail: 'The cursor holds it for the whole download: release it in `finally`.' },
+        { term: 'RFC 4180 quoting', detail: 'Quote a field with a comma, a double quote or a line break, and double the quotes inside. No backslash escaping.' },
+        { term: 'CSV injection', detail: 'Text starting with `=`, `+`, `-`, `@`, a tab or a line break gets a leading single quote (OWASP).' },
+        { term: 'UTF-8 BOM', detail: 'Excel opens a UTF-8 CSV normally when it starts with a BOM, per Microsoft\'s docs, so write `\\uFEFF` first.' },
+      ],
       points: [
         'A cursor runs a query once and lets the client fetch its rows a batch at a time. `pg-query-stream` wraps it in an object-mode Readable; postgres.js offers `.cursor(500)`.',
         'One query through a cursor reads one consistent snapshot, but holds a pooled connection for the whole download: release it in `finally`.',
@@ -1081,6 +1160,16 @@ csvField(-3);              // '-3'`,
       },
     ],
     lesson: {
+      intro:
+        'A `Buffer` holds bytes and a string holds text, and UTF-8 needs several bytes for non-ASCII characters. Streams cut data anywhere, so decoding chunk by chunk can split a character in two.',
+      takeaways: [
+        { term: 'UTF-8 width', detail: 'ASCII takes one byte; other characters take two to four.' },
+        { term: '`Buffer.byteLength`', detail: 'Counts bytes: `\'é\'.length` is 1 but `Buffer.byteLength(\'é\')` is 2. Use it for sizes.' },
+        { term: 'Per-chunk `toString()`', detail: 'Decodes each half of a split character alone, and each half becomes the replacement character `�`.' },
+        { term: '`setEncoding(\'utf8\')`', detail: 'Makes a Node readable keep incomplete bytes for the next chunk.' },
+        { term: '`TextDecoder` stream mode', detail: 'With `{ stream: true }` it keeps incomplete bytes between calls; `TextDecoderStream` does the same as a stream.' },
+        { term: 'Lines across chunks', detail: 'Keep the unfinished last line for the next chunk and flush it at the end, or use `readline`.' },
+      ],
       points: [
         "A `Buffer` holds bytes; a string holds text. UTF-8 encodes ASCII in one byte and other characters in two to four, so `'é'.length` is 1 but `Buffer.byteLength('é')` is 2.",
         'A stream cuts data into chunks anywhere, including in the middle of a character. Decoding each chunk on its own turns each half into the replacement character `�`.',
@@ -1193,6 +1282,16 @@ decoder.decode(a, { stream: true }) + decoder.decode(b); // 'café'`,
       },
     ],
     lesson: {
+      intro:
+        'Node has two stream APIs: its own streams, used by `fs`, `http` and drivers, and the WHATWG Web Streams shared with browsers and edge runtimes. `fetch` uses Web Streams, so you convert at the boundary.',
+      takeaways: [
+        { term: '`response.body`', detail: 'A `ReadableStream`, with no `.pipe()` method.' },
+        { term: '`Readable.fromWeb()`', detail: 'Turns a `ReadableStream` into a Node Readable, for example to `pipeline` it into `createWriteStream`.' },
+        { term: '`Readable.toWeb()`', detail: 'Turns a Node Readable into a `ReadableStream`.' },
+        { term: '`response.ok`', detail: 'Check it before streaming a body anywhere: an error page is a stream too.' },
+        { term: '`ReadableStream.from`', detail: 'Turns an async generator into a stream; `TextEncoderStream` turns string chunks into the bytes a `Response` needs.' },
+        { term: 'One API inside', detail: 'Convert once where the two APIs meet, and stay in one API inside your code.' },
+      ],
       points: [
         'Node has two stream APIs. Node streams (`node:stream`) are used by `fs`, `http`, `zlib` and database drivers. Web Streams (`ReadableStream` and friends) are the WHATWG standard, shared with browsers and edge runtimes.',
         '`fetch` and `Response` use Web Streams: `response.body` is a `ReadableStream`, with no `.pipe()` method.',

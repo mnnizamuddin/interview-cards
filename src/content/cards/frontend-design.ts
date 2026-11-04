@@ -82,6 +82,16 @@ export const frontendDesignCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'A frontend system design round is a 45 to 60 minute talk where you design a screen, its data and its behaviour out loud. It grades reasoning about the client, not servers or shards.',
+      takeaways: [
+        { term: 'RADIO', detail: 'Requirements, Architecture, Data model, Interface, Optimisations and deep dive. Announce the plan first.' },
+        { term: 'Requirements', detail: 'At most 10% of the time: about the first 5 minutes of 45. Write the answers where the interviewer sees them.' },
+        { term: 'Useful questions', detail: 'Only those that change a later step: users and devices, core features, "fast" as a number, freshness, a11y, offline.' },
+        { term: 'Architecture and data', detail: 'Components and who talks to whom, then entities and where each piece of state lives.' },
+        { term: 'Time split', detail: 'About 20% architecture, 10% data, 20% interface and 40% optimisations and deep dive.' },
+        { term: 'Close', detail: 'Say choices as "X, which costs Y; if Z mattered more, W", and tie each requirement to the part that meets it.' },
+      ],
       points: [
         'A frontend system design round is a 45 to 60 minute talk where you design a screen, its data and its behaviour out loud. It grades reasoning about the client, not servers or shards.',
         'RADIO names the steps: Requirements, Architecture (components and who talks to whom), Data model (entities and where each piece of state lives), Interface (the APIs), Optimisations and deep dive.',
@@ -172,6 +182,16 @@ export const frontendDesignCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'A search autocomplete looks small but tests state ownership, a cacheable API and what happens when responses race each other as the customer types fast.',
+      takeaways: [
+        { term: 'UI state', detail: 'Typed text, open state and active option live in the search box component.' },
+        { term: 'Server state', detail: 'Suggestions are a cached copy of the answer for one term, keyed by the normalised term.' },
+        { term: 'API', detail: 'A `GET` with the term and a fixed `limit` in the URL, so a CDN can cache popular prefixes.' },
+        { term: 'Match ranges, not HTML', detail: 'The client renders the highlights, so no server markup reaches the page.' },
+        { term: 'Debounce', detail: 'Wait until typing pauses (about 250 ms, an assumption to tune): one request per word, not per letter.' },
+        { term: 'Out-of-order answers', detail: 'Keying by term shows an answer only for its own term; the query\'s `signal` aborts stale requests.' },
+      ],
       points: [
         'Split state by owner: the typed text, the open state and the active option are UI state in the component; the suggestions are server state, a cached copy of the answer for one term.',
         'The API is a `GET` with the term and a fixed `limit` in the URL, so a CDN can cache popular prefixes. It returns match ranges, not HTML, so no server markup reaches the page.',
@@ -271,6 +291,16 @@ const query = useQuery({
       },
     ],
     lesson: {
+      intro:
+        'A live table over millions of orders cannot keep its data in the browser. The design question is how the server, the URL and a stream of updates share the work without stale rows.',
+      takeaways: [
+        { term: 'Server-side filter and sort', detail: 'With millions of rows, the server filters, sorts and paginates.' },
+        { term: 'View in the URL', detail: 'Filters, sort and search parsed with a schema, so agents can share links, reload and use Back.' },
+        { term: 'Cursor pagination', detail: 'A page plus an opaque cursor suits a growing list; offset pages get slow when deep and shift on inserts.' },
+        { term: 'Virtualisation', detail: 'Render only visible rows. Costs fixed or measured row heights and no browser find on hidden rows.' },
+        { term: 'SSE through the BFF', detail: 'Buffer events and apply them in one pass every few hundred milliseconds, not one render per event.' },
+        { term: '`version` per row', detail: 'Keep the highest per order in a batch, ignore older events; refetch the visible list after a reconnect.' },
+      ],
       points: [
         'With millions of rows, the server filters, sorts and paginates. The view (filters, sort, search) lives in the URL, parsed with a schema, so agents can share links, reload and use Back.',
         'Cursor pagination returns a page plus an opaque cursor for the next one; it suits a list that grows while it is read. Offset pages get slow when deep and shift when rows are added.',
@@ -361,6 +391,16 @@ const query = useQuery({
       },
     ],
     lesson: {
+      intro:
+        'Editing from a table raises three questions: does the user wait for the server, can she work without a mouse, and how do you prove the table is fast enough.',
+      takeaways: [
+        { term: 'Optimistic update', detail: 'Show the result before the server confirms; for cheap, reversible actions like assigning. A refund shows pending.' },
+        { term: 'TanStack Query recipe', detail: 'Cancel in-flight queries, snapshot, write the expected value, restore on error, invalidate when settled.' },
+        { term: 'Native `<table>`', detail: 'For data and links, with `<th scope="col">` headers.' },
+        { term: 'APG grid pattern', detail: 'Once cells hold controls: one tab stop, arrow keys between cells, `aria-sort` on the sorted header.' },
+        { term: 'Virtualised rows', detail: '`aria-rowcount` set to the total (or -1 if unknown) and `aria-rowindex` on each rendered row.' },
+        { term: 'Budget', detail: 'INP of 200 ms or less at p75, no main-thread task over 50 ms, about 50 rows in the DOM.' },
+      ],
       points: [
         'An optimistic update shows the result before the server confirms it and rolls back on refusal. Use it for cheap, reversible actions like assigning an order; for a refund, show a pending state.',
         'The TanStack Query recipe: cancel in-flight queries for the key, snapshot the data, write the expected value, restore the snapshot on error, and invalidate when settled.',
@@ -451,6 +491,16 @@ const query = useQuery({
       },
     ],
     lesson: {
+      intro:
+        'A product page is split by how often each part changes and who it belongs to: shared parts are cached and served fast, personal parts are rendered per request, and the main photo must load first.',
+      takeaways: [
+        { term: 'Split by change and owner', detail: 'Layout per deploy, catalogue when it changes, stock with every sale, cart per customer.' },
+        { term: 'Partial Prerendering', detail: 'Next.js 16 Cache Components serve a cached static shell and stream per-request parts behind `<Suspense>`.' },
+        { term: '`\'use cache\'`', detail: 'Catalogue data with `cacheLife(\'max\')` and a tag per product; a webhook calls `revalidateTag`.' },
+        { term: 'Per request', detail: 'Stock and the cart stream inside `<Suspense>`; personal parts never enter a shared cache.' },
+        { term: 'LCP photo', detail: 'Never lazy-loaded: `loading="eager"`, `fetchPriority="high"`, and width and height to reserve its space.' },
+        { term: 'Targets', detail: 'From web.dev, at p75: LCP within 2.5 s and CLS within 0.1.' },
+      ],
       points: [
         'Split the page by how often each part changes and who it belongs to: layout at each deploy, catalogue data when the catalogue changes, stock with every sale, the cart per customer.',
         'Next.js 16 Cache Components serve cached parts as a static shell from a CDN and stream per-request parts into it behind `<Suspense>` fallbacks: Partial Prerendering.',
@@ -549,6 +599,16 @@ const query = useQuery({
       },
     ],
     lesson: {
+      intro:
+        'A checkout must create exactly one order even when the network drops and the customer clicks again. The guarantee comes from an idempotency key, not from the button.',
+      takeaways: [
+        { term: 'Cart as server state', detail: 'A cart id in an HTTP-only cookie, contents on the server, read through a query.' },
+        { term: 'Validation in three places', detail: 'Browser constraints and `autocomplete`, a shared Zod schema on the client, and the server again.' },
+        { term: '`Idempotency-Key`', detail: 'Created once per purchase intent with `crypto.randomUUID()`, reused by every retry and second click.' },
+        { term: 'New key', detail: 'Only when the cart version changes.' },
+        { term: 'Disabled button', detail: 'Comfort, not protection: a fast double-click can send two requests. A unique constraint on the cart id backs it.' },
+        { term: 'A screen per answer', detail: '201 to payment, 409 back to the cart, 422 onto the fields, 5xx or network retried with the same key.' },
+      ],
       points: [
         'The cart is server state: a cart id in an HTTP-only cookie and the contents on the server. The UI reads it through a query; adding an item is a mutation, which can be optimistic.',
         'Validate the form in three places with one schema: browser constraints and `autocomplete` tokens, a shared Zod schema on the client, and the server again, because a client can be bypassed.',
@@ -646,6 +706,16 @@ const query = useQuery({
       },
     ],
     lesson: {
+      intro:
+        'An infinite feed must load more items without a scroll handler, keep the reader\'s place after Back, and never push content she is reading.',
+      takeaways: [
+        { term: 'Cursor pagination', detail: 'Items arrive at the top while she reads; virtualise once hundreds of items are loaded.' },
+        { term: '`IntersectionObserver`', detail: 'A sentinel after the last item with a `rootMargin` (about 800 px) triggers the next page, no scroll handler.' },
+        { term: 'Changes, not states', detail: 'If the sentinel stays in view after a short page, it will not fire again: recreate it after each page.' },
+        { term: 'Back restores the place', detail: 'Only if the list is as tall as before: keep pages cached (`gcTime`, 5 minutes by default), render at once.' },
+        { term: 'New items', detail: 'Behind a "new items" button, never inserted above the reader.' },
+        { term: 'CLS exclusion', detail: 'Shifts within 500 ms of a click are excluded from CLS, so an insertion she asked for is harmless.' },
+      ],
       points: [
         'A feed reuses the table\'s choices: cursor pagination, because items arrive at the top while you read, and virtualisation once hundreds of items are loaded.',
         'Load the next page when an invisible sentinel after the last item nears the viewport. An `IntersectionObserver` with a `rootMargin` reports it without any scroll handler.',

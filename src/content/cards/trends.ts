@@ -99,6 +99,16 @@ export const trendsCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'AI coding tools went from autocomplete to agents that read the repository, edit files and run tests. The developer\'s job shifts toward framing, context and review, and accountability does not move.',
+      takeaways: [
+        { term: 'Agents', detail: 'Read the repository, edit several files, run commands and tests, and propose a change for review.' },
+        { term: 'Where time goes', detail: 'From typing code to framing the task, giving context, reviewing diffs and writing the tests that prove it.' },
+        { term: '`AGENTS.md`', detail: 'A repository instructions file that gives agents your conventions and commands.' },
+        { term: 'Typical failures', detail: 'Plausible but wrong code, outdated APIs, skipped error paths, invented packages attackers can register.' },
+        { term: 'Gates', detail: 'Types, tests, CI and a human review of small diffs. You own every line you merge.' },
+        { term: 'Approved tools only', detail: 'Never paste secrets or customer data into tools your company has not approved.' },
+      ],
       points: [
         'AI coding tools went from autocomplete to agents: they read the repository, edit several files, run commands and tests, and propose a change for you to review.',
         'The developer\'s time moves from typing to framing the task, giving context and reviewing. A repository instructions file, like `AGENTS.md`, gives agents your conventions and commands.',
@@ -193,6 +203,15 @@ export const trendsCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Edge functions run small pieces of server code in many locations close to users. They help when the work needs no central data, and hurt when every request queries one database far away.',
+      takeaways: [
+        { term: 'Runtime', detail: 'Lightweight, with Web APIs such as `fetch`, `Request` and `Response` instead of the full Node.js API.' },
+        { term: 'Good edge work', detail: 'Redirects, A/B assignment, geolocation, checking a session cookie, rewriting headers in front of a cache.' },
+        { term: 'Latency follows the data', detail: 'An edge render querying a single-region database pays that distance on every query.' },
+        { term: 'Limits', detail: 'No file system or native modules, platform time limits, a new DB connection per invocation without a pooler.' },
+        { term: 'Next.js', detail: 'Node.js is the default runtime and `edge` is marked deprecated. Since Next.js 16, `middleware` is `proxy`.' },
+      ],
       points: [
         'Edge functions run small pieces of server code in many locations close to users, usually in a lightweight runtime with Web APIs such as `fetch`, `Request` and `Response` instead of the full Node.js API.',
         'Good edge work needs no central data: redirects, A/B test assignment, geolocation, checking a session cookie, or rewriting headers in front of a cache.',
@@ -286,6 +305,16 @@ export const trendsCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'A meta-framework adds routing, server rendering, data loading and a build setup on top of a UI library, so one codebase holds both the server and the client.',
+      takeaways: [
+        { term: 'Examples', detail: 'Next.js and React Router for React, Nuxt for Vue. react.dev recommends a framework to start a new React app.' },
+        { term: 'Remix', detail: 'Merged into React Router: v7, released in November 2024, is the upgrade path for Remix apps.' },
+        { term: 'Server Components', detail: 'Run only on the server and ship no code to the browser; only `\'use client\'` components are hydrated.' },
+        { term: '`\'use server\'`', detail: 'Server Functions handle mutations. Each is an HTTP endpoint anyone can call: check session and permissions.' },
+        { term: 'Trade-offs', detail: 'Coupling to conventions and hosting, more complex caching, new server entry points to secure.' },
+        { term: 'When not to', detail: 'A Vite single-page app stays simpler for a back office behind a login.' },
+      ],
       points: [
         'A meta-framework adds routing, server rendering, data loading and a build setup to a UI library: Next.js and React Router for React, Nuxt for Vue. react.dev recommends a framework to start a new React app.',
         'Remix merged into React Router: React Router v7, released in November 2024, is the upgrade path for Remix apps.',
@@ -393,6 +422,16 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       },
     ],
     lesson: {
+      intro:
+        'Web Components are browser standards for reusable elements that work in any framework or none, which suits design systems shared across stacks and embeddable widgets.',
+      takeaways: [
+        { term: 'Custom element', detail: 'Defines a new tag with a class.' },
+        { term: 'Shadow DOM', detail: 'A private tree for markup and styles: page selectors do not reach inside.' },
+        { term: '`<template>` and `<slot>`', detail: 'Place content into the component.' },
+        { term: 'No rendering model', detail: 'No built-in state or re-rendering like React: update the DOM yourself or use a helper like Lit.' },
+        { term: 'Attributes vs properties', detail: 'Attributes are always strings; objects go through JavaScript properties.' },
+        { term: 'Theming hooks', detail: 'CSS custom properties inherit through the shadow boundary; `::part()` styles exposed parts.' },
+      ],
       points: [
         'Web Components are browser standards: a custom element defines a new tag with a class, Shadow DOM gives it a private tree for its markup and styles, and `<template>` with `<slot>` places content.',
         'They work in any framework or none, which suits a design system shared by teams on different stacks and widgets embedded in other sites.',
@@ -493,6 +532,16 @@ customElements.define('delivery-tracker', DeliveryTracker);
       },
     ],
     lesson: {
+      intro:
+        'Core Web Vitals are three field metrics for loading, responsiveness and visual stability. Because Google Search uses them and they track conversion, performance became a product requirement.',
+      takeaways: [
+        { term: 'LCP', detail: 'Largest Contentful Paint, loading: good at 2.5 s or less.' },
+        { term: 'INP', detail: 'Interaction to Next Paint, responsiveness: good at 200 ms or less. Replaced FID in March 2024.' },
+        { term: 'CLS', detail: 'Cumulative Layout Shift, visual stability: good at 0.1 or less.' },
+        { term: '75th percentile', detail: 'Of real visits, on mobile and desktop separately. A good median is not enough.' },
+        { term: 'Field vs lab', detail: 'Field data (CrUX or `web-vitals`) is judged; Lighthouse is for debugging, and INP needs real interactions.' },
+        { term: 'Typical fixes', detail: 'LCP: hero image in the HTML, high priority, not lazy. INP: less JS, yield in long tasks. CLS: reserve space.' },
+      ],
       points: [
         'Three metrics: LCP (Largest Contentful Paint, loading) is good at 2.5 s or less; INP (Interaction to Next Paint, responsiveness) at 200 ms or less; CLS (Cumulative Layout Shift, visual stability) at 0.1 or less.',
         'A page passes when the 75th percentile of real visits meets each threshold, on mobile and on desktop separately. A good median is not enough.',
@@ -605,6 +654,16 @@ onLCP(sendToAnalytics);`,
       },
     ],
     lesson: {
+      intro:
+        'This question checks for a real habit and judgement: where you learn, how you filter hype, and one recent thing you learned and applied at work.',
+      takeaways: [
+        { term: 'Primary sources', detail: 'Official blogs, release notes and upgrade guides for the tools you use daily; one weekly newsletter for the rest.' },
+        { term: 'Baseline', detail: 'On MDN and web.dev: newly available once all core browsers ship a feature, widely available 30 months later.' },
+        { term: 'Learn by building', detail: 'Try a feature in a small side project before proposing it at work.' },
+        { term: 'Upgrade guides', detail: 'Read the whole guide before upgrading, as with Next.js 16 renaming `middleware` to `proxy`.' },
+        { term: 'Adoption filter', detail: 'Stable, solves a problem you actually have, and worth the migration cost.' },
+        { term: 'Recent example', detail: 'Have one thing you learned recently and applied at work.' },
+      ],
       points: [
         'The interviewer assesses a real habit and judgement: where you learn, how you filter hype, and one recent example of something you learned and applied at work.',
         'Prefer primary sources for the tools you use daily: official blogs, release notes and upgrade guides, such as react.dev, nextjs.org and Node.js releases. One weekly newsletter covers the rest.',
@@ -699,6 +758,16 @@ onLCP(sendToAnalytics);`,
       },
     ],
     lesson: {
+      intro:
+        'Serverless means the provider runs and scales your handler and you pay per request and duration. It fits spiky and event-driven work; steady high traffic usually favours containers.',
+      takeaways: [
+        { term: 'Pricing', detail: 'Per request and per unit of duration; an idle function costs nothing.' },
+        { term: 'Cold start', detail: 'The init phase of a new execution environment; warm ones are reused, provisioned concurrency keeps some ready.' },
+        { term: 'Concurrency', detail: 'Requests per second times duration: 300/s of 0.2 s needs about 60 environments, each with its own connections.' },
+        { term: 'Lambda limits', detail: 'An invocation stops at 15 minutes; a synchronous request or response is capped at 6 MB.' },
+        { term: 'Database', detail: 'Put RDS Proxy in front of PostgreSQL, and make handlers idempotent.' },
+        { term: 'Choose by workload', detail: 'Scheduled, spiky, event-driven: functions. Steady high traffic: containers, which serve many requests at once.' },
+      ],
       points: [
         'Serverless functions, such as AWS Lambda, run your handler while the provider manages servers and scaling. You pay per request and per unit of duration, and an idle function costs nothing.',
         'The first request in a new execution environment runs the init phase, loading your code and its top-level setup: that is the cold start. Warm environments are reused; provisioned concurrency keeps some ready.',
@@ -784,6 +853,16 @@ onLCP(sendToAnalytics);`,
       },
     ],
     lesson: {
+      intro:
+        'In event-driven design, services publish facts and others react on their own, so the producer does not know its consumers. It decouples services at the cost of eventual consistency.',
+      takeaways: [
+        { term: 'Publish facts', detail: 'Such as `order.paid`; a consumer\'s outage delays its work instead of failing the payment.' },
+        { term: 'Queue vs log', detail: 'A queue deletes a processed message; a log such as Kafka retains events so a new consumer group can replay.' },
+        { term: 'Kafka ordering', detail: 'Within a partition only, so key events by order id.' },
+        { term: 'Idempotent consumers', detail: 'Delivery is at least once, so processing the same event twice must be harmless.' },
+        { term: 'Transactional outbox', detail: 'Write the event in the same transaction as the state change; a relay publishes it after the commit.' },
+        { term: 'CDC and contracts', detail: 'CDC streams database changes to the warehouse. Events change additively; breaking changes get a new type.' },
+      ],
       points: [
         'In event-driven design, a service publishes facts, such as `order.paid`, and other services react on their own. The producer does not know its consumers, so their outage delays their work instead of failing the payment.',
         'A queue deletes a message once processed; a log such as Kafka keeps events for a retention period, so a new consumer group can replay history. Kafka orders events within a partition, so key them by order id.',
@@ -869,6 +948,16 @@ onLCP(sendToAnalytics);`,
       },
     ],
     lesson: {
+      intro:
+        'Platform engineering means a team builds an internal developer platform, run as a product, so product teams can build, ship and run services without being infrastructure experts.',
+      takeaways: [
+        { term: 'IDP', detail: 'Internal developer platform: self-service tools to build, ship and run services.' },
+        { term: 'Golden path', detail: 'A supported way to do a common task, such as a template with pipeline, secrets, monitoring and alerts wired.' },
+        { term: 'Backstage', detail: 'A common portal for golden paths.' },
+        { term: 'Run as a product', detail: 'Developers are customers, adoption is earned rather than imposed, feedback drives the roadmap.' },
+        { term: 'Measures', detail: 'Adoption, time for a new service to reach production, DORA metrics and developer satisfaction.' },
+        { term: 'Escape hatch', detail: 'A few mandatory guardrails, the rest optional. SRE owns production reliability; platform, self-service.' },
+      ],
       points: [
         'Platform engineering: a platform team builds an internal developer platform (IDP), self-service tools that let product teams build, ship and run services without being infrastructure experts.',
         'Its core is the golden path: a supported way to do a common task, such as a template that creates a service with its pipeline, deployment, secrets, monitoring and alerts wired. Backstage is a common portal for it.',

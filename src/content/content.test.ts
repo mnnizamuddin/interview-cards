@@ -82,6 +82,26 @@ describe('cards', () => {
     }
   });
 
+  it.each(CARDS.filter((card) => card.lesson?.intro || card.lesson?.takeaways).map((card) => [card.id, card] as const))(
+    '%s has a short concept intro and a compact takeaways table',
+    (_, card) => {
+      const { intro, takeaways } = card.lesson!;
+      expect(intro, 'intro').toBeTruthy();
+      expect(intro!.length, intro).toBeLessThanOrEqual(300);
+      expect(takeaways, 'takeaways').toBeDefined();
+      expect(takeaways!.length).toBeGreaterThanOrEqual(3);
+      expect(takeaways!.length).toBeLessThanOrEqual(6);
+      expect(new Set(takeaways!.map((row) => row.term)).size, 'terms must be unique').toBe(takeaways!.length);
+      for (const row of takeaways!) {
+        expect(row.term.length, row.term).toBeLessThanOrEqual(36);
+        expect(row.detail.length, row.detail).toBeLessThanOrEqual(150);
+      }
+      for (const text of [intro!, ...takeaways!.flatMap((row) => [row.term, row.detail])]) {
+        expect(text.split('`').length % 2, text).toBe(1);
+      }
+    },
+  );
+
   it.each(CARDS.map((card) => [card.id, card] as const))('%s has short variants and twins with closed code marks', (_, card) => {
     for (const variant of card.questionVariants ?? []) {
       expect(variant.question.length, variant.question).toBeLessThanOrEqual(260);

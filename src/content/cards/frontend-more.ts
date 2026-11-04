@@ -126,6 +126,16 @@ export function ReportsPage({ range }) {
       },
     ],
     lesson: {
+      intro:
+        'Code splitting cuts the JavaScript bundle into chunks so the browser downloads only the code the current screen needs. It is the main lever on first-load JavaScript in a React app.',
+      takeaways: [
+        { term: 'Dynamic `import()`', detail: 'The bundler starts a new chunk at each one; it is downloaded only when needed.' },
+        { term: '`React.lazy`', detail: 'Turns a chunk into a component. Call it at module level; it needs a default export.' },
+        { term: '`Suspense`', detail: 'Shows the nearest fallback while the chunk downloads.' },
+        { term: 'Error boundary', detail: 'Receives the error if the chunk download fails.' },
+        { term: 'What to split', detail: 'Routes first, then heavy rarely used parts. Tiny chunks and chained loads cost more than they save.' },
+        { term: 'Next.js', detail: 'Splits per route automatically; `next/dynamic` lazy loads Client Components.' },
+      ],
       points: [
         'Code splitting cuts the JavaScript bundle into chunks. The bundler starts a new chunk at each dynamic `import()`, and the browser downloads it only when that code is needed.',
         "`React.lazy(() => import('./revenue-chart'))` turns a chunk into a component. Call it at module level; the module needs a default export, or map a named one to `default`.",
@@ -229,6 +239,16 @@ export function ReportsPage() {
       },
     ],
     lesson: {
+      intro:
+        'Lazy loading defers a resource until it is needed instead of loading everything up front. It applies to images, code and data, and must never touch what the first screen needs.',
+      takeaways: [
+        { term: '`loading="lazy"`', detail: 'For images and iframes: the browser waits until the element is near the viewport before requesting it.' },
+        { term: 'Code', detail: 'Routes, modals and heavy widgets load with a dynamic `import()` when first shown.' },
+        { term: '`IntersectionObserver`', detail: 'Watches a placeholder and renders a `React.lazy` component once it nears the screen.' },
+        { term: '`rootMargin`', detail: 'Starts the load before the element is actually visible.' },
+        { term: 'LCP image', detail: 'Never lazy: the preload scanner cannot fetch it early, so it starts late.' },
+        { term: 'Layout shifts', detail: 'Reserve the size of lazy content.' },
+      ],
       points: [
         'Lazy loading defers a resource until it is needed: images and iframes below the fold, code behind a route or a click, data for sections the user may never reach.',
         'For images and iframes the browser does it for you: `loading="lazy"` waits until the element is laid out and near the viewport before requesting it.',
@@ -344,6 +364,16 @@ export function ReportsPage() {
       },
     ],
     lesson: {
+      intro:
+        'Images are usually a page\'s heaviest bytes and often its LCP element, so they drive load time, data use and layout stability. Optimising them is about format, size, dimensions and priority.',
+      takeaways: [
+        { term: 'Formats', detail: 'Serve AVIF or WebP.' },
+        { term: '`srcset` and `sizes`', detail: 'Widths available and display width; the browser picks the smallest file for the screen and pixel density.' },
+        { term: '`<picture>`', detail: 'When you choose: a crop per screen (`media`) or a format fallback (`type`). It still needs an `<img>`.' },
+        { term: '`width` and `height`', detail: 'Or an `aspect-ratio`: reserves the space so nothing shifts (CLS).' },
+        { term: 'Hero image', detail: 'Eager, in the HTML, with `fetchpriority="high"`. Below the fold: `loading="lazy"`.' },
+        { term: 'Image CDN / `next/image`', detail: 'Resize, convert to AVIF or WebP and cache variants from one original.' },
+      ],
       points: [
         'Images are often most of a page\'s bytes and the LCP element of product pages: their size and discovery time drive LCP, and missing dimensions cause layout shifts (CLS).',
         '`srcset` lists the same image at several widths and `sizes` says how wide it will be shown; the browser then downloads the smallest file that fits the screen and pixel density.',
@@ -452,6 +482,16 @@ ALL_LOCALES.forEach(register); // runs on import`,
       },
     ],
     lesson: {
+      intro:
+        'Tree shaking is dead-code elimination at bundle time: the bundler keeps only the exports something imports. Whether it works depends on how modules are written.',
+      takeaways: [
+        { term: 'How it works', detail: 'From the entry, keep imported exports and drop the rest. Runs in production builds.' },
+        { term: 'ES modules', detail: 'Static `import` and `export` make the graph known before running. CommonJS only in simple cases.' },
+        { term: 'Side effect', detail: 'A module that runs code on import (a plugin, a global patch, CSS) is kept even if no export is used.' },
+        { term: '`"sideEffects": false`', detail: 'In `package.json`, promises none, so unused modules are skipped; an array like `["*.css"]` lists files to keep.' },
+        { term: 'Shakeable code', detail: 'Small named exports, no work at module top level, no barrel file that imports everything.' },
+        { term: 'Verify', detail: 'Check the production build in a bundle analyzer.' },
+      ],
       points: [
         'Tree shaking is dead-code elimination by the bundler: starting from the entry, it keeps the exports that are imported and drops the rest. It runs in production builds.',
         'It needs ES modules: `import` and `export` are static, so the graph is known before the code runs. CommonJS `require` can only be analysed in simple cases.',
@@ -559,6 +599,16 @@ import { formatPrice } from 'shop-utils';
       },
     ],
     lesson: {
+      intro:
+        'Jank is visible stutter: the browser misses frames because a frame\'s work exceeds its budget. The causes are long tasks, forced layouts and animating the wrong properties.',
+      takeaways: [
+        { term: 'Frame budget', detail: 'About 16.7 ms per frame at 60 Hz.' },
+        { term: 'Frame pipeline', detail: 'JavaScript, style, layout, paint, composite, mostly on the main thread.' },
+        { term: '`transform` / `opacity`', detail: 'The compositor moves or fades a layer, skipping layout and paint. Not `top`, `left`, `width`, `height`.' },
+        { term: 'Layout thrashing', detail: 'Writing a style then reading `offsetHeight` in a loop. Do all reads first, then all writes.' },
+        { term: 'Long task', detail: 'Over 50 ms; blocks frames and input. Break it with `scheduler.yield()` or move it to a Web Worker.' },
+        { term: 'Long lists', detail: 'Virtualize them. Confirm every fix with a Performance recording.' },
+      ],
       points: [
         'At 60 Hz each frame has about 16.7 ms. Jank is a frame that misses it: an animation or a scroll visibly stutters.',
         'Each frame runs JavaScript, style, layout, paint and composite, mostly on the main thread. A change restarts at the earliest step it affects: geometry costs a layout, a colour a paint.',
@@ -664,6 +714,15 @@ const onInput = _.debounce(() => {
       },
     ],
     lesson: {
+      intro:
+        'A bundle analyzer draws a production build as a treemap of the modules in each chunk, showing what actually ships. It turns "the bundle is big" into a list of specific fixes.',
+      takeaways: [
+        { term: 'Tools', detail: 'Vite: `rollup-plugin-visualizer`; webpack: `webpack-bundle-analyzer`.' },
+        { term: 'Stat / parsed / gzip', detail: 'Source before minification; minified code the browser runs; what crosses the network.' },
+        { term: 'What to look for', detail: 'In the entry chunk: a heavy library for one function, duplicate versions, whole icon sets or locale data.' },
+        { term: 'Fixes', detail: 'Replace or remove the dependency, import only what you use, lazy load, or render on the server.' },
+        { term: 'Byte budget', detail: 'Per chunk, checked on every pull request, for example with `size-limit`.' },
+      ],
       points: [
         'A bundle analyzer reads a production build and draws each chunk as a treemap, one rectangle per module. Vite: `rollup-plugin-visualizer`; webpack: `webpack-bundle-analyzer`; Next.js 16.1+: `next analyze`.',
         'Three sizes: stat (the source before minification), parsed (the minified code the browser parses and runs) and gzip or Brotli (what crosses the network).',
@@ -771,6 +830,16 @@ npx size-limit`,
       },
     ],
     lesson: {
+      intro:
+        '`preload`, `prefetch` and `preconnect` are `<link>` hints that start network work early. They differ in what they fetch and at which priority, and too many of them slow the page down.',
+      takeaways: [
+        { term: '`preload`', detail: 'A resource the current page needs soon, high priority: a font from CSS, a hero image set by CSS.' },
+        { term: '`as`', detail: 'Required on preload for the right priority, cache and headers. Font and `fetch` preloads need `crossorigin`.' },
+        { term: '`prefetch`', detail: 'Low priority, for a likely next navigation, kept in the HTTP cache. Speculation rules for whole next pages.' },
+        { term: '`preconnect`', detail: 'Downloads nothing: opens DNS, TCP and TLS to another origin. One or two critical origins.' },
+        { term: '`dns-prefetch`', detail: 'For the less critical origins.' },
+        { term: 'Shared bandwidth', detail: 'Too many preloads delay the LCP resource; unused prefetches waste the user\'s data.' },
+      ],
       points: [
         '`<link rel="preload" as="…">` fetches a resource the current page needs soon, at high priority. Use it for critical files discovered late: a font from CSS, a hero image set by CSS.',
         '`as` is required so the browser applies the right priority, cache and headers. Font and `fetch` preloads need `crossorigin`, even on the same origin.',
@@ -875,6 +944,16 @@ npx size-limit`,
       },
     ],
     lesson: {
+      intro:
+        'Diagnosing a slow first load means confirming it with real-user data, then splitting the time to find which part dominates. Fixing the biggest part first, then guarding it, is the method.',
+      takeaways: [
+        { term: 'Core Web Vitals', detail: 'At p75 of real visits: LCP 2.5 s or less, INP 200 ms or less, CLS 0.1 or less.' },
+        { term: 'Field vs lab', detail: 'Field data says whether there is a problem; lab tools say why.' },
+        { term: 'TTFB / FCP / LCP', detail: 'First byte of HTML; first text or image painted; largest element painted. The gaps locate the delay.' },
+        { term: 'LCP parts', detail: 'TTFB, resource load delay, download time, render delay. Fix the biggest first.' },
+        { term: 'Usual fixes', detail: 'CDN-cached HTML, hero `<img>` in HTML with `fetchpriority="high"`, no render-blocking CSS, less JavaScript.' },
+        { term: 'Keeping it fixed', detail: 'Lighthouse CI and byte budgets on PRs, RUM with `web-vitals`, alerts on p75 after releases.' },
+      ],
       points: [
         'Core Web Vitals are judged at the 75th percentile of real visits: LCP 2.5 s or less, INP 200 ms or less, CLS 0.1 or less. Field data says whether there is a problem; lab tools say why.',
         'TTFB is the first byte of HTML; FCP the first text or image painted; LCP the largest element in the viewport painted. The gaps between them locate the delay.',
@@ -989,6 +1068,16 @@ search.addEventListener('input', () => {
       },
     ],
     lesson: {
+      intro:
+        'A Web Worker runs JavaScript on its own thread, so heavy computation stops blocking input and rendering on the main thread. It fixes long tasks and INP, not slow network requests.',
+      takeaways: [
+        { term: 'Main thread', detail: 'Runs your JavaScript, handles input and renders frames. Long work there shows as long tasks and poor INP.' },
+        { term: 'Worker scope', detail: 'Own thread and event loop, `fetch` and timers, but no DOM: `document` is undefined.' },
+        { term: '`postMessage`', detail: 'Data is copied by structured clone: objects, `Date`, `Map` survive; functions throw.' },
+        { term: 'Transfer', detail: 'An `ArrayBuffer` can be transferred instead of copied.' },
+        { term: 'Message hygiene', detail: 'Copying costs main-thread time: keep messages small, tag requests with an id, drop stale answers.' },
+        { term: 'Order of fixes', detail: 'Do less work, then `scheduler.yield()`, then a worker.' },
+      ],
       points: [
         'The main thread runs your JavaScript, handles input and renders frames. A long computation there freezes taps and animations: it shows as long tasks and a poor INP.',
         'A Web Worker runs a script on its own thread with its own event loop. It has `fetch` and timers but no DOM: `document` is undefined inside one.',
@@ -1079,6 +1168,16 @@ worker.postMessage({ id: 1, query: 'trail' });`,
       },
     ],
     lesson: {
+      intro:
+        'Frontend architecture for many teams is about drawing boundaries so most changes stay inside one area, and enforcing them with tooling. Deployment splits come last, only when needed.',
+      takeaways: [
+        { term: 'Boundaries', detail: 'Follow teams and the domain: each team owns features end to end (orders, refunds, customers).' },
+        { term: 'Feature folders', detail: 'Group code by feature, not by type. Imports flow one way: shared, then features, then app.' },
+        { term: 'Enforcement', detail: 'Lint rules like `import/no-restricted-paths` or Nx module boundaries fail CI; a wiki convention does not.' },
+        { term: 'Shared packages', detail: 'Design system, tokens and API client, versioned with semver.' },
+        { term: 'Monorepo', detail: 'Keeps packages next to their consumers with one CI; a cross-cutting change is one pull request.' },
+        { term: 'Micro-frontends', detail: 'Only for independent deploys; you pay with runtime integration and version skew.' },
+      ],
       points: [
         'Draw boundaries where teams and the domain split: each team owns features end to end (orders, refunds, customers), so most changes stay inside one area.',
         'Inside an app, group code by feature, not by type. Imports flow one way, shared then features then app, and the app shell composes features into routes.',
@@ -1174,6 +1273,16 @@ worker.postMessage({ id: 1, query: 'trail' });`,
       },
     ],
     lesson: {
+      intro:
+        'A design system is tokens, accessible components and the process around them, shipped as a versioned package. It keeps many apps consistent without each team rebuilding the same UI.',
+      takeaways: [
+        { term: 'Primitive tokens', detail: 'Hold raw values like the palette: `--indigo-600`.' },
+        { term: 'Semantic tokens', detail: 'Hold roles like `--color-action`; components use only these.' },
+        { term: 'CSS custom properties', detail: 'Every tool reads them; a theme is a remap under `[data-theme="dark"]`, with no React render.' },
+        { term: 'Components', detail: 'Accessible, often on Radix, React Aria or Base UI; variants as props, compound components, native attributes.' },
+        { term: 'Storybook and semver', detail: 'Document and test each component. Renamed props, new defaults or renamed tokens are major releases.' },
+        { term: 'Ownership', detail: 'Domain components stay in apps. Give the system owners, a contribution process, and measure adoption.' },
+      ],
       points: [
         'A design token is a named design decision stored once. Primitives hold the palette (`--indigo-600`); semantic tokens hold roles (`--color-action`). Components use only semantic tokens.',
         'Ship tokens as CSS custom properties: every styling tool can read them, and a theme is a remap under `[data-theme="dark"]`, with no React render.',
@@ -1285,6 +1394,16 @@ worker.postMessage({ id: 1, query: 'trail' });`,
       },
     ],
     lesson: {
+      intro:
+        'Micro-frontends split one product\'s UI into parts that separate teams build and deploy on their own. They pay off only when independent deploys matter more than their integration costs.',
+      takeaways: [
+        { term: 'Definition', detail: 'Parts of one product built, tested and deployed by separate teams, composed into one experience.' },
+        { term: 'Composition', detail: 'Build time packages, runtime Module Federation, iframes, or routing URLs to different apps.' },
+        { term: '`singleton: true`', detail: 'Shares React once in Module Federation; two copies cause the invalid hook call error.' },
+        { term: 'Benefit', detail: 'Independent deploys. Not a way to share code.' },
+        { term: 'Costs', detail: 'Runtime integration, version skew, harder end-to-end tests, design drift.' },
+        { term: 'Consistency', detail: 'One design system and tokens loaded by the shell, plus visual regression tests in each part.' },
+      ],
       points: [
         'Micro-frontends split one product\'s UI into parts that separate teams build, test and deploy on their own, then compose into one experience.',
         'Composition options: build time (each part is a package bundled into the shell), runtime with Module Federation (the shell loads remote code), iframes, or routing URLs to different apps.',
@@ -1365,6 +1484,16 @@ worker.postMessage({ id: 1, query: 'trail' });`,
       },
     ],
     lesson: {
+      intro:
+        'Migrating a large legacy frontend safely means replacing it piece by piece while both stacks run side by side: the strangler fig pattern. A full rewrite freezes features and risks never shipping.',
+      takeaways: [
+        { term: 'Strangler fig', detail: 'Old and new run side by side; the new part grows and the old is deleted once unused.' },
+        { term: 'Seam', detail: 'Often the route: a proxy or router sends migrated URLs to the new app. Or mount new components in old pages.' },
+        { term: 'Extract first', detail: 'Session, API client and design tokens, so both stacks stay consistent.' },
+        { term: 'CSS leaks', detail: 'Keep old global CSS from leaking into new components.' },
+        { term: 'Feature flag', detail: 'Each migrated page ships behind one; compare errors and performance, roll back in seconds.' },
+        { term: 'Finishing', detail: 'New features only in the new stack; track remaining legacy pages.' },
+      ],
       points: [
         'The strangler fig pattern replaces a legacy system piece by piece: old and new run side by side, the new part grows, and the old part is deleted once nothing uses it.',
         'The seam is often the route: a proxy or router sends migrated URLs to the new app. Inside a page, you can also mount new components into old pages.',
@@ -1456,6 +1585,16 @@ pnpm -r run lint && pnpm -r run test && pnpm -r run build`,
       },
     ],
     lesson: {
+      intro:
+        'A frontend monorepo holds apps and shared packages in one repository, so a change to a shared library and its consumers is one pull request. Tooling keeps builds fast and versions in order.',
+      takeaways: [
+        { term: '`apps/` and `packages/`', detail: 'What you deploy, and shared code: design system, tokens, API client, configs.' },
+        { term: 'pnpm workspaces', detail: 'Folders listed in `pnpm-workspace.yaml`; `workspace:*` links a local package, replaced on publish.' },
+        { term: '`dependsOn: ["^build"]`', detail: 'Turborepo or Nx builds dependencies first.' },
+        { term: 'Caching', detail: 'Outputs cached by a hash of the inputs; remote caching shares them between machines.' },
+        { term: 'Affected-only runs', detail: 'CI runs only what a change touches. Nx adds enforced boundaries with tags.' },
+        { term: 'Changesets', detail: 'Records the bump and changelog line per PR, then versions and publishes changed packages.' },
+      ],
       points: [
         'A monorepo holds several packages in one repository: `apps/` for what you deploy, `packages/` for shared code such as the design system, tokens, API client and configs.',
         'pnpm workspaces list the package folders in `pnpm-workspace.yaml`; an app depends on a local package with `workspace:*`, replaced by the real version when published.',
@@ -1568,6 +1707,16 @@ pollStatus((status) => { order.status = status; });`,
       },
     ],
     lesson: {
+      intro:
+        'Vue offers two styles on one reactivity system: the Options API with object options and `this`, and the Composition API with imported functions. The second groups code by feature and is recommended for apps.',
+      takeaways: [
+        { term: 'Options API', detail: '`data`, `methods`, `computed` and hooks as options of an object, reached through `this`.' },
+        { term: 'Composition API', detail: 'In `<script setup>`: `ref`, `reactive`, `computed`, `watch`, `onMounted`, grouped by feature.' },
+        { term: 'Composables', detail: 'Reusable logic like `useOrderStatus()`, the Vue counterpart of React custom hooks.' },
+        { term: '`setup`', detail: 'Runs once per component instance, unlike a React component on every render.' },
+        { term: '`ref` vs `reactive`', detail: '`ref` holds any value behind `.value`; `reactive` cannot hold primitives and breaks when destructured.' },
+        { term: 'Dependency tracking', detail: 'Vue re-renders only components that read a changed value; `computed` needs no dependency array.' },
+      ],
       points: [
         'Vue offers two styles on one reactivity system. The Options API declares `data`, `methods`, `computed` and hooks as options of an object, reached through `this`.',
         'The Composition API, usually in `<script setup>`, uses imported functions: `ref`, `reactive`, `computed`, `watch`, `onMounted`. Logic is grouped by feature, not by option type.',
@@ -1673,6 +1822,16 @@ export class OrderDetail {
       },
     ],
     lesson: {
+      intro:
+        'Dependency injection means a class receives what it needs instead of creating it. Angular builds it into the framework through providers and injectors, which also makes services easy to fake in tests.',
+      takeaways: [
+        { term: 'Dependency injection', detail: 'A class declares what it needs; the injector creates and supplies it.' },
+        { term: '`providedIn: \'root\'`', detail: 'With `@Injectable`: one app-wide instance, left out of the bundle if nothing uses it.' },
+        { term: '`inject()`', detail: 'A component asks for a service in a field: `inject(OrdersService)`.' },
+        { term: 'Component `providers`', detail: 'One instance per component instance, visible to its children and destroyed with it.' },
+        { term: '`TestBed`', detail: 'Swaps in fakes: `{ provide: OrdersService, useValue: fake }`.' },
+        { term: 'React comparison', detail: 'Like Context for services, built into the framework.' },
+      ],
       points: [
         'Dependency injection (DI): a class declares what it needs, and something else creates and supplies it. In Angular, that something is the injector.',
         "A service is registered with a provider. `@Injectable({ providedIn: 'root' })` makes one app-wide instance, left out of the bundle if nothing uses it.",
@@ -1797,6 +1956,16 @@ export class OrderDetail {
       },
     ],
     lesson: {
+      intro:
+        'A signal is a reactive value that tracks who reads it and notifies only them on change. Frameworks like Solid, Angular, Vue and Preact use signals for fine-grained updates, unlike React\'s re-render model.',
+      takeaways: [
+        { term: 'Signal', detail: 'Reading it in a template, computed value or effect subscribes that code; writing notifies exactly those readers.' },
+        { term: 'APIs', detail: 'Solid `createSignal(0)`; Angular `count()` and `count.set(1)`; Preact `.value`; Vue refs.' },
+        { term: 'Fine-grained updates', detail: 'Solid runs a component once, then updates only the DOM that reads a changed signal.' },
+        { term: 'React model', detail: 'State is a snapshot per render: `setState` re-runs the component and children, then React diffs.' },
+        { term: 'React Compiler', detail: 'Automates memoization, so unchanged parts are skipped.' },
+        { term: 'Trade-off', detail: 'Signals do less work but hide a dependency graph; React re-renders are easier to reason about.' },
+      ],
       points: [
         'A signal is a value container that records who reads it. Reading it in a template, computed value or effect subscribes that code; writing it notifies exactly those readers.',
         'APIs differ: Solid `const [count, setCount] = createSignal(0)`; Angular `count()` and `count.set(1)`; Preact uses `.value`. Vue\'s docs call refs the same kind of primitive.',
@@ -1905,6 +2074,16 @@ const { product } = Astro.props;
       },
     ],
     lesson: {
+      intro:
+        'Islands architecture renders a page to static HTML and hydrates only its interactive components, each on its own. It keeps content-heavy sites fast while still using component frameworks.',
+      takeaways: [
+        { term: 'Islands', detail: 'Interactive components hydrated independently in an otherwise static HTML page.' },
+        { term: 'No JS by default', detail: 'Astro components ship no JavaScript unless a `client:*` directive opts in.' },
+        { term: '`client:load` / `idle` / `visible`', detail: 'Hydrate at once; when the browser is idle; on entering the viewport.' },
+        { term: 'Server islands', detail: '`server:defer` renders slow dynamic parts on the server separately from the page.' },
+        { term: 'Isolation', detail: 'A React context does not span islands: share state with Nano Stores, events or the URL.' },
+        { term: 'Best fit', detail: 'Content sites (marketing, blogs, docs). Mostly interactive app screens gain little.' },
+      ],
       points: [
         'Islands architecture renders the page to static HTML and hydrates only interactive components, the islands, each independently of the others.',
         'In Astro, components ship no JavaScript by default. A `client:*` directive opts in: `client:load` hydrates at once, `client:idle` when the browser is idle, `client:visible` on entering the viewport.',

@@ -71,6 +71,16 @@ export const codingRoundCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'A frontend coding round grades how you work, not only the finished feature. Clarifying, planning aloud and leaving time for edge cases and a test score as much as the code.',
+      takeaways: [
+        { term: 'Scorecard', detail: 'Clarify, plan, working code first, edge cases, tests, accessibility, communication. Speed alone is not on it.' },
+        { term: 'Clarify', detail: 'Restate the task, ask two or three questions, write the answers as comments.' },
+        { term: 'Plan aloud', detail: 'Data shape, then a simple working version by the half-way mark. Avoid early abstractions.' },
+        { term: 'Then', detail: 'Edge cases, one test and accessibility, with native elements.' },
+        { term: 'Ten minutes left', detail: 'Stop adding features: write the test for the main path and list what you would do next.' },
+        { term: 'Think aloud', detail: 'Name each trade-off as you make it.' },
+      ],
       points: [
         'Most frontend loops include live coding, also called machine coding: building a small working UI under time while an engineer watches. Others add a take-home, a code review round or a debugging round.',
         'The scorecard grades habits: clarify, plan, working code first, edge cases, tests, accessibility and communication. Speed alone is not on it.',
@@ -183,6 +193,16 @@ export const codingRoundCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Writing `Promise.all` by hand tests whether you understand ordering, settling and edge cases of promises. The result must keep input order and settle exactly once.',
+      takeaways: [
+        { term: 'Contract', detail: 'Fulfils with all results in input order, or rejects with the first rejection.' },
+        { term: 'Store by index', detail: '`results[i] = value`, not `push`, which would give completion order.' },
+        { term: 'Pending counter', detail: 'Resolve when it reaches zero; `results.length` cannot tell you.' },
+        { term: '`Promise.resolve(input)`', detail: 'Wraps plain values and thenables. An empty input must resolve at once.' },
+        { term: 'First rejection', detail: 'Wins; a promise settles once. The other operations keep running; only an `AbortSignal` stops them.' },
+        { term: '`Promise.withResolvers`', detail: 'ES2024: lets the test choose which input finishes first, with no sleeps.' },
+      ],
       points: [
         '`Promise.all` takes values or promises and returns one promise. It fulfils with all the results in input order, or rejects with the first rejection.',
         'Store each result at its index, not with `push`, which would give completion order. A pending counter, not `results.length`, tells you when all are done.',
@@ -290,6 +310,15 @@ export const codingRoundCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'An event emitter lets code subscribe to named events and other code emit them. The interview is about the edge cases: `once`, unsubscribing during an emit, and naming the semantics you chose.',
+      takeaways: [
+        { term: '`on` / `off` / `emit`', detail: 'Subscribe, unsubscribe, and call listeners with arguments; `on` returns an unsubscribe function.' },
+        { term: '`once` storage', detail: 'Store the original function plus a flag; a wrapper makes `off(event, listener)` miss it.' },
+        { term: 'Snapshot iteration', detail: 'Never mutate the arrays: `on` and `off` replace them, so `emit` iterates a snapshot.' },
+        { term: 'Once before call', detail: 'Remove the entry before calling it, so a nested emit cannot run it twice.' },
+        { term: 'Node vs DOM', detail: '`EventEmitter` runs a listener removed mid-emit and runs duplicates twice; `EventTarget` does neither.' },
+      ],
       points: [
         'An event emitter lets code subscribe to named events with `on` and other code `emit` them with arguments. `off` unsubscribes, and `once` listens a single time.',
         'Store `once` listeners as the original function plus a flag. A wrapper function would make `off(event, listener)` miss them.',
@@ -410,6 +439,16 @@ emit(event, ...args) {
       },
     ],
     lesson: {
+      intro:
+        'Debounce and throttle limit how often a function runs, for search boxes, scroll and resize. Writing them tests closures, `this`, cleanup and testing with fake time.',
+      takeaways: [
+        { term: 'Debounce', detail: 'Runs once calls stop for the delay, with the last arguments: each call clears and restarts one timer.' },
+        { term: '`fn.apply(this, args)`', detail: 'Return a regular `function` to keep the caller\'s `this`; `fn(...args)` runs with `this` undefined.' },
+        { term: '`cancel()`', detail: 'Clears the timer so an unmounted component is never called later.' },
+        { term: 'Throttle', detail: 'At most once per interval.' },
+        { term: 'Leading / trailing', detail: 'Say the variant first: first call at once, last call at the end with its arguments, or both.' },
+        { term: '`t.mock.timers`', detail: 'Mock timers in `node:test`: move time by hand, no real waits.' },
+      ],
       points: [
         'A debounced function runs once the calls stop for a delay, with the arguments of the last call. Each call clears the pending timer and starts a new one.',
         'Keep `this`: return a regular `function` and call `fn.apply(this, args)`. A plain `fn(...args)` call runs with `this` undefined.',
@@ -528,6 +567,16 @@ emit(event, ...args) {
       },
     ],
     lesson: {
+      intro:
+        'A concurrency limit runs an async task on many items with at most N in flight, instead of starting them all at once. It is a classic coding question built on a small worker pool.',
+      takeaways: [
+        { term: '`Promise.all` on 200 calls', detail: 'Starts all 200 at once.' },
+        { term: 'Workers', detail: 'N async loops that take the next item, await its task, then take another.' },
+        { term: '`items.entries()`', detail: 'One shared iterator: each item is handed out once, with its index.' },
+        { term: 'Store by index', detail: 'Keeps the input order of the results.' },
+        { term: 'Validate the limit', detail: 'With 0 no worker starts and the result is an array of empty slots.' },
+        { term: 'Failure rule', detail: 'Reject on the first error and stop new tasks, for example with a `failed` flag.' },
+      ],
       points: [
         'A concurrency limit runs an async task on many items with at most N in flight. `Promise.all` on 200 calls starts all 200 at once.',
         'Start N workers: async loops that take the next item, await its task, then take another. They share one iterator from `items.entries()`, so each item is handed out once.',
@@ -631,6 +680,16 @@ emit(event, ...args) {
       },
     ],
     lesson: {
+      intro:
+        'The orders table is a common machine-coding task: filter, sort and paginate a list. The key decision is one piece of state with the visible rows derived during render.',
+      takeaways: [
+        { term: 'Query state', detail: 'One piece of state: status filter, sort key and direction, page.' },
+        { term: 'Derived rows', detail: 'Computed during render; copying them into state with an effect is a second truth, one render late.' },
+        { term: '`selectOrders`', detail: 'A pure function that filters, sorts with `toSorted`, slices a page; testable without React.' },
+        { term: 'Page reset', detail: 'In the same handler that changes filter or sort, or "Page 3 of 1" shows empty.' },
+        { term: 'Headers and keys', detail: '`button` inside `th`, `aria-sort` on the sorted column, rows keyed by order id.' },
+        { term: 'At 50,000 orders', detail: 'Move sorting, filtering and paging to the server, keep the query in the URL, virtualize.' },
+      ],
       points: [
         'Keep one piece of state, the query (status, sort, page), and derive the visible rows during render. Rows copied into state by an effect are a second source of truth, one render late.',
         'Put the data logic in a pure function that filters, sorts with `toSorted`, which returns a new array, and slices one page. It is testable without React and never mutates the parent\'s orders.',
@@ -746,6 +805,16 @@ function selectOrders(orders, { status, sort, page }) {
       },
     ],
     lesson: {
+      intro:
+        'An accessible modal is a frequent machine-coding task. The native `dialog` element does the hard focus work, so the job is to drive it from React and name it correctly.',
+      takeaways: [
+        { term: 'Four duties', detail: 'Focus in on open, page behind out of reach, Escape closes, focus back to the opener.' },
+        { term: '`showModal()`', detail: 'Does all four and makes the page inert; `show()` opens it without being modal.' },
+        { term: 'Effect on `open`', detail: '`showModal()` when it becomes true, `close()` when false.' },
+        { term: '`aria-labelledby`', detail: 'Names the dialog from its heading.' },
+        { term: '`close` event', detail: 'Fires for every close, Escape or `close()`: keep `onClose` idempotent.' },
+        { term: 'Testing', detail: 'jsdom has no `showModal`: test focus in a real browser.' },
+      ],
       points: [
         'An accessible modal does four things: it moves focus into itself on open, keeps users out of the page behind, closes on Escape, and returns focus to the button that opened it.',
         'The native `dialog` element opened with `showModal()` does all four, and makes the rest of the page inert: it cannot be focused or clicked. `show()` opens it without being modal.',
@@ -854,6 +923,15 @@ return (
       },
     ],
     lesson: {
+      intro:
+        'A fetch-and-display take-home is read before the debrief, and reviewers judge the unhappy states, the tests and the README as much as the happy path.',
+      takeaways: [
+        { term: 'Four states', detail: 'Loading, error with a retry, empty, and data, designed before the happy path.' },
+        { term: '`fetch` rejection', detail: 'Only on network failure; a 404 or 503 resolves with `response.ok` false, so throw on non-2xx.' },
+        { term: 'TanStack Query', detail: 'Handles caching, retries and stale responses; retries 3 times by default, so turn retries off in tests.' },
+        { term: 'MSW', detail: 'Intercepts requests at the network level: test the real component, query by role.' },
+        { term: 'README', detail: 'Run and test commands, structure, states handled, trade-offs, what you left out and why.' },
+      ],
       points: [
         'A take-home is read before the debrief, and reviewers open the unhappy states first. Design loading, error with a retry, empty, and data before the happy path.',
         '`fetch` rejects only on a network failure; a 404 or a 503 resolves with `response.ok` false. Throw on a non-2xx status so the error state shows.',
@@ -957,6 +1035,15 @@ return <OrdersTable orders={orders.data} />;`,
       },
     ],
     lesson: {
+      intro:
+        'In the code review round you get a short component with hidden bugs and 30 to 45 minutes. You are graded on what you find and the order in which you report it.',
+      takeaways: [
+        { term: 'Reading order', detail: 'Once for what it does, then once per risk: security, correctness, accessibility, performance, style.' },
+        { term: 'Usual React findings', detail: '`dangerouslySetInnerHTML` with user text, clickable `div`, missing `key`, mutated prop, state derived in an effect.' },
+        { term: 'Ignored promise', detail: 'A promise with no error handling is a finding too.' },
+        { term: 'Comment format', detail: 'Severity label (blocker, issue, suggestion), the risk in this app, the fix.' },
+        { term: 'Reporting order', detail: 'Blocker first, so it is heard if time runs out; end with one thing that is good.' },
+      ],
       points: [
         'In the review round you get a short component with hidden bugs and 30 to 45 minutes. The grade is what you find and the order in which you report it.',
         'Read it once for what it does, then once per risk, most severe first: security, correctness and data, accessibility, performance, then style.',
@@ -1065,6 +1152,16 @@ return <ul>{sorted.map((note) => (
       },
     ],
     lesson: {
+      intro:
+        'The debugging round checks your method: reproduce, form one hypothesis, and confirm it with one observation before changing code. Stale search results and dead buttons are classic cases.',
+      takeaways: [
+        { term: 'Method', detail: 'Reproduce, read the code, state one hypothesis aloud, check it with one observation.' },
+        { term: 'Stale results', detail: 'A race: the older response arrives last and responses are applied in arrival order.' },
+        { term: '`AbortController` per run', detail: 'Aborted in the effect cleanup, which React runs before the next run; or key a query by the term.' },
+        { term: 'Dead click', detail: 'Check the console for a startup error first.' },
+        { term: '`document.elementFromPoint`', detail: 'At the button: shows which element really receives the click, such as an invisible overlay.' },
+        { term: 'Other suspects', detail: 'A stuck `disabled`, or a form button without `type="button"`, which submits.' },
+      ],
       points: [
         'The method: reproduce, read the code, state one hypothesis aloud, and check it with one observation before changing anything.',
         'Results for an older search are a race condition: two requests are in flight, the older response arrives last, and the code applies responses in arrival order.',

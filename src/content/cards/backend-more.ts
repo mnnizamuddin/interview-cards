@@ -105,6 +105,16 @@ return reply.header('etag', \`"\${next.version}"\`).send();`,
       },
     ],
     lesson: {
+      intro:
+        'Conditional requests stop the lost update: two clients edit the same version and the second save silently erases the first. The server tags each version with an `ETag`, and the client sends it back so stale writes are refused.',
+      takeaways: [
+        { term: '`ETag`', detail: 'A response header naming one version of a resource, such as `"7"`, derived from a version column or a hash of the body.' },
+        { term: '`If-Match` on a write', detail: 'Sends the ETag back. If the resource changed since, the server answers 412 Precondition Failed and changes nothing.' },
+        { term: '412 Precondition Failed', detail: 'The client reloads the resource, merges its edit and tries again.' },
+        { term: '428 Precondition Required', detail: 'Answers a write sent without `If-Match` when the server requires conditional writes.' },
+        { term: 'Version check in the `UPDATE`', detail: '`UPDATE ... WHERE id = $1 AND version = $2`, never a separate read first, or another request slips in between.' },
+        { term: '`If-None-Match` on a read', detail: 'Gets 304 Not Modified with no body when nothing changed.' },
+      ],
       points: [
         'A lost update happens when two clients read the same version, both edit it, and the second save silently erases the first. HTTP prevents it with conditional requests.',
         'An `ETag` (entity tag) is a response header that identifies one version of a resource, such as `ETag: "7"`. The server can derive it from a version column or from a hash of the body.',
@@ -215,6 +225,16 @@ app.patch('/me', async (req, res) => {
       },
     ],
     lesson: {
+      intro:
+        'Broken object property level authorization is about single fields of an object: who may write each one and who may read each one. Skipping that decision lets callers set fields like `role` or read fields like a password hash.',
+      takeaways: [
+        { term: 'OWASP API3', detail: 'Broken object property level authorization: mass assignment on the way in, excessive data exposure on the way out.' },
+        { term: 'Mass assignment', detail: 'Accepting a property the caller should not set, such as `role` in `PATCH /me`.' },
+        { term: 'Excessive data exposure', detail: 'Returning a property the caller should not see, such as `passwordHash`.' },
+        { term: 'Input schema at the edge', detail: 'Validate the body before business code runs; only the listed editable fields get through.' },
+        { term: 'Response DTO', detail: 'Send output through an allow-list schema instead of deleting the fields you remember.' },
+        { term: 'One schema per role', detail: 'When roles see different fields, each role gets its own output schema.' },
+      ],
       points: [
         'OWASP API3, broken object property level authorization, is about single properties of an object: who may write each one, and who may read each one.',
         'Mass assignment is accepting properties the caller should not set, such as `role` in `PATCH /me`. Excessive data exposure is returning properties the caller should not see, such as `passwordHash`.',
@@ -336,6 +356,16 @@ const PublicCustomer = z.object({ id: z.string(), displayName: z.string() });
       },
     ],
     lesson: {
+      intro:
+        'A GraphQL schema is the typed list of every type and field one endpoint offers. Its nullability choices decide how far a single failure spreads, and additive changes let it evolve without a versioned endpoint.',
+      takeaways: [
+        { term: 'Nullable by default', detail: '`!` marks a field non-null. A failed non-null field nulls its parent, up to the nearest nullable position.' },
+        { term: 'Non-null fields', detail: 'Fields from the same row as their parent, like `id` or `status`.' },
+        { term: 'Nullable fields', detail: 'Fields that call another table or service, so one failure does not erase a whole list.' },
+        { term: 'Connections', detail: 'Lists as `edges` with a `cursor` and a `node`, plus `pageInfo`, and a required `first` bounding each page.' },
+        { term: '`@deprecated(reason: ...)`', detail: 'Marks an old field. Watch its usage and remove it at zero.' },
+        { term: 'Breaking-change check in CI', detail: 'Flags removed fields, nullable outputs and new required arguments.' },
+      ],
       points: [
         'A GraphQL schema is a typed description of every type and field the server offers on one endpoint. Clients name the fields they want, and a resolver function runs per field.',
         'Fields are nullable by default; `!` marks a field non-null. If a non-null field fails, GraphQL nulls its parent, up to the nearest nullable position, so one failure can erase a whole list.',
@@ -442,6 +472,16 @@ export const typeDefs = /* GraphQL */ \`
       },
     ],
     lesson: {
+      intro:
+        'In GraphQL the same object is reachable from many fields, so a check in one resolver guards only one path. Authorization belongs in a business-layer policy that every path calls.',
+      takeaways: [
+        { term: 'Many paths to one type', detail: 'An `Order` is reached from `order(id:)`, `orders`, `node(id:)` and any field returning one.' },
+        { term: 'Business-layer policy', detail: 'One policy, such as `orderPolicy.canView(viewer, order)`, called by GraphQL, REST and jobs with a fully loaded user.' },
+        { term: 'Forbidden object', detail: 'Return `null`, so the client cannot tell "not yours" from "missing".' },
+        { term: 'Lists', detail: 'Filter in SQL, such as `WHERE customer_id = $1`, so pages stay full and cursors stay correct.' },
+        { term: 'Sensitive fields', detail: 'Checked one by one in their own resolver, such as a phone number only agents may see.' },
+        { term: 'DataLoaders', detail: 'Created per request, never shared between users.' },
+      ],
       points: [
         'In GraphQL there is no route per object: the same `Order` is reached from `order(id:)`, from `orders`, from `node(id:)` and from any field returning an order. A check in one resolver guards one path.',
         'So put the rules in the business layer: one policy, such as `orderPolicy.canView(viewer, order)`, that GraphQL, REST and jobs all call with a fully loaded user.',
@@ -531,6 +571,16 @@ const Customer = {
       },
     ],
     lesson: {
+      intro:
+        'One GraphQL request can ask for millions of rows, so its cost depends on its content, not on the request count. The server estimates the cost and rejects expensive operations before any resolver runs.',
+      takeaways: [
+        { term: 'Depth limit', detail: 'Rejects operations nested too deep, with a smaller limit for nested lists.' },
+        { term: 'Alias and breadth limits', detail: 'Stop one request from calling the same field 100 times under different names.' },
+        { term: 'Cost analysis', detail: 'Weights each field, multiplies lists by their page size, and rejects an operation above a maximum.' },
+        { term: 'Batch limit', detail: 'Caps the number of operations in one HTTP request.' },
+        { term: 'GraphQL Armor', detail: 'A library bundling these validation rules for Yoga, Apollo Server and Envelop.' },
+        { term: 'Trusted documents', detail: 'Only operations registered at build time run. APQ saves bandwidth but blocks nothing.' },
+      ],
       points: [
         'A GraphQL request\'s cost depends on what it asks for: nesting and page sizes multiply rows. A rate limiter counting requests sees one request either way.',
         'Depth limits reject operations nested too deep, with a smaller limit for nested lists. Alias and breadth limits stop one request from calling the same field 100 times under different names.',
@@ -637,6 +687,16 @@ for (const socket of wss.clients) {
       },
     ],
     lesson: {
+      intro:
+        'A WebSocket is a long-lived connection that starts as an HTTP upgrade. You authenticate once at that upgrade, then keep connections healthy yourself, because they die silently and unread messages pile up in server memory.',
+      takeaways: [
+        { term: 'Authenticate at the upgrade', detail: 'Check `Origin` against an allowlist (cross-site WebSocket hijacking), then the session, before any socket exists.' },
+        { term: 'No token in the URL', detail: 'Logs record URLs. Without a cookie, send the token in the first message.' },
+        { term: '`maxPayload`', detail: 'Caps the size of one incoming message. Also close sockets when the session ends.' },
+        { term: 'Ping every 30 s', detail: 'Terminate any socket that has not answered with a pong by the next round.' },
+        { term: '`bufferedAmount`', detail: '`send()` never blocks: cut a client whose buffer passes a cap; it resyncs on reconnect.' },
+        { term: 'Client reconnection', detail: 'Exponential backoff with jitter, sending the last event id so the server replays what was missed.' },
+      ],
       points: [
         'Authenticate once, at the HTTP upgrade. Browsers send cookies with the handshake, so check `Origin` against an allowlist (to stop cross-site WebSocket hijacking), then the session.',
         'The browser `WebSocket` cannot set headers. Never put a token in the URL, where logs record it; send it in the first message if there is no cookie. Close sockets when the session ends.',
@@ -752,6 +812,16 @@ try {
       },
     ],
     lesson: {
+      intro:
+        'A saga keeps one business operation consistent across services that each own a database, where no single transaction can cover it. Each step commits locally, and compensating actions undo completed steps when a later one fails.',
+      takeaways: [
+        { term: 'Why not 2PC', detail: 'Two-phase commit needs every participant to join; HTTP APIs and brokers cannot.' },
+        { term: 'Local transactions', detail: 'One per service, each publishing its event through an outbox.' },
+        { term: 'Compensations', detail: 'Undo completed steps in business terms, newest first: refund, release stock, cancel the order.' },
+        { term: 'Idempotent and retried', detail: 'A compensation must be safe to repeat and is retried until it succeeds.' },
+        { term: 'Choreography vs orchestration', detail: 'Services react to events, or one component drives the steps. Orchestrate money and long flows, often with Temporal.' },
+        { term: 'No isolation', detail: 'Others see intermediate states, so model them. Put steps that cannot be undone, like shipping, last.' },
+      ],
       points: [
         'When one business operation spans services with their own databases, no single transaction covers it. Two-phase commit (2PC) needs every participant to join, and HTTP APIs and brokers cannot.',
         'A saga is a sequence of local transactions, one per service. Each step commits on its own and publishes its event through an outbox.',
@@ -860,6 +930,16 @@ try {
       },
     ],
     lesson: {
+      intro:
+        'Sequential order numbers are guessable and reveal your sales volume. An order gets two identifiers: a UUIDv7 primary key generated anywhere, and a short public order number that hides the sequence.',
+      takeaways: [
+        { term: 'Sequential ids', detail: 'Anyone can walk them on a tracking page, and two orders show how many you sold in between.' },
+        { term: 'UUIDv7 (RFC 9562)', detail: '128 bits starting with a 48-bit millisecond timestamp: any replica generates it, and new ids sort after old ones.' },
+        { term: '`uuidv7()`', detail: 'Built into PostgreSQL 18.' },
+        { term: 'Base 62', detail: 'Digits 0-9, a-z and A-Z: seven characters hold 62^7, about 3.5 trillion values.' },
+        { term: 'Shuffled sequence', detail: 'A sequence passed through a reversible shuffle: no collisions, and the order is hidden.' },
+        { term: 'Random codes', detail: 'Collide sooner than expected (about 50% after 2.2 million): insert with a unique constraint and retry.' },
+      ],
       points: [
         'A sequential order number is guessable: people can walk the numbers on a tracking page, and two orders reveal how many you sold in between. So an order gets two identifiers.',
         'The primary key is a UUIDv7 (RFC 9562): 128 bits that start with a 48-bit millisecond timestamp. Any replica generates it, and new ids sort after old ones. PostgreSQL 18 has `uuidv7()`.',
@@ -949,6 +1029,16 @@ function encodeBase62(id: number): string {
       },
     ],
     lesson: {
+      intro:
+        'A bounded context is the boundary inside which one model and its vocabulary stay consistent; the same word can mean something else next door. Finding these boundaries and mapping how they relate keeps teams and models from tangling.',
+      takeaways: [
+        { term: 'Ubiquitous language', detail: 'The vocabulary shared by developers and domain experts, consistent inside one context.' },
+        { term: 'Same word, several contexts', detail: '"Order" is a request in Ordering, an amount to capture in Payments, a legal document in Invoicing.' },
+        { term: 'EventStorming', detail: 'A workshop of past-tense business events with domain experts, used to find the boundaries.' },
+        { term: 'Other clues', detail: 'Clusters of optional fields owned by different teams, and files that change together.' },
+        { term: 'Context map', detail: 'Names, for each pair, who is upstream and the relation: customer-supplier, conformist, shared kernel and more.' },
+        { term: 'Anticorruption layer', detail: 'Translates a model you do not control, like a payment provider\'s, in one place, so a change touches one file.' },
+      ],
       points: [
         'A bounded context is the boundary inside which one model and its ubiquitous language, the vocabulary shared by developers and domain experts, stay consistent.',
         'Several contexts are normal: "order" means what the customer asked for in Ordering, an amount to capture in Payments, and a legal document in Invoicing.',
@@ -1051,6 +1141,16 @@ if (refund === order.total) {
       },
     ],
     lesson: {
+      intro:
+        'Entities, value objects and aggregates are the DDD building blocks that keep business rules in one place. The aggregate root guards the invariants, and domain events tell the rest of the system what happened.',
+      takeaways: [
+        { term: 'Entity', detail: 'Has an identity that stays the same while its data changes, like order `ord_42`.' },
+        { term: 'Value object', detail: 'No identity, immutable, compared by value, like `Money`, which can refuse to add two currencies.' },
+        { term: 'Aggregate root', detail: 'The only way into the cluster; its methods protect the invariants, the rules that must always hold.' },
+        { term: 'Aggregate size', detail: 'Keep them small, reference others by id, and change one aggregate per transaction.' },
+        { term: 'Domain event', detail: 'A past-tense fact, like `OrderPlaced`, recorded by the aggregate instead of calling other modules.' },
+        { term: 'Repository', detail: 'Loads and saves one aggregate; `save` writes its events to an outbox in the same transaction, with a version check.' },
+      ],
       points: [
         'An entity has an identity that stays the same while its data changes. A value object has no identity: it is immutable, and two equal values are interchangeable, like `Money`.',
         'An aggregate is a cluster of objects with one root entity. Outside code holds only the root and changes the cluster through its methods, which protect the invariants, the rules that must always hold.',
@@ -1161,6 +1261,16 @@ export async function placeOrder(command: PlaceOrderCommand) {
       },
     ],
     lesson: {
+      intro:
+        'Hexagonal architecture, or ports and adapters, puts the application core in the middle and lets everything else talk to it through interfaces the core declares. It keeps business rules testable without a database, a server or real time.',
+      takeaways: [
+        { term: 'Port', detail: 'An interface that the core itself declares.' },
+        { term: 'Driving (primary) port', detail: 'What the outside may ask: a use case like `PlaceOrder`, called by a controller, a consumer or a test.' },
+        { term: 'Driven (secondary) port', detail: 'What the core needs: an order repository, a price list.' },
+        { term: 'Adapter', detail: 'Implements a port outside the core, such as a SQL order repository. Adapters import the core, never the reverse.' },
+        { term: 'Dependency rule', detail: 'Source dependencies point inwards only: `domain/` imports nothing; dependency inversion makes it possible.' },
+        { term: 'Testing the core', detail: 'Plug in an in-memory repository and a frozen clock: tests run in milliseconds.' },
+      ],
       points: [
         'Hexagonal architecture, or ports and adapters, puts the application core in the middle. Everything else talks to it through ports, interfaces that the core itself declares.',
         'Driving (primary) ports are what the outside may ask the core to do: use cases called by a controller, a consumer or a test. Driven (secondary) ports are what the core needs: a repository, a price list.',

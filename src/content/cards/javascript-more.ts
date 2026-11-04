@@ -119,6 +119,16 @@ export const javascriptMoreCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Destructuring unpacks object properties by name and array items by position into variables in one statement. It is everywhere in function parameters and React props.',
+      takeaways: [
+        { term: 'Object pattern', detail: '`const { id, status } = order` picks properties by name.' },
+        { term: 'Array pattern', detail: '`const [first] = items` picks by position and works on any iterable.' },
+        { term: 'Rename, nest, rest', detail: 'A colon renames, nesting reaches inner objects, and `...rest` collects the remaining properties.' },
+        { term: 'Default value', detail: 'Applies only when the value is `undefined`; a `null` value stays `null`.' },
+        { term: 'Missing parent', detail: 'Destructuring `null` or `undefined` throws a TypeError, nested patterns included.' },
+        { term: 'Swap', detail: '`[a, b] = [b, a]` swaps two variables.' },
+      ],
       points: [
         'Destructuring unpacks values into variables in one statement. Object patterns pick properties by name, `const { id, status } = order`; array patterns pick items by position, `const [first] = items`.',
         'Object patterns can rename, nest and collect the rest: `{ status: label, customer: { name }, ...rest }`. A colon renames (here to `label`); an equals sign sets a default.',
@@ -242,6 +252,16 @@ console.log(order.customer?.name); // undefined`,
       },
     ],
     lesson: {
+      intro:
+        'The same three dots do opposite jobs: spread expands an array or object, rest collects what is left. Both are daily tools for immutable updates and flexible function signatures.',
+      takeaways: [
+        { term: 'Spread', detail: 'Expands into a literal or arguments: `[...items, newItem]`, `Math.max(...prices)`.' },
+        { term: 'Object spread', detail: '`{ ...order, status: \'shipped\' }` copies and overrides: later properties win.' },
+        { term: 'Rest parameter', detail: 'Gathers the remaining arguments into a real array and must be the last parameter.' },
+        { term: '`arguments`', detail: 'Not a real array, and arrow functions do not have it: prefer a rest parameter.' },
+        { term: 'Shallow copy', detail: 'Nested objects and arrays stay shared with the original: copy each level you change.' },
+        { term: 'Spreading `null`', detail: '`[...null]` throws a TypeError; `{ ...null }` adds nothing, handy for optional fields.' },
+      ],
       points: [
         'The same three dots do opposite jobs. Spread expands an iterable or an object into a new literal or into arguments; rest collects what is left into a new array or object.',
         'Spread: `[...items, newItem]` copies an array, `{ ...order, status: \'shipped\' }` copies an object and overrides a field, `Math.max(...prices)` passes items as arguments. Later properties win.',
@@ -369,6 +389,16 @@ console.log({ ...null });                            // {}`,
       },
     ],
     lesson: {
+      intro:
+        'Event delegation puts one listener on a container instead of one per child and relies on bubbling. It saves listeners and covers elements added later.',
+      takeaways: [
+        { term: 'Three phases', detail: 'Capture (window down to target), target, then bubble back up through every ancestor.' },
+        { term: '`addEventListener`', detail: 'Listens in the bubble phase unless passed `{ capture: true }`.' },
+        { term: '`target` vs `currentTarget`', detail: '`target` is where the event started; `currentTarget` is the element whose listener runs.' },
+        { term: '`closest()`', detail: '`event.target.closest(\'button[data-action]\')` finds the element that matters.' },
+        { term: 'Non-bubbling events', detail: '`focus` and `blur` do not bubble: delegate `focusin` and `focusout`.' },
+        { term: 'React', detail: 'React DOM already delegates: it attaches its listeners to the root container.' },
+      ],
       points: [
         'A DOM event travels in three phases: capture, from the window down to the target; target; then bubble, back up through every ancestor. `addEventListener` listens in the bubble phase unless passed `{ capture: true }`.',
         'Event delegation puts one listener on a container instead of one on each child. Events on any child bubble up to it, including children added later, such as product cards loaded on scroll.',
@@ -485,6 +515,16 @@ grid.addEventListener('click', (event) => {
       },
     ],
     lesson: {
+      intro:
+        '`forEach`, `map`, `filter` and `reduce` all walk an array with a callback, but each returns something different. Choose by the result you need.',
+      takeaways: [
+        { term: '`forEach`', detail: 'Returns `undefined`: side effects only. A `return` ends one call, not the loop, and it does not wait for promises.' },
+        { term: '`map`', detail: 'A new array of the same length, each item transformed.' },
+        { term: '`filter`', detail: 'A new array of the items whose callback returned a truthy value.' },
+        { term: '`reduce(fn, initial)`', detail: 'Folds the array into one value. Without `initial`, an empty array throws a TypeError.' },
+        { term: 'No mutation', detail: 'None of the four changes the original array.' },
+        { term: '`for...of`', detail: 'Use it when you need `break` or `await`.' },
+      ],
       points: [
         'All four call a callback with `(item, index, array)` for each item, left to right. They differ in what they return, and none of them changes the original array.',
         '`forEach` returns `undefined`: use it for side effects. A `return` in its callback only ends that call, and it ignores returned promises, so an `await` inside does not make the loop wait.',

@@ -117,6 +117,16 @@ export const reactCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'The virtual DOM is the tree of plain objects your components return. React compares each new tree with the previous one and applies only the differences to the real DOM, so you describe the UI for any state instead of updating it by hand.',
+      takeaways: [
+        { term: 'React element', detail: 'A plain object with a `type` and `props` describing a piece of UI. A tree of them is the virtual DOM.' },
+        { term: 'Render phase', detail: 'React calls your components to compute the new tree, so they must be pure.' },
+        { term: 'Reconciliation', detail: 'React compares the new tree with the previous one to find what changed.' },
+        { term: 'Commit phase', detail: 'Only the differences reach the real DOM; a component whose output did not change leaves the DOM untouched.' },
+        { term: 'Different type, same position', detail: 'Replaces the whole subtree, state included. Children of a list are matched by `key`.' },
+        { term: 'Performance', detail: 'Not faster than a well-targeted direct DOM update: the gain is declarative code.' },
+      ],
       points: [
         'A React element is a plain JavaScript object, with a `type` and `props`, describing a piece of UI. Components return trees of them, and that tree is what people call the virtual DOM.',
         'In the render phase React calls your components to compute the new tree, so they must be pure. It compares that tree with the previous one (reconciliation), then the commit phase applies only the differences to the DOM.',
@@ -241,6 +251,16 @@ console.log(element.type, element.props);
       },
     ],
     lesson: {
+      intro:
+        'Props are the inputs a parent passes down; state is the data a component owns and changes over time. Knowing who owns each piece of data decides where it lives, how it changes and what re-renders.',
+      takeaways: [
+        { term: 'Props', detail: 'Inputs from the parent, like function arguments. The child reads them and never changes them.' },
+        { term: 'State', detail: 'Data the component owns, created with `useState`. Calling the setter schedules a new render.' },
+        { term: 'Snapshot', detail: 'In a handler, `count` keeps the value of the render that created it, even right after `setCount`.' },
+        { term: 'Updater function', detail: '`setCount((c) => c + 1)` when the new value depends on the old one.' },
+        { term: 'Callback prop', detail: 'Data flows down; a child asks for a change by calling a callback, and the owner updates its state.' },
+        { term: '`useState(prop)`', detail: 'Reads the prop on the first render only. Derive values during render, or reset with a new `key`.' },
+      ],
       points: [
         'Props are the inputs a parent passes to a child, like function arguments. The child reads them and never changes them.',
         'State is data a component owns, created with `useState`. Calling the setter schedules a new render of that component, which receives the new value.',
@@ -364,6 +384,16 @@ console.log(element.type, element.props);
       },
     ],
     lesson: {
+      intro:
+        '`useEffect` synchronises a component with something outside React, like a WebSocket, a timer or a browser API. Most effect bugs come from a missing dependency, a missing cleanup, or an effect used where render or a handler would do.',
+      takeaways: [
+        { term: 'When it runs', detail: 'After React has committed the changes to the DOM.' },
+        { term: 'Dependency array', detail: 'Every reactive value the effect reads. React compares each with `Object.is` and runs the effect again on a change.' },
+        { term: 'Cleanup', detail: 'Runs before the next run, with the old values, and on unmount.' },
+        { term: 'Strict Mode', detail: 'In development, runs setup, cleanup and setup again on mount to prove the cleanup works.' },
+        { term: 'Not needed for', detail: 'Derived data (compute it during render) or reacting to a click (do it in the handler).' },
+        { term: 'Fetching in an effect', detail: 'Ignore or abort the previous request in the cleanup, or an old response can overwrite a newer one.' },
+      ],
       points: [
         'An effect synchronises a component with something outside React: a WebSocket, a timer, a browser API. It runs after React has committed the changes to the DOM.',
         'The dependency array lists every reactive value the effect reads: props, state and values computed from them. React compares each with `Object.is` and runs the effect again when one changed.',
@@ -492,6 +522,16 @@ console.log(element.type, element.props);
       },
     ],
     lesson: {
+      intro:
+        'An input is controlled when React state holds its value, and uncontrolled when the DOM does. The choice decides where you validate, how often the form re-renders and how you read the value on submit.',
+      takeaways: [
+        { term: 'Controlled', detail: 'Pass `value` and update it in `onChange`: state is the source of truth, so you can validate on every keystroke.' },
+        { term: 'Uncontrolled', detail: 'Pass only `defaultValue`; the DOM keeps the value and you read it on submit with `FormData` or a ref.' },
+        { term: '`defaultValue`', detail: 'Sets the first value only; changing it later does nothing.' },
+        { term: '`value` without `onChange`', detail: 'Gives a read-only field and a warning.' },
+        { term: '`value` starting as `undefined`', detail: 'Switches from uncontrolled to controlled when it becomes a string, with a warning: start with `\'\'`.' },
+        { term: 'React 19 form actions', detail: 'They receive a `FormData` on submit, which fits uncontrolled inputs. React Hook Form also relies on uncontrolled inputs.' },
+      ],
       points: [
         'Controlled: you pass `value` and update it in `onChange`. React state is the source of truth, so you can validate or format on every keystroke.',
         'Uncontrolled: you pass only `defaultValue`, the DOM keeps the value, and you read it on submit with `FormData` or a ref. `defaultValue` sets the first value only; changing it later does nothing.',
@@ -621,6 +661,15 @@ console.log(element.type, element.props);
       },
     ],
     lesson: {
+      intro:
+        'Choosing where state lives starts with sorting it by kind: API data, URL state, local UI state or shared client state. Each kind has a natural home, and the right one removes most of what global stores used to hold.',
+      takeaways: [
+        { term: 'Server state', detail: 'A copy of API data that can go stale: keep it in a query cache such as TanStack Query.' },
+        { term: 'URL query string', detail: 'For state a link should keep, like the orders table filters.' },
+        { term: '`useState`', detail: 'For local UI state, lifted to the closest common parent when siblings share it.' },
+        { term: 'Context', detail: 'For rarely changing values like theme, current user or locale: every reader re-renders when the value changes.' },
+        { term: 'Zustand, Redux Toolkit', detail: 'For client state many distant components read and update often. A selector re-renders only on a change to its slice.' },
+      ],
       points: [
         'Sort state by kind first. Server state is data from the API, a copy that can go stale. Client state exists only in the browser, like an open panel or a table\'s column layout.',
         'Server state goes in a query cache such as TanStack Query, which handles loading, deduplication, refetching and invalidation after a mutation. That removes most of what global stores used to hold.',
@@ -731,6 +780,16 @@ console.log(element.type, element.props);
       },
     ],
     lesson: {
+      intro:
+        'A `key` tells React which list item is which between renders. Stable keys keep each item\'s state and DOM attached to the right data when the list is reordered, filtered or grows.',
+      takeaways: [
+        { term: 'Matching by key', detail: 'React matches old and new children by key, so it can move, insert or remove items.' },
+        { term: 'Good key', detail: 'Stable and unique among siblings, usually the database id like `order.id`.' },
+        { term: 'Index as key', detail: 'State belongs to a position: reorder, filter or prepend and it ends up on the wrong item.' },
+        { term: 'Random key', detail: '`Math.random()` or `crypto.randomUUID()` during render changes every time, so every item remounts.' },
+        { term: 'Scope of uniqueness', detail: 'Only among siblings: two different lists may reuse the same keys.' },
+        { term: 'Reset with a key', detail: '`<RefundForm key={orderId} />` remounts with fresh state when the key changes, with no effect needed.' },
+      ],
       points: [
         'React matches a list\'s children between renders by their `key`. That lets it move, insert or remove items while each item\'s state and DOM stay attached to the right data.',
         'A key must be stable and unique among its siblings, usually the database id like `order.id`. Two different lists may reuse the same keys.',
@@ -865,6 +924,16 @@ console.log(element.type, element.props);
       },
     ],
     lesson: {
+      intro:
+        'Memoization reuses a previous result when the inputs have not changed. In React it skips renders and keeps references stable, and since React Compiler 1.0 the build can add it for you.',
+      takeaways: [
+        { term: '`Object.is`', detail: 'Inputs are compared by reference: a new object or arrow function counts as a change, even with the same content.' },
+        { term: '`memo(Component)`', detail: 'Skips the render when every prop is shallowly equal to last time.' },
+        { term: '`useMemo`', detail: 'Caches a value until a dependency changes.' },
+        { term: '`useCallback`', detail: 'Caches a function: `useCallback(fn, deps)` equals `useMemo(() => fn, deps)`.' },
+        { term: 'React Compiler', detail: 'Stable since 1.0 in October 2025, it adds memoization at build time; the hooks become escape hatches.' },
+        { term: 'Profiler first', detail: 'Memoization does not make a changed input cheaper. Measure before and after.' },
+      ],
       points: [
         'Memoization reuses a previous result when the inputs have not changed. React compares inputs with `Object.is`, by reference, so a new object or arrow function counts as a change even with the same content.',
         '`memo(Component)` skips rendering the component when every prop is equal to last time, a shallow comparison. One new object or callback prop and it renders anyway.',
@@ -988,6 +1057,15 @@ function OrdersTable({ orders }: { orders: Order[] }) {
       },
     ],
     lesson: {
+      intro:
+        'Rendering thousands of rows at once makes a page slow to render and to type in. The answer comes in steps: question the need, virtualise the list, then keep each row\'s render cheap.',
+      takeaways: [
+        { term: 'Pagination', detail: 'Pagination and filtering on the server send less data and keep the page simple.' },
+        { term: 'Virtualisation', detail: 'Renders only the rows in view plus a few extra (the overscan) inside a spacer as tall as the full list.' },
+        { term: '`useVirtualizer`', detail: 'TanStack Virtual\'s hook. For rows of varying height, give an estimated size and measure with `measureElement`.' },
+        { term: '`useDeferredValue`', detail: 'Keeps typing in a filter responsive, like `useTransition`. It does not shrink the work.' },
+        { term: 'Costs', detail: 'Find-in-page misses rows outside the DOM, scroll position must be restored, screen readers need `aria-rowcount`.' },
+      ],
       points: [
         'First ask whether anyone needs thousands of rows at once. Pagination and filtering on the server send less data and keep the page simple.',
         'Virtualisation (or windowing) renders only the rows in view plus a few extra, the overscan. A spacer as tall as the full list keeps the scrollbar right, and the visible rows are positioned inside it.',
@@ -1109,6 +1187,15 @@ visibleRange(8000, 5000); // { start: 195, end: 220 }: 25 rows instead of 5,000`
       },
     ],
     lesson: {
+      intro:
+        'Data binding links data in your code to what the screen shows. React binds one way, from state to the view, so every change goes through a handler you can trace.',
+      takeaways: [
+        { term: 'One-way binding', detail: 'Data flows from state to the view; the view never writes back by itself.' },
+        { term: 'Two-way binding', detail: 'The framework syncs a field and a variable both ways, like Angular\'s `[(ngModel)]` or Vue\'s `v-model`.' },
+        { term: 'React', detail: 'One-way: props flow down, and a child asks for a change through a callback prop.' },
+        { term: 'Controlled input', detail: 'One-way binding written out: `value` comes from state, `onChange` calls the setter.' },
+        { term: '`v-model` on a component', detail: 'Shorthand for a `modelValue` prop plus an `update:modelValue` event: still props down, events up.' },
+      ],
       points: [
         'Data binding links data in your code to what the screen shows. With one-way binding, data flows from state to the view, and the view never writes back by itself.',
         'With two-way binding, the framework keeps a form field and a variable in sync in both directions automatically, like Angular\'s `[(ngModel)]` or Vue\'s `v-model`.',
@@ -1236,6 +1323,15 @@ return <input value={postcode} onChange={(e) => setPostcode(e.target.value.toUpp
       },
     ],
     lesson: {
+      intro:
+        'Good React tests check behaviour the way a user sees it: render, find elements, interact, check the screen. Tests that read state or hooks break at every refactor.',
+      takeaways: [
+        { term: 'Query by role', detail: 'Query by role and accessible name first: `getByRole(\'button\', { name: \'Refund\' })`. Test ids are a last resort.' },
+        { term: '`user-event`', detail: 'Simulates a real user with focus, key and input events in order; `fireEvent` dispatches a single event.' },
+        { term: '`findBy` and `waitFor`', detail: '`findBy` queries wait for async UI; `waitFor` covers other late assertions.' },
+        { term: 'MSW', detail: 'Mocks HTTP requests, so fetch code and TanStack Query run for real. Give each test a fresh `QueryClient`, retries off.' },
+        { term: 'Playwright', detail: 'A few end-to-end tests for critical flows like checkout; many component tests with Vitest.' },
+      ],
       points: [
         'Test behaviour the way a user sees it: render, find elements, interact, check what is on screen. Tests that read state or hooks break at every refactor.',
         'With React Testing Library, query by role and accessible name first, like `getByRole(\'button\', { name: \'Refund\' })`. Test ids are a last resort.',
@@ -1366,6 +1462,16 @@ return <input value={postcode} onChange={(e) => setPostcode(e.target.value.toUpp
       },
     ],
     lesson: {
+      intro:
+        'Hooks are `use` functions that give function components state, effects, context and refs. They come with one strict rule, call them at the top level, because React matches each call to its state by order.',
+      takeaways: [
+        { term: 'Hook', detail: 'A function whose name starts with `use`: `useState`, `useEffect`, `useContext`, `useRef`.' },
+        { term: 'React 16.8', detail: 'The version that added hooks, so function components could replace classes.' },
+        { term: 'Custom hook', detail: 'Shares stateful logic without wrapper components. It shares logic, not state.' },
+        { term: 'Call order', detail: 'React stores a component\'s hook state in order and matches each call by position.' },
+        { term: 'Top level only', detail: 'Never in a condition, a loop or after an early return. Put a condition inside the `useEffect`.' },
+        { term: '`eslint-plugin-react-hooks`', detail: '`rules-of-hooks` checks where hooks are called, `exhaustive-deps` checks dependency arrays.' },
+      ],
       points: [
         'A hook is a function whose name starts with `use` and that lets a function component use React features: `useState` for state, `useEffect` for effects, `useContext`, `useRef`.',
         'Hooks arrived in React 16.8. They let function components replace classes, and custom hooks share stateful logic without wrapper components. A custom hook shares logic, not state.',
@@ -1506,6 +1612,16 @@ return <input value={postcode} onChange={(e) => setPostcode(e.target.value.toUpp
       },
     ],
     lesson: {
+      intro:
+        'A component mounts, updates and unmounts. With hooks you think of it as synchronisation: an effect starts syncing with something outside React, and its cleanup stops it.',
+      takeaways: [
+        { term: 'Mount', detail: 'Render, commit the DOM, attach refs, layout effects, paint, then effects. Effects run in children before parents.' },
+        { term: 'Update', detail: 'For each effect whose dependencies changed: the cleanup with the old values, then the setup with the new ones.' },
+        { term: 'Unmount', detail: 'Runs every remaining cleanup.' },
+        { term: 'Strict Mode', detail: 'In development, adds a setup, cleanup, setup cycle after mount, so a missing cleanup shows at once.' },
+        { term: 'Class equivalents', detail: 'An effect with `[]` and its cleanup roughly replace `componentDidMount` and `componentWillUnmount`.' },
+        { term: 'Stale closure', detail: 'A long-lived callback, like an interval set once, keeps reading its render\'s values. Updater functions avoid it.' },
+      ],
       points: [
         'A component mounts, updates and unmounts. With hooks you express this as effects: code that starts syncing with something outside React and returns a cleanup that stops it.',
         'Mount: React renders parent then children, commits the DOM, attaches refs, runs layout effects (children first), lets the browser paint, then runs effects, children first.',
@@ -1622,6 +1738,16 @@ return <input value={postcode} onChange={(e) => setPostcode(e.target.value.toUpp
       },
     ],
     lesson: {
+      intro:
+        'React components are written as classes or as functions. Functions with hooks are the recommended style for new code; classes are still supported, and two features still need one.',
+      takeaways: [
+        { term: 'Class component', detail: 'Extends `React.Component`: state in `this.state`, updates with `this.setState`.' },
+        { term: 'Lifecycle methods', detail: '`componentDidMount`, `componentDidUpdate` and `componentWillUnmount` hold a class\'s side effects.' },
+        { term: 'Function component', detail: 'Takes props, returns JSX, and uses hooks for state, effects, context and refs, with no `this`.' },
+        { term: 'Grouping by concern', detail: 'Hooks group code by concern, one effect per external system, not by lifecycle method.' },
+        { term: 'Error boundary', detail: 'Still a class (`getDerivedStateFromError`, `componentDidCatch`), usually taken from `react-error-boundary`.' },
+        { term: '`getSnapshotBeforeUpdate`', detail: 'The other rare feature that still needs a class.' },
+      ],
       points: [
         'A class component extends `React.Component`: state in `this.state`, updates with `this.setState`, side effects in lifecycle methods like `componentDidMount` and `componentWillUnmount`.',
         'A function component takes props and returns JSX. Hooks give it state with `useState`, effects with `useEffect`, context and refs, with no `this`.',
@@ -1736,6 +1862,16 @@ function OrderStatus({ orderId }: { orderId: string }) {
       },
     ],
     lesson: {
+      intro:
+        'JSX is a syntax extension for writing markup inside JavaScript. A compiler turns each tag into a function call that returns a plain object, which is why its attributes follow JavaScript rules.',
+      takeaways: [
+        { term: 'Compiler', detail: 'TypeScript, Babel or Vite\'s turns each tag into a function call: browsers cannot run JSX.' },
+        { term: 'New transform', detail: 'Since React 17, a tag compiles to `jsx()` imported from `react/jsx-runtime`: no React import needed.' },
+        { term: 'Old transform', detail: 'Called `React.createElement`, so React had to be in scope.' },
+        { term: 'React element', detail: 'A plain object with a `type`, `props` and `key`, not a DOM node.' },
+        { term: '`className`, `htmlFor`', detail: 'Attributes follow JavaScript naming (`class` is reserved). `aria-*` and `data-*` keep their dashes.' },
+        { term: 'Curly braces', detail: 'Hold any expression, like a ternary or `lines.map(...)`. Statements like `if` do not fit.' },
+      ],
       points: [
         'JSX is a syntax extension for writing markup inside JavaScript. Browsers cannot run it: a compiler such as TypeScript, Babel or Vite\'s turns each tag into a function call.',
         'Since React 17, the new transform compiles a tag to a `jsx()` call and imports `jsx` from `react/jsx-runtime` for you. The old transform called `React.createElement`, so React had to be in scope.',
@@ -1849,6 +1985,16 @@ const row = _jsxs("li", { className: "order", children: ["Order ", order.number]
       },
     ],
     lesson: {
+      intro:
+        'A Fragment groups several elements without adding a node to the DOM. It avoids wrapper divs that break flex and grid layouts or produce invalid HTML in tables and lists.',
+      takeaways: [
+        { term: 'Wrapper `div`', detail: 'A real node: a flex or grid parent lays out the div instead of the children.' },
+        { term: 'Invalid HTML', detail: 'A `div` inside a `tbody` or `ul` is invalid; a Fragment adds no node.' },
+        { term: '`<>...</>`', detail: 'The shorthand accepts no attributes, so no `key`.' },
+        { term: '`<Fragment key>`', detail: 'Import `Fragment` when a `map` returns several siblings per item: `<Fragment key={item.id}>`.' },
+        { term: 'No DOM node', detail: 'Nothing to style or attach a handler to.' },
+        { term: 'State', detail: 'One level of Fragment around a child keeps its state; wrapping it in a `div` resets it.' },
+      ],
       points: [
         'A component returns one element. A Fragment groups several siblings into one without adding any node to the DOM.',
         'A wrapper `div` is a real node: a flex or grid parent lays out the div instead of the children, and a `div` inside a `tbody` or `ul` is invalid HTML.',
@@ -1979,6 +2125,16 @@ const row = _jsxs("li", { className: "order", children: ["Order ", order.number]
       },
     ],
     lesson: {
+      intro:
+        '`useRef` gives a component a mutable box, `{ current }`, that survives renders without causing them. It holds DOM nodes and values the screen does not show, like timer ids.',
+      takeaways: [
+        { term: '`{ current }`', detail: 'The same object for the component\'s whole life.' },
+        { term: 'No re-render', detail: 'Writing `current` does not trigger a render: React does not track it.' },
+        { term: 'DOM ref', detail: 'Pass it to an element\'s `ref` attribute; after the commit, `current` is the node.' },
+        { term: 'Hidden values', detail: 'Timer ids or an `AbortController`. A value shown on screen belongs in state.' },
+        { term: 'When to use `current`', detail: 'Read and write it in effects and handlers, not during render, except to initialise it.' },
+        { term: 'React 19', detail: '`ref` is a plain prop for function components, so `forwardRef` is no longer needed.' },
+      ],
       points: [
         '`useRef(initial)` returns an object `{ current }` that React keeps for the component\'s whole life. Writing to `current` does not re-render, because React does not track it.',
         'First use: a DOM node. Pass the ref to an element\'s `ref` attribute; after the commit, `current` is the node, so an effect or handler can call `focus()` or measure it.',

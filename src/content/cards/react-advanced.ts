@@ -116,6 +116,16 @@ export default async function ProductPage({ params }: Props) {
       },
     ],
     lesson: {
+      intro:
+        'Server Components and SSR both run on the server but solve different problems. SSR turns components into HTML; Server Components never send their code to the browser at all.',
+      takeaways: [
+        { term: 'SSR', detail: 'Produces HTML per request; the browser then downloads every component\'s JavaScript and hydrates it.' },
+        { term: 'Hydration', detail: 'Attaching events and state to the HTML rendered on the server.' },
+        { term: 'Server Component', detail: 'Runs only on the server, at build or request time. Its code never reaches the browser.' },
+        { term: 'RSC Payload', detail: 'The serialised tree a Server Component outputs, with holes for the Client Components.' },
+        { term: '`\'use client\'`', detail: 'Marks a Client Component module, for state, effects, handlers and browser APIs. Keep it on small leaves.' },
+        { term: 'Serialisable props', detail: 'Props crossing to a Client Component cannot be plain functions or class instances.' },
+      ],
       points: [
         'SSR (server-side rendering) produces HTML on the server for a request. The browser then downloads every component\'s JavaScript and hydrates it: attaches events and state to that HTML.',
         'A Server Component runs only on the server, at build or request time. Its code never reaches the browser; its output travels as the RSC Payload, a serialised tree.',
@@ -255,6 +265,16 @@ function BackOfficeShell() {
       },
     ],
     lesson: {
+      intro:
+        'Higher-order components, render props and custom hooks are three ways to reuse stateful logic. Hooks are the default today because they add no wrapper and make the data explicit.',
+      takeaways: [
+        { term: 'HOC', detail: 'A function that takes a component and returns an enhanced one: `withAuth(OrdersPage)`.' },
+        { term: 'Render props', detail: 'The component calls a function prop, like `children(data)`, and the caller returns the UI.' },
+        { term: 'Wrapper hell', detail: 'Stacked wrappers deepen the tree, hide where props come from and can clash on prop names.' },
+        { term: 'Custom hook', detail: '`useCurrentCustomer()` shares the logic with no extra component and an explicit return value.' },
+        { term: 'HOCs today', detail: 'Still fit wrapping a component from the outside, like `memo`.' },
+        { term: 'Render props today', detail: 'Still fit when the caller chooses what renders inside, like a `renderRow` prop.' },
+      ],
       points: [
         'A higher-order component (HOC) is a function that takes a component and returns a new one, adding props or behaviour: `withAuth(OrdersPage)`.',
         'Render props share logic through a function prop: the component calls `children(data)` and the caller returns the UI to show.',
@@ -358,6 +378,16 @@ function OrdersPage() {
       },
     ],
     lesson: {
+      intro:
+        'The React Compiler is a build-time plugin that memoizes components and hooks for you. It replaces fragile hand-written `useMemo` and `useCallback`, as long as the code follows the Rules of React.',
+      takeaways: [
+        { term: '`babel-plugin-react-compiler`', detail: 'Version 1.0, its first stable release, was announced on react.dev on 7 October 2025.' },
+        { term: 'What it caches', detail: 'Values, callbacks and JSX, recomputed only when their inputs change, even after an early return.' },
+        { term: 'Rules of React', detail: 'Pure render, no mutation of props or state, no ref reads in render. Code that breaks them is skipped.' },
+        { term: 'Limits', detail: 'It does not speed up work whose input changed, virtualise a list or stop a changing context reaching readers.' },
+        { term: 'Rollout', detail: 'Lint first with `eslint-plugin-react-hooks`, then compile by directory, annotation or flag.' },
+        { term: '"Memo ✨" badge', detail: 'Marks compiled components in React DevTools.' },
+      ],
       points: [
         'The React Compiler is a build-time Babel plugin, `babel-plugin-react-compiler`. Version 1.0, its first stable release, was announced on react.dev on 7 October 2025.',
         'It caches values, callbacks and JSX inside components and hooks, recomputing them only when inputs change: like `memo`, `useMemo` and `useCallback` everywhere.',
@@ -474,6 +504,16 @@ export function OrdersTable({ orders, query, onOpen }: Props) {
       },
     ],
     lesson: {
+      intro:
+        '`useEffect` and `useLayoutEffect` both run after React updates the DOM; the difference is whether the browser has painted yet. That decides whether the user can see an intermediate layout.',
+      takeaways: [
+        { term: 'Commit, then paint', detail: 'React updates the DOM, then the browser draws the result on screen.' },
+        { term: '`useEffect`', detail: 'Runs after the commit and usually after the paint: the default for fetching, subscriptions and logging.' },
+        { term: '`useLayoutEffect`', detail: 'Runs after the commit but before the paint. A state update inside it also renders before the paint.' },
+        { term: 'Use case', detail: 'Measure and adjust layout, like flipping a tooltip or menu that would overflow the window.' },
+        { term: 'Cost', detail: 'It blocks painting while it runs, so `useEffect` stays the default.' },
+        { term: 'Server rendering', detail: '`useLayoutEffect` does not run there.' },
+      ],
       points: [
         'After a render, React commits: it updates the DOM. Then the browser paints, which means it draws the result on screen.',
         '`useEffect` runs after the commit and usually after the paint, so it never delays what the user sees. It is the default for fetching, subscriptions and logging.',
@@ -587,6 +627,16 @@ export function OrdersTable({ orders, query, onOpen }: Props) {
       },
     ],
     lesson: {
+      intro:
+        'A component re-renders when its state changes, its parent renders or a context it reads changes. Unnecessary renders usually come from state kept too high or unstable values, and the fix is to remove the cause before memoizing.',
+      takeaways: [
+        { term: 'Three triggers', detail: 'Own state changed, parent rendered, or a context it reads changed. Props alone never trigger a render.' },
+        { term: 'Parent render', detail: 'Renders every child by default; `memo` skips one only if every prop is `Object.is`-equal.' },
+        { term: 'Context value', detail: 'An object literal changes on every provider render, so every reader renders. Split contexts by rate of change.' },
+        { term: 'Move state down', detail: 'Keep state in the smallest component that needs it.' },
+        { term: '`children`', detail: 'Pass expensive subtrees as `children` instead of rendering them under the state that changes.' },
+        { term: 'Profiler', detail: 'Find renders with "why did this render", measure before and after; a render with the same DOM is often cheap.' },
+      ],
       points: [
         'A component renders for three reasons: its own state changed, its parent rendered, or a context it reads changed. Props alone never trigger a render.',
         'When a parent renders, React renders every child by default, even with identical props. `memo` skips a child only if every prop is `Object.is`-equal.',
@@ -680,6 +730,16 @@ function OrdersPage({ orders }: Props) {
       },
     ],
     lesson: {
+      intro:
+        'Profiling means measuring a reproducible slowdown before changing code, then measuring again after the fix. React DevTools shows which components rendered and why; the browser\'s Performance panel shows the rest.',
+      takeaways: [
+        { term: 'Render vs commit', detail: 'Render is React calling your components; commit is React applying the changes to the DOM.' },
+        { term: 'React DevTools Profiler', detail: 'A flame graph per commit: which components rendered, how long each took, and why if enabled.' },
+        { term: 'Performance panel', detail: 'Since React 19.2 it shows React tracks next to layout, paint and network.' },
+        { term: 'Build to measure', detail: 'A production or profiling build with CPU throttling; development builds are slower.' },
+        { term: 'Core Web Vitals', detail: 'In production, collect INP and LCP from real users.' },
+        { term: '`<Profiler onRender>`', detail: 'Optional in production, for one critical screen.' },
+      ],
       points: [
         'Render is React calling your components; commit is React applying the changes to the DOM. A slow screen spends time in one of them, or in browser work after.',
         'The React DevTools Profiler records each commit as a flame graph: which components rendered, how long each took and, if enabled, why each rendered.',
@@ -789,6 +849,16 @@ expect(cart.count).toBe(1);`,
       },
     ],
     lesson: {
+      intro:
+        'A hook only runs inside a component, so `renderHook` renders a tiny test component for it. Test a hook alone only when it is shared and has a contract of its own.',
+      takeaways: [
+        { term: '`renderHook`', detail: 'From React Testing Library: renders a test component that calls the hook.' },
+        { term: '`result.current`', detail: 'The hook\'s latest return value.' },
+        { term: '`rerender`', detail: 'Calls the hook again with new arguments.' },
+        { term: '`wrapper`', detail: 'Option that renders providers around the hook.' },
+        { term: '`act`', detail: 'Wrap anything that updates the hook\'s state, like calling a returned function or advancing fake timers.' },
+        { term: '`waitFor`', detail: 'Await async results with `await waitFor(...)`.' },
+      ],
       points: [
         'A hook can only run inside a component. `renderHook` from React Testing Library renders a small test component that calls it.',
         '`result.current` holds the latest return value; `rerender(newProps)` calls the hook again; the `wrapper` option renders providers around it.',
@@ -896,6 +966,16 @@ expect(result.current).toBe('10 rue de Rivoli');`,
       },
     ],
     lesson: {
+      intro:
+        'When a component does not re-render after an update, the usual cause is mutation: the state changed in place, so React sees the same reference and skips the render.',
+      takeaways: [
+        { term: '`Object.is`', detail: 'The setter compares the new value with the old one. Same reference: React may skip the render.' },
+        { term: 'In-place mutation', detail: '`push`, `sort` or `order.status = ...` keep the reference, so the set often shows nothing.' },
+        { term: 'Immutable update', detail: 'Copy what changed (`{ ...order, status }`, `map`, `toSorted`) and keep unchanged objects as they are.' },
+        { term: 'React DevTools', detail: 'Check whether the state holds the new value, and whether the component rendered at all.' },
+        { term: 'Other causes', detail: 'A value kept in a ref, a memoized child with a mutated prop, or state copied from props.' },
+        { term: '`Object.freeze`', detail: 'In development, makes mutations throw in strict mode code. It is shallow; Immer freezes what it produces.' },
+      ],
       points: [
         'When you call a state setter, React compares the new value with the old one using `Object.is`. Same reference: React may skip the render.',
         'Mutating an object or array in place keeps its reference, so `push`, `sort` or `order.status = ...` followed by a set often shows nothing.',
@@ -1006,6 +1086,16 @@ setOrder((previous) => ({ ...previous, status: 'shipped' }));`,
       },
     ],
     lesson: {
+      intro:
+        'An error boundary catches errors thrown while rendering its children and shows a fallback instead of a blank page. Where you place them decides how much of the page one bug can take down.',
+      takeaways: [
+        { term: 'Without a boundary', detail: 'A render error makes React unmount the whole root: a blank page.' },
+        { term: '`getDerivedStateFromError`', detail: 'The class method that switches to the fallback.' },
+        { term: '`componentDidCatch`', detail: 'The class method that reports the error. The react-error-boundary package wraps both.' },
+        { term: 'Not caught', detail: 'Errors in event handlers, async callbacks, server rendering or the boundary itself: use `try`/`catch`.' },
+        { term: 'Blast radius', detail: 'Place boundaries at the root, per route and around independent panels. A `key` resets one.' },
+        { term: '`onCaughtError`', detail: 'With `onUncaughtError`, a React 19 `createRoot` option to report errors with their component stack.' },
+      ],
       points: [
         'An error boundary catches errors thrown while rendering its children or in their effects, and renders a fallback. Without one, React unmounts the whole root.',
         'It is a class component with `getDerivedStateFromError` (show the fallback) and `componentDidCatch` (report). The react-error-boundary package wraps this for you.',
@@ -1116,6 +1206,16 @@ setOrder((previous) => ({ ...previous, status: 'shipped' }));`,
       },
     ],
     lesson: {
+      intro:
+        'Client-side routing changes the URL without a full page load, and the router renders the component that matches. React Router adds nested layouts, URL params and data loading per route.',
+      takeaways: [
+        { term: 'History API', detail: 'Changes the URL; the router renders the match without reloading the page.' },
+        { term: '`<Outlet />`', detail: 'Where a child route renders inside its parent, so shared layouts stay mounted.' },
+        { term: '`useParams()`', detail: 'Reads a dynamic segment like `orders/:orderId`.' },
+        { term: 'Search params', detail: '`?status=paid` suits filters, so a reload keeps them.' },
+        { term: '`loader`', detail: 'In data mode (`createBrowserRouter`), fetches a route\'s data before it renders.' },
+        { term: 'Protected route', detail: 'Improves the experience only: the API must still check access on every request.' },
+      ],
       points: [
         'Client-side routing changes the URL with the History API and renders the matching component, without reloading the page.',
         'React Router builds a route tree. Child routes render inside the parent\'s `<Outlet />`, so shared layouts stay mounted between pages.',
@@ -1231,6 +1331,16 @@ function useTabs() {
       },
     ],
     lesson: {
+      intro:
+        'Compound components are parts that share state without the caller wiring it, like `<select>` and `<option>`. They replace a growing configuration array with free composition in JSX.',
+      takeaways: [
+        { term: 'Root', detail: 'Holds the state and provides it through a context, like `Tabs.Root`.' },
+        { term: 'Parts', detail: '`Tabs.Tab` or `Tabs.Panel` read that context at any depth under the root.' },
+        { term: 'Composition over config', detail: 'The caller arranges the parts in JSX, so a new layout needs no new props.' },
+        { term: 'Part outside its root', detail: 'Create the context with `null` and throw a clear error.' },
+        { term: '`useId`', detail: 'Use it for the ARIA ids that link the parts.' },
+        { term: 'Libraries', detail: 'Radix UI, React Aria Components and Base UI use it for tabs, menus, selects and dialogs.' },
+      ],
       points: [
         'Compound components are parts that work together, like `<select>` and `<option>`: a root and its parts, such as `Tabs.Root`, `Tabs.Tab` and `Tabs.Panel`.',
         'The root holds the state and provides it through a context; each part reads that context, at any depth under the root.',
@@ -1339,6 +1449,16 @@ function Reviews({ reviewsPromise }: Props) {
       },
     ],
     lesson: {
+      intro:
+        'Suspense is one mechanism for code and data: a `<Suspense>` boundary shows its fallback while something inside it is not ready. You place boundaries where the design wants loading states.',
+      takeaways: [
+        { term: 'Fallback', detail: 'The nearest `<Suspense fallback>` shows it until the content can render.' },
+        { term: '`lazy()`', detail: '`lazy(() => import(...))` suspends until the module has loaded.' },
+        { term: '`use(promise)`', detail: 'Suspends while the promise is pending. An async Server Component that awaits suspends too.' },
+        { term: '`useEffect` fetching', detail: 'Never suspends.' },
+        { term: 'Error boundary', detail: 'A rejected promise goes to the nearest one: put one around each Suspense boundary that loads data.' },
+        { term: 'Streaming', detail: 'On the server, Next.js sends the page with the fallback first and the slow part in a later chunk.' },
+      ],
       points: [
         'A `<Suspense fallback={...}>` boundary shows its fallback while a component inside it is not ready to render, then shows the content.',
         'Code splitting: `lazy(() => import(\'./RefundForm\'))` suspends until the module has loaded.',
@@ -1456,6 +1576,16 @@ function CheckoutForm() {
       },
     ],
     lesson: {
+      intro:
+        'React 19 centres on Actions: async functions run in a transition that handle form submits with pending, error and optimistic state built in. It also makes Server Components stable and simplifies refs and context.',
+      takeaways: [
+        { term: 'Action', detail: 'Passed to `<form action={fn}>`, it is called with the `FormData` on submit, with no `preventDefault`.' },
+        { term: '`useActionState`', detail: 'Returns the latest state, the action for the form and `isPending`. Return errors as state.' },
+        { term: '`useFormStatus`', detail: 'Gives `pending` for the parent form, so call it in the submit button.' },
+        { term: '`useOptimistic`', detail: 'Shows a temporary value while an action runs.' },
+        { term: '`use`', detail: '`use(promise)` suspends until it settles; `use(Context)` reads a context, even inside a condition.' },
+        { term: '`ref` as a prop', detail: 'No more `forwardRef`. `<Context value>` also works as a provider.' },
+      ],
       points: [
         'An Action is a function run in a transition. Passed to `<form action={fn}>`, React calls it with the `FormData` on submit, with no `preventDefault`.',
         '`useActionState(action, initial)` returns the latest state, the action to pass to the form, and `isPending`. Return errors as state rather than throwing.',

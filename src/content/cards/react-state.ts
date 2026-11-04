@@ -115,6 +115,15 @@ function Layout({ agent }: { agent: Agent }) {
       },
     ],
     lesson: {
+      intro:
+        'Prop drilling is passing a prop through components that do not use it, only so a deep child can read it. A few levels are normal; past that, composition, Context or a store remove the coupling.',
+      takeaways: [
+        { term: 'Cost', detail: 'Middle layers are coupled to data they ignore, and each change touches all those files.' },
+        { term: 'A few levels', detail: 'Normal and fine; it is many levels that couple every middle layer to the data.' },
+        { term: 'Composition', detail: 'First fix: the owner renders the deep child itself and passes it as `children` or a slot prop.' },
+        { term: 'Context', detail: 'Any descendant reads the value, but every reader re-renders on change: keep it for rarely changing values.' },
+        { term: 'Store with selectors', detail: 'Zustand or Redux Toolkit for shared state that changes often: only components whose slice changed re-render.' },
+      ],
       points: [
         'Prop drilling means passing a prop through components that do not use it, only so a deeper child can read it. A few levels are normal; many levels couple every middle layer to the data.',
         'Composition is the first fix: the component that owns the data renders the deep child itself and passes it as `children` or a slot prop. The middle layers just place what they receive.',
@@ -259,6 +268,16 @@ function Layout({ agent }: { agent: Agent }) {
       },
     ],
     lesson: {
+      intro:
+        'Redux and Zustand keep shared client state in a store outside the component tree, so distant components read and change it predictably. Zustand does the same job with less ceremony.',
+      takeaways: [
+        { term: 'Action', detail: 'A plain object like `{ type: "cart/added" }`, dispatched to the store and passed to reducers.' },
+        { term: 'Three principles', detail: 'Single source of truth, read-only state changed only by actions, pure reducers that return a new state.' },
+        { term: 'Redux Toolkit', detail: 'The standard way: `createSlice` generates actions and uses Immer; `configureStore` adds thunk and dev checks.' },
+        { term: '`useSelector`', detail: 'Re-runs after every action and re-renders when the result changes by `===`: never return a new object.' },
+        { term: 'Zustand', detail: '`create` returns a hook, store functions call `set`, and no provider or actions are needed.' },
+        { term: 'Choosing', detail: 'Zustand for a little shared state, Redux where the codebase already uses it.' },
+      ],
       points: [
         'Redux keeps shared client state in one store outside React. A component dispatches an action, a plain object like `{ type: "cart/added" }`, and the store passes it to reducers.',
         'Three principles: one store is the single source of truth, state is read-only and changes only through actions, and reducers are pure functions that return a new state.',
@@ -387,6 +406,15 @@ dispatch(cartSlice.actions.added({ productId: 'mug', quantity: 1 }));`,
       },
     ],
     lesson: {
+      intro:
+        'Server state is data owned by the server; the client only holds a copy that can go stale. That copy needs caching, refetching and invalidation, which is why it belongs in a cache like TanStack Query rather than in `useState`.',
+      takeaways: [
+        { term: 'Client state', detail: 'Owned by the browser: an open dialog, a cart before checkout.' },
+        { term: 'Query key', detail: 'An array of every request input, like `["orders", "list", filters]`. Same key: one entry, one request.' },
+        { term: '`staleTime`', detail: 'Default 0: how long data is fresh. Stale data shows at once and refetches on remount, focus and reconnect.' },
+        { term: '`gcTime`', detail: 'Unused entries are dropped from the cache after it.' },
+        { term: '`invalidateQueries`', detail: 'Marks matching keys stale after a write; keys match by prefix, so `["orders"]` covers every order query.' },
+      ],
       points: [
         'Client state is owned by the browser: an open dialog, a cart before checkout. Server state is owned by the server: the client only keeps a copy, which can go stale when someone else changes it.',
         'TanStack Query is a cache for server state. Each entry has a query key, an array with every input of the request, like `["orders", "list", filters]`. Components with the same key share one entry and one request.',
@@ -511,6 +539,16 @@ const refund = useMutation({
       },
     ],
     lesson: {
+      intro:
+        'Context passes a value to any descendant without threading props through every layer. Its cost is that every reader re-renders when the value changes, so it suits values that change rarely.',
+      takeaways: [
+        { term: '`createContext`', detail: 'Creates the context; a provider sets its value.' },
+        { term: '`useContext` or `use`', detail: 'Read the value in a component; `use` is the React 19 way.' },
+        { term: 'Re-render rule', detail: 'A new value by `Object.is` re-renders every reader, even one using a single field. `memo` does not stop it.' },
+        { term: 'Object literal value', detail: 'New on every render of the provider: build it with `useMemo`.' },
+        { term: 'Split contexts', detail: 'Put stable actions in a separate context from changing data.' },
+        { term: 'Frequent changes', detail: 'Use a store with selectors: only components whose slice changed re-render.' },
+      ],
       points: [
         'Context passes a value to any descendant without props. `createContext` makes it, a provider sets the value, and components read it with `useContext`, or `use` in React 19.',
         'When the provider receives a new value, compared with `Object.is`, every component that reads the context re-renders, even if it uses one field. `memo` does not stop this.',
@@ -635,6 +673,16 @@ const CartActionsContext = createContext<CartActions | null>(null);
       },
     ],
     lesson: {
+      intro:
+        'Siblings cannot read each other\'s state, so shared data moves up to their closest common parent. One owner per piece of data keeps every reader in sync.',
+      takeaways: [
+        { term: 'Closest common parent', detail: 'Where the state moves when two siblings must show the same data.' },
+        { term: 'Value down', detail: 'The parent passes the value to its children as a prop.' },
+        { term: 'Callback up', detail: 'A child calls a callback such as `onToggle` to ask the owner for a change.' },
+        { term: 'Single source of truth', detail: 'One owner per piece of data. Two copies need sync code and drift apart.' },
+        { term: 'Cost', detail: 'Each change re-renders the parent and its subtree.' },
+        { term: 'Far-away parent', detail: 'Use composition, then Context, then a store.' },
+      ],
       points: [
         'Each component\'s state is private. Two siblings that must show the same data cannot read each other, so the state moves up to their closest common parent: that is lifting state up.',
         'The parent owns the value, passes it down as a prop, and passes a callback such as `onToggle` that a child calls to ask for a change. Data flows down, requests flow up.',
@@ -751,6 +799,16 @@ function NoteEditor() {
       },
     ],
     lesson: {
+      intro:
+        'Atomic state builds shared state bottom-up from small independent atoms, instead of one big store object. Only components that depend on a changed atom re-render.',
+      takeaways: [
+        { term: 'Atom', detail: 'A small, independent piece of state declared outside components, read and written with hooks like `useAtom`.' },
+        { term: 'Derived atom', detail: 'Computes its value from other atoms with `get`. Recoil calls it a selector.' },
+        { term: 'Dependency tracking', detail: 'Only readers of a changed atom, directly or through a derived atom, re-render.' },
+        { term: 'Global store', detail: 'Top-down instead: one object that each component slices with a selector.' },
+        { term: 'Async derived atom', detail: 'Readers suspend until it resolves.' },
+        { term: 'Jotai over Recoil', detail: 'Recoil\'s repository was archived in January 2025, so new code uses Jotai.' },
+      ],
       points: [
         'An atom is a small, independent piece of state, declared outside components. Components read and write it with hooks like `useAtom`, much like `useState` shared by everyone.',
         'A derived atom (a selector in Recoil) computes its value from other atoms with `get`. The library tracks these dependencies and recomputes only what depends on a changed atom.',
@@ -870,6 +928,16 @@ function CartBadge() {
       },
     ],
     lesson: {
+      intro:
+        '`useState` and `useReducer` both hold component state. `useReducer` moves the update logic into one pure function, which pays off when several values change together or updates follow rules.',
+      takeaways: [
+        { term: '`useState`', detail: 'The default for independent values: an open dialog, an input, a toggle.' },
+        { term: '`useReducer(reducer, initial)`', detail: 'Returns the state and `dispatch`.' },
+        { term: 'Action', detail: 'An object like `{ type: "removed", productId }` describing what happened.' },
+        { term: 'Reducer', detail: 'A pure `(state, action) => newState`: no mutation, no API call. StrictMode may call it twice in development.' },
+        { term: 'When to choose it', detail: 'Values that change together or updates with rules, like a cart with add, remove and change-quantity.' },
+        { term: '`dispatch`', detail: 'Stable across renders, so it pairs well with Context. The reducer is testable without React.' },
+      ],
       points: [
         '`useState` holds one value and a setter. It is the default for independent values: an open dialog, an input, a toggle.',
         '`useReducer(reducer, initialState)` returns the state and `dispatch`. You dispatch an action, an object like `{ type: "removed", productId }`, and the reducer returns the next state.',
@@ -986,6 +1054,16 @@ onError: (error) => toast.error(error.message),`,
       },
     ],
     lesson: {
+      intro:
+        'An optimistic update shows the expected result before the server confirms it, so frequent edits feel instant. It needs a rollback path, and it is not for actions where a wrong guess costs money.',
+      takeaways: [
+        { term: '`onMutate`', detail: 'Cancel in-flight queries for the key, snapshot the cache and write the expected value.' },
+        { term: '`onError`', detail: 'Restore the snapshot and tell the user.' },
+        { term: '`onSettled`', detail: 'Invalidate the key so the server\'s answer replaces the guess.' },
+        { term: '`useOptimistic`', detail: 'React 19: shows a temporary value while a form Action runs, then falls back with no rollback code.' },
+        { term: 'Good fit', detail: 'Frequent, low-risk edits: a flag, a note, a reorder.' },
+        { term: 'Not for', detail: 'Payments, refunds and stock: wait for the server and show a pending state.' },
+      ],
       points: [
         'An optimistic update shows the expected result before the server confirms it, so a toggle or a note feels instant instead of waiting for the round trip.',
         'With TanStack Query: in `onMutate`, cancel in-flight queries, snapshot the cache and write the guess; in `onError`, restore the snapshot; in `onSettled`, invalidate to load the truth.',
@@ -1104,6 +1182,16 @@ onSettled: () => queryClient.invalidateQueries({ queryKey: detailKey }),`,
       },
     ],
     lesson: {
+      intro:
+        'Fetching in `useEffect` works, but leaves you to handle races, cancellation and caching yourself. Those pitfalls are why apps use TanStack Query or a framework loader instead.',
+      takeaways: [
+        { term: 'Effect fetch', detail: 'Starts after render, stores data, loading and error in state, and lists inputs like `orderId` as dependencies.' },
+        { term: 'Race', detail: 'If the input changes before the response, the last request to answer wins: abort or ignore it in the cleanup.' },
+        { term: '`AbortError`', detail: 'An aborted fetch rejects with it. Check `signal.aborted` and do not show it as a failure.' },
+        { term: '`async` effect', detail: 'The effect function cannot be `async`: define an async function inside it.' },
+        { term: 'No cache', detail: 'Bare effects have no cache, deduplication, retry or refetch on focus.' },
+        { term: 'TanStack Query or SWR', detail: 'Give caching, deduplication and retries per key.' },
+      ],
       points: [
         'A fetch in `useEffect` starts after render, stores data, loading and error in state, and lists its inputs, like `orderId`, as dependencies so it runs again when they change.',
         'When the input changes before the response arrives, two requests race and the last one to answer wins. Abort the old one in the cleanup with an `AbortController`, or set an ignore flag.',
@@ -1220,6 +1308,16 @@ onSettled: () => queryClient.invalidateQueries({ queryKey: detailKey }),`,
       },
     ],
     lesson: {
+      intro:
+        'A custom hook is a function starting with `use` that calls other hooks. It packages stateful logic under a name and a typed contract, so components reuse it without copying.',
+      takeaways: [
+        { term: '`use` prefix', detail: 'The name starts with `use`, and the function calls other hooks.' },
+        { term: 'Logic, not state', detail: 'Two components calling `useCounter()` each get their own count.' },
+        { term: 'Sharing state', detail: 'Lift it, or use Context or a store.' },
+        { term: 'Rules of hooks', detail: 'Top level, same order every render. The `react-hooks/rules-of-hooks` lint rule checks it.' },
+        { term: 'API design', detail: 'One job, typed input and output, and a cleanup for everything it starts.' },
+        { term: '`renderHook`', detail: 'Tests the hook on its own, from React Testing Library.' },
+      ],
       points: [
         'A custom hook is a function whose name starts with `use` and that calls other hooks. It packages stateful logic, like a debounce or a subscription, under a name.',
         'It shares logic, not state: two components calling `useCounter()` each get their own count. To share state, lift it or use Context or a store.',

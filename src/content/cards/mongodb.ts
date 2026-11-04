@@ -92,6 +92,15 @@ export const mongodbCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'MongoDB schema patterns copy or precompute data at write time so a hot read touches one document. You choose them from the screens and their queries, trading extra writes for fast pages.',
+      takeaways: [
+        { term: 'Subset', detail: 'Embed only what the page shows, like the 10 latest reviews, and keep the full set in its own collection.' },
+        { term: 'Computed', detail: 'Store derived values, like a review count and stars total, updated on each write or by a periodic job.' },
+        { term: 'Extended reference', detail: "Next to a reference, copy the few fields you display, such as the author's name." },
+        { term: 'Attribute', detail: 'Turn per-category fields into an array of `{ k, v }` pairs, so one index serves every attribute.' },
+        { term: 'Trade-off', detail: 'Extra writes and copies that stay stale until updated: copy fields that rarely change.' },
+      ],
       points: [
         'MongoDB schema patterns copy or precompute data at write time so that a hot read touches one document. You choose them from the screens and their queries.',
         'Subset: embed only the part of a large related set that the page shows, such as the 10 latest reviews, and keep the full set in its own collection.',
@@ -212,6 +221,15 @@ app.get('/products/:sku', async (req, res) => {
       },
     ],
     lesson: {
+      intro:
+        'A Node service talks to MongoDB through the official driver or through Mongoose. Either way, only a validator in the server checks every write, whoever makes it.',
+      takeaways: [
+        { term: '`MongoClient`', detail: 'One per process, shared: each client keeps a connection pool, `maxPoolSize` 100 by default.' },
+        { term: '`Collection<T>`', detail: 'Types your code at compile time only; dot-notation filters are not type-checked by default.' },
+        { term: 'Mongoose', detail: 'An ODM: schemas, casting, validation, hooks and `populate()`, enforced only in the app that uses it.' },
+        { term: '`$jsonSchema` validator', detail: 'Runs in the server on every insert and update; a rejected write fails with code 121.' },
+        { term: '`collMod`', detail: "Adds a validator to an existing collection; `validationLevel: 'moderate'` lets old invalid documents be updated." },
+      ],
       points: [
         'The official driver is the `mongodb` package. Create one `MongoClient` per process at startup and share it: each client keeps a connection pool, `maxPoolSize` 100 by default.',
         "`db.collection<ReviewDoc>('reviews')` types your code at compile time only. Dot-notation filters are not type-checked by default, and other writers are not checked at all.",
@@ -327,6 +345,16 @@ await reviews.createIndex(
       },
     ],
     lesson: {
+      intro:
+        'MongoDB indexes decide whether a query reads a few entries or the whole collection. In a compound index, field order decides which filters and sorts it can serve.',
+      takeaways: [
+        { term: 'Prefix rule', detail: '`{ a, b, c }` serves `a`, `a + b` and `a + b + c`, not `b` alone.' },
+        { term: 'ESR', detail: 'Equality fields first, then the Sort field, then Range fields, so entries come out already sorted.' },
+        { term: 'Range fields', detail: '`$gte`, and also `$ne`, `$nin` and `$regex`, go last in ESR.' },
+        { term: "`explain('executionStats')`", detail: 'Healthy: an `IXSCAN`, no `SORT`, and keys and documents examined close to `nReturned`.' },
+        { term: 'Multikey', detail: 'An index on an array has one entry per element; use `$elemMatch` for two conditions on one element.' },
+        { term: 'Unique, partial, TTL', detail: 'Unique rejects duplicates (11000), partial indexes a filtered subset, TTL deletes after a date, checked every 60 s.' },
+      ],
       points: [
         'A compound index lists several fields and serves queries on any prefix: `{ a, b, c }` serves `a`, `a + b` and `a + b + c`, not `b` alone. Field order also decides whether it can sort.',
         'ESR guideline: Equality fields first, then the Sort field, then Range fields (`$gte`, and also `$ne`, `$nin`, `$regex`). Entries then come out sorted, with no in-memory sort.',
@@ -447,6 +475,16 @@ const plan = await reviews
       },
     ],
     lesson: {
+      intro:
+        'The aggregation pipeline is how MongoDB filters, groups, reshapes and joins data in the server. It is an array of stages, each feeding the next, like a SQL query written step by step.',
+      takeaways: [
+        { term: '`$match`', detail: 'Filters documents, and uses an index when it comes first.' },
+        { term: '`$group`', detail: 'Groups by a key with accumulators such as `$sum` and `$avg`.' },
+        { term: '`$project` and `$unwind`', detail: '`$project` reshapes documents; `$unwind` emits one document per array element.' },
+        { term: '`$lookup`', detail: 'A left outer join with a collection of the same database: for reports, not hot page reads.' },
+        { term: '`$facet`', detail: 'Several sub-pipelines on the same input, one result document under 16 MiB, no spilling to disk.' },
+        { term: 'Limits', detail: '100 MB of memory per stage (`allowDiskUse` governs spilling), 16 MiB per result document, 1,000 stages.' },
+      ],
       points: [
         'An aggregation pipeline is an array of stages. Each stage transforms the documents the previous one produced, like a SQL query written step by step.',
         '`$match` filters, and uses an index when it comes first. `$group` groups by a key with accumulators like `$sum` and `$avg`. `$project` reshapes; `$unwind` emits one document per array element.',
@@ -561,6 +599,16 @@ const client = new MongoClient(
       },
     ],
     lesson: {
+      intro:
+        'A MongoDB replica set keeps copies of the data on several servers for failover. Write concern, read concern and read preference decide how durable and how fresh each operation is.',
+      takeaways: [
+        { term: 'Replica set', detail: 'One primary takes every write; secondaries replay its oplog and elect a new primary if it is lost.' },
+        { term: 'Election', detail: 'Starts after 10 seconds without the primary by default; no write is processed until it completes.' },
+        { term: '`w: 1`', detail: 'Acknowledged once the primary has the write, which can roll back after a failover.' },
+        { term: "`w: 'majority'`", detail: 'The usual default: acknowledged once a majority has the write durably.' },
+        { term: 'Read concern', detail: '`local` (default) may return data that rolls back, `majority` cannot; `snapshot` is for transactions.' },
+        { term: 'Read preference', detail: 'The primary by default. A secondary may lag: use it for reports, never to read your own write.' },
+      ],
       points: [
         'A replica set is a group of servers with the same data. The primary takes every write; secondaries replay its oplog, the log of operations. If the primary is lost, they elect a new one.',
         'An election starts after 10 seconds without the primary by default; per the docs the median should not exceed 12 seconds, and no write is processed until it completes.',
@@ -682,6 +730,16 @@ const reviewsForReports = client.db('catalogue').collection('reviews', {
       },
     ],
     lesson: {
+      intro:
+        'MongoDB supports multi-document ACID transactions, but they cost more than single-document writes. A good design reaches for them last, after one-document atomicity.',
+      takeaways: [
+        { term: 'Single-document write', detail: 'Atomic, even across several fields: put what must change together in one document.' },
+        { term: 'Versions', detail: 'Replica sets since 4.0, sharded clusters since 4.2.' },
+        { term: '`withTransaction`', detail: 'Starts, runs and commits; it retries the callback on transient errors, so no emails or external calls inside.' },
+        { term: '`{ session }`', detail: 'Pass it to every operation, and await the operations one by one.' },
+        { term: 'Costs', detail: 'Aborted after one minute by default, after 5 ms waiting for a lock, or on a write conflict; reads use the primary.' },
+        { term: 'Order of preference', detail: 'One-document atomicity, then derived data repaired by a job, then a short transaction.' },
+      ],
       points: [
         'A write to one document is atomic, even across several fields. Putting what must change together in one document is the first way to avoid a transaction.',
         'Multi-document ACID transactions exist on replica sets since 4.0 and on sharded clusters since 4.2. In the driver, `session.withTransaction(callback)` starts, runs and commits one.',
@@ -797,6 +855,16 @@ const reviewsForReports = client.db('catalogue').collection('reviews', {
       },
     ],
     lesson: {
+      intro:
+        'A change stream lets a service subscribe to MongoDB changes in near real time. With saved resume tokens and an idempotent consumer, it keeps another system in sync.',
+      takeaways: [
+        { term: '`watch()`', detail: 'Streams the changes of a collection, database or deployment; read it with `for await`.' },
+        { term: 'Requirements', detail: 'A replica set or a sharded cluster; only majority-committed changes are reported.' },
+        { term: "`fullDocument: 'updateLookup'`", detail: 'Update events then carry the current document, not only the changes.' },
+        { term: 'Resume token', detail: "Each event's `_id`: save it after processing, and pass it as `resumeAfter` on restart." },
+        { term: 'At-least-once', detail: 'Events can repeat, so the consumer must be idempotent, like an upsert by SKU.' },
+        { term: 'Oplog window', detail: 'A watcher down longer cannot resume (code 286) and needs a full resync. Run one watcher, not one per replica.' },
+      ],
       points: [
         'A change stream subscribes to the changes of a collection, a database or a deployment. It needs a replica set or a sharded cluster and reports only majority-committed changes.',
         "In the Node driver, `collection.watch(pipeline, options)` returns a stream you read with `for await`. Update events carry only the changes unless you set `fullDocument: 'updateLookup'`.",

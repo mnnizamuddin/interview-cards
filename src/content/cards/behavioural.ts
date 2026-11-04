@@ -88,6 +88,16 @@ export const behaviouralCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'A full-stack story shows ownership: you drove one feature through every layer and made the decisions where those layers meet, not just the code in one of them.',
+      takeaways: [
+        { term: 'Situation', detail: 'The user problem in one or two sentences, such as customers calling support because order status only changed on reload.' },
+        { term: 'Task', detail: 'What you owned: the feature end to end, from the database and API to the screen.' },
+        { term: 'Your actions, with "I"', detail: 'Most of the time goes here: what you built on the backend and on the frontend, and the decision behind each technology.' },
+        { term: 'Cross-layer decision', detail: 'One decision where the layers meet, such as agreeing the API contract or event format first so both sides were built in parallel.' },
+        { term: 'Measured result and lesson', detail: 'End on a number, like support tickets down about 30%, plus one lesson. Never "it went well".' },
+        { term: 'Follow-ups', detail: 'Be ready to say how each layer was tested and one real thing you would do differently.' },
+      ],
       points: [
         'The interviewer assesses ownership: whether you drive a feature across every layer and make the decisions where the layers meet, not only code one of them.',
         'Use STAR: the Situation in a sentence or two, the Task you owned, the Actions you took told with "I", and a measured Result plus one lesson. Most of the time goes on the actions.',
@@ -181,6 +191,16 @@ export const behaviouralCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'A cross-layer bug story shows your debugging method under uncertainty: evidence gathered across layers, a reproduction before the fix, and a guard so the bug never comes back.',
+      takeaways: [
+        { term: 'Symptom and rarity', detail: 'Open with what users saw and how rare it was, such as one paid order in two thousand stuck, never in staging.' },
+        { term: 'Narrowing it down', detail: 'How you followed the evidence across layers: traces, logs and data, each ruling something in or out.' },
+        { term: 'Reproduction', detail: 'Reproduce it in a test before fixing it, for example by delaying replication to recreate the race.' },
+        { term: 'Root-cause fix', detail: 'Fix the cause, not the symptom. Say why it hid in staging: rare bugs are often races or timing differences.' },
+        { term: 'Proof and guard', detail: 'A signal you watched drop to zero, and the alert or test that now catches it.' },
+        { term: 'Traps', detail: 'A fix without the method, a bug that "went away" after an unexplained change, or stopping at the patch.' },
+      ],
       points: [
         'The interviewer assesses your debugging method under uncertainty: evidence gathered across layers, a reproduction before the fix, and a guard against the bug coming back.',
         'Shape it in STAR order: the symptom and how rare it was, how you narrowed it down (traces, logs, data), the reproduction, the root-cause fix, a measured result and the lesson.',
@@ -280,6 +300,16 @@ export const behaviouralCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Deciding where business logic lives is a judgement about trust boundaries: the browser is under the user\'s control, so the rules that matter are enforced on the server and only repeated in the UI for comfort.',
+      takeaways: [
+        { term: 'Money, stock, permissions', detail: 'Enforced on the server, because anyone can bypass the browser and send a request directly.' },
+        { term: 'Client-side rules', detail: 'Repeated only for comfort: instant form validation or hiding a button the user cannot use.' },
+        { term: 'Shared schema', detail: 'One schema, such as Zod in a shared package, used by the API and the forms; the server has the last word.' },
+        { term: 'Server Functions', detail: 'A Next.js Server Function is a public endpoint: it validates its arguments and checks authorisation itself.' },
+        { term: 'Presentation logic', detail: 'Formatting a price or the order of steps in a form belongs in the frontend.' },
+        { term: 'Answer shape', detail: 'State a clear rule first, then anchor it in a concrete example from your work.' },
+      ],
       points: [
         'This is a judgement question about trust boundaries: answer with a clear rule, then anchor it in a concrete example from your work.',
         'Rules that protect money, stock or permissions are enforced on the server, because the browser is under the user\'s control and anyone can send a request directly.',
@@ -373,6 +403,16 @@ export const behaviouralCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'A learn-fast story is about how you learn, not what you already knew: your method, the questions you ask, and how you protect the product while you are still learning.',
+      takeaways: [
+        { term: 'The constraint', detail: 'What was new and how little time there was, such as a partner retiring its REST API for GraphQL in six weeks.' },
+        { term: 'Learning method', detail: 'Official docs, a throwaway prototype outside the codebase, and precise questions to the right people.' },
+        { term: 'Containing the risk', detail: 'Wrap the new client behind an existing interface and test against recorded responses, so the rest does not change.' },
+        { term: 'Measured result', detail: 'Delivered with a number, such as switched a week early with no failed shipments, and what you would reuse.' },
+        { term: 'Follow-ups', detail: 'How you knew you had learned enough to start, and when you asked for help.' },
+        { term: 'Traps', detail: '"I learned it over a weekend" with no method, only the learning and not the delivery, or claiming you knew most of it.' },
+      ],
       points: [
         'The interviewer assesses how you learn, not what you already knew: your method, the questions you ask, and how you protect the product while learning.',
         'A strong STAR story names the constraint (what was new, how much time), then the method: official docs, a throwaway prototype, precise questions to the right people.',
@@ -462,6 +502,16 @@ export const behaviouralCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'A disagreement story shows whether you argue with data, listen to the other view and commit once the decision is made. Pick one where the other person had a real reason.',
+      takeaways: [
+        { term: 'The disagreement', detail: 'What was proposed and your reason against it, stated without caricature.' },
+        { term: 'Their goal', detail: 'Ask what the other person wants to fix, such as p99 latency at the evening peak, and state it fairly.' },
+        { term: 'Settled with data', detail: 'Turn opinions into a shared test or measurement, such as a load test of both options on staging.' },
+        { term: 'Disagree and commit', detail: 'Once decided, support it fully, keep an eye on the risk you saw, and bring data back if it materialises.' },
+        { term: 'Outcome', detail: 'What shipped and the measured result, including the part of their concern that was valid.' },
+        { term: 'Traps', detail: 'The other person simply wrong, winning by authority or persistence, or leaving out what happened afterwards.' },
+      ],
       points: [
         'The interviewer assesses whether you argue with data, listen to the other view and commit once the decision is made.',
         'Pick a story where the other person had a real reason. State their goal fairly, then show how you turned opinions into a shared test or measurement.',
@@ -551,6 +601,16 @@ export const behaviouralCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Onboarding questions test how quickly you become useful and whether you learn the system and its people, not only the code. Give a method, then anchor it in a real example.',
+      takeaways: [
+        { term: 'Product first', detail: 'Use the product as a customer and as an agent before reading code.' },
+        { term: 'One flow end to end', detail: 'Follow one flow, such as placing an order, from the button through each service to the tables it writes.' },
+        { term: 'Run it and read the why', detail: 'Run it locally; read the README, architecture decision records (ADRs), incident reports and dashboards.' },
+        { term: 'Small real change early', detail: 'Ship a small real ticket in the first week.' },
+        { term: 'Questions into docs', detail: 'Keep a list of questions and confusing parts; turn the answers into documentation for the next person.' },
+        { term: 'Traps', detail: 'Reading the whole codebase before touching anything, or waiting weeks to ask: precise questions are expected.' },
+      ],
       points: [
         'The interviewer assesses how quickly you become useful and whether you learn the system and its people, not only the code. Give a method and anchor it in a real example.',
         'Start from the product: use it as a customer and as an agent, then follow one flow end to end, such as placing an order, from the button to the tables it writes.',
@@ -640,6 +700,16 @@ export const behaviouralCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'A tech-debt story shows that you make debt visible and negotiate a trade, rather than ignoring it or refusing the deadline.',
+      takeaways: [
+        { term: 'Deadline and debt', detail: 'One sentence each, such as gift cards before Black Friday and partner calls with no timeout.' },
+        { term: 'Business cost', detail: 'Put the debt in terms a product manager can weigh: lost orders, minutes of incident, support tickets. Not "messy code".' },
+        { term: 'Negotiated trade', detail: 'Cut scope with the product owner, such as a smaller first version, so time goes to the risky debt.' },
+        { term: 'Never cut quality silently', detail: 'Tests and quality are not the variable you drop without telling anyone.' },
+        { term: 'Close the loop', detail: 'Say what happened to the deferred work: an owner and a date or a trigger in the backlog.' },
+        { term: 'Debt on purpose', detail: 'Fine when the deadline has real value and the shortcut is contained, reversible and has a written plan to remove it.' },
+      ],
       points: [
         'The interviewer assesses whether you make technical debt visible and negotiate, rather than ignoring it or refusing the deadline.',
         'Put a business cost on the debt: lost orders, minutes of incident or support tickets give a product manager something to weigh; "messy code" does not.',
@@ -733,6 +803,16 @@ export const behaviouralCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'This question checks that you can carry several streams of work without dropping one. Answer with a concrete example and a method, not a list of tools.',
+      takeaways: [
+        { term: 'One prioritised list', detail: 'A single list, ordered with your lead by impact and deadline.' },
+        { term: 'Limit work in progress', detail: 'Ideally one task in progress at a time.' },
+        { term: 'Batch interruptions', detail: 'Reviews and messages at fixed times of day, so interruptions stay bounded.' },
+        { term: 'Cheap switching', detail: 'A branch and a short note of where you stopped for each task, so switching costs minutes, not an hour.' },
+        { term: 'Announce delays early', detail: 'When a task slips, say so early and let whoever sets priorities decide.' },
+        { term: 'Traps', detail: '"I multitask well" with no method, tools without judgement, or skipping how you communicated changes.' },
+      ],
       points: [
         'The interviewer assesses whether you can carry several streams of work without dropping one. Show it with a concrete example, not a list of tools.',
         'Keep one prioritised list, ordered with your lead by impact and deadline, and limit work in progress, ideally one task at a time.',
@@ -818,6 +898,16 @@ export const behaviouralCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'An incident story shows calm under pressure, a method rather than luck, ownership and communication. Told in STAR, it puts limiting the impact before finding the cause.',
+      takeaways: [
+        { term: 'Impact and role', detail: 'One sentence each: what failed and how much, such as 30% of checkouts returning 500, and that you led as on-call.' },
+        { term: 'Mitigation first', detail: 'Limit the impact with a reversible action: rollback, feature flag or more capacity.' },
+        { term: 'Evidence to the cause', detail: 'The hypothesis you tested, what ruled it out, and the traces, metrics or database views that pointed at the cause.' },
+        { term: 'Measured result', detail: 'Minutes to recovery or failed orders, and how you kept stakeholders informed during the incident.' },
+        { term: 'Blameless postmortem', detail: 'The changes that stop it recurring, each with an owner.' },
+        { term: 'Traps', detail: 'Skipping the mitigation, saying "we" throughout, or stopping at the fix.' },
+      ],
       points: [
         'The interviewer assesses calm under pressure, a method rather than luck, ownership and communication. Tell it in STAR: situation, task, action, result.',
         'Show the order of work: limit the impact first with a reversible action (rollback, feature flag, more capacity), then find the root cause with evidence such as traces, metrics and database views.',
@@ -903,6 +993,16 @@ export const behaviouralCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'A trade-off story shows that you reason with two real options, each with a cost, and choose with data in business terms rather than by habit.',
+      takeaways: [
+        { term: 'Two options and costs', detail: 'Name both and what each costs, such as strict stock consistency against checkout availability.' },
+        { term: 'Business terms', detail: 'Translate it: failed orders against refunded oversells, or a second of staleness against load on the primary.' },
+        { term: 'Data behind the choice', detail: 'Measure first, such as how rare oversells would be, before proposing.' },
+        { term: 'Who decides', detail: 'Let the person who carries the risk decide with you; name what you gave up and the exceptions you kept.' },
+        { term: 'Result, what would change it', detail: 'The measured result, and which requirements, volumes or costs would change the decision.' },
+        { term: 'Traps', detail: 'A choice with no downside, CAP vocabulary with no consequence for users, or a risk decided alone.' },
+      ],
       points: [
         'The interviewer assesses whether you reason in trade-offs: two real options, each with a cost, and a choice made with data rather than by habit.',
         'Translate the trade-off into business terms: failed orders against refunded oversells, a second of staleness against load on the primary. Let the person who carries the risk decide with you.',
@@ -988,6 +1088,16 @@ export const behaviouralCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Pushing back on a risky feature means protecting the product without blocking the business: you listen, explain the risk, offer safer options and know when to escalate.',
+      takeaways: [
+        { term: 'Goal behind the request', detail: 'Start there: a safer feature often meets it, such as a filtered, asynchronous export instead of a full dump.' },
+        { term: 'Risk in business terms', detail: 'What could happen, how likely it is and what it would cost. No jargon.' },
+        { term: 'Options', detail: 'Alternatives with their cost and delay that meet the goal safely; the product manager chooses.' },
+        { term: 'If they still proceed', detail: 'Write down the risk and who accepted it.' },
+        { term: 'Escalate', detail: 'If it breaks the law or the security policy, go to your manager and the security lead.' },
+        { term: 'Traps', detail: 'A flat no, jargon, or building it silently. Anchor the answer in a real story with a result.' },
+      ],
       points: [
         'The interviewer assesses whether you protect the product without blocking the business: you listen, explain the risk, offer options and know when to escalate.',
         'Start from the goal behind the request; a safer feature often meets it, such as a filtered, asynchronous export instead of a one-click dump of every customer.',

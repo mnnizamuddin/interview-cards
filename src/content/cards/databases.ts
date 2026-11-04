@@ -86,6 +86,16 @@ export const databaseCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'Relational databases store rows in tables with a schema, joins and transactions; NoSQL is a family of stores, each built around a few access patterns. You choose by the queries you must serve and what you can give up.',
+      takeaways: [
+        { term: 'Relational', detail: 'Tables with a declared schema. Foreign keys reject bad data, and a transaction changes several rows atomically.' },
+        { term: 'NoSQL families', detail: 'Document (MongoDB), key-value (Redis, DynamoDB), wide-column (Cassandra) and graph databases.' },
+        { term: 'Access pattern', detail: 'A query the app runs often. Pick the store that serves your main ones, and name what you lose: joins, foreign keys, transactions.' },
+        { term: '"Schemaless"', detail: 'Moves the schema into the application, which must still validate it.' },
+        { term: 'MongoDB document size', detail: 'Capped at 16 MiB, so an unbounded array inside one document eventually fails.' },
+        { term: '`jsonb` with GIN', detail: "PostgreSQL's answer for a few flexible fields; a GIN index serves containment queries with `@>`." },
+      ],
       points: [
         'A relational database such as PostgreSQL stores rows in tables with a declared schema. Constraints such as foreign keys reject bad data, and a transaction changes several rows atomically.',
         '"NoSQL" names several families: document stores (MongoDB), key-value stores (Redis, DynamoDB), wide-column stores (Cassandra) and graph databases. Each is built around a few access patterns.',
@@ -198,6 +208,16 @@ WHERE l.order_id = 101;`,
       },
     ],
     lesson: {
+      intro:
+        'Normalization stores each fact once and points to it by key, so two rows can never disagree. Denormalizing copies data on purpose for cheaper reads, at the price of keeping the copies in sync.',
+      takeaways: [
+        { term: 'Normalize', detail: 'Each fact stored once and referenced by key, so an update touches one row.' },
+        { term: 'Third normal form (3NF)', detail: 'Every column depends on the key, the whole key and nothing but the key.' },
+        { term: 'Denormalize', detail: 'Keep a copy or derived value, like `orders.total_cents`, only for a measured read problem.' },
+        { term: 'Drift', detail: 'A copy drifts when one write path forgets it. Give it an owner (transaction, trigger, consumer) and a drift check.' },
+        { term: 'Snapshot', detail: "The unit price on an order line records what was paid: a different fact from today's price, not a copy." },
+        { term: 'Materialized view', detail: 'Stale between `REFRESH MATERIALIZED VIEW` runs; a column updated in the same transaction is always current.' },
+      ],
       points: [
         'Normalizing means storing each fact once and pointing to it by key, so an update touches one row and two copies can never disagree.',
         'Third normal form (3NF): every column depends on the key, the whole key and nothing but the key. A customer\'s email repeated on each order breaks it, because it describes the customer, not the order.',
@@ -312,6 +332,16 @@ HAVING o.total_cents <> sum(l.quantity * l.unit_price_cents);`,
       },
     ],
     lesson: {
+      intro:
+        'An index is a sorted copy of some columns pointing to the rows, like the index of a book. It turns a full table read into a jump to the matches, at a cost on every write.',
+      takeaways: [
+        { term: 'Sequential scan', detail: 'Without a usable index, PostgreSQL reads the whole table.' },
+        { term: 'B-tree', detail: 'The default type: serves equality, ranges and `ORDER BY`, and lets a `LIMIT` stop after the first entries.' },
+        { term: 'Composite index', detail: '`(customer_id, created_at)` serves filters on its leftmost columns, not on `created_at` alone.' },
+        { term: 'Automatic indexes', detail: 'PostgreSQL creates them for primary keys and unique constraints only, not for foreign keys.' },
+        { term: 'Write cost', detail: 'Every index slows inserts and updates and takes space: index what queries filter, join and sort on.' },
+        { term: '`INCLUDE`', detail: 'Adds columns to a covering index, allowing an index-only scan.' },
+      ],
       points: [
         'An index is a separate structure holding a sorted copy of some columns, each entry pointing to its row. Without a usable index, PostgreSQL reads the whole table: a sequential scan.',
         'The default index type is the B-tree, a shallow tree whose leaves are sorted. It serves equality, ranges and `ORDER BY`, and lets a `LIMIT` stop after the first matching entries.',
@@ -424,6 +454,16 @@ ROLLBACK;`,
       },
     ],
     lesson: {
+      intro:
+        'Fixing a slow query starts with finding what really costs the most, then reading its plan to learn why. The fix then targets the cause, and you measure again afterwards.',
+      takeaways: [
+        { term: '`pg_stat_statements`', detail: 'Records calls, total and mean time per normalized query. Sort by total time: frequent fast queries add up.' },
+        { term: '`EXPLAIN (ANALYZE, BUFFERS)`', detail: 'Really runs the statement and adds actual rows, time and pages read; wrap an `UPDATE` in a rolled-back transaction.' },
+        { term: 'Estimated vs actual rows', detail: 'Far apart, they point to stale statistics: run `ANALYZE`.' },
+        { term: 'Rows Removed by Filter', detail: 'Large on a sequential scan, it points to a missing or unusable index.' },
+        { term: '`CREATE INDEX CONCURRENTLY`', detail: 'Does not block writes, but cannot run in a transaction block and leaves an invalid index if it fails.' },
+        { term: 'Realistic data', detail: 'A tiny table always gets a full scan: test plans on real volumes, and measure again after the fix.' },
+      ],
       points: [
         'Start with what costs the most in total. The `pg_stat_statements` extension records calls, total and mean time per normalized query; a 2 ms query run 50,000 times can cost more than one slow report.',
         '`EXPLAIN` shows the planner\'s estimated plan. `EXPLAIN (ANALYZE, BUFFERS)` really runs the statement and adds actual rows, time and pages read, so wrap an `UPDATE` in a transaction you roll back.',
@@ -541,6 +581,16 @@ VALUES (42, 'pending_payment');`,
       },
     ],
     lesson: {
+      intro:
+        'A transaction groups statements into one unit, kept with `COMMIT` or undone with `ROLLBACK`. ACID names its four guarantees, and their limits explain lost updates and aborted transactions.',
+      takeaways: [
+        { term: 'Atomicity', detail: 'All of it is written, or none of it.' },
+        { term: 'Consistency', detail: 'Declared rules, like constraints and foreign keys, hold at commit.' },
+        { term: 'Isolation', detail: 'Others never see half-done work. At Read Committed, a read-then-write can still lose an update.' },
+        { term: 'Durability', detail: 'A commit survives a crash, because it is in the write-ahead log (WAL) on disk.' },
+        { term: 'After an error', detail: 'PostgreSQL refuses every later statement ("current transaction is aborted"), and `COMMIT` then rolls back.' },
+        { term: 'One client in Node', detail: 'Run every statement on one client from `pool.connect()`; `pool.query` may use another connection.' },
+      ],
       points: [
         'A transaction groups statements into one unit: `BEGIN`, then `COMMIT` to keep everything or `ROLLBACK` to undo it all.',
         'Atomicity: all or nothing. Consistency: constraints hold at commit. Isolation: others never see half-done work. Durability: a commit survives a crash, as it is in the write-ahead log (WAL) on disk.',
@@ -657,6 +707,16 @@ COMMIT;`,
       },
     ],
     lesson: {
+      intro:
+        'A many-to-many relationship, like products and categories, needs a junction table between the two tables. Its keys, indexes and delete rules decide whether links stay correct and fast.',
+      takeaways: [
+        { term: 'Junction table', detail: 'Holds one foreign key to each side, such as `product_id` and `category_id`.' },
+        { term: 'Pair as primary key', detail: 'The same link cannot be stored twice: a second insert fails with `23505`.' },
+        { term: 'Reverse index', detail: 'Add `(category_id, product_id)`: the primary key only serves lookups by product.' },
+        { term: '`ON DELETE CASCADE`', detail: 'Removes the links together with the product.' },
+        { term: '`ON DELETE RESTRICT`', detail: 'Refuses to delete a category that still has links.' },
+        { term: 'Link with its own data', detail: 'A quantity or a price paid makes it an entity with a name, like `order_lines`.' },
+      ],
       points: [
         'One-to-many needs one foreign key column on the "many" side. Many-to-many needs a junction table, also called a join table, holding one foreign key to each side.',
         'Make the pair the primary key, so the same link cannot be stored twice: a second insert of the same pair fails with a unique violation (error `23505`).',
@@ -770,6 +830,16 @@ return rows;`,
       },
     ],
     lesson: {
+      intro:
+        "A pool keeps database connections open and lends them to requests, because opening one per request is slow and quickly hits the server's limit. Its size and timeouts decide how it holds under load.",
+      takeaways: [
+        { term: 'Connection cost', detail: 'PostgreSQL starts a server process per connection, and each runs one query at a time.' },
+        { term: 'Check out, release', detail: 'A request borrows a connection and gives it back; when all are busy, the next one waits in the queue.' },
+        { term: 'Sizing', detail: 'One pool per process. Pool size times max pods must stay under `max_connections`, 100 by default.' },
+        { term: '`connectionTimeoutMillis`', detail: '0 by default in node-postgres, so it waits forever for a free connection. Set a timeout.' },
+        { term: 'Release in `finally`', detail: 'Otherwise each error leaks a client, until the pool is empty.' },
+        { term: 'PgBouncer, transaction mode', detail: 'Shares a few server connections, but breaks session state: `SET`, `LISTEN`, session advisory locks, `PREPARE`.' },
+      ],
       points: [
         'PostgreSQL starts a separate server process for each connection, and a connection runs one query at a time, so opening a connection per request is slow and quickly hits the limit.',
         'A pool keeps connections open and lends them out: a request checks one out, runs its queries and releases it. When all are busy, the next request waits in the pool\'s queue.',
@@ -868,6 +938,16 @@ export const pool = new pg.Pool({
       },
     ],
     lesson: {
+      intro:
+        'Sharding splits one dataset across several database servers by a shard key, so writes and storage can grow beyond one primary. It is costly to run, so it comes after simpler options.',
+      takeaways: [
+        { term: 'Shard key', detail: 'Decides which server holds a row. Pick one the main queries filter on, such as `customer_id`.' },
+        { term: 'Range sharding', detail: 'Keeps range queries targeted, but an ever-growing key such as a date makes one hot shard.' },
+        { term: 'Hash sharding', detail: 'Spreads writes evenly, but scatters range queries.' },
+        { term: 'Directory sharding', detail: 'A lookup table maps keys to shards: flexible, but one more component.' },
+        { term: 'Scatter-gather', detail: 'A query without the key goes to every shard; joins and transactions across shards are costly.' },
+        { term: 'Shard last', detail: 'Partitioning (one server) and replication (full copies) differ. Indexes, replicas, partitioning and archiving come first.' },
+      ],
       points: [
         'Sharding splits one dataset across several database servers, each holding the rows for some values of a shard key, so writes and storage can grow beyond what one primary handles.',
         'Do not confuse it with partitioning, which splits one table into partitions on the same server, or with replication, which copies the whole dataset to read replicas.',
@@ -972,6 +1052,16 @@ export const pool = new pg.Pool({
       },
     ],
     lesson: {
+      intro:
+        'An ORM maps tables to typed objects and generates the SQL for you. It speeds up everyday queries but hides the SQL, which is where N+1 loops and slow reports come from.',
+      takeaways: [
+        { term: 'ORM', detail: 'Prisma uses a schema file and a generated client; Drizzle declares tables in TypeScript.' },
+        { term: 'Query builder', detail: 'Kysely types the SQL you compose call by call, but does not own your schema or load relations.' },
+        { term: 'Benefits', detail: 'Types that follow the schema, less boilerplate, built-in migrations.' },
+        { term: 'Costs', detail: 'Hidden SQL, awkward complex reports such as window functions, and an abstraction to learn.' },
+        { term: 'N+1', detail: '50 orders, then each customer in a loop: 51 queries. Load the relation with a join or `WHERE id = ANY($1)`.' },
+        { term: 'Raw SQL', detail: 'Pass values as parameters, never concatenated; table and column names come from an allowlist.' },
+      ],
       points: [
         'An ORM (object-relational mapper) maps tables and relations to typed objects and generates the SQL. Prisma uses a schema file and a generated client; Drizzle declares tables in TypeScript.',
         'A query builder such as Kysely types the SQL you compose call by call, but it does not own your schema or load relations for you.',
@@ -1081,6 +1171,16 @@ LIMIT 20 OFFSET $2;`,
       },
     ],
     lesson: {
+      intro:
+        "An activity feed stores each event once and builds every user's feed from those events. The core decision is whether to assemble the feed when it is read or copy events to followers when they happen.",
+      takeaways: [
+        { term: 'Events table', detail: 'The actor, the verb, the object, the time and a small payload, stored once.' },
+        { term: 'Fan-out on read', detail: 'Built at read time from followed sources: cheap writes, reads cost more with each source.' },
+        { term: 'Fan-out on write', detail: 'One `feed_items` row per follower: a read is one range scan, but popular sources multiply writes.' },
+        { term: 'Hybrid', detail: 'Fan out on write for most sources, and pull the ones with millions of followers at read time.' },
+        { term: 'Keyset pagination', detail: 'Index `(user_id, created_at DESC, id DESC)` and ask for rows before the last `(created_at, id)`, not `OFFSET`.' },
+        { term: 'Outbox', detail: "Write the event in the change's transaction; a worker publishes it, so consumers must be idempotent." },
+      ],
       points: [
         'Store each event once: the actor, the verb, the object, the time and a small payload, such as "agent 12 refunded order 981".',
         'Fan-out on read builds the feed when it is read, from the events of everything the user follows: writes are cheap, and reads get costlier with each source followed.',
@@ -1191,6 +1291,16 @@ await db.query('UPDATE products SET stock = $2 WHERE id = $1',
       },
     ],
     lesson: {
+      intro:
+        'A race condition is a bug whose result depends on the timing of concurrent operations. With several API replicas, the fix belongs in the database, not in Node memory.',
+      takeaways: [
+        { term: 'Read-compute-write', detail: 'Two checkouts read a stock of 1 and both write 0: one update is lost, even in a Read Committed transaction.' },
+        { term: 'Lock in Node memory', detail: 'Covers one process only, not several replicas.' },
+        { term: 'Atomic `UPDATE`', detail: '`UPDATE ... WHERE stock >= 1` checks and writes in one statement.' },
+        { term: '`SELECT ... FOR UPDATE`', detail: 'Locks the row until commit, so a second locking read waits for it.' },
+        { term: 'Version column', detail: 'The write only succeeds if the version is still the one you read.' },
+        { term: '`UNIQUE` constraint', detail: 'Stops check-then-insert races: with `ON CONFLICT DO NOTHING`, the second insert is harmless.' },
+      ],
       points: [
         'A race condition is a bug whose result depends on the timing of concurrent operations: two requests, two replicas or two workers touching the same data at once.',
         'The classic is read-compute-write: both checkouts read a stock of 1, both write 0, and one update is lost. A transaction at the default Read Committed level does not stop it.',
@@ -1279,6 +1389,16 @@ RETURNING id;`,
       },
     ],
     lesson: {
+      intro:
+        "Replication keeps copies of a database on other servers by shipping the primary's change log. It serves failover and read scaling, and its mode trades commit speed against data loss.",
+      takeaways: [
+        { term: 'WAL streaming', detail: 'The primary streams its write-ahead log, the record of every change, to standbys that replay it.' },
+        { term: 'Asynchronous (default)', detail: 'Commits do not wait: fast writes, replicas lag, and a primary crash can lose the last commits.' },
+        { term: 'Synchronous', detail: 'With `synchronous_standby_names`, a commit waits for a standby: no acknowledged commit lost, one round trip more.' },
+        { term: 'Read-your-writes', detail: 'A lagging replica may miss your write: read from the primary right after writing, and monitor lag.' },
+        { term: 'Failover', detail: 'PostgreSQL does not detect a failed primary; a tool such as Patroni promotes a standby.' },
+        { term: 'Split brain', detail: 'Two primaries taking writes, when the old primary is not fenced.' },
+      ],
       points: [
         'Replication keeps copies of a database on other servers. In PostgreSQL, the primary streams its write-ahead log (WAL), the record of every change, to standbys that replay it.',
         'Asynchronous, the default: the primary commits without waiting. Writes stay fast, but replicas lag, usually under a second, and a crash of the primary can lose its last commits.',
@@ -1385,6 +1505,16 @@ SELECT application_name, replay_lag FROM pg_stat_replication;`,
       },
     ],
     lesson: {
+      intro:
+        'N+1 is one query for a list, then one more query per row for related data. Each query is a round trip paid in turn, so the page slows down as the data grows.',
+      takeaways: [
+        { term: 'N+1', detail: '1 query loads the list, then N more, one per row: 20 orders become 21 queries.' },
+        { term: 'Cost', detail: 'At 1 ms each, 200 rows cost 200 ms of waiting, holding a pooled connection all along.' },
+        { term: 'Hidden causes', detail: 'Lazy relations, a helper called inside `map`, a GraphQL resolver run once per parent.' },
+        { term: 'Eager loading', detail: 'Load the relation in the query: a join, `include` in Prisma, `with` in Drizzle.' },
+        { term: '`WHERE id = ANY($1)`', detail: 'One batched query for all the ids.' },
+        { term: 'DataLoader', detail: 'Created per request, it collects the ids asked for in one tick and runs one batch query.' },
+      ],
       points: [
         'N+1: one query loads a list (the 1), then a loop runs one more query per row (the N). 20 orders become 21 queries.',
         'Each query is a network round trip, paid one after the other. At 1 ms each, 200 rows cost 200 ms of waiting, and the request holds a pooled connection all along.',
@@ -1492,6 +1622,16 @@ COMMIT;`,
       },
     ],
     lesson: {
+      intro:
+        'The isolation level decides what a transaction sees of others running at the same time. Stricter levels prevent more anomalies, but conflicting transactions then fail and must be retried.',
+      takeaways: [
+        { term: 'Dirty read', detail: "Seeing another transaction's uncommitted data. Read Committed forbids it." },
+        { term: 'Non-repeatable read', detail: 'One row read twice gives two values. Repeatable Read forbids it.' },
+        { term: 'Phantom', detail: "The same filtered query returns another set of rows. Standard: Serializable forbids it; PostgreSQL's Repeatable Read too." },
+        { term: 'PostgreSQL snapshots', detail: 'Read Committed, the default, takes one per statement; Repeatable Read one per transaction.' },
+        { term: 'Write skew', detail: 'Two transactions read the same rows and write different ones. Only Serializable stops it.' },
+        { term: '`40001`', detail: 'Serialization failure at the stricter levels: retry the whole transaction.' },
+      ],
       points: [
         'The isolation level decides what a transaction sees of others running at the same time. An anomaly is a result that no one-at-a-time order of the transactions could produce.',
         'Dirty read: seeing uncommitted data. Non-repeatable read: one row read twice gives two values. Phantom: the same filtered query returns a different set of rows.',
@@ -1591,6 +1731,16 @@ ALTER TABLE orders ADD COLUMN total_cents bigint;`,
       },
     ],
     lesson: {
+      intro:
+        'Downtime during a migration comes from long, strong locks and from old code meeting a new schema mid-deploy. Safe statements and changes split across deploys avoid both.',
+      takeaways: [
+        { term: 'ACCESS EXCLUSIVE', detail: 'Most `ALTER TABLE` forms take it, blocking even reads. Held during a rewrite or a full scan, it is an outage.' },
+        { term: 'Table rewrites', detail: 'A volatile default such as `uuidv7()`, most type changes. A constant default is catalog-only since PostgreSQL 11.' },
+        { term: '`SET NOT NULL`', detail: 'Scans every row of the table.' },
+        { term: '`lock_timeout`', detail: 'Default 0, wait forever. An `ALTER` waiting behind a long transaction blocks every later query.' },
+        { term: 'Expand and contract', detail: 'Add, sync and backfill, switch reads then writes, drop the old column last, each step its own deploy.' },
+        { term: 'Backfill', detail: 'Small batches chosen by key, each a short transaction, with a saved cursor.' },
+      ],
       points: [
         'Most `ALTER TABLE` forms take an ACCESS EXCLUSIVE lock, which blocks even reads. Held briefly, nobody notices; held during a table rewrite or a full scan, it is an outage.',
         'Rewrites: a volatile default such as `uuidv7()`, most type changes like `int` to `bigint`. A constant default is catalog-only since PostgreSQL 11. `SET NOT NULL` scans every row.',
@@ -1701,6 +1851,16 @@ for (const productId of ids) {
       },
     ],
     lesson: {
+      intro:
+        'A deadlock is two transactions each waiting for a lock the other holds, so neither can ever move. PostgreSQL breaks it by aborting one, so code must both prevent and survive it.',
+      takeaways: [
+        { term: 'Cycle of waits', detail: 'A holds row 7 and wants row 9; B holds row 9 and wants row 7.' },
+        { term: '`deadlock_timeout`', detail: '1 s by default: once a lock wait lasts that long, PostgreSQL looks for a cycle.' },
+        { term: '`40P01`', detail: '"deadlock detected": PostgreSQL aborts one transaction, and which one is unpredictable.' },
+        { term: 'One lock order', detail: 'Lock rows in one order everywhere, such as lowest id first, and take the strongest lock first.' },
+        { term: 'Retry', detail: 'Rerun the whole transaction, not the failed statement, with jittered backoff and capped attempts.' },
+        { term: 'Deadlock vs contention', detail: 'A plain lock wait ends when the holder commits; a deadlock never ends on its own.' },
+      ],
       points: [
         'A deadlock is a cycle of waits: transaction A holds row 7 and wants row 9, while B holds row 9 and wants row 7. Neither can ever proceed.',
         'PostgreSQL looks for a cycle once a lock wait lasts `deadlock_timeout` (1 s by default) and aborts one transaction with `40P01 deadlock detected`. Which one is unpredictable.',
@@ -1791,6 +1951,16 @@ FOR NO KEY UPDATE;`,
       },
     ],
     lesson: {
+      intro:
+        "A clustered index stores the table's rows in index order, while a secondary index points to rows stored elsewhere. Databases differ: InnoDB clusters by primary key, PostgreSQL uses a heap.",
+      takeaways: [
+        { term: 'Clustered index', detail: 'Its leaf pages are the rows. At most one per table, since rows have one storage order.' },
+        { term: 'Secondary index', detail: 'A separate structure whose entries point to the rows: find the entry, then fetch the row.' },
+        { term: 'MySQL InnoDB', detail: 'Clusters by primary key, and secondary entries store that key: keep it short and increasing.' },
+        { term: 'SQL Server', detail: 'Lets you choose which index is the clustered one.' },
+        { term: 'PostgreSQL heap', detail: 'Rows unordered, every index secondary. `CLUSTER` reorders once; later writes do not follow.' },
+        { term: 'Covering index', detail: 'Holds every column the query needs; `INCLUDE` gives an Index Only Scan in PostgreSQL.' },
+      ],
       points: [
         'A clustered index stores the table\'s rows in index order: its leaf pages are the rows. A table has at most one, because rows can be stored in only one order.',
         'A non-clustered, or secondary, index is a separate structure whose entries point to the rows. A lookup finds the entry, then fetches the row.',
@@ -1899,6 +2069,16 @@ await redis.set(\`product:\${productId}\`,
       },
     ],
     lesson: {
+      intro:
+        'A relational database gives joins, constraints and durable transactions; a key-value store such as Redis gives very fast lookups by key from memory. Most backends use both, each for what it does best.',
+      takeaways: [
+        { term: 'Relational', detail: 'Typed rows, joins, constraints, multi-row transactions; each commit hits the WAL before it is acknowledged.' },
+        { term: 'Key-value', detail: 'Data is found by key only: no joins, no foreign keys.' },
+        { term: 'Redis types', detail: 'Strings, hashes, lists, sets and sorted sets, all kept in memory.' },
+        { term: 'Redis persistence', detail: 'RDB snapshots can lose minutes of writes; the AOF, fsynced every second by default, about one second.' },
+        { term: 'Who holds what', detail: 'PostgreSQL is the source of truth; Redis holds rebuildable data: cache, sessions, counters, queues.' },
+        { term: 'Cache-aside', detail: 'Read Redis; on a miss, read PostgreSQL and store with a TTL. On a write, commit, then delete the key.' },
+      ],
       points: [
         'A relational database stores typed rows, joins them, enforces constraints and runs multi-row transactions; each commit is written to the write-ahead log before it is acknowledged.',
         'A key-value store maps a key to a value. Redis keeps everything in memory and offers types: strings, hashes, lists, sets, sorted sets. Data is found by key only: no joins, no foreign keys.',

@@ -119,6 +119,16 @@ export const asyncCards: Card[] = [
       },
     ],
     lesson: {
+      intro:
+        'JavaScript runs your code on one thread, and the event loop decides what runs next: one task, then every microtask, then maybe a paint. That order explains why promise callbacks beat `setTimeout(fn, 0)`.',
+      takeaways: [
+        { term: 'Call stack', detail: 'One thread, one stack. The browser or Node does the waiting and queues a callback when it is ready.' },
+        { term: 'Task', detail: 'One unit of work, like a `setTimeout` callback or a click handler. It runs to completion: nothing interrupts it.' },
+        { term: 'Microtasks', detail: '`.then` callbacks, code after an `await`, `queueMicrotask`. All run after each task, new ones included.' },
+        { term: 'Rendering', detail: 'Happens between tasks, after the microtasks. An endless microtask chain freezes the page.' },
+        { term: '`requestAnimationFrame`', detail: 'Its callbacks run just before a paint.' },
+        { term: 'Node', detail: 'No paint step: phases such as timers, poll and check. `process.nextTick` runs before promise callbacks.' },
+      ],
       points: [
         'JavaScript runs your code on one thread with one call stack. Waiting for timers, the network or clicks is done by the browser or Node, which queues a callback when it is ready.',
         'A task is one unit of work from a queue, like a `setTimeout` callback or a click handler. The event loop runs one task at a time, and each task runs to completion: nothing interrupts it.',
@@ -243,6 +253,16 @@ console.log('sync');
       },
     ],
     lesson: {
+      intro:
+        'A promise stands for a result that arrives later and settles only once. Its combinators decide what one failure among several parallel calls means for the user.',
+      takeaways: [
+        { term: 'States', detail: 'Pending, then fulfilled with a value or rejected with a reason, once; it never changes after that.' },
+        { term: '`.then` chain', detail: 'Returns a new promise; return the next promise inside it, and one final `.catch` handles any step.' },
+        { term: '`Promise.all`', detail: 'Fulfils with every value in input order; rejects as soon as one input rejects.' },
+        { term: '`Promise.allSettled`', detail: 'Always waits for all and reports each result as `fulfilled` or `rejected`.' },
+        { term: '`Promise.race`', detail: 'Settles like the first input to settle, even a rejection.' },
+        { term: '`Promise.any`', detail: 'Fulfils with the first success; rejects only when all fail, with an `AggregateError`.' },
+      ],
       points: [
         'A promise is an object for a result that arrives later. It starts pending, then settles once: fulfilled with a value or rejected with a reason, and it never changes after that.',
         '`.then` returns a new promise, so steps chain; return the next promise inside `.then` or the chain stops waiting for it. One `.catch` at the end handles a rejection from any earlier step.',
@@ -355,6 +375,16 @@ if (recommendations.status === 'rejected') hideRecommendations();`,
       },
     ],
     lesson: {
+      intro:
+        '`async` and `await` let you write promise code that reads top to bottom. `await` pauses only the current function, never the thread, so the usual traps are about ordering and lost errors.',
+      takeaways: [
+        { term: '`async` function', detail: 'Always returns a promise: a returned value fulfils it, a thrown error rejects it.' },
+        { term: '`await`', detail: 'Pauses only this function; the rest resumes later as a microtask while the thread runs other code.' },
+        { term: '`try`/`catch`', detail: 'A rejection makes `await` throw. Inside a `try`, write `return await promise` or the `catch` misses it.' },
+        { term: 'Sequential awaits', detail: 'Awaiting independent calls one by one adds their delays: start them together and await `Promise.all`.' },
+        { term: '`forEach` + `await`', detail: '`forEach` ignores returned promises: use `for...of` or `Promise.all(items.map(fn))`.' },
+        { term: 'Floating promise', detail: 'A promise nobody awaits or handles loses its errors; lint rules catch it.' },
+      ],
       points: [
         'An `async` function always returns a promise: returning 5 gives the caller a promise fulfilled with 5, and throwing gives a rejected promise.',
         '`await` pauses only the current async function until the promise settles. The thread keeps running other code, and the rest of the function resumes later as a microtask.',
@@ -482,6 +512,16 @@ const fast = await Promise.all([getCustomer(id), getHistory(id)]);`,
       },
     ],
     lesson: {
+      intro:
+        'A request whose result is no longer needed should be cancelled, or a slow old response can land last and overwrite the new one. `AbortController` is the standard way to cancel a `fetch`.',
+      takeaways: [
+        { term: '`AbortController`', detail: 'Has a `signal` and an `abort()` method; pass `controller.signal` to `fetch`.' },
+        { term: '`AbortError`', detail: 'A pending fetch rejects with a `DOMException` named `AbortError`: check `error.name` and ignore it.' },
+        { term: 'Stale response race', detail: 'An older, slower request finishes last and overwrites newer results. Debounce does not fix the order.' },
+        { term: 'React effect', detail: 'Create the controller in the effect and call `abort()` in its cleanup.' },
+        { term: 'TanStack Query', detail: 'Avoids the race by storing each response under its query key.' },
+        { term: '`AbortSignal.timeout()`', detail: 'Aborts with a `TimeoutError`; `AbortSignal.any([a, b])` combines signals.' },
+      ],
       points: [
         'An `AbortController` has a `signal` and an `abort()` method. Pass the signal to `fetch`; calling `abort()` makes the pending fetch reject with a `DOMException` named `AbortError`.',
         'An `AbortError` means you cancelled on purpose: check `error.name` and ignore it rather than showing an error message.',
@@ -614,6 +654,16 @@ const fast = await Promise.all([getCustomer(id), getHistory(id)]);`,
       },
     ],
     lesson: {
+      intro:
+        'Debounce and throttle limit how often a function runs during a burst of events like typing or scrolling. They differ in when it runs: after the burst, or regularly during it.',
+      takeaways: [
+        { term: 'Debounce', detail: 'Restarts a timer on each event and runs once after the events stop for the delay.' },
+        { term: 'Debounce uses', detail: 'Search suggestions after 300 ms without typing, auto-save, the end of a resize.' },
+        { term: 'Throttle', detail: 'Runs at most once per interval while events keep coming, giving regular updates.' },
+        { term: 'Throttle uses', detail: 'Scroll position, dragging, deciding when to load the next page of a list.' },
+        { term: 'Leading and trailing', detail: 'Leading runs on the first event, trailing after the last. Throttle often does both.' },
+        { term: 'In React', detail: 'The timer lives in a closure: create the function once (`useMemo` or a ref) and cancel it on unmount.' },
+      ],
       points: [
         'Both limit how often a function runs during a burst of events, like typing, scrolling or resizing.',
         'Debounce restarts a timer on every event and runs the function once, after the events have stopped for the delay. Search suggestions sent after 300 ms without typing is the classic use.',
@@ -721,6 +771,16 @@ worker.postMessage(buffer);`,
       },
     ],
     lesson: {
+      intro:
+        'The main thread runs JavaScript, handles input and renders, so one long piece of work freezes the page. Splitting, deferring or moving that work keeps interactions fast.',
+      takeaways: [
+        { term: 'Long task', detail: 'Keeps the main thread busy for more than 50 ms: input waits and nothing repaints.' },
+        { term: 'INP', detail: 'Interaction to Next Paint, a Core Web Vital: delay from an interaction to the next frame. 200 ms or less is good.' },
+        { term: '`async` is not a fix', detail: 'CPU work inside an async function still blocks the thread.' },
+        { term: 'Fixes, cheapest first', detail: 'Do less work, split it into chunks and yield between them, or mark updates non-urgent with `useTransition`.' },
+        { term: 'Web Worker', detail: 'Another thread with no DOM; data goes through `postMessage`, copied unless transferred.' },
+        { term: 'Measure first', detail: 'The Performance panel in the dev tools marks long tasks, so you fix the real cause.' },
+      ],
       points: [
         'The browser\'s main thread runs JavaScript, handles input and renders. While one task runs, clicks and key presses wait and nothing repaints.',
         'A long task keeps the main thread busy for more than 50 ms. INP (Interaction to Next Paint), a Core Web Vital, measures the delay from an interaction to the next frame; 200 ms or less is good.',
