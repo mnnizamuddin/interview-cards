@@ -9,6 +9,7 @@ import { Button } from '../ui/Button.tsx';
 import { ProgressBar } from '../ui/ProgressBar.tsx';
 import { Text } from '../ui/Text.tsx';
 import { LanguageSelector } from '../ui/LanguageSelector.tsx';
+import { percent } from '../ui/percent.ts';
 import { ThemeToggle } from '../ui/ThemeToggle.tsx';
 
 /** The colour of each status dot; the labels are in the translation files, under `home.status`. */
@@ -20,10 +21,6 @@ const STATUS_DOTS: Record<TopicStatus, string> = {
 };
 
 const HANDLED_FOR_DAYS = HANDLED_FOR_MS / (24 * 60 * 60 * 1000);
-
-function percent(part: number, total: number): number {
-  return Math.round((part / Math.max(1, total)) * 100);
-}
 
 export function HomeScreen({
   units,
