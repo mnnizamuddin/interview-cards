@@ -1,0 +1,438 @@
+[
+  {
+    "id": "m02.q1",
+    "module": "m02",
+    "section": "fanout",
+    "q": "To show a total, checkout needs the cart, the stock check and the delivery quote. Without any one of them it cannot build a valid answer. Which combinator fits?",
+    "options": [
+      "<code>Promise.allSettled</code>, then inspect each status",
+      "<code>Promise.all</code>, so the first failure fails the request",
+      "<code>Promise.any</code>, so the fastest service answers",
+      "<code>Promise.race</code>, so a slow service cannot block the request"
+    ],
+    "answer": 1,
+    "explain": "Every result is required, so failing fast is the right semantics, and that is what <code>Promise.all</code> does. <code>allSettled</code> would work but waits for every call even after one has already made the answer impossible, and you would rebuild fail-fast by hand."
+  },
+  {
+    "id": "m02.q2",
+    "module": "m02",
+    "section": "fanout",
+    "q": "What happens to the delivery quote call here?",
+    "code": "const quote = getDeliveryQuote(); // HTTP call, takes 150 ms, succeeds\nconst stock = checkStock();       // rejects after 30 ms\nawait Promise.all([stock, quote]);",
+    "lang": "ts",
+    "options": [
+      "<code>Promise.all</code> cancels it when <code>checkStock</code> rejects",
+      "It is paused until someone awaits it again",
+      "It keeps running to the end; <code>Promise.all</code> rejects after about 30 ms",
+      "It never started, because <code>Promise.all</code> starts its inputs"
+    ],
+    "answer": 2,
+    "explain": "The promises were already running before <code>Promise.all</code> saw them, and a combinator cannot cancel anything. Measured on Node 24: the rejection arrived after about 37 ms and the slow call still finished at about 172 ms. Stopping it requires passing an <code>AbortSignal</code> to the HTTP call."
+  },
+  {
+    "id": "m02.q3",
+    "module": "m02",
+    "section": "concurrency",
+    "q": "The email job sends 100 emails with at most 10 in flight. One call in ten takes 500 ms, the others 20 ms. Why is a pool faster than <code>Promise.all</code> on slices of 10?",
+    "options": [
+      "A pool starts the next call as soon as any slot frees, while a batch waits for its slowest call before starting the next batch",
+      "A pool runs more than 10 calls at once when the calls are fast",
+      "A pool reuses the same promise for several calls",
+      "A pool sorts the calls so that the slow ones run first"
+    ],
+    "answer": 0,
+    "explain": "With batches, every slow call holds nine idle slots until it finishes. Measured: batches took 5,122 ms and a pool 1,107 ms for this workload. A pool never exceeds its limit; it only refills free slots immediately."
+  },
+  {
+    "id": "m02.q4",
+    "module": "m02",
+    "section": "concurrency",
+    "q": "You pass <code>{ concurrency: 20, signal }</code> to <code>pMap</code> but do not pass the signal to the mapper. The signal aborts while 20 emails are being sent. What happens to those 20 calls?",
+    "options": [
+      "p-map aborts them through its own controller",
+      "They are dropped from memory immediately",
+      "p-map waits for them before rejecting",
+      "They keep running; p-map only rejects and stops starting new items"
+    ],
+    "answer": 3,
+    "explain": "The p-map docs say already-started mappers are not cancelled; the <code>signal</code> option controls the map, not your calls. To stop the HTTP calls, pass the same signal into each mapper call. The same is true when <code>stopOnError</code> rejects the map."
+  },
+  {
+    "id": "m02.q5",
+    "module": "m02",
+    "section": "deadlines",
+    "q": "The payment client calls <code>fetch(url, { signal: AbortSignal.timeout(50) })</code> and the provider needs 300 ms. What do you catch?",
+    "options": [
+      "A <code>TypeError</code> with the message <code>fetch failed</code>",
+      "A <code>DOMException</code> named <code>TimeoutError</code>",
+      "A <code>DOMException</code> named <code>AbortError</code>",
+      "Nothing: the response arrives after 300 ms"
+    ],
+    "answer": 1,
+    "explain": "Measured on Node 24: a <code>DOMException</code> named <code>TimeoutError</code>. A manual <code>controller.abort()</code> without a reason gives <code>AbortError</code>, so <code>error.name</code> tells a deadline from a cancellation. <code>TypeError: fetch failed</code> is what a network failure looks like."
+  },
+  {
+    "id": "m02.q6",
+    "module": "m02",
+    "section": "cancellation",
+    "q": "The Orders API aborts a <code>POST</code> to the payment provider after the request was sent. What does the abort guarantee?",
+    "options": [
+      "The provider rolls back whatever it started",
+      "The provider never processes the request",
+      "Your side stops waiting and reading; the provider may still complete the operation",
+      "The request is automatically retried later"
+    ],
+    "answer": 2,
+    "explain": "Aborting closes your side of the connection. Measured with a local server: after the client aborted, the server handler still ran to the end. That is why writes need idempotency keys and a timed-out write is an unknown outcome, not a failure."
+  },
+  {
+    "id": "m02.q7",
+    "module": "m02",
+    "section": "retries",
+    "q": "A downstream service answers <code>503</code>. Which call is safe to retry automatically?",
+    "options": [
+      "<code>GET /orders/42</code>",
+      "<code>POST /payments</code> without an idempotency key",
+      "<code>POST /emails/send</code>",
+      "<code>POST /counters/visits/increment</code>"
+    ],
+    "answer": 0,
+    "explain": "A <code>GET</code> is idempotent: repeating it changes nothing. Each <code>POST</code> may have been processed before the error came back, so a retry could charge, send or count twice. They become safe to retry only with an idempotency key that the server deduplicates."
+  },
+  {
+    "id": "m02.q8",
+    "module": "m02",
+    "section": "retries",
+    "q": "Why add full jitter to exponential backoff?",
+    "options": [
+      "It makes each retry faster on average than a fixed delay",
+      "It compensates for the imprecision of <code>setTimeout</code>",
+      "It lets a client get past a rate limit by looking random",
+      "It spreads out the retries of clients that failed at the same moment"
+    ],
+    "answer": 3,
+    "explain": "Without jitter, every client that failed in the same second retries in the same second, again and again, and the recovering service receives synchronized waves. Full jitter picks a random delay between zero and the backoff value. It does not help with rate limits; respecting <code>Retry-After</code> does."
+  },
+  {
+    "id": "m02.q9",
+    "module": "m02",
+    "section": "iteration",
+    "q": "An async generator yields shipped orders from pages 1 to 5 and releases its connection in a <code>finally</code> block. The consumer does <code>break</code> while reading page 2. What happens?",
+    "options": [
+      "All 5 pages are fetched, then <code>finally</code> runs",
+      "Only 2 pages are fetched and <code>finally</code> runs",
+      "Only 2 pages are fetched and <code>finally</code> never runs",
+      "The <code>break</code> throws, because the generator is still running"
+    ],
+    "answer": 1,
+    "explain": "A generator only runs when the consumer asks for the next value, so page 3 is never requested. <code>break</code> calls the generator's <code>return()</code>, which runs <code>finally</code> (and disposes an <code>await using</code> resource the same way). Measured: two fetches, then the cleanup."
+  },
+  {
+    "id": "m02.q10",
+    "module": "m02",
+    "section": "floating",
+    "q": "What does the last line print?",
+    "code": "const saved = [];\n[1, 2, 3].forEach(async (n) => {\n  await save(n);\n  saved.push(n);\n});\nconsole.log(saved);",
+    "lang": "js",
+    "options": [
+      "<code>[1, 2, 3]</code>",
+      "<code>[1]</code>",
+      "<code>[]</code>",
+      "It depends on how fast <code>save</code> is"
+    ],
+    "answer": 2,
+    "explain": "<code>forEach</code> calls the async callback and ignores the promise it returns, so the log runs before any <code>save</code> finishes. Measured: <code>[]</code>, then <code>[1, 2, 3]</code> a moment later. Even a very fast <code>save</code> resolves after the current synchronous code, so the answer does not depend on timing."
+  },
+  {
+    "id": "m02.q11",
+    "module": "m02",
+    "section": "iteration",
+    "q": "A function declares <code>await using first = …</code> then <code>await using second = …</code>, and throws. What happens on Node 24.11?",
+    "options": [
+      "Nothing is disposed, because the function threw",
+      "Both are disposed, <code>first</code> then <code>second</code>",
+      "Only <code>second</code> is disposed",
+      "Both are disposed, <code>second</code> then <code>first</code>"
+    ],
+    "answer": 3,
+    "explain": "Resources declared with <code>using</code> are disposed when the block exits, whether it returns or throws, in reverse order of declaration. Measured: \"release 2\" then \"release 1\", on success and on failure. That is the same guarantee as nested <code>try/finally</code>, without the nesting."
+  },
+  {
+    "id": "m02.q12",
+    "module": "m02",
+    "section": "context",
+    "q": "Two checkout requests run <code>requestContext.run({ requestId }, handler)</code> at the same time and interleave at every <code>await</code>. What does <code>getStore()</code> return inside each handler after an <code>await</code>?",
+    "options": [
+      "The context of the request that called <code>run</code> most recently",
+      "Its own request's context",
+      "<code>undefined</code>, because the context is lost at the first <code>await</code>",
+      "The context of whichever request resumed first"
+    ],
+    "answer": 1,
+    "explain": "<code>AsyncLocalStorage</code> follows the asynchronous call chain, not a global variable, so each continuation sees the context of the <code>run</code> that started it. Verified: the request that finished second still logged its own id. Outside any <code>run</code>, <code>getStore()</code> returns <code>undefined</code>."
+  },
+  {
+    "id": "m02.q13",
+    "module": "m02",
+    "section": "fanout",
+    "q": "The first input rejects after 5 ms, the second resolves with <code>'ok'</code> after 10 ms. What do <code>Promise.race</code> and <code>Promise.any</code> give?",
+    "code": "const inputs = () => [rejectAfter(5, 'boom'), resolveAfter(10, 'ok')];\nawait Promise.race(inputs());\nawait Promise.any(inputs());",
+    "lang": "ts",
+    "options": [
+      "Both resolve with <code>'ok'</code>",
+      "<code>race</code> resolves with <code>'ok'</code>, <code>any</code> rejects",
+      "<code>race</code> rejects with <code>boom</code>, <code>any</code> resolves with <code>'ok'</code>",
+      "Both reject with <code>boom</code>"
+    ],
+    "answer": 2,
+    "explain": "<code>race</code> follows whatever settles first, a rejection included. <code>any</code> ignores rejections until an input fulfils, and rejects with an <code>AggregateError</code> only if all of them reject. Both verified on Node 24."
+  },
+  {
+    "id": "m02.q14",
+    "module": "m02",
+    "section": "fanout",
+    "q": "Checkout computes <code>await Promise.race(partners.map(getQuote))</code> to take the first delivery quote. One day a feature flag empties <code>partners</code>. What happens?",
+    "options": [
+      "The <code>await</code> never settles and the request hangs",
+      "It resolves with <code>undefined</code>",
+      "It rejects with an <code>AggregateError</code>",
+      "It throws a <code>TypeError</code> synchronously"
+    ],
+    "answer": 0,
+    "explain": "<code>Promise.race([])</code> never settles (verified: still pending after 20 ms, and it never will be). By contrast <code>Promise.all([])</code> resolves to <code>[]</code> and <code>Promise.any([])</code> rejects with an <code>AggregateError</code>. Guard empty inputs explicitly."
+  },
+  {
+    "id": "m02.q15",
+    "module": "m02",
+    "section": "concurrency",
+    "q": "The nightly job must send 10,000 confirmation emails. The email provider allows 20 concurrent requests and sometimes answers <code>503</code>. Which design would you ship?",
+    "options": [
+      "<code>Promise.all</code> over all orders, with a global 30-minute timeout",
+      "<code>Promise.all</code> on slices of 20, retrying the whole slice when one call fails",
+      "A <code>for</code> loop with <code>await</code>, one call at a time, so the provider is never overloaded",
+      "<code>p-map</code> with <code>concurrency: 20</code>, a per-call timeout and jittered retries on <code>503</code>, failures collected and reported"
+    ],
+    "answer": 3,
+    "explain": "A pool of 20 matches the provider's limit, per-call deadlines and jittered retries handle the transient <code>503</code>s, and collecting failures keeps one bad address from failing 10,000 emails. Sequential calls are safe but 20 times slower than necessary, and retrying a whole slice repeats calls that already succeeded."
+  },
+  {
+    "id": "m02.q16",
+    "module": "m02",
+    "section": "concurrency",
+    "q": "What is the bug in this limiter?",
+    "code": "return async function run(task) {\n  if (active >= concurrency) {\n    await new Promise((resolve) => waiting.push(resolve));\n  } else {\n    active += 1;\n  }\n  const result = await task();\n  active -= 1;\n  waiting.shift()?.();   // wake the next waiting task\n  return result;\n};",
+    "lang": "js",
+    "options": [
+      "A task that rejects never releases its slot, so after <code>concurrency</code> failures nothing new ever starts",
+      "The waiting queue is LIFO, so tasks run in reverse order",
+      "It allows one more task than <code>concurrency</code> to run",
+      "It runs tasks sequentially, ignoring <code>concurrency</code>"
+    ],
+    "answer": 0,
+    "explain": "If <code>task()</code> rejects, the lines after the <code>await</code> never run, so <code>active</code> stays incremented and nobody is woken. Verified: with a limit of 2 and two failing tasks, the next tasks stayed pending forever. Release the slot in <code>finally</code>."
+  },
+  {
+    "id": "m02.q17",
+    "module": "m02",
+    "section": "concurrency",
+    "q": "The Orders API uses a pg pool of 10 connections. A handler runs <code>Promise.all</code> over 500 product ids, each doing one query. What happens?",
+    "options": [
+      "node-postgres opens 500 connections for the duration of the call",
+      "The 500 queries run in one database round trip",
+      "Ten queries run at a time and the rest wait in the pool's queue, holding the request and delaying every other handler that needs a connection",
+      "The pool rejects the extra 490 queries immediately"
+    ],
+    "answer": 2,
+    "explain": "The pool caps connections at its <code>max</code> (10 by default per the node-postgres docs) and queues the rest. One request now monopolises the pool, and other requests wait behind it. Bound the fan-out below the pool size, or replace it with one query using <code>WHERE id = ANY($1)</code> (M07)."
+  },
+  {
+    "id": "m02.q18",
+    "module": "m02",
+    "section": "cancellation",
+    "q": "Checkout must stop when the customer leaves <b>or</b> after 10 seconds, whichever comes first. What do you pass down to every function?",
+    "options": [
+      "Two separate signals, and every function checks both",
+      "<code>AbortSignal.any([clientGone.signal, AbortSignal.timeout(10_000)])</code>",
+      "A <code>Promise.race</code> between the work and a 10-second timer",
+      "A shared <code>cancelled</code> flag checked in a <code>setInterval</code>"
+    ],
+    "answer": 1,
+    "explain": "<code>AbortSignal.any</code> returns one signal that aborts with the reason of the first input that aborts. Verified: when the user aborted first, the combined signal carried the user's reason; when the deadline passed first, it carried a <code>TimeoutError</code>. Every function keeps a single <code>signal</code> parameter."
+  },
+  {
+    "id": "m02.q19",
+    "module": "m02",
+    "section": "deadlines",
+    "q": "A handler does <code>Promise.race([fetch(url), rejectAfter(2000)])</code> and the timer wins. What happens to the HTTP request?",
+    "options": [
+      "It is aborted automatically because nobody awaits it",
+      "It is queued and retried by undici",
+      "Node logs a warning and drops the socket",
+      "It keeps running: the socket stays open and the response is downloaded for nobody"
+    ],
+    "answer": 3,
+    "explain": "A race only chooses which result you see. Measured: after the timer won, the request still reached the server and its body was read later. Under load these orphans pile up. <code>fetch(url, { signal: AbortSignal.timeout(2000) })</code> really closes the request."
+  },
+  {
+    "id": "m02.q20",
+    "module": "m02",
+    "section": "cancellation",
+    "q": "In a plain <code>node:http</code> checkout handler, which code aborts the downstream work only when the client disconnects before the response is complete?",
+    "options": [
+      "<code>request.on('end', () => controller.abort())</code>",
+      "<code>response.on('finish', () => controller.abort())</code>",
+      "<code>response.on('close', () => { if (!response.writableEnded) { controller.abort(); } })</code>",
+      "<code>setTimeout(() => controller.abort(), 30_000)</code>"
+    ],
+    "answer": 2,
+    "explain": "<code>close</code> fires in both cases, after a normal response and after a disconnect; <code>writableEnded</code> tells them apart. Verified with a local server: the client left after 120 ms and the job stopped after its second step. <code>finish</code> fires only after a complete response, and <code>end</code> belongs to the request body stream, not to the client leaving."
+  },
+  {
+    "id": "m02.q21",
+    "module": "m02",
+    "section": "overload",
+    "q": "The API gateway, the Orders API and its HTTP client each make up to 4 attempts (1 + 3 retries) on failure. The payment provider is down. How many calls can one customer request send to it?",
+    "options": [
+      "4",
+      "12",
+      "16",
+      "64"
+    ],
+    "answer": 3,
+    "explain": "Retries multiply: each of the 4 gateway attempts triggers 4 Orders API attempts, each triggering 4 client attempts, so 4 × 4 × 4 = 64. That is why the SRE book recommends retrying at one layer only, and returning a \"do not retry\" signal upward."
+  },
+  {
+    "id": "m02.q22",
+    "module": "m02",
+    "section": "overload",
+    "q": "Your team adopts a retry budget of 10% per client, as in Google's SRE book. What does it change during a widespread outage?",
+    "options": [
+      "Each request gets at most 10% of its timeout for retries",
+      "Retries stop once they exceed 10% of the client's requests, so extra load stays near 1.1× instead of nearly 3×",
+      "Only 10% of requests are allowed to fail before an alert fires",
+      "Retries are delayed by 10% more after each attempt"
+    ],
+    "answer": 1,
+    "explain": "The budget is a ratio of retries to requests per client: past 10%, failures go back to the caller without retrying. The SRE book combines it with at most 3 attempts per request and says it reduces the growth to about 1.1×. A per-request limit alone still allows nearly 3× the load when everything fails."
+  },
+  {
+    "id": "m02.q23",
+    "module": "m02",
+    "section": "overload",
+    "q": "With cockatiel, the payments policy is <code>wrap(retry(…, { maxAttempts: 3 }), circuitBreaker(…), timeout(2_000, TimeoutStrategy.Aggressive))</code>. What does the 2-second timeout apply to?",
+    "options": [
+      "To each attempt, because the first policy in <code>wrap</code> is the outermost",
+      "To the three attempts together",
+      "Only to the first attempt",
+      "To the time the circuit stays open"
+    ],
+    "answer": 0,
+    "explain": "The cockatiel docs define <code>wrap(a, b, c)</code> as <code>a.execute(() => b.execute(() => c.execute(fn)))</code>, so the timeout is innermost and restarts for every attempt. To bound the whole operation, put a timeout outside the retry as well, or pass a deadline signal to <code>execute</code>."
+  },
+  {
+    "id": "m02.q24",
+    "module": "m02",
+    "section": "retries",
+    "q": "A review finds this policy around <code>createPayment</code>, a <code>POST</code> to the payment provider. Which fix would you ship?",
+    "code": "const payment = await withRetry(\n  () => paymentsClient.createPayment(order),\n  { maxAttempts: 5, retryOn: (error) => true },\n);",
+    "lang": "ts",
+    "options": [
+      "Keep it, and raise <code>maxAttempts</code> so a payment is never lost",
+      "Send an idempotency key derived from the order with every attempt, and retry only transient errors",
+      "Remove the retry and ask the user to click again on failure",
+      "Replace it with <code>Promise.any</code> over five parallel calls"
+    ],
+    "answer": 1,
+    "explain": "Retrying every error retries <code>4xx</code> responses that will fail again, and retrying a non-idempotent <code>POST</code> after a timeout may charge twice. A stable idempotency key makes the provider deduplicate attempts, and classifying errors keeps retries for transient failures. Asking the user to click again has the same double-charge risk."
+  },
+  {
+    "id": "m02.q25",
+    "module": "m02",
+    "section": "iteration",
+    "q": "How long does this take, measured on Node 24?",
+    "code": "import { setTimeout as sleep } from 'node:timers/promises';\n\nconst values = await Array.fromAsync([1, 2, 3], async (n) => {\n  await sleep(50);\n  return n;\n});",
+    "lang": "ts",
+    "options": [
+      "About 150 ms or more, because each mapping call is awaited before the next one starts",
+      "About 50 ms, because the three calls run in parallel",
+      "About 0 ms, because <code>Array.fromAsync</code> does not await the mapper",
+      "It throws, because the input is not an async iterable"
+    ],
+    "answer": 0,
+    "explain": "<code>Array.fromAsync</code> awaits each mapped value in turn. Measured: 182 ms. It accepts plain arrays as well as async iterables. For parallel work with a bound, use <code>p-map</code> instead."
+  },
+  {
+    "id": "m02.q26",
+    "module": "m02",
+    "section": "floating",
+    "q": "In an ES module on Node 24, <code>loadOrders</code> resolves after 100 ms and <code>loadInvoices</code> rejects after 10 ms. What happens?",
+    "code": "const orders = loadOrders();\nconst invoices = loadInvoices();\nawait orders;\ntry {\n  await invoices;\n} catch (error) {\n  console.log('caught', error.message);\n}",
+    "lang": "js",
+    "options": [
+      "It prints \"caught …\" after 100 ms",
+      "The rejection is silently ignored",
+      "It prints \"caught …\" after 10 ms",
+      "The process exits with code 1 before the <code>try</code> runs"
+    ],
+    "answer": 3,
+    "explain": "While the code waits on <code>orders</code>, <code>invoices</code> rejects with no handler attached yet. Node treats it as an unhandled rejection and exits with code 1; measured, nothing was printed. <code>await Promise.all([loadOrders(), loadInvoices()])</code> attaches handlers to both and the same code is caught normally."
+  },
+  {
+    "id": "m02.q27",
+    "module": "m02",
+    "section": "context",
+    "q": "<code>fetchDiscount</code> rejects because the loyalty service is down. What does <code>getDiscount</code> return?",
+    "code": "async function getDiscount(customerId) {\n  try {\n    return fetchDiscount(customerId);\n  } catch {\n    return NO_DISCOUNT;\n  }\n}",
+    "lang": "js",
+    "options": [
+      "A promise that resolves with <code>NO_DISCOUNT</code>",
+      "A promise that resolves with <code>undefined</code>",
+      "A promise that rejects with the error from <code>fetchDiscount</code>",
+      "It throws synchronously"
+    ],
+    "answer": 2,
+    "explain": "Without <code>await</code>, the pending promise leaves the <code>try</code> block before it settles, so the <code>catch</code> never runs; verified on Node 24. <code>return await fetchDiscount(customerId)</code> waits inside the <code>try</code>, and the fallback works."
+  },
+  {
+    "id": "m02.q28",
+    "module": "m02",
+    "section": "floating",
+    "q": "Checkout calls <code>auditLog.write(event)</code> without awaiting it, to keep the response fast. A colleague proposes <code>void auditLog.write(event)</code> to satisfy <code>no-floating-promises</code>. What do you answer?",
+    "options": [
+      "Fine: <code>void</code> handles the rejection",
+      "Better to await it, since fire-and-forget is never acceptable",
+      "Disable the rule for this file, since audit writes rarely fail",
+      "<code>void</code> silences the rule but a rejection still crashes the process; attach a <code>.catch</code> that logs it"
+    ],
+    "answer": 3,
+    "explain": "The rule's docs warn that voiding a promise does not handle it or change runtime behaviour, and an unhandled rejection exits the process. A <code>.catch</code> that logs keeps the response fast and makes failures visible. Fire-and-forget is acceptable when its failure is handled and the work is not critical."
+  },
+  {
+    "id": "m02.q29",
+    "module": "m02",
+    "section": "context",
+    "q": "The orders repository catches <code>connect ECONNREFUSED</code> and must rethrow an error that says which order failed, without losing the original. Which line?",
+    "options": [
+      "<code>throw new Error('Could not load order ' + orderId + ': ' + String(error))</code>",
+      "<code>throw new Error('Could not load order ' + orderId, { cause: error })</code>",
+      "<code>throw Object.assign(error, { message: 'Could not load order ' + orderId })</code>",
+      "<code>throw new AggregateError([error], 'Could not load order ' + orderId)</code>"
+    ],
+    "answer": 1,
+    "explain": "<code>cause</code> keeps the original error object, with its stack and code, and Node prints it under a <code>[cause]</code> line (verified). Concatenating the message loses the stack and the error code. <code>AggregateError</code> is meant for several independent failures, not one wrapped error."
+  },
+  {
+    "id": "m02.q30",
+    "module": "m02",
+    "section": "iteration",
+    "q": "A TypeScript 7 project has <code>\"lib\": [\"es2025\"]</code> and <code>\"types\": []</code>. A developer adds <code>await using lease = await leaseClient(pool)</code>. What happens?",
+    "options": [
+      "It compiles and runs, since <code>using</code> is part of ES2025",
+      "Compilation fails: <code>AsyncDisposable</code> and <code>Symbol.asyncDispose</code> are missing until you add the <code>esnext.disposable</code> lib or <code>@types/node</code>",
+      "It compiles, but Node 24 throws a <code>SyntaxError</code> at runtime",
+      "TypeScript 7 does not support <code>await using</code> at all"
+    ],
+    "answer": 1,
+    "explain": "Verified with TypeScript 7.0.2, and identically with 6.0.3: with <code>es2025</code> alone, the compiler reports that it cannot find <code>AsyncDisposable</code> and <code>Symbol.asyncDispose</code>; adding <code>esnext.disposable</code> (or <code>esnext</code>, or Node's types) fixes it. Node 24.11 runs the syntax natively, so there is no runtime problem."
+  }
+]

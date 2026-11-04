@@ -1,0 +1,432 @@
+[
+  {
+    "id": "m36.q1",
+    "module": "m36",
+    "section": "api",
+    "q": "Why does the design system's Button take <code>variant: 'primary' | 'secondary' | 'danger'</code> rather than <code>primary</code> and <code>danger</code> booleans?",
+    "options": [
+      "Booleans cannot be passed as props to a function component in React 19",
+      "It turns combinations like primary plus danger into type errors",
+      "A union is cheaper to compare than several booleans on each render",
+      "Boolean props would force the button to be a controlled component"
+    ],
+    "answer": 1,
+    "explain": "With two booleans, <code>&lt;Btn primary danger&gt;</code> compiles and describes a state no designer drew. A single union admits exactly one variant. Booleans are valid props in every React version, and neither choice has a measurable rendering cost."
+  },
+  {
+    "id": "m36.q2",
+    "module": "m36",
+    "section": "api",
+    "q": "Inside a <code>&lt;form&gt;</code>, an agent clicks <code>&lt;button&gt;Refund&lt;/button&gt;</code>, which has no <code>type</code> attribute. What happens?",
+    "options": [
+      "Nothing: a button without type does nothing until it has an onClick",
+      "The browser warns in the console and ignores the click",
+      "The form is submitted, because a button's default type is submit",
+      "The form is reset, because the default type is reset"
+    ],
+    "answer": 2,
+    "explain": "A button's default type is <code>submit</code>: measured in Chromium, clicking it fired the form's submit event and <code>button.type</code> read <code>\"submit\"</code>. That is why the design system's Button defaults <code>type</code> to <code>\"button\"</code>. A reset button needs <code>type=\"reset\"</code> explicitly."
+  },
+  {
+    "id": "m36.q3",
+    "module": "m36",
+    "section": "compound",
+    "q": "In <code>&lt;Tabs.Root&gt;&lt;Tabs.List&gt;&lt;Tabs.Tab /&gt;&lt;/Tabs.List&gt;&lt;Tabs.Panel /&gt;&lt;/Tabs.Root&gt;</code>, how does a <code>Tab</code> know which value is selected?",
+    "options": [
+      "It reads the selected value from a context that Root provides",
+      "Root clones each child element and injects the selected value as a prop",
+      "Each Tab keeps its own state and syncs it with an effect",
+      "The caller passes selected to every Tab by hand"
+    ],
+    "answer": 0,
+    "explain": "Root renders a context provider, and every part reads it with <code>use</code> (or <code>useContext</code>), however deep it sits. Cloning children only reaches direct children, so it breaks as soon as a Tab is wrapped in a <code>List</code> or a tooltip. Syncing local states with effects duplicates the state."
+  },
+  {
+    "id": "m36.q4",
+    "module": "m36",
+    "section": "controlled",
+    "q": "Which use of Tabs is <b>controlled</b>?",
+    "options": [
+      "<code>&lt;Tabs.Root defaultValue=\"details\"&gt;</code>",
+      "<code>&lt;Tabs.Root defaultValue=\"details\" onValueChange={track}&gt;</code>",
+      "<code>&lt;Tabs.Root&gt;</code> with each Tab marked selected",
+      "<code>&lt;Tabs.Root value={tab} onValueChange={setTab}&gt;</code>"
+    ],
+    "answer": 3,
+    "explain": "A component is controlled when the parent passes the value itself and stores changes, here <code>value</code> plus <code>setTab</code>. An <code>onValueChange</code> next to <code>defaultValue</code> only observes changes: the component still owns its state, so that use is uncontrolled."
+  },
+  {
+    "id": "m36.q5",
+    "module": "m36",
+    "section": "headless",
+    "q": "What does a headless component library such as Radix, React Aria or Base UI give you?",
+    "options": [
+      "Fully styled components in its own visual language, ready to theme",
+      "Behaviour and accessibility (ARIA, focus, keyboard) without styles",
+      "Design tokens and a Figma kit, but no components",
+      "Components that render only on the server"
+    ],
+    "answer": 1,
+    "explain": "Headless means unstyled: Base UI describes itself as \"unstyled UI components for building accessible user interfaces\", and Radix components \"ship without styles\". Styled libraries such as MUI are the ones that bring a visual language."
+  },
+  {
+    "id": "m36.q6",
+    "module": "m36",
+    "section": "tokens",
+    "q": "In a two-tier token system, which tokens should the Button's CSS use?",
+    "options": [
+      "Raw hex values, so the button never depends on a theme",
+      "Primitive tokens such as <code>--indigo-600</code>",
+      "Semantic tokens such as <code>--color-action</code>",
+      "Whichever tier the designer used in the mock-up"
+    ],
+    "answer": 2,
+    "explain": "Components use semantic tokens, which name a role, and themes remap those roles to primitives. A button using <code>--indigo-600</code> directly stays indigo 600 in dark mode, because the theme changes the semantic layer."
+  },
+  {
+    "id": "m36.q7",
+    "module": "m36",
+    "section": "styling",
+    "q": "Why does the react.dev page on <code>useInsertionEffect</code> not recommend runtime <code>&lt;style&gt;</code> injection?",
+    "options": [
+      "It makes the browser recalculate styles more often, and can be very slow",
+      "Injected styles are dropped by the browser as soon as hydration has finished",
+      "React 19 removed support for style elements rendered by components",
+      "Injected styles cannot read CSS custom properties defined in tokens"
+    ],
+    "answer": 0,
+    "explain": "The page gives those two reasons and recommends static CSS files for static styles plus inline styles for dynamic values. Injected styles do apply, and React 19 still renders style elements; the problem is cost, not correctness."
+  },
+  {
+    "id": "m36.q8",
+    "module": "m36",
+    "section": "storybook",
+    "q": "What is a Storybook <b>play function</b>?",
+    "options": [
+      "A function that generates random args to fuzz-test the component",
+      "The function that renders the story on its documentation page",
+      "A script that records a video of the story for the designers",
+      "A story function that runs interactions after render and asserts"
+    ],
+    "answer": 3,
+    "explain": "Per the Storybook docs, a play function runs after the story renders: it can click, type and assert with <code>expect</code>, which makes the story an interaction test. Rendering is done by the story and its args; the play function adds behaviour on top."
+  },
+  {
+    "id": "m36.q9",
+    "module": "m36",
+    "section": "releasing",
+    "q": "The next <code>@shop/ui</code> release renames the Tabs prop <code>onChange</code> to <code>onValueChange</code>. Which version bump is correct?",
+    "options": [
+      "Patch, because no new feature was added",
+      "Minor, because the new name is an addition",
+      "Major, because existing callers break",
+      "None, because TypeScript users will see the error anyway"
+    ],
+    "answer": 2,
+    "explain": "Semver reserves the major version for incompatible API changes, and a renamed prop breaks every caller using the old name. Shipping it as a patch is exactly the incident of section 8. A compile error is how users find out, not a reason to hide it in a patch."
+  },
+  {
+    "id": "m36.q10",
+    "module": "m36",
+    "section": "structure",
+    "q": "In the feature-based back office, the refunds screen needs the order's total. What does the structure rule say?",
+    "options": [
+      "Import <code>OrdersTable</code> from <code>features/orders</code> and read the total from its props",
+      "Compose both in the page under <code>app</code>, or fetch it through the API layer",
+      "Move the refunds feature inside <code>features/orders</code>",
+      "Copy the order types into <code>features/refunds</code>"
+    ],
+    "answer": 1,
+    "explain": "Features do not import each other; the app layer composes them, and shared data comes from the API layer. A cross-feature import is exactly what the lint rule forbids, and nesting or copying features only moves the coupling."
+  },
+  {
+    "id": "m36.q11",
+    "module": "m36",
+    "section": "monorepo",
+    "q": "In the monorepo, <code>apps/back-office</code> depends on <code>\"@shop/ui\": \"workspace:*\"</code>, and <code>@shop/ui</code> is at 2.3.0. What happens to that range when a package that depends on <code>@shop/ui</code> is published?",
+    "options": [
+      "pnpm replaces it with the exact version, <code>2.3.0</code>",
+      "pnpm publishes it as is, and consumers need pnpm to install it",
+      "pnpm replaces it with <code>latest</code>",
+      "pnpm refuses to publish a package with a workspace dependency"
+    ],
+    "answer": 0,
+    "explain": "The pnpm docs say <code>workspace:*</code> becomes the exact version of the local package when packing or publishing (and <code>workspace:^</code> becomes <code>^2.3.0</code>). So consumers outside the monorepo see an ordinary semver range."
+  },
+  {
+    "id": "m36.q12",
+    "module": "m36",
+    "section": "rollout",
+    "q": "For a 10% rollout of the new orders table, why should the flag be evaluated with the agent id as the targeting key?",
+    "options": [
+      "Flag services refuse to evaluate a flag without a user id attached",
+      "It makes the flag service answer faster thanks to its cache",
+      "It lets each agent switch tables from their settings page",
+      "The same agent gets the same table every visit, so groups compare"
+    ],
+    "answer": 3,
+    "explain": "The targeting key identifies the subject the flag is evaluated for, so a stable key keeps each agent in one group: the experience is consistent and the metrics of the two groups mean something. A random or per-page-load decision would flip agents between tables. The key is about consistency, not speed or permission."
+  },
+  {
+    "id": "m36.q13",
+    "module": "m36",
+    "section": "api",
+    "q": "A caller renders <code>&lt;LeakyButton className=\"wide\"&gt;Refund&lt;/LeakyButton&gt;</code>. What is the <code>class</code> attribute of the rendered button?",
+    "code": "export function LeakyButton({ variant = 'primary', ...rest }: ButtonProps) {\n  return <button className=\"ui-button\" data-variant={variant} {...rest} />;\n}",
+    "lang": "tsx",
+    "options": [
+      "<code>\"ui-button wide\"</code>, because React merges the className values it receives",
+      "<code>\"ui-button\"</code>, because the explicit attribute wins",
+      "<code>\"wide\"</code>: the spread comes last and replaces the base class",
+      "Both classes, in the order <code>\"wide ui-button\"</code>"
+    ],
+    "answer": 2,
+    "explain": "JSX props are applied in order, and the later <code>className</code> from <code>rest</code> overwrites the earlier one: measured with React 19.3.1, the button rendered <code>class=\"wide\"</code> and lost its base styles. React never merges class names; destructure <code>className</code> and join it with the base class."
+  },
+  {
+    "id": "m36.q14",
+    "module": "m36",
+    "section": "api",
+    "q": "With React 19.3.1, after this renders, what is <code>closeRef.current</code>?",
+    "code": "type IconButtonProps = { label: string; icon: ReactNode; ref?: Ref<HTMLButtonElement> };\n\nfunction IconButton({ label, icon }: IconButtonProps) {\n  return <button type=\"button\" aria-label={label}>{icon}</button>;\n}\n\nconst closeRef = createRef<HTMLButtonElement>();\nrender(<IconButton ref={closeRef} label=\"Close\" icon={<CloseIcon />} />);",
+    "lang": "tsx",
+    "options": [
+      "<code>null</code>: ref is a plain prop, and IconButton never uses it",
+      "The <code>&lt;button&gt;</code> element, because React attaches refs to the first DOM node",
+      "The component instance, as with class components",
+      "React throws, because function components need <code>forwardRef</code>"
+    ],
+    "answer": 0,
+    "explain": "In React 19, <code>ref</code> reaches a function component as a prop, and nothing attaches it unless the component puts it on an element: measured, <code>ref.current</code> stayed <code>null</code>. React does not throw anymore; <code>forwardRef</code> is no longer necessary, but forwarding still has to be written."
+  },
+  {
+    "id": "m36.q15",
+    "module": "m36",
+    "section": "api",
+    "q": "The checkout form renders <code>&lt;OrderButton type=\"submit\"&gt;Place order&lt;/OrderButton&gt;</code>. What happens on click?",
+    "code": "function OrderButton(props: ComponentProps<'button'>) {\n  return <button {...props} type=\"button\" />;\n}",
+    "lang": "tsx",
+    "options": [
+      "The form is submitted, because the caller asked for submit",
+      "React warns about a duplicate prop and submits the form",
+      "The form is submitted twice, once per type attribute",
+      "Nothing: the later <code>type=\"button\"</code> overrides the caller"
+    ],
+    "answer": 3,
+    "explain": "Props written after the spread win, so the rendered button has <code>type=\"button\"</code>: measured, the form's submit handler was called 0 times. That is right for a default and wrong for a forced value; put the default in the destructuring (<code>type = 'button'</code>) so callers can override it."
+  },
+  {
+    "id": "m36.q16",
+    "module": "m36",
+    "section": "compound",
+    "q": "A teammate creates the Tabs context with a default object, <code>createContext({ selected: '', select: () =&gt; {} })</code>, to \"avoid null checks\". What changes when someone renders <code>&lt;Tabs.Tab&gt;</code> outside <code>&lt;Tabs.Root&gt;</code>?",
+    "options": [
+      "Nothing changes, because React throws in both versions anyway",
+      "It renders, clicks do nothing, and the bug ships silently",
+      "The tab silently creates its own Root and works on its own",
+      "TypeScript rejects the JSX at compile time with a context error"
+    ],
+    "answer": 1,
+    "explain": "With a default value, <code>use</code> returns the default outside a provider: measured, the tab rendered with <code>aria-selected=\"false\"</code> and clicking changed nothing. With <code>null</code> and a guard, the same mistake throws \"&lt;Tabs.Tab&gt; must be rendered inside &lt;Tabs.Root&gt;\" during development. TypeScript cannot see where a component is rendered."
+  },
+  {
+    "id": "m36.q17",
+    "module": "m36",
+    "section": "compound",
+    "q": "The first Tabs used hard-coded ids: <code>id={'tab-' + value}</code> and <code>aria-controls={'panel-' + value}</code>. The order detail page now shows Tabs in the main area and in a customer side panel, both with a <code>details</code> tab. What breaks, and what is the fix?",
+    "options": [
+      "Nothing breaks: ids only need to be unique inside one component tree",
+      "React detects duplicate ids and renames the second set automatically",
+      "Duplicate ids point ARIA to the wrong panel; prefix them with <code>useId</code>",
+      "The second Tabs fails to render until it gets its own separate Root"
+    ],
+    "answer": 2,
+    "explain": "Ids must be unique in the whole document, and assistive technology follows <code>aria-controls</code> and <code>aria-labelledby</code> to the first match. <code>useId</code> gives each instance its own prefix: measured, two instances got <code>_r_1_-tab-details</code> and <code>_r_2_-tab-details</code>. React does not rewrite ids."
+  },
+  {
+    "id": "m36.q18",
+    "module": "m36",
+    "section": "controlled",
+    "q": "An agent clicks the Refunds tab. What happens?",
+    "code": "function OrderDetail() {\n  return (\n    <Tabs.Root value=\"details\" onValueChange={(tab) => analytics.track('order_tab', tab)}>\n      {/* Details, Payments and Refunds tabs and panels */}\n    </Tabs.Root>\n  );\n}",
+    "lang": "tsx",
+    "options": [
+      "track is called with \"refunds\", and the Details panel stays visible",
+      "The Refunds panel shows, and track is called with \"refunds\" as well",
+      "The Refunds panel shows, but the track callback is never called",
+      "React throws, because value needs a matching useState"
+    ],
+    "answer": 0,
+    "explain": "Passing <code>value</code> makes the Tabs controlled, so it shows what the parent says, and this parent always says \"details\". Measured: the callback received \"refunds\" and the Details panel stayed. Fix it by storing the tab in state and passing it back, or by using <code>defaultValue</code> if the parent only observes."
+  },
+  {
+    "id": "m36.q19",
+    "module": "m36",
+    "section": "controlled",
+    "q": "The order detail first renders <code>&lt;Tabs.Root defaultValue=\"details\"&gt;</code>. When the order loads and turns out to be refunded, it re-renders with <code>defaultValue=\"refunds\"</code>. Which panel shows?",
+    "options": [
+      "Refunds, because the new defaultValue resets the state",
+      "Refunds, but only after a second render triggered by React",
+      "Neither: React throws when a default changes",
+      "Details: defaultValue is only read on the first render"
+    ],
+    "answer": 3,
+    "explain": "<code>defaultValue</code> seeds <code>useState</code>, which ignores later initial values: measured, the Details panel stayed. To start on Refunds, render Tabs after the order loads, give it a <code>key</code> that changes with the order, or control it with <code>value</code>."
+  },
+  {
+    "id": "m36.q20",
+    "module": "m36",
+    "section": "controlled",
+    "q": "The page first renders <code>&lt;Tabs.Root value=\"refunds\" defaultValue=\"details\"&gt;</code>, then re-renders without the <code>value</code> prop (the <code>?tab</code> parameter was removed). With the <code>useControllableState</code> hook of section 3, which panel shows?",
+    "options": [
+      "Refunds, because the hook remembers the last controlled value it saw",
+      "Details: the internal state was never updated while controlled",
+      "No panel, because the selected value becomes undefined",
+      "Payments, the next tab in the list"
+    ],
+    "answer": 1,
+    "explain": "While controlled, the hook never writes its internal state, which still holds the initial <code>\"details\"</code>; once <code>value</code> is gone it reads that state. Measured with React 19.3.1: the Details panel showed. That is why a component should stay controlled or uncontrolled for its whole life; for an <code>&lt;input&gt;</code>, React 19 warns \"A component is changing a controlled input to be uncontrolled\" (measured)."
+  },
+  {
+    "id": "m36.q21",
+    "module": "m36",
+    "section": "headless",
+    "q": "The refund confirmation is built on Base UI's Dialog with default options. The agent presses Escape. What happens to focus?",
+    "options": [
+      "Focus stays on the last focused element inside the closed dialog",
+      "Focus moves to the top of the document",
+      "The dialog closes and focus returns to the Refund button",
+      "Escape is ignored until the agent clicks Cancel"
+    ],
+    "answer": 2,
+    "explain": "The Base UI docs say a modal dialog traps Tab inside, closes on Escape, and returns focus to the trigger or the previously focused element by default. Focus restoration is exactly the kind of behaviour that hand-made dialogs forget, which is the main argument for a headless primitive."
+  },
+  {
+    "id": "m36.q22",
+    "module": "m36",
+    "section": "headless",
+    "q": "A team writes <code>&lt;Dialog.Trigger render={&lt;BrandButton /&gt;}&gt;Refund&lt;/Dialog.Trigger&gt;</code>, with <code>function BrandButton({ children }: { children: ReactNode }) { return &lt;button className=\"brand\"&gt;{children}&lt;/button&gt;; }</code>. What is wrong?",
+    "options": [
+      "BrandButton drops the props and ref Base UI passes to it",
+      "Nothing: Base UI attaches its handlers to the DOM node after render",
+      "The render prop only accepts native elements such as button",
+      "The label must be passed to BrandButton, not to Dialog.Trigger"
+    ],
+    "answer": 0,
+    "explain": "The Base UI docs state that the custom component must forward the ref and spread all received props on its DOM node; BrandButton ignores them, so the click handler, ARIA attributes and ref never reach the button. The section 1 Button, which spreads <code>rest</code> including <code>ref</code>, meets the requirement."
+  },
+  {
+    "id": "m36.q23",
+    "module": "m36",
+    "section": "tokens",
+    "q": "To darken one panel, a developer writes <code>.panel { --gray-900: #f9fafb; }</code>. What colour is the text of a <code>&lt;p&gt;</code> inside the panel?",
+    "code": ":root {\n  --gray-900: #111827;\n  --color-text: var(--gray-900);\n}\n.panel { --gray-900: #f9fafb; }\np { color: var(--color-text); }",
+    "lang": "css",
+    "options": [
+      "<code>#f9fafb</code>, because the closest <code>--gray-900</code> declaration always wins",
+      "<code>#111827</code>: <code>--color-text</code> was resolved on <code>:root</code> and inherited",
+      "The initial colour, because the variable reference is circular",
+      "It depends on which rule comes later in the file"
+    ],
+    "answer": 1,
+    "explain": "A custom property's <code>var()</code> is substituted on the element where it is declared, and descendants inherit the result. Measured in Chromium: the text stayed <code>rgb(17, 24, 39)</code>. Redefine <code>--color-text</code> in the panel or theme scope instead of the primitive."
+  },
+  {
+    "id": "m36.q24",
+    "module": "m36",
+    "section": "tokens",
+    "q": "With the tokens file of section 5, an agent's OS is in dark mode and the back office sets <code>&lt;html data-theme=\"light\"&gt;</code> from the agent's saved choice. What does the page use?",
+    "options": [
+      "Dark tokens, because the media query is more specific than the attribute",
+      "Dark tokens, until the agent reloads the page",
+      "A mix of both: dark surface and light text",
+      "Light: the dark block no longer matches, so the <code>:root</code> values apply"
+    ],
+    "answer": 3,
+    "explain": "The dark media block applies only when <code>data-theme</code> is not \"light\", so the explicit choice wins. Measured in Chromium with emulated dark mode: text stayed <code>rgb(17, 24, 39)</code>. Without the <code>:not()</code> guard, the media query would override the saved choice."
+  },
+  {
+    "id": "m36.q25",
+    "module": "m36",
+    "section": "styling",
+    "q": "The storefront team wants <code>@shop/ui</code> styled with styled-components and its <code>ThemeProvider</code>, as their old code was. In Next.js App Router Server Components, which statement is true?",
+    "options": [
+      "styled-components cannot render in Server Components, in any version",
+      "ThemeProvider works exactly the same in Server and Client Components",
+      "It renders there, but ThemeProvider is a pass-through: no context",
+      "Next.js converts ThemeProvider themes to CSS variables automatically"
+    ],
+    "answer": 2,
+    "explain": "The styled-components docs state native React Server Components support since 6.3, with ThemeProvider as a pass-through (\"no context in RSC\") and themes moved to CSS custom properties. Next.js documents React context as unsupported in Server Components. So themes must be CSS variables anyway, and static CSS is the simpler choice for a shared package."
+  },
+  {
+    "id": "m36.q26",
+    "module": "m36",
+    "section": "storybook",
+    "q": "A refactor of <code>button.module.css</code> moves the focus outline under a neighbouring element. Interaction and accessibility tests all pass. Which test would have caught it?",
+    "options": [
+      "A visual test comparing snapshots with approved baselines",
+      "A play function that tabs to the button and asserts it has focus",
+      "The a11y addon configured with <code>test: 'error'</code> in preview.ts",
+      "A TypeScript type check on the Button component props"
+    ],
+    "answer": 0,
+    "explain": "The element still receives focus and the markup is still valid, so interaction and axe checks pass; only the pixels changed. Visual tests (Chromatic, in Storybook's docs) compare snapshots with baselines and flag the change for review. That is why each layer of testing covers a different risk."
+  },
+  {
+    "id": "m36.q27",
+    "module": "m36",
+    "section": "releasing",
+    "q": "The partner portal broke after a patch release renamed <code>onChange</code> to <code>onValueChange</code>. Which plan would you ship to fix the process?",
+    "options": [
+      "Ask the agency to pin exact versions and stop upgrading the package",
+      "Restore <code>onChange</code> as deprecated, remove it in the next major",
+      "Keep the rename and publish a blog post that explains the change",
+      "Move the partner portal into the monorepo so it gets changes at once"
+    ],
+    "answer": 1,
+    "explain": "Fix the semver contract: bring the old prop back marked <code>@deprecated</code> with a development warning, then remove it in a major whose changeset explains the migration. Pinning forever stops all fixes, and the agency's repository is not yours to move."
+  },
+  {
+    "id": "m36.q28",
+    "module": "m36",
+    "section": "structure",
+    "q": "CI fails on <code>import { OrdersTable } from '../orders/orders-table'</code> inside <code>src/features/refunds</code>. The refunds page needs to show the order lines. Which fix would you ship?",
+    "options": [
+      "Add <code>./orders</code> to the <code>except</code> list of the refunds zone in the config",
+      "Disable the rule for that line with an eslint-disable comment",
+      "Copy <code>orders-table.tsx</code> into <code>features/refunds</code> and adapt it",
+      "Compose both features in the page, or use the shared DataTable"
+    ],
+    "answer": 3,
+    "explain": "The rule exists so features stay independent; the page layer is where features meet, and a generic table belongs in the design system. Widening <code>except</code> or disabling the rule reintroduces the coupling that broke the customers page, and a copy drifts."
+  },
+  {
+    "id": "m36.q29",
+    "module": "m36",
+    "section": "monorepo",
+    "q": "The agency proposes Module Federation so its partner screens load inside the back office at runtime. One back-office team ships weekly, and partners use their own portal. What do you answer?",
+    "options": [
+      "Yes: Module Federation is the standard way to share a design system",
+      "Yes, and mark React as non-shared so each part gets its own copy",
+      "No: keep the portal a separate app using the published packages",
+      "No, because Module Federation only works with Next.js apps"
+    ],
+    "answer": 2,
+    "explain": "Micro-frontends pay off when several teams must deploy parts of the same page independently; here the portal is its own app, so a package is enough. Two copies of React cause the invalid hook call error (react.dev), which is why federated React must be a shared singleton. Module Federation works with Webpack and Rspack and lists Vite and Next.js integrations."
+  },
+  {
+    "id": "m36.q30",
+    "module": "m36",
+    "section": "rollout",
+    "q": "Which flag design would you ship for the new orders table?",
+    "options": [
+      "A flag checked in each column and cell component, so each part can be rolled out alone",
+      "One page-level flag, default <code>false</code>, keyed by agent id, with an end date",
+      "A flag read once at build time from an environment variable",
+      "One flag per agent, created by hand in the flag service"
+    ],
+    "answer": 1,
+    "explain": "One page-level flag keeps two tested states, the safe default protects agents if the flag service fails, the agent id keeps groups stable, and an end date gets the flag and the old table deleted. Per-cell flags multiply untested combinations, and a build-time variable cannot be rolled back without a redeploy."
+  }
+]

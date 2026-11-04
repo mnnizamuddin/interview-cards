@@ -1,0 +1,434 @@
+[
+  {
+    "id": "m18.q1",
+    "module": "m18",
+    "section": "contexts",
+    "q": "What is a bounded context?",
+    "options": [
+      "A microservice with its own database, deployed and scaled independently of the others",
+      "The boundary inside which one domain model and its language stay consistent",
+      "A group of tables that are often joined together and live in the same schema",
+      "A NestJS module with its own providers, exported only through its public facade"
+    ],
+    "answer": 1,
+    "explain": "Evans and Fowler define it as the scope of one consistent model and its language, so the same word, such as order, may mean something else in another context. A bounded context often becomes a module or a service later, but it is a modelling boundary first: one deployable can hold several, as section 3 shows."
+  },
+  {
+    "id": "m18.q2",
+    "module": "m18",
+    "section": "context-map",
+    "q": "Payments receives the provider's webhooks, full of \"charges\", <code>metadata.order_ref</code> and provider failure codes, and turns them into its own <code>captured</code> and <code>declined</code> outcomes in one file. Which context map pattern is that?",
+    "options": [
+      "Conformist",
+      "Shared kernel",
+      "Open-host service with a published language",
+      "Anticorruption layer"
+    ],
+    "answer": 3,
+    "explain": "An anticorruption layer is a translation layer that keeps a foreign model out of yours, so a provider change touches one file. Conformist is the opposite choice, using the upstream model as it is, which would spread the provider's words through Payments. An open-host service describes the upstream side offering a protocol, not the downstream translation."
+  },
+  {
+    "id": "m18.q3",
+    "module": "m18",
+    "section": "modular-monolith",
+    "q": "Each module connects with its own PostgreSQL role, and <code>ordering_module</code> was only granted rights on schema <code>ordering</code>. What happens when Ordering code runs <code>SELECT * FROM payments.payments</code>?",
+    "options": [
+      "It fails with <code>42501 permission denied for schema payments</code>",
+      "It works, because both schemas live in the same database and the same cluster",
+      "It returns an empty result set",
+      "It works for SELECT and fails only for INSERT"
+    ],
+    "answer": 0,
+    "explain": "Without USAGE on the schema, the role cannot even reach the objects inside it: measured on PostgreSQL 18.6 (PGlite), both the select and a join failed with 42501. Being in the same database grants nothing by itself; privileges are per schema and per table, which turns the module boundary into a runtime rule."
+  },
+  {
+    "id": "m18.q4",
+    "module": "m18",
+    "section": "aggregate",
+    "q": "Why does the <code>Order</code> aggregate hold <code>customerId</code> rather than a <code>Customer</code> object?",
+    "options": [
+      "Because the JSON column that stores orders cannot hold a nested customer object",
+      "To save memory, since loading a customer with every order would be too expensive at peak",
+      "Aggregates reference other aggregates by id, so one transaction never changes both",
+      "Because a field typed with another class breaks Node's type stripping at runtime"
+    ],
+    "answer": 2,
+    "explain": "Vernon's rule \"reference other aggregates by identity\" keeps each aggregate its own consistency boundary, and a bounded context should modify one aggregate instance per transaction. Memory is a side benefit, not the reason: holding the object would invite code to change the customer through the order."
+  },
+  {
+    "id": "m18.q5",
+    "module": "m18",
+    "section": "aggregate",
+    "q": "Which statement about the lesson's <code>Money</code> class is true?",
+    "options": [
+      "An entity, because each amount gets an id when it is saved with the order",
+      "A value object: immutable, and equal to another when cents and currency match",
+      "Two <code>Money.of(1999)</code> calls return the same cached object, so <code>===</code> compares them",
+      "It may be changed in place, which avoids allocating a new object for every addition"
+    ],
+    "answer": 1,
+    "explain": "Money has no identity and is frozen, so it is a value object compared by value. Measured on Node 24: two Money.of(1999) were different objects (=== was false) while equals returned true, and assigning to cents threw a TypeError. Use equals, never ===."
+  },
+  {
+    "id": "m18.q6",
+    "module": "m18",
+    "section": "domain-events",
+    "q": "In the lesson, where do the events recorded by <code>Order.place()</code> go?",
+    "options": [
+      "The repository writes them to the outbox, in the same transaction as the order",
+      "The aggregate publishes them to the broker itself, before <code>place()</code> returns",
+      "The controller publishes them after it has sent the HTTP response to the client",
+      "They stay in memory in the aggregate until the next deploy"
+    ],
+    "answer": 0,
+    "explain": "The aggregate only records events; the repository pulls them and inserts them into the outbox in the same transaction as the order, so both commit or neither does (measured: a failing outbox insert rolled the order back). Publishing from the aggregate would make the domain depend on infrastructure and bring back the dual write of M13."
+  },
+  {
+    "id": "m18.q7",
+    "module": "m18",
+    "section": "hexagonal",
+    "q": "What does the dependency rule say in a hexagonal or clean architecture?",
+    "options": [
+      "Each layer may only call the layer directly below it, never one further down",
+      "Adapters must never import the domain; they only exchange plain JSON with it",
+      "The domain depends on interfaces published by the database driver, such as pg",
+      "Source code dependencies point inwards: adapters depend on the core"
+    ],
+    "answer": 3,
+    "explain": "Robert C. Martin states it as \"source code dependencies can only point inwards\": the domain imports nothing, the application imports the domain, and adapters import both. \"Only the layer below\" describes classic layering, in which the domain ends up depending on the data access layer, which is exactly what ports reverse."
+  },
+  {
+    "id": "m18.q8",
+    "module": "m18",
+    "section": "integration-events",
+    "q": "What distinguishes the integration event <code>shop.ordering.order-placed.v1</code> from the domain event <code>OrderPlaced</code>?",
+    "options": [
+      "Nothing: they are two names for the same object, used in different folders",
+      "It is raised before the commit, while the domain event is raised after it",
+      "It is a versioned public contract in plain data, delivered after the commit",
+      "It may only be consumed by handlers that run inside the same Node.js process"
+    ],
+    "answer": 2,
+    "explain": "Domain events are internal to a module and change with its model; integration events are a published contract, plain JSON with a version, and per Microsoft's guide should occur only if the change was persisted. The second option reverses the timing, and in-process consumption describes domain events."
+  },
+  {
+    "id": "m18.q9",
+    "module": "m18",
+    "section": "evolution",
+    "q": "Several consumers read <code>order-placed.v1</code>. Which change can ship without a new event type?",
+    "options": [
+      "Renaming <code>totalCents</code> to <code>amountMinor</code>",
+      "Adding an optional <code>couponCode</code> field",
+      "Sending <code>totalCents</code> in euros instead of cents",
+      "Removing the <code>lines</code> field that Invoicing reads"
+    ],
+    "answer": 1,
+    "explain": "Adding an optional field is additive: tolerant readers ignore it (measured with Zod 4.6.7, an extra field was simply dropped). Renaming, removing a field someone reads, or changing a unit are breaking; the unit change is the most dangerous, because the type stays a number and nothing fails loudly."
+  },
+  {
+    "id": "m18.q10",
+    "module": "m18",
+    "section": "cqrs",
+    "q": "What does CQRS mean in the back-office example?",
+    "options": [
+      "Writes go through aggregates; the search reads a separate model built from events",
+      "Every request goes through a CommandBus or a QueryBus, as in @nestjs/cqrs",
+      "Commands use POST and PUT while queries use GET, on separate controllers per screen",
+      "Reads go to a PostgreSQL replica of the same tables, writes to the primary"
+    ],
+    "answer": 0,
+    "explain": "CQRS uses a different model to update information than to read it (Fowler): here a denormalised order_summaries table fed by events. Buses are a dispatch mechanism and give no separate model on their own, and a read replica serves the same model from another server."
+  },
+  {
+    "id": "m18.q11",
+    "module": "m18",
+    "section": "event-sourcing",
+    "q": "With event sourcing, what does the payment ledger store?",
+    "options": [
+      "The current amounts of each payment, plus an <code>updated_at</code> column per row",
+      "The current amounts, plus a full copy of the row in an audit table after each change",
+      "Every event of each payment, in order; the state is computed by replaying them",
+      "Only the most recent event of each payment"
+    ],
+    "answer": 2,
+    "explain": "Event sourcing captures all changes as a sequence of events, and the state is a fold of the stream (evolve in section 10). Copies of the row after each change are an audit table: they show what the row became, not what happened, such as a refund versus a correction."
+  },
+  {
+    "id": "m18.q12",
+    "module": "m18",
+    "section": "extraction",
+    "q": "ADR-006 said \"keep Payments in the monolith\". A year later the team decides to extract it. What happens to ADR-006?",
+    "options": [
+      "It is deleted, so that nobody follows an outdated decision by mistake",
+      "It is edited in place so that it describes the new decision",
+      "It stays unchanged, and the new decision is written in the wiki",
+      "It is kept as it is, marked superseded by a new, numbered ADR that links to it"
+    ],
+    "answer": 3,
+    "explain": "Nygard's format numbers ADRs sequentially and keeps reversed decisions, marked superseded, so the history of why stays readable. Editing or deleting the old record loses the context in which it was the right call, which is the main reason to keep ADRs at all."
+  },
+  {
+    "id": "m18.q13",
+    "module": "m18",
+    "section": "contexts",
+    "q": "The interviewer asks: \"One giant orders table and a god-service used by five teams. What do you pull apart first?\" Which answer is the strongest?",
+    "options": [
+      "Split it into five microservices, one per team, each starting with a copy of the table, and let the teams diverge from there",
+      "Reorganise the code by technical layer first, controllers, services and repositories, so each team can find its code",
+      "Map the language and field ownership, then move one painful context into its own module and tables inside the monolith",
+      "Extract a shared Order library that all five teams import, so the model stays consistent while each team works in its own service"
+    ],
+    "answer": 2,
+    "explain": "Start from the language and data ownership, then pull one context apart where it hurts, without a network in between, so mistakes stay cheap to fix. Services first move the tangle onto the network, technical layers leave every concept spread across all of them, and a shared library keeps the one shared model that is the problem."
+  },
+  {
+    "id": "m18.q14",
+    "module": "m18",
+    "section": "modular-monolith",
+    "q": "With this dependency-cruiser rule, which import fails the CI job?",
+    "code": "{\n  name: 'modules-only-through-public-api',\n  severity: 'error',\n  from: { path: '^src/modules/([^/]+)/' },\n  to: {\n    path: '^src/modules/[^/]+/',\n    pathNot: ['^src/modules/$1/', '^src/modules/[^/]+/index\\\\.ts$'],\n  },\n}",
+    "lang": "js",
+    "options": [
+      "<code>src/modules/ordering/application/place-order.ts</code> imports <code>src/modules/ordering/domain/order.ts</code>",
+      "<code>src/modules/ordering/index.ts</code> imports <code>src/modules/payments/domain/payment.ts</code>",
+      "<code>src/modules/ordering/http/orders.ts</code> imports <code>src/modules/payments/index.ts</code>",
+      "<code>src/main.ts</code> imports <code>src/modules/payments/infrastructure/pg-payments.ts</code>"
+    ],
+    "answer": 1,
+    "explain": "Even the module's own index.ts matches the from path, so $1 is ordering; the target is in another module and is neither under src/modules/ordering/ nor an index.ts, so the rule fires (checked by evaluating the rule's regular expressions on these four paths). Imports inside the module and into another module's index.ts are excluded by pathNot, and src/main.ts, the composition root, does not match the from path at all."
+  },
+  {
+    "id": "m18.q15",
+    "module": "m18",
+    "section": "aggregate",
+    "q": "In code review, what is the problem with this aggregate?",
+    "code": "export class Order {\n  #lines: OrderLine[] = [];\n\n  get lines(): readonly OrderLine[] {\n    return this.#lines;\n  }\n\n  addLine(line: OrderLine): void {\n    if (this.#lines.length === 50) {\n      throw new OrderRuleError('An order has at most 50 lines');\n    }\n    this.#lines.push(line);\n  }\n}",
+    "lang": "ts",
+    "options": [
+      "The getter hands out the internal array, so a cast lets callers skip <code>addLine</code>",
+      "<code>#lines</code> is a private field, which Node's type stripping rejects at startup",
+      "<code>readonly</code> freezes the array at runtime, so <code>push</code> in <code>addLine</code> throws",
+      "The 50-line check belongs in the repository, which sees every order before it is saved"
+    ],
+    "answer": 0,
+    "explain": "readonly is a compile-time promise only: measured on Node 24, a caller that cast the array pushed a line that addLine never saw. Return a copy (or a frozen array) so the root stays the only way in. #private fields run fine with type stripping, and invariants belong in the aggregate, not in the repository."
+  },
+  {
+    "id": "m18.q16",
+    "module": "m18",
+    "section": "aggregate",
+    "q": "Product asks for a new rule: \"a customer may not have more than three unpaid orders\". Each order is its own aggregate. What do you propose?",
+    "options": [
+      "Make Customer an aggregate that contains all of its orders, so one transaction can check the rule",
+      "Lock the customer row in every transaction that touches an order, in every module that does so",
+      "Let the Order aggregate load the customer's other orders from the repository and count them",
+      "Ask how strict it must be; usually check it in the use case and accept or detect the rare race"
+    ],
+    "answer": 3,
+    "explain": "Vernon's rules favour small aggregates and eventual consistency outside the boundary, and a rule across aggregates is first discussed with the business. A Customer holding every order becomes a huge aggregate that each placement must load and lock, and an aggregate that loads other aggregates breaks the one-aggregate-per-transaction rule."
+  },
+  {
+    "id": "m18.q17",
+    "module": "m18",
+    "section": "domain-events",
+    "q": "Two requests each load order <code>ord_42</code> at version 1, change it, and save it with the repository of section 5. What happens on the second save?",
+    "code": "await saveOrder(cancelledCopy); // UPDATE ... WHERE id = 'ord_42' AND version = 1\nawait saveOrder(editedCopy);    // UPDATE ... WHERE id = 'ord_42' AND version = 1",
+    "lang": "ts",
+    "options": [
+      "Both succeed, and the second silently overwrites the changes made by the first",
+      "The second UPDATE matches no row, so <code>ConcurrentUpdateError</code> is thrown",
+      "PostgreSQL detects a deadlock between the two transactions and aborts both",
+      "The second waits on a row lock until the first transaction is rolled back"
+    ],
+    "answer": 1,
+    "explain": "The first save moved the row to version 2, so the second UPDATE matches zero rows and the repository throws (measured on PGlite: ConcurrentUpdateError, final version 2). Without the version condition, both would succeed and the last write would win silently. No lock is held between the two requests, so there is nothing to deadlock on."
+  },
+  {
+    "id": "m18.q18",
+    "module": "m18",
+    "section": "hexagonal",
+    "q": "An interviewer asks: \"Hexagonal versus a classic layered architecture: what actually changes?\"",
+    "options": [
+      "Hexagonal has six layers instead of three, one for each kind of adapter it supports",
+      "Hexagonal forbids frameworks such as NestJS, since they would sit inside the core",
+      "The direction of dependencies: the core declares ports, and adapters depend on it",
+      "Hexagonal puts each use case and its SQL in one file, so the layers disappear"
+    ],
+    "answer": 2,
+    "explain": "In classic layering the domain imports and calls the data access layer; with ports and adapters the core owns the interfaces and adapters implement or call them, so a test can drive the core as easily as HTTP (Cockburn's intent). Cockburn says the number six is not important, and frameworks are fine as adapters around the core."
+  },
+  {
+    "id": "m18.q19",
+    "module": "m18",
+    "section": "integration-events",
+    "q": "Payments publishes <code>payment-captured</code>; Ordering sends \"issue the invoice for ord_42\" to Invoicing. How do you classify them?",
+    "options": [
+      "An event, then a command; both of them travel as messages through channels",
+      "Both are events, because both are published through the same broker topic",
+      "Both are commands, because both cause another context to do some work",
+      "A command, then an event, because the invoice is the fact being recorded"
+    ],
+    "answer": 0,
+    "explain": "An event states something that happened and expects no reply; a command asks one receiver to act (Fowler, and the command and event messages of Enterprise Integration Patterns). Message is the envelope, not a third kind of intent, and travelling through the same broker says nothing about intent."
+  },
+  {
+    "id": "m18.q20",
+    "module": "m18",
+    "section": "integration-events",
+    "q": "After <code>payment-captured</code>, Invoicing issues an invoice and Loyalty adds points, independently. At checkout, a failed payment must release the reserved stock and cancel the order. Which coordination fits each?",
+    "options": [
+      "Orchestration for both, so that one component sees and controls every step of each flow",
+      "Choreography for both, with compensating events published by each service on failure",
+      "Orchestration for invoicing and loyalty, choreography with compensations for checkout",
+      "Choreography for the independent reactions, a saga with orchestration for checkout"
+    ],
+    "answer": 3,
+    "explain": "Independent reactions to a fact suit choreography: each consumer subscribes and the producer does not know them. A multi-step flow with money and compensations is easier to follow, time out and support with an orchestrator, as the saga of M13 shows. Choreographing checkout spreads the flow over several services, so nobody sees it whole."
+  },
+  {
+    "id": "m18.q21",
+    "module": "m18",
+    "section": "integration-events",
+    "q": "On each <code>order-placed</code> event, Invoicing calls Ordering's API to fetch the lines. During the sale, Ordering slows down and invoicing falls hours behind. Which change addresses the cause?",
+    "options": [
+      "Give Invoicing more replicas so that it can process the backlog of events in parallel",
+      "Carry the lines in the event itself, so that Invoicing stops calling Ordering back",
+      "Cache Ordering's API responses inside Invoicing for 24 hours to absorb the peak",
+      "Have Ordering call Invoicing synchronously instead, so invoices never lag behind"
+    ],
+    "answer": 1,
+    "explain": "A notification followed by a call back ties the consumer to the producer's load and uptime; carrying the needed data removes the call, so consumers do not need to contact the source (Fowler). The cost is data copies and a larger contract to version. More Invoicing replicas would only add load to the struggling Ordering module."
+  },
+  {
+    "id": "m18.q22",
+    "module": "m18",
+    "section": "evolution",
+    "q": "With <code>readOrderPlaced</code> from section 8, what does this print?",
+    "code": "const placed = readOrderPlaced({\n  type: 'shop.ordering.order-placed.v1',\n  data: { orderId: 'ord_981', totalCents: 1999, currency: 'EUR', couponCode: 'BF26' },\n});\nconsole.log(JSON.stringify(placed));",
+    "lang": "ts",
+    "options": [
+      "A ZodError, because <code>couponCode</code> is not in the v1 schema",
+      "<code>{\"orderId\":\"ord_981\",\"totalCents\":1999,\"currency\":\"EUR\",\"couponCode\":\"BF26\"}</code>",
+      "<code>{\"orderId\":\"ord_981\",\"total\":{\"amountMinor\":1999,\"currency\":\"EUR\"}}</code>",
+      "An UnknownEventTypeError, because v1 is no longer the current version"
+    ],
+    "answer": 2,
+    "explain": "z.object drops unknown keys, so the extra field is ignored (a tolerant reader), and the v1 branch upcasts the event to the v2 shape. Measured with Zod 4.6.7: exactly that output. z.strictObject would have rejected the extra key, which is the wrong choice for an event consumer."
+  },
+  {
+    "id": "m18.q23",
+    "module": "m18",
+    "section": "evolution",
+    "q": "Your Kafka topic uses Confluent Schema Registry with its default compatibility, <code>BACKWARD</code>. You add an optional field to the schema. In which order do you deploy?",
+    "options": [
+      "Consumers first, then producers",
+      "Producers first, then consumers",
+      "Both at the same time, in one release",
+      "The order does not matter with BACKWARD"
+    ],
+    "answer": 0,
+    "explain": "Confluent documents that with BACKWARD, consumers using the new schema can read data produced with the last schema, so you upgrade all consumers before you start producing new events. Producers first is the FORWARD order, and \"either order\" is FULL compatibility."
+  },
+  {
+    "id": "m18.q24",
+    "module": "m18",
+    "section": "evolution",
+    "q": "\"How do you test event-driven services?\" Which answer would you give?",
+    "options": [
+      "Only end-to-end tests with every service and a real broker, since unit tests cannot see the messages",
+      "Mock the broker client in each test and assert that publish was called with the right topic",
+      "Mostly manual tests in staging, because message timing is unpredictable in automated tests",
+      "Handlers tested with fixture events, contracts with Pact, a few end-to-end tests"
+    ],
+    "answer": 3,
+    "explain": "Separating the payload handler from the transport makes most tests fast and precise, and Pact checks that the consumer can handle a message and that the provider produces it. A thin layer of end-to-end tests with Testcontainers covers the wiring. Mocking the broker client proves a method was called, not that the message is right."
+  },
+  {
+    "id": "m18.q25",
+    "module": "m18",
+    "section": "cqrs",
+    "q": "The payment event arrives before the order event, and the order event is delivered twice. With the projector of section 9, what is in <code>order_summaries</code> afterwards?",
+    "code": "await projectOrderSummary({ id: 'e2', type: 'shop.payments.payment-captured.v1', data: { orderId: 'ord_42', paymentId: 'pay_7' } });\nconst placed = { id: 'e1', type: 'shop.ordering.order-placed.v2', data: { orderId: 'ord_42', customerId: 'cus_7', total: { amountMinor: 49_998 } } } as const;\nawait projectOrderSummary(placed);\nawait projectOrderSummary(placed);",
+    "lang": "ts",
+    "options": [
+      "Two rows for ord_42, one per producer",
+      "One complete row: customer cus_7, total 49,998, payment pay_7",
+      "An error on the first call, because the order row does not exist yet",
+      "One row with the customer and the total, but no payment id, because the payment came too early"
+    ],
+    "answer": 1,
+    "explain": "Each event upserts only its own columns, so the early payment created a partial row and the order event completed it, while the duplicate was skipped by processed_events. Measured on PGlite: one row with all three values and two recorded event ids. An UPDATE-only projector would have lost the early payment."
+  },
+  {
+    "id": "m18.q26",
+    "module": "m18",
+    "section": "cqrs",
+    "q": "A colleague says: \"We use <code>@nestjs/cqrs</code>, so we do CQRS.\" What do you check?",
+    "options": [
+      "That every handler class is decorated with <code>@CommandHandler</code> or <code>@QueryHandler</code>",
+      "That the QueryBus is faster than calling the service directly, since that is the point of CQRS",
+      "Whether a separate read model exists; buses alone only route calls in memory",
+      "That the package version matches the NestJS major version used by the rest of the app"
+    ],
+    "answer": 2,
+    "explain": "CQRS is about separate models for writing and reading; CommandBus and QueryBus only dispatch in-process. The Nest docs also warn that event handlers run in memory and that exception filters cannot catch their errors, so anything that must survive a crash goes through an outbox. @nestjs/cqrs is at 12.1.2 as of October 2026, alongside Nest 12."
+  },
+  {
+    "id": "m18.q27",
+    "module": "m18",
+    "section": "event-sourcing",
+    "q": "Two support agents refund 300 EUR on the same captured 499.98 EUR payment at the same moment. With the code of section 10, what happens?",
+    "code": "const { version, events } = await loadStream('pay_7'); // version 2\nconst state = replay(events); // captured 49,998, refunded 0\nawait Promise.allSettled([\n  appendToStream('pay_7', version, decideRefund(state, 30_000, 'damaged')),\n  appendToStream('pay_7', version, decideRefund(state, 30_000, 'late delivery')),\n]);",
+    "lang": "ts",
+    "options": [
+      "One is appended; the other fails with <code>WrongExpectedVersionError</code> and must retry",
+      "Both are appended, refunding 600 EUR on a 499.98 EUR payment",
+      "Both fail, because each transaction sees the other one's uncommitted row",
+      "The second overwrites the first one at version 3, so only the late refund remains"
+    ],
+    "answer": 0,
+    "explain": "Both read version 2, so both try to write version 3, and the primary key (stream_id, version) accepts only one (measured on PGlite). Reloaded at version 3, decideRefund sees 19,998 cents refundable and throws. Without the expected version, both decisions would have passed on the same stale state."
+  },
+  {
+    "id": "m18.q28",
+    "module": "m18",
+    "section": "event-sourcing",
+    "q": "An architect proposes event-sourcing the whole Orders API \"so we have the full history everywhere\". Which reply shows the trade-off best?",
+    "options": [
+      "Yes: event sourcing makes every query simpler, because every single fact is stored as an event",
+      "Yes: it removes the need for schema migrations, because events are never updated",
+      "No: event sourcing needs a dedicated event store and cannot run on PostgreSQL at all",
+      "Only where history is the requirement, such as the payment ledger: the costs are permanent"
+    ],
+    "answer": 3,
+    "explain": "Event sourcing pays off where the history itself is needed, and its costs are permanent: every event version must stay readable, queries need projections, long streams need snapshots, and replays must not resend side effects. It makes queries harder, not simpler, and an append-only PostgreSQL table works, as section 10 shows."
+  },
+  {
+    "id": "m18.q29",
+    "module": "m18",
+    "section": "extraction",
+    "q": "The team extracts Payments into a service. Which plan avoids a distributed monolith?",
+    "options": [
+      "Deploy the new service and let it keep reading and writing the payments tables in the shared database, to avoid a data migration",
+      "A facade routes it step by step; its schema moves to its own database via CDC; others use its API and events",
+      "Rewrite Payments from scratch with the new team, then switch all traffic to it in one night",
+      "Extract all five contexts at once, so that the boundaries and contracts stay consistent"
+    ],
+    "answer": 1,
+    "explain": "The strangler fig moves one piece at a time behind a facade, and data ownership keeps the new service's data reachable only through its API. Sharing the old tables keeps the coupling and adds the network: neither side can change the schema or deploy alone. A big-bang rewrite gives up the step-by-step rollback that makes an extraction safe."
+  },
+  {
+    "id": "m18.q30",
+    "module": "m18",
+    "section": "senior",
+    "q": "\"When would you not use microservices?\" Which answer is the most senior?",
+    "options": [
+      "When latency matters, because a network call is always slower than an in-process function call",
+      "When the team lacks Kubernetes experience; otherwise they are the default for any new product",
+      "A small team, boundaries still moving, and nothing that must scale, deploy or be owned on its own",
+      "When the domain is simple; for a complex domain, start with microservices so each team owns a service"
+    ],
+    "answer": 2,
+    "explain": "Microservices buy independent deployment, scaling and ownership at the price of running a suite of services, a premium Fowler warns slows teams down, and boundaries are hardest to get right early. Starting with services for a complex domain is the reverse of his observation that successful stories began as monoliths; latency and Kubernetes skills are factors, not the reason."
+  }
+]

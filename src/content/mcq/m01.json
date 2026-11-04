@@ -1,0 +1,436 @@
+[
+  {
+    "id": "m01.q1",
+    "module": "m01",
+    "section": "model",
+    "q": "An orders API handles 2,000 concurrent requests, each mostly waiting for PostgreSQL. What does Node use while those requests wait?",
+    "options": [
+      "One thread per request, taken from a large internal pool",
+      "The libuv thread pool, one of its 4 threads per database query",
+      "The operating system's asynchronous socket APIs; the main thread only runs a callback when data arrives",
+      "A separate event loop per open connection"
+    ],
+    "answer": 2,
+    "explain": "Database connections are network sockets, and libuv watches them through epoll, kqueue or IOCP without a thread per connection. The main thread runs a callback only when a socket has data. The thread pool is the tempting answer, but it serves fs, dns.lookup, async crypto and zlib, not sockets: with only 4 threads it could not hold 2,000 waiting queries."
+  },
+  {
+    "id": "m01.q2",
+    "module": "m01",
+    "section": "model",
+    "q": "In which phase of the event loop do <code>setImmediate</code> callbacks run?",
+    "options": [
+      "The timers phase, right after the timeouts that are due",
+      "The check phase, right after the poll phase",
+      "The poll phase, together with I/O callbacks",
+      "Before the loop starts, like process.nextTick"
+    ],
+    "answer": 1,
+    "explain": "setImmediate callbacks have their own phase, check, which comes right after poll. That is why \"immediate\" really means \"after this round of I/O\". process.nextTick is not a phase at all: its queue is drained after every callback."
+  },
+  {
+    "id": "m01.q3",
+    "module": "m01",
+    "section": "queues",
+    "q": "This file is CommonJS (<code>order.cjs</code>). What does it print?",
+    "code": "console.log('A');\nsetTimeout(() => console.log('B'), 0);\nsetImmediate(() => console.log('C'));\nPromise.resolve().then(() => console.log('D'));\nprocess.nextTick(() => console.log('E'));\nconsole.log('F');",
+    "lang": "js",
+    "options": [
+      "A F D E, then B and C",
+      "A F E D B C, always in that order",
+      "A E D F B C",
+      "A F E D, then B and C in an order that is not guaranteed"
+    ],
+    "answer": 3,
+    "explain": "Synchronous code runs first (A, F), then the nextTick queue (E), then promise microtasks (D). From the main module, whether the 1 ms timer is due when the loop first reaches timers depends on startup time: measured on Node 24, C came first in 26 runs out of 30. A F D E is the ES module order, not the CommonJS one."
+  },
+  {
+    "id": "m01.q4",
+    "module": "m01",
+    "section": "queues",
+    "q": "Inside the callback of <code>fs.readFile</code>, you schedule <code>setTimeout(f, 0)</code> and <code>setImmediate(g)</code>. Which runs first?",
+    "options": [
+      "<code>g</code>, every time, because the check phase comes right after poll",
+      "<code>f</code>, every time, because its delay is the shortest",
+      "Either one, depending on how busy the machine is",
+      "<code>f</code>, because timers always run before check"
+    ],
+    "answer": 0,
+    "explain": "The readFile callback runs in the poll phase. The next phase is check, so setImmediate runs before the loop wraps around to timers (10 runs out of 10 measured). The \"either order\" answer is true only at the top level of the main module."
+  },
+  {
+    "id": "m01.q5",
+    "module": "m01",
+    "section": "pool",
+    "q": "Which of these operations waits for a libuv thread pool thread?",
+    "options": [
+      "Reading the body of an incoming HTTP request",
+      "A query sent over an open PostgreSQL connection",
+      "A <code>setTimeout(fn, 100)</code> callback",
+      "<code>fs.promises.readFile('./invoice.pdf')</code>"
+    ],
+    "answer": 3,
+    "explain": "File system calls, in callback or promise style, run on the thread pool because there is no portable asynchronous file API. Request bodies and database queries travel over sockets, which use the OS asynchronous APIs, and timers live in the loop itself."
+  },
+  {
+    "id": "m01.q6",
+    "module": "m01",
+    "section": "pool",
+    "q": "What is true about the libuv thread pool size?",
+    "options": [
+      "It equals the number of CPU cores, detected at startup",
+      "It is 4 by default and is set with the UV_THREADPOOL_SIZE environment variable when the process starts",
+      "It grows on demand up to 1024 threads",
+      "It is 4 per worker thread, so each worker brings its own pool"
+    ],
+    "answer": 1,
+    "explain": "The default is 4 regardless of cores, and UV_THREADPOOL_SIZE (maximum 1024) changes it at startup. The libuv documentation says the pool is global and shared across all event loops, so worker threads share it rather than bringing their own."
+  },
+  {
+    "id": "m01.q7",
+    "module": "m01",
+    "section": "blocking",
+    "q": "A handler spends 600 ms of CPU building a report. A colleague makes the builder function <code>async</code>. What changes for the other requests in the same process?",
+    "options": [
+      "Nothing: the 600 ms still run on the main thread and still block them",
+      "They are no longer blocked, because async functions run on the thread pool",
+      "They are blocked only half as long, because await splits the work",
+      "They are no longer blocked, because V8 runs async functions on another core"
+    ],
+    "answer": 0,
+    "explain": "An async function runs synchronously until its first await, and a CPU loop has nothing to await, so the work stays on the main thread. Measured on Node 24: a 10 ms timer fired after about 400 ms while an async function with no await was computing. The thread pool never runs your JavaScript."
+  },
+  {
+    "id": "m01.q8",
+    "module": "m01",
+    "section": "fixes",
+    "q": "An endpoint matches 20,000 orders to 20,000 payments with a nested <code>find</code> and blocks the loop for 3 seconds. What should you try first?",
+    "options": [
+      "Move the matching to a pool of worker threads",
+      "Raise UV_THREADPOOL_SIZE to 16",
+      "Index the payments in a Map so each lookup is constant time",
+      "Put the matching on a BullMQ queue and answer 202"
+    ],
+    "answer": 2,
+    "explain": "A nested find is quadratic: 400 million comparisons. A Map lookup makes it linear and usually removes the problem entirely, at no operational cost. Workers or a queue would only move 3 seconds of avoidable work elsewhere, and the thread pool never runs JavaScript."
+  },
+  {
+    "id": "m01.q9",
+    "module": "m01",
+    "section": "scaling",
+    "q": "Your team runs a Node API on Kubernetes and needs more throughput. What is the usual setup in 2026?",
+    "options": [
+      "One container running PM2 in cluster mode with one process per core",
+      "One Node process per container, and more replicas scaled by Kubernetes",
+      "One container with the cluster module, plus a worker thread per request",
+      "A single large pod with UV_THREADPOOL_SIZE raised to the number of cores"
+    ],
+    "answer": 1,
+    "explain": "With one process per container, Kubernetes restarts crashed processes, balances traffic and sees each process in its metrics. PM2 or cluster inside the container duplicates that work and hides crashes from the orchestrator; they belong to older VM deployments."
+  },
+  {
+    "id": "m01.q10",
+    "module": "m01",
+    "section": "measure",
+    "q": "What does <code>performance.eventLoopUtilization()</code> tell you?",
+    "options": [
+      "The share of time the loop spent running callbacks rather than waiting, between 0 and 1",
+      "How many milliseconds late the last timer fired",
+      "The CPU usage of the whole process, including the thread pool",
+      "The number of callbacks waiting in the poll queue"
+    ],
+    "answer": 0,
+    "explain": "ELU is the fraction of time the loop was busy. Measured on Node 24: 0.02 idle and 0.96 with constant CPU work. How late timers fire is the other metric, event loop delay, from monitorEventLoopDelay."
+  },
+  {
+    "id": "m01.q11",
+    "module": "m01",
+    "section": "crashes",
+    "q": "On Node 24 with default flags, a promise rejects and no code handles it. What happens?",
+    "options": [
+      "A warning is printed and the process keeps running",
+      "The rejection is silently ignored",
+      "The rejection is retried on the next turn of the loop",
+      "The error is printed and the process exits with code 1"
+    ],
+    "answer": 3,
+    "explain": "Since Node 15 the default mode is --unhandled-rejections=throw: the rejection is raised as an uncaught exception, and with no handler the process exits with code 1 (verified on Node 24). Printing a warning and continuing was the behaviour before Node 15."
+  },
+  {
+    "id": "m01.q12",
+    "module": "m01",
+    "section": "runtime",
+    "q": "You run <code>node src/status.ts</code> on Node 24, and the file declares <code>enum OrderStatus { Paid, Open }</code>. What happens?",
+    "options": [
+      "It runs: Node compiles the enum with the TypeScript compiler",
+      "It runs, but type errors elsewhere in the file are reported first",
+      "It fails with ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX, because enum needs code generation",
+      "It fails because Node requires a tsconfig.json to run TypeScript"
+    ],
+    "answer": 2,
+    "explain": "Node only strips erasable types; an enum produces JavaScript, so it fails with ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX (verified on Node 24.11). Node never type-checks and ignores tsconfig.json, so neither of the other failure modes exists. Use an as const object or a union type instead."
+  },
+  {
+    "id": "m01.q13",
+    "module": "m01",
+    "section": "queues",
+    "q": "The same six lines are saved as <code>order.mjs</code>, an ES module. What does it print?",
+    "code": "console.log('A');\nsetTimeout(() => console.log('B'), 0);\nsetImmediate(() => console.log('C'));\nPromise.resolve().then(() => console.log('D'));\nprocess.nextTick(() => console.log('E'));\nconsole.log('F');",
+    "lang": "js",
+    "options": [
+      "A F E D, then B and C in either order",
+      "A F D E, then B and C in either order",
+      "A F D E B C, always",
+      "A D E F, then B and C in either order"
+    ],
+    "answer": 1,
+    "explain": "An ES module body is evaluated inside a promise job, so the microtask queue (D) is drained before Node reaches the nextTick queue (E). Measured on Node 24: A F D E every time, with B and C in either order (7 and 3 out of 10). A F E D is the CommonJS order."
+  },
+  {
+    "id": "m01.q14",
+    "module": "m01",
+    "section": "queues",
+    "q": "In an ES module, a request handler runs this code. In what order do the two lines print?",
+    "code": "server.on('request', (request, response) => {\n  Promise.resolve().then(() => console.log('promise'));\n  process.nextTick(() => console.log('nextTick'));\n  response.end('ok');\n});",
+    "lang": "js",
+    "options": [
+      "promise, then nextTick, because the file is an ES module",
+      "Either order, depending on load",
+      "nextTick, then promise",
+      "Only nextTick: the promise is dropped when the response ends"
+    ],
+    "answer": 2,
+    "explain": "Inside any callback Node drains the nextTick queue before the microtask queue, in both module systems. The promise-first order only applies to the top-level body of an ES module, which is itself run as a promise job (verified on Node 24 with the same calls inside a timer callback)."
+  },
+  {
+    "id": "m01.q15",
+    "module": "m01",
+    "section": "fixes",
+    "q": "The job below takes about 2.7 seconds. How many times does <code>tick</code> print?",
+    "code": "const timer = setInterval(() => console.log('tick'), 100);\n\nasync function crunchInChunks(): Promise<void> {\n  for (let chunk = 0; chunk < 100; chunk++) {\n    crunch(1_200_000);        // CPU work, about 25 ms\n    await Promise.resolve();  // \"let the others run\"\n  }\n  clearInterval(timer);\n}\n\nvoid crunchInChunks();",
+    "lang": "ts",
+    "options": [
+      "About 27, one every 100 ms",
+      "About 100, one per chunk",
+      "It depends on the number of CPU cores",
+      "Zero"
+    ],
+    "answer": 3,
+    "explain": "After await Promise.resolve() the function resumes in a microtask, and microtasks are drained before the loop moves on, so the timers phase is never reached until the job ends, by which time the interval is cleared. Measured on Node 24: 0 ticks, versus 24 with await setImmediate() from node:timers/promises."
+  },
+  {
+    "id": "m01.q16",
+    "module": "m01",
+    "section": "blocking",
+    "q": "In what order are the lines printed?",
+    "code": "setTimeout(() => console.log('timer'), 10);\n\nasync function sumUpTo(limit: number): Promise<number> {\n  let total = 0;\n  for (let i = 0; i < limit; i++) {\n    total += i;\n  }\n  return total;\n}\n\nvoid sumUpTo(300_000_000).then(() => console.log('sum done'));\nconsole.log('sync done');",
+    "lang": "ts",
+    "options": [
+      "timer, sync done, sum done",
+      "sync done, timer, sum done",
+      "sync done, sum done, timer",
+      "sum done, sync done, timer"
+    ],
+    "answer": 2,
+    "explain": "sumUpTo has no await, so the whole loop runs synchronously before sync done is logged. Its result is delivered in a microtask, which runs before the loop reaches the timers phase, so sum done beats the timer, which fired late (about 400 ms instead of 10, measured). \"async\" never means \"on another thread\"."
+  },
+  {
+    "id": "m01.q17",
+    "module": "m01",
+    "section": "pool",
+    "q": "On a 16-core server with default settings, you start 8 <code>crypto.pbkdf2</code> calls at once, each needing about 250 ms of CPU. When does the last one finish?",
+    "options": [
+      "After about 250 ms: there are enough cores for all eight",
+      "After about 500 ms: they run in two waves of four",
+      "After about 2 seconds: they run one by one on the main thread",
+      "After about 250 ms, but the main thread is blocked meanwhile"
+    ],
+    "answer": 1,
+    "explain": "Asynchronous pbkdf2 runs on the libuv pool, which has 4 threads regardless of cores, so eight jobs run in two waves (measured on Node 24: four finished together, the other four about one hash-duration later). With UV_THREADPOOL_SIZE=8 all eight finished together. The main thread stays free throughout."
+  },
+  {
+    "id": "m01.q18",
+    "module": "m01",
+    "section": "pool",
+    "q": "During login peaks (asynchronous password hashing), calls to a partner API by hostname become slow, while CPU sits at 40%. The partner says its latency is normal. What is the most likely cause?",
+    "options": [
+      "The hashes block the main thread, so responses are read late",
+      "The partner API rate-limits you during your peaks",
+      "fetch opens a new thread per call and the OS runs out of threads",
+      "fetch resolves the hostname with dns.lookup, which queues on the thread pool behind the hashes"
+    ],
+    "answer": 3,
+    "explain": "Asynchronous pbkdf2 or scrypt occupy the 4 pool threads, and dns.lookup, used by fetch and http.request by default, waits for one. Measured on Node 24: with the pool busy, fetch to localhost waited for the hashes while fetch to 127.0.0.1 returned at once. The main thread is not blocked, since async hashing runs on the pool."
+  },
+  {
+    "id": "m01.q19",
+    "module": "m01",
+    "section": "pool",
+    "q": "A nightly import runs <code>Promise.all</code> over 1,000 <code>fs.promises.readFile</code> calls with default settings. What really happens?",
+    "options": [
+      "The OS reads all 1,000 files in parallel through its asynchronous file API",
+      "At most 4 reads run at once on the thread pool; the rest wait in its queue",
+      "They run one after another on the main thread",
+      "Node starts 1,000 threads, one per read"
+    ],
+    "answer": 1,
+    "explain": "File system calls use the libuv pool, 4 threads by default, so 996 requests queue behind the first four. That queue also delays dns.lookup and async crypto for the rest of the process, which is why you bound the concurrency yourself (for example 10 to 20 files at a time) instead of firing everything."
+  },
+  {
+    "id": "m01.q20",
+    "module": "m01",
+    "section": "fixes",
+    "q": "A webhook endpoint calls <code>JSON.parse</code> on 150 MB bodies and blocks the loop for about 2 seconds each time. Which fix actually helps?",
+    "options": [
+      "Split the parse into chunks with await setImmediate() between them",
+      "Defer the parse with process.nextTick",
+      "Limit the body size, and parse large payloads off the main thread or with a streaming parser",
+      "Move the parse into an async function"
+    ],
+    "answer": 2,
+    "explain": "JSON.parse is one indivisible synchronous call, so you cannot chunk it from outside, and nextTick or async only delay it on the same thread. A size limit protects the loop, and a streaming parser or a worker handles legitimately large payloads. Also ask why one webhook sends 150 MB."
+  },
+  {
+    "id": "m01.q21",
+    "module": "m01",
+    "section": "fixes",
+    "q": "Whenever a customer downloads a large CSV export, the whole API slows down for several seconds. Exports take about 4 seconds of CPU and must not be lost if a pod restarts. Which design would you ship?",
+    "options": [
+      "Enqueue an export job, answer 202 Accepted, and let a worker service write the file to object storage",
+      "Run the export in a Piscina worker inside the API process and stream the result",
+      "Add replicas until the slowdown is no longer noticed",
+      "Make the export function async and add await between rows"
+    ],
+    "answer": 0,
+    "explain": "Seconds of work that must survive a restart is the case for a queue and a separate worker service. A Piscina worker would unblock the loop, but the job dies with the pod and competes for the API pod's CPU. Replicas only spread the pain, and awaiting between rows with microtasks does not yield to the loop."
+  },
+  {
+    "id": "m01.q22",
+    "module": "m01",
+    "section": "crashes",
+    "q": "What happens when this code runs?",
+    "code": "import { Worker } from 'node:worker_threads';\n\nconst worker = new Worker(new URL('./score.worker.ts', import.meta.url));\n// score.worker.ts throws an error that nothing catches.\n// No listener is attached to worker.\nsetTimeout(() => console.log('main still alive'), 500);",
+    "lang": "ts",
+    "options": [
+      "The worker dies silently and the main thread prints \"main still alive\"",
+      "The main thread receives the error as a normal message",
+      "Node restarts the worker automatically",
+      "The error is emitted as an 'error' event on the Worker; with no listener, the whole process exits with code 1"
+    ],
+    "answer": 3,
+    "explain": "An uncaught error ends the worker and is emitted as 'error' on the Worker object, and an 'error' event with no listener throws. Measured on Node 24: the process exited with code 1 before the timer fired. A worker pool must listen for 'error', reject the job and replace the worker; Piscina does this for you."
+  },
+  {
+    "id": "m01.q23",
+    "module": "m01",
+    "section": "scaling",
+    "q": "Profiling shows each request uses about 25 ms of main-thread CPU. The product team expects 600 requests per second at peak. What is the minimum number of single-process replicas, before headroom?",
+    "options": [
+      "15",
+      "4, because each replica handles many concurrent connections",
+      "25",
+      "1, if UV_THREADPOOL_SIZE is raised to 64"
+    ],
+    "answer": 0,
+    "explain": "One main thread gives at most 1000 / 25 = 40 requests per second, so 600 requests per second need at least 600 / 40 = 15 replicas, before headroom. Open connections are cheap but CPU time is not, and the thread pool never runs your request handlers."
+  },
+  {
+    "id": "m01.q24",
+    "module": "m01",
+    "section": "measure",
+    "q": "On an idle service, <code>monitorEventLoopDelay()</code> with default options reports a minimum of about 10.5 ms (after dividing by 1e6). What does that tell you?",
+    "options": [
+      "The loop is blocked about 10 ms on every turn",
+      "The value includes the 10 ms sampling interval, so the real delay is about 0.5 ms",
+      "The histogram is in microseconds, so the delay is about 10 µs",
+      "The garbage collector pauses the process every 10 ms"
+    ],
+    "answer": 1,
+    "explain": "Each sample is the full gap between two ticks of a timer that fires every resolution milliseconds (10 by default); Node's source records that gap with RecordDelta. So subtract the resolution: about 0.5 ms of real delay. The values are in nanoseconds, not microseconds."
+  },
+  {
+    "id": "m01.q25",
+    "module": "m01",
+    "section": "measure",
+    "q": "At peak, the dashboards show event loop utilization at 0.97, event loop delay p99 at 450 ms, every route slow at once, and PostgreSQL latency flat. What do you do first?",
+    "options": [
+      "Add read replicas to PostgreSQL",
+      "Raise UV_THREADPOOL_SIZE to 32",
+      "Record a CPU profile to find the hot function on the main thread",
+      "Increase the HTTP server keep-alive timeout"
+    ],
+    "answer": 2,
+    "explain": "ELU near 1 with high delay, all routes slow and a flat database is the signature of CPU-bound JavaScript on the main thread. A CPU profile (node --cpu-prof, or the inspector on a canary) names the function to fix. The database is not the bottleneck, and the thread pool does not run JavaScript."
+  },
+  {
+    "id": "m01.q26",
+    "module": "m01",
+    "section": "crashes",
+    "q": "In code review you find this handler. What is the problem?",
+    "code": "process.on('uncaughtException', (error) => {\n  logger.error({ err: error }, 'Something went wrong, continuing');\n});",
+    "lang": "ts",
+    "options": [
+      "It keeps serving from an unknown state; it should log at fatal level and exit so the orchestrator restarts the process",
+      "It should also catch unhandled rejections, then keep serving",
+      "logger.error is too slow; console.error would be fine",
+      "It must be registered inside every request handler to work"
+    ],
+    "answer": 0,
+    "explain": "Node's documentation says it is not safe to resume normal operation after uncaughtException: connections, locks or half-written state may be broken. Log (pino's fatal flushes synchronously), exit with code 1, and let Kubernetes restart the pod. Adding a rejection handler that also continues makes the same mistake twice."
+  },
+  {
+    "id": "m01.q27",
+    "module": "m01",
+    "section": "runtime",
+    "q": "A data import script is started with <code>node --permission --allow-fs-read=./data import.ts</code> on Node 24. Which statement is true?",
+    "options": [
+      "It can read ./data but also cannot open network connections",
+      "It is a sandbox: even malicious dependencies cannot escape it",
+      "It can read ./data, cannot read other folders or spawn processes, and can still call fetch",
+      "The flag is experimental in Node 24 and ignored in production"
+    ],
+    "answer": 2,
+    "explain": "The permission model restricts the file system, child processes, worker threads, addons and WASI; in Node 24 it does not restrict network access (a fetch succeeded in our test). The documentation calls it a \"seat belt\" for trusted code, not protection against malicious code. It is stable since 23.5 and 22.13."
+  },
+  {
+    "id": "m01.q28",
+    "module": "m01",
+    "section": "runtime",
+    "q": "A developer starts a service with <code>PORT=9000 node --env-file=.env server.ts</code>, and <code>.env</code> contains <code>PORT=3000</code>. What is <code>process.env.PORT</code>?",
+    "options": [
+      "\"3000\", because the file is loaded last",
+      "\"9000\", because a variable already set in the environment takes precedence",
+      "Node exits with an error because the variable is defined twice",
+      "\"3000,9000\", because Node concatenates both values"
+    ],
+    "answer": 1,
+    "explain": "The Node documentation states that when a variable is defined in both the environment and the file, the environment wins, and a run on Node 24 printed 9000. That is the right behaviour for containers: real environment configuration overrides the local file."
+  },
+  {
+    "id": "m01.q29",
+    "module": "m01",
+    "section": "scaling",
+    "q": "A colleague proposes running PM2 in cluster mode with 8 processes inside each Kubernetes pod \"to use all the cores\". What is the strongest objection?",
+    "options": [
+      "PM2 cannot run TypeScript files",
+      "The cluster module does not work on Linux",
+      "Processes in a cluster cannot share the listening port",
+      "It hides crashes and per-process resource use from Kubernetes, which already restarts and scales single-process pods"
+    ],
+    "answer": 3,
+    "explain": "Kubernetes restarts, load-balances and scales containers, and it can only do that well when it sees each process. A process manager inside the pod restarts crashes on its own, blurs metrics and makes resource limits harder to set. Sharing the port is exactly what cluster does, so that option is false."
+  },
+  {
+    "id": "m01.q30",
+    "module": "m01",
+    "section": "senior",
+    "q": "PDF generation in pure JavaScript takes 800 ms of CPU per document and slows every other request. A teammate suggests raising UV_THREADPOOL_SIZE to 16. What do you answer?",
+    "options": [
+      "Good idea: 16 threads will render 16 PDFs in parallel",
+      "It will not help: the thread pool runs native operations, not your JavaScript; use a worker pool such as Piscina or a job queue",
+      "It will help only if we also mark the generator async",
+      "It will help, but only on machines with at least 16 cores"
+    ],
+    "answer": 1,
+    "explain": "The libuv pool runs fs, dns.lookup, async crypto and zlib, never your JavaScript, so the 800 ms still run on the main thread. A worker pool moves the work to threads with their own event loops; a queue moves it out of the request. Making the function async keeps it on the main thread."
+  }
+]

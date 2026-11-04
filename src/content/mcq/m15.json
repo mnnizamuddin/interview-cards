@@ -1,0 +1,430 @@
+[
+  {
+    "id": "m15.q1",
+    "module": "m15",
+    "section": "signals",
+    "q": "The Orders API team has dashboards but cannot explain why checkout is sometimes slow. What is the difference between monitoring and observability?",
+    "options": [
+      "Monitoring uses metrics, observability uses logs.",
+      "Monitoring watches conditions decided in advance; observability is having data rich enough to answer new questions without shipping new code.",
+      "Observability is the commercial name of monitoring tools sold since 2020.",
+      "Monitoring is for infrastructure, observability is for front-end code."
+    ],
+    "answer": 1,
+    "explain": "Monitoring answers questions you planned (is the error rate above 1 %?). Observability is a property of the system: its metrics, traces and logs let you ask a new question, such as \"only card payments?\", during an incident. It is not a split by signal: both use all three."
+  },
+  {
+    "id": "m15.q2",
+    "module": "m15",
+    "section": "otel",
+    "q": "Why must the OpenTelemetry SDK be started with <code>--import ./instrumentation.ts</code> rather than imported somewhere inside the application?",
+    "options": [
+      "Because <code>--import</code> runs the file in a worker thread, away from the request path.",
+      "Because TypeScript files can only be loaded with <code>--import</code>.",
+      "Because the SDK must be registered before the modules it instruments (http, pg, pino) are loaded, since instrumentation patches them at load time.",
+      "Because otherwise the SDK exports to the console instead of the Collector."
+    ],
+    "answer": 2,
+    "explain": "Instrumentation libraries patch modules as they load, so a module imported before the SDK starts stays unpatched and produces no spans. <code>--import</code> preloads the file in the main thread before the entry point; it does not move it to a worker."
+  },
+  {
+    "id": "m15.q3",
+    "module": "m15",
+    "section": "otel",
+    "q": "As of October 2026, what status does the OpenTelemetry site give to the three signals in JavaScript?",
+    "options": [
+      "Traces and metrics Stable, logs Development.",
+      "All three Stable.",
+      "Traces Stable, metrics and logs Development.",
+      "Traces Beta, metrics Stable, logs Stable."
+    ],
+    "answer": 0,
+    "explain": "The JS language page lists traces Stable, metrics Stable and logs Development. That is why teams keep pino for logs and let the pino instrumentation add the trace id, instead of moving logging to the OTel logs SDK."
+  },
+  {
+    "id": "m15.q4",
+    "module": "m15",
+    "section": "traces",
+    "q": "In <code>traceparent: 00-138c098a7695ac4edcfb9373ac0caa0c-8b36f03cdd5e6492-01</code>, sent by the Orders API to the payment provider, what is <code>8b36f03cdd5e6492</code>?",
+    "options": [
+      "The trace id shared by the whole request.",
+      "A signature proving the caller is trusted.",
+      "The id of the service that started the trace.",
+      "The id of the calling span, which becomes the parent of the receiving service's span."
+    ],
+    "answer": 3,
+    "explain": "The W3C format is version, trace id (32 hex), parent span id (16 hex) and flags. The 32-hex field before it is the trace id; the 16-hex field is the caller's span. Nothing in the header is a signature, so it must never be trusted for security."
+  },
+  {
+    "id": "m15.q5",
+    "module": "m15",
+    "section": "logs",
+    "q": "A pino logger is created with <code>redact: ['*.password']</code>. Which values are redacted in this call?",
+    "code": "logger.info({\n  password: 'a',\n  user: { password: 'b' },\n  deep: { user: { password: 'c' } },\n}, 'signup');",
+    "lang": "ts",
+    "options": [
+      "All three.",
+      "Only <code>user.password</code>.",
+      "<code>password</code> and <code>user.password</code>.",
+      "None: wildcards need <code>**</code>."
+    ],
+    "answer": 1,
+    "explain": "Measured on pino 10.4: only <code>user.password</code> became <code>[Redacted]</code>. The wildcard stands for exactly one level, so it matches neither the top-level key nor the deeper one. List every path you log, and prefer logging only the fields you need."
+  },
+  {
+    "id": "m15.q6",
+    "module": "m15",
+    "section": "logs",
+    "q": "What does pino 10.4 write for <code>logger.error({ error: err }, 'payment failed')</code>, where <code>err</code> is an <code>Error('boom')</code> with <code>err.code = 'E_X'</code>?",
+    "options": [
+      "The message, the stack and the code under <code>error</code>.",
+      "Only the stack.",
+      "Only <code>{\"code\":\"E_X\"}</code> under <code>error</code>: the message and the stack are lost.",
+      "The string <code>\"[object Error]\"</code>."
+    ],
+    "answer": 2,
+    "explain": "Measured: <code>\"error\":{\"code\":\"E_X\"}</code>. An Error's <code>message</code> and <code>stack</code> are not enumerable, and only the <code>err</code> key has pino's error serializer, which wrote type, message, stack and code. Always log errors as <code>{ err }</code>."
+  },
+  {
+    "id": "m15.q7",
+    "module": "m15",
+    "section": "metrics",
+    "q": "Why must <code>customerId</code> never be a label of <code>http_requests_total</code>?",
+    "options": [
+      "Every distinct value creates a new time series, so the number of series grows with the number of customers until the metrics backend runs out of memory.",
+      "Prometheus labels cannot contain digits.",
+      "It would make the counter decrease when a customer is deleted.",
+      "Labels are public, so the id would leak to anyone scraping /metrics."
+    ],
+    "answer": 0,
+    "explain": "Each label combination is a separate series kept in memory: unbounded values mean unbounded cardinality. Customer ids belong in logs and span attributes, which are designed for high-cardinality data. The /metrics endpoint is internal, so leaking is not the main problem."
+  },
+  {
+    "id": "m15.q8",
+    "module": "m15",
+    "section": "metrics",
+    "q": "Out of 1,000 checkouts, 980 take 80 ms and 20 take 2.5 s. Which statement is true?",
+    "options": [
+      "The mean (128.4 ms) and the p99 (128.4 ms) agree, so latency is fine.",
+      "The p50 is 2.5 s because slow requests dominate.",
+      "The p95 is 2.5 s and the p99 is 80 ms.",
+      "The mean is 128.4 ms and looks fine, while the p99 is 2.5 s: one customer in fifty waits that long."
+    ],
+    "answer": 3,
+    "explain": "Mean = (980 × 80 + 20 × 2,500) / 1,000 = 128.4 ms. The 990th value is one of the slow ones, so p99 = 2.5 s, while p50 and p95 are 80 ms. That is why latency is recorded as a histogram and read as percentiles."
+  },
+  {
+    "id": "m15.q9",
+    "module": "m15",
+    "section": "slo",
+    "q": "The checkout SLO of the Orders API is: 99.9 % of <code>POST /orders</code> requests answered within 500 ms, over 30 days. What is its error budget?",
+    "options": [
+      "0.1 % of the checkouts may be slower, the equivalent of 43.2 minutes with every checkout slow over the 30 days.",
+      "99.9 % of the checkouts.",
+      "0.1 % of the checkouts in every 5-minute window.",
+      "8.76 hours per month."
+    ],
+    "answer": 0,
+    "explain": "The budget is what the SLO allows to fail: 0.1 %, which over 30 days (43,200 minutes) is the equivalent of 43.2 minutes during which every checkout misses the target. 8.76 hours is 0.1 % of a year, not of a month; and the budget is spent over the whole window, not per 5 minutes."
+  },
+  {
+    "id": "m15.q10",
+    "module": "m15",
+    "section": "probes",
+    "q": "The liveness probe of every Orders API pod runs <code>SELECT 1</code>. PostgreSQL is unreachable for 40 seconds. What happens?",
+    "options": [
+      "Nothing: probes ignore dependency errors.",
+      "Kubernetes removes the pods from the Service and adds them back when the database returns.",
+      "Every pod fails liveness and is restarted, they all reconnect at once when they boot, and a 40-second blip becomes a longer outage.",
+      "Kubernetes restarts the database pod instead."
+    ],
+    "answer": 2,
+    "explain": "A failed liveness probe means \"restart the container\", and the Kubernetes docs warn that wrong liveness probes cause cascading failures. Option B describes readiness, which is exactly why the database check belongs there."
+  },
+  {
+    "id": "m15.q11",
+    "module": "m15",
+    "section": "runtime",
+    "q": "What does an event loop utilization (ELU) of 0.97 on an Orders API pod tell you?",
+    "options": [
+      "The pod uses 97 % of its memory limit.",
+      "The loop is busy almost all the time, so callbacks queue up and latency rises: look for synchronous CPU work.",
+      "97 % of requests are served from the event loop rather than the thread pool.",
+      "The garbage collector runs 97 % of the time."
+    ],
+    "answer": 1,
+    "explain": "ELU is the fraction of time the loop is busy rather than idle, from 0 to 1. Measured: below 0.01 idle, about 0.8 when blocking 100 ms out of 110. Near 1 the pod is saturated; a CPU profile shows which functions use the time. It says nothing directly about memory."
+  },
+  {
+    "id": "m15.q12",
+    "module": "m15",
+    "section": "deploys",
+    "q": "The new payment flow ships behind an OpenFeature flag: <code>flags.getBooleanValue('new-payment-flow', false, context)</code>. The flag provider is misconfigured and the flag does not exist. What happens?",
+    "options": [
+      "The call throws and the request fails with a 500.",
+      "The call waits until the provider has the flag.",
+      "It returns true, so the new flow is used everywhere.",
+      "It returns the default <code>false</code>, with an error code <code>FLAG_NOT_FOUND</code> in the evaluation details."
+    ],
+    "answer": 3,
+    "explain": "Measured with @openfeature/server-sdk 1.23.0: an unknown flag returned the default value and reported <code>FLAG_NOT_FOUND</code> through <code>getBooleanDetails</code>, without throwing. That is why the default should always be the old, safe behaviour."
+  },
+  {
+    "id": "m15.q13",
+    "module": "m15",
+    "section": "otel",
+    "q": "An ESM service (<code>\"type\": \"module\"</code>) starts with <code>node --import ./instrumentation.js server.js</code>. In the backend you see <code>fetch</code> spans to the payment provider, but no span for incoming requests, and pino lines have no <code>trace_id</code>. What is the fix?",
+    "options": [
+      "Move <code>sdk.start()</code> to the first line of <code>server.js</code>.",
+      "Switch the exporter from OTLP/proto to OTLP/gRPC.",
+      "Add the ESM loader hook (<code>--experimental-loader=@opentelemetry/instrumentation/hook.mjs</code>, as the OTel ESM guide documents), so modules loaded with <code>import</code> are patched too.",
+      "Set <code>OTEL_TRACES_SAMPLER=always_on</code>."
+    ],
+    "answer": 2,
+    "explain": "Measured on Node 24.11: without the hook, undici spans still appeared (fetch reports through diagnostics channels), but <code>node:http</code> server spans and the pino trace_id were missing; with the hook, both appeared. Starting the SDK inside server.js is worse: imports are hoisted and run before it."
+  },
+  {
+    "id": "m15.q14",
+    "module": "m15",
+    "section": "traces",
+    "q": "What is wrong with this manual span?",
+    "code": "export async function chargeOrder(order: Order): Promise<PaymentReceipt> {\n  return tracer.startActiveSpan('payment.charge', async (span) => {\n    span.setAttribute('order.id', order.id);\n    const receipt = await paymentClient.charge(order);\n    span.end();\n    return receipt;\n  });\n}",
+    "lang": "ts",
+    "options": [
+      "When <code>charge</code> throws, the span is never ended, so it is never exported, and the error is not recorded on it.",
+      "<code>startActiveSpan</code> cannot take an async callback.",
+      "<code>order.id</code> is too high-cardinality for a span attribute.",
+      "The span must be ended before the <code>await</code>, or it measures nothing."
+    ],
+    "answer": 0,
+    "explain": "Exactly the failing payments, the ones you need to see, produce no span. Use try/catch/finally: record the exception, set the status to ERROR, and end the span in finally. High-cardinality ids are fine on span attributes; that rule is for metric labels."
+  },
+  {
+    "id": "m15.q15",
+    "module": "m15",
+    "section": "traces",
+    "q": "The Orders API uses <code>parentbased_traceidratio</code> at 10 %. A support engineer finds a checkout log line with <code>\"trace_flags\":\"00\"</code> and cannot find its trace in Tempo. What do you tell them?",
+    "options": [
+      "The Collector is losing spans: open an incident.",
+      "This is expected: the request was not sampled, but the trace id is still created and propagated, so logs carry it.",
+      "The pino instrumentation wrote a fake id because the SDK had not started.",
+      "Tempo deletes traces after five minutes."
+    ],
+    "answer": 1,
+    "explain": "Measured with a 50 % head sampler: unsampled requests still had trace_id in their logs, with flags 00. If every slow or failed checkout trace must be kept, add tail sampling in the Collector, which decides after seeing the whole trace."
+  },
+  {
+    "id": "m15.q16",
+    "module": "m15",
+    "section": "logs",
+    "q": "What does pino 10.4 write for the last call?",
+    "code": "const log = logger.child({ requestId: 'req-1' });\nlog.info({ requestId: 'dup' }, 'duplicate key');",
+    "lang": "ts",
+    "options": [
+      "<code>\"requestId\":\"dup\"</code> only: the call overrides the binding.",
+      "<code>\"requestId\":\"req-1\"</code> only: bindings are immutable.",
+      "An error, because the key is already bound.",
+      "Both keys, <code>\"requestId\":\"req-1\"</code> then <code>\"requestId\":\"dup\"</code>, in the same JSON line."
+    ],
+    "answer": 3,
+    "explain": "Measured: <code>{\"level\":30,\"requestId\":\"req-1\",…,\"requestId\":\"dup\",\"msg\":\"duplicate key\"}</code>. pino concatenates for speed, so the line holds a duplicate key, and which value a log backend keeps depends on its parser. Do not reuse bound keys in calls."
+  },
+  {
+    "id": "m15.q17",
+    "module": "m15",
+    "section": "logs",
+    "q": "The payment client logs the headers it sends: <code>log.info({ req: { headers: { Authorization: 'Bearer sk_live_…' } } }, 'calling provider')</code>. The logger has <code>redact: ['req.headers.authorization']</code>. What happens?",
+    "options": [
+      "The token is redacted: pino paths are case-insensitive.",
+      "The token is written in clear, because redaction paths are case-sensitive and this object uses <code>Authorization</code>.",
+      "pino refuses to log a key that resembles a secret.",
+      "The whole <code>headers</code> object is removed."
+    ],
+    "answer": 1,
+    "explain": "Measured on pino 10.4: <code>authorization</code> was redacted, <code>Authorization</code> was not. Incoming Node headers are lowercase, which hides the trap until you log an object you built yourself. The safe fix is to not log headers of outgoing calls at all."
+  },
+  {
+    "id": "m15.q18",
+    "module": "m15",
+    "section": "metrics",
+    "q": "A histogram has buckets <code>[0.05, 0.1, 0.25, 0.5, 1, 2.5]</code> and observes 0.03, 0.2, 0.25 and 0.7 seconds. What is the value of <code>_bucket{le=\"0.25\"}</code>?",
+    "options": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "answer": 2,
+    "explain": "Buckets are cumulative and <code>le</code> means less than or equal, so 0.03, 0.2 and 0.25 all count. Measured with @prometheus-io/client 0.16.1: 1, 1, 3, 3, 4, 4, and <code>+Inf</code> 4, equal to <code>_count</code>."
+  },
+  {
+    "id": "m15.q19",
+    "module": "m15",
+    "section": "probes",
+    "q": "The Orders API's Dockerfile ends with <code>CMD [\"npm\", \"start\"]</code>. Every deploy, pods take exactly 30 seconds to stop and in-flight checkouts are cut. Why?",
+    "options": [
+      "npm does not forward SIGTERM, so Node never runs its shutdown code and Kubernetes sends SIGKILL at the end of the grace period.",
+      "npm starts Node in development mode, which ignores signals.",
+      "The readiness probe takes 30 seconds to fail.",
+      "30 seconds is how long Node needs to garbage-collect before exiting."
+    ],
+    "answer": 0,
+    "explain": "The docker-node best practices say to start node directly so signals reach it \"instead of npm swallowing them\". Kubernetes waits terminationGracePeriodSeconds (30 s by default) after SIGTERM and then kills the process, which matches the symptom exactly."
+  },
+  {
+    "id": "m15.q20",
+    "module": "m15",
+    "section": "metrics",
+    "q": "Another team already runs the OTel SDK and a Collector for traces, and stores metrics in Mimir. They need RED metrics for their service. What do you advise?",
+    "options": [
+      "Add prom-client, expose /metrics, and add a Prometheus scrape job.",
+      "Write request counts to the logs and compute rates from them in Loki.",
+      "Compute p99 in the process and export it as a gauge.",
+      "Use OTel metrics from the same SDK: the HTTP instrumentation already records duration histograms, exported over OTLP to the Collector, which writes to Mimir."
+    ],
+    "answer": 3,
+    "explain": "Measured: the HTTP instrumentation alone produced <code>http.server.request.duration</code> histograms in seconds. One SDK and one pipeline avoid duplicate instrumentation. prom-client is also deprecated in favour of @prometheus-io/client, and a per-process p99 gauge cannot be aggregated across pods."
+  },
+  {
+    "id": "m15.q21",
+    "module": "m15",
+    "section": "slo",
+    "q": "The checkout fast-burn page fires when the burn rate exceeds 14.4 over the last hour <b>and</b> over the last 5 minutes. Why the 5-minute condition?",
+    "options": [
+      "To page faster: 5 minutes is enough to detect any incident.",
+      "Because Prometheus cannot evaluate a 1-hour window alone.",
+      "So the alert only fires while the problem is still happening, and stops soon after a fix instead of firing for up to an hour.",
+      "To ignore errors from the first 5 minutes after a deploy."
+    ],
+    "answer": 2,
+    "explain": "The 1-hour window makes the alert significant (2 % of the monthly budget consumed); the short window confirms the problem is still occurring. That is the multi-window recommendation of the Google SRE workbook. A 5-minute window alone would page on every short spike."
+  },
+  {
+    "id": "m15.q22",
+    "module": "m15",
+    "section": "slo",
+    "q": "On-call is paged several times a week for \"CPU above 85 %\" while the error rate and latency of the Orders API stay normal. What change would you push for?",
+    "options": [
+      "Raise the threshold to 95 %.",
+      "Page on SLO burn rates of symptoms (errors and latency), move CPU to dashboards or tickets, and link a runbook to every page.",
+      "Add more pods so CPU stays below 85 %.",
+      "Keep the page but route it to a different team."
+    ],
+    "answer": 1,
+    "explain": "High CPU with happy users is not an incident; paging on causes trains people to ignore pages. Raising the threshold keeps the same flawed signal. Pages should mean \"users are affected or about to be\", with a runbook that says what to do."
+  },
+  {
+    "id": "m15.q23",
+    "module": "m15",
+    "section": "probes",
+    "q": "On SIGTERM, the Orders API calls <code>app.close()</code> immediately. During every rolling deploy a few checkouts fail with connection errors. What is missing?",
+    "options": [
+      "Failing readiness and waiting a few seconds first, because Kubernetes updates the endpoints in parallel with SIGTERM, so new requests still arrive just after the signal.",
+      "A liveness probe that fails on SIGTERM.",
+      "Calling <code>process.exit(0)</code> right after <code>app.close()</code>.",
+      "A longer <code>keepAliveTimeout</code>."
+    ],
+    "answer": 0,
+    "explain": "Per the Kubernetes docs, the control plane evaluates endpoint removal \"at the same time\" as the kubelet starts the shutdown. If the server stops accepting at once, requests routed in those seconds fail. Failing liveness would make Kubernetes restart the container, which is not the goal."
+  },
+  {
+    "id": "m15.q24",
+    "module": "m15",
+    "section": "probes",
+    "q": "Measured on Fastify 5.12: a request in flight when <code>app.close()</code> was called completed, but <code>app.close()</code> resolved 73 seconds later. What explains it, and what is the fix?",
+    "options": [
+      "The onClose hooks run one per second; register fewer hooks.",
+      "The PostgreSQL pool waits for its idle timeout; lower it.",
+      "Fastify waits for the readiness probe to fail 3 times.",
+      "The connection became idle after close started and was kept for Fastify's 72 s keep-alive timeout; call <code>server.closeIdleConnections()</code> repeatedly during the close, with <code>closeAllConnections()</code> at a deadline."
+    ],
+    "answer": 3,
+    "explain": "Fastify's default <code>keepAliveTimeout</code> is 72,000 ms. Idle connections are closed when close starts, but one that becomes idle later is not. With a 250 ms sweep of <code>closeIdleConnections()</code>, the close resolved in 310 ms, well inside the 30 s grace period."
+  },
+  {
+    "id": "m15.q25",
+    "module": "m15",
+    "section": "probes",
+    "q": "The Orders API needs about 90 seconds at boot to warm a pricing cache. Its liveness probe allows 30 seconds, so new pods are killed in a loop. What is the right fix?",
+    "options": [
+      "Remove the liveness probe.",
+      "Add a startup probe with a long enough allowance: liveness and readiness only start once it succeeds.",
+      "Make liveness check the cache, so it fails until the cache is warm.",
+      "Warm the cache after the pod becomes ready, in the request path."
+    ],
+    "answer": 1,
+    "explain": "Per the Kubernetes docs, when a startup probe is configured, liveness and readiness are not run until it succeeds. Removing liveness loses protection against stuck processes, and a liveness that checks the cache would restart pods whenever the cache has trouble."
+  },
+  {
+    "id": "m15.q26",
+    "module": "m15",
+    "section": "runtime",
+    "q": "Memory of the Orders API grows until the pod is OOMKilled every two days. What is the bug in this code?",
+    "code": "const receiptsByOrder = new Map<string, PaymentReceipt>();\n\nexport async function confirmOrder(orderId: string): Promise<void> {\n  const receipt = await paymentClient.capture(orderId);\n  receiptsByOrder.set(orderId, receipt); // used to answer retries quickly\n  await ordersRepository.markPaid(orderId, receipt.id);\n}",
+    "lang": "ts",
+    "options": [
+      "The <code>await</code> keeps each request's closure alive.",
+      "<code>Map</code> keys must be numbers to be collected.",
+      "A module-level Map is filled on every order and never evicted, so heap after GC grows with traffic: use a bounded cache with a TTL, or Redis.",
+      "The receipt should be stored in a WeakMap keyed by the string id."
+    ],
+    "answer": 2,
+    "explain": "This is the measured leak pattern: heap after GC grew by about 7 MiB per 20,000 entries and only dropped after clear(). A WeakMap cannot have string keys, and the closures end when the function returns. Heap snapshot comparison would show the Map in the retainer chain."
+  },
+  {
+    "id": "m15.q27",
+    "module": "m15",
+    "section": "runtime",
+    "q": "You suspect a leak in the Orders API and want a heap snapshot from production. How do you take it?",
+    "options": [
+      "Call <code>v8.writeHeapSnapshot()</code> on every pod at once, during peak, to capture the problem.",
+      "Remove one pod from the Service (or wait for it to be unready), then take snapshots on it, spaced in time, and compare them.",
+      "Take one snapshot right after the pod starts; it is enough to see the leak.",
+      "Use <code>process.memoryUsage()</code>, which contains the same data."
+    ],
+    "answer": 1,
+    "explain": "Measured: <code>writeHeapSnapshot()</code> blocked for 4.5 s to write 67 MiB, and the Node docs say it needs about twice the heap in memory, which can itself trigger an OOM kill. A leak shows up as growth between snapshots, so one is never enough; memoryUsage only gives totals."
+  },
+  {
+    "id": "m15.q28",
+    "module": "m15",
+    "section": "runtime",
+    "q": "The Orders API runs with a 1 GiB memory limit and is OOMKilled under load, with no sign of a leak. Which change do you make first?",
+    "options": [
+      "Set the heap size explicitly below the limit, for example <code>--max-old-space-size-percentage=75</code> (which uses the cgroup limit) or <code>--max-old-space-size=768</code>, leaving room for Buffers and native memory.",
+      "Set <code>--max-old-space-size=1024</code> so the heap uses the whole limit.",
+      "Remove the memory limit from the pod.",
+      "Call <code>global.gc()</code> after each request."
+    ],
+    "answer": 0,
+    "explain": "The kernel kills the container when the whole process passes the limit, before V8 collects harder; the heap is only part of that memory. The percentage flag's source uses the constrained (cgroup) memory when there is one. A heap equal to the limit leaves no room for anything else."
+  },
+  {
+    "id": "m15.q29",
+    "module": "m15",
+    "section": "runtime",
+    "q": "After a release, checkout p99 doubled, the database is idle, the traces show no slow child span, and ELU is near 1 on every pod. Which tool do you reach for first?",
+    "options": [
+      "Clinic.js doctor, the standard Node tool.",
+      "A heap snapshot comparison.",
+      "More pods, then wait and see.",
+      "A CPU profile: <code>--cpu-prof</code> on a reproduction, or the inspector on one pod, and look at the hottest functions in DevTools."
+    ],
+    "answer": 3,
+    "explain": "High ELU with an idle database points to synchronous CPU work in the process, which a CPU profile shows directly. Clinic.js is no longer actively maintained (its README says so), and heap snapshots answer memory questions, not CPU ones."
+  },
+  {
+    "id": "m15.q30",
+    "module": "m15",
+    "section": "deploys",
+    "q": "A release renames <code>orders.total</code> to <code>orders.total_cents</code> in the same migration that deploys the new code. The canary shows errors. Why is rollback hard, and what plan avoids it?",
+    "options": [
+      "Canary deploys cannot be rolled back; use blue/green.",
+      "The old code still running reads a column that no longer exists, and rolling back the code does not restore it; expand and contract (add the column, write both, backfill, switch reads, drop later) keeps every step reversible.",
+      "Rollback is easy: <code>kubectl rollout undo</code> also reverts migrations.",
+      "Use a feature flag around the SQL query instead of a migration."
+    ],
+    "answer": 1,
+    "explain": "During any progressive rollout, old and new versions run together, so the schema must work for both. <code>kubectl rollout undo</code> only changes the Deployment, never the database. Expand and contract is detailed in M10."
+  }
+]

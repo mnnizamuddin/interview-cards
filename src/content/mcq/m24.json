@@ -1,0 +1,440 @@
+[
+  {
+    "id": "m24.q1",
+    "module": "m24",
+    "section": "loop",
+    "q": "A click handler on the storefront runs a 400 ms loop. When can the browser paint the result of the click?",
+    "options": [
+      "Every 16 ms during the loop, because rendering runs on its own schedule",
+      "Only after the handler and the microtasks it queued have finished running",
+      "Right away, because painting happens on the GPU thread",
+      "Halfway through the loop, when the browser interrupts the task"
+    ],
+    "answer": 1,
+    "explain": "Rendering is a step of the event loop on the main thread, and it happens only between tasks, after the microtask queue is empty. Nothing interrupts a running task, so the screen stays frozen for the whole 400 ms. The refresh rate sets when a rendering opportunity may come, not whether a busy thread can be interrupted."
+  },
+  {
+    "id": "m24.q2",
+    "module": "m24",
+    "section": "loop",
+    "q": "A developer from the Node team writes storefront code. Which statement about the browser event loop is true?",
+    "options": [
+      "It has the same phases as libuv: timers, then poll for I/O, then check for setImmediate",
+      "<code>process.nextTick</code> callbacks run before promise callbacks, as in Node",
+      "<code>setImmediate</code> is the fastest way to yield to rendering",
+      "No nextTick or setImmediate; after a task and its microtasks, a frame may render"
+    ],
+    "answer": 3,
+    "explain": "Browsers have no libuv phases: one task runs, then all microtasks, then possibly a rendering step with rAF, style, layout and paint. Both process.nextTick and setImmediate are undefined in Chromium (checked). The nextTick-before-promises rule is specific to Node (M01)."
+  },
+  {
+    "id": "m24.q3",
+    "module": "m24",
+    "section": "order",
+    "q": "What does this print in the browser?",
+    "code": "console.log('1');\nsetTimeout(() => console.log('2'), 0);\nPromise.resolve().then(() => console.log('3'));\nqueueMicrotask(() => console.log('4'));\nconsole.log('5');",
+    "lang": "js",
+    "options": [
+      "1 5 3 4 2",
+      "1 5 2 3 4",
+      "1 3 4 5 2",
+      "1 5 4 3 2"
+    ],
+    "answer": 0,
+    "explain": "Synchronous code first (1, 5), then the microtasks in the order they were queued (3, then 4), then the timer task (2). Measured in Chromium, 10 runs out of 10. queueMicrotask and a .then callback share the same queue, so neither has priority over the other."
+  },
+  {
+    "id": "m24.q4",
+    "module": "m24",
+    "section": "order",
+    "q": "Code schedules <code>setTimeout(f, 0)</code> and <code>requestAnimationFrame(g)</code> in the same task. Which runs first?",
+    "options": [
+      "<code>f</code>, always, because timers are tasks and frames come after tasks",
+      "<code>g</code>, always, because animation frame callbacks have the highest priority of all",
+      "Either one: it depends on when the next rendering opportunity falls",
+      "Both run in the same microtask checkpoint, in call order"
+    ],
+    "answer": 2,
+    "explain": "The timer is a task that is ready almost at once, while rAF waits for the next rendering opportunity, which follows the display refresh. Measured in Chromium over 200 random starts: the frame came first 134 times and the timer 66 times. Neither callback is a microtask."
+  },
+  {
+    "id": "m24.q5",
+    "module": "m24",
+    "section": "long-tasks",
+    "q": "What is a long task, and why does it hurt INP?",
+    "options": [
+      "A fetch that takes more than 1 second; INP counts network time",
+      "A task over 50 ms; while it runs the browser cannot paint the next frame after an input",
+      "Any task over 16 ms, because it always drops a frame, and INP counts the frames that were dropped",
+      "A task that runs in a Web Worker for more than 200 ms"
+    ],
+    "answer": 1,
+    "explain": "web.dev defines a long task as any task over 50 ms. INP measures from an input to the next paint, and a long task on the main thread delays that paint and any input queued behind it. Network waiting does not occupy the main thread, and a worker's long task does not block the page."
+  },
+  {
+    "id": "m24.q6",
+    "module": "m24",
+    "section": "long-tasks",
+    "q": "Why does the storefront's <code>yieldToMain()</code> prefer <code>scheduler.yield()</code> over <code>setTimeout(resolve, 0)</code>?",
+    "options": [
+      "Both let input and paint happen, but scheduler.yield() resumes before other queued tasks",
+      "scheduler.yield() runs the rest of the function on another thread",
+      "setTimeout cannot be awaited, so the function would not wait",
+      "scheduler.yield() is a microtask, so the function resumes sooner and the work finishes faster"
+    ],
+    "answer": 0,
+    "explain": "Both create a new task, so input and rendering can happen in between. The continuation of scheduler.yield() is prioritized: measured in Chromium, it resumed before a timer queued earlier, 20 runs out of 20, while a setTimeout continuation goes to the back of the queue. It is not a microtask (a microtask would block rendering) and not another thread."
+  },
+  {
+    "id": "m24.q7",
+    "module": "m24",
+    "section": "promises",
+    "q": "The empty search panel loads \"recent searches\" and \"trending products\", both optional. With <code>Promise.all</code>, a trending failure empties the whole panel. What do you change?",
+    "options": [
+      "Use Promise.race so the faster block is shown",
+      "Use Promise.any so the panel shows whichever of the two blocks succeeds first and skips the other",
+      "Wrap Promise.all in a retry loop until both succeed",
+      "Use Promise.allSettled, render each block from its own result, and report the failures"
+    ],
+    "answer": 3,
+    "explain": "allSettled never rejects and gives one result per input, so each optional block can fall back to empty on its own while the failure is reported. Promise.any would return only one of the two values, and race returns whichever settles first, even a failure. Retrying hides the outage and delays both blocks."
+  },
+  {
+    "id": "m24.q8",
+    "module": "m24",
+    "section": "abort",
+    "q": "A search fetch was given <code>{ signal }</code>, and the code calls <code>controller.abort()</code> while the response is pending. What does the fetch promise do?",
+    "options": [
+      "It resolves with a response whose status is 499",
+      "It stays pending forever, so the caller must check signal.aborted",
+      "It rejects with a DOMException named AbortError",
+      "It rejects with a TypeError named NetworkError"
+    ],
+    "answer": 2,
+    "explain": "Measured in Chromium: the fetch rejected with a DOMException whose name is AbortError, and the test server saw the connection close. With AbortSignal.timeout the name is TimeoutError instead. 499 is a status some proxies log for a client that disconnected; the browser never makes up a response."
+  },
+  {
+    "id": "m24.q9",
+    "module": "m24",
+    "section": "race",
+    "q": "Why can the naive search handler show suggestions for \"ru\" after the customer typed \"run\"?",
+    "options": [
+      "Responses can arrive out of order, and the handler renders whichever arrives last",
+      "The browser sends requests to the same host one at a time, in reverse order",
+      "fetch caches the first response of the session and returns it again for similar queries",
+      "React batches the state updates and keeps the first one"
+    ],
+    "answer": 0,
+    "explain": "Each keystroke starts a request, and the server may answer a short query more slowly than a longer one. Reproduced in Chromium with \"ru\" answered in 400 ms and \"run\" in 100 ms: the screen ended on \"ru\". Browsers send requests in parallel, and the bug happens in plain JavaScript without React."
+  },
+  {
+    "id": "m24.q10",
+    "module": "m24",
+    "section": "debounce",
+    "q": "Which description matches a trailing-edge debounce of 300 ms?",
+    "options": [
+      "It runs at most once every 300 ms, for as long as the calls keep coming in",
+      "It runs once, 300 ms after the last call, with the arguments of that last call",
+      "It runs the first call at once and ignores the others forever",
+      "It runs every call, each delayed by 300 ms"
+    ],
+    "answer": 1,
+    "explain": "Every call restarts the 300 ms wait, so the function runs only after a pause, with the latest arguments; tested with fake timers, calls every 100 ms never triggered it until they stopped. \"At most once every 300 ms while calls keep coming\" is a throttle."
+  },
+  {
+    "id": "m24.q11",
+    "module": "m24",
+    "section": "throttle",
+    "q": "A function throttled at 200 ms (leading and trailing) is called every 50 ms for one second, then the calls stop. How many times does it run?",
+    "options": [
+      "20 times, once per call, since no two calls overlap",
+      "Once, 200 ms after the last call, with the arguments of that call",
+      "5 times, once at the end of each 200 ms window during the second",
+      "6 times: at 0 ms, then at the end of each 200 ms window"
+    ],
+    "answer": 3,
+    "explain": "The leading call runs at 0, and the latest call of each window runs when the window ends: tested with Vitest fake timers, it ran at 0, 200, 400, 600, 800 and 1,000 ms. Running once after the last call is what a debounce does."
+  },
+  {
+    "id": "m24.q12",
+    "module": "m24",
+    "section": "workers",
+    "q": "What can code inside a Web Worker do?",
+    "options": [
+      "Read and update the DOM of the page directly, but from a separate thread",
+      "Share JavaScript objects with the page by reference, so no copy is ever made",
+      "Call fetch and compute, and exchange copied messages with the page",
+      "Run only synchronous code, since it has no event loop"
+    ],
+    "answer": 2,
+    "explain": "A worker has its own thread and event loop, has fetch, and has no DOM (document is undefined inside one, checked in Chromium). Messages are copied with the structured clone algorithm; only transferable objects such as ArrayBuffer are moved instead, and even then nothing is shared by reference."
+  },
+  {
+    "id": "m24.q13",
+    "module": "m24",
+    "section": "order",
+    "q": "What does this print?",
+    "code": "async function loadCart() {\n  console.log('B');\n  await null;\n  console.log('C');\n}\n\nconsole.log('A');\nsetTimeout(() => console.log('D'), 0);\nloadCart();\nPromise.resolve().then(() => console.log('E'));\nconsole.log('F');",
+    "lang": "js",
+    "options": [
+      "A B C E F D",
+      "A F B C E D",
+      "A B F C E D",
+      "A B F E C D"
+    ],
+    "answer": 2,
+    "explain": "loadCart runs synchronously up to its await, so B prints right after A. The rest of loadCart (C) was queued as a microtask before the .then callback (E), so C comes before E, and the timer (D) comes last. Measured in Chromium, 10 runs out of 10. A B C E F D forgets that await always suspends, even on a non-promise value."
+  },
+  {
+    "id": "m24.q14",
+    "module": "m24",
+    "section": "order",
+    "q": "A unit test triggers the \"Add to cart\" button with <code>button.click()</code>. The button has two click listeners, each queuing a promise callback. In what order do the logs appear?",
+    "code": "button.addEventListener('click', () => {\n  console.log('listener 1');\n  Promise.resolve().then(() => console.log('micro 1'));\n});\nbutton.addEventListener('click', () => {\n  console.log('listener 2');\n  Promise.resolve().then(() => console.log('micro 2'));\n});\nbutton.click();\nconsole.log('after click()');",
+    "lang": "js",
+    "options": [
+      "listener 1, listener 2, after click(), micro 1, micro 2",
+      "listener 1, micro 1, listener 2, micro 2, after click()",
+      "after click(), listener 1, listener 2, micro 1, micro 2",
+      "listener 1, micro 1, listener 2, micro 2, then after click() in a later task"
+    ],
+    "answer": 0,
+    "explain": "click() dispatches the event synchronously, while the test code is still on the stack, so no microtask can run until that script ends. Measured in Chromium: listener 1, listener 2, after click(), micro 1, micro 2. The order with micro 1 between the listeners is what a real user click produces, because each listener then starts with an empty stack."
+  },
+  {
+    "id": "m24.q15",
+    "module": "m24",
+    "section": "order",
+    "q": "What does this print?",
+    "code": "Promise.resolve()\n  .then(() => console.log('a1'))\n  .then(() => console.log('a2'));\nPromise.resolve()\n  .then(() => console.log('b1'))\n  .then(() => console.log('b2'));",
+    "lang": "js",
+    "options": [
+      "a1 a2 b1 b2",
+      "a1 b1 a2 b2",
+      "b1 b2 a1 a2",
+      "a1 b1, then a2 and b2 in the next task"
+    ],
+    "answer": 1,
+    "explain": "Only a1 and b1 are queued at first. Running a1 resolves the promise of the second .then, which queues a2 behind b1; then b1 queues b2. So the chains interleave: a1 b1 a2 b2, measured in Chromium. Everything happens in the same microtask checkpoint, with no task in between."
+  },
+  {
+    "id": "m24.q16",
+    "module": "m24",
+    "section": "order",
+    "q": "What is the order of the logs, as measured in Chromium?",
+    "code": "requestAnimationFrame(() => {\n  console.log('frame');\n  setTimeout(() => console.log('timeout'), 0);\n  Promise.resolve().then(() => console.log('micro'));\n  requestAnimationFrame(() => console.log('next frame'));\n});",
+    "lang": "js",
+    "options": [
+      "frame, next frame, micro, timeout",
+      "frame, timeout, micro, next frame",
+      "frame, micro, next frame, timeout",
+      "frame, micro, timeout, next frame"
+    ],
+    "answer": 3,
+    "explain": "Microtasks are drained right after each rAF callback, so micro follows frame. A rAF requested inside a rAF callback waits for the next frame, about one refresh later, while the timer task is ready at once: measured 30 runs out of 30 in Chromium, headless and in a visible window. The nested rAF never runs in the same frame."
+  },
+  {
+    "id": "m24.q17",
+    "module": "m24",
+    "section": "long-tasks",
+    "q": "To fix the sticky search box, a colleague splits the filter into slices with <code>await Promise.resolve()</code> between them. Typing is still frozen. Why?",
+    "options": [
+      "The slices are too large: with 100 entries per slice, the browser would find time to paint",
+      "Promise.resolve() is synchronous, so await does nothing at all",
+      "Code after await runs as a microtask, and all microtasks run before any paint or input",
+      "Chromium disables yielding inside input event handlers"
+    ],
+    "answer": 2,
+    "explain": "Awaiting a resolved promise does suspend the function, but it resumes in a microtask, and the microtask queue is drained completely before any rendering or next task. Measured in Chromium: 0 frames painted during 500 ms of work sliced this way. Smaller slices change nothing; a new task is needed, such as scheduler.yield() or setTimeout."
+  },
+  {
+    "id": "m24.q18",
+    "module": "m24",
+    "section": "long-tasks",
+    "q": "Profiling shows each keystroke spends about 300 ms in <code>index.filter((entry) =&gt; normalizeForSearch(entry.label).includes(needle))</code> over 200,000 entries. What do you do first?",
+    "options": [
+      "Normalize each label once when the index loads, and filter on the stored result",
+      "Move the same code to a Web Worker",
+      "Wrap the filter in useDeferredValue",
+      "Split it into slices with scheduler.yield() and keep normalizing each label per keystroke"
+    ],
+    "answer": 0,
+    "explain": "Most of the 300 ms is repeated work: normalizing 200,000 labels on every keystroke. Precomputing it brought one run to 26 ms in Chromium, at no architectural cost. Slices or a worker would still repeat the waste; they are the next steps if the remaining work is still too long."
+  },
+  {
+    "id": "m24.q19",
+    "module": "m24",
+    "section": "promises",
+    "q": "What happens when the out-of-stock product is added?",
+    "code": "async function addToCart(productId: string): Promise<void> {\n  throw new Error('out of stock');\n}\n\nfunction onAddClick(productId: string): void {\n  try {\n    addToCart(productId);\n  } catch (error) {\n    showToast('Could not add the product');\n  }\n}",
+    "lang": "ts",
+    "options": [
+      "The toast appears, because the error is thrown inside the try block of onAddClick",
+      "The page crashes and reloads",
+      "The toast appears after a microtask, when the rejection reaches the catch",
+      "No toast: the call returns a rejected promise, which goes unhandled"
+    ],
+    "answer": 3,
+    "explain": "An async function never throws at the call site; it returns a rejected promise. Without await, the try/catch has nothing to catch, and the rejection becomes an unhandledrejection event while the page keeps running (measured in Chromium). The fix is async onAddClick with await addToCart(productId)."
+  },
+  {
+    "id": "m24.q20",
+    "module": "m24",
+    "section": "promises",
+    "q": "A product page uses <code>Promise.all([getReviews(), getStock(), getRecommendations()])</code>. The stock call rejects after 10 ms; the others take 30 and 60 ms. What happens?",
+    "options": [
+      "Promise.all waits for all three, then rejects with an AggregateError",
+      "It rejects after about 10 ms with the stock error; the other two calls still finish",
+      "It rejects after about 10 ms with the stock error and cancels the two other requests",
+      "Promise.all resolves with undefined in place of the stock result"
+    ],
+    "answer": 1,
+    "explain": "Promise.all rejects as soon as one input rejects, with that reason. It receives promises that are already running and cannot stop them: measured in Chromium, both slower calls settled after the rejection. Cancelling them needs an AbortSignal; AggregateError comes from Promise.any."
+  },
+  {
+    "id": "m24.q21",
+    "module": "m24",
+    "section": "search-box",
+    "q": "The search box uses <code>useQuery</code> with <code>queryKey: ['product-search', query]</code>, but the query function calls fetch without the <code>signal</code>. The customer types quickly. What is true?",
+    "options": [
+      "Old responses can overwrite the newer suggestions on screen, as in the naive handler",
+      "TanStack Query aborts the old fetch anyway when the key changes, signal or not",
+      "The screen stays correct, but old requests are not cancelled",
+      "The query throws, because the signal is a required parameter"
+    ],
+    "answer": 2,
+    "explain": "Each key has its own cache entry, so an old answer is stored under the old key and never replaces the data shown for the new one. But the TanStack Query docs state that queries are not cancelled unless the query function consumes the signal. Measured with the signal passed: changing from \"ru\" to \"run\" aborted the \"ru\" request."
+  },
+  {
+    "id": "m24.q22",
+    "module": "m24",
+    "section": "abort",
+    "q": "After a refactor, every fast typist sees \"Search failed\" banners. What is the bug?",
+    "code": "current?.abort(new Error('superseded by a newer query'));\ncurrent = new AbortController();\ntry {\n  render(await searchProducts(query, current.signal));\n} catch (error) {\n  if (error instanceof DOMException && error.name === 'AbortError') {\n    return;\n  }\n  showBanner('Search failed');\n}",
+    "lang": "ts",
+    "options": [
+      "With a reason, fetch rejects with that Error, so the name check misses it",
+      "abort() must be called after the new controller is created",
+      "An AbortError is a TypeError in browsers, so instanceof DOMException is false",
+      "The banner shows because aborting closes the connection with an HTTP error status"
+    ],
+    "answer": 0,
+    "explain": "When abort() receives a reason, fetch rejects with that reason: measured in Chromium, the rejection was the Error passed to abort. The name check therefore fails and a deliberate cancel is shown as a failure. Without a reason the rejection is indeed a DOMException named AbortError, so checking the signal (as section 6 does) is the robust test."
+  },
+  {
+    "id": "m24.q23",
+    "module": "m24",
+    "section": "abort",
+    "q": "The response headers for \"ru\" have arrived and <code>await response.json()</code> is in progress when the next keystroke calls <code>abort()</code> on that request's controller. What happens?",
+    "options": [
+      "Nothing: once fetch has resolved, the signal is no longer looked at",
+      "response.json() resolves, but with an empty object",
+      "The browser finishes reading the body and then throws on the next fetch",
+      "response.json() rejects with an AbortError, because abort also covers the body"
+    ],
+    "answer": 3,
+    "explain": "The signal stays attached to the response body. Measured in Chromium: aborting after fetch resolved but before the body was read made response.json() reject with an AbortError. Only once the body has been fully read does abort change nothing."
+  },
+  {
+    "id": "m24.q24",
+    "module": "m24",
+    "section": "race",
+    "q": "The suggestions now come from a Web Worker that answers with <code>postMessage</code>. Old answers sometimes overwrite new ones. Which fix would you ship?",
+    "options": [
+      "Pass an AbortSignal to worker.postMessage",
+      "Tag each request with an increasing id and render only the latest id's answer",
+      "Terminate the worker and create a new one on every keystroke, so old work is dropped",
+      "Wrap the handler in Promise.race with a timeout"
+    ],
+    "answer": 1,
+    "explain": "A worker message cannot be aborted, so the fix is to ignore stale answers: measured in Chromium, 6 of 7 answers were dropped by the id check while typing. postMessage takes no signal, and recreating the worker would reload its index on every keystroke. Promise.race only picks the first to settle, not the latest query."
+  },
+  {
+    "id": "m24.q25",
+    "module": "m24",
+    "section": "race",
+    "q": "This handler is supposed to ignore stale responses. What is wrong with it?",
+    "code": "let latestId = 0;\n\nasync function onSearchInput(query: string): Promise<void> {\n  const requestId = ++latestId;\n  if (requestId !== latestId) {\n    return;\n  }\n  const suggestions = await searchProducts(query, new AbortController().signal);\n  renderSuggestions(suggestions);\n}",
+    "lang": "ts",
+    "options": [
+      "Nothing: the id check prevents the race",
+      "++latestId is not atomic, so two keystrokes can get the same id",
+      "The check runs before the await, where it is always true",
+      "The function must be synchronous for the id to be captured"
+    ],
+    "answer": 2,
+    "explain": "Right after the increment, requestId always equals latestId, so the check never skips anything. Staleness can only be detected after the await, when newer keystrokes may have raised latestId. JavaScript runs one callback at a time on the main thread, so the increment cannot be interleaved."
+  },
+  {
+    "id": "m24.q26",
+    "module": "m24",
+    "section": "debounce",
+    "q": "In this component, typing r, ru, run quickly sends three searches. Why?",
+    "code": "export function SearchBox() {\n  const [input, setInput] = useState('');\n  const debouncedSearch = debounce(sendSearch, 300);\n  return (\n    <input\n      aria-label=\"Search products\"\n      value={input}\n      onChange={(event) => {\n        setInput(event.target.value);\n        debouncedSearch(event.target.value);\n      }}\n    />\n  );\n}",
+    "lang": "tsx",
+    "options": [
+      "Each render creates a new debounced function, so no calls are merged",
+      "setInput cancels the pending timer, so every value is sent right away instead",
+      "React StrictMode calls the handler twice",
+      "The debounce delay is too short for fast typists"
+    ],
+    "answer": 0,
+    "explain": "Every keystroke sets state, the component renders again and creates a fresh debounce; each instance receives one call and fires it 300 ms later. Measured in jsdom with React 19.3: r, ru, run were all sent, and with useMemo only run was. A longer delay changes nothing; debouncing the value with an effect avoids the problem."
+  },
+  {
+    "id": "m24.q27",
+    "module": "m24",
+    "section": "debounce",
+    "q": "With this module's <code>debounce</code>, a function is debounced with <code>{ leading: true, trailing: true }</code> and called exactly once. How many times does it run?",
+    "options": [
+      "Twice: once at once, once after the wait",
+      "Zero times, because the two edges cancel each other",
+      "Once, after the wait",
+      "Once, at the moment of the call"
+    ],
+    "answer": 3,
+    "explain": "The leading call runs at once and does not store its arguments, so at the end of the wait there is nothing left for the trailing edge. Tested with fake timers: a single call ran once, and a second call within the wait added one trailing run. Running twice would send a duplicate request for every single keystroke."
+  },
+  {
+    "id": "m24.q28",
+    "module": "m24",
+    "section": "throttle",
+    "q": "The results page loads the next page of products when the customer nears the end of the list. The current code runs a throttled scroll handler that measures the last card. What would you ship instead?",
+    "options": [
+      "A debounced scroll handler, so it runs only when scrolling stops",
+      "An IntersectionObserver watching a sentinel element placed near the end of the list",
+      "A requestAnimationFrame loop that measures the last card on every frame",
+      "A setInterval that checks the scroll position every 100 ms"
+    ],
+    "answer": 1,
+    "explain": "Detecting that an element becomes visible is what IntersectionObserver is for; MDN lists infinite scrolling as a use case, and no code runs on the main thread during the scroll. A rAF loop or an interval would measure layout constantly, and a debounce would load late, only after the customer stops."
+  },
+  {
+    "id": "m24.q29",
+    "module": "m24",
+    "section": "search-box",
+    "q": "A teammate proposes <code>useDeferredValue</code> to reduce the number of search requests sent to the API. What do you answer?",
+    "options": [
+      "Good idea: React skips the requests for the intermediate values the user typed",
+      "It only works with Server Components",
+      "It defers rendering, not requests; debounce the query instead",
+      "It sends fewer requests, but only on slow devices"
+    ],
+    "answer": 2,
+    "explain": "useDeferredValue lets React render the slow part with an older value while urgent updates go first; react.dev states it \"does not by itself prevent extra network requests\". To reduce requests you debounce the query (or throttle it). The two can be combined: debounce for the API, deferred rendering for a slow list (M31)."
+  },
+  {
+    "id": "m24.q30",
+    "module": "m24",
+    "section": "workers",
+    "q": "The first worker version receives the 200,000-entry suggestion index from the page with <code>worker.postMessage(index)</code> at startup. The page now has a 200 ms long task when it loads. Which change fixes it?",
+    "options": [
+      "Let the worker fetch the index itself, so only small messages cross threads",
+      "Post the index from a microtask, so it does not block the page while it loads",
+      "Call postMessage inside requestAnimationFrame",
+      "JSON.stringify the index before posting it, because strings are not cloned"
+    ],
+    "answer": 0,
+    "explain": "postMessage copies the data with structured clone on the sending thread: measured in Chromium, posting the index blocked the main thread for about 200 ms. Fetching it inside the worker means the big data never crosses threads. A microtask or rAF only moves the same long task, and stringifying is still main-thread work."
+  }
+]

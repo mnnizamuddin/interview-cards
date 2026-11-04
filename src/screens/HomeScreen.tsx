@@ -1,5 +1,6 @@
 import { useRef } from 'react';
-import type { Card, Unit } from '../content/types.ts';
+import type { Topic } from '../content/catalog.ts';
+import type { Unit } from '../content/types.ts';
 import { countHandled, HANDLED_FOR_MS, toCurrentProgress, topicStatus, type Progress, type TopicStatus } from '../play/progress.ts';
 import { Button } from '../ui/Button.tsx';
 import { Text } from '../ui/Text.tsx';
@@ -20,7 +21,7 @@ function percent(part: number, total: number): number {
 
 export function HomeScreen({
   units,
-  cards,
+  topics,
   progress,
   today,
   now,
@@ -31,7 +32,7 @@ export function HomeScreen({
   onReset,
 }: {
   units: Unit[];
-  cards: Card[];
+  topics: readonly Topic[];
   progress: Progress;
   /** The current day as `YYYY-MM-DD`, used to name the backup file. */
   today: string;
@@ -46,8 +47,8 @@ export function HomeScreen({
   /** Deletes all progress on this device, once the learner has confirmed. */
   onReset: () => void;
 }) {
-  const handled = countHandled(cards.map((card) => card.id), progress, now);
-  const share = percent(handled, cards.length);
+  const handled = countHandled(topics.map((topic) => topic.id), progress, now);
+  const share = percent(handled, topics.length);
   const answered = Object.values(progress.topics).reduce((sum, topic) => sum + topic.answered, 0);
   const correct = Object.values(progress.topics).reduce((sum, topic) => sum + topic.correct, 0);
 
@@ -68,7 +69,7 @@ export function HomeScreen({
           <div className="h-full rounded-full bg-brand" style={{ width: `${share}%` }} />
         </div>
         <p className="mb-4 text-sm text-muted">
-          {handled} of {cards.length} topics · {answered} {answered === 1 ? 'answer' : 'answers'}
+          {handled} of {topics.length} topics · {answered} {answered === 1 ? 'answer' : 'answers'}
           {answered > 0 ? `, ${percent(correct, answered)}% right` : ''}
         </p>
         <Button block onClick={() => onPlay()}>
@@ -83,9 +84,9 @@ export function HomeScreen({
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-extrabold">Units</h2>
         {units.map((unit) => {
-          const unitCards = cards.filter((card) => card.unit === unit.id);
-          const unitHandled = countHandled(unitCards.map((card) => card.id), progress, now);
-          const unitShare = percent(unitHandled, unitCards.length);
+          const unitTopics = topics.filter((topic) => topic.unit === unit.id);
+          const unitHandled = countHandled(unitTopics.map((topic) => topic.id), progress, now);
+          const unitShare = percent(unitHandled, unitTopics.length);
           return (
             <details key={unit.id} className="unit rounded-2xl border-2 border-line">
               <summary className="flex flex-col gap-2 p-4">
@@ -109,17 +110,17 @@ export function HomeScreen({
                 </Button>
               </div>
               <ul className="flex flex-col gap-2 px-3 pb-3">
-                {unitCards.map((card) => {
-                  const status = STATUS_STYLES[topicStatus(progress.topics[card.id], now)];
+                {unitTopics.map((topic) => {
+                  const status = STATUS_STYLES[topicStatus(progress.topics[topic.id], now)];
                   return (
-                    <li key={card.id}>
+                    <li key={topic.id}>
                       <button
                         type="button"
-                        onClick={() => onOpenLesson(card.id)}
+                        onClick={() => onOpenLesson(topic.id)}
                         className="flex w-full items-center gap-3 rounded-2xl bg-surface px-4 py-3 text-left"
                       >
                         <span className={`size-2.5 shrink-0 rounded-full ${status.dot}`} aria-hidden />
-                        <span className="flex-1 text-[0.95rem] font-semibold">{card.topic ?? card.question}</span>
+                        <span className="flex-1 text-[0.95rem] font-semibold">{topic.topic}</span>
                         <span className="shrink-0 text-xs font-bold uppercase text-muted">{status.label}</span>
                       </button>
                     </li>

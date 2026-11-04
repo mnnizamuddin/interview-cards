@@ -1,0 +1,436 @@
+[
+  {
+    "id": "m27.q1",
+    "module": "m27",
+    "section": "xss",
+    "q": "The back office renders <code>&lt;p&gt;{review.body}&lt;/p&gt;</code>, and the body is <code>&lt;img src=x onerror=\"steal()\"&gt;</code>. What does React 19 produce?",
+    "options": [
+      "An <code>&lt;img&gt;</code> element whose <code>onerror</code> runs when the image fails to load",
+      "A render error, because React refuses text that contains HTML",
+      "The payload as text inside the paragraph, with <code>&lt;</code> encoded",
+      "An <code>&lt;img&gt;</code> element whose <code>onerror</code> attribute React removed before insertion"
+    ],
+    "answer": 2,
+    "explain": "A value between braces is text: react-dom/server encoded it as <code>&amp;lt;img … onerror=&amp;quot;…</code>, and react-dom/client inserted a text node (measured with 19.3.1). React does not strip attributes from user HTML because it never parses it as HTML in the first place; that would be a sanitiser's job."
+  },
+  {
+    "id": "m27.q2",
+    "module": "m27",
+    "section": "xss",
+    "q": "A customer saves a review containing a script payload, and it runs later in the browser of every agent who opens the order. Which kind of XSS is it?",
+    "options": [
+      "Stored XSS",
+      "Reflected XSS",
+      "DOM-based XSS only",
+      "Clickjacking"
+    ],
+    "answer": 0,
+    "explain": "The payload is saved on the server and served to other users later: that is stored XSS. Reflected XSS travels in the request (a URL parameter) and comes back in the immediate response. The sink here happens to be in the front end, but what defines the kind is where the payload lives."
+  },
+  {
+    "id": "m27.q3",
+    "module": "m27",
+    "section": "sinks",
+    "q": "React 19.3 renders <code>&lt;a href=\"javascript:alert(1)\"&gt;site&lt;/a&gt;</code>. What is in the DOM?",
+    "options": [
+      "The same href; React only logs a warning in development builds",
+      "An anchor with no href attribute at all",
+      "Nothing: rendering throws and the component does not mount",
+      "An href React swaps for a javascript: URL that throws an error"
+    ],
+    "answer": 3,
+    "explain": "React 19 swaps the URL for <code>javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')</code>, in both the development and production builds of react-dom 19.3.1 (measured on the server and in Chromium, where clicking the link threw instead of running the code). Nothing is removed, and rendering does not fail."
+  },
+  {
+    "id": "m27.q4",
+    "module": "m27",
+    "section": "sinks",
+    "q": "Which of these is <b>not</b> covered by React's automatic encoding?",
+    "options": [
+      "A string rendered as a child: <code>{review.body}</code>",
+      "The <code>__html</code> value of <code>dangerouslySetInnerHTML</code>",
+      "A string in a <code>title</code> attribute",
+      "A string in a <code>data-review-id</code> attribute on the card"
+    ],
+    "answer": 1,
+    "explain": "<code>dangerouslySetInnerHTML</code> is the explicit escape hatch: its string is inserted as HTML, as is (measured: the <code>&lt;img onerror&gt;</code> came out intact). Text children and attribute values are encoded, which is why the other three are safe."
+  },
+  {
+    "id": "m27.q5",
+    "module": "m27",
+    "section": "sanitise",
+    "q": "Product insists that reviews keep bold, italics and lists. Which technique makes rendering that HTML safe?",
+    "options": [
+      "Sanitisation with an allow-list, right before the HTML sink",
+      "Validation with a regular expression at the API boundary, before saving",
+      "Output encoding of the whole review before rendering",
+      "A Content Security Policy instead of any change to the code"
+    ],
+    "answer": 0,
+    "explain": "Only a sanitiser keeps the allowed formatting while removing everything else. Encoding the whole review would display the tags as text, which defeats the requirement, and validation cannot decide what is safe HTML in every context. CSP is a second layer, not the fix."
+  },
+  {
+    "id": "m27.q6",
+    "module": "m27",
+    "section": "sanitise",
+    "q": "Why does the team sanitise reviews in the component that renders them, rather than only once before saving?",
+    "options": [
+      "Because DOMPurify cannot run in Node, so the API could not call it before saving",
+      "Because storing sanitised HTML breaks database indexes",
+      "Because safety depends on the final string at the sink, and later edits can undo it",
+      "Because sanitising twice would double-encode the text"
+    ],
+    "answer": 2,
+    "explain": "The DOMPurify README warns that modifying HTML after sanitising can void it, and the allow-list may change after the data was stored. Sanitising at the sink checks the exact string that reaches the browser. DOMPurify does run in Node, given a jsdom window."
+  },
+  {
+    "id": "m27.q7",
+    "module": "m27",
+    "section": "csp",
+    "q": "A page is served with <code>Content-Security-Policy: script-src 'nonce-abc123'</code>. Which of these run?",
+    "code": "<script>window.inline = 1</script>\n<script nonce=\"abc123\">window.nonced = 1</script>\n<img src=\"x\" onerror=\"window.handler = 1\">",
+    "lang": "html",
+    "options": [
+      "All three: the policy only applies to external scripts",
+      "The nonced script and the onerror handler",
+      "None: a nonce only works in a meta tag",
+      "Only the nonced script"
+    ],
+    "answer": 3,
+    "explain": "Measured in Chromium: the inline script and the inline event handler were both blocked (\"Executing inline event handler violates…\"), and only the nonced script ran. That is exactly why a CSP would have stopped the review's <code>onerror</code> payload."
+  },
+  {
+    "id": "m27.q8",
+    "module": "m27",
+    "section": "csp",
+    "q": "What does <code>'strict-dynamic'</code> change in a nonce-based policy?",
+    "options": [
+      "It lets inline scripts run without a nonce, as long as the parser inserted them",
+      "Scripts loaded by a nonced script are trusted; host lists are ignored",
+      "It forces every script to load with async",
+      "It restricts scripts to the page's own origin"
+    ],
+    "answer": 1,
+    "explain": "MDN: trust given by a nonce or hash propagates to scripts that root script loads, and allow-lists or <code>'self'</code> are ignored. Measured: a script appended by the nonced loader ran, while a parser-inserted script from a listed host was blocked."
+  },
+  {
+    "id": "m27.q9",
+    "module": "m27",
+    "section": "trusted-types",
+    "q": "The back office sends <code>require-trusted-types-for 'script'</code>. What happens on <code>element.innerHTML = '&lt;b&gt;x&lt;/b&gt;'</code>?",
+    "options": [
+      "It works, and the browser logs a Trusted Types warning in the console",
+      "The assignment is silently ignored",
+      "It throws a TypeError: the document requires TrustedHTML",
+      "The browser sanitises the string automatically"
+    ],
+    "answer": 2,
+    "explain": "Measured in Chromium: \"TypeError: Failed to set the 'innerHTML' property on 'Element': This document requires 'TrustedHTML' assignment.\" The browser does not sanitise; you supply a policy that does. A warning without blocking is what the report-only header gives."
+  },
+  {
+    "id": "m27.q10",
+    "module": "m27",
+    "section": "storage",
+    "q": "An XSS runs on the storefront. Compare a refresh token in <code>localStorage</code> with a session held behind an <code>HttpOnly</code> cookie by a BFF.",
+    "options": [
+      "The token can be copied and replayed elsewhere; the cookie cannot be read",
+      "Both are equally exposed: an injected script can read the cookie and the token alike",
+      "Both are safe: same-origin policy keeps scripts away from both",
+      "The cookie is worse, because fetch sends it to any site the script calls"
+    ],
+    "answer": 0,
+    "explain": "Web storage is readable by any script of the origin, so the token leaves with the attacker. <code>HttpOnly</code> forbids reading the cookie, but the browser still attaches it to requests from the infected page, so XSS prevention still comes first. And fetch attaches a cookie only to requests for the host that set it, not to any site the script calls."
+  },
+  {
+    "id": "m27.q11",
+    "module": "m27",
+    "section": "csrf-cors",
+    "q": "What does CORS control?",
+    "options": [
+      "Whether the server accepts and runs a request coming from another origin",
+      "Whether the browser attaches cookies to a request",
+      "Whether the caller is authorised to perform the action",
+      "Whether a script from another origin may read the response"
+    ],
+    "answer": 3,
+    "explain": "CORS relaxes the same-origin policy on reading. In every measurement of section 7, the server received and ran the request whatever the Origin. Cookie attachment is SameSite's job, and authorisation is the server's."
+  },
+  {
+    "id": "m27.q12",
+    "module": "m27",
+    "section": "secrets",
+    "q": "A Vite app's <code>.env</code> contains <code>VITE_PAYMENT_SECRET=sk_live_oops</code>, used in client code. What does <code>vite build</code> do with it?",
+    "options": [
+      "It refuses to build because the value looks like a secret",
+      "It inlines the value as plain text in the JavaScript bundle",
+      "It encrypts the value with a per-build key that only the page can read",
+      "It exposes the value only in the development server"
+    ],
+    "answer": 1,
+    "explain": "Measured with Vite 8.3.4: the bundle contained <code>'sk_live_oops'</code> as a string literal, while an unprefixed variable became <code>void 0</code>. Vite's docs say <code>VITE_*</code> variables should not contain sensitive information such as API keys."
+  },
+  {
+    "id": "m27.q13",
+    "module": "m27",
+    "section": "sinks",
+    "q": "A server-rendered search page embeds the query for hydration. The URL is <code>?q=&lt;/script&gt;&lt;script&gt;steal()&lt;/script&gt;</code>. What happens in the browser?",
+    "code": "export function SearchState({ query }: { query: string }) {\n  return (\n    <script\n      dangerouslySetInnerHTML={{ __html: 'window.__SEARCH__ = ' + JSON.stringify({ query }) }}\n    />\n  );\n}",
+    "lang": "tsx",
+    "options": [
+      "The query closes the script element early and the attacker's script runs",
+      "JSON.stringify escapes the angle brackets, so the query stays a harmless string",
+      "React encodes the __html of a script element, so nothing runs",
+      "The browser parses the JSON first, so the query stays a string"
+    ],
+    "answer": 0,
+    "explain": "The HTML parser ends a script element at the first <code>&lt;/script&gt;</code>, before any JavaScript is parsed, and JSON.stringify does not escape <code>&lt;</code>. Measured in Chromium: the injected script ran and <code>window.__SEARCH__</code> was never set. Replacing <code>&lt;</code> with <code>\\u003c</code> fixed it."
+  },
+  {
+    "id": "m27.q14",
+    "module": "m27",
+    "section": "sinks",
+    "q": "Reviews have an optional \"unboxing video\" URL rendered as <code>&lt;a href={videoUrl}&gt;</code>. Which fix would you ship?",
+    "options": [
+      "Wrap it in <code>encodeURIComponent(videoUrl)</code> before passing it to href",
+      "Nothing: React 19 already blocks dangerous URLs",
+      "Parse it with <code>URL</code> and allow only <code>https:</code> and <code>http:</code>",
+      "Remove the substring <code>javascript:</code> with a replace"
+    ],
+    "answer": 2,
+    "explain": "Parsing and allow-listing the protocol rejects <code>javascript:</code> with any casing, spacing or tab, and <code>data:</code> URLs too (measured on Node 24). React blocks only <code>javascript:</code>, so <code>data:</code> passes; encodeURIComponent breaks valid URLs; and a substring replace misses <code>java\\tscript:</code>."
+  },
+  {
+    "id": "m27.q15",
+    "module": "m27",
+    "section": "sanitise",
+    "q": "A colleague proposes to sanitise review HTML with <code>html.replace(/&lt;script[\\s\\S]*?&lt;\\/script&gt;/gi, '')</code>. Why do you reject it?",
+    "options": [
+      "Regular expressions are too slow for 5,000-character reviews",
+      "Payloads need no script tag: onerror handlers and javascript: URLs pass a deny-list",
+      "It is unnecessary, because browsers never run any HTML that is inserted with innerHTML",
+      "Regular expressions cannot match Unicode characters"
+    ],
+    "answer": 1,
+    "explain": "Scripts inserted with innerHTML do not run, which is precisely why attackers use <code>&lt;img onerror&gt;</code> and similar. A deny-list must predict every vector; an allow-list sanitiser such as DOMPurify keeps only known-safe elements and attributes. The third option is half true and dangerous: other HTML inserted that way does run handlers."
+  },
+  {
+    "id": "m27.q16",
+    "module": "m27",
+    "section": "csp",
+    "q": "The storefront has never had a CSP and loads several third-party scripts. What do you ship first?",
+    "options": [
+      "An enforced strict CSP for 10% of users, then for everyone a week later",
+      "An enforced policy with <code>'unsafe-inline'</code> so nothing breaks",
+      "A CSP in a meta tag, to avoid touching the server",
+      "The strict policy as Report-Only with a report endpoint, then enforce"
+    ],
+    "answer": 3,
+    "explain": "Report-only lets everything run and reports each violation (measured: Chromium POSTed an <code>application/csp-report</code> with <code>\"disposition\":\"report\"</code>). Even 10% enforced breaks real checkouts, and <code>'unsafe-inline'</code> without a nonce gives up the main protection against injected inline scripts."
+  },
+  {
+    "id": "m27.q17",
+    "module": "m27",
+    "section": "csp",
+    "q": "Which scripts run under <code>script-src 'nonce-r4nd' 'strict-dynamic' https://cdn.shop.example</code>?",
+    "code": "<!-- loader.js appends <script src=\"https://cdn.shop.example/chat.js\"> with createElement -->\n<script nonce=\"r4nd\" src=\"/loader.js\"></script>\n<script src=\"https://cdn.shop.example/widget.js\"></script>",
+    "lang": "html",
+    "options": [
+      "loader.js and chat.js; widget.js is blocked",
+      "All three: the CDN host is listed in the policy, so its scripts are allowed",
+      "Only loader.js",
+      "loader.js and widget.js; chat.js is blocked"
+    ],
+    "answer": 0,
+    "explain": "With <code>'strict-dynamic'</code>, the nonced loader is trusted and so are scripts it creates, while host allow-lists are ignored. Measured in Chromium: the appended script ran, and the parser-inserted script from the listed host was blocked with \"host-based allowlisting is disabled\"."
+  },
+  {
+    "id": "m27.q18",
+    "module": "m27",
+    "section": "csp",
+    "q": "The storefront's product pages are statically generated with ISR. The team adds a nonce-based CSP in <code>proxy.ts</code>. What must they accept?",
+    "options": [
+      "Nothing changes: Next.js writes a fresh nonce into each static page at build time",
+      "Nonces work only with the development server",
+      "Dynamic rendering: no static generation, ISR or CDN caching of the HTML",
+      "Next.js generates one nonce per build and reuses it"
+    ],
+    "answer": 2,
+    "explain": "The Next.js CSP guide says nonces require dynamic rendering: a static page is built when no request exists, so it cannot carry a per-request nonce, and Partial Prerendering is incompatible. A nonce reused across responses would be guessable. For static pages, the guide offers the experimental SRI option."
+  },
+  {
+    "id": "m27.q19",
+    "module": "m27",
+    "section": "trusted-types",
+    "q": "The back office enforces Trusted Types and runs React 19.3.1. A developer writes <code>&lt;div dangerouslySetInnerHTML={{ __html: '&lt;b&gt;x&lt;/b&gt;' }} /&gt;</code>. What happens?",
+    "options": [
+      "React sanitises the string because Trusted Types are on",
+      "React converts the string to TrustedHTML on its own",
+      "It renders, because React writes HTML through an API outside Trusted Types",
+      "The commit throws a TypeError, reported to onUncaughtError; nothing renders"
+    ],
+    "answer": 3,
+    "explain": "Measured in Chromium: the root stayed empty and <code>onUncaughtError</code> received \"This document requires 'TrustedHTML' assignment\". React passes values through since 19.3, so a plain string reaches the sink and is refused; only an object from a policy is accepted."
+  },
+  {
+    "id": "m27.q20",
+    "module": "m27",
+    "section": "trusted-types",
+    "q": "The CSP says <code>require-trusted-types-for 'script'; trusted-types review-html</code>. A library calls the code below. What happens?",
+    "code": "const passthrough = trustedTypes.createPolicy('passthrough', {\n  createHTML: (input) => input,\n});",
+    "lang": "js",
+    "options": [
+      "It is created: the directive only limits how many policies a page may create",
+      "createPolicy throws, because the name is not listed in trusted-types",
+      "It is created, but the browser rejects its output",
+      "It is created in report-only mode"
+    ],
+    "answer": 1,
+    "explain": "Measured in Chromium: \"Policy \"passthrough\" disallowed\". Listing policy names is what keeps a library from adding a policy that returns its input unchanged, which would defeat enforcement. Review each listed policy like security code."
+  },
+  {
+    "id": "m27.q21",
+    "module": "m27",
+    "section": "storage",
+    "q": "An agent logs in; the BFF sets a cookie with <b>no</b> SameSite attribute. Thirty seconds later, the agent opens a page on <code>evil.example</code> that auto-submits a form POST to the back office. What does Chromium do?",
+    "options": [
+      "Sends it: Lax by default still allows a top-level POST for 2 minutes",
+      "Withholds it: without the attribute, Chromium applies SameSite=Strict to every request",
+      "Sends the cookie: without the attribute, Chromium applies None",
+      "Rejects the cookie at login because it has no SameSite attribute"
+    ],
+    "answer": 0,
+    "explain": "Measured: the cookie was sent on the cross-site POST right after login, and not sent after 125 seconds, when plain Lax applied. A Lax default with that 2-minute exception is why you set SameSite explicitly. Chromium treats the missing attribute as Lax, not None."
+  },
+  {
+    "id": "m27.q22",
+    "module": "m27",
+    "section": "storage",
+    "q": "An XSS runs on <code>www.shop.example</code>. It calls <code>fetch('https://backoffice.shop.example/api/me', { credentials: 'include' })</code>, and the back office cookie is <code>SameSite=Strict</code>. Is the cookie sent?",
+    "options": [
+      "No: Strict blocks every cross-origin request",
+      "No: HttpOnly cookies are never sent by fetch",
+      "Yes: both hosts are the same site, so SameSite does not apply",
+      "Only if the back office answers the preflight with CORS headers allowing it"
+    ],
+    "answer": 2,
+    "explain": "SameSite compares sites (<code>shop.example</code>), not origins. Measured: the Strict cookie was attached, and the server received it even when it sent no CORS headers; CORS only decided whether the script could read the answer. That is why the BFF rejects <code>Sec-Fetch-Site: same-site</code> on state changes."
+  },
+  {
+    "id": "m27.q23",
+    "module": "m27",
+    "section": "csrf-cors",
+    "q": "In code review you find this BFF setting, and the session cookie is <code>SameSite=None; Secure</code>. What is the impact?",
+    "code": "app.use((req, res, next) => {\n  res.setHeader('Access-Control-Allow-Origin', req.headers.origin ?? '*');\n  res.setHeader('Access-Control-Allow-Credentials', 'true');\n  next();\n});",
+    "lang": "ts",
+    "options": [
+      "None: SameSite=None still blocks cross-site requests",
+      "Any site the agent visits can read the agent's API responses",
+      "Nothing: browsers refuse to honour a reflected origin when credentials are included",
+      "Only preflighted requests are affected"
+    ],
+    "answer": 1,
+    "explain": "Measured: a script on <code>evil.example</code> fetched <code>/api/me</code> with credentials and read the JSON, cookie included. Reflecting Origin with credentials allows every origin to read; use an exact allow-list, or no CORS at all for a same-origin SPA. SameSite=None is precisely the setting that allows cross-site sending."
+  },
+  {
+    "id": "m27.q24",
+    "module": "m27",
+    "section": "csrf-cors",
+    "q": "An API answers <code>Access-Control-Allow-Origin: *</code>. A script on another origin calls it with <code>credentials: 'include'</code>. What happens?",
+    "options": [
+      "It works: the cookies are sent and the response is readable",
+      "The browser strips the cookies and lets the script read the response",
+      "The server receives nothing: the browser cancels the request",
+      "The browser hides the response: * is not allowed with credentials"
+    ],
+    "answer": 3,
+    "explain": "Measured in Chromium: fetch rejected with \"Failed to fetch\" and the console said the header \"must not be the wildcard '*' when the request's credentials mode is 'include'\". The request itself still reached the server (measured); only the reading was blocked, so this misconfiguration fails safe but breaks the feature."
+  },
+  {
+    "id": "m27.q25",
+    "module": "m27",
+    "section": "csrf-cors",
+    "q": "The BFF's cookie is <code>SameSite=None</code>. Which request from <code>evil.example</code> reaches <code>POST /orders/ord_a1/refund</code> with the cookie, without a preflight?",
+    "options": [
+      "<code>fetch(url, { method: 'POST', mode: 'no-cors', credentials: 'include', body: '{\"amountCents\":999}' })</code>",
+      "<code>fetch(url, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' } })</code>",
+      "<code>fetch(url, { method: 'POST', credentials: 'include', headers: { 'x-requested-by': 'backoffice' } })</code>",
+      "<code>fetch(url, { method: 'PUT', credentials: 'include', body: '{\"amountCents\":999}' })</code>"
+    ],
+    "answer": 0,
+    "explain": "A no-cors POST with a string body is sent as <code>text/plain</code>, a \"simple\" request, so no preflight (measured: the server saw the POST with the cookie). JSON, custom headers and PUT trigger an OPTIONS preflight, and since the BFF approved nothing, the real request never left. That is why the BFF requires <code>application/json</code>."
+  },
+  {
+    "id": "m27.q26",
+    "module": "m27",
+    "section": "csrf-cors",
+    "q": "With the <code>isAllowedStateChange</code> guard of section 7, what does this call return?",
+    "code": "isAllowedStateChange({\n  method: 'POST',\n  secFetchSite: 'same-site',\n  origin: 'https://www.shop.example',\n  contentType: 'application/json',\n});",
+    "lang": "ts",
+    "options": [
+      "true, because same-site requests come from one of the shop's own subdomains",
+      "true, because a JSON body cannot be forged cross-site",
+      "false: only same-origin passes when Sec-Fetch-Site is present",
+      "It throws, because the origin is not in the allow-list"
+    ],
+    "answer": 2,
+    "explain": "The guard accepts a state change only when <code>Sec-Fetch-Site</code> is <code>same-origin</code>, and falls back to the Origin list only when the header is missing (run on Node 24: false). Accepting same-site would let an XSS on the storefront issue refunds through the back office."
+  },
+  {
+    "id": "m27.q27",
+    "module": "m27",
+    "section": "secrets",
+    "q": "In the storefront, a Client Component calls a helper that reads <code>process.env.SEARCH_ADMIN_KEY</code> (no prefix). The helper does not import <code>server-only</code>. What happens in the browser?",
+    "options": [
+      "The admin key is inlined in the client bundle as a plain string literal",
+      "The build fails with an environment error",
+      "Next.js fetches the value from the server at runtime",
+      "The reference is replaced with an empty string, so the call fails"
+    ],
+    "answer": 3,
+    "explain": "The Next.js docs: only <code>NEXT_PUBLIC_</code> variables are included in the client bundle, and others are replaced with an empty string. Nothing leaks, but the bug is silent; importing <code>server-only</code> in the helper turns it into a build-time error."
+  },
+  {
+    "id": "m27.q28",
+    "module": "m27",
+    "section": "framing",
+    "q": "A legacy back office page sends <code>X-Frame-Options: DENY</code> and <code>Content-Security-Policy: frame-ancestors *</code>. A site on another origin frames it. What does Chromium do?",
+    "options": [
+      "Frames it: frame-ancestors takes precedence over X-Frame-Options",
+      "Blocks it: X-Frame-Options always wins",
+      "Blocks it: framing is allowed only when both headers agree that it is allowed",
+      "Frames it only for same-origin parents"
+    ],
+    "answer": 0,
+    "explain": "Measured in Chromium: the page loaded inside the frame of the other origin. When <code>frame-ancestors</code> is present, X-Frame-Options is ignored, so a permissive CSP silently cancels a strict X-Frame-Options. Set both consistently."
+  },
+  {
+    "id": "m27.q29",
+    "module": "m27",
+    "section": "postmessage",
+    "q": "What is the bug in this checkout listener?",
+    "code": "window.addEventListener('message', (event: MessageEvent) => {\n  if (!event.origin.includes('pay.example')) {\n    return;\n  }\n  if (event.data.type === 'payment.succeeded') {\n    showConfirmation(event.data.paymentId);\n  }\n});",
+    "lang": "ts",
+    "options": [
+      "It should check event.source only, because the origin string can be spoofed",
+      "<code>includes</code> accepts origins like <code>https://pay.example.evil.example</code>",
+      "event.origin is always \"null\" for messages from iframes",
+      "postMessage data is always a string, so event.data.type is always undefined"
+    ],
+    "answer": 1,
+    "explain": "The origin is set by the browser and cannot be spoofed, but a substring test accepts any host containing the text. Compare with <code>!==</code> against the exact origin, check <code>event.source</code> too, and validate the data with a schema. Measured: a cross-origin frame's message arrived as an object with an origin like <code>https://pay.example</code>."
+  },
+  {
+    "id": "m27.q30",
+    "module": "m27",
+    "section": "third-party",
+    "q": "A page loads <code>&lt;script src=\"https://cdn.reviews-widget.example/widget.js\" integrity=\"sha384-…\"&gt;</code> without a <code>crossorigin</code> attribute. The CDN does send <code>Access-Control-Allow-Origin: *</code>. What happens?",
+    "options": [
+      "The script runs, and its integrity is checked",
+      "The script runs, but the integrity check is skipped because CORS is missing",
+      "Blocked: integrity needs a CORS request, so crossorigin is required",
+      "The script runs, with a console warning only"
+    ],
+    "answer": 2,
+    "explain": "Measured in Chromium: \"the resource requires the request to be CORS enabled to check the integrity, and it is not. The resource has been blocked.\" The CDN's header is not enough; the tag must ask for CORS with <code>crossorigin=\"anonymous\"</code>. Browsers fail closed rather than run an unchecked file."
+  }
+]

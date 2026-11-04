@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "import-mcq": "node scripts/import-mcq.ts",
+    "topics": "node scripts/topics.ts",
     "icons": "node scripts/make-icons.ts"
   },
   "dependencies": {

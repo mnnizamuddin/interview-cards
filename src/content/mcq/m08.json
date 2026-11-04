@@ -1,0 +1,430 @@
+[
+  {
+    "id": "m08.q1",
+    "module": "m08",
+    "section": "explain",
+    "q": "A plan node shows <code>Buffers: shared hit=3 read=4762</code>. What does it tell you?",
+    "options": [
+      "4,765 rows were read in total: 3 of them through an index lookup and 4,762 straight from the table heap",
+      "4,765 pages of 8 kB: 3 found in PostgreSQL's memory, 4,762 requested from the OS or disk",
+      "The node ran 3 times against the shared cache and 4,762 times against the disk, once per row",
+      "3 rows matched the filter, and 4,762 rows were read and then thrown away by the filter"
+    ],
+    "answer": 1,
+    "explain": "Buffers count 8 kB pages, not rows: <code>hit</code> pages were found in PostgreSQL's shared memory, <code>read</code> pages had to be requested. Rows thrown away appear on a different line, <code>Rows Removed by Filter</code>. Since PostgreSQL 18, <code>EXPLAIN ANALYZE</code> prints these figures by default."
+  },
+  {
+    "id": "m08.q2",
+    "module": "m08",
+    "section": "explain",
+    "q": "To check the slow cleanup job of the login sessions, you run <code>EXPLAIN ANALYZE DELETE FROM sessions WHERE expires_at &lt; now()</code> on production. What happens?",
+    "options": [
+      "Only the plan with estimates, because ANALYZE switches to a read-only mode for writes like DELETE",
+      "An error: ANALYZE is only allowed with SELECT, so you must rewrite the DELETE as a SELECT first",
+      "The plan is printed and the rows are really deleted: ANALYZE executes the statement",
+      "The rows are deleted only after an explicit COMMIT"
+    ],
+    "answer": 2,
+    "explain": "<code>ANALYZE</code> runs the statement to measure it. Measured on PostgreSQL 18.6: <code>EXPLAIN ANALYZE DELETE</code> removed all 100 rows; inside <code>BEGIN</code> … <code>ROLLBACK</code> they came back. Without an explicit transaction the statement autocommits, so no <code>COMMIT</code> is needed for the damage."
+  },
+  {
+    "id": "m08.q3",
+    "module": "m08",
+    "section": "btree",
+    "q": "After creating an index on <code>orders (customer_id, created_at)</code>, the plan of the \"my orders\" query (<code>WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 20</code>) has no Sort node any more. Why?",
+    "options": [
+      "The index keeps each customer's entries in date order, read backwards for DESC",
+      "PostgreSQL caches the sorted result of the previous call and reuses it while the table is unchanged",
+      "With LIMIT 20 the sort is so small that EXPLAIN hides it from the plan output",
+      "The table itself is stored sorted by created_at, because the rows were inserted in date order"
+    ],
+    "answer": 0,
+    "explain": "A B-tree keeps its entries sorted and its leaf pages linked, so it can return rows in index order, forwards or backwards (measured: <code>Index Scan Backward</code>, 23 pages). The table is not sorted by customer: one customer's orders sit on 40 different pages. A sort that runs is always shown, however small."
+  },
+  {
+    "id": "m08.q4",
+    "module": "m08",
+    "section": "writes",
+    "q": "Which update can be a HOT update, one that writes no index entry at all?",
+    "options": [
+      "Any update of an indexed column, as long as the page still has enough free space for the new version",
+      "Any update on a table with the default <code>fillfactor = 100</code>, since its pages are packed efficiently",
+      "An update of a non-indexed column, when the new row version fits in the same page",
+      "Any update made inside an explicit transaction"
+    ],
+    "answer": 2,
+    "explain": "HOT needs both conditions: no indexed column changed, and room on the page for the new version. Measured with <code>fillfactor = 90</code>: 2,000 HOT updates out of 2,000 for the non-indexed <code>total_cents</code>, 0 for the indexed <code>status</code>; with the default <code>fillfactor = 100</code> the full pages gave 0 HOT updates."
+  },
+  {
+    "id": "m08.q5",
+    "module": "m08",
+    "section": "composite",
+    "q": "The only secondary index on <code>orders</code> is <code>(customer_id, created_at)</code>. Which query cannot use it to jump straight to its rows?",
+    "options": [
+      "<code>WHERE customer_id = $1</code>",
+      "<code>WHERE customer_id = $1 AND created_at &gt;= $2</code>",
+      "<code>WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 20</code>",
+      "<code>WHERE created_at &gt;= $1 AND created_at &lt; $2</code>"
+    ],
+    "answer": 3,
+    "explain": "Leftmost-prefix rule: the index is sorted by customer first, so one day of orders is spread across all 10,000 customer sections. Measured: an <code>Index Only Scan</code> over the whole index (1,539 pages, <code>Index Searches: 1</code>), no jumping. The three other queries constrain the leading column."
+  },
+  {
+    "id": "m08.q6",
+    "module": "m08",
+    "section": "composite",
+    "q": "PostgreSQL 18 adds the B-tree skip scan. When does it actually help?",
+    "options": [
+      "When the query skips a leading column that has few distinct values",
+      "When the leading column is unique, so that each jump into the index finds exactly one row",
+      "Always: column order in composite indexes no longer matters at all since PostgreSQL 18",
+      "Only for Index Only Scans on covering indexes built with an <code>INCLUDE</code> clause"
+    ],
+    "answer": 0,
+    "explain": "Skip scan descends the index again for each distinct value of the leading column. Measured: with <code>(status, created_at)</code> (4 statuses) a date-only query showed <code>Index Searches: 9</code> and read 60 pages; with <code>(customer_id, created_at)</code> (10,000 customers) there was no skipping. It rescues a low-cardinality leading column; it does not make column order irrelevant."
+  },
+  {
+    "id": "m08.q7",
+    "module": "m08",
+    "section": "shapes",
+    "q": "A plan shows <code>Index Only Scan</code> with <code>Heap Fetches: 5000</code> for 5,000 rows. What is going on?",
+    "options": [
+      "The index lacks a column that the query reads",
+      "The pages are not yet all-visible in the visibility map; a VACUUM fixes it",
+      "The index is corrupted, and PostgreSQL falls back to the table to read each row safely",
+      "The statistics are stale, so the planner guessed the wrong number of rows for this scan"
+    ],
+    "answer": 1,
+    "explain": "Measured on a 100,000-row table: right after inserting 5,000 rows, <code>Heap Fetches: 5000</code>; after <code>VACUUM</code>, <code>Heap Fetches: 0</code>. A missing column would give a plain Index Scan, not an Index Only Scan. The visibility map is maintained by (auto)vacuum."
+  },
+  {
+    "id": "m08.q8",
+    "module": "m08",
+    "section": "shapes",
+    "q": "<code>customers</code> has an index on <code>email</code>. Why does <code>WHERE lower(email) = lower($1)</code> still do a Seq Scan?",
+    "options": [
+      "The table is too small: with 10,000 rows the planner never bothers with an index at all",
+      "Query parameters such as <code>$1</code> stop PostgreSQL from using indexes on text columns",
+      "B-tree indexes cannot store text values longer than a few characters, such as email addresses",
+      "The index stores <code>email</code>, not <code>lower(email)</code>; index the expression itself"
+    ],
+    "answer": 3,
+    "explain": "Measured: the plain index served <code>email = $1</code>, but the <code>lower()</code> comparison removed 9,999 of 10,000 rows in a Seq Scan. An index on <code>(lower(email))</code> gave an Index Scan, and making it <code>UNIQUE</code> rejected <code>USER42@example.com</code> with error 23505."
+  },
+  {
+    "id": "m08.q9",
+    "module": "m08",
+    "section": "types",
+    "q": "A product search box sends <code>name ILIKE '%walnut office desk%'</code>. Which index lets PostgreSQL avoid reading the whole table?",
+    "options": [
+      "A B-tree index on <code>name</code>, which also serves <code>ILIKE</code> when the pattern is long enough",
+      "A GIN index on <code>name</code> with <code>gin_trgm_ops</code> (pg_trgm)",
+      "A BRIN index on <code>name</code>",
+      "A B-tree index on <code>lower(name)</code>, which makes the comparison case-insensitive"
+    ],
+    "answer": 1,
+    "explain": "A B-tree cannot serve a pattern that starts with a wildcard: measured, the plan stayed a Seq Scan with a B-tree on <code>name</code>. The trigram GIN index found the 25 products in 60 pages instead of 161. BRIN needs a column that follows the physical order of the table, which names do not."
+  },
+  {
+    "id": "m08.q10",
+    "module": "m08",
+    "section": "planner",
+    "q": "With an index on <code>status</code>, <code>WHERE status = 'delivered'</code> (85 % of rows) runs as a Seq Scan. Why?",
+    "options": [
+      "The index is invalid after its build and must be rebuilt with REINDEX before the planner uses it",
+      "The planner never uses an index on a text column with so few distinct values, only on numbers",
+      "Reading 85 % of the table through the index costs more than reading it straight through",
+      "The table was never analyzed after the index was built"
+    ],
+    "answer": 2,
+    "explain": "Measured on the same index: <code>pending</code> (1 %) and <code>shipped</code> (10 %) used a Bitmap Index Scan, <code>delivered</code> (85 %) a Seq Scan. The planner costs a random page read 4 times a sequential one (<code>random_page_cost = 4</code>). Fresh statistics are exactly what told it that 85 % of rows match."
+  },
+  {
+    "id": "m08.q11",
+    "module": "m08",
+    "section": "find",
+    "q": "The database CPU is high after a release. Where do you look first to find the statements that cost the most?",
+    "options": [
+      "<code>auto_explain</code>, to read the plan of every statement",
+      "<code>pg_stat_user_indexes</code>",
+      "Run <code>EXPLAIN ANALYZE</code> on each query of the codebase",
+      "<code>pg_stat_statements</code>, ordered by <code>total_exec_time</code>"
+    ],
+    "answer": 3,
+    "explain": "<code>pg_stat_statements</code> aggregates every normalized statement with its calls and total time, so a cheap query called 50,000 times shows up next to a slow report. <code>auto_explain</code> then gives you the plan of the guilty statement; it is the second step, not the first."
+  },
+  {
+    "id": "m08.q12",
+    "module": "m08",
+    "section": "live",
+    "q": "Why must the team not run a plain <code>CREATE INDEX</code> on the production <code>orders</code> table?",
+    "options": [
+      "It locks the table against reads and writes until the build ends, so even the page fails",
+      "It rewrites the whole table, which doubles its size on disk for the duration of the build",
+      "Every INSERT, UPDATE and DELETE on the table waits until the build ends, while reads continue",
+      "It cannot run while autovacuum works on the table, so it fails at random times in production"
+    ],
+    "answer": 2,
+    "explain": "The CREATE INDEX documentation says a plain build locks the table against writes for the whole build, while other transactions can still read it; measured, <code>pg_locks</code> showed a <code>ShareLock</code>, which conflicts with the lock every write takes. Reads are not blocked, which is the tempting wrong answer: the outage comes from checkout's inserts queuing up. <code>CREATE INDEX CONCURRENTLY</code> avoids it."
+  },
+  {
+    "id": "m08.q13",
+    "module": "m08",
+    "section": "explain",
+    "q": "In this join plan, how many rows did the items scan return in total?",
+    "code": "Nested Loop  (actual rows=49.00 loops=1)\n  ->  Limit  (actual rows=20.00 loops=1)\n        ->  Index Scan Backward using orders_customer_created_idx on orders  (actual rows=20.00 loops=1)\n  ->  Bitmap Heap Scan on order_items i  (actual rows=2.45 loops=20)\n        Recheck Cond: (order_id = orders.id)",
+    "lang": "text",
+    "options": [
+      "2.45",
+      "20",
+      "22.45",
+      "49"
+    ],
+    "answer": 3,
+    "explain": "<code>actual rows</code> is an average per loop: 2.45 rows × 20 loops = 49, which matches the <code>Nested Loop</code>'s own <code>actual rows=49.00</code> (measured on the items of the page's 20 orders). Reading 2.45 as the total is the classic mistake; PostgreSQL 18 prints the decimals precisely because the figure is an average."
+  },
+  {
+    "id": "m08.q14",
+    "module": "m08",
+    "section": "planner",
+    "q": "Just after a nightly import, a plan line reads <code>Bitmap Heap Scan on orders (cost=48.86..5185.21 rows=4186 …) (actual rows=34000.00 loops=1)</code>. What do you suspect first?",
+    "options": [
+      "Stale statistics: the estimate is 8 times too low; run <code>ANALYZE orders</code>",
+      "A missing index on <code>status</code>",
+      "Too little <code>work_mem</code>: the bitmap became lossy and the planner lost track of the rows",
+      "A lock held by the import job, which made the scan wait and read the table pages twice"
+    ],
+    "answer": 0,
+    "explain": "This is the measured plan after inserting 30,000 pending orders without analyzing; after <code>ANALYZE orders</code> the estimate became <code>rows=33841</code>. An index is already in use here (Bitmap Heap Scan), and neither memory nor locks change a row estimate. Autovacuum only re-analyzes after about 10 % of the table changed, so bulk jobs should analyze themselves."
+  },
+  {
+    "id": "m08.q15",
+    "module": "m08",
+    "section": "composite",
+    "q": "A colleague created an index on <code>(created_at, customer_id)</code>. The plan of the \"my orders\" query shows <code>Index Scan Backward</code>, <code>Index Cond: (customer_id = 4242)</code> and no Sort. Is the index fine?",
+    "options": [
+      "Yes: Index Scan, right Index Cond, no Sort, so it is optimal",
+      "Yes, if declared with <code>created_at DESC</code>",
+      "No: it will switch to a Seq Scan as the table grows",
+      "No: it walks the dates and checks the customer entry by entry, 767 pages against 23"
+    ],
+    "answer": 3,
+    "explain": "A non-leading column can appear in the Index Cond, but it is checked entry by entry instead of being used to jump. The node name hides it; the buffers (767 measured against 23 with <code>(customer_id, created_at)</code>) and the cost reveal it, and the work grows with the table. A B-tree reads backwards just as well, so DESC changes nothing."
+  },
+  {
+    "id": "m08.q16",
+    "module": "m08",
+    "section": "composite",
+    "q": "The fulfilment dashboard runs <code>WHERE status = $1 AND created_at &gt;= $2 ORDER BY created_at LIMIT 50</code> for every status. Which single index do you create?",
+    "options": [
+      "<code>(created_at, status)</code>",
+      "<code>(status, created_at)</code>",
+      "Two indexes, <code>(status)</code> and <code>(created_at)</code>",
+      "<code>(created_at) INCLUDE (status)</code>"
+    ],
+    "answer": 1,
+    "explain": "Equality column first, then the range and sort column: the index jumps to one status, then reads its rows already in date order, and <code>LIMIT 50</code> stops early. With <code>created_at</code> first, the status is checked entry by entry. A partial index would fit a single status, but this dashboard queries every status."
+  },
+  {
+    "id": "m08.q17",
+    "module": "m08",
+    "section": "writes",
+    "q": "<code>orders</code> has both <code>(customer_id)</code> and <code>(customer_id, created_at)</code>, neither unique. In review, what do you propose?",
+    "options": [
+      "Keep both: the single-column index is always faster for equality, the composite for sorting",
+      "Drop the composite: it is slower for equality",
+      "Drop <code>(customer_id)</code>: the composite serves its queries, and writes pay for both",
+      "Replace both with <code>(created_at, customer_id)</code>, which also serves the date filters"
+    ],
+    "answer": 2,
+    "explain": "By the leftmost-prefix rule, <code>WHERE customer_id = $1</code> can use the composite. Measured: after 10 calls of the \"my orders\" query, <code>idx_scan</code> was 10 for the composite and 0 for <code>orders_customer_idx</code>. Swapping the columns would break the customer lookup instead."
+  },
+  {
+    "id": "m08.q18",
+    "module": "m08",
+    "section": "shapes",
+    "q": "A worker polls <code>WHERE status = 'pending' ORDER BY created_at LIMIT 50</code>; pending orders are 1 % of a large, busy table. Which index do you ship?",
+    "options": [
+      "<code>(status)</code>, then a sort of the pending rows in memory",
+      "<code>(status, created_at)</code> on the whole table",
+      "<code>(created_at) WHERE status = 'pending'</code>",
+      "<code>(created_at)</code>, read from the oldest order onwards"
+    ],
+    "answer": 2,
+    "explain": "The partial index stores only the pending rows, already in date order: measured 104 kB against 15 MB for <code>(status, created_at)</code>, with an Index Scan, no Sort and 52 pages. Inserts of finished orders never touch it. <code>(status, created_at)</code> also works, at 150 times the size and with a write cost on every order."
+  },
+  {
+    "id": "m08.q19",
+    "module": "m08",
+    "section": "shapes",
+    "q": "This daily report does a Seq Scan although <code>orders</code> has an index on <code>created_at</code>. Which fix do you ship?",
+    "code": "SELECT count(*) FROM orders\nWHERE (created_at AT TIME ZONE 'UTC')::date = $1;",
+    "lang": "sql",
+    "options": [
+      "Compare the bare column with a half-open range: <code>created_at &gt;= $1 AND created_at &lt; $2</code>",
+      "Create an index on <code>(created_at::date)</code>",
+      "Run <code>SET enable_seqscan = off</code> first",
+      "Run <code>ANALYZE orders</code>"
+    ],
+    "answer": 0,
+    "explain": "The index stores <code>created_at</code>, not the computed date. Measured: the cast version scanned 400,000 rows, the half-open range read 6 pages. An index on <code>(created_at::date)</code> is refused (error 42P17: casting a timestamptz depends on the time zone setting, so it is not immutable), and disabling Seq Scans is a session hack, not a fix."
+  },
+  {
+    "id": "m08.q20",
+    "module": "m08",
+    "section": "shapes",
+    "q": "Customers are soft-deleted (<code>deleted_at</code> is set). Rule: one live account per email, whatever the case, and a deleted customer may sign up again. Which index enforces it?",
+    "options": [
+      "<code>UNIQUE (email)</code>, plus a check in the signup service",
+      "<code>UNIQUE (lower(email))</code> on every row, live or deleted",
+      "<code>UNIQUE (lower(email), deleted_at)</code>, so that deleted rows differ",
+      "<code>UNIQUE (lower(email)) WHERE deleted_at IS NULL</code>"
+    ],
+    "answer": 3,
+    "explain": "The partial unique index only covers live rows. Measured: with a deleted <code>Ada@Example.com</code>, inserting <code>ada@example.com</code> was accepted and a second live <code>ADA@example.com</code> failed with 23505. Adding <code>deleted_at</code> to the key fails silently: live rows all hold NULL there, and NULLs count as distinct by default, so live duplicates pass."
+  },
+  {
+    "id": "m08.q21",
+    "module": "m08",
+    "section": "types",
+    "q": "<code>orders</code> has <code>USING gin (metadata jsonb_path_ops)</code>, yet this query is a Seq Scan. What do you change?",
+    "code": "SELECT id FROM orders WHERE metadata->>'fraud_review' = 'true';",
+    "lang": "sql",
+    "options": [
+      "Run <code>ANALYZE orders</code>: a newly created GIN index is ignored until statistics exist for it",
+      "Write the filter as <code>metadata @&gt; '{\"fraud_review\": true}'</code>",
+      "Replace it with a BRIN index on <code>metadata</code>",
+      "Store the flag as a string, because GIN indexes cannot index boolean values inside JSON"
+    ],
+    "answer": 1,
+    "explain": "GIN serves operators such as <code>@&gt;</code>, not the <code>-&gt;&gt;</code> expression. Measured: the <code>-&gt;&gt;</code> form did a Seq Scan removing 399,920 rows, while <code>@&gt;</code> used a Bitmap Index Scan reading 2 index pages for the 80 flagged orders. Statistics were fresh in both runs."
+  },
+  {
+    "id": "m08.q22",
+    "module": "m08",
+    "section": "types",
+    "q": "An append-only <code>events</code> table gets 50 million rows a day, always queried by time window on <code>created_at</code>, and disk is tight. Which index do you pick?",
+    "options": [
+      "A BRIN index on <code>created_at</code>",
+      "A B-tree index on <code>created_at</code>",
+      "A GIN index on <code>created_at</code>",
+      "A BRIN index on <code>user_id</code>"
+    ],
+    "answer": 0,
+    "explain": "Rows arrive in time order, so <code>created_at</code> follows the physical order and each block range has a narrow minimum and maximum. Measured on 400,000 orders: BRIN 24 kB against 8,792 kB for a B-tree, at the price of more pages read per query (133 against 13). A BRIN on a scattered column is useless (correlation 0.007 for <code>customer_id</code>)."
+  },
+  {
+    "id": "m08.q23",
+    "module": "m08",
+    "section": "planner",
+    "q": "For <code>WHERE country = 'FR' AND city = 'Lyon'</code> the planner estimates 31 rows; there are 250. Statistics are fresh. What fixes the estimate?",
+    "options": [
+      "Run <code>ANALYZE customers</code> again",
+      "Raise <code>default_statistics_target</code> to 1000 so the statistics of both columns get finer",
+      "Create an index on <code>(country, city)</code> so that the planner can count the matching rows",
+      "<code>CREATE STATISTICS … (dependencies) ON city, country</code>, then <code>ANALYZE</code>"
+    ],
+    "answer": 3,
+    "explain": "The planner multiplies 1/8 by 1/40 because it assumes the columns are independent, and per-column statistics, however precise, cannot tell it that a city determines its country. Measured: after <code>CREATE STATISTICS</code> and <code>ANALYZE</code>, the estimate became exactly 250. An index changes the access path, not this estimate."
+  },
+  {
+    "id": "m08.q24",
+    "module": "m08",
+    "section": "find",
+    "q": "You enable <code>auto_explain</code> with <code>log_min_duration = 500ms</code> and <code>log_analyze = on</code> on a busy server. What must you watch?",
+    "options": [
+      "The overhead: <code>log_analyze</code> times every statement, logged or not",
+      "Disk space in <code>pg_stat_statements</code>, where auto_explain stores every plan it captures",
+      "Each statement now runs twice, once to return its rows and once to produce its plan",
+      "Nothing: statements faster than 500 ms are not touched by auto_explain in any way"
+    ],
+    "answer": 0,
+    "explain": "The documentation warns that <code>log_analyze</code> instruments every statement, whether or not it ends up logged, and that this can hurt performance badly; <code>auto_explain.log_timing = off</code> and <code>auto_explain.sample_rate</code> limit it. The plans go to the server log, not to <code>pg_stat_statements</code>, and the statement runs once."
+  },
+  {
+    "id": "m08.q25",
+    "module": "m08",
+    "section": "writes",
+    "q": "On the primary, <code>pg_stat_user_indexes.idx_scan</code> has been 0 for three weeks for <code>orders_status_idx</code>. What do you do?",
+    "options": [
+      "Drop it now with a plain <code>DROP INDEX</code>",
+      "Check the replicas, a full business cycle and constraints, then <code>DROP INDEX CONCURRENTLY</code>",
+      "Ignore the counter: <code>idx_scan</code> only counts Index Only Scans, never plain index scans",
+      "Run <code>REINDEX</code> first, because a zero counter usually means the index is corrupted"
+    ],
+    "answer": 1,
+    "explain": "Each server keeps its own counters, so a reporting replica can use an index the primary never touches, and a month-end job may not have run yet. <code>idx_scan</code> counts every scan of the index, of any kind. Dropping on a live table should not take a write-blocking lock, hence <code>CONCURRENTLY</code>."
+  },
+  {
+    "id": "m08.q26",
+    "module": "m08",
+    "section": "writes",
+    "q": "A nightly job deletes expired pending orders that never received items, and it gets slower every week. <code>pg_stat_user_tables.seq_scan</code> for <code>order_items</code> grows by one per deleted order. What do you ship?",
+    "code": "CREATE TABLE order_items (\n  id       bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,\n  order_id bigint NOT NULL REFERENCES orders (id),\n  quantity integer NOT NULL\n);",
+    "lang": "sql",
+    "options": [
+      "An index on <code>orders (status, created_at)</code>, so the job finds the orders to delete faster",
+      "An index on <code>order_items (order_id)</code>: each delete checks that no item references the order",
+      "Run <code>ANALYZE order_items</code>, so the foreign key check switches to the primary key index",
+      "Raise <code>work_mem</code>, so the foreign key checks of the job are hashed in memory instead"
+    ],
+    "answer": 1,
+    "explain": "<code>REFERENCES</code> creates no index, and before deleting an order PostgreSQL checks that no item still references it. Measured: deleting 10 orders without an index on <code>order_items (order_id)</code> ran 10 sequential scans of the million-row table; with the index, none. An index on <code>orders</code> helps find the rows to delete, not the check on the other table, and the primary key of <code>order_items</code> is on <code>id</code>."
+  },
+  {
+    "id": "m08.q27",
+    "module": "m08",
+    "section": "writes",
+    "q": "A product manager asks for an index on every column the back office can filter on, \"to be safe\". What do you answer?",
+    "options": [
+      "Each index slows every insert and many updates and adds WAL: add one only for a query you measured",
+      "Fine: PostgreSQL maintains an index only once a query has used it, so unused ones cost nothing",
+      "Fine, as long as they are single-column indexes, which cost almost nothing on writes",
+      "Fine, provided the table uses <code>fillfactor = 90</code>, which makes every update a HOT update"
+    ],
+    "answer": 0,
+    "explain": "Every index is maintained on every write, used or not. Measured on 100,000 inserts: 18.6 MB of WAL with no secondary index, 59.9 MB with four, and the single-column <code>(status)</code> index alone added about 7 MB. A free tenth of each page does not help an update of an indexed column: measured at <code>fillfactor = 90</code>, 0 of 2,000 <code>status</code> updates were HOT."
+  },
+  {
+    "id": "m08.q28",
+    "module": "m08",
+    "section": "live",
+    "q": "<code>CREATE INDEX CONCURRENTLY</code> on <code>orders</code> has shown no progress for 20 minutes, and a finance report query has been running for an hour. What is the build most likely doing?",
+    "options": [
+      "Holding a lock that blocks writes, as a plain CREATE INDEX does, until the report ends",
+      "Sorting the whole index in memory before it writes its first page to disk",
+      "Waiting for transactions older than itself, such as the running report, to finish",
+      "Retrying in a loop after a deadlock with autovacuum on the same table"
+    ],
+    "answer": 2,
+    "explain": "The CREATE INDEX documentation says a concurrent build must wait for existing transactions that could modify or use the index to terminate, before each of its two scans and, after the second, for transactions whose snapshot predates it. Writes keep flowing during that wait: a concurrent build does not take the write-blocking lock of a plain build. So check for long-running transactions before you start a build."
+  },
+  {
+    "id": "m08.q29",
+    "module": "m08",
+    "section": "live",
+    "q": "Your migration tool runs each file inside <code>BEGIN</code> … <code>COMMIT</code>. One file contains <code>CREATE INDEX CONCURRENTLY orders_status_idx ON orders (status)</code>. What happens?",
+    "options": [
+      "The index is built concurrently as asked, only more slowly because of the surrounding transaction",
+      "It fails with error 25001: it cannot run inside a transaction block",
+      "PostgreSQL silently builds it without CONCURRENTLY, blocking writes for the whole build",
+      "The index is created but left invalid"
+    ],
+    "answer": 1,
+    "explain": "Measured on PostgreSQL 18.6: error 25001 inside a transaction block. A concurrent build runs several transactions of its own, so it must run outside one; configure the tool to run that migration without a transaction. An invalid index is what a failed concurrent build leaves behind, not this error."
+  },
+  {
+    "id": "m08.q30",
+    "module": "m08",
+    "section": "live",
+    "q": "<code>CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS coupons_code_lower_key …</code> failed on a duplicate. You delete the duplicate and re-run the same migration. Result?",
+    "options": [
+      "The index is built and enforces uniqueness",
+      "An error: the name already exists",
+      "A notice \"already exists, skipping\"; the index stays invalid and unenforced",
+      "The index becomes valid on its own"
+    ],
+    "answer": 2,
+    "explain": "Measured: <code>indisvalid = false</code> after the failure, the notice on the re-run, still invalid, and a duplicate insert went through. <code>IF NOT EXISTS</code> only checks the name. Check <code>pg_index.indisvalid</code> after every concurrent build, and recover with <code>DROP INDEX CONCURRENTLY</code> and a new build."
+  }
+]

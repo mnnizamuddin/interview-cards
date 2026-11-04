@@ -1,0 +1,434 @@
+[
+  {
+    "id": "m20.q1",
+    "module": "m20",
+    "section": "schema",
+    "q": "In the Orders schema, <code>customer: Customer</code> has no <code>!</code>. What does that tell a client?",
+    "options": [
+      "The field may be null, for example when the customer lookup fails",
+      "The field is optional to select in a query, unlike non-null fields",
+      "The field is loaded lazily, only after the rest of the order",
+      "The field can be read but not set by a mutation"
+    ],
+    "answer": 0,
+    "explain": "Without <code>!</code> a field is nullable, the default in GraphQL: the server may return null, for instance after an error, and the client must handle it. Every field is optional to select, nullable or not; the <code>!</code> is a promise about the value, not about the query."
+  },
+  {
+    "id": "m20.q2",
+    "module": "m20",
+    "section": "schema",
+    "q": "The schema says <code>orders: [Order!]!</code> and <code>customer: Customer!</code>. For one order out of three, the customer resolver throws. What does the client receive?",
+    "options": [
+      "Three orders, the failed one with <code>customer: null</code> and an error",
+      "Two orders: the failed one is dropped from the list, with an error",
+      "<code>\"data\": null</code> and one entry in <code>errors</code>",
+      "An HTTP 500 response, with the error message in the body"
+    ],
+    "answer": 2,
+    "explain": "A non-null field cannot be null, so the error nulls its parent order; the order is non-null in the list, so the list goes; the list is non-null, so <code>data</code> becomes null (measured with graphql-js 16.14.2). A <code>customer: null</code> answer happens only when <code>customer</code> is nullable."
+  },
+  {
+    "id": "m20.q3",
+    "module": "m20",
+    "section": "schema",
+    "q": "The live orders list uses a Relay-style connection. How does the back office ask for the next page?",
+    "options": [
+      "It sends a <code>page</code> argument one higher than on the previous request",
+      "It sends <code>pageInfo.endCursor</code> back as <code>after</code>",
+      "It sends the id of the last node it received as an <code>offset</code> argument",
+      "It repeats the same query with <code>first</code> doubled each time"
+    ],
+    "answer": 1,
+    "explain": "A connection returns <code>pageInfo { hasNextPage endCursor }</code>, and the client passes <code>endCursor</code> as <code>after</code> to continue: the keyset pagination of M05 behind an opaque cursor. Page numbers and offsets are what cursors replace, because they repeat or skip rows when data changes."
+  },
+  {
+    "id": "m20.q4",
+    "module": "m20",
+    "section": "dataloader",
+    "q": "Why does a resolver that loads \"the customer of this order\" send 21 queries for a page of 20 orders?",
+    "options": [
+      "graphql-js turns each selected field into its own SQL join, one per order",
+      "Each call sees only its own parent order, so it loads one customer",
+      "The back office sent one GraphQL operation per order on the page",
+      "graphql-js retries every resolver once before returning its value"
+    ],
+    "answer": 1,
+    "explain": "graphql-js calls the <code>customer</code> resolver once per order, with that order as the parent, so the naive code sends one query per order plus one for the list: 21 measured with graphql-js 16.14.2. GraphQL does not generate joins; batching with DataLoader is the fix."
+  },
+  {
+    "id": "m20.q5",
+    "module": "m20",
+    "section": "dataloader",
+    "q": "Why are DataLoaders created per request, in the context factory, rather than once at startup?",
+    "options": [
+      "A DataLoader instance can run only one batch, then must be thrown away",
+      "Loaders created per request collect more keys in each of their batches",
+      "Its cache is per instance: shared, it would leak data across users and go stale",
+      "graphql-js refuses a context object that was already used by another request"
+    ],
+    "answer": 2,
+    "explain": "DataLoader memoises results per instance; its README recommends a new instance per request and warns that its cache does not replace Redis or Memcache. A process-wide loader would leak data between viewers and serve stale rows. Batching works the same either way."
+  },
+  {
+    "id": "m20.q6",
+    "module": "m20",
+    "section": "authz",
+    "q": "Where does graphql.org recommend putting authorisation logic in production?",
+    "options": [
+      "In the business layer every entry point calls, given a fully loaded user",
+      "In a schema directive on each type, evaluated by the GraphQL server alone",
+      "In an HTTP middleware placed in front of <code>/graphql</code> for every request",
+      "In the client, which should not request the fields it is not allowed to see"
+    ],
+    "answer": 0,
+    "explain": "graphql.org says to delegate authorisation to the business logic layer, the single source of truth shared by GraphQL, REST and jobs. It mentions directives as an option and says the logic should still stay in that layer. A middleware before <code>/graphql</code> cannot know which objects and fields the query will reach."
+  },
+  {
+    "id": "m20.q7",
+    "module": "m20",
+    "section": "limits",
+    "q": "A request contains 100 aliases of <code>order(id:)</code> with different ids. With no limits configured, what does the server do?",
+    "options": [
+      "Runs the resolver once, then copies the result into the 100 aliases",
+      "Rejects the operation during validation, as too many aliases are invalid",
+      "Runs the <code>order</code> resolver 100 times within the one request",
+      "Executes only the first alias and returns null for the 99 others"
+    ],
+    "answer": 2,
+    "explain": "Aliases are legal GraphQL, so each one is a separate field execution: measured with graphql-js, 100 aliases ran the resolver 100 times. A rate limiter counting requests sees one, which is why graphql.org recommends breadth and alias limits."
+  },
+  {
+    "id": "m20.q8",
+    "module": "m20",
+    "section": "limits",
+    "q": "What makes trusted documents a real guardrail, when automatic persisted queries (APQ) are not?",
+    "options": [
+      "Trusted documents are compressed, so they are cheaper to execute on the server",
+      "Only build-time operations run; APQ stores any query a client sends",
+      "Trusted documents also turn off introspection and field suggestions",
+      "APQ applies to mutations only, so queries remain unrestricted with it"
+    ],
+    "answer": 1,
+    "explain": "With trusted documents the server executes only known ids, so an arbitrary query never runs. APQ lets the client register any query after a <code>PERSISTED_QUERY_NOT_FOUND</code> answer: it saves bandwidth, but any client can still run anything. Neither one turns off introspection."
+  },
+  {
+    "id": "m20.q9",
+    "module": "m20",
+    "section": "errors",
+    "q": "The GraphQL server answers 200 for partial results. Which metric tells on-call that the order screen is failing?",
+    "options": [
+      "The rate of 5xx responses returned by <code>/graphql</code>, per minute",
+      "The average response size of <code>/graphql</code>, compared with last week",
+      "The number of HTTP 4xx responses, grouped by client application",
+      "Errors per operation and per <code>extensions.code</code>, read from bodies"
+    ],
+    "answer": 3,
+    "explain": "Field errors arrive in the <code>errors</code> array next to partial data, usually with a 2xx status, so 5xx and 4xx rates stay flat while the screen breaks. Counting errors per operation and per code from the body is what shows it. Status codes only separate request errors (400, 422 in the draft spec) from executed ones."
+  },
+  {
+    "id": "m20.q10",
+    "module": "m20",
+    "section": "evolution",
+    "q": "Which change does graphql-js report as breaking?",
+    "options": [
+      "Adding a field to <code>Order</code>",
+      "Changing an output field from <code>String</code> to <code>String!</code>",
+      "Adding an optional argument",
+      "Changing an output field from <code>Int!</code> to <code>Int</code>"
+    ],
+    "answer": 3,
+    "explain": "Loosening an output field to nullable breaks clients that relied on the non-null promise: <code>findBreakingChanges</code> reported <code>FIELD_CHANGED_KIND</code> (measured on 16.14.2). Tightening an output to non-null only strengthens the promise and was safe; an optional argument was \"dangerous\", not breaking."
+  },
+  {
+    "id": "m20.q11",
+    "module": "m20",
+    "section": "transport",
+    "q": "Order status updates flow only from the server to the customer's browser. Which transport is the sensible default?",
+    "options": [
+      "Server-sent events over HTTP/2",
+      "WebSockets with ws",
+      "Short polling every second",
+      "A GraphQL mutation called every few seconds"
+    ],
+    "answer": 0,
+    "explain": "SSE is built for one-way push over plain HTTP: cookies, load balancers and logs work unchanged, and <code>EventSource</code> reconnects with <code>Last-Event-ID</code>. WebSockets add a protocol, heartbeats and reconnection you do not need for one-way traffic, and polling every second would cost a request per client per second."
+  },
+  {
+    "id": "m20.q12",
+    "module": "m20",
+    "section": "health",
+    "q": "Why does the <code>/live</code> server send a ping to every socket every 30 seconds?",
+    "options": [
+      "To measure the bandwidth of each client and adapt the message size",
+      "Because RFC 6455 requires a ping on every connection every 30 seconds",
+      "To find dead sockets and keep 60-second proxy idle timeouts from firing",
+      "To refresh the agent's session cookie before it expires on the server"
+    ],
+    "answer": 2,
+    "explain": "A socket with no pong since the last round is dead and is terminated, and the ping traffic keeps idle timeouts such as nginx's 60-second default from firing. RFC 6455 defines ping and pong but sets no interval; 30 seconds is the ws README's example."
+  },
+  {
+    "id": "m20.q13",
+    "module": "m20",
+    "section": "schema",
+    "q": "The customer service times out for one order of the 50 shown on the live list. What do agents see, and what would you change?",
+    "code": "type Query { orders(first: Int!, after: String): [Order!]! }\ntype Order { id: ID! status: OrderStatus! customer: Customer! }",
+    "lang": "text",
+    "options": [
+      "49 complete orders and one with a null customer; nothing needs changing",
+      "An empty screen, as <code>data</code> is null; make <code>customer</code> nullable",
+      "All 50 orders, because GraphQL retries the failed resolver once more",
+      "An HTTP 504 from the GraphQL server, so the client shows its error page"
+    ],
+    "answer": 1,
+    "explain": "The error on the non-null <code>customer</code> nulls the order, which nulls the non-null list, which nulls <code>data</code>: one slow service blanks the whole screen (measured with graphql-js). A field that crosses to another service should be nullable; the \"one null customer\" outcome is exactly what that change buys."
+  },
+  {
+    "id": "m20.q14",
+    "module": "m20",
+    "section": "dataloader",
+    "q": "What is wrong with this code, which does batch correctly?",
+    "code": "import DataLoader from 'dataloader';\n\nconst customerLoader = new DataLoader(loadCustomersByIds); // module scope\n\nexport const resolvers = {\n  Order: {\n    customer: (order: OrderRow) => customerLoader.load(order.customerId),\n  },\n};",
+    "lang": "ts",
+    "options": [
+      "Nothing: a loader shared across requests batches more keys, so it is faster",
+      "The loader must be created inside the resolver function, on every call",
+      "<code>load</code> must be awaited inside the resolver, or batching breaks",
+      "Its cache lives as long as the process: stale rows, shared across viewers"
+    ],
+    "answer": 3,
+    "explain": "DataLoader caches per instance, so a module-scope loader is a process-wide cache with no expiry and no per-user scope; the README recommends one instance per request. Creating it inside the resolver would break batching, since each call would get its own loader. Returning the promise without <code>await</code> is fine."
+  },
+  {
+    "id": "m20.q15",
+    "module": "m20",
+    "section": "dataloader",
+    "q": "This batch function returns the rows as PostgreSQL gives them. Two of the requested ids were deleted. What goes wrong?",
+    "code": "new DataLoader(async (ids: readonly string[]) => {\n  const { rows } = await db.query<Customer>(\n    'SELECT id, name, email FROM customers WHERE id = ANY($1)', [ids]);\n  return rows;\n});",
+    "lang": "ts",
+    "options": [
+      "Values pair with keys by position, so a short array in any order breaks the contract",
+      "PostgreSQL rejects <code>= ANY($1)</code> when the parameter is a text array",
+      "DataLoader retries the two missing ids one by one, in a second batch",
+      "Nothing: DataLoader pairs each row with its key by reading the <code>id</code> field"
+    ],
+    "answer": 0,
+    "explain": "The DataLoader README requires an array of values of the same length as the keys, where each index corresponds to the same index in the keys. Rows come back in no guaranteed order and missing ids shorten the array. DataLoader never inspects an <code>id</code> field: map rows by id and return <code>ids.map(...)</code> with null for missing ones."
+  },
+  {
+    "id": "m20.q16",
+    "module": "m20",
+    "section": "dataloader",
+    "q": "A page of 20 orders belongs to 5 distinct customers. With DataLoader's default options, how many keys does the batch function receive?",
+    "options": [
+      "20, one per order",
+      "5, one per distinct customer",
+      "1, because DataLoader loads one key per tick",
+      "25, the orders plus the customers"
+    ],
+    "answer": 1,
+    "explain": "With the cache enabled (the default), a key already requested in this loader is not sent again; its promise resolves from the same batch, per the README. Duplicates reach the batch function only with <code>cache: false</code>. Batching sends all distinct keys of the tick at once, not one."
+  },
+  {
+    "id": "m20.q17",
+    "module": "m20",
+    "section": "authz",
+    "q": "A customer calls <code>node(id: \"T3JkZXI6OTk=\")</code> and receives another customer's order, although <code>order(id:)</code> checks ownership. What is the root cause?",
+    "options": [
+      "Global ids are base64, so they are guessable; switching to UUIDs fixes it",
+      "The check lives in one resolver, not in the layer every path calls",
+      "<code>node</code> fields are unsafe by design and must be disabled in production",
+      "GraphQL cannot express authorisation per object, only per type"
+    ],
+    "answer": 1,
+    "explain": "The same <code>Order</code> is reachable from several fields; a check in <code>order(id:)</code> protects only that path. graphql.org recommends the business logic layer as the single source of truth. Unguessable ids reduce enumeration but are not authorisation, as M12's BOLA section says."
+  },
+  {
+    "id": "m20.q18",
+    "module": "m20",
+    "section": "limits",
+    "q": "With the cost rule of section 4 (a field costs 1 per parent row; a list field multiplies its children by <code>first</code>), what does this operation cost?",
+    "code": "{\n  orders(first: 50) {\n    customer {\n      orders(first: 50) { id }\n    }\n  }\n}",
+    "lang": "text",
+    "options": [
+      "101",
+      "2,551",
+      "2,601",
+      "130,101"
+    ],
+    "answer": 2,
+    "explain": "The outer <code>orders</code> costs 1, its 50 <code>customer</code> fields cost 50, the inner <code>orders</code> fields cost 50, and their <code>id</code> fields 50 × 50 = 2,500: 2,601, as measured. One more level multiplied it to 130,101, which is why each nested list needs to count."
+  },
+  {
+    "id": "m20.q19",
+    "module": "m20",
+    "section": "limits",
+    "q": "The GraphQL endpoint is rate-limited to 100 requests per second per client, yet one client still takes replicas to 100% CPU. What do you add?",
+    "options": [
+      "A lower request limit per client, such as 10 requests per second",
+      "Depth, alias and cost limits, and a budget charged per operation cost",
+      "More replicas behind the load balancer, with autoscaling on CPU",
+      "GET instead of POST, so the CDN absorbs most of the repeated load"
+    ],
+    "answer": 1,
+    "explain": "One GraphQL request can be arbitrarily expensive, so counting requests misses the problem; graphql.org recommends cost analysis and charging cost against a client budget. A lower request limit still lets one deep query through, and replicas only spread the same expensive work."
+  },
+  {
+    "id": "m20.q20",
+    "module": "m20",
+    "section": "limits",
+    "q": "A colleague says: \"We disabled introspection in production, so attackers cannot discover the schema.\" What do you answer?",
+    "options": [
+      "Agreed: without introspection, nobody outside can discover the schema",
+      "Introspection must stay on, because every client needs it at run time",
+      "Agreed, and turning it off also blocks the alias and depth attacks",
+      "It is obscurity: \"Did you mean\" errors still leak field names"
+    ],
+    "answer": 3,
+    "explain": "graphql.org calls disabling introspection alone \"security through obscurity\". Measured with graphql-js, an unknown field produced \"Cannot query field \"total\" on type \"Order\". Did you mean \"note\"?\", which leaks names; GraphQL Armor can block field suggestions. Clients do not need introspection at run time; tooling does."
+  },
+  {
+    "id": "m20.q21",
+    "module": "m20",
+    "section": "errors",
+    "q": "The prototype executes queries with graphql-js directly. A resolver throws the error below. What does the client receive?",
+    "code": "order: async () => {\n  throw new Error('connect ECONNREFUSED 10.0.3.7:5432');\n}",
+    "lang": "ts",
+    "options": [
+      "A masked message, \"Unexpected error.\", with the real one in the logs",
+      "An HTTP 500 with an empty body, and the order screen shows nothing",
+      "<code>order: null</code>, and the raw message, IP included, in <code>errors</code>",
+      "Nothing visible: the field is silently null and <code>errors</code> stays empty"
+    ],
+    "answer": 2,
+    "explain": "graphql-js puts the thrown message in the error as is (measured), so database addresses leak. Masking to \"Unexpected error.\" is what Yoga does by default; with Apollo Server you mask in <code>formatError</code>. Only a deliberately thrown <code>GraphQLError</code> should reach clients."
+  },
+  {
+    "id": "m20.q22",
+    "module": "m20",
+    "section": "errors",
+    "q": "An agent tries to cancel an order that has already shipped. How should <code>cancelOrder</code> report it?",
+    "options": [
+      "A union result with an <code>OrderAlreadyShipped</code> type and its <code>shippedAt</code>",
+      "A thrown <code>GraphQLError</code>, with the HTTP status set to 409 Conflict",
+      "<code>null</code>, and the screen tells the agent that something went wrong",
+      "<code>CancelOrderSuccess</code>, with a warning added under <code>extensions</code>"
+    ],
+    "answer": 0,
+    "explain": "An expected business outcome is data the client must act on, so it belongs in the schema as a typed result; generated client types then force the screen to handle it. A thrown error lands in an untyped <code>errors</code> array, and the HTTP status of a GraphQL response does not carry per-field outcomes."
+  },
+  {
+    "id": "m20.q23",
+    "module": "m20",
+    "section": "errors",
+    "q": "The catalogue team wants product queries over GraphQL to be cached by the CDN. What works?",
+    "options": [
+      "Add <code>Cache-Control: public</code> to the POST responses of <code>/graphql</code>",
+      "Configure the CDN to use the request body as part of its cache key",
+      "Expose the products through subscriptions instead of queries",
+      "Persisted query hashes over GET, with <code>Cache-Control</code> on the response"
+    ],
+    "answer": 3,
+    "explain": "HTTP caches key on method and URL, and every POST to <code>/graphql</code> looks the same. The spec allows GET for queries, and Apollo's docs pair hashed queries over GET with CDN caching, since full queries rarely fit in a cacheable URL. Subscriptions push events and are not cached."
+  },
+  {
+    "id": "m20.q24",
+    "module": "m20",
+    "section": "evolution",
+    "q": "You add <code>REFUNDED</code> to <code>enum OrderStatus</code>. Which statement is right?",
+    "options": [
+      "It is safe: additive changes to a schema never affect existing clients",
+      "It is breaking: old clients fail validation when they meet the value",
+      "It is dangerous: old apps may get a value they do not handle",
+      "It is breaking: it changes the meaning of the existing enum values"
+    ],
+    "answer": 2,
+    "explain": "<code>findDangerousChanges</code> reported <code>VALUE_ADDED_TO_ENUM</code> (measured on graphql-js 16.14.2): old operations still validate, but a client switch with no default case may crash or show nothing. Mobile apps that stay installed for months make this the classic trap."
+  },
+  {
+    "id": "m20.q25",
+    "module": "m20",
+    "section": "scaling",
+    "q": "Socket.io runs on 6 pods behind a Kubernetes Service without session affinity. Clients keep failing to connect and fall back again and again. What is the likely cause?",
+    "options": [
+      "Socket.io cannot run on more than one pod without its cluster adapter",
+      "The Redis adapter is missing, and Socket.io refuses connections without it",
+      "Kubernetes Services do not forward the WebSocket upgrade between pods",
+      "Long-polling requests of one session land on different pods: no stickiness"
+    ],
+    "answer": 3,
+    "explain": "Socket.io's docs say long-polling needs sticky sessions because a session spans several HTTP requests that must reach the server holding it; with only the WebSocket transport, one connection stays on one pod. The Redis adapter is about broadcasting across pods, not about connecting."
+  },
+  {
+    "id": "m20.q26",
+    "module": "m20",
+    "section": "transport",
+    "q": "The back office uses SSE over HTTP/1.1. An agent opens order streams in seven tabs, and the seventh never loads. Why?",
+    "options": [
+      "Over HTTP/1.1 a browser opens about 6 connections per domain; use HTTP/2",
+      "<code>EventSource</code> supports a single open stream per page and per tab",
+      "Node closes the oldest open response once six streams are open",
+      "The load balancer pins each agent to one pod, which refuses a seventh stream"
+    ],
+    "answer": 0,
+    "explain": "MDN documents the limit of 6 connections per browser and domain for SSE over HTTP/1.x; over HTTP/2 the number of streams is negotiated, 100 by default. Nothing in Node or <code>EventSource</code> limits streams per page."
+  },
+  {
+    "id": "m20.q27",
+    "module": "m20",
+    "section": "websockets",
+    "q": "The <code>/live</code> socket is authenticated by the session cookie. A pentester shows that a page on another site opens <code>/live</code> as the logged-in agent. What is the fix?",
+    "options": [
+      "Pass the session token in the URL query string instead of the cookie",
+      "Check <code>Origin</code> against an allowlist at the upgrade; refuse with 403",
+      "Switch from <code>ws://</code> to <code>wss://</code> so the cookie is encrypted",
+      "Enable <code>permessage-deflate</code> and sign every message with a secret"
+    ],
+    "answer": 1,
+    "explain": "Browsers send cookies with the WebSocket handshake, so a hostile page can open a socket in the agent's name: Cross-Site WebSocket Hijacking. OWASP says to validate <code>Origin</code> on every handshake with an allowlist, and RFC 6455 suggests 403 for a refused origin. Tokens in URLs leak into logs, and TLS does not stop a cross-site request."
+  },
+  {
+    "id": "m20.q28",
+    "module": "m20",
+    "section": "health",
+    "q": "With this send function, one agent's laptop sleeps with the tab open and the replica's memory climbs for hours. What is happening?",
+    "code": "export function sendUpdate(socket: WebSocket, message: string): void {\n  if (socket.readyState === socket.OPEN) {\n    socket.send(message);\n  }\n}",
+    "lang": "ts",
+    "options": [
+      "The client reads nothing, so messages queue in server memory: cap <code>bufferedAmount</code>",
+      "ws leaks memory whenever a socket stays open for more than a few hours",
+      "The heartbeat timer keeps references to sockets that are already closed",
+      "The operating system socket buffers grow without limit for a sleeping peer"
+    ],
+    "answer": 0,
+    "explain": "<code>send()</code> never blocks: what the peer does not read stays in the server's queue. Measured with ws 8.22.0, after about 2.5 MB went into OS buffers, <code>bufferedAmount</code> reached 10.4 MB for 200 messages of 64 KB and kept growing. The OS buffers are bounded; the process queue is not."
+  },
+  {
+    "id": "m20.q29",
+    "module": "m20",
+    "section": "scaling",
+    "q": "Replica 5 holds a customer's SSE stream. While replica 5 spends 2 seconds reconnecting to Redis, replica 2 publishes <code>SHIPPED</code> on the pub/sub channel. What happens?",
+    "options": [
+      "Redis keeps the message until replica 5 subscribes to the channel again",
+      "Redis retries the delivery three times, then drops it with a warning",
+      "The browser notices, reconnects with <code>Last-Event-ID</code> and gets it",
+      "It is lost (at-most-once): resync from the database or use Redis Streams"
+    ],
+    "answer": 3,
+    "explain": "The Redis docs state that a pub/sub message a subscriber cannot handle, for example during a disconnect, is lost forever. The browser's stream to replica 5 never broke, so <code>EventSource</code> does not reconnect and nothing replays: the replica must resync itself, or read from a stream that keeps entries."
+  },
+  {
+    "id": "m20.q30",
+    "module": "m20",
+    "section": "senior",
+    "q": "In the support chat, the customer's app resends a message after a timeout, but the first attempt had been stored. How do you make sure it is shown once?",
+    "options": [
+      "Socket.io delivers exactly once, so the app should never resend at all",
+      "Deduplicate on the agent's screen by comparing the texts of messages",
+      "A client <code>clientMessageId</code>, a unique constraint and <code>ON CONFLICT</code>",
+      "Lock the conversation row until the client acknowledges the ack it got"
+    ],
+    "answer": 2,
+    "explain": "Resending until acked gives at-least-once delivery, and a client-generated id with a unique constraint turns it into once-only storage: the idempotency key of M05 applied to chat. Socket.io's default is at-most-once, per its docs, and two identical texts can be two real messages."
+  }
+]

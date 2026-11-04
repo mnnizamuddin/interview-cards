@@ -1,0 +1,432 @@
+[
+  {
+    "id": "m26.q1",
+    "module": "m26",
+    "section": "vitals",
+    "q": "Which set of values makes a page \"good\" on all three Core Web Vitals, measured at the 75th percentile?",
+    "options": [
+      "LCP under 4 s, INP under 500 ms, CLS under 0.25",
+      "LCP at most 2.5 s, INP at most 200 ms, CLS at most 0.1",
+      "LCP at most 1.8 s, INP at most 100 ms, CLS at most 0.05",
+      "LCP at most 2.5 s, INP at most 100 ms, CLS at most 0.25"
+    ],
+    "answer": 1,
+    "explain": "web.dev sets the good lines at 2.5 s for LCP, 200 ms for INP and 0.1 for CLS, at the 75th percentile of visits. The first option lists the \"poor\" lines: values between the two sets are \"needs improvement\", not good."
+  },
+  {
+    "id": "m26.q2",
+    "module": "m26",
+    "section": "vitals",
+    "q": "A product page answers its first tap at once, but the size filter used later takes 400 ms to repaint. Why did it pass FID and fail INP?",
+    "options": [
+      "INP adds the time spent downloading the handler's JavaScript, which FID ignored",
+      "INP is measured by Lighthouse in the lab on a throttled phone, while FID came only from real users in the field",
+      "FID only counted key presses, so taps on the filter chips were never measured at all",
+      "FID timed only the wait before the first handler; INP times every interaction up to the next paint"
+    ],
+    "answer": 3,
+    "explain": "INP looks at all clicks, taps and key presses of the visit and measures from the input to the next painted frame, handler time included. FID only measured the wait before the first handler of the first interaction, so a slow later filter was invisible to it. INP cannot be measured in the lab at all, since it needs real interactions."
+  },
+  {
+    "id": "m26.q3",
+    "module": "m26",
+    "section": "field-lab",
+    "q": "Lighthouse on a developer laptop gives the product page an LCP of 1.9 s, but Search Console lists the page group as Poor for LCP on mobile. What explains the difference?",
+    "options": [
+      "Search Console reads CrUX: 28 days of real Chrome visits at p75, mostly phones; Lighthouse is one load",
+      "Search Console runs its own Lighthouse audits with a slower network profile and a throttled CPU, so its numbers are always higher",
+      "Search Console reports the mean of all visits, and a handful of very slow visits pull that mean far above the median",
+      "Lighthouse only measures text blocks for LCP, while Search Console also counts images"
+    ],
+    "answer": 0,
+    "explain": "The Core Web Vitals report reads CrUX field data: real Chrome users, a rolling 28-day window, the 75th percentile, split by device. A lab run is one load under fixed conditions and cannot represent the slower quarter of mobile visits. Search Console does not run Lighthouse, and it uses the 75th percentile, not a mean."
+  },
+  {
+    "id": "m26.q4",
+    "module": "m26",
+    "section": "field-lab",
+    "q": "Why does a Lighthouse report show Total Blocking Time instead of INP?",
+    "options": [
+      "INP needs 28 days of data before it can be computed, so a single lab run reports a placeholder metric instead",
+      "INP is a Chrome-only metric, and Lighthouse reports only metrics that every browser engine supports",
+      "A lab load has no real interactions; TBT, the blocking part of long tasks, is its proxy",
+      "TBT replaced INP as a Core Web Vital in 2025"
+    ],
+    "answer": 2,
+    "explain": "INP needs real clicks, taps or key presses, which a Lighthouse load does not have. TBT sums the part above 50 ms of each long task after the first paint, which predicts how blocked the main thread is; web.dev calls it a lab proxy, not a substitute. INP is still a Core Web Vital, and TBT never replaced it."
+  },
+  {
+    "id": "m26.q5",
+    "module": "m26",
+    "section": "rum",
+    "q": "When does the web-vitals README recommend sending collected metrics to your analytics endpoint?",
+    "options": [
+      "In a <code>beforeunload</code> handler with <code>fetch</code>, because by then every metric is final and the page is still alive",
+      "With <code>sendBeacon</code> when <code>visibilityState</code> becomes <code>hidden</code>, since CLS and INP may only be final then",
+      "Immediately in each callback with a synchronous XMLHttpRequest, so that no report can ever be lost on the way",
+      "Ten seconds after the load event, when every metric has been reported"
+    ],
+    "answer": 1,
+    "explain": "CLS and INP keep changing while the user is on the page, so the library reports them when the page is hidden, and sendBeacon is designed to survive the page closing. The README points to the Page Lifecycle guide to prefer visibilitychange over beforeunload and unload, which are unreliable on mobile. A fixed delay misses later shifts and interactions."
+  },
+  {
+    "id": "m26.q6",
+    "module": "m26",
+    "section": "rum",
+    "q": "What do you get by importing <code>onINP</code> from <code>web-vitals/attribution</code> instead of <code>web-vitals</code>?",
+    "options": [
+      "An <code>attribution</code> object naming the element, the three phases and the longest script",
+      "A more precise INP value, computed with a higher-resolution timer that the standard build does not have access to",
+      "Automatic sending of each metric to Google's CrUX dataset, so Search Console updates faster",
+      "Support for Safari and Firefox, which the standard build does not measure"
+    ],
+    "answer": 0,
+    "explain": "The attribution build reports the same values but adds debugging data: for INP, interactionTarget, inputDelay, processingDuration, presentationDelay, loadState and longestScript. The value itself is identical in both builds, and nothing is sent to CrUX, which collects its own data from Chrome."
+  },
+  {
+    "id": "m26.q7",
+    "module": "m26",
+    "section": "lcp",
+    "q": "The hero image of the product page has <code>loading=\"lazy\"</code>. What happens to LCP?",
+    "options": [
+      "Nothing changes: the browser ignores <code>loading=\"lazy\"</code> on images that are already in the viewport",
+      "LCP improves, because the browser can download the hero in parallel with the render-blocking CSS",
+      "LCP is no longer measured on the page, since lazy-loaded images are excluded from the candidates",
+      "The request waits for layout, which adds load delay; measured, it started at about 550 ms instead of 20 ms"
+    ],
+    "answer": 3,
+    "explain": "A lazy image cannot be fetched by the preload scanner: the browser waits for layout to know whether it is near the viewport, even when it is in it. web.dev says never to lazy-load the LCP image. The first option is the common belief, but the decision needs layout, which waits for the stylesheet."
+  },
+  {
+    "id": "m26.q8",
+    "module": "m26",
+    "section": "lcp",
+    "q": "The storefront renders its hero with <code>next/image</code> and only <code>src</code>, <code>alt</code>, <code>width</code> and <code>height</code>. What does the Next.js 16 documentation say to change?",
+    "options": [
+      "Nothing: next/image detects the largest image above the fold and raises its priority automatically",
+      "Add the <code>priority</code> prop, which Next.js 16 recommends for every image that might be the LCP element",
+      "It is lazy by default: set <code>loading=\"eager\"</code> or <code>fetchPriority=\"high\"</code>, and add <code>sizes</code>",
+      "Replace it with a CSS background image, which the browser fetches together with the stylesheet"
+    ],
+    "answer": 2,
+    "explain": "The Image docs give lazy as the default loading and recommend loading=\"eager\" or fetchPriority=\"high\" for the LCP image in most cases; without sizes, the browser assumes 100vw. Next.js 16 deprecated priority in favour of preload. A CSS background is invisible to the preload scanner, which makes LCP later."
+  },
+  {
+    "id": "m26.q9",
+    "module": "m26",
+    "section": "cls",
+    "q": "A gallery image without dimensions sits above the price. Measured on a 1000 by 800 viewport, it produced a shift of 0.13 when it loaded. Which fix brought CLS to 0?",
+    "options": [
+      "<code>width</code> and <code>height</code> attributes, with <code>height: auto</code> in CSS, so the box is reserved",
+      "Adding <code>loading=\"lazy\"</code> to the image, so it no longer competes with the price for bandwidth",
+      "Adding <code>fetchpriority=\"high\"</code> so the image always arrives before the text below it is painted",
+      "Wrapping the price in a <code>position: sticky</code> container so it keeps its place on screen"
+    ],
+    "answer": 0,
+    "explain": "With width and height, the browser knows the aspect ratio before the file arrives and lays out the right box, so nothing moves: measured CLS 0. Fetching the image sooner only shortens the window; the shift still happens when it arrives if the space was not reserved."
+  },
+  {
+    "id": "m26.q10",
+    "module": "m26",
+    "section": "cls",
+    "q": "Which of these layout shifts is excluded from CLS?",
+    "options": [
+      "A reviews widget that pushes content down 2 s after the user scrolls to it",
+      "The size table expanding 200 ms after the user taps \"Size guide\"",
+      "The page reflowing when the web font replaces the fallback font",
+      "A cookie banner inserted at the top of the page during load"
+    ],
+    "answer": 1,
+    "explain": "Shifts within 500 ms after a click, tap or key press are flagged hadRecentInput and excluded: the user asked for them. Scrolling is not such an input, so the reviews widget counts, and so do font swaps and banners inserted during load."
+  },
+  {
+    "id": "m26.q11",
+    "module": "m26",
+    "section": "inp-diagnose",
+    "q": "For one slow tap, the attribution reports input delay 340 ms, processing 3 ms, presentation 10 ms. What does that tell you?",
+    "options": [
+      "The tapped button's click handler is slow and must be optimised or split into smaller tasks",
+      "The page renders too many DOM nodes after the tap, so style and layout take too long",
+      "The network request started by the tap is slow, and the next paint waits for its response",
+      "Another task was holding the main thread when the user tapped, so the handlers started late"
+    ],
+    "answer": 3,
+    "explain": "Input delay is the time between the input and the start of the first handler, so a large value means something else held the main thread: script evaluation, hydration or a third-party task. The handler itself took 3 ms, and a slow DOM update would show as presentation delay. A network request does not block the next paint."
+  },
+  {
+    "id": "m26.q12",
+    "module": "m26",
+    "section": "inp-fix",
+    "q": "Why does web.dev prefer <code>await scheduler.yield()</code> to <code>await new Promise((r) => setTimeout(r, 0))</code> for breaking up a long handler?",
+    "options": [
+      "scheduler.yield() runs the rest of the function on another thread, so the main thread stays free for input",
+      "setTimeout does not let the browser paint between two tasks, while scheduler.yield() forces a frame first",
+      "Both end the task, but the scheduler.yield() continuation runs ahead of tasks of the same priority",
+      "scheduler.yield() works in every browser today, while setTimeout(0) is being deprecated for this use"
+    ],
+    "answer": 2,
+    "explain": "Both end the current task, so the browser can paint and handle input; measured, both kept a 300 ms handler's interaction at 16 ms or less when called before the work. The difference is the queue: scheduler.yield() continuations are prioritised, so other scripts do not slip in before the rest of your work. It is not in Safari, hence the setTimeout fallback."
+  },
+  {
+    "id": "m26.q13",
+    "module": "m26",
+    "section": "javascript",
+    "q": "The storefront renders product pages on the server, with the hero image in the HTML, and hydrates 600 KB of Client Components. Where does the hydration cost show up?",
+    "options": [
+      "In LCP, because the hero image cannot be painted until hydration ends",
+      "In TTFB, because the server must hydrate the components before sending HTML",
+      "In the input delay of taps during load (so INP), and in TBT in the lab",
+      "In CLS, because hydration re-renders every element and moves it"
+    ],
+    "answer": 2,
+    "explain": "Hydration runs component code in the browser to attach event handlers to the existing HTML, as long tasks during load; a tap in that window waits, which is input delay, and Lighthouse counts the blocking time as TBT. Hydration happens in the browser, not on the server, and a hero already in the server HTML is painted without waiting for it."
+  },
+  {
+    "id": "m26.q14",
+    "module": "m26",
+    "section": "inp-fix",
+    "q": "A colleague \"fixes\" the size filter like this. Measured in Chromium, about how long does the tap interaction take?",
+    "code": "chip.addEventListener('click', async () => {\n  chip.setAttribute('aria-pressed', 'true'); // visible feedback\n  await Promise.resolve(); // \"let the browser paint\"\n  filterProducts(); // about 300 ms of work\n});",
+    "lang": "ts",
+    "options": [
+      "About 300 ms: the code after <code>await</code> resumes in a microtask, before the browser can paint",
+      "Under 16 ms: the <code>await</code> ends the current task, so the frame is painted before the work",
+      "About 150 ms: the browser paints the pressed chip halfway through the filtering work",
+      "It depends on the network, because the promise resolves asynchronously after the next tick"
+    ],
+    "answer": 0,
+    "explain": "A resolved promise resumes the function in a microtask, and microtasks run before the browser leaves the task to render. Measured in Chromium: 304 to 312 ms with await Promise.resolve(), and the same with awaiting requestAnimationFrame, against 16 ms or less with scheduler.yield() or setTimeout. Async syntax does not end a task."
+  },
+  {
+    "id": "m26.q15",
+    "module": "m26",
+    "section": "inp-diagnose",
+    "q": "RUM shows that most poor INP values on product pages have <code>loadState</code> \"dom-content-loaded\", a large input delay, tiny processing, and a longest script served by the tag manager. Which change would you ship first?",
+    "options": [
+      "Wrap every click handler of the product page in <code>scheduler.yield()</code> so that they all paint sooner",
+      "Memoise the product page components so React re-renders less when the user taps",
+      "Increase the CDN cache time of the product pages so the HTML arrives faster",
+      "Load the tag manager later and after consent, and drop the tags not worth their cost"
+    ],
+    "answer": 3,
+    "explain": "The delay comes before your handlers run, during load, and the longest script is the tag manager's: the blocking task is not yours. Yielding inside your own handlers cannot shorten someone else's long task; measured, a tap behind a 400 ms tag task still took about 350 ms with yielding. Memoisation and caching address other phases or other metrics."
+  },
+  {
+    "id": "m26.q16",
+    "module": "m26",
+    "section": "cls",
+    "q": "What is the most effective fix for the layout shift in this component?",
+    "code": "import { useQuery } from '@tanstack/react-query';\n\nexport function PromoBanner() {\n  const { data } = useQuery({ queryKey: ['promo'], queryFn: fetchPromo });\n  if (!data) {\n    return null;\n  }\n  return <div className=\"promo-banner\">{data.message}</div>; // 80 px tall\n}\n// Rendered at the top of the product page, above the title.",
+    "lang": "tsx",
+    "options": [
+      "Fetch the promotion with a higher priority and cache it, so it arrives before the first paint",
+      "Reserve the banner's height while loading and when empty, so nothing below moves",
+      "Animate the banner's height from 0 to 80 px, so the content slides down smoothly instead of jumping",
+      "Render the banner only after the load event"
+    ],
+    "answer": 1,
+    "explain": "Measured in Chromium: an 80 px banner inserted at the top after 300 ms scored 0.029; with the slot reserved by min-height, 0. Arriving sooner shortens the delay but still shifts the page, and animating height or waiting for load only moves the shift in time; animating height also forces layout on every frame."
+  },
+  {
+    "id": "m26.q17",
+    "module": "m26",
+    "section": "lcp",
+    "q": "The LCP attribution of a product page reads: TTFB 300 ms, resource load delay 1,900 ms, resource load duration 400 ms, element render delay 100 ms. Which fix would you try first?",
+    "options": [
+      "Make the hero discoverable: an <code>&lt;img&gt;</code> in the server HTML with <code>fetchpriority=\"high\"</code>",
+      "Compress the hero image further and serve it as AVIF to make the download shorter",
+      "Move the HTML rendering to a faster server or region to cut the time to first byte",
+      "Reduce the JavaScript that runs after the image is downloaded, to shorten the render delay"
+    ],
+    "answer": 0,
+    "explain": "Load delay is 70% of the total, against a guideline under 10%: the browser starts the request late, typically because the image is lazy, a CSS background or inserted by JavaScript. Compression shortens the load duration, which is already reasonable; work on the biggest part first."
+  },
+  {
+    "id": "m26.q18",
+    "module": "m26",
+    "section": "lcp",
+    "q": "Another product page has a TTFB of 2.1 s at p75 and a well-optimised hero image. Which fix addresses the biggest part of its LCP?",
+    "options": [
+      "Add <code>fetchpriority=\"high\"</code> to the hero image so the browser requests it before anything else",
+      "Preload the brand font so the text is painted earlier",
+      "Serve the page from a CDN cache and remove redirects in front of it",
+      "Split the JavaScript bundle with dynamic imports so the page needs less code to start"
+    ],
+    "answer": 2,
+    "explain": "Nothing starts before the first byte of HTML, and 2.1 s is above web.dev's poor line for TTFB (1.8 s). Caching the page at the edge and avoiding redirects attack that part directly. Image priority and code splitting act after the first byte, so they cannot recover time spent waiting for the server."
+  },
+  {
+    "id": "m26.q19",
+    "module": "m26",
+    "section": "field-lab",
+    "q": "The team ships the LCP fix on Tuesday. On Wednesday, Search Console still shows the product pages as Poor. What do you tell the product manager?",
+    "options": [
+      "The fix failed: Search Console recomputes the report every night from the previous day's visits",
+      "Google must re-crawl the pages first, so request indexing for each product URL in Search Console",
+      "The report only updates after someone runs Lighthouse on the page in PageSpeed Insights",
+      "CrUX covers 28 days, so it moves slowly; check RUM p75 for the new release now"
+    ],
+    "answer": 3,
+    "explain": "Group metrics in the report come from 28 days of CrUX data, so one day of better visits barely moves the p75, and a validation runs a 28-day monitoring session. Your own RUM split by release shows the effect within hours. Requesting indexing does not change field data, which comes from real visits."
+  },
+  {
+    "id": "m26.q20",
+    "module": "m26",
+    "section": "rum",
+    "q": "What is wrong with this RUM code on mobile?",
+    "code": "import { onCLS, onINP, onLCP } from 'web-vitals';\nimport type { Metric } from 'web-vitals';\n\nconst metrics: Metric[] = [];\nonCLS((m) => metrics.push(m));\nonINP((m) => metrics.push(m));\nonLCP((m) => metrics.push(m));\n\nwindow.addEventListener('unload', () => {\n  void fetch('/api/vitals', { method: 'POST', body: JSON.stringify(metrics) });\n});",
+    "lang": "ts",
+    "options": [
+      "Metrics must be sent one by one as soon as they arrive, because batching them in an array loses the values reported later",
+      "<code>unload</code> often never fires on mobile and a plain fetch can be cancelled; use <code>visibilitychange</code> and <code>sendBeacon</code>",
+      "<code>onCLS</code> must be called after the load event, otherwise it misses the shifts that happen during load",
+      "The standard build cannot run in production; only the attribution build is meant for real users"
+    ],
+    "answer": 1,
+    "explain": "Mobile browsers often discard or freeze pages without firing unload, so those metrics are lost; the README sends on visibilitychange to hidden with sendBeacon, which survives the page going away. Batching is fine and the README shows a queue flushed that way. The library observes buffered entries, so calling it early is correct."
+  },
+  {
+    "id": "m26.q21",
+    "module": "m26",
+    "section": "rum",
+    "q": "The back office is a single-page app: agents load it once and navigate between orders all day. How do you get INP per screen instead of one value per day of work?",
+    "options": [
+      "Nothing can be done: Core Web Vitals exist only for full page loads, never for client-side route changes",
+      "Reload the page on every route change, so each screen becomes a new document with its own metrics",
+      "Use soft navigation measurement (Chrome 151+) with web-vitals 6 and <code>reportSoftNavs: true</code>",
+      "Call <code>onINP</code> again in every route component, so the measurement restarts for each screen"
+    ],
+    "answer": 2,
+    "explain": "Chrome enables soft navigation measurement by default from Chrome 151, and web-vitals 6 resets INP and CLS at each soft navigation when reportSoftNavs is set, labelling the metrics with the route's URL. The README warns against calling the functions repeatedly per page load, since each creates an observer for the page's lifetime. Forcing reloads trades responsiveness for measurement."
+  },
+  {
+    "id": "m26.q22",
+    "module": "m26",
+    "section": "vitals",
+    "q": "On mobile, 80% of product page visits have an LCP of 2.5 s or less, and the other 20% are between 3 and 6 s. What is the page's LCP status?",
+    "options": [
+      "Good: the 75th percentile is at most 2.5 s",
+      "Poor: some visits are above 4 s",
+      "Needs improvement: the average is above 2.5 s",
+      "Poor: more than 10% of visits are above the good line"
+    ],
+    "answer": 0,
+    "explain": "The status uses the 75th percentile: if 80% of visits are at or under 2.5 s, the p75 is too, so the page is good. The slowest quarter does not count, which is why p75 tolerates a long tail; neither the average nor the share of poor visits is used."
+  },
+  {
+    "id": "m26.q23",
+    "module": "m26",
+    "section": "javascript",
+    "q": "A Vite 8 app imports the size guide with <code>await import('./size-guide.js')</code> in a click handler, and <code>price.js</code> exports a function nothing imports. What does the production build contain?",
+    "code": "// main.js\nimport { formatPrice } from './price.js';\ndocument.body.append(formatPrice(12990));\ndocument.getElementById('size-guide').addEventListener('click', async () => {\n  const { renderSizeGuide } = await import('./size-guide.js');\n  renderSizeGuide(document.body);\n});",
+    "lang": "js",
+    "options": [
+      "One chunk with all three files, because Vite inlines dynamic imports in production builds",
+      "One chunk per source file, and the unused export kept in case something imports it at runtime",
+      "Two chunks, with the unused export of price.js still present in the entry chunk",
+      "An entry chunk without size-guide.js or the unused export, plus a size-guide chunk"
+    ],
+    "answer": 3,
+    "explain": "Measured with Vite 8.3.4: the dynamic import produced its own chunk (marked as a dynamic entry), and the unused export was absent from every chunk. That is code splitting and tree shaking together: the entry carries only what the first render needs."
+  },
+  {
+    "id": "m26.q24",
+    "module": "m26",
+    "section": "third-parties",
+    "q": "The chat widget adds a large script to every product page, but under 2% of visitors open it. Marketing refuses to remove it. What do you propose?",
+    "options": [
+      "Load it with <code>strategy=\"beforeInteractive\"</code> so it is ready the moment a visitor needs help",
+      "A facade: a static chat button that preconnects on hover and loads the real widget on click",
+      "Inline the vendor script into the HTML to save the extra request and the DNS lookup",
+      "Load it in a web worker with the Next.js <code>worker</code> strategy, off the main thread"
+    ],
+    "answer": 1,
+    "explain": "A facade keeps the visible feature and moves the cost to the 2% who use it, as Lighthouse's third-party facades guidance describes. beforeInteractive is for scripts that must run before anything else, and would make load worse. The worker strategy is documented as not stable and not working with the App Router."
+  },
+  {
+    "id": "m26.q25",
+    "module": "m26",
+    "section": "budgets",
+    "q": "With this Lighthouse CI file, what happens on a pull request whose median-run LCP is 2.3 s and whose scripts weigh 380,000 bytes?",
+    "code": "{\n  \"ci\": {\n    \"collect\": { \"numberOfRuns\": 5 },\n    \"assert\": {\n      \"assertions\": {\n        \"largest-contentful-paint\": [\"error\", { \"maxNumericValue\": 2500, \"aggregationMethod\": \"median-run\" }],\n        \"resource-summary:script:size\": [\"error\", { \"maxNumericValue\": 350000 }],\n        \"total-blocking-time\": [\"warn\", { \"maxNumericValue\": 200 }]\n      }\n    }\n  }\n}",
+    "lang": "json",
+    "options": [
+      "It passes: LCP is under 2.5 s, and resource size budgets can only produce warnings",
+      "It passes, because sizes are in kilobytes and the limit is read as 350,000 KB",
+      "It fails on the script size: the limit is in bytes and 380,000 exceeds it",
+      "It fails on LCP, because Lighthouse CI judges the worst of the five runs by default"
+    ],
+    "answer": 2,
+    "explain": "An error-level assertion fails the job, and the Lighthouse CI docs give resource-summary sizes in bytes (budget.json used kilobytes). LCP passes because median-run is set explicitly; without an aggregation method the default is optimistic, the value most likely to pass, not the worst run."
+  },
+  {
+    "id": "m26.q26",
+    "module": "m26",
+    "section": "budgets",
+    "q": "The CI machines are shared and Lighthouse timings vary by 30% between runs. Which budget do you make blocking on every pull request?",
+    "options": [
+      "The byte budgets, which are deterministic; timings use a median of runs and a margin",
+      "The LCP budget on a single run with an exact 2.5 s threshold, so every regression is caught",
+      "The overall Lighthouse performance score at 90 or more, which sums up all the metrics at once",
+      "None: performance can only be checked in the field, after real users have visited"
+    ],
+    "answer": 0,
+    "explain": "The same build always ships the same bytes, so a byte budget fails only when the code really grew. A single-run timing on a noisy machine fails at random, and teams learn to ignore it. Field data confirms the result after release but cannot stop a regression before merge."
+  },
+  {
+    "id": "m26.q27",
+    "module": "m26",
+    "section": "senior",
+    "q": "The back office has a p75 INP of 120 ms. A manager asks you to spend two weeks rewriting its orders table to raise its Lighthouse score from 70 to 95. What is the senior answer?",
+    "options": [
+      "Accept: a higher Lighthouse score improves the app's ranking in Google Search results",
+      "Accept, but first move the table rendering to a web worker so the score rises faster",
+      "Refuse any performance work on internal tools, since Core Web Vitals only matter for SEO",
+      "Push back: field INP is already good and the app is not indexed; invest where agents feel slowness"
+    ],
+    "answer": 3,
+    "explain": "Field p75 says the interactions agents feel are already good, and an internal app has no search ranking to gain. The senior move is to ask what users feel and invest there, not to chase a lab score. Refusing all performance work goes too far: INP on internal tools still costs agents time when it is poor."
+  },
+  {
+    "id": "m26.q28",
+    "module": "m26",
+    "section": "inp-fix",
+    "q": "The filter handler now shows the selection and yields, then runs 300 ms of work in one block. A user taps a second size 100 ms after the first. Measured in Chromium, what happens to the second tap, and what fixes it?",
+    "options": [
+      "Nothing: the first yield already ended the interaction, so all later taps are fast too",
+      "It waits about 200 ms; slicing the work with yields brought it to about 20 ms",
+      "It cancels the first filter, because the browser aborts the running task when new input arrives",
+      "It is dropped: the browser discards input that arrives during a long task"
+    ],
+    "answer": 1,
+    "explain": "The yield helps the first tap paint, but the 300 ms block that follows is still one long task, and the second tap waits for it as input delay: measured about 200 ms. With 20 ms slices and yields, the second tap got its turn within a slice: 16 to 24 ms. Browsers never discard or abort input or tasks this way."
+  },
+  {
+    "id": "m26.q29",
+    "module": "m26",
+    "section": "cls",
+    "q": "CLS attribution points at the product description: it rewraps when the brand font arrives. The team uses <code>font-display: swap</code>. Which change removes the shift while keeping text visible immediately?",
+    "options": [
+      "Switch to <code>font-display: block</code>, so the text waits for the brand font and never swaps",
+      "Load the font file with JavaScript after the load event, once the layout has already settled",
+      "An adjusted fallback (<code>size-adjust</code>, <code>ascent-override</code>), or <code>next/font</code>, which generates it",
+      "Preload the font and keep everything else unchanged"
+    ],
+    "answer": 2,
+    "explain": "The shift comes from the two fonts taking different space; an adjusted fallback takes the same space, so the swap changes the glyphs but not the layout. next/font does this by default with adjustFontFallback. Blocking hides the text, which is what swap avoids, and preloading alone only shortens the window before the shift."
+  },
+  {
+    "id": "m26.q30",
+    "module": "m26",
+    "section": "senior",
+    "q": "An interviewer asks: \"Our site feels slow. Where would you start?\" Which answer shows the senior approach?",
+    "options": [
+      "Ask for field p75 by page type and device, take the worst metric, and split it into parts",
+      "Run Lighthouse on the home page and fix every audit it lists, starting with the highest weight",
+      "Upgrade to the latest framework version, which ships the newest performance optimisations",
+      "Add memoisation to every component to cut re-renders"
+    ],
+    "answer": 0,
+    "explain": "Field data says where users suffer and which metric is poor; splitting it (LCP parts, INP phases) says which fix will move it. Fixing every Lighthouse audit spends time on items with no field impact, and blanket memoisation or upgrades are solutions looking for a problem."
+  }
+]

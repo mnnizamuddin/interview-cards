@@ -23,7 +23,8 @@ Progress is stored in IndexedDB **on the device only**. Use "Back up" and "Resto
 pnpm dev          # http://localhost:5180
 pnpm test         # unit, content and app tests (frozen clock and random source)
 pnpm build        # type-check and build to dist/
-pnpm import-mcq   # re-copy track questions into src/content/mcq.generated.json
+pnpm import-mcq   # re-copy track questions into src/content/mcq/mXX.json, one file per module
+pnpm topics       # rebuild the light topic list the home screen reads, after adding or moving cards
 pnpm icons        # redraw the PNG icons
 ```
 

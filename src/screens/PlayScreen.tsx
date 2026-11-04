@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { CARDS_BY_ID, MCQS_BY_CARD, MCQS_BY_ID, UNITS } from '../content/index.ts';
+import { UNITS } from '../content/catalog.ts';
+import type { Content } from '../content/load.ts';
 import type { Card } from '../content/types.ts';
 import { CodeChoiceExercise } from '../exercises/CodeChoiceExercise.tsx';
 import { McqExercise } from '../exercises/McqExercise.tsx';
@@ -24,7 +25,7 @@ const UNIT_TITLES = new Map(UNITS.map((unit) => [unit.id, unit.title]));
  * shown: it is pure recall.
  */
 export function PlayScreen({
-  cards,
+  content,
   title,
   teach,
   progress,
@@ -33,7 +34,8 @@ export function PlayScreen({
   now,
   random = Math.random,
 }: {
-  cards: Card[];
+  /** The cards to play, already downloaded. */
+  content: Content;
   title: string;
   teach: boolean;
   progress: Progress;
@@ -43,7 +45,8 @@ export function PlayScreen({
   now: () => number;
   random?: () => number;
 }) {
-  const [queue, setQueue] = useState<Exercise[]>(() => nextExercises(cards, MCQS_BY_CARD, progress, { now: now(), random, teach }));
+  const { cards } = content;
+  const [queue, setQueue] = useState<Exercise[]>(() => nextExercises(cards, content.mcqsByCard, progress, { now: now(), random, teach }));
   const [series, setSeries] = useState<Series>(startSeries);
   const [turn, setTurn] = useState(0);
   const [reviewing, setReviewing] = useState(false);
@@ -52,7 +55,7 @@ export function PlayScreen({
 
   const replay = currentReplay(series);
   const current = replay ?? (series.phase === 'questions' ? queue[0] : undefined);
-  const card = current ? CARDS_BY_ID.get(current.cardId) : undefined;
+  const card = current ? content.cardsById.get(current.cardId) : undefined;
 
   function nextTurn() {
     setTurn((value) => value + 1);
@@ -61,7 +64,7 @@ export function PlayScreen({
 
   function advanceQueue(updated: Progress) {
     const rest = queue.slice(1);
-    setQueue(rest.length > 0 ? rest : nextExercises(cards, MCQS_BY_CARD, updated, { now: now(), random, teach }));
+    setQueue(rest.length > 0 ? rest : nextExercises(cards, content.mcqsByCard, updated, { now: now(), random, teach }));
   }
 
   function finishLesson(exercise: Exercise) {
@@ -79,7 +82,7 @@ export function PlayScreen({
     const becameHandled = !wasHandled && isHandled(updated.topics[exercise.cardId], at);
     onProgress(updated);
     setSeries((value) => recordFirstPass(value, exercise, correct, becameHandled));
-    setJustHandled(becameHandled ? (CARDS_BY_ID.get(exercise.cardId)?.topic ?? null) : null);
+    setJustHandled(becameHandled ? (content.cardsById.get(exercise.cardId)?.topic ?? null) : null);
     advanceQueue(updated);
     nextTurn();
   }
@@ -92,12 +95,12 @@ export function PlayScreen({
 
   function startNextSeries() {
     setSeries(startSeries());
-    setQueue(nextExercises(cards, MCQS_BY_CARD, progress, { now: now(), random, teach }));
+    setQueue(nextExercises(cards, content.mcqsByCard, progress, { now: now(), random, teach }));
     setJustHandled(null);
     nextTurn();
   }
 
-  const reviewedCard = reviewingTopic ? CARDS_BY_ID.get(reviewingTopic) : undefined;
+  const reviewedCard = reviewingTopic ? content.cardsById.get(reviewingTopic) : undefined;
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
@@ -144,7 +147,7 @@ export function PlayScreen({
           reviewedCard ? (
             <LessonView card={reviewedCard} unitTitle={UNIT_TITLES.get(reviewedCard.unit) ?? ''} actionLabel="Back to the summary" onDone={() => setReviewingTopic(null)} />
           ) : (
-            <SeriesSummary series={series} onReviewLesson={teach ? setReviewingTopic : undefined} onNext={startNextSeries} onExit={onStop} />
+            <SeriesSummary series={series} cardsById={content.cardsById} onReviewLesson={teach ? setReviewingTopic : undefined} onNext={startNextSeries} onExit={onStop} />
           )
         ) : (
           current &&
@@ -158,6 +161,7 @@ export function PlayScreen({
                   key={turn}
                   exercise={current}
                   card={card}
+                  mcqsById={content.mcqsById}
                   onLessonDone={() => finishLesson(current)}
                   onAnswer={(result) => (replay ? finishReplay(result) : finishQuestion(current, result))}
                   onReviewLesson={teach ? () => setReviewing(true) : undefined}
@@ -192,11 +196,13 @@ function SeriesCounter({ series }: { series: Series }) {
 
 function SeriesSummary({
   series,
+  cardsById,
   onReviewLesson,
   onNext,
   onExit,
 }: {
   series: Series;
+  cardsById: Content['cardsById'];
   /** Absent in the main mode, which never shows lessons. */
   onReviewLesson?: (cardId: string) => void;
   onNext: () => void;
@@ -216,7 +222,7 @@ function SeriesSummary({
           <ul className="flex flex-col gap-2">
             {series.handledTopics.map((cardId) => (
               <li key={cardId} className="rounded-2xl bg-brand-soft px-4 py-3 font-semibold text-brand">
-                ✓ {CARDS_BY_ID.get(cardId)?.topic}
+                ✓ {cardsById.get(cardId)?.topic}
               </li>
             ))}
           </ul>
@@ -228,9 +234,9 @@ function SeriesSummary({
           <ul className="flex flex-col gap-2">
             {series.missedTopics.map((cardId) => (
               <li key={cardId} className="flex items-center gap-3 rounded-2xl bg-surface px-4 py-3">
-                <span className="flex-1 font-semibold">{CARDS_BY_ID.get(cardId)?.topic}</span>
+                <span className="flex-1 font-semibold">{cardsById.get(cardId)?.topic}</span>
                 {onReviewLesson && (
-                  <Button variant="ghost" className="shrink-0 text-sky-500" onClick={() => onReviewLesson(cardId)} aria-label={`Lesson on ${CARDS_BY_ID.get(cardId)?.topic}`}>
+                  <Button variant="ghost" className="shrink-0 text-sky-500" onClick={() => onReviewLesson(cardId)} aria-label={`Lesson on ${cardsById.get(cardId)?.topic}`}>
                     Lesson
                   </Button>
                 )}
@@ -254,12 +260,14 @@ function SeriesSummary({
 function ExerciseView({
   exercise,
   card,
+  mcqsById,
   onLessonDone,
   onAnswer,
   onReviewLesson,
 }: {
   exercise: Exercise;
   card: Card;
+  mcqsById: Content['mcqsById'];
   onLessonDone: () => void;
   onAnswer: (result: ExerciseResult) => void;
   /** Absent in the main mode, which never shows lessons. */
@@ -275,7 +283,7 @@ function ExerciseView({
     case 'trap':
       return <TrapExercise trap={card.traps[exercise.index]!} onDone={onAnswer} onReviewLesson={onReviewLesson} />;
     case 'mcq': {
-      const mcq = MCQS_BY_ID.get(exercise.mcqId);
+      const mcq = mcqsById.get(exercise.mcqId);
       return mcq ? <McqExercise mcq={mcq} onDone={onAnswer} onReviewLesson={onReviewLesson} /> : <p>Unknown question.</p>;
     }
     case 'codeChoice':

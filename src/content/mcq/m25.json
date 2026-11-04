@@ -1,0 +1,430 @@
+[
+  {
+    "id": "m25.q1",
+    "module": "m25",
+    "section": "navigation",
+    "q": "The storefront moves from HTTP/2 to HTTP/3. What changes in how a new connection is set up?",
+    "options": [
+      "TCP still opens the connection, but TLS is skipped because QUIC already encrypts every packet",
+      "QUIC runs over UDP and carries the TLS 1.3 handshake: one round trip for most new connections",
+      "The DNS lookup is skipped because the Alt-Svc header already gives the browser the server address",
+      "The browser opens one connection per resource, which removes head-of-line blocking between them"
+    ],
+    "answer": 1,
+    "explain": "RFC 9001 says QUIC carries the TLS 1.3 handshake and that most new connections are \"established and secured within a single round trip\". Alt-Svc only advertises that HTTP/3 is available; it does not replace DNS. HTTP/3 removes head-of-line blocking by multiplexing streams in QUIC, not by opening more connections."
+  },
+  {
+    "id": "m25.q2",
+    "module": "m25",
+    "section": "parsing",
+    "q": "A classic script in the head of the product page takes 800 ms to arrive. Which resource does the browser <b>not</b> start downloading during those 800 ms?",
+    "options": [
+      "The product photo in an <code>&lt;img src&gt;</code> further down the HTML",
+      "A stylesheet referenced by a <code>&lt;link rel=\"stylesheet\"&gt;</code> after the script",
+      "A background image declared in an inline <code>&lt;style&gt;</code> block",
+      "An <code>async</code> script referenced further down the HTML"
+    ],
+    "answer": 2,
+    "explain": "The preload scanner reads the markup and fetches what has a src or href, so the photo, the stylesheet and the async script start early (the photo was requested after 34 ms in the measurement). A CSS background is only known once styles are applied to an element, which happened after the script ran, at about 840 ms."
+  },
+  {
+    "id": "m25.q3",
+    "module": "m25",
+    "section": "css",
+    "q": "The head of a page holds a stylesheet that takes 800 ms and no script. What do you observe?",
+    "options": [
+      "<code>DOMContentLoaded</code> fires early, and the first paint waits for the stylesheet",
+      "Both <code>DOMContentLoaded</code> and the first paint wait for the stylesheet",
+      "The page paints unstyled content first, then repaints when the stylesheet arrives",
+      "Neither waits: stylesheets never block anything in modern browsers"
+    ],
+    "answer": 0,
+    "explain": "Measured in Chromium: DOMContentLoaded at 24 ms, first paint at 872 ms. CSS blocks rendering, not parsing. DOMContentLoaded would wait only if a classic script followed the stylesheet, because that script waits for the CSS. Browsers do not paint unstyled content first on purpose: that is what render blocking prevents."
+  },
+  {
+    "id": "m25.q4",
+    "module": "m25",
+    "section": "scripts",
+    "q": "Two <code>defer</code> scripts are in the HTML: <code>app.js</code> (arrives after 600 ms), then <code>product-page.js</code> (arrives after 100 ms). When does <code>product-page.js</code> run?",
+    "options": [
+      "At 100 ms, as soon as it arrives, even if <code>app.js</code> is still loading",
+      "Right after the parser reaches its tag, before the rest of the HTML is parsed",
+      "After <code>DOMContentLoaded</code>, in the order the files arrived from the server",
+      "After <code>app.js</code>, once parsing is done and before <code>DOMContentLoaded</code>"
+    ],
+    "answer": 3,
+    "explain": "Deferred scripts run after parsing, in document order, before DOMContentLoaded: measured, both ran at about 640 ms, app.js first. Running on arrival is the async behaviour. That is why one slow deferred script delays every deferred script after it."
+  },
+  {
+    "id": "m25.q5",
+    "module": "m25",
+    "section": "pipeline",
+    "q": "The sticky add-to-cart bar slides in. Which property lets the browser animate it without running layout?",
+    "options": [
+      "<code>transform: translateY()</code>",
+      "<code>bottom</code>, animated from -60px to 0",
+      "<code>margin-top</code>, animated with a transition",
+      "<code>height</code>, animated from 0 to 60px"
+    ],
+    "answer": 0,
+    "explain": "transform and opacity can be handled by the compositor without layout or paint; measured in Chromium, a transform change caused a style recalculation and no layout. bottom, margin-top and height are geometry: each change runs layout, and in an animation that happens on every frame."
+  },
+  {
+    "id": "m25.q6",
+    "module": "m25",
+    "section": "events",
+    "q": "A listener is on the grid, and the customer clicks the icon inside an Add to cart button. In the grid's listener, what are <code>event.target</code> and <code>event.currentTarget</code>?",
+    "options": [
+      "Both are the button",
+      "target is the grid, currentTarget is the icon",
+      "target is the icon, currentTarget is the grid",
+      "target is the button, currentTarget is the document"
+    ],
+    "answer": 2,
+    "explain": "target is the element that was actually clicked, the deepest one, here the icon. currentTarget is the element whose listener is running, here the grid. That is why delegation uses target.closest('button') rather than assuming target is the button."
+  },
+  {
+    "id": "m25.q7",
+    "module": "m25",
+    "section": "events",
+    "q": "Why does a delegated listener on the grid also work for cards loaded after it was registered?",
+    "options": [
+      "Because the browser copies listeners onto new children automatically",
+      "Because clicks on new cards bubble up to the grid's single listener",
+      "Because <code>closest()</code> registers a listener on each matching element",
+      "Because the capture phase starts at the grid rather than at window"
+    ],
+    "answer": 1,
+    "explain": "A click on any descendant bubbles through its ancestors, so the grid's listener runs whatever card was clicked, including one inserted later (measured). Browsers never copy listeners to new elements, and closest() only walks up the tree; it registers nothing."
+  },
+  {
+    "id": "m25.q8",
+    "module": "m25",
+    "section": "thrashing",
+    "q": "What is a forced synchronous layout?",
+    "options": [
+      "A layout the browser runs once per frame, just before paint",
+      "A layout triggered by a CSS animation running on the compositor thread instead of the main thread",
+      "A layout caused by a web font finishing to load and replacing the fallback font",
+      "A layout run immediately because a script reads geometry after a style change"
+    ],
+    "answer": 3,
+    "explain": "Reading offsetHeight or getBoundingClientRect() after a style change forces the browser to compute layout right away, inside the script. The once-per-frame layout is the normal case. In the measurement, 500 interleaved reads and writes forced 500 layouts."
+  },
+  {
+    "id": "m25.q9",
+    "module": "m25",
+    "section": "storage",
+    "q": "The server sets <code>sid=…; HttpOnly</code> and <code>theme=dark</code>. What does <code>document.cookie</code> return, and what does a fetch to the same site send?",
+    "options": [
+      "Both cookies, and the fetch sends both of them",
+      "An empty string, and the fetch sends only <code>theme</code>",
+      "<code>theme=dark</code>, and the fetch sends only <code>theme</code>",
+      "<code>theme=dark</code>; the fetch sends both"
+    ],
+    "answer": 3,
+    "explain": "HttpOnly hides a cookie from JavaScript, not from the network: measured, document.cookie showed theme=dark while the fetch carried sid and theme. That is the point of HttpOnly for a session: the browser still authenticates requests, and an injected script cannot read the id."
+  },
+  {
+    "id": "m25.q10",
+    "module": "m25",
+    "section": "cors",
+    "q": "The storefront sends <code>fetch('https://api.shop.example/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })</code>. What does the browser send first?",
+    "options": [
+      "The POST, then an OPTIONS request only if the POST is rejected",
+      "An OPTIONS preflight, then the POST if the answer allows it",
+      "The POST directly, because POST is a CORS-safelisted method",
+      "A HEAD request first, to check that the Orders API is reachable"
+    ],
+    "answer": 1,
+    "explain": "application/json is not one of the three safelisted content types, so the request is not simple and needs a preflight; measured, the API without CORS headers received only the OPTIONS. POST is safelisted only with text/plain, multipart/form-data or application/x-www-form-urlencoded."
+  },
+  {
+    "id": "m25.q11",
+    "module": "m25",
+    "section": "caching",
+    "q": "The HTML is served with <code>Cache-Control: no-cache</code> and an <code>ETag</code>. What happens on the repeat visit?",
+    "options": [
+      "Nothing is stored for it, so the HTML is downloaded again in full each time",
+      "The stored copy is reused directly, without any request to the server",
+      "A conditional request with <code>If-None-Match</code>, answered 304 if unchanged",
+      "The stored copy is shown at once and refreshed from the server in the background"
+    ],
+    "answer": 2,
+    "explain": "no-cache allows storing but requires revalidation before each reuse; with an ETag that is a conditional request answered by 304 Not Modified. Measured: only 300 bytes of headers were transferred. \"Never stored\" is no-store, and refreshing in the background is stale-while-revalidate."
+  },
+  {
+    "id": "m25.q12",
+    "module": "m25",
+    "section": "instant",
+    "q": "How does a page learn that it was just restored from the back/forward cache?",
+    "options": [
+      "A second <code>DOMContentLoaded</code> event fires on the document",
+      "A <code>pageshow</code> event with <code>event.persisted</code> equal to <code>true</code>",
+      "A <code>load</code> event fires again, with a <code>fromCache</code> flag set to true",
+      "A <code>visibilitychange</code> event with the state \"restored\""
+    ],
+    "answer": 1,
+    "explain": "On a bfcache restore, pageshow fires with persisted set to true (web.dev). The page is not loaded again, so DOMContentLoaded and load do not fire; neither has a fromCache flag, and \"restored\" is not a visibility state."
+  },
+  {
+    "id": "m25.q13",
+    "module": "m25",
+    "section": "scripts",
+    "q": "Each file's arrival time is in the comment. In which order do the four scripts run?",
+    "code": "<script defer src=\"/a.js\"></script>  <!-- 600 ms -->\n<script async src=\"/b.js\"></script>  <!-- 500 ms -->\n<script async src=\"/c.js\"></script>  <!-- 50 ms -->\n<script type=\"module\" src=\"/d.js\"></script>  <!-- 50 ms -->",
+    "lang": "html",
+    "options": [
+      "a, b, c, d",
+      "c, d, b, a",
+      "c, b, a, d",
+      "d, c, b, a"
+    ],
+    "answer": 2,
+    "explain": "Async scripts run on arrival: c at 50 ms, b at 500 ms. The module is deferred by default, so it waits for parsing and runs after a, keeping document order with defer scripts. Measured in Chromium with the same delays. \"c, d, b, a\" treats the module like async, which it is only with the async attribute."
+  },
+  {
+    "id": "m25.q14",
+    "module": "m25",
+    "section": "events",
+    "q": "What does this log when the button itself is clicked, in a current Chromium?",
+    "code": "addButton.addEventListener('click', () => console.log('bubble listener'));\naddButton.addEventListener('click', () => console.log('capture listener'), { capture: true });\naddButton.click();",
+    "lang": "ts",
+    "options": [
+      "capture listener, then bubble listener",
+      "bubble listener, then capture listener",
+      "Only bubble listener",
+      "Only capture listener"
+    ],
+    "answer": 0,
+    "explain": "Measured in Chromium 156: at the target, capturing listeners run before non-capturing ones, whatever the registration order. Registration order would put the bubble listener first, which was the old behaviour at the target. Both always run, since neither stops propagation."
+  },
+  {
+    "id": "m25.q15",
+    "module": "m25",
+    "section": "events",
+    "q": "After a consent banner script was added, no Add to cart button reacts anymore, although their listeners are still registered. What is the most likely cause?",
+    "options": [
+      "The banner set <code>pointer-events: auto</code> on the body",
+      "The banner added a bubble listener on the document that calls <code>preventDefault()</code>",
+      "The banner replaced <code>EventTarget.prototype.addEventListener</code>",
+      "The banner calls <code>stopPropagation()</code> in a capture listener on the document"
+    ],
+    "answer": 3,
+    "explain": "A capture listener on document runs before any listener deeper in the tree, and stopPropagation() there stops the event before it reaches the buttons (measured). preventDefault() cancels only the default action and does not stop other listeners, and a bubble listener on document runs after the buttons anyway."
+  },
+  {
+    "id": "m25.q16",
+    "module": "m25",
+    "section": "thrashing",
+    "q": "This runs on every resize for 500 cards and took 540 to 640 ms in Chromium on a laptop. Which change would you ship first?",
+    "code": "for (const card of cards) {\n  card.style.minHeight = '';\n  card.style.minHeight = card.offsetHeight + 'px';\n}",
+    "lang": "ts",
+    "options": [
+      "Wrap the loop in <code>requestIdleCallback</code> so it runs when the page is idle",
+      "Delete the script: the CSS grid row already stretches the cards",
+      "Read <code>getBoundingClientRect()</code> instead of <code>offsetHeight</code>, which is cheaper",
+      "Debounce the resize handler so the loop runs at most every 200 ms"
+    ],
+    "answer": 1,
+    "explain": "Each iteration writes then reads, forcing a layout per card. Grid items already stretch to the row height (measured: 252 px for both cards), so the script is not needed at all. getBoundingClientRect() also forces layout, and debouncing only makes the half-second freeze rarer."
+  },
+  {
+    "id": "m25.q17",
+    "module": "m25",
+    "section": "thrashing",
+    "q": "The sticky bar must appear when the main Add to cart button leaves the screen. Which implementation would you ship?",
+    "options": [
+      "An <code>IntersectionObserver</code> on the main button that toggles the bar",
+      "A scroll listener that reads <code>getBoundingClientRect()</code> on the button each time",
+      "A scroll listener, throttled to 100 ms, that reads the button's <code>offsetTop</code>",
+      "A <code>setInterval</code> every 50 ms that compares <code>scrollY</code> with the button position"
+    ],
+    "answer": 0,
+    "explain": "The observer calls back only when visibility changes (measured: 2 callbacks for 10 scroll events) and the page reads no geometry. The other three read layout on a schedule; throttling reduces the cost but still reads geometry on the main thread during scrolling."
+  },
+  {
+    "id": "m25.q18",
+    "module": "m25",
+    "section": "pipeline",
+    "q": "A designer asks for the size selector to highlight with a new <code>background-color</code>. Which steps of the pipeline does the change run?",
+    "options": [
+      "Style, layout, paint and composite",
+      "Only composite",
+      "Style, paint and composite",
+      "Only layout"
+    ],
+    "answer": 2,
+    "explain": "A colour changes pixels but not geometry, so layout is skipped: measured, a background change caused a style recalculation and no layout. Composite-only is reserved for transform and opacity, and layout never runs alone without style before it."
+  },
+  {
+    "id": "m25.q19",
+    "module": "m25",
+    "section": "storage",
+    "q": "The storefront gets an access token after login. A colleague proposes storing it in IndexedDB \"because it is not localStorage\". What would you ship instead?",
+    "options": [
+      "Keep IndexedDB, but encrypt the token with a key stored in the same database",
+      "Store it in <code>sessionStorage</code>, so it is deleted when the customer closes the tab",
+      "Store it in a non-HttpOnly cookie so both the server and the page can read it",
+      "Tokens stay on the server (BFF); the browser gets an <code>HttpOnly</code> session cookie"
+    ],
+    "answer": 3,
+    "explain": "OWASP notes that one XSS can read all of Web Storage and IndexedDB, and an encryption key stored in the same place is readable too. sessionStorage shortens the lifetime but is just as readable by an injected script. Only an HttpOnly cookie keeps the credential out of JavaScript entirely (M12)."
+  },
+  {
+    "id": "m25.q20",
+    "module": "m25",
+    "section": "storage",
+    "q": "What does this print?",
+    "code": "localStorage.setItem('cart', { items: 2 });\nlocalStorage.setItem('count', 3);\nconsole.log(localStorage.getItem('cart'), typeof localStorage.getItem('count'));",
+    "lang": "js",
+    "options": [
+      "{ items: 2 } number",
+      "[object Object] string",
+      "It throws a TypeError on the first line",
+      "{\"items\":2} string"
+    ],
+    "answer": 1,
+    "explain": "Web Storage keeps strings only and converts values with String(), so the object becomes \"[object Object]\" and 3 becomes \"3\" (measured). Nothing throws, and nothing calls JSON.stringify for you: you must serialise and validate yourself."
+  },
+  {
+    "id": "m25.q21",
+    "module": "m25",
+    "section": "storage",
+    "q": "Tab A updates <code>localStorage.cartCount</code>. Tabs A and B both listen to the <code>storage</code> event. Which tabs receive it?",
+    "options": [
+      "Only tab B",
+      "Only tab A",
+      "Both tabs",
+      "Neither: the event is for sessionStorage only"
+    ],
+    "answer": 0,
+    "explain": "The storage event fires in the other documents of the same origin, not in the one that made the change (measured). That makes it a cheap way to sync a cart badge across tabs; the writing tab updates its own UI directly."
+  },
+  {
+    "id": "m25.q22",
+    "module": "m25",
+    "section": "cors",
+    "q": "Which of these cross-origin calls from the storefront is sent <b>without</b> a preflight?",
+    "options": [
+      "<code>DELETE /cart/items/42</code> with no body",
+      "<code>POST /orders</code> with <code>Content-Type: application/json</code>",
+      "<code>POST /newsletter</code> with a form-urlencoded body",
+      "<code>GET /orders/123</code> with an <code>Authorization</code> header"
+    ],
+    "answer": 2,
+    "explain": "POST with a form-urlencoded body and no custom header is a simple request (measured: no OPTIONS). DELETE is not a safelisted method, application/json is not a safelisted content type, and Authorization is not a safelisted header, so the other three are preflighted."
+  },
+  {
+    "id": "m25.q23",
+    "module": "m25",
+    "section": "cors",
+    "q": "The Orders API logs show <code>POST /cart/items</code> with <code>Content-Type: text/plain</code> arriving from the storefront, but the page reports \"Failed to fetch\". What is going on?",
+    "options": [
+      "The preflight failed, and the browser then retried the POST without a preflight",
+      "Simple request: it was sent, but without CORS headers the page cannot read it",
+      "The browser sent the POST, then cancelled it before the server finished answering",
+      "The API rejected the request because text/plain bodies are not accepted on this route"
+    ],
+    "answer": 1,
+    "explain": "A simple request is sent without a preflight, and CORS only decides whether the page may read the answer: measured, the API received the POST while fetch rejected. Browsers never retry after a failed preflight. That is also why CORS is not a CSRF defence."
+  },
+  {
+    "id": "m25.q24",
+    "module": "m25",
+    "section": "cors",
+    "q": "The call uses <code>credentials: 'include'</code> and the API answers <code>Access-Control-Allow-Origin: *</code>. It fails. Which fix would you ship?",
+    "options": [
+      "Remove <code>credentials: 'include'</code> so the session cookie is no longer needed for the call",
+      "Add <code>Access-Control-Allow-Headers: *</code> to the preflight answer",
+      "Set <code>mode: 'no-cors'</code> on the fetch so the browser skips the CORS check",
+      "Echo the exact origin with <code>Allow-Credentials: true</code> and <code>Vary: Origin</code>"
+    ],
+    "answer": 3,
+    "explain": "For credentialed requests the wildcard is refused; the exact origin plus Allow-Credentials: true worked in the measurement. Vary: Origin stops a shared cache from serving one origin's answer to another. no-cors returns an opaque response the page cannot read, and dropping credentials breaks the cart session."
+  },
+  {
+    "id": "m25.q25",
+    "module": "m25",
+    "section": "cors",
+    "q": "The API returns <code>X-Request-Id</code> on every response, but <code>response.headers.get('x-request-id')</code> returns <code>null</code> in the storefront. Why?",
+    "options": [
+      "It is not safelisted: the API must list it in <code>Access-Control-Expose-Headers</code>",
+      "Custom headers are readable only when their name starts with <code>Access-Control-</code>",
+      "The preflight cache strips custom headers from the responses it applies to",
+      "<code>Headers.get</code> is case-sensitive, so the call must use <code>X-Request-Id</code> exactly"
+    ],
+    "answer": 0,
+    "explain": "Cross-origin responses expose only safelisted headers unless the server names others in Access-Control-Expose-Headers; measured, the value appeared once it was listed. Headers.get is case-insensitive, and the preflight cache stores permissions, not response headers."
+  },
+  {
+    "id": "m25.q26",
+    "module": "m25",
+    "section": "caching",
+    "q": "Which pair of <code>Cache-Control</code> headers would you ship for the hashed JavaScript files and for the product page HTML?",
+    "options": [
+      "Both <code>max-age=31536000, immutable</code>, and purge the CDN at each release",
+      "Both <code>no-store</code>, so customers always get the latest release",
+      "JavaScript <code>max-age=31536000, immutable</code>; HTML <code>no-cache</code> with an <code>ETag</code>",
+      "JavaScript <code>no-cache</code>; HTML <code>max-age=31536000, immutable</code>"
+    ],
+    "answer": 2,
+    "explain": "A hashed file never changes under its name, so it can be cached for a year; the HTML keeps its URL and must be revalidated to pick up releases. Caching the HTML for a year leaves browsers pointing at old asset names, and a CDN purge does not reach browser caches. no-store wastes every repeat visit."
+  },
+  {
+    "id": "m25.q27",
+    "module": "m25",
+    "section": "caching",
+    "q": "On a repeat visit, an image served with no <code>Cache-Control</code>, no <code>ETag</code> and no <code>Last-Modified</code> is downloaded in full again. Why?",
+    "options": [
+      "Images are never stored in the HTTP cache, only in the memory cache",
+      "No lifetime and no validator: the browser cannot reuse it",
+      "The preload scanner always bypasses the HTTP cache to save time",
+      "The service worker deleted it from the cache between the two visits"
+    ],
+    "answer": 1,
+    "explain": "Measured: hashed files with max-age were not requested and the HTML was revalidated with its ETag, but the image had neither a lifetime nor a validator, so it was fetched in full. Images are cached normally, and there was no service worker in that test."
+  },
+  {
+    "id": "m25.q28",
+    "module": "m25",
+    "section": "caching",
+    "q": "The team ships a service worker. On the very first visit, the server still receives every asset request. Why?",
+    "options": [
+      "Service workers start intercepting only after a second DNS lookup",
+      "The HTTP cache always answers asset requests before the service worker sees them",
+      "Service workers only intercept requests made over HTTP/3 connections",
+      "The registering page loaded before the worker existed, so it is not controlled"
+    ],
+    "answer": 3,
+    "explain": "Measured: the first visit was not controlled, the second was, and the third sent only the HTML request. The worker sits in front of the HTTP cache, not behind it, and it needs a secure context (HTTPS or localhost), not a given HTTP version."
+  },
+  {
+    "id": "m25.q29",
+    "module": "m25",
+    "section": "instant",
+    "q": "After Back from the cart, the product page shows \"1 item\" although the cart is empty. Which fix would you ship?",
+    "options": [
+      "Send <code>Cache-Control: no-store</code> on the product page",
+      "Refresh the badge in a <code>DOMContentLoaded</code> listener",
+      "Refresh it on <code>pageshow</code> when <code>persisted</code> is true",
+      "Add an <code>unload</code> listener that resets the badge to zero"
+    ],
+    "answer": 2,
+    "explain": "The page came back from the bfcache with its old state, and pageshow with persisted set is the hook for that case. DOMContentLoaded does not fire on a restore. no-store and unload would keep the page out of the bfcache (web.dev), trading an instant Back for a full reload."
+  },
+  {
+    "id": "m25.q30",
+    "module": "m25",
+    "section": "instant",
+    "q": "A colleague adds speculation rules that prerender every link of the page with <code>\"eagerness\": \"immediate\"</code>. What is the main risk?",
+    "options": [
+      "Speculation rules are ignored unless a <code>link rel=prerender</code> tag is also present on the page",
+      "Prerendering runs each page's code, so side effects and analytics fire before any click",
+      "The browser delays the current page's first paint until every prerender has finished",
+      "Prerendered pages bypass the HTTP cache, so every asset is downloaded twice"
+    ],
+    "answer": 1,
+    "explain": "A prerender loads and runs the page in a hidden tab, so side-effect URLs must be excluded and analytics delayed until prerenderingchange (MDN). link rel=prerender is the deprecated Chrome feature the rules replace, not a requirement. The prerender loads in a separate hidden tab, not in the current page's rendering path."
+  }
+]

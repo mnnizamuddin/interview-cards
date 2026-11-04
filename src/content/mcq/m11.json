@@ -1,0 +1,432 @@
+[
+  {
+    "id": "m11.q1",
+    "module": "m11",
+    "section": "landscape",
+    "q": "Which statement about Prisma 7 is correct?",
+    "options": [
+      "It generates a Rust query engine binary that the client starts at run time",
+      "Its client is written in TypeScript and every database needs a driver adapter, such as <code>@prisma/adapter-pg</code>",
+      "Its schema is declared in TypeScript files, like a Drizzle schema",
+      "It no longer ships migrations, so teams use drizzle-kit with it"
+    ],
+    "answer": 1,
+    "explain": "The Prisma 7 upgrade guide describes a Rust-free client and makes driver adapters mandatory (for PostgreSQL, <code>@prisma/adapter-pg</code>, which uses <code>pg</code>). The Rust engine is what Prisma 7 removed, and the schema is still a <code>schema.prisma</code> file with Prisma Migrate."
+  },
+  {
+    "id": "m11.q2",
+    "module": "m11",
+    "section": "landscape",
+    "q": "The finance team wants Orders API reports written with CTEs and window functions, every column typed, and migrations kept in plain SQL files. Which tool fits best?",
+    "options": [
+      "Kysely: a type-safe query builder that does not own the schema",
+      "Sequelize: models give the types and it handles migrations",
+      "TypeORM: decorators describe each column precisely",
+      "postgres.js: tagged templates infer the result types from the SQL"
+    ],
+    "answer": 0,
+    "explain": "Kysely types SQL you write, including complex queries, and leaves the schema and migrations to you. postgres.js keeps SQL readable but does not infer result types from the SQL text, and Sequelize and TypeORM are legacy ORMs with a model-first approach."
+  },
+  {
+    "id": "m11.q3",
+    "module": "m11",
+    "section": "n-plus-one",
+    "q": "With Drizzle 0.45, <code>db.query.orders.findMany({ where: …, with: { items: true } })</code> loads 20 orders with 2 items each. How many SQL statements were sent?",
+    "options": [
+      "21: one for the orders and one per order",
+      "2: one for the orders and one for all the items",
+      "1: a LATERAL join that aggregates the items with <code>json_agg</code>",
+      "40: one per item"
+    ],
+    "answer": 2,
+    "explain": "Measured with a query logger: one statement, <code>LEFT JOIN LATERAL (SELECT coalesce(json_agg(…), '[]') …)</code>. Two statements is what Prisma's <code>query</code> strategy does (one per table), and 21 is the N+1 loop."
+  },
+  {
+    "id": "m11.q4",
+    "module": "m11",
+    "section": "n-plus-one",
+    "q": "The N+1 loop of the order history page takes 3 ms on a laptop and 250 ms in production for the same customer. What explains the gap?",
+    "options": [
+      "Production runs PostgreSQL with more data, so each query plan is worse",
+      "The ORM caches queries on the laptop but not in production",
+      "The pool is smaller in production, so the queries run one at a time",
+      "Each query is a network round trip in production, and the loop pays it once per row"
+    ],
+    "answer": 3,
+    "explain": "A local database answers in microseconds, so 200 extra queries cost almost nothing; over the network each one costs a round trip (about 1 ms), paid sequentially by the loop. The queries run one at a time because the loop awaits each one, not because of the pool size."
+  },
+  {
+    "id": "m11.q5",
+    "module": "m11",
+    "section": "injection",
+    "q": "The <code>customers</code> table has 3 rows. How many rows does this return?",
+    "code": "const email = \"nobody@example.com' OR '1'='1\";\nawait pool.query(\"SELECT id FROM customers WHERE email = '\" + email + \"'\");",
+    "lang": "ts",
+    "options": [
+      "0, because no customer has that email",
+      "A syntax error, because of the unbalanced quote",
+      "All 3, because <code>OR '1'='1'</code> is true for every row",
+      "Only the customers whose email contains a quote"
+    ],
+    "answer": 2,
+    "explain": "Measured on PostgreSQL 18.6: 3 rows. The quote in the input closes the string literal and the rest becomes SQL; the quotes balance, so there is no syntax error. With <code>WHERE email = $1</code> and the same input as a parameter, the query returned 0 rows."
+  },
+  {
+    "id": "m11.q6",
+    "module": "m11",
+    "section": "injection",
+    "q": "To let clients choose the sort of an order list, you run <code>SELECT id, created_at FROM orders ORDER BY $1</code> with the value <code>'created_at'</code>. What happens?",
+    "options": [
+      "It sorts by the <code>created_at</code> column",
+      "It runs, but sorts by the constant text <code>'created_at'</code>, so the order does not change",
+      "It fails with a syntax error, because parameters are not allowed after ORDER BY",
+      "It is an SQL injection vulnerability"
+    ],
+    "answer": 1,
+    "explain": "Measured: the query runs and the rows keep their order, because a parameter is always a value, here the same constant for every row. Only a table name in <code>FROM $1</code> is a syntax error (<code>42601</code>). Map the client's choice through an allowlist of SQL fragments you wrote."
+  },
+  {
+    "id": "m11.q7",
+    "module": "m11",
+    "section": "pooling",
+    "q": "A <code>pg.Pool</code> has <code>max: 10</code> and the default <code>connectionTimeoutMillis</code>. A code path leaks a client on each error. What happens after 10 such errors?",
+    "options": [
+      "The pool closes the leaked clients after <code>idleTimeoutMillis</code> and recovers",
+      "The pool opens new connections beyond <code>max</code> to keep serving",
+      "Every new checkout fails at once with <code>53300</code>",
+      "Every new checkout waits with no time limit, because the default timeout is 0"
+    ],
+    "answer": 3,
+    "explain": "Leaked clients are checked out, not idle, so the idle timeout never applies to them, and the pool never exceeds <code>max</code>. With the default <code>connectionTimeoutMillis: 0</code> the node-postgres docs say requests wait forever; measured with 500 ms, the checkout failed after 503 ms with \"timeout exceeded when trying to connect\"."
+  },
+  {
+    "id": "m11.q8",
+    "module": "m11",
+    "section": "poolers",
+    "q": "Behind PgBouncer in transaction mode, which statement keeps working as intended?",
+    "options": [
+      "<code>SET statement_timeout = '5s'</code> once after connecting",
+      "<code>LISTEN order_created</code> to receive notifications",
+      "<code>SET LOCAL statement_timeout = '5s'</code> inside each transaction",
+      "<code>SELECT pg_advisory_lock(42)</code> held across several transactions"
+    ],
+    "answer": 2,
+    "explain": "<code>SET LOCAL</code> lasts until the end of the transaction, which is exactly how long the client keeps the server connection in transaction mode. PgBouncer's feature map marks <code>SET</code>, <code>LISTEN</code> and session-level advisory locks as never supported in that mode, because the next transaction may run on another connection."
+  },
+  {
+    "id": "m11.q9",
+    "module": "m11",
+    "section": "transactions",
+    "q": "Inside <code>db.transaction(async (tx) =&gt; …)</code>, a repository function writes an audit row with the global <code>db</code> instead of <code>tx</code>. The transaction then rolls back. What happens to the audit row?",
+    "options": [
+      "It is committed: it ran on another connection, outside the transaction",
+      "It is rolled back with the rest, because it ran during the callback",
+      "The insert fails, because the table is locked by the transaction",
+      "Drizzle detects the global <code>db</code> and reroutes the query to <code>tx</code>"
+    ],
+    "answer": 0,
+    "explain": "A transaction lives on one connection; the global <code>db</code> takes another one from the pool, so its insert autocommits independently. The table is not locked against inserts, and no library reroutes queries for you, which is why every query in the callback must use <code>tx</code> (or a context such as <code>AsyncLocalStorage</code>)."
+  },
+  {
+    "id": "m11.q10",
+    "module": "m11",
+    "section": "timeouts",
+    "q": "Which setting cancels any single SQL statement that runs longer than a limit, on the server?",
+    "options": [
+      "<code>idle_in_transaction_session_timeout</code>",
+      "<code>lock_timeout</code>",
+      "<code>query_timeout</code> in the pg client config",
+      "<code>statement_timeout</code>"
+    ],
+    "answer": 3,
+    "explain": "<code>statement_timeout</code> cancels the statement on the server with <code>57014</code>. <code>lock_timeout</code> only limits time spent waiting for locks, and pg's <code>query_timeout</code> stops the client from waiting while the server keeps running the query (measured)."
+  },
+  {
+    "id": "m11.q11",
+    "module": "m11",
+    "section": "types",
+    "q": "With <code>pg</code> and default settings, what is <code>rows[0].total</code> after <code>SELECT count(*) AS total FROM orders</code> on a table of 3 rows?",
+    "options": [
+      "The number <code>3</code>",
+      "The string <code>'3'</code>",
+      "The bigint <code>3n</code>",
+      "A <code>Decimal</code> object"
+    ],
+    "answer": 1,
+    "explain": "Measured with pg 8.23.1: the string <code>'3'</code>, because <code>count(*)</code> is a <code>bigint</code> and pg returns <code>int8</code> as a string to avoid losing precision beyond 2<sup>53</sup> − 1. You get <code>3n</code> only after registering a type parser such as <code>BigInt</code>."
+  },
+  {
+    "id": "m11.q12",
+    "module": "m11",
+    "section": "sizing",
+    "q": "One Orders API pod runs 600 queries per second, and a query takes 10 ms on average. By Little's law, how many connections are busy on average?",
+    "options": [
+      "60",
+      "600, one per query in flight each second",
+      "About 6",
+      "10, the default <code>max</code> of the pool"
+    ],
+    "answer": 2,
+    "explain": "Little's law: busy connections = queries per second × average query time = 600 × 0.010 s = 6. The pool's <code>max</code> is a ceiling, not the need; if a pool of 10 stays full at this load, queries are slower than measured or connections are held while doing other work."
+  },
+  {
+    "id": "m11.q13",
+    "module": "m11",
+    "section": "injection",
+    "q": "In a code review you see this Drizzle query. What is the problem?",
+    "code": "const rows = await db.execute(\n  sql`SELECT id FROM customers WHERE email = ${sql.raw(\"'\" + email + \"'\")}`,\n);",
+    "lang": "ts",
+    "options": [
+      "None: the <code>sql</code> tag parameterises everything inside it",
+      "Only a performance issue: the plan cannot be reused",
+      "None, as long as the email was validated as an email format",
+      "<code>sql.raw</code> pastes the text into the SQL, so <code>email</code> can inject; use <code>${email}</code> directly"
+    ],
+    "answer": 3,
+    "explain": "Measured: <code>sql.raw</code> produced <code>WHERE email = 'nobody@example.com' OR '1'='1'</code>, with no placeholder. The tag parameterises plain <code>${value}</code> substitutions only. Format validation is not a defence: many valid-looking inputs still contain quotes."
+  },
+  {
+    "id": "m11.q14",
+    "module": "m11",
+    "section": "landscape",
+    "q": "In late October 2026, a developer runs <code>npm install prisma</code> on a Prisma 7 project and CI fails because <code>prisma generate</code> no longer exists. Which fix would you ship?",
+    "options": [
+      "Pin <code>prisma@7</code> (with <code>@prisma/client@7</code>), and plan the move to Prisma 8 separately",
+      "Delete the lockfile so npm resolves a coherent set of versions",
+      "Replace <code>prisma generate</code> with <code>prisma migrate dev</code>, which generates the client",
+      "Downgrade to Prisma 6, the last version with a stable CLI"
+    ],
+    "answer": 0,
+    "explain": "The <code>prisma</code> package's <code>latest</code> tag points to 8.0.0-rc.28, whose CLI has no <code>generate</code>, while <code>@prisma/client</code> stays on 7.10.1; Prisma's release status page tells Prisma 7 projects to lock both packages to version 7. In Prisma 7, <code>migrate dev</code> no longer runs <code>generate</code>, and Prisma 6 only gets security patches until 19 November 2026."
+  },
+  {
+    "id": "m11.q15",
+    "module": "m11",
+    "section": "pooling",
+    "q": "This handler works in every test. In production, after a few days, all requests hang. What is the bug?",
+    "code": "export async function reserve(sku: string, orderId: string) {\n  const client = await pool.connect();\n  await client.query('UPDATE stock SET reserved = reserved + 1 WHERE sku = $1', [sku]);\n  await client.query('INSERT INTO reservations (sku, order_id) VALUES ($1, $2)', [sku, orderId]);\n  client.release();\n}",
+    "lang": "ts",
+    "options": [
+      "The two statements should run with <code>Promise.all</code> to release the client sooner",
+      "When a query throws (a duplicate reservation, say), <code>release()</code> is skipped and the connection leaks",
+      "<code>pool.connect()</code> opens a new TCP connection on every call",
+      "The UPDATE takes a row lock that is never released"
+    ],
+    "answer": 1,
+    "explain": "An exception skips the <code>release()</code> line, so each failure removes one connection from the pool until none is left; measured with <code>max: 1</code>, the next checkout timed out. Put it in a <code>finally</code>, or better, use a transaction helper, since these two writes belong together. Without <code>BEGIN</code> each statement autocommits, so no lock stays held."
+  },
+  {
+    "id": "m11.q16",
+    "module": "m11",
+    "section": "sizing",
+    "q": "The Orders API scales from 4 to 16 pods at peak, each with <code>max: 10</code>, against a PostgreSQL with <code>max_connections = 100</code>. At peak, some pods log <code>53300</code>. What do you ship?",
+    "options": [
+      "Set <code>max_connections = 1000</code> so every pod fits",
+      "Lower <code>idleTimeoutMillis</code> so idle connections close faster",
+      "Put a transaction-mode pooler in front (PgBouncer, RDS Proxy) and size each pod's pool from the budget",
+      "Raise each pod's <code>max</code> to 20 so requests stop waiting"
+    ],
+    "answer": 2,
+    "explain": "16 × 10 = 160 connections exceed the 97 available, so new connections fail with <code>53300</code> (<code>too_many_connections</code>). A pooler lets many client connections share few server connections. Raising <code>max_connections</code> costs a server process per connection and only moves the queue, and idle timeouts do not help when the connections are busy at peak."
+  },
+  {
+    "id": "m11.q17",
+    "module": "m11",
+    "section": "poolers",
+    "q": "A service configures <code>new pg.Pool({ statement_timeout: 5000, … })</code>. After moving behind a default PgBouncer, every connection attempt is refused. Why, and what is the clean fix?",
+    "options": [
+      "PgBouncer does not support pg's SCRAM authentication; switch to md5",
+      "pg sends <code>statement_timeout</code> as a startup parameter, which PgBouncer refuses by default; set it per role with <code>ALTER ROLE … SET</code>",
+      "Transaction mode forbids timeouts entirely; move the timeout to the HTTP layer",
+      "The value must be a string such as <code>'5s'</code>; PgBouncer rejects numbers"
+    ],
+    "answer": 1,
+    "explain": "pg's source adds <code>statement_timeout</code> to the startup message, and PgBouncer's docs say any parameter it does not track \"will raise an error\". A role default applies to every new server session, through any pooler (or you can list the parameter in <code>ignore_startup_parameters</code>). Timeouts themselves work fine in transaction mode."
+  },
+  {
+    "id": "m11.q18",
+    "module": "m11",
+    "section": "poolers",
+    "q": "Which statement about prepared statements behind PgBouncer 1.26 in transaction mode is correct?",
+    "options": [
+      "Protocol-level named prepared statements work, since <code>max_prepared_statements</code> defaults to 200; SQL <code>PREPARE</code> does not",
+      "No prepared statement works; every driver must disable them",
+      "SQL <code>PREPARE</code> works, but protocol-level statements do not",
+      "They work only in session mode, whatever the version"
+    ],
+    "answer": 0,
+    "explain": "PgBouncer 1.21 added support for protocol-level named prepared statements, and 1.24 enabled it by default with <code>max_prepared_statements = 200</code>. SQL-level <code>PREPARE</code>/<code>DEALLOCATE</code> are still listed as never supported. Disabling statements (<code>prepare: false</code>) is only needed with older or other poolers, such as Supabase's shared pooler."
+  },
+  {
+    "id": "m11.q19",
+    "module": "m11",
+    "section": "poolers",
+    "q": "An edge function of the shop, on Neon, must read a gift card balance, decide in code, then debit it, in one transaction. Which way of connecting fits?",
+    "options": [
+      "<code>neon()</code> over HTTP, sending the three statements one after another",
+      "<code>neon()</code> with <code>sql.transaction([...])</code>, the HTTP batch form",
+      "A direct TCP connection with <code>pg</code>, opened and closed in each invocation without a pooler",
+      "<code>Pool</code> or <code>Client</code> from <code>@neondatabase/serverless</code> over WebSockets"
+    ],
+    "answer": 3,
+    "explain": "The decision happens between statements, so this is an interactive transaction, and Neon's docs reserve those for <code>Pool</code>/<code>Client</code> over WebSockets. The HTTP <code>sql.transaction()</code> form is non-interactive: all queries are fixed before it runs. Separate HTTP calls are separate transactions."
+  },
+  {
+    "id": "m11.q20",
+    "module": "m11",
+    "section": "transactions",
+    "q": "A hand-written transaction does <code>BEGIN</code>, an UPDATE that violates a check constraint, then releases the client without <code>ROLLBACK</code>. The next request gets that connection and runs <code>SELECT 1</code>. What does it get?",
+    "options": [
+      "The row <code>1</code>: release resets the connection",
+      "An automatic rollback warning, then the row <code>1</code>",
+      "Error <code>25P02</code>: current transaction is aborted, commands ignored until end of transaction block",
+      "Error <code>23514</code> again, replayed from the previous request"
+    ],
+    "answer": 2,
+    "explain": "Measured through a pg pool: <code>25P02</code>. pg's <code>release()</code> does not reset the session, so the aborted transaction is still open and poisons the next user. A callback helper that always sends <code>ROLLBACK</code> on error, and destroys the client if that fails, prevents it."
+  },
+  {
+    "id": "m11.q21",
+    "module": "m11",
+    "section": "transactions",
+    "q": "With an <code>inTransaction</code> helper that <b>joins</b> an outer transaction (no savepoint), an inner step hits a unique violation; the outer code catches the error and tries another INSERT. What happens?",
+    "options": [
+      "The inner insert is rolled back alone and the outer insert succeeds",
+      "The outer INSERT fails with <code>25P02</code>, because the whole transaction is aborted",
+      "PostgreSQL retries the inner insert automatically",
+      "The outer insert succeeds and the commit saves only the outer row"
+    ],
+    "answer": 1,
+    "explain": "After any SQL error, PostgreSQL rejects every statement until the transaction ends (measured: <code>25P02</code>). To recover from inner work, open a savepoint (Drizzle's <code>tx.transaction(…)</code>); measured, the inner failure was rolled back and the outer insert committed."
+  },
+  {
+    "id": "m11.q22",
+    "module": "m11",
+    "section": "transactions",
+    "q": "Which statement compares passing <code>tx</code> as a parameter with carrying it in <code>AsyncLocalStorage</code> correctly?",
+    "options": [
+      "AsyncLocalStorage shares the transaction across all concurrent requests of the process",
+      "Passing <code>tx</code> explicitly is slower, because each call adds a parameter",
+      "AsyncLocalStorage only works with Prisma, which provides it natively",
+      "Explicit <code>tx</code> is visible in every signature and easy to test; the context removes plumbing but hides which queries are transactional"
+    ],
+    "answer": 3,
+    "explain": "Both are valid; the trade-off is readability and testability against plumbing across many layers. AsyncLocalStorage is scoped to one async call chain, so concurrent requests each see their own store. It is a Node API (<code>node:async_hooks</code>), usable with any library."
+  },
+  {
+    "id": "m11.q23",
+    "module": "m11",
+    "section": "timeouts",
+    "q": "A pg client has <code>query_timeout: 200</code>. It runs <code>SELECT pg_sleep(1)</code>, catches the timeout, then immediately runs <code>SELECT 1</code> on the same client with a longer timeout. When does <code>SELECT 1</code> complete (from the start)?",
+    "options": [
+      "At about 200 ms: the timeout cancelled the sleep on the server",
+      "Never: the client is closed after a timeout",
+      "At about 1,000 ms: the server kept running the first query, and the connection was busy",
+      "At about 400 ms: pg sends a cancel request and waits for one more timeout period"
+    ],
+    "answer": 2,
+    "explain": "Measured: the first call rejected at 212 ms with \"Query read timeout\", and <code>SELECT 1</code> completed at 1,004 ms. pg's <code>query_timeout</code> stops your waiting but sends no cancel request, so the connection stays busy. <code>statement_timeout</code> is what stops the work on the server."
+  },
+  {
+    "id": "m11.q24",
+    "module": "m11",
+    "section": "timeouts",
+    "q": "A migration runs <code>ALTER TABLE orders ADD COLUMN …</code> while a long report holds a lock on <code>orders</code>. The migration waits, and every new query on <code>orders</code> queues behind it. Which setting, in the migration's session, limits the damage?",
+    "options": [
+      "<code>lock_timeout</code>, so the ALTER gives up waiting for the lock and can be retried later",
+      "<code>statement_timeout</code> on the report's role",
+      "<code>idle_in_transaction_session_timeout</code> on the migration's session",
+      "<code>connectionTimeoutMillis</code> in the migration tool"
+    ],
+    "answer": 0,
+    "explain": "<code>lock_timeout</code> fails a statement that waits too long for a lock (<code>55P03</code>), which releases the queue forming behind the ALTER. A <code>statement_timeout</code> on the report only helps future reports, the migration session is not idle, and the connection timeout concerns opening the connection. Migration strategies are covered in M10."
+  },
+  {
+    "id": "m11.q25",
+    "module": "m11",
+    "section": "timeouts",
+    "q": "<code>pg_stat_activity</code> shows sessions in state <code>idle in transaction</code> for 40 minutes, and table bloat is growing. What does <code>idle_in_transaction_session_timeout = '30s'</code> change?",
+    "options": [
+      "It rolls back the idle transaction and keeps the session open for reuse",
+      "It terminates those sessions, releasing their locks and letting vacuum remove dead rows",
+      "It logs a warning only; the session continues",
+      "It cancels the last statement those sessions ran"
+    ],
+    "answer": 1,
+    "explain": "The PostgreSQL docs say this setting terminates the session, and that an open transaction prevents vacuum from removing dead rows, which causes bloat. The application gets an error on that connection the next time it uses it, so also find and fix the code path that leaves transactions open."
+  },
+  {
+    "id": "m11.q26",
+    "module": "m11",
+    "section": "types",
+    "q": "What does this code log, using <code>pg</code> with default type parsers and a table of 3 orders?",
+    "code": "const { rows } = await pool.query('SELECT count(*) AS total FROM orders');\nconst next = rows[0].total + 1;\nconsole.log(next);",
+    "lang": "ts",
+    "options": [
+      "31",
+      "4",
+      "NaN",
+      "4n"
+    ],
+    "answer": 0,
+    "explain": "pg returns <code>count(*)</code>, a <code>bigint</code>, as the string <code>'3'</code> (measured), and <code>'3' + 1</code> is string concatenation: <code>'31'</code>. TypeScript does not catch it, because pg types rows as <code>any</code> unless you declare them. Cast in SQL (<code>count(*)::int</code>) or register a parser."
+  },
+  {
+    "id": "m11.q27",
+    "module": "m11",
+    "section": "types",
+    "q": "A <code>date</code> column holds <code>2026-10-30</code>. The API, running in Europe/Paris with pg defaults, returns <code>delivery.toISOString()</code>. What does the client receive?",
+    "options": [
+      "<code>2026-10-30T00:00:00.000Z</code>",
+      "<code>2026-10-30</code>",
+      "<code>2026-10-29T23:00:00.000Z</code>",
+      "An error, because <code>date</code> values are returned as strings"
+    ],
+    "answer": 2,
+    "explain": "Measured: pg parses <code>date</code> as local midnight, which in Paris (UTC+1 on that day) is 23:00 UTC the previous day, so a frontend may show the 29th. Register a parser that keeps <code>date</code> as a string, since a calendar day has no time zone."
+  },
+  {
+    "id": "m11.q28",
+    "module": "m11",
+    "section": "types",
+    "q": "You store <code>{\"b\":1,\"a\":2,\"a\":3}</code> in a <code>jsonb</code> column and read it back as text. What do you get?",
+    "options": [
+      "<code>{\"b\":1,\"a\":2,\"a\":3}</code>, exactly as written",
+      "An error: duplicate keys are rejected",
+      "<code>{\"a\": 2, \"b\": 1}</code>: the first duplicate wins",
+      "<code>{\"a\": 3, \"b\": 1}</code>: keys reordered and the last duplicate kept"
+    ],
+    "answer": 3,
+    "explain": "Measured on PostgreSQL 18.6: <code>{\"a\": 3, \"b\": 1}</code>. <code>jsonb</code> stores a parsed form, so whitespace, key order and duplicates are not preserved; <code>json</code> would have returned the exact text. Never rely on key order in <code>jsonb</code>."
+  },
+  {
+    "id": "m11.q29",
+    "module": "m11",
+    "section": "transactions",
+    "q": "On Black Friday, checkout runs the code below; the payment provider takes about 2 s at peak, and each pod has a pool of <code>max: 10</code>. Which change would you ship?",
+    "code": "await withTransaction(pool, async (client) => {\n  await reserveStock(client, order);\n  const charge = await paymentProvider.charge(order); // about 2 s at peak\n  await recordPayment(client, order.id, charge.id);\n});",
+    "lang": "ts",
+    "options": [
+      "Raise each pod's pool to <code>max: 50</code> so checkouts stop waiting",
+      "Raise <code>statement_timeout</code> so the transaction has time to finish",
+      "Carry the transaction in <code>AsyncLocalStorage</code> so it does not hold a connection",
+      "Call the provider outside the transaction, and keep only the short SQL writes inside it"
+    ],
+    "answer": 3,
+    "explain": "During the HTTP call the transaction keeps its connection and row locks while no SQL runs: at 2 s per checkout, 10 connections serve at most 5 checkouts per second per pod (Little's law). A bigger pool multiplies connections across pods against <code>max_connections</code>, <code>statement_timeout</code> does not apply to a session idle in transaction, and <code>AsyncLocalStorage</code> only carries the <code>tx</code> object."
+  },
+  {
+    "id": "m11.q30",
+    "module": "m11",
+    "section": "senior",
+    "q": "The API is slow, but database CPU is at 15%. Pool metrics show <code>waitingCount</code> growing, and <code>pg_stat_activity</code> shows many <code>idle in transaction</code> sessions from the API. What is your first move?",
+    "options": [
+      "Double the pool size on every pod",
+      "Find the code that holds transactions open (an HTTP call inside, or a missing commit or release) and set <code>idle_in_transaction_session_timeout</code>",
+      "Add a read replica to spread the load",
+      "Raise <code>statement_timeout</code> so queries have time to finish"
+    ],
+    "answer": 1,
+    "explain": "Low CPU with idle-in-transaction sessions means connections are held while no SQL runs, so the pool starves. A bigger pool only gives the leak more connections, and a replica or a longer timeout does not touch sessions that are idle. Fix the code path and add the timeout as a safety net."
+  }
+]

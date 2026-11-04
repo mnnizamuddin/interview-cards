@@ -1,0 +1,442 @@
+[
+  {
+    "id": "m07.q1",
+    "module": "m07",
+    "section": "joins",
+    "q": "In the shop, 6 customers placed 11 orders: 2 orders are guest orders (<code>customer_id</code> is <code>NULL</code>) and 2 customers never ordered. How many rows does <code>customers c LEFT JOIN orders o ON o.customer_id = c.id</code> return?",
+    "options": [
+      "9",
+      "11",
+      "13",
+      "6"
+    ],
+    "answer": 1,
+    "explain": "Measured: 11. The 9 orders that have a customer give 9 pairs, and the left join adds Dana and Farid with <code>NULL</code> order columns. The guest orders have no customer row to attach to, so only a <code>FULL JOIN</code> keeps them (13)."
+  },
+  {
+    "id": "m07.q2",
+    "module": "m07",
+    "section": "ctes",
+    "q": "Ada has 4 paid orders with 500 of shipping each, and one of them has two items. What does <code>sum(o.shipping_cents)</code> return for Ada when the query joins <code>orders</code> and then <code>order_items</code>?",
+    "options": [
+      "2500",
+      "2000",
+      "4000",
+      "An error: <code>shipping_cents</code> is not grouped"
+    ],
+    "answer": 0,
+    "explain": "Measured: 2500. Joining the items repeats each order once per item, so the order with two items contributes its shipping twice: that is fan-out. Without the item join the sum is 2000; the fix is to aggregate items per order before joining."
+  },
+  {
+    "id": "m07.q3",
+    "module": "m07",
+    "section": "aggregation",
+    "q": "Where do you put the condition for \"customers with at least 2 paid orders\"?",
+    "options": [
+      "<code>WHERE count(*) &gt;= 2</code>",
+      "In the <code>ON</code> clause of the join",
+      "<code>HAVING count(*) &gt;= 2</code>",
+      "In <code>ORDER BY</code>, before <code>LIMIT</code>"
+    ],
+    "answer": 2,
+    "explain": "<code>HAVING</code> filters groups after <code>GROUP BY</code>, so it can use aggregates. The <code>WHERE</code> version fails with <code>42803: aggregate functions are not allowed in WHERE</code>, because <code>WHERE</code> runs before the rows are grouped."
+  },
+  {
+    "id": "m07.q4",
+    "module": "m07",
+    "section": "aggregation",
+    "q": "After <code>customers c LEFT JOIN orders o ON o.customer_id = c.id</code> and <code>GROUP BY c.id</code>, what are <code>count(*)</code> and <code>count(o.id)</code> for Dana, who has no orders?",
+    "options": [
+      "0 and 0",
+      "1 and 1",
+      "0 and <code>NULL</code>",
+      "1 and 0"
+    ],
+    "answer": 3,
+    "explain": "Measured: 1 and 0. The left join keeps one row for Dana with <code>NULL</code> order columns; <code>count(*)</code> counts that row, and <code>count(o.id)</code> skips the <code>NULL</code>. That is why you count a column of the joined table after a left join."
+  },
+  {
+    "id": "m07.q5",
+    "module": "m07",
+    "section": "nulls",
+    "q": "Customers: 2 in Paris, 2 in Lyon, 2 with <code>city</code> <code>NULL</code>. How many rows does <code>WHERE city &lt;&gt; 'Paris'</code> return?",
+    "options": [
+      "4",
+      "6",
+      "2",
+      "An error, because <code>city</code> is nullable"
+    ],
+    "answer": 2,
+    "explain": "Measured: 2, the Lyon customers. <code>NULL &lt;&gt; 'Paris'</code> is unknown, and <code>WHERE</code> keeps only rows where the condition is true. <code>city IS DISTINCT FROM 'Paris'</code> treats <code>NULL</code> as a value and returned 4."
+  },
+  {
+    "id": "m07.q6",
+    "module": "m07",
+    "section": "nulls",
+    "q": "Two customers never ordered, and two orders have a <code>NULL</code> <code>customer_id</code>. What does this query return?",
+    "code": "\nSELECT c.name FROM customers c\nWHERE c.id NOT IN (SELECT o.customer_id FROM orders o);",
+    "lang": "sql",
+    "options": [
+      "The two customers who never ordered",
+      "An error: the subquery returns <code>NULL</code>",
+      "The two customers, plus one <code>NULL</code> row",
+      "No rows at all"
+    ],
+    "answer": 3,
+    "explain": "Measured: 0 rows. <code>id NOT IN (…, NULL)</code> expands to <code>… AND id &lt;&gt; NULL</code>, which is unknown, so the condition is never true. <code>NOT EXISTS</code> returned the expected two customers."
+  },
+  {
+    "id": "m07.q7",
+    "module": "m07",
+    "section": "ctes",
+    "q": "On PostgreSQL 18, what happens to a non-recursive, side-effect-free CTE that the main query references once?",
+    "options": [
+      "It is inlined into the main query, so outer filters can reach the table",
+      "It is always computed first and stored, as an optimisation fence",
+      "It is computed once per row of the main query",
+      "It is cached between executions of the same query"
+    ],
+    "answer": 0,
+    "explain": "Since PostgreSQL 12 such a CTE is folded into the main query; <code>EXPLAIN</code> showed an index scan on <code>orders</code> with the outer <code>id = 101</code> filter. The fence behaviour is what you get when you add <code>MATERIALIZED</code>, or by default when the CTE is referenced twice."
+  },
+  {
+    "id": "m07.q8",
+    "module": "m07",
+    "section": "lateral",
+    "q": "\"Latest paid order per customer\" uses a <code>LATERAL</code> subquery with <code>LIMIT 1</code>. What is the difference between <code>CROSS JOIN LATERAL (…)</code> and <code>LEFT JOIN LATERAL (…) ON true</code>?",
+    "options": [
+      "None: <code>LATERAL</code> always keeps every outer row, with or without <code>LEFT</code>",
+      "The <code>LEFT JOIN</code> form keeps customers for whom the subquery returns no row, with <code>NULL</code> columns",
+      "The <code>CROSS JOIN</code> form runs the subquery once instead of once per customer",
+      "Only the <code>LEFT JOIN</code> form may refer to columns of <code>customers</code> inside the subquery"
+    ],
+    "answer": 1,
+    "explain": "Measured: <code>CROSS JOIN LATERAL</code> returned Ada, Brendan and Chen; <code>LEFT JOIN LATERAL … ON true</code> also kept Dana, Eve and Farid with <code>NULL</code>. Both forms run the subquery per outer row and both may refer to outer columns: that is what <code>LATERAL</code> means."
+  },
+  {
+    "id": "m07.q9",
+    "module": "m07",
+    "section": "ranking",
+    "q": "Paid order totals, highest first: 20000, 6000, 5000, 4000, 3000, 3000, 3000, 3000, 500. What do <code>rank()</code> and <code>dense_rank()</code> give the 500 order?",
+    "options": [
+      "6 and 6",
+      "9 and 9",
+      "9 and 6",
+      "6 and 9"
+    ],
+    "answer": 2,
+    "explain": "Measured: <code>rank</code> 9, because the four tied orders share rank 5 and the next rank skips to 9; <code>dense_rank</code> 6, because it leaves no gaps. <code>row_number</code> also gives 9 but numbers the tied rows 5 to 8 in an arbitrary order."
+  },
+  {
+    "id": "m07.q10",
+    "module": "m07",
+    "section": "running",
+    "q": "What is the default frame of <code>sum(x) OVER (ORDER BY d)</code>?",
+    "options": [
+      "<code>RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>, which includes the peers of the current row",
+      "<code>ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>, one physical row at a time",
+      "The whole partition, as without <code>ORDER BY</code>",
+      "<code>ROWS BETWEEN 1 PRECEDING AND CURRENT ROW</code>"
+    ],
+    "answer": 0,
+    "explain": "The PostgreSQL docs state the default is <code>RANGE UNBOUNDED PRECEDING</code>, that is up to the current row's last peer. Measured: ordered by month, the three January orders all showed 8500; with an explicit <code>ROWS</code> frame they showed 5000, 8000, 8500."
+  },
+  {
+    "id": "m07.q11",
+    "module": "m07",
+    "section": "writes",
+    "q": "<code>MS-01</code> already exists. What does <code>INSERT INTO products (sku, name, price_cents) VALUES ('MS-01', 'Mouse', 3000) ON CONFLICT (sku) DO NOTHING RETURNING id</code> return?",
+    "options": [
+      "The id of the existing mouse",
+      "A unique violation error",
+      "A row with a <code>NULL</code> id",
+      "No row at all"
+    ],
+    "answer": 3,
+    "explain": "Measured: 0 rows. <code>RETURNING</code> only reports rows the statement inserted or updated, and <code>DO NOTHING</code> touched none. Code that needs the existing id must read it with a separate <code>SELECT</code>, or use <code>DO UPDATE</code>."
+  },
+  {
+    "id": "m07.q12",
+    "module": "m07",
+    "section": "writes",
+    "q": "In <code>INSERT … ON CONFLICT (sku) DO UPDATE SET price_cents = EXCLUDED.price_cents</code>, what does <code>EXCLUDED</code> hold?",
+    "options": [
+      "The row already stored in <code>products</code>, before the update",
+      "The values the statement tried to insert for the conflicting row",
+      "The rows that the conflict check removed from the result",
+      "The previous price, as <code>RETURNING old</code> reports it"
+    ],
+    "answer": 1,
+    "explain": "<code>EXCLUDED</code> is the row proposed for insertion, so the <code>SET</code> copies the feed's price onto the existing row: measured, the mouse went from 3000 to 3100 and kept its id. The existing row is read through the table name, <code>products.price_cents</code>, as in the lesson's <code>WHERE … IS DISTINCT FROM</code>."
+  },
+  {
+    "id": "m07.q13",
+    "module": "m07",
+    "section": "joins",
+    "q": "A back-office list must show every customer with their number of paid orders, including 0. It shows only Ada, Brendan and Chen. Which fix would you ship?",
+    "code": "\nSELECT c.name, count(o.id) AS paid_orders\nFROM customers c\nLEFT JOIN orders o ON o.customer_id = c.id\nWHERE o.status = 'paid'\nGROUP BY c.id;",
+    "lang": "sql",
+    "options": [
+      "Move <code>o.status = 'paid'</code> into the <code>ON</code> clause",
+      "Replace <code>LEFT JOIN</code> with <code>FULL JOIN</code>",
+      "Replace <code>count(o.id)</code> with <code>count(*)</code>",
+      "Change the filter to <code>WHERE o.status = 'paid' OR o.status IS NULL</code>"
+    ],
+    "answer": 0,
+    "explain": "Measured: with the condition in <code>ON</code>, all 6 customers came back, Dana, Eve and Farid with 0. The <code>OR o.status IS NULL</code> patch is tempting but returned 5 rows: Eve disappeared, because her joined row carries a cancelled status, not <code>NULL</code>."
+  },
+  {
+    "id": "m07.q14",
+    "module": "m07",
+    "section": "ctes",
+    "q": "A revenue report joins <code>customers</code>, <code>orders</code> and <code>order_items</code>, then sums <code>o.shipping_cents</code> and the item amounts per customer. The shipping total is too high for customers whose orders have several items. Which change is correct?",
+    "options": [
+      "Use <code>sum(DISTINCT o.shipping_cents)</code>",
+      "Aggregate <code>order_items</code> to one row per order in a CTE, then join that to <code>orders</code>",
+      "Use <code>count(DISTINCT o.id)</code> next to the sum",
+      "Add <code>i.product_id</code> to the <code>GROUP BY</code>"
+    ],
+    "answer": 1,
+    "explain": "Aggregating the child per parent first means each order meets the customer as one row; measured, Ada's shipping went from 2500 back to 2000. <code>sum(DISTINCT …)</code> removes equal amounts, not duplicate orders: it gave 500 for Ada's four orders at 500."
+  },
+  {
+    "id": "m07.q15",
+    "module": "m07",
+    "section": "aggregation",
+    "q": "Eve has one cancelled order and no paid one. What does the API receive in <code>shipping_paid</code> for her?",
+    "code": "\nSELECT c.name,\n       count(o.id) FILTER (WHERE o.status = 'paid')           AS paid,\n       sum(o.shipping_cents) FILTER (WHERE o.status = 'paid') AS shipping_paid\nFROM customers c\nLEFT JOIN orders o ON o.customer_id = c.id\nGROUP BY c.id;",
+    "lang": "sql",
+    "options": [
+      "0, like the paid count",
+      "500, the shipping of her cancelled order",
+      "<code>NULL</code>",
+      "An error: <code>FILTER</code> cannot be used with <code>sum</code>"
+    ],
+    "answer": 2,
+    "explain": "Measured: <code>paid</code> 0 and <code>shipping_paid</code> <code>NULL</code>. <code>count</code> over zero rows is 0, but <code>sum</code> over zero rows is <code>NULL</code>, and <code>FILTER</code> left no row for the sum. Wrap it in <code>coalesce(…, 0)</code> if the API contract says number."
+  },
+  {
+    "id": "m07.q16",
+    "module": "m07",
+    "section": "aggregation",
+    "q": "In review, a colleague says this query will fail because <code>c.name</code> and <code>c.city</code> are not in the <code>GROUP BY</code>. What do you answer?",
+    "code": "\nSELECT c.name, c.city, count(*) AS orders\nFROM customers c\nJOIN orders o ON o.customer_id = c.id\nGROUP BY c.id;",
+    "lang": "sql",
+    "options": [
+      "They are right: every selected column must be listed in <code>GROUP BY</code>",
+      "It runs, but picks an arbitrary name per group",
+      "It runs only if <code>name</code> and <code>city</code> are <code>NOT NULL</code>",
+      "It runs: <code>c.id</code> is the primary key, so the other columns of <code>customers</code> depend on it"
+    ],
+    "answer": 3,
+    "explain": "Measured: the query runs and returned 4 rows. Grouping by a table's primary key lets you select that table's other columns, because each group has exactly one value for them. Nothing is arbitrary: each group is one customer, so it has exactly one name and one city."
+  },
+  {
+    "id": "m07.q17",
+    "module": "m07",
+    "section": "nulls",
+    "q": "A profile endpoint skips no-op writes with this statement. A user whose <code>city</code> is <code>NULL</code> sets it to Lyon. What happens?",
+    "code": "\nUPDATE customers\nSET city = $1\nWHERE id = $2 AND city <> $1;",
+    "lang": "sql",
+    "options": [
+      "Nothing is updated: <code>NULL &lt;&gt; 'Lyon'</code> is unknown, so the row is filtered out",
+      "The row is updated, because <code>NULL</code> differs from any value",
+      "The statement fails because <code>city</code> is nullable",
+      "The row is updated, but a <code>RETURNING city</code> clause would show <code>NULL</code> for it"
+    ],
+    "answer": 0,
+    "explain": "Measured: 0 rows updated for Chen. With <code>city IS DISTINCT FROM $1</code> the update went through, and <code>RETURNING old.city, new.city</code> showed <code>NULL</code> then Lyon. A comparison with <code>NULL</code> is never true, whatever the intuition says."
+  },
+  {
+    "id": "m07.q18",
+    "module": "m07",
+    "section": "nulls",
+    "q": "\"Products never sold\": both <code>NOT IN (SELECT product_id FROM order_items)</code> and <code>NOT EXISTS (…)</code> return the dock today, and <code>order_items.product_id</code> is <code>NOT NULL</code>. Why would you still ship <code>NOT EXISTS</code>?",
+    "options": [
+      "<code>NOT IN</code> with a subquery is deprecated since PostgreSQL 18 and logs a warning",
+      "It stays correct if the subquery ever yields a <code>NULL</code>, and the planner runs it as an anti-join",
+      "<code>NOT IN</code> cannot use a subquery on another table",
+      "<code>NOT EXISTS</code> returns the rows in primary key order, which keeps API responses stable"
+    ],
+    "answer": 1,
+    "explain": "The <code>NOT IN</code> result depends on the subquery never containing <code>NULL</code>, which a later change can break silently. On this data <code>EXPLAIN</code> showed a <code>Hash Right Anti Join</code> for <code>NOT EXISTS</code> and a filter over a hashed subplan for <code>NOT IN</code>. <code>NOT IN</code> is not deprecated; it is just fragile."
+  },
+  {
+    "id": "m07.q19",
+    "module": "m07",
+    "section": "lateral",
+    "q": "This endpoint worked in development, where each customer had one order. What happens in production?",
+    "code": "\nSELECT c.name,\n       (SELECT o.id FROM orders o WHERE o.customer_id = c.id) AS order_id\nFROM customers c;",
+    "lang": "sql",
+    "options": [
+      "It returns one row per order, like a join",
+      "It returns the first order of each customer",
+      "It fails with <code>21000: more than one row returned by a subquery used as an expression</code>",
+      "It returns <code>NULL</code> for customers with several orders"
+    ],
+    "answer": 2,
+    "explain": "Measured: the query fails as soon as one customer has two orders. A scalar subquery must return at most one row; it never multiplies rows like a join, and without <code>ORDER BY … LIMIT 1</code> there is no \"first\". Use a <code>LATERAL</code> subquery or an aggregate to say which order you want."
+  },
+  {
+    "id": "m07.q20",
+    "module": "m07",
+    "section": "ctes",
+    "q": "A query joins a CTE <code>paid</code> to itself (<code>FROM paid a JOIN paid b …</code>). With no keyword after <code>AS</code>, what does PostgreSQL 18 do?",
+    "options": [
+      "It inlines both references, as for any non-recursive CTE",
+      "It rejects the query: a CTE can be referenced only once",
+      "It computes the CTE twice, once per reference",
+      "It computes the CTE once, stores it, and scans the stored result twice"
+    ],
+    "answer": 3,
+    "explain": "Measured with <code>EXPLAIN</code>: one <code>CTE paid</code> node with two <code>CTE Scan</code>s. The docs say folding happens by default only when the CTE is referenced once; <code>NOT MATERIALIZED</code> forced inlining, and the plan then showed two index scans on <code>orders</code>."
+  },
+  {
+    "id": "m07.q21",
+    "module": "m07",
+    "section": "lateral",
+    "q": "What is wrong with this query?",
+    "code": "\nSELECT c.name, x.id\nFROM customers c,\n     (SELECT o.id FROM orders o\n      WHERE o.customer_id = c.id\n      ORDER BY o.placed_on DESC LIMIT 1) AS x;",
+    "lang": "sql",
+    "options": [
+      "A subquery in <code>FROM</code> cannot see <code>c</code> without <code>LATERAL</code>: it fails with <code>42P01</code>",
+      "It runs, but returns only the latest order overall",
+      "A subquery in <code>FROM</code> cannot use <code>LIMIT</code>",
+      "It runs, but returns every customer, Dana included"
+    ],
+    "answer": 0,
+    "explain": "Measured: <code>42P01: invalid reference to FROM-clause entry for table \"c\"</code>. Adding <code>LATERAL</code> before the subquery makes it run once per customer. Even fixed, the comma form behaves like <code>CROSS JOIN LATERAL</code> and drops customers without orders, so Dana would not appear."
+  },
+  {
+    "id": "m07.q22",
+    "module": "m07",
+    "section": "ranking",
+    "q": "A leaderboard endpoint pages orders with <code>row_number() OVER (ORDER BY total_cents DESC)</code>. Its tests fail now and then: the same order appears on two pages. What is the fix?",
+    "options": [
+      "Replace <code>row_number</code> with <code>rank</code>",
+      "Add a unique tiebreaker: <code>ORDER BY total_cents DESC, id</code>",
+      "Add <code>PARTITION BY total_cents</code>",
+      "Wrap the query in a CTE marked <code>MATERIALIZED</code>"
+    ],
+    "answer": 1,
+    "explain": "Tied totals have no defined order: measured, the four orders at 3000 came out as 104, 103, 102, 110, an order nobody chose. A unique last column makes the numbering deterministic. <code>rank</code> would give the tied rows the same number, which breaks paging differently."
+  },
+  {
+    "id": "m07.q23",
+    "module": "m07",
+    "section": "running",
+    "q": "January has three paid orders: 101 (5000), 103 (3000) and 108 (500), one row each in the CTE <code>january_order_totals</code>. What does this query show for order 101?",
+    "code": "\nSELECT id, total_cents,\n       sum(total_cents) OVER (ORDER BY date_trunc('month', placed_on)) AS running\nFROM january_order_totals\nORDER BY placed_on, id;",
+    "lang": "sql",
+    "options": [
+      "5000",
+      "8500",
+      "3000",
+      "47500"
+    ],
+    "answer": 1,
+    "explain": "Measured: 8500 on all three rows. The default frame is <code>RANGE … CURRENT ROW</code>, and the three orders share the same month, so they are peers and each sees the whole month. With <code>ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code> the column read 5000, 8000, 8500."
+  },
+  {
+    "id": "m07.q24",
+    "module": "m07",
+    "section": "running",
+    "q": "A monthly revenue report computes <code>revenue - lag(revenue) OVER (ORDER BY month)</code> from <code>GROUP BY month</code>. March had no paid order, and April shows a change of -13000. What is wrong?",
+    "options": [
+      "<code>lag</code> needs <code>PARTITION BY month</code>, otherwise it reads across every month of the report",
+      "The default <code>RANGE</code> frame includes peers, so April is summed together with February",
+      "<code>lag</code> reads the previous row, February, because March has no row; generate the months with <code>generate_series</code> and left join the revenue",
+      "<code>date_trunc</code> returns a timestamp, so the months are sorted as text and not in calendar order"
+    ],
+    "answer": 2,
+    "explain": "Measured: the grouped result had rows for January, February and April only, so April was compared with February (13000 - 26000). After building the four months with <code>generate_series</code> and <code>coalesce(revenue, 0)</code>, March showed -26000 and April +13000. Frames do not affect <code>lag</code>."
+  },
+  {
+    "id": "m07.q25",
+    "module": "m07",
+    "section": "top-n",
+    "q": "For the CRM screen, a colleague writes this query to get each customer's latest paid order. What happens?",
+    "code": "\nSELECT DISTINCT ON (customer_id) customer_id, id, placed_on\nFROM orders\nWHERE status = 'paid'\nORDER BY placed_on DESC;",
+    "lang": "sql",
+    "options": [
+      "It returns the latest paid order of the whole shop, once",
+      "It returns one arbitrary paid order per customer",
+      "It returns every paid order, newest first",
+      "It fails with <code>42P10</code>: the <code>DISTINCT ON</code> columns must start the <code>ORDER BY</code>"
+    ],
+    "answer": 3,
+    "explain": "Measured: <code>42P10: SELECT DISTINCT ON expressions must match initial ORDER BY expressions</code>. <code>DISTINCT ON</code> keeps the first row of each group in the sort order, so the sort must begin with the group: <code>ORDER BY customer_id, placed_on DESC, id DESC</code> returned 102, 107 and 108. PostgreSQL rejects the query before reading a row, so it returns neither an arbitrary order nor a global latest."
+  },
+  {
+    "id": "m07.q26",
+    "module": "m07",
+    "section": "top-n",
+    "q": "\"The 2 latest orders of each customer\" on 1,000 customers and 100,000 orders, with an index on <code>orders (customer_id, placed_on DESC, id DESC)</code>. Which pattern reads the fewest rows?",
+    "options": [
+      "<code>CROSS JOIN LATERAL</code> with <code>ORDER BY … LIMIT 2</code>",
+      "<code>row_number()</code> in a CTE, filtered on <code>&lt;= 2</code>",
+      "<code>DISTINCT ON (customer_id)</code> run twice",
+      "<code>ORDER BY placed_on DESC LIMIT 2000</code>"
+    ],
+    "answer": 0,
+    "explain": "Measured on PGlite: the LATERAL plan read 2,000 index rows (2 per customer, 1,000 index searches), while <code>row_number</code> read all 100,000 even with its <code>Run Condition</code>. A global <code>LIMIT 2000</code> does not give 2 per customer, and <code>DISTINCT ON</code> returns one row per group."
+  },
+  {
+    "id": "m07.q27",
+    "module": "m07",
+    "section": "top-n",
+    "q": "Ada's paid orders total 5000, 3000, 3000 and 3000. Product asks for \"her top 3 orders\" and you use <code>rank() OVER (PARTITION BY customer_id ORDER BY total_cents DESC) &lt;= 3</code>. How many rows does Ada get?",
+    "options": [
+      "3",
+      "2",
+      "4",
+      "1"
+    ],
+    "answer": 2,
+    "explain": "Measured: 4. The three orders at 3000 all get rank 2, which is within 3. <code>row_number</code> would return exactly 3 and cut a tie arbitrarily unless you add a tiebreaker. Ask product which one they mean: that question is the point of the exercise."
+  },
+  {
+    "id": "m07.q28",
+    "module": "m07",
+    "section": "writes",
+    "q": "A catalogue import upserts 500 rows in one <code>INSERT … ON CONFLICT (sku) DO UPDATE</code>. One night it fails with <code>21000: ON CONFLICT DO UPDATE command cannot affect row a second time</code>. What happened, and what is the fix?",
+    "options": [
+      "Another transaction updated the same rows; retry the statement",
+      "The table has no unique index on <code>sku</code>; add one",
+      "The feed contains the same SKU twice; deduplicate the batch before the upsert",
+      "The batch is too large; split it into chunks of 100"
+    ],
+    "answer": 2,
+    "explain": "Measured: two rows with the same SKU in one statement raise exactly this error, and its hint says to ensure no duplicate constrained values in the proposed rows. A missing unique index gives a different error (<code>42P10: there is no unique or exclusion constraint matching the ON CONFLICT specification</code>), and chunking only helps if the duplicates land in different chunks, which is luck."
+  },
+  {
+    "id": "m07.q29",
+    "module": "m07",
+    "section": "writes",
+    "q": "A payment webhook must insert a payment by its provider id, or update it when it already exists, and the provider may deliver the same event twice at the same time. Which statement would you ship?",
+    "options": [
+      "<code>MERGE</code>, because it is the SQL standard",
+      "A <code>SELECT</code> then an <code>INSERT</code> or <code>UPDATE</code> from Node",
+      "<code>UPDATE</code>, then <code>INSERT</code> if no row was updated",
+      "<code>INSERT … ON CONFLICT (provider_id) DO UPDATE</code>"
+    ],
+    "answer": 3,
+    "explain": "The PostgreSQL MERGE docs point to <code>INSERT … ON CONFLICT</code> because it can still run its <code>UPDATE</code> when a concurrent transaction inserts the same key; the Transaction Isolation chapter states that <code>MERGE</code> raises a uniqueness violation in that case. The read-then-write versions race in the same way (M09)."
+  },
+  {
+    "id": "m07.q30",
+    "module": "m07",
+    "section": "running",
+    "q": "A churn report shows the days since each customer's previous paid order. Brendan's first order (2026-02-14) shows -56. What is the bug?",
+    "code": "\nSELECT customer_id, id, placed_on,\n       placed_on - lag(placed_on) OVER (ORDER BY customer_id, placed_on, id) AS days_since_previous\nFROM orders\nWHERE status = 'paid' AND customer_id IS NOT NULL\nORDER BY customer_id, placed_on, id;",
+    "lang": "sql",
+    "options": [
+      "The window has no <code>PARTITION BY customer_id</code>, so Brendan's first order is compared with Ada's last one",
+      "The default <code>RANGE</code> frame includes peers, so <code>lag</code> reads an order placed on the same day",
+      "<code>lag</code> needs an explicit <code>ROWS BETWEEN 1 PRECEDING AND CURRENT ROW</code> frame",
+      "The rows are sorted by <code>customer_id</code> first, so <code>lag</code> reads the next order instead of the previous one"
+    ],
+    "answer": 0,
+    "explain": "Measured: without a partition the window is the whole result, so Brendan's first order was compared with Ada's last one (2026-04-11): -56 days. With <code>PARTITION BY customer_id ORDER BY placed_on, id</code>, each customer's first order got <code>NULL</code> and Brendan's second got 47. Frames do not affect <code>lag</code>: it always reads the previous row of its partition."
+  }
+]

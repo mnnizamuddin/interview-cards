@@ -1,0 +1,436 @@
+[
+  {
+    "id": "m33.q1",
+    "module": "m33",
+    "section": "rendering",
+    "q": "What is the main difference between a Server Component and a Client Component rendered with SSR?",
+    "options": [
+      "A Server Component produces HTML on the server, while SSR produces a JSON payload that the browser turns into HTML",
+      "Its code never reaches the browser; an SSR-rendered Client Component still ships its code to hydrate",
+      "SSR runs only once at build time, while Server Components run on every request and cannot be cached",
+      "Server Components cannot fetch data themselves, so SSR is still needed for every page that shows data"
+    ],
+    "answer": 1,
+    "explain": "SSR is about when HTML is produced; a Client Component rendered that way still sends its JavaScript so it can hydrate. A Server Component runs only on the server, at build or request time, and sends none. The first option inverts things: the RSC Payload is the serialised output of Server Components, and HTML comes from prerendering."
+  },
+  {
+    "id": "m33.q2",
+    "module": "m33",
+    "section": "boundary",
+    "q": "<code>add-to-cart-button.tsx</code> starts with <code>'use client'</code> and imports <code>formatPrice</code> from <code>lib/money.ts</code>, which has no directive. Where does <code>formatPrice</code> end up?",
+    "options": [
+      "Only on the server, because a module without a directive defaults to the server",
+      "It depends on whether <code>formatPrice</code> is async: async helpers always stay on the server",
+      "Nowhere: the build fails until <code>lib/money.ts</code> gets its own <code>'use client'</code>",
+      "In the client bundle, because the directive covers everything the module imports"
+    ],
+    "answer": 3,
+    "explain": "React documents that <code>'use client'</code> marks the module and its transitive dependencies as client code, so you do not repeat the directive in every helper. Having no directive does not keep a module on the server; only <code>import 'server-only'</code> would turn that import into a build error."
+  },
+  {
+    "id": "m33.q3",
+    "module": "m33",
+    "section": "boundary",
+    "q": "Which prop can the product page (a Server Component) pass to a Client Component?",
+    "options": [
+      "A promise of the reviews, which the Client Component unwraps with <code>use()</code> inside a Suspense boundary",
+      "An <code>onAddToCart</code> arrow function defined in the page, which the button calls on click",
+      "A <code>Product</code> class instance, so the button can call <code>product.formatPrice()</code> itself",
+      "A <code>Symbol('cart')</code> created in the page, used as a stable identity for the cart"
+    ],
+    "answer": 0,
+    "explain": "Promises are in React's list of serialisable props, and Next.js documents passing an unawaited promise and reading it with <code>use()</code> under Suspense. Plain functions (other than Server Functions), class instances and symbols not registered with <code>Symbol.for</code> cannot cross the boundary."
+  },
+  {
+    "id": "m33.q4",
+    "module": "m33",
+    "section": "fetching",
+    "q": "The header and the price box both call <code>getCurrentCustomer</code>, wrapped with <code>React.cache</code> in a shared module. What does that guarantee?",
+    "options": [
+      "The customer is cached across requests for as long as the session cookie is valid",
+      "The result is shared between all visitors until the next deploy invalidates it",
+      "Within one server request, components calling the same wrapped function share one call",
+      "The result is memoized in the browser too, so hydration does not fetch the customer again"
+    ],
+    "answer": 2,
+    "explain": "React clears the cache for each server request and shares it only among components that call the same memoized function during rendering. It is not a cross-request cache (that is <code>'use cache'</code>), so the first two options are wrong, and it is for Server Components, not the browser."
+  },
+  {
+    "id": "m33.q5",
+    "module": "m33",
+    "section": "streaming",
+    "q": "A page renders a heading and a price inside <code>&lt;Suspense fallback=\"Loading price...\"&gt;</code>; the price resolves after 300 ms. What does <code>renderToReadableStream</code> send?",
+    "options": [
+      "Nothing until the price resolves, then the whole page in a single chunk",
+      "The heading and the fallback first, then the price with a small swap script",
+      "The price first, because suspended content is sent with a higher priority than the shell",
+      "The complete page twice: once with the fallback and once more with the price"
+    ],
+    "answer": 1,
+    "explain": "Measured on React 19.3.1: the first chunk left at 58 ms with the heading and \"Loading price...\", the second at 305 ms with the price in a hidden element and the inline swap script. Waiting for everything is what non-streaming rendering would need; <code>renderToString</code> does not even wait and sends the fallback."
+  },
+  {
+    "id": "m33.q6",
+    "module": "m33",
+    "section": "hydration",
+    "q": "The server rendered \"Delivered by Tuesday\" and the first client render produces \"Delivered by Wednesday\". What did React 19.3.1 do (measured)?",
+    "options": [
+      "It reported a recoverable error and rebuilt the tree on the client: Wednesday",
+      "It kept Tuesday silently: hydration ignores text differences",
+      "It threw an uncaught error, and the customer saw a blank page instead of the product",
+      "It patched only the text node to Wednesday, without reporting anything to monitoring"
+    ],
+    "answer": 0,
+    "explain": "Measured with hydrateRoot in jsdom: <code>onRecoverableError</code> received \"Hydration failed because the server rendered text didn't match the client. As a result this tree will be regenerated on the client\", and the DOM ended with the client text. Keeping the server text happens only with <code>suppressHydrationWarning</code>."
+  },
+  {
+    "id": "m33.q7",
+    "module": "m33",
+    "section": "caching",
+    "q": "With Cache Components enabled, a component reads <code>cookies()</code> and is not inside any Suspense boundary. What happens?",
+    "options": [
+      "<code>cookies()</code> returns an empty cookie store during prerendering, without any warning",
+      "The whole application silently switches to request-time rendering, page by page",
+      "Next.js caches it per visitor, keyed on the cookie",
+      "Next.js flags the route as blocking and asks you to add a Suspense boundary"
+    ],
+    "answer": 3,
+    "explain": "Cache Components requires runtime data to sit behind a Suspense boundary so every route keeps a static shell; the dev overlay shows the blocking-route insight and the build guides you to fix it. Returning empty values is what <code>dynamic = 'force-static'</code> does in the previous model, not this one."
+  },
+  {
+    "id": "m33.q8",
+    "module": "m33",
+    "section": "caching",
+    "q": "In a Server Action, a customer updates their saved delivery address, and the page must show the new address in the same response. Which call?",
+    "options": [
+      "<code>revalidateTag('address-' + customer.id, 'max')</code>",
+      "<code>revalidatePath('/')</code> from a Client Component",
+      "<code>updateTag('address-' + customer.id)</code>",
+      "<code>cacheLife('seconds')</code> on the address reader"
+    ],
+    "answer": 2,
+    "explain": "<code>updateTag</code> expires the tag immediately, for read-your-own-writes, and is reserved for Server Actions. <code>revalidateTag</code> with a profile is stale-while-revalidate: the action's own re-render does not wait for fresh data, so the customer could still see the old address."
+  },
+  {
+    "id": "m33.q9",
+    "module": "m33",
+    "section": "actions",
+    "q": "Which statement about a Server Action exported from <code>app/checkout/actions.ts</code> is true?",
+    "options": [
+      "Anyone able to send the POST can call it, so it must check the session, ownership and input itself",
+      "It is private, because Next.js encrypts action ids and removes the actions you do not use",
+      "The sign-in check in <code>app/checkout/page.tsx</code> protects it too, since the page renders the form",
+      "Only the form that imports it can call it, because Next.js compares Origin and Host"
+    ],
+    "answer": 0,
+    "explain": "Next.js documents that actions are reachable by direct POST requests and that a page-level check does not extend to the actions it renders. Encrypted ids and dead-code removal reduce exposure but are explicitly not a substitute for checks inside each action; the Origin check stops cross-site forms, not a direct request."
+  },
+  {
+    "id": "m33.q10",
+    "module": "m33",
+    "section": "bff",
+    "q": "Where should <code>ORDERS_API_CLIENT_SECRET</code> live in the storefront?",
+    "options": [
+      "<code>NEXT_PUBLIC_ORDERS_API_CLIENT_SECRET</code>, so Client Components can call the API directly",
+      "An unprefixed variable, read only in a DAL module that imports <code>server-only</code>",
+      "<code>publicRuntimeConfig</code> in <code>next.config.ts</code>, which keeps it out of the JavaScript bundle",
+      "<code>localStorage</code>, written by the login page and sent by the browser on each call"
+    ],
+    "answer": 1,
+    "explain": "Unprefixed variables stay on the server, and <code>server-only</code> turns an accidental import from a Client Component into a build error. A <code>NEXT_PUBLIC_</code> variable is inlined into the browser bundle, which publishes the secret; <code>publicRuntimeConfig</code> was removed in Next.js 16."
+  },
+  {
+    "id": "m33.q11",
+    "module": "m33",
+    "section": "errors",
+    "q": "<code>app/products/[slug]/error.tsx</code> exists. Which error does it <b>not</b> catch?",
+    "options": [
+      "An error thrown while rendering <code>page.tsx</code> in the same folder",
+      "An error thrown by a nested layout in a subfolder",
+      "An error thrown while rendering a Client Component used by the page",
+      "An error thrown by <code>app/products/[slug]/layout.tsx</code>"
+    ],
+    "answer": 3,
+    "explain": "Next.js documents that <code>error.js</code> wraps the page, loading, not-found and nested layouts, but not the <code>layout.js</code> of its own segment. An error there goes to the parent's boundary, or to <code>global-error.tsx</code> for the root layout."
+  },
+  {
+    "id": "m33.q12",
+    "module": "m33",
+    "section": "migration",
+    "q": "An old product page uses <code>getStaticPaths</code> with <code>fallback: 'blocking'</code>. What replaces it in the App Router?",
+    "options": [
+      "An async Server Component without caching, the equivalent of <code>getServerSideProps</code>",
+      "A Route Handler in <code>route.ts</code> that returns the list of paths to the build",
+      "<code>generateStaticParams</code>, plus <code>dynamicParams</code> for unlisted slugs",
+      "A <code>loading.tsx</code> shown during generation"
+    ],
+    "answer": 2,
+    "explain": "The migration guide maps <code>getStaticPaths</code> to <code>generateStaticParams</code> and the <code>fallback</code> option to <code>dynamicParams</code>; <code>'blocking'</code> has no direct equivalent because streaming made the difference negligible. Route Handlers replace <code>pages/api</code>, not static paths."
+  },
+  {
+    "id": "m33.q13",
+    "module": "m33",
+    "section": "boundary",
+    "q": "An interviewer asks: \"Is <code>'use server'</code> the opposite of <code>'use client'</code>?\" Which answer is accurate?",
+    "options": [
+      "No: Server Components have no directive; <code>'use server'</code> marks Server Functions",
+      "Yes: <code>'use server'</code> marks a component as a Server Component, the default being client",
+      "Yes, but only in Next.js",
+      "No: <code>'use server'</code> marks code that runs once at build time and never per request"
+    ],
+    "answer": 0,
+    "explain": "react.dev says it directly: a common misunderstanding is that Server Components are denoted by <code>'use server'</code>, but there is no directive for them; the directive is for Server Functions. That is also why a file marked <code>'use server'</code> exposes callable endpoints."
+  },
+  {
+    "id": "m33.q14",
+    "module": "m33",
+    "section": "fetching",
+    "q": "Each call takes about 200 ms and none depends on another. Which change would you ship?",
+    "code": "export default async function ProductPage({ params }: PageProps<'/products/[slug]'>) {\n  const { slug } = await params;\n  const product = await getProduct(slug);\n  const stock = await getStock(slug);\n  const reviews = await getReviews(slug);\n  return <ProductView product={product} stock={stock} reviews={reviews} />;\n}",
+    "lang": "tsx",
+    "options": [
+      "Wrap the three functions with <code>React.cache</code> so their results are reused within the request",
+      "Mark the page <code>'use client'</code> so the browser fetches the three in parallel after hydration",
+      "<code>Promise.all</code> for product and stock; reviews in a child under Suspense",
+      "Add a <code>loading.tsx</code> and keep the code"
+    ],
+    "answer": 2,
+    "explain": "The three sequential awaits are a server waterfall of about 600 ms; parallel requests cut it to the slowest one, and streaming the optional reviews keeps the LCP content from waiting. <code>React.cache</code> only deduplicates repeated calls, and <code>loading.tsx</code> shows a fallback but leaves the waterfall in place."
+  },
+  {
+    "id": "m33.q15",
+    "module": "m33",
+    "section": "fetching",
+    "q": "How many times does <code>fetchCurrentCustomer</code> run in one request?",
+    "code": "import { cache } from 'react';\n\nasync function Header() {\n  const getCustomer = cache(fetchCurrentCustomer);\n  const customer = await getCustomer();\n  return <AccountMenu name={customer?.name ?? null} />;\n}\n\nasync function PriceBox() {\n  const getCustomer = cache(fetchCurrentCustomer);\n  const customer = await getCustomer();\n  return <Price tier={customer?.loyaltyTier ?? 'standard'} />;\n}",
+    "lang": "tsx",
+    "options": [
+      "Once: <code>cache</code> recognises that both wrappers point to the same underlying function",
+      "Twice: each call to <code>cache</code> creates a new memoized function with its own, separate cache",
+      "Zero: <code>cache</code> defers the call until a Client Component actually reads the customer",
+      "Once per customer, because the memoized value is shared across their requests"
+    ],
+    "answer": 1,
+    "explain": "React documents that calling <code>cache</code> with the same function several times returns different memoized functions that do not share a cache, so components must import one memoized function defined at module level. And the cache never spans requests, which rules out the last option."
+  },
+  {
+    "id": "m33.q16",
+    "module": "m33",
+    "section": "errors",
+    "q": "The page renders its header, then a component inside <code>&lt;Suspense&gt;</code> fetches the product and calls <code>notFound()</code> because it does not exist. What does the crawler receive?",
+    "options": [
+      "A 404 status with the not-found UI, since <code>notFound()</code> sets it",
+      "A 500 status, because <code>notFound()</code> throws while the response streams",
+      "A 410 status, because Next.js knows the product was deleted",
+      "A 200 status with the not-found UI and a <code>noindex</code> meta tag"
+    ],
+    "answer": 3,
+    "explain": "Streaming responses start with 200 and the first chunk fixes the status; Next.js then streams the not-found UI and adds <code>noindex</code> so the URL leaves the index. To return a real 404, check existence in the page before the first Suspense boundary."
+  },
+  {
+    "id": "m33.q17",
+    "module": "m33",
+    "section": "hydration",
+    "q": "A returning customer has 3 items in a cart stored in <code>localStorage</code>. What happens on page load?",
+    "code": "'use client';\n\nexport function CartBadge() {\n  const count = typeof window === 'undefined' ? 0 : readCartCount(window.localStorage);\n  return <span aria-label=\"Items in cart\">{count}</span>;\n}",
+    "lang": "tsx",
+    "options": [
+      "A mismatch: the server renders 0 and the client 3; read storage after mount",
+      "It works: the <code>typeof window</code> check is the recommended way to avoid hydration errors",
+      "The server throws a ReferenceError on <code>localStorage</code> and the whole page fails to render",
+      "React patches 0 into 3 silently"
+    ],
+    "answer": 0,
+    "explain": "The check runs differently on the server and in the browser, so the first client render differs from the HTML: measured in jsdom, the server sent 0, hydration reported a text mismatch and the badge ended at 3 after a client re-render. The guard avoids the ReferenceError, which is why the code looks safe, but it creates the mismatch."
+  },
+  {
+    "id": "m33.q18",
+    "module": "m33",
+    "section": "hydration",
+    "q": "A CMS description renders as <code>&lt;p&gt;&lt;p&gt;In stock&lt;/p&gt;&lt;/p&gt;</code> in a Client Component. React renders the same elements on server and client. Why does hydration still fail?",
+    "options": [
+      "React's reconciler refuses nested paragraphs on the client, but accepts them on the server",
+      "Next.js minification drops the inner paragraph",
+      "The browser's parser closes the first <code>&lt;p&gt;</code> at the second, so the DOM differs",
+      "The server escapes the inner paragraph as text, so the client sees different content"
+    ],
+    "answer": 2,
+    "explain": "Measured in Chromium 156: the markup became <code>&lt;p&gt;&lt;/p&gt;&lt;p&gt;In stock&lt;/p&gt;&lt;p&gt;&lt;/p&gt;</code>, so React found a different DOM and reported a hydration error, after warning that a <code>&lt;p&gt;</code> cannot be a descendant of a <code>&lt;p&gt;</code>. The fix is valid markup, such as a <code>&lt;div&gt;</code> wrapper."
+  },
+  {
+    "id": "m33.q19",
+    "module": "m33",
+    "section": "senior",
+    "q": "After the December 2025 advisory (CVE-2025-55182), a colleague says the storefront is safe because it defines no Server Functions. Your answer?",
+    "options": [
+      "Agreed: only apps that expose Server Function endpoints were affected by that advisory",
+      "Not necessarily: apps supporting RSC could be vulnerable without them; patch",
+      "Agreed: hosting providers blocked the exploit at their edge, so no upgrade is needed",
+      "Only the Pages Router parts are affected, so finishing the App Router migration fixes it"
+    ],
+    "answer": 1,
+    "explain": "The React post states that an app may still be vulnerable if it supports React Server Components even without Server Function endpoints, and that hosting mitigations must not replace an immediate update. Apps without a server or without an RSC-capable framework were not affected."
+  },
+  {
+    "id": "m33.q20",
+    "module": "m33",
+    "section": "caching",
+    "q": "What is wrong with this cached function?",
+    "code": "import { cacheLife } from 'next/cache';\n\nexport async function getCustomerPrice(productId: string): Promise<number> {\n  'use cache';\n  cacheLife('hours');\n  const customer = await getCurrentCustomer(); // reads cookies() inside\n  return ordersApi.getPrice(productId, customer?.id ?? null);\n}",
+    "lang": "ts",
+    "options": [
+      "Nothing: Next.js adds the cookie value to the cache key automatically for cached functions",
+      "The lifetime is too long for a price",
+      "<code>getCurrentCustomer</code> must also be wrapped with <code>React.cache</code> for the key to work",
+      "Cached functions cannot read cookies, even via a helper: pass the id in"
+    ],
+    "answer": 3,
+    "explain": "Next.js documents that <code>'use cache'</code> scopes cannot access <code>cookies()</code> or <code>headers()</code>, and the restriction follows the call stack, failing with <code>next-request-in-use-cache</code>. Passing the customer id as an argument makes it part of the key; nothing is added to the key automatically."
+  },
+  {
+    "id": "m33.q21",
+    "module": "m33",
+    "section": "caching",
+    "q": "The back office calls the storefront's <code>POST /api/revalidate</code> Route Handler after an agent edits a description. A few seconds of stale content are fine, and the handler must not block. Which call?",
+    "options": [
+      "<code>updateTag('product-' + slug)</code> from the handler",
+      "<code>revalidatePath('/', 'layout')</code> to clear everything",
+      "<code>revalidateTag('product-' + slug, 'max')</code>",
+      "<code>cacheLife('seconds')</code> on <code>getProduct</code> instead"
+    ],
+    "answer": 2,
+    "explain": "<code>revalidateTag</code> with a profile gives stale-while-revalidate and is allowed in Route Handlers; tags invalidate just that product. <code>updateTag</code> is restricted to Server Actions, invalidating the root layout path is far wider than needed, and a <code>seconds</code> lifetime takes the product out of the static shell for every visitor."
+  },
+  {
+    "id": "m33.q22",
+    "module": "m33",
+    "section": "caching",
+    "q": "A candidate says: \"fetch in a Server Component is cached by default.\" Which answer is accurate as of October 2026?",
+    "options": [
+      "True in Next.js 14; not by default since Next.js 15; with Cache Components you cache explicitly with <code>'use cache'</code>",
+      "True in every version: Next.js always caches GET requests made with fetch until a revalidation",
+      "False in every version: Next.js has never cached fetch results, only whole rendered pages",
+      "True only when Cache Components is enabled, because it caches every fetch made during render"
+    ],
+    "answer": 0,
+    "explain": "Next.js 15 changed the default: fetch requests and GET Route Handlers are no longer cached by default, and Cache Components (Next.js 16) makes caching opt-in with directives. Cache Components does the opposite of the last option. Stating the version first is the point of the question."
+  },
+  {
+    "id": "m33.q23",
+    "module": "m33",
+    "section": "actions",
+    "q": "What is the vulnerability in this Server Action?",
+    "code": "'use server';\n\nexport async function cancelOrder(orderId: string): Promise<void> {\n  const customer = await getCurrentCustomer();\n  if (customer === null) {\n    throw new Error('Unauthorized');\n  }\n  await ordersApi.cancel(orderId);\n  updateTag('orders-' + customer.id);\n}",
+    "lang": "ts",
+    "options": [
+      "It lacks a CSRF token, and Next.js does not check the origin of Server Action requests",
+      "No ownership check: any signed-in customer can cancel any order by its id",
+      "It should be a GET Route Handler, because cancelling an order twice is idempotent anyway",
+      "Throwing on a missing session leaks the stack trace and the message to the customer"
+    ],
+    "answer": 1,
+    "explain": "Authentication is checked, authorisation of the object is not: the order id comes from the client, so this is an IDOR. Next.js already compares Origin and Host for actions, and production errors from the server reach the browser as a generic message with a digest, so the other options are not the issue."
+  },
+  {
+    "id": "m33.q24",
+    "module": "m33",
+    "section": "actions",
+    "q": "A double click created two orders. A teammate says: \"Next.js dispatches Server Actions one at a time per client, so this cannot happen any more.\" Your answer?",
+    "options": [
+      "Correct: sequential dispatch makes every Server Action idempotent on the server side",
+      "Disabling the button while the action is pending is enough; no server change is needed",
+      "Call it through <code>Promise.all</code> to merge clicks",
+      "Dispatch is client-side; the server does not queue: use an idempotency key"
+    ],
+    "answer": 3,
+    "explain": "The Next.js docs state that sequential dispatch belongs to the client dispatcher and that the server runs each action as it arrives: a second tab, a retry or a replayed POST still creates a second request. Only a key stored by the Orders API (M05) makes the retry return the first order."
+  },
+  {
+    "id": "m33.q25",
+    "module": "m33",
+    "section": "actions",
+    "q": "An attacker adds <code>totalCents=1</code> to the form data of the \"Place order\" form. What does <code>parsed.data</code> contain (measured with Zod 4.6.7)?",
+    "code": "const PlaceOrderInput = z.object({ cartId: z.uuid(), idempotencyKey: z.uuid() });\nconst parsed = PlaceOrderInput.safeParse(Object.fromEntries(formData));",
+    "lang": "ts",
+    "options": [
+      "Only <code>cartId</code> and <code>idempotencyKey</code>: keys the schema does not declare are dropped",
+      "<code>cartId</code>, <code>idempotencyKey</code> and <code>totalCents: '1'</code>, kept as a string",
+      "Nothing: <code>safeParse</code> fails because the object contains an unknown key",
+      "<code>totalCents: 1</code>, converted to a number, next to the two ids"
+    ],
+    "answer": 0,
+    "explain": "A Zod object strips keys it does not declare: the measured result held only the two UUIDs. Failing on unknown keys would need a strict object. And the action never reads a price from the client anyway: the Orders API computes the total."
+  },
+  {
+    "id": "m33.q26",
+    "module": "m33",
+    "section": "actions",
+    "q": "The order is created, yet the customer sees \"Could not place the order.\" Why?",
+    "code": "try {\n  const order = await createOrder(cart, input.data.idempotencyKey);\n  redirect('/orders/' + order.id);\n} catch (error) {\n  logger.error({ err: error }, 'place order failed');\n  return { error: 'Could not place the order.' };\n}",
+    "lang": "ts",
+    "options": [
+      "<code>redirect</code> is forbidden in Server Actions",
+      "<code>createOrder</code> throws after the order is saved, because the API answers 201 Created",
+      "<code>redirect</code> throws, and the <code>catch</code> swallows it: call it after the try/catch",
+      "<code>redirect</code> needs an explicit 303 status argument when it is called in a Server Action"
+    ],
+    "answer": 2,
+    "explain": "The redirect docs say it throws a control-flow error and must be called outside the try block; here the catch turns a successful redirect into an error message. Redirects are allowed in Server Actions, and Next.js picks 303 itself for form submissions without JavaScript."
+  },
+  {
+    "id": "m33.q27",
+    "module": "m33",
+    "section": "bff",
+    "q": "The back office (a separate Vite app) must notify the storefront after a product edit. Server Action or Route Handler?",
+    "options": [
+      "A Server Action, since both are POST requests and the action id is in the client bundle",
+      "A Route Handler: a stable URL for callers other than your own UI",
+      "A <code>proxy.ts</code> rule that intercepts the call and invalidates the product before routing",
+      "A Client Component calling <code>router.refresh()</code>"
+    ],
+    "answer": 1,
+    "explain": "Server Actions are referenced by build-specific encrypted ids, meant to be called by your own React UI; another app needs a stable endpoint. A Route Handler exposes <code>POST /api/revalidate</code>, checks a shared secret and calls <code>revalidateTag</code>. A proxy rule only intercepts requests before routing."
+  },
+  {
+    "id": "m33.q28",
+    "module": "m33",
+    "section": "bff",
+    "q": "CI builds one image with <code>NEXT_PUBLIC_PAYMENT_ENV=sandbox</code>; production runs the same image with <code>NEXT_PUBLIC_PAYMENT_ENV=live</code>. What does browser code read?",
+    "options": [
+      "<code>live</code>, because the runtime environment variable always wins",
+      "An empty string, because the build and runtime values conflict",
+      "Nothing: the container refuses to start when a public value changes",
+      "<code>sandbox</code>, because public variables are inlined at build time"
+    ],
+    "answer": 3,
+    "explain": "Next.js documents that <code>NEXT_PUBLIC_</code> values are inlined into the JavaScript during <code>next build</code> and frozen: a single image promoted across environments keeps the build value. Per-environment values must be read on the server at request time. Replacement by an empty string is what happens to unprefixed variables in client code."
+  },
+  {
+    "id": "m33.q29",
+    "module": "m33",
+    "section": "errors",
+    "q": "In production, the Orders API fails while a Server Component renders, and <code>error.tsx</code> displays <code>error.message</code>. What does the customer see?",
+    "options": [
+      "The original message with the full stack trace from the server",
+      "A generic message, with a <code>digest</code> you can match against the server logs",
+      "The JSON error body that the Orders API returned to the server",
+      "An empty string, because server errors are never forwarded to it"
+    ],
+    "answer": 1,
+    "explain": "Next.js replaces the message of errors forwarded from Server Components with a generic one plus a digest, to avoid leaking sensitive details; the original message reaches the browser only in development. That is why <code>error.tsx</code> should log the error and show a fixed sentence."
+  },
+  {
+    "id": "m33.q30",
+    "module": "m33",
+    "section": "senior",
+    "q": "Which of the shop's screens would you <b>not</b> move to Server Components?",
+    "options": [
+      "The back office orders table: logged in, no SEO, heavy client state",
+      "The storefront product page, which must be indexed by Google and paint fast on mobile",
+      "The marketing landing pages, which change only when the content team publishes in the CMS",
+      "The order confirmation page, which shows one order read from the Orders API"
+    ],
+    "answer": 0,
+    "explain": "Server Components pay off for SEO, first paint and keeping data access on the server; a logged-in, highly interactive table gains little and already runs well as a Vite SPA with TanStack Query. The other three screens are exactly where a static shell and server data help most."
+  }
+]

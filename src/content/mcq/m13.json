@@ -1,0 +1,434 @@
+[
+  {
+    "id": "m13.q1",
+    "module": "m13",
+    "section": "http-cache",
+    "q": "The product JSON is identical for every shopper. You want the CDN to keep it for 5 minutes, browsers for 1 minute, and the CDN to keep serving it for 10 more minutes while it refreshes. Which header?",
+    "options": [
+      "<code>private, max-age=300, s-maxage=300, stale-while-revalidate=600</code>",
+      "<code>public, max-age=60, s-maxage=300, stale-while-revalidate=600</code>",
+      "<code>no-cache, max-age=60, s-maxage=300, stale-while-revalidate=600</code>",
+      "<code>public, no-store, max-age=60, s-maxage=300, stale-while-revalidate=600</code>"
+    ],
+    "answer": 1,
+    "explain": "<code>s-maxage</code> sets the freshness for shared caches such as a CDN and overrides <code>max-age</code> there, while browsers use <code>max-age</code>. <code>stale-while-revalidate</code> allows serving the stale copy while refreshing. <code>private</code> forbids the CDN from storing it at all, and <code>no-store</code> forbids every cache."
+  },
+  {
+    "id": "m13.q2",
+    "module": "m13",
+    "section": "http-cache",
+    "q": "What does <code>Cache-Control: no-cache</code> mean on a response?",
+    "options": [
+      "No cache of any kind may store the response; it must be fetched from the server every time.",
+      "Only the browser may store it; a CDN or proxy must forward every request to the server.",
+      "Caches may store it, but must revalidate it with the server before each reuse.",
+      "Caches store it but serve it only while the origin server is down or answering with errors."
+    ],
+    "answer": 2,
+    "explain": "Per MDN, <code>no-cache</code> allows storage but requires revalidation before every reuse, typically answered with <code>304 Not Modified</code>. The directive that forbids storage is <code>no-store</code>; confusing the two is the common mistake. Serving stale on errors is <code>stale-if-error</code>."
+  },
+  {
+    "id": "m13.q3",
+    "module": "m13",
+    "section": "app-caches",
+    "q": "Why must an in-process cache in front of Redis have a short TTL, of seconds rather than minutes?",
+    "options": [
+      "Because lru-cache cannot keep an entry for longer than one minute, whatever <code>ttl</code> you pass.",
+      "Because with a long TTL, lru-cache evicts the most frequently read keys first to make room.",
+      "Because Redis closes the connection of clients that keep a local copy of its keys for too long.",
+      "A Redis <code>DEL</code> does not reach the other replicas' copies; only their TTL bounds staleness."
+    ],
+    "answer": 3,
+    "explain": "Each Node instance keeps its own copy, and the write path only deletes the Redis key. Nothing tells the other replicas, so their TTL (or a broadcast such as Redis pub/sub) is the only bound on staleness. lru-cache has no such duration limit, and an LRU evicts the least recently used entries, not hot ones."
+  },
+  {
+    "id": "m13.q4",
+    "module": "m13",
+    "section": "app-caches",
+    "q": "You start a new Node service that talks to Redis 8. Which client do you pick, as of October 2026?",
+    "options": [
+      "node-redis (the <code>redis</code> package), the client the Redis docs recommend.",
+      "ioredis, because Redis Inc. now develops it more actively than any other Node client.",
+      "kafkajs, because the same client speaks both the Kafka and the Redis protocols.",
+      "iovalkey, because Redis 8 only accepts connections from clients that also support Valkey."
+    ],
+    "answer": 0,
+    "explain": "The Redis docs recommend node-redis for Node.js, and the ioredis README says its maintenance is best-effort and that node-redis is recommended for new projects. iovalkey is a fork of ioredis that tracks Valkey; it is not required for Redis. kafkajs is a Kafka client."
+  },
+  {
+    "id": "m13.q5",
+    "module": "m13",
+    "section": "cache-aside",
+    "q": "An admin changes the price of product 42, which is cached with cache-aside. What should the write path do?",
+    "options": [
+      "Delete the key first, then update the database, so that no reader can see the old price.",
+      "Update the database, then write the new price into the cache so that the next read is a hit.",
+      "Update the database, then delete the key once the transaction has committed.",
+      "Update the database only, and let the TTL replace the old price when it expires."
+    ],
+    "answer": 2,
+    "explain": "Deleting after the commit means the next read loads the new row. Deleting before lets a reader reload the old row in between and cache it for a whole TTL. Writing the value instead of deleting can leave the older of two concurrent updates in the cache, and relying on the TTL alone serves the old price until it expires."
+  },
+  {
+    "id": "m13.q6",
+    "module": "m13",
+    "section": "cache-aside",
+    "q": "The product response now includes the member discount of the logged-in shopper, and it is still cached under <code>catalogue:v3:product:42:fr-FR</code>. What do you change?",
+    "options": [
+      "Lower the TTL to 10 seconds so that a wrong discount never stays visible for long.",
+      "Cache only the shared product data, and apply the discount per request after reading it.",
+      "Add random jitter to the TTL so that two shoppers rarely read the same cached entry.",
+      "Move this cache into an in-process LRU so that each replica keeps its own copy of the entry."
+    ],
+    "answer": 1,
+    "explain": "Per-user data under a shared key is a data leak: the next shopper reads the first shopper's discount. Keep the key for what is the same for everyone and compute the personal part per request. A shorter TTL or a local cache only makes the leak shorter or spreads it differently; jitter changes when keys expire, not who reads them."
+  },
+  {
+    "id": "m13.q7",
+    "module": "m13",
+    "section": "stampede",
+    "q": "A cache without request coalescing receives 100 concurrent reads of the same cold key, while the 50 ms database load is running. How many times does the loader run?",
+    "options": [
+      "Once",
+      "Twice",
+      "About 50 times",
+      "100 times"
+    ],
+    "answer": 3,
+    "explain": "Every read that misses before the first load has stored a value starts its own load. Measured on Node 24: 100 loader calls without coalescing, 1 with single flight. That pile-up on one expiring key is a cache stampede."
+  },
+  {
+    "id": "m13.q8",
+    "module": "m13",
+    "section": "events",
+    "q": "A new fraud-detection service must read every <code>order.paid</code> event of the last 7 days, without disturbing the services that already consume them. Which model allows that?",
+    "options": [
+      "A log such as Kafka, where each consumer group reads from its own offset.",
+      "A queue such as SQS: the new service receives every message the other services have not deleted yet.",
+      "A job queue such as BullMQ: completed jobs are replayed when a new worker process starts.",
+      "Any broker, as long as consumers acknowledge each message before they process it."
+    ],
+    "answer": 0,
+    "explain": "Kafka's docs state that events are not deleted after consumption and are kept for a per-topic retention period, so a new consumer group can start from the past. A queue deletes messages once processed, and competing consumers split them instead of each seeing all of them. Acknowledging before processing gives at-most-once delivery, not replay."
+  },
+  {
+    "id": "m13.q9",
+    "module": "m13",
+    "section": "brokers",
+    "q": "A team starts a Node service that produces to Kafka and plans to use kafkajs. What should you tell them?",
+    "options": [
+      "kafkajs is the client Confluent maintains and supports, so it is the safe default for new services.",
+      "kafkajs is fine as long as the topic has fewer than 12 partitions and the messages stay small.",
+      "Its last release, 2.2.4, dates from February 2023; prefer Confluent's KafkaJS-compatible client.",
+      "Node cannot produce to Kafka directly; the events have to go through SQS or SNS first."
+    ],
+    "answer": 2,
+    "explain": "npm shows kafkajs 2.2.4, published in February 2023, as the latest version, and its repository has an open \"Looking for maintainers\" issue. Confluent publishes @confluentinc/kafka-javascript (1.11.0), built on librdkafka, with a KafkaJS-compatible API and a migration guide. kafkajs was never Confluent's client."
+  },
+  {
+    "id": "m13.q10",
+    "module": "m13",
+    "section": "consumers",
+    "q": "Which consumer design gives an exactly-once <em>effect</em> on top of at-least-once delivery?",
+    "options": [
+      "Acknowledge the message before processing it, so that the broker never has a reason to redeliver it.",
+      "Insert the message id and apply the effect in one transaction, so the primary key rejects duplicates.",
+      "Check with a <code>SELECT</code> whether the id was processed, then apply the effect and insert the id.",
+      "Configure the broker for exactly-once delivery, which makes deduplication in the consumer unnecessary."
+    ],
+    "answer": 1,
+    "explain": "The primary key decides which delivery wins, and the shared transaction makes the id and the effect commit or roll back together (measured on PGlite: a failed effect left no id behind). Acknowledging first gives at-most-once and can lose messages. Select-then-insert lets two concurrent deliveries both pass the check, and broker guarantees stop at the broker."
+  },
+  {
+    "id": "m13.q11",
+    "module": "m13",
+    "section": "outbox",
+    "q": "The payment webhook commits the paid status of order 981, then publishes <code>order.paid</code>. The replica is killed between the two calls. What is the result?",
+    "options": [
+      "The broker publishes the event when the process restarts.",
+      "PostgreSQL rolls the paid status back because the publish did not happen.",
+      "The event is published twice when the process restarts.",
+      "The order is paid, but no other service will ever hear about it."
+    ],
+    "answer": 3,
+    "explain": "This is the dual-write problem: two systems and no transaction across them, so nothing remembers that a publish was due. The transactional outbox fixes it by committing the event as a row in the same transaction as the paid status and letting a relay publish it later."
+  },
+  {
+    "id": "m13.q12",
+    "module": "m13",
+    "section": "sagas",
+    "q": "In an order saga, the order was created and the stock reserved, then the payment is declined. What should happen?",
+    "options": [
+      "Run the compensations in reverse: release the stock, then cancel the order.",
+      "Roll back the distributed transaction that was opened across the three services at the start.",
+      "Retry the declined payment until it succeeds, because a saga must always run to completion.",
+      "Leave the order pending and the stock reserved until an operator looks at it in the back office."
+    ],
+    "answer": 0,
+    "explain": "Each step already committed in its own service, so there is nothing to roll back: a saga undoes completed steps with compensating actions, newest first. A declined card is a business failure, so retrying it is pointless, and leaving stock reserved blocks other customers."
+  },
+  {
+    "id": "m13.q13",
+    "module": "m13",
+    "section": "http-cache",
+    "q": "After a deploy, shoppers report seeing someone else's cart. The cart route sits behind a CDN and now returns the header below. What do you ship?",
+    "code": "\nHTTP/1.1 200 OK\nCache-Control: max-age=0, s-maxage=60\nContent-Type: application/json",
+    "lang": "http",
+    "options": [
+      "Send <code>private, no-store</code>: <code>s-maxage</code> lets the CDN share one cart with everyone.",
+      "Lower <code>s-maxage</code> to 5 seconds, so that a wrong cart stays visible for a much shorter time.",
+      "Add <code>stale-while-revalidate=0</code> so that the CDN never serves a stale copy of a cart.",
+      "Keep the header and add the user id inside the JSON body, so that the client can detect a wrong cart."
+    ],
+    "answer": 0,
+    "explain": "MDN notes that <code>s-maxage</code>, like <code>public</code>, allows a shared cache to store a response to a request carrying <code>Authorization</code>. Per-user responses need <code>private</code> (no shared storage) or <code>no-store</code>. A shorter <code>s-maxage</code> still leaks carts, only for less time."
+  },
+  {
+    "id": "m13.q14",
+    "module": "m13",
+    "section": "cache-aside",
+    "q": "A shopper opens product 981 ten seconds before the catalogue team creates it. What do shoppers see next, with this read path?",
+    "code": "\nconst product = await loadProductFromDb(id, locale);\nif (product === undefined) {\n  await redis.set(key, JSON.stringify({ found: false }), {\n    expiration: { type: 'EX', value: 86_400 },\n  });\n  return undefined;\n}",
+    "lang": "ts",
+    "options": [
+      "The product at once, because creating a row in the database bypasses the cache entirely.",
+      "The product after the next deploy, because every deploy flushes the Redis instance.",
+      "A \"not found\" for up to a day: negative results need a short TTL.",
+      "An error page, because Redis refuses to store a JSON value whose <code>found</code> field is false."
+    ],
+    "answer": 2,
+    "explain": "The negative result is cached for 86,400 seconds, so every read hits the cached \"not found\" until it expires. Negative caching protects the database from repeated lookups of missing ids, but its TTL must be short (seconds), and a create should delete the key like any other write. Redis stores any string, and a deploy does not flush it."
+  },
+  {
+    "id": "m13.q15",
+    "module": "m13",
+    "section": "stampede",
+    "q": "To get coalescing for free, a developer caches the loader's promise. The first load fails. What does this print?",
+    "code": "\nconst promises = new Map<string, Promise<string>>();\nlet calls = 0;\n\nasync function load(): Promise<string> {\n  calls += 1;\n  if (calls === 1) {\n    throw new Error('db timeout');\n  }\n  return 'ok';\n}\n\nfunction get(key: string): Promise<string> {\n  let promise = promises.get(key);\n  if (promise === undefined) {\n    promise = load();\n    promises.set(key, promise);\n  }\n  return promise;\n}\n\nfor (let i = 0; i < 3; i += 1) {\n  console.log(await get('p-1').catch((error: Error) => error.message));\n}\nconsole.log('calls', calls);",
+    "lang": "ts",
+    "options": [
+      "<code>db timeout</code>, <code>ok</code>, <code>ok</code>, then <code>calls 2</code>",
+      "<code>db timeout</code> three times, then <code>calls 1</code>",
+      "<code>db timeout</code>, <code>db timeout</code>, <code>ok</code>, then <code>calls 3</code>",
+      "An unhandled rejection stops the process after the first line"
+    ],
+    "answer": 1,
+    "explain": "A cached promise caches its rejection: the map keeps the rejected promise and every later call gets the same error without calling the loader. Measured on Node 24: three \"db timeout\" and <code>calls 1</code>. Each <code>await</code> has a <code>.catch</code>, so there is no unhandled rejection. Remove the in-flight entry when the load settles and store only successful values."
+  },
+  {
+    "id": "m13.q16",
+    "module": "m13",
+    "section": "cache-aside",
+    "q": "A reader starts loading product 42 with a 50 ms query. 5 ms later an admin commits a new price and deletes the key. The reader's query had already read the old row. What is in the cache afterwards?",
+    "options": [
+      "Nothing at all, because the delete was the last operation that touched the key.",
+      "The new price, because a delete forces every reader that is still running to reload.",
+      "An error, because Redis rejects a <code>SET</code> on a key that was deleted during the load.",
+      "The old price, until the TTL expires: the slow load writes after the delete."
+    ],
+    "answer": 3,
+    "explain": "The load finishes after the invalidation and writes what it read before the update. Measured on Node 24 with the same timings: the cache ended with the old value. The TTL bounds the damage; a version number in the key or a short TTL on that data narrows the window."
+  },
+  {
+    "id": "m13.q17",
+    "module": "m13",
+    "section": "stampede",
+    "q": "Your API runs 20 replicas, each with in-process single flight in front of Redis. A hot key expires in Redis at peak traffic. How many database loads can that cause at most, and what reduces it further?",
+    "options": [
+      "Up to 20, one per replica; a shared lock or stale-while-revalidate goes further.",
+      "One, because single flight is coordinated across replicas through Redis itself.",
+      "As many as there are requests, because single flight only protects a single caller at a time.",
+      "None, because Redis reloads expired keys from the database by itself before they are read."
+    ],
+    "answer": 0,
+    "explain": "Single flight shares a promise inside one process only, so each replica can start one load. To go lower you need something shared or something that avoids the miss: serve the stale value while one caller refreshes, refresh early with a probability, or let one caller win a Redis lock. Redis never loads data from your database."
+  },
+  {
+    "id": "m13.q18",
+    "module": "m13",
+    "section": "stampede",
+    "q": "With XFetch, a value took 200 ms to compute and <code>beta = 1</code>. Over 100,000 reads, how often does a read refresh early with 60 s left, and with 50 ms left?",
+    "code": "\nfunction shouldRefreshEarly(nowMs: number, expiresAtMs: number, computeMs: number, beta = 1): boolean {\n  return nowMs - computeMs * beta * Math.log(Math.random()) >= expiresAtMs;\n}",
+    "lang": "ts",
+    "options": [
+      "Never with 60 s left, and every single time once only 50 ms are left.",
+      "About 1% of reads with 60 s left, and about 10% of reads with 50 ms left.",
+      "Practically never with 60 s left, and about 78% of reads with 50 ms left.",
+      "About 50% in both cases, because <code>Math.random()</code> is uniform."
+    ],
+    "answer": 2,
+    "explain": "The head start <code>-computeMs * ln(random)</code> is exponentially distributed, so the chance to refresh is about <code>e^(-remaining / computeMs)</code>. Measured: 0.000 with 60 s left, 0.007 with 1 s, 0.368 with 200 ms and 0.779 with 50 ms. It is never certain, which is why one reader, not all of them, usually refreshes first."
+  },
+  {
+    "id": "m13.q19",
+    "module": "m13",
+    "section": "app-caches",
+    "q": "Each of 12 API replicas keeps a 10-minute lru-cache in front of Redis. After a price change, the write path deletes the Redis key. What do shoppers see, and what is the usual fix?",
+    "options": [
+      "The new price at once, because lru-cache subscribes to Redis keyspace deletions by default.",
+      "The old price for up to 10 minutes; shorten the L1 TTL or broadcast invalidations.",
+      "The old price until the next deploy, because in-process caches never expire entries on their own.",
+      "The old price until the Redis TTL ends, because Redis delays deletes until the key expires."
+    ],
+    "answer": 1,
+    "explain": "The local copies know nothing about the Redis <code>DEL</code>, so each replica serves its copy until its own TTL ends. Either keep the L1 TTL short enough to be acceptable staleness, or send an invalidation message to every replica. lru-cache does expire entries by TTL, and Redis applies a <code>DEL</code> immediately."
+  },
+  {
+    "id": "m13.q20",
+    "module": "m13",
+    "section": "brokers",
+    "q": "Five teams want the order events; each consumes at its own pace, and analytics must be able to re-read the last 7 days after a bug fix. Which design fits best?",
+    "options": [
+      "A BullMQ queue with one worker per team, each worker reading every job in the queue.",
+      "An SNS topic fanned out to one SQS queue per team, each team draining its own queue.",
+      "A single RabbitMQ quorum queue shared by the five teams, with one consumer per team.",
+      "A Kafka topic keyed by order id, with one consumer group per team."
+    ],
+    "answer": 3,
+    "explain": "Kafka keeps the events after consumption, each consumer group has its own offset, and moving an offset back replays the past. SNS to SQS gives each team its own queue and pace, which is a good fit without the replay requirement, but SQS deletes processed messages. A single shared queue makes the teams compete for messages, and a BullMQ queue is built for jobs, not for many independent consumers."
+  },
+  {
+    "id": "m13.q21",
+    "module": "m13",
+    "section": "brokers",
+    "q": "The API calls <code>enqueueConfirmation('o-981')</code>, times out, and the client retries, so the add runs twice with <code>jobId: 'confirmation-o-981'</code> while the first job is still waiting. How many emails are queued?",
+    "options": [
+      "Two, because BullMQ queues every call to <code>add</code>.",
+      "Two, and the second add rejects with a duplicate-id error.",
+      "One: an add with a job id that already exists is ignored.",
+      "None: the two adds cancel each other out."
+    ],
+    "answer": 2,
+    "explain": "The BullMQ docs state that adding a job with an existing id means it \"will just be ignored\". An id built from the business key (the order id) turns a retried enqueue into a no-op. Once the job has been removed, the id can be reused; custom ids must not contain a colon."
+  },
+  {
+    "id": "m13.q22",
+    "module": "m13",
+    "section": "consumers",
+    "q": "An SQS consumer takes 45 seconds to process a message, and the queue keeps the default visibility timeout. What happens?",
+    "options": [
+      "After 30 s the message reappears and a second consumer may process it in parallel.",
+      "SQS waits for the consumer to finish, because the message has already been received once.",
+      "The message is deleted after 30 seconds, so the work done by the consumer is lost.",
+      "The message moves straight to the dead-letter queue because it exceeded the timeout."
+    ],
+    "answer": 0,
+    "explain": "Per the SQS docs, the visibility timeout defaults to 30 seconds and starts when the message is delivered; if it is not deleted in time, it becomes visible again. Set the timeout above the processing time or extend it with <code>ChangeMessageVisibility</code>, and keep the consumer idempotent. The DLQ only receives a message after <code>maxReceiveCount</code> receives."
+  },
+  {
+    "id": "m13.q23",
+    "module": "m13",
+    "section": "consumers",
+    "q": "Two deliveries of the same message are handled at the same moment by this consumer. How many points does the customer end up with?",
+    "code": "\nasync function handle(id: string): Promise<string> {\n  const seen = await db.query('SELECT 1 FROM processed_messages WHERE message_id = $1', [id]);\n  if (seen.rows.length > 0) {\n    return 'duplicate';\n  }\n  await db.query(\n    \"INSERT INTO loyalty_points (customer_id, points) VALUES ('c-1', 10) \" +\n      'ON CONFLICT (customer_id) DO UPDATE SET points = loyalty_points.points + EXCLUDED.points',\n  );\n  await db.query('INSERT INTO processed_messages (message_id) VALUES ($1) ON CONFLICT DO NOTHING', [id]);\n  return 'processed';\n}\n\nawait Promise.all([handle(messageId), handle(messageId)]);",
+    "lang": "ts",
+    "options": [
+      "10: the second delivery sees the first one's row and returns <code>duplicate</code>.",
+      "20: both checks run before either insert, so both deliveries add the points.",
+      "10: the second insert into <code>processed_messages</code> fails and undoes its points.",
+      "10: PostgreSQL runs the two handlers one after the other automatically."
+    ],
+    "answer": 1,
+    "explain": "Measured on PGlite: both <code>SELECT</code>s ran before either insert, both returned <code>processed</code>, and the balance was 20. Nothing rolls the points back, since each statement commits on its own and <code>ON CONFLICT DO NOTHING</code> does not fail. Insert the id first, in the same transaction as the effect, and let the primary key decide."
+  },
+  {
+    "id": "m13.q24",
+    "module": "m13",
+    "section": "consumers",
+    "q": "A consumer inserts the message id into <code>processed_messages</code> in its own auto-committed statement, then applies the effect in a separate transaction. The effect fails on a deadlock. What happens on redelivery?",
+    "options": [
+      "The message is processed normally, because the failed effect was rolled back by its transaction.",
+      "The broker detects that processing failed and skips the message to protect the queue.",
+      "The id insert is rolled back automatically, together with the effect that failed afterwards.",
+      "The id is already recorded, so the redelivery is skipped and the effect is lost."
+    ],
+    "answer": 3,
+    "explain": "The id committed on its own before the effect, so the consumer believes the work was done and the message is lost for good. Recording the id and applying the effect must commit together; measured on PGlite, doing both in one transaction left no id behind when the effect threw, and the next delivery succeeded."
+  },
+  {
+    "id": "m13.q25",
+    "module": "m13",
+    "section": "brokers",
+    "q": "The payment provider has a 2-minute outage. 2,000 jobs fail and all retry after exactly 1 s, 2 s, 4 s, 8 s… The provider recovers but falls over again at each retry wave. What do you change?",
+    "options": [
+      "Raise the number of attempts so that the jobs keep trying for longer after the outage.",
+      "Shorten the base delay so that the jobs complete sooner once the provider has recovered.",
+      "Add random jitter to the backoff so that the retries spread out.",
+      "Retry immediately in a loop until the provider answers, so that no time is wasted."
+    ],
+    "answer": 2,
+    "explain": "Exponential backoff without jitter keeps every job on the same schedule, so the retries hit the provider together. Jitter randomises each wait; BullMQ exposes it as <code>jitter</code> on the backoff options, and the AWS Builders' Library article explains the effect. More attempts or shorter delays add load during the outage, and a tight loop is the worst case."
+  },
+  {
+    "id": "m13.q26",
+    "module": "m13",
+    "section": "brokers",
+    "q": "The orders topic has 12 partitions and the producer sends events without a key. A consumer sometimes sees <code>order.refunded</code> before <code>order.paid</code> for the same order. Why, and what is the fix?",
+    "options": [
+      "Kafka gives no ordering guarantee at all, so the consumer must sort the events by timestamp.",
+      "Without a key, one order's events can land in different partitions; key by order id.",
+      "The consumer group has too few members; adding one consumer per partition restores the order.",
+      "The topic must have a single partition, which is the only way to get any ordering in Kafka."
+    ],
+    "answer": 1,
+    "explain": "Kafka's docs say events with the same key are written to the same partition and each partition is read in write order. Keying by the order id keeps one order's events in sequence while the topic still has 12 partitions of parallelism. One partition would also work but caps the consumer group at one active consumer; adding consumers does not fix ordering."
+  },
+  {
+    "id": "m13.q27",
+    "module": "m13",
+    "section": "outbox",
+    "q": "The outbox relay publishes a message, the broker acknowledges it, and the relay crashes before setting <code>published_at</code>. What happens next?",
+    "options": [
+      "It publishes the message again after restarting; consumers deduplicate on the id.",
+      "The message is lost, because the broker already had it and the relay never retries it.",
+      "The broker recognises the outbox id and silently drops the second copy of the message.",
+      "PostgreSQL rolls back the order, since its outbox row was never marked as published."
+    ],
+    "answer": 0,
+    "explain": "The row is still unpublished, so the next pass publishes it again: an outbox relay is at-least-once by design. The consumer's processed-messages table absorbs the duplicate. A broker does not know your outbox ids (SQS FIFO deduplication only covers a 5-minute window on sends), and the order committed long before."
+  },
+  {
+    "id": "m13.q28",
+    "module": "m13",
+    "section": "outbox",
+    "q": "A relay claims a batch with this query and publishes the rows in the order they come back. In which order are the events published?",
+    "code": "\nUPDATE outbox SET claimed_until = now() + interval '30 seconds'\nWHERE id IN (\n  SELECT id FROM outbox\n  WHERE published_at IS NULL\n  ORDER BY created_at\n  LIMIT 100\n  FOR UPDATE SKIP LOCKED)\nRETURNING id, aggregate_id, payload;",
+    "lang": "sql",
+    "options": [
+      "In <code>created_at</code> order, because the subquery sorts the rows before they are updated.",
+      "In primary-key order, because <code>RETURNING</code> always follows the primary-key index.",
+      "In no guaranteed order (measured: newest first); sort again in an outer query.",
+      "In a random order that changes on every call, because <code>SKIP LOCKED</code> shuffles the rows."
+    ],
+    "answer": 2,
+    "explain": "The <code>ORDER BY</code> in the subquery decides which rows are claimed, not the order <code>UPDATE ... RETURNING</code> returns them in. Measured on PGlite (PostgreSQL 18.6): the rows came back newest first. Wrap the update in a CTE and add <code>ORDER BY created_at</code> to the outer <code>SELECT</code>. <code>SKIP LOCKED</code> only skips rows that another transaction has locked; it does not shuffle anything."
+  },
+  {
+    "id": "m13.q29",
+    "module": "m13",
+    "section": "outbox",
+    "q": "The Debezium connector that reads the outbox was stopped on Friday. On Sunday the primary database runs out of disk. What happened?",
+    "options": [
+      "The outbox table grew without limit, because Debezium deletes outbox rows only while it runs.",
+      "Its replication slot kept all the WAL the connector had not read yet.",
+      "PostgreSQL wrote every outbox row twice while the connector was away, to replay them later.",
+      "Kafka pushed its retained order events back into the database when the connector stopped."
+    ],
+    "answer": 1,
+    "explain": "The PostgreSQL docs warn that replication slots prevent removal of required WAL even when nothing is connected. A stopped CDC connector therefore makes WAL accumulate on the primary: monitor slot lag and drop slots that are no longer used. Debezium does not delete outbox rows, and Kafka never writes back into PostgreSQL."
+  },
+  {
+    "id": "m13.q30",
+    "module": "m13",
+    "section": "sagas",
+    "q": "In a Temporal order workflow, a developer calls the payment provider with <code>fetch</code> directly in the workflow function and uses <code>Date.now()</code> to decide when to give up. Why does the reviewer refuse it?",
+    "options": [
+      "Because <code>fetch</code> is much slower inside a Temporal workflow than inside an Express handler.",
+      "Because Temporal forbids HTTP calls anywhere in an application that uses Temporal.",
+      "Because <code>Date.now()</code> returns UTC while payment providers expect the local time zone.",
+      "Workflow code is replayed and must be deterministic; I/O belongs in activities."
+    ],
+    "answer": 3,
+    "explain": "Temporal rebuilds a workflow by replaying its event history, so the docs require workflow code to make the same decisions given the same history. A direct network call or <code>Date.now()</code> can differ on replay. Activities are where HTTP calls belong, and Temporal retries them with backoff by default."
+  }
+]

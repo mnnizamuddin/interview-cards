@@ -1,0 +1,434 @@
+[
+  {
+    "id": "m28.q1",
+    "module": "m28",
+    "section": "semantics",
+    "q": "The checkout has <code>&lt;div class=\"btn\" onclick=\"pay()\"&gt;Pay now&lt;/div&gt;</code> next to a real <code>&lt;button&gt;</code>. What did Chromium do with the <code>div</code>?",
+    "options": [
+      "It exposed it as a button, because a click handler is attached to it",
+      "Tab skipped it and the accessibility tree showed it as plain text",
+      "Tab reached it, but neither Enter nor Space triggered its click handler",
+      "It exposed it as a link, because the pointer cursor changes on hover"
+    ],
+    "answer": 1,
+    "explain": "A click handler adds no role and no focusability: Tab went straight to the next control and the tree listed \"text: Pay now\". \"Tab reached it but keys did nothing\" describes a div with role=\"button\" and tabindex=\"0\", which still lacks the keyboard behaviour of a real button."
+  },
+  {
+    "id": "m28.q2",
+    "module": "m28",
+    "section": "name",
+    "q": "What is the accessible name of <code>&lt;button aria-label=\"Close\"&gt;Remove item&lt;/button&gt;</code>?",
+    "options": [
+      "\"Remove item\", because the visible text always wins over attributes",
+      "\"Remove item Close\", because both sources are joined together",
+      "\"Close\", because aria-label comes before the content",
+      "No name at all, because the two sources conflict with each other"
+    ],
+    "answer": 2,
+    "explain": "In the accessible name computation, aria-label comes before naming from content, so Chromium named the button \"Close\". That is exactly why it is a bug: the visible label is no longer in the name (WCAG 2.5.3 Label in Name), so a voice control user saying \"click Remove item\" fails."
+  },
+  {
+    "id": "m28.q3",
+    "module": "m28",
+    "section": "focus",
+    "q": "In the back office SPA, the agent presses Enter on the \"Order 42\" link. The router removes the old page, link included, and renders the new one. Where is keyboard focus, measured in Chromium?",
+    "options": [
+      "On <code>body</code>, because the focused element was removed",
+      "On the new page's <code>h1</code>, moved by the browser",
+      "On the first focusable element of the new page",
+      "Still on the removed link, which keeps focus while detached"
+    ],
+    "answer": 0,
+    "explain": "When the focused element leaves the DOM, document.activeElement falls back to body and a screen reader announces nothing. The browser never moves focus to the new heading on its own: that is the job of code such as the PageHeading component, which focuses an h1 with tabindex=\"-1\"."
+  },
+  {
+    "id": "m28.q4",
+    "module": "m28",
+    "section": "focus",
+    "q": "A button is styled with <code>button:focus-visible { outline: 3px solid }</code>. Which interaction showed the outline in Chromium?",
+    "options": [
+      "A mouse click on the button",
+      "Any focus, whatever the input device",
+      "Only a programmatic <code>button.focus()</code> after a mouse click",
+      "Reaching the button with Tab or Shift+Tab"
+    ],
+    "answer": 3,
+    "explain": "Measured: keyboard focus matched :focus-visible, while a mouse click on the same button focused it without matching. Browsers use heuristics so that keyboard users always see focus and mouse users clicking a button do not, which is why styling :focus-visible beats deleting the outline."
+  },
+  {
+    "id": "m28.q5",
+    "module": "m28",
+    "section": "dialog",
+    "q": "Which of these does a <code>&lt;dialog&gt;</code> opened with <code>showModal()</code> NOT do by default, measured in Chromium?",
+    "options": [
+      "Move focus to the first focusable element inside it",
+      "Close when the user presses Escape",
+      "Close when the user clicks the backdrop",
+      "Remove the rest of the page from the accessibility tree"
+    ],
+    "answer": 2,
+    "explain": "A backdrop click left the dialog open; light dismiss needs closedby=\"any\", which MDN still lists as limited availability. Focus moving in, Escape closing it and the page behind leaving the accessibility tree were all measured as default behaviour of showModal()."
+  },
+  {
+    "id": "m28.q6",
+    "module": "m28",
+    "section": "dialog",
+    "q": "A filters drawer opens over the orders table. A developer puts <code>aria-hidden=\"true\"</code> on the table's container. What happens to the \"Delete order\" button inside it?",
+    "options": [
+      "It leaves the accessibility tree but Tab still reaches it",
+      "It leaves the accessibility tree and the Tab order, like inert does",
+      "It stays in the accessibility tree but can no longer be clicked",
+      "Nothing changes: aria-hidden only applies to images and icons"
+    ],
+    "answer": 0,
+    "explain": "Measured in Chromium: the button disappeared from the accessibility tree, yet Tab focused it, so a screen reader user lands on a control with no name. Removing it from the Tab order and from clicks is what inert does, and that is the attribute to use behind an overlay."
+  },
+  {
+    "id": "m28.q7",
+    "module": "m28",
+    "section": "widgets",
+    "q": "In the OrderTabs component, the \"History\" tab is selected. What are the <code>tabIndex</code> values of Details, Payments and History?",
+    "options": [
+      "0, 0, 0, so that the Tab key visits every tab in turn",
+      "-1, -1, 0: only the selected tab is in the Tab sequence",
+      "-1, -1, -1, and the tablist container itself has tabindex 0",
+      "1, 2, 3, so that the Tab key follows the visual order of tabs"
+    ],
+    "answer": 1,
+    "explain": "This is the roving tabindex: one tab has tabindex 0 and the others -1, so the whole list is one Tab stop and the arrow keys move between tabs. Measured after pressing End: Details -1, Payments -1, History 0. Positive tabindex values must never be used."
+  },
+  {
+    "id": "m28.q8",
+    "module": "m28",
+    "section": "live",
+    "q": "What does <code>role=\"status\"</code> give the cart announcer?",
+    "options": [
+      "An assertive live region that interrupts whatever the screen reader says",
+      "Focus moves to the message element each time its text changes",
+      "A landmark that users can jump to from the screen reader landmarks menu",
+      "A polite live region: changes are announced when the user is idle"
+    ],
+    "answer": 3,
+    "explain": "role=\"status\" is a live region with polite announcements by default; role=\"alert\" is the assertive one. A live region announces changes without moving focus, which is exactly what a cart update needs."
+  },
+  {
+    "id": "m28.q9",
+    "module": "m28",
+    "section": "perceive",
+    "q": "Grey <code>#777777</code> on white has a contrast ratio of 4.48:1. Where may it be used under WCAG 1.4.3 (AA)?",
+    "options": [
+      "Anywhere, because 4.48 rounds up to the 4.5 threshold",
+      "Nowhere, because grey text on white always fails the criterion",
+      "Only for large text: about 24 px, or 18.5 px bold",
+      "Only for body text, because headings need 7:1 at level AA"
+    ],
+    "answer": 2,
+    "explain": "Normal text needs at least 4.5:1, and 4.48 is below it: thresholds are not rounded. Large text (18 pt, or 14 pt bold) needs 3:1, so 4.48 passes there. #767676 on white, at 4.54:1, is the lightest grey of that form that passes for all text."
+  },
+  {
+    "id": "m28.q10",
+    "module": "m28",
+    "section": "law",
+    "q": "After an RGAA audit, 60% of the applicable criteria are validated. Which mention goes into the accessibility declaration?",
+    "options": [
+      "\"Partiellement conforme\", since it is at least 50%",
+      "\"Non conforme\", because anything under 100% is non-conformant",
+      "\"Totalement conforme\", because a majority of criteria is met",
+      "No mention at all: only public bodies publish a declaration"
+    ],
+    "answer": 0,
+    "explain": "The RGAA defines \"totalement conforme\" when every criterion is met, \"partiellement conforme\" from 50%, and \"non conforme\" below 50% or without a valid audit. \"Non conforme under 100%\" is the common confusion; the declaration also lists non-accessible content and a contact."
+  },
+  {
+    "id": "m28.q11",
+    "module": "m28",
+    "section": "testing",
+    "q": "Which problem can an axe scan of the checkout detect on its own?",
+    "options": [
+      "An <code>alt</code> text that describes the wrong product",
+      "An input that has no accessible name",
+      "A focus order that jumps from the postcode to the footer",
+      "A refund dialog that does not return focus on close"
+    ],
+    "answer": 1,
+    "explain": "A missing name is a fact a rule can check in the DOM. Whether an alt text is right, whether the order of focus makes sense, and what happens after an interaction need a human or a behaviour test, which is why the module adds a focus test and manual passes."
+  },
+  {
+    "id": "m28.q12",
+    "module": "m28",
+    "section": "cascade",
+    "q": "With <code>@layer base, components;</code>, base contains <code>#checkout button { color: red }</code> and components contains <code>.pay-button { color: green }</code>. What colour is the Pay button?",
+    "options": [
+      "Red, because an id selector is more specific than a class selector",
+      "Red, because base is declared first and keeps priority",
+      "It depends on which of the two rules comes last in the file",
+      "Green: a later layer wins whatever the specificity"
+    ],
+    "answer": 3,
+    "explain": "Layers are compared before specificity: the later layer, components, wins. Measured in Chromium, the button was green. Specificity only decides between declarations of the same layer, which is what makes layers useful against legacy id selectors."
+  },
+  {
+    "id": "m28.q13",
+    "module": "m28",
+    "section": "name",
+    "q": "Code review on the storefront. Which change do you ask for?",
+    "code": "export function PayButton({ onPay }: { onPay: () => void }) {\n  return (\n    <div className=\"pay-button\" onClick={onPay}>\n      Pay 49.90 €\n    </div>\n  );\n}",
+    "lang": "tsx",
+    "options": [
+      "Add <code>role=\"button\"</code> and <code>tabIndex={0}</code> to the div so keyboards reach it",
+      "Add <code>aria-label=\"Pay\"</code> so that screen readers can announce a name",
+      "Replace the div with <code>&lt;button type=\"button\"&gt;</code>",
+      "Add an <code>onKeyDown</code> handler that calls <code>onPay</code> when Enter is pressed"
+    ],
+    "answer": 2,
+    "explain": "A native button brings the role, focusability, Enter and Space activation, the disabled state and form behaviour. Role and tabindex alone left Enter and Space doing nothing in Chromium, and an Enter handler still misses Space; aria-label would only name a control that keyboard users cannot reach."
+  },
+  {
+    "id": "m28.q14",
+    "module": "m28",
+    "section": "name",
+    "q": "What name does Chromium compute for the button?",
+    "code": "<span id=\"lbl\">Delivery address</span>\n<button aria-labelledby=\"lbl\" aria-label=\"Edit address\">Edit</button>",
+    "lang": "html",
+    "options": [
+      "\"Delivery address\"",
+      "\"Edit address\"",
+      "\"Edit\"",
+      "\"Edit address Delivery address\""
+    ],
+    "answer": 0,
+    "explain": "aria-labelledby comes first in the accessible name computation and overrides both aria-label and the content: measured, button \"Delivery address\". The tempting \"Edit address\" would be right only without aria-labelledby."
+  },
+  {
+    "id": "m28.q15",
+    "module": "m28",
+    "section": "name",
+    "q": "A voice control user says \"click Remove item\" on a cart line and nothing happens, while a mouse click works. The markup is <code>&lt;button aria-label=\"Close\"&gt;Remove item&lt;/button&gt;</code>. What is the cause?",
+    "options": [
+      "Voice control only activates links, so the button must become a link",
+      "The name is \"Close\", so the spoken label matches nothing",
+      "The button needs <code>tabindex=\"0\"</code> before voice control can reach it",
+      "Voice control reads the <code>title</code> attribute, and this button has none"
+    ],
+    "answer": 1,
+    "explain": "aria-label replaced the visible text in the name, and voice control matches what the user can see. WCAG 2.5.3 Label in Name requires the visible text to be part of the name. A button is already focusable, so tabindex changes nothing here."
+  },
+  {
+    "id": "m28.q16",
+    "module": "m28",
+    "section": "focus",
+    "q": "The back office is a React SPA. Which fix would you ship so that screen reader users notice a page change?",
+    "options": [
+      "Put <code>aria-live=\"assertive\"</code> on <code>main</code> so the new page is read out",
+      "Call <code>document.body.focus()</code> after each navigation to reset focus",
+      "Give the <code>h1</code> of every page <code>tabindex=\"0\"</code> so Tab reaches it",
+      "Update the title and focus the new <code>h1</code> (<code>tabindex=\"-1\"</code>)"
+    ],
+    "answer": 3,
+    "explain": "Focusing the heading makes the screen reader read it and makes the next Tab start there (measured). tabindex=\"-1\" allows focus() without adding the heading to the Tab order, whereas tabindex=\"0\" would add a useless Tab stop on every page. An assertive live region around main turns every content update into an interruption, which MDN advises against."
+  },
+  {
+    "id": "m28.q17",
+    "module": "m28",
+    "section": "dialog",
+    "q": "With the <code>RefundDialog</code> of section 4 open, the agent presses Escape. What happens, measured with React 19 in Chromium?",
+    "code": "<dialog ref={dialogRef} aria-labelledby={titleId}\n  onClose={(event) => onClose(event.currentTarget.returnValue === 'confirm')}>\n  ...\n  <form method=\"dialog\">\n    <button value=\"cancel\">Cancel</button>\n    <button value=\"confirm\">Refund</button>\n  </form>\n</dialog>",
+    "lang": "tsx",
+    "options": [
+      "The dialog closes, <code>onClose(false)</code> runs and focus returns to the trigger",
+      "Nothing, because the component does not handle <code>onCancel</code>",
+      "The dialog closes but the parent state stays <code>open</code>, since no prop changed",
+      "The dialog closes and <code>onClose(true)</code> runs, since no button was clicked"
+    ],
+    "answer": 0,
+    "explain": "Escape fires cancel and then close; the close event reaches onClose with an empty returnValue, so confirmed is false and the parent sets open to false. Focus went back to the Refund trigger. onCancel is only needed to prevent closing, and true requires the button with value \"confirm\"."
+  },
+  {
+    "id": "m28.q18",
+    "module": "m28",
+    "section": "dialog",
+    "q": "The storefront's mobile menu is a custom panel, not a <code>dialog</code>. When it is open, how do you stop Tab and clicks from reaching the page behind it?",
+    "options": [
+      "Set <code>pointer-events: none</code> on the page behind",
+      "Set <code>aria-hidden=\"true\"</code> on the page behind",
+      "Set the <code>inert</code> attribute on the page behind",
+      "Set <code>tabindex=\"-1\"</code> on every link of the page behind"
+    ],
+    "answer": 2,
+    "explain": "inert removes its subtree from the Tab order, from clicks and from the accessibility tree in one attribute (measured, and Baseline since April 2023). aria-hidden hides content from screen readers but Tab still reaches it, pointer-events only blocks the mouse, and tabindex on every link misses buttons, inputs and the tree."
+  },
+  {
+    "id": "m28.q19",
+    "module": "m28",
+    "section": "widgets",
+    "q": "For the search autocomplete, why does the APG use <code>aria-activedescendant</code> rather than a roving tabindex?",
+    "options": [
+      "Because options inside a listbox are not allowed to receive focus",
+      "Because DOM focus must stay in the input while the user types",
+      "Because a roving tabindex cannot be implemented with React state",
+      "Because aria-activedescendant scrolls the active option into view for free"
+    ],
+    "answer": 1,
+    "explain": "The combobox pattern keeps DOM focus on the text input while aria-activedescendant tells assistive technology which option is active. The scrolling claim is backwards: the APG says that with aria-activedescendant you must scroll the active option into view yourself, while roving tabindex gets it from focus()."
+  },
+  {
+    "id": "m28.q20",
+    "module": "m28",
+    "section": "widgets",
+    "q": "In the OrderTabs component, focus is on the selected \"Payments\" tab and the user presses Tab. Where does focus go?",
+    "options": [
+      "To the \"History\" tab, the next one in the list",
+      "Back to the first tab, \"Details\"",
+      "To the next focusable element after the whole tabs block",
+      "To the Payments tab panel, which has <code>tabIndex={0}</code>"
+    ],
+    "answer": 3,
+    "explain": "The tab list is a single Tab stop, so Tab leaves it; the next stop is the visible panel, focusable because the APG asks for tabindex 0 when the panel starts with non-focusable content (measured). Arrow keys, not Tab, move between tabs."
+  },
+  {
+    "id": "m28.q21",
+    "module": "m28",
+    "section": "live",
+    "q": "Screen reader users report that \"Added to cart\" is never announced. What is the most likely bug?",
+    "code": "export function CartAnnouncer({ message }: { message: string }) {\n  if (message === '') {\n    return null;\n  }\n  return <p role=\"status\">{message}</p>;\n}",
+    "lang": "tsx",
+    "options": [
+      "The region appears with its text, before it could be registered",
+      "<code>role=\"status\"</code> is not a live region by itself; it needs <code>aria-live</code> too",
+      "Live regions only announce text that is set through <code>innerHTML</code>",
+      "The paragraph must receive focus before a screen reader reads it"
+    ],
+    "answer": 0,
+    "explain": "MDN advises establishing the live region first, empty, and changing its content later; the most reliable way is to have it in the initial markup. This component mounts the region and its message in the same render. role=\"status\" is a polite live region by default, so the second option is wrong."
+  },
+  {
+    "id": "m28.q22",
+    "module": "m28",
+    "section": "perceive",
+    "q": "On mobile checkout, an 80 px fixed \"Pay\" bar covers fields as the user tabs down the form. Which criterion and fix?",
+    "options": [
+      "1.4.10 Reflow; switch the bar from <code>fixed</code> to <code>position: sticky</code>",
+      "2.5.8 Target Size; make each field taller than the 80 px bar",
+      "2.4.11 Focus Not Obscured; add scroll padding and end-of-page room",
+      "2.4.7 Focus Visible; give the focused fields a thicker outline"
+    ],
+    "answer": 2,
+    "explain": "Focus Not Obscured (Minimum), new in WCAG 2.2, fails when author content entirely hides the focused component. Measured: scroll-padding-bottom fixed every field but the last, and padding at the end of the page fixed that one. A thicker outline is useless when the field itself is under the bar."
+  },
+  {
+    "id": "m28.q23",
+    "module": "m28",
+    "section": "law",
+    "q": "Which statement about the shop's legal position in France is correct?",
+    "options": [
+      "Only companies with over 250 million euros of turnover in France are obliged",
+      "Since 28 June 2025 e-commerce must be accessible, micro-enterprises aside",
+      "The obligation only starts with RGAA 5, planned for the end of 2026",
+      "The obligation only covers shops whose customers include public bodies"
+    ],
+    "answer": 1,
+    "explain": "The European Accessibility Act, transposed in France, has covered e-commerce since 28 June 2025; per the DGCCRF, providers with fewer than 10 employees and under 2 million euros are exempt. The 250 million threshold is the older Article 47 rule, which still applies but is not the only one."
+  },
+  {
+    "id": "m28.q24",
+    "module": "m28",
+    "section": "law",
+    "q": "An interviewer asks what WCAG 2.2 changed compared with 2.1. Which answer is accurate?",
+    "options": [
+      "It replaced the A, AA and AAA levels with a single score out of 100",
+      "It raised the AA contrast minimum for body text from 4.5:1 to 7:1",
+      "It made every AAA criterion mandatory for public sector websites",
+      "It added nine criteria, such as Target Size, and dropped 4.1.1 Parsing"
+    ],
+    "answer": 3,
+    "explain": "WCAG 2.2 (October 2023) kept the 2.1 criteria, removed 4.1.1 Parsing as obsolete, and added nine criteria, six of them at A or AA. 7:1 is the AAA contrast level (1.4.6), unchanged, and the A, AA and AAA levels remain."
+  },
+  {
+    "id": "m28.q25",
+    "module": "m28",
+    "section": "testing",
+    "q": "Your Playwright test runs axe with the WCAG 2.2 AA tags on <code>/checkout</code> and passes. What can you honestly claim?",
+    "options": [
+      "The checkout now conforms to WCAG 2.2 level AA",
+      "The checkout would pass an RGAA audit by an external firm",
+      "No violation those rules detect, in the states scanned",
+      "Screen reader users can complete a purchase from start to end"
+    ],
+    "answer": 2,
+    "explain": "A scan checks only what its rules can decide, in the states present at scan time: a closed dialog or an error state is not scanned. Deque itself claims about 57% of issues on average, and Playwright's docs say automated tests cannot detect all WCAG violations, so conformity needs manual testing too."
+  },
+  {
+    "id": "m28.q26",
+    "module": "m28",
+    "section": "testing",
+    "q": "You have time for three screen reader passes before the audit. Which set covers the RGAA test environment and most real users?",
+    "options": [
+      "NVDA + Firefox, VoiceOver + Safari on iOS, TalkBack + Chrome",
+      "JAWS + Internet Explorer, VoiceOver + Chrome on macOS, Narrator + Edge",
+      "Three runs of axe, in Chrome, in Firefox and in Safari",
+      "NVDA with Chrome three times, at 100%, 200% and 400% zoom"
+    ],
+    "answer": 0,
+    "explain": "The RGAA test environment names NVDA with Firefox on desktop, VoiceOver with Safari and TalkBack with Chrome on mobile, and WebAIM's 2026 survey shows VoiceOver on 72.2% of mobile setups. Rule engines are not screen readers, and a single pairing misses mobile entirely."
+  },
+  {
+    "id": "m28.q27",
+    "module": "m28",
+    "section": "cascade",
+    "q": "What colour is the Pay button, measured in Chromium?",
+    "code": "@layer base, components;\n@layer base {\n  #checkout button { color: rgb(1, 1, 1) !important; }\n}\n@layer components {\n  .pay-button { color: rgb(2, 2, 2) !important; }\n}\nbutton { color: rgb(0, 0, 255) !important; } /* unlayered */",
+    "lang": "css",
+    "options": [
+      "rgb(0, 0, 255), because unlayered styles always beat layered ones",
+      "rgb(1, 1, 1): important reverses the layer order",
+      "rgb(2, 2, 2), because components is the later of the two layers",
+      "rgb(0, 0, 255), because it is the last declaration in the file"
+    ],
+    "answer": 1,
+    "explain": "For !important declarations the order is reversed: earlier layers beat later ones, and layered important beats unlayered important. Measured: rgb(1, 1, 1). \"Unlayered beats layers\" is true only for normal declarations, which is the trap here."
+  },
+  {
+    "id": "m28.q28",
+    "module": "m28",
+    "section": "cascade",
+    "q": "Which rule colours the Pay button?",
+    "code": "#checkout .pay-button { color: red; }\n.checkout .pay-button.is-primary.is-large { color: green; }\n\n<form id=\"checkout\" class=\"checkout\">\n  <button class=\"pay-button is-primary is-large\">Pay</button>\n</form>",
+    "lang": "css",
+    "options": [
+      "Green, because four classes add up to more than one id",
+      "Green, because it comes later in the file",
+      "Both apply and the browser blends them",
+      "Red, because one id outweighs any number of classes"
+    ],
+    "answer": 3,
+    "explain": "Specificity is compared column by column: (1,1,0) against (0,4,0), and the id column decides before classes are counted. Measured in Chromium: red. Source order only matters when specificity is equal."
+  },
+  {
+    "id": "m28.q29",
+    "module": "m28",
+    "section": "layout",
+    "q": "The Filters menu has <code>z-index: 9999</code> but opens under the sticky header (<code>z-index: 10</code>). Its toolbar has <code>transform: translateZ(0)</code>. Which fix works?",
+    "options": [
+      "Raise the menu to <code>z-index: 99999</code> so it beats the header",
+      "Add <code>position: relative</code> to the menu so z-index applies",
+      "Make the menu a <code>popover</code> (top layer)",
+      "Add <code>isolation: isolate</code> to the toolbar to reset stacking"
+    ],
+    "answer": 2,
+    "explain": "The transform makes the toolbar a stacking context, so the menu's z-index only competes inside it. A popover is drawn in the top layer, above the header (measured). Any child z-index fails, and isolation: isolate creates the same kind of context, so the menu stayed under the header in that test too."
+  },
+  {
+    "id": "m28.q30",
+    "module": "m28",
+    "section": "layout",
+    "q": "A developer adds <code>container-type: inline-size</code> to an <code>inline-block</code> wrapper around a product card, and the card disappears. Why?",
+    "options": [
+      "Container queries only work on elements inside a grid layout",
+      "It cannot size from its content, so it shrinks to 0",
+      "Inline-size containment hides any content that overflows it",
+      "The @container rule needs a container name to match anything"
+    ],
+    "answer": 1,
+    "explain": "Inline-size containment means the container is sized as if it had no content; a shrink-to-fit element such as an inline-block then measured 0 px wide in Chromium. Give the container a width from outside, for example a block or a grid track. Unnamed @container rules match the nearest container, so the name is not the problem."
+  }
+]

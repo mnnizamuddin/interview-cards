@@ -1,0 +1,438 @@
+[
+  {
+    "id": "m34.q1",
+    "module": "m34",
+    "section": "props",
+    "q": "A <code>Card</code> must accept as children some text, a number, several elements, or nothing at all. Which type should its <code>children</code> prop have?",
+    "options": [
+      "<code>ReactElement</code>",
+      "<code>ReactNode</code>",
+      "<code>JSX.Element</code>",
+      "<code>string | ReactElement[]</code>"
+    ],
+    "answer": 1,
+    "explain": "<code>ReactNode</code> is the union of everything React can render: elements, strings, numbers, booleans, null, undefined and iterables of nodes. <code>ReactElement</code> is the tempting answer, but it accepts only JSX elements: text fails with TS2747 and a number with TS2322."
+  },
+  {
+    "id": "m34.q2",
+    "module": "m34",
+    "section": "props",
+    "q": "What does <code>ComponentPropsWithoutRef&lt;'button'&gt;</code> give the shop's <code>Button</code>?",
+    "options": [
+      "Only the event handlers of a native button, such as <code>onClick</code> and <code>onFocus</code>",
+      "The props of the <code>Button</code> component itself, read from its definition",
+      "Every native <code>&lt;button&gt;</code> prop except <code>ref</code>",
+      "Every native button prop, with each one made required"
+    ],
+    "answer": 2,
+    "explain": "It is the full set of native button props (handlers, <code>disabled</code>, <code>type</code>, <code>aria-*</code>), so the component can intersect it with its own props and spread the rest onto the element. Only the \"WithoutRef\" part removes something: <code>ref</code>, which <code>ComponentProps&lt;'button'&gt;</code> includes (measured with @types/react 19.3.0)."
+  },
+  {
+    "id": "m34.q3",
+    "module": "m34",
+    "section": "events-refs",
+    "q": "With the React 19 types, what is the type of <code>inputRef</code> after <code>const inputRef = useRef&lt;HTMLInputElement&gt;(null)</code>?",
+    "options": [
+      "<code>RefObject&lt;HTMLInputElement | null&gt;</code>: check <code>current</code> before use",
+      "<code>MutableRefObject&lt;HTMLInputElement&gt;</code>, so <code>current</code> is never null",
+      "<code>RefObject&lt;HTMLInputElement&gt;</code>, whose <code>current</code> React sets before the first render runs",
+      "<code>Ref&lt;HTMLInputElement&gt;</code>, which cannot be read directly"
+    ],
+    "answer": 0,
+    "explain": "Measured: the assignment to <code>RefObject&lt;HTMLInputElement | null&gt;</code> compiles, and <code>inputRef.current.focus()</code> fails with TS18047 (\"possibly null\"). <code>current</code> really is null until React attaches the element, and the types say so; <code>inputRef.current?.focus()</code> is the fix."
+  },
+  {
+    "id": "m34.q4",
+    "module": "m34",
+    "section": "events-refs",
+    "q": "In React 19, how should the shared <code>SearchField</code> let the order search form focus its input?",
+    "options": [
+      "Wrap it in <code>forwardRef</code>, which React 19 requires for any ref",
+      "Expose a <code>focus()</code> method through a context",
+      "Pass the ref under another name, such as <code>inputRef</code>, because <code>ref</code> is reserved",
+      "Declare a <code>ref</code> prop typed <code>Ref&lt;HTMLInputElement&gt;</code> and pass it on"
+    ],
+    "answer": 3,
+    "explain": "Since React 19, a function component receives <code>ref</code> as an ordinary prop, and react.dev says <code>forwardRef</code> is no longer necessary and will be deprecated. <code>forwardRef</code> still works, which makes it tempting, but new components do not need it, and renaming the prop was a workaround from before React 19."
+  },
+  {
+    "id": "m34.q5",
+    "module": "m34",
+    "section": "async-state",
+    "q": "Why does the team replace <code>{ isLoading: boolean; isError: boolean; error?: Error; data?: OrderSummary[] }</code> with a union on <code>status</code>?",
+    "options": [
+      "A union renders faster, because React compares a single status field instead of four separate flags",
+      "Each state holds only its own fields, so impossible combinations cannot be written",
+      "Booleans are not allowed in props under <code>strict</code> mode",
+      "The union lets the component skip the error state entirely"
+    ],
+    "answer": 1,
+    "explain": "Four independent fields allow 16 shapes, such as loading and error at once; the union allows exactly three, and inside <code>if (state.status === 'success')</code> the compiler knows <code>data</code> exists. Performance is not the reason: types are erased before React ever runs."
+  },
+  {
+    "id": "m34.q6",
+    "module": "m34",
+    "section": "exclusive-props",
+    "q": "In <code>LinkActionProps</code>, what is the job of <code>onClick?: never</code>?",
+    "options": [
+      "It makes the link's click handler optional",
+      "It strips <code>onClick</code> from the rendered <code>&lt;a&gt;</code> at runtime, so the handler never fires",
+      "It makes <code>onClick</code> together with <code>href</code> a compile error",
+      "It tells React to ignore click events on links"
+    ],
+    "answer": 2,
+    "explain": "No value has type <code>never</code>, so the link member accepts <code>onClick</code> only when it is absent; with <code>href</code> and <code>onClick</code> together, no member matches and tsc reports TS2322. Types have no effect at runtime, which rules out the second option."
+  },
+  {
+    "id": "m34.q7",
+    "module": "m34",
+    "section": "generics",
+    "q": "The orders screen renders <code>&lt;DataTable rows={orders} getRowKey={…} columns={[…]} /&gt;</code> with no type argument. Where does <code>Row</code> come from?",
+    "options": [
+      "It is inferred from <code>rows</code>, and the columns are checked against it",
+      "It defaults to <code>any</code>, because no type argument was written at the call site",
+      "It defaults to <code>unknown</code>, so <code>render</code> must narrow each row",
+      "It is read from the <code>key</code> of the first column"
+    ],
+    "answer": 0,
+    "explain": "TypeScript infers a component's type parameters from its props, like any function call; <code>rows={orders}</code> makes <code>Row</code> the order type. That is why <code>{ key: 'total' }</code> fails with TS2322 once the field is <code>totalCents</code>. Nothing falls back to <code>any</code>, which is precisely what the old table did."
+  },
+  {
+    "id": "m34.q8",
+    "module": "m34",
+    "section": "polymorphic",
+    "q": "What is the main cost of the polymorphic <code>Text</code> with an <code>as</code> prop, as measured in the lesson?",
+    "options": [
+      "It renders an extra wrapper around the chosen element, which breaks CSS selectors",
+      "It cannot accept <code>children</code>",
+      "It only works with HTML tags, not with components",
+      "Unreadable errors, an unchecked implementation, slower type-checking"
+    ],
+    "answer": 3,
+    "explain": "Inside, the element is a plain <code>ElementType</code>; the errors dump nested <code>Omit</code> types; and 200 uses added about 9,200 instantiations against 21 for a plain button (tsc 6.0.3). It renders exactly one element and accepts components such as a router <code>Link</code> as well as tags."
+  },
+  {
+    "id": "m34.q9",
+    "module": "m34",
+    "section": "context-hooks",
+    "q": "Why does the cart context use <code>createContext&lt;CartContextValue | null&gt;(null)</code> with a <code>useCart</code> hook that throws on <code>null</code>?",
+    "options": [
+      "Because <code>createContext</code> requires <code>null</code> as its default whenever the value is an object",
+      "A missing provider fails loudly, and callers get a non-null value",
+      "Because <code>use</code> cannot read a context whose default is an object",
+      "It makes the context cheaper to re-render"
+    ],
+    "answer": 1,
+    "explain": "The throw turns a missing provider into an error with a clear message (measured: \"useCart must be used inside &lt;CartProvider&gt;\"), and the check removes <code>null</code> from the returned type. A fake default object would compile too, which is why it is tempting, but it hides the missing provider, as the empty cart did."
+  },
+  {
+    "id": "m34.q10",
+    "module": "m34",
+    "section": "utility-types",
+    "q": "With <code>exactOptionalPropertyTypes</code> on, which value is a valid <code>OrderPatch = Partial&lt;Pick&lt;OrderDetail, 'shippingAddress' | 'deliveryNote'&gt;&gt;</code>, where <code>deliveryNote: string | null</code>?",
+    "options": [
+      "<code>{ deliveryNote: undefined }</code>",
+      "<code>{ status: 'refunded' }</code>",
+      "<code>{ deliveryNote: null }</code>",
+      "<code>{ deliveryNote: 42 }</code>"
+    ],
+    "answer": 2,
+    "explain": "<code>null</code> is part of the field's type, so it compiles, and the API reads it as \"clear the note\". <code>undefined</code> looks harmless, but under <code>exactOptionalPropertyTypes</code> an optional key means \"absent\", not \"set to undefined\", and tsc rejects it with TS2375. <code>status</code> is not picked (TS2353)."
+  },
+  {
+    "id": "m34.q11",
+    "module": "m34",
+    "section": "type-level",
+    "q": "The badge map is declared <code>{ … } as const satisfies Record&lt;OrderStatus, BadgeStyle&gt;</code>. A developer adds the status <code>cancelled</code> to <code>OrderStatus</code>. What happens?",
+    "options": [
+      "The map fails to compile until it has a <code>cancelled</code> entry",
+      "The badge for <code>cancelled</code> falls back to the first entry",
+      "Nothing at compile time; the badge shows <code>undefined</code> at runtime",
+      "The map compiles, but <code>statusBadges.paid.icon</code> widens to <code>string</code>"
+    ],
+    "answer": 0,
+    "explain": "<code>Record&lt;OrderStatus, …&gt;</code> requires one key per status, and <code>satisfies</code> checks the object against it: measured, a missing key fails with TS1360 in tsc 6.0.3 (TS2741 in 7.0.2). Literal types are kept by <code>as const</code>, so <code>paid.icon</code> stays <code>'check'</code>."
+  },
+  {
+    "id": "m34.q12",
+    "module": "m34",
+    "section": "boundary",
+    "q": "In the old fetcher, <code>const body = await response.json(); body.anything.goes;</code> compiled. Why?",
+    "options": [
+      "<code>response.json()</code> returns <code>Promise&lt;unknown&gt;</code>, and <code>unknown</code> allows property access",
+      "TypeScript skips type checking inside async functions",
+      "The fetch types infer the body type from the URL",
+      "<code>json()</code> returns <code>Promise&lt;any&gt;</code> in the DOM types, which turns checks off"
+    ],
+    "answer": 3,
+    "explain": "The DOM types declare <code>json()</code> as returning <code>Promise&lt;any&gt;</code>, and everything read from an <code>any</code> is <code>any</code> too. <code>unknown</code> is the opposite: reading a property on it fails until you narrow or parse, which is why the fixed fetcher writes <code>const body: unknown</code>."
+  },
+  {
+    "id": "m34.q13",
+    "module": "m34",
+    "section": "props",
+    "q": "What does tsc report for the last line?",
+    "code": "import type { ReactElement } from 'react';\n\ntype IconSlotProps = { children: ReactElement };\n\nexport function IconSlot({ children }: IconSlotProps) {\n  return children;\n}\n\nexport const refundIcon = <IconSlot>Refund</IconSlot>;",
+    "lang": "tsx",
+    "options": [
+      "Nothing: a string is a valid React element",
+      "TS2747: <code>IconSlot</code> does not accept text as a child",
+      "TS2322 on the return statement: a component cannot return its <code>children</code> prop directly",
+      "TS2503: <code>ReactElement</code> is not exported by the React 19 types"
+    ],
+    "answer": 1,
+    "explain": "Measured with @types/react 19.3.0: \"'IconSlot' components don't accept text as child elements\" (TS2747). A string is a valid <code>ReactNode</code>, not a <code>ReactElement</code>, which is the confusion behind the first option. Returning <code>children</code> is fine because a <code>ReactElement</code> is a valid return value."
+  },
+  {
+    "id": "m34.q14",
+    "module": "m34",
+    "section": "props",
+    "q": "After upgrading the storefront to the React 19 types, <code>const emptyState: JSX.Element = &lt;p&gt;No orders yet&lt;/p&gt;;</code> fails with TS2503. Which fix would you ship?",
+    "options": [
+      "Add <code>\"jsx\": \"preserve\"</code> to tsconfig.json",
+      "Type it as <code>any</code> until the React types are fixed upstream in DefinitelyTyped",
+      "Import <code>JSX</code> from <code>react</code>, or let TypeScript infer the type",
+      "Downgrade @types/react to the previous major version"
+    ],
+    "answer": 2,
+    "explain": "The React 19 types no longer declare a global <code>JSX</code> namespace, hence \"Cannot find namespace 'JSX'\"; importing it from <code>react</code> compiles (measured), and most of the time the annotation is not needed at all. The <code>jsx</code> option controls how JSX is emitted, not where the namespace comes from."
+  },
+  {
+    "id": "m34.q15",
+    "module": "m34",
+    "section": "async-state",
+    "q": "Which line fails to compile, and why?",
+    "code": "export function OrdersCount() {\n  const { data, isLoading, error } = useQuery({\n    queryKey: ['orders'],\n    queryFn: ({ signal }) => fetchOrders(signal),\n  });\n  if (isLoading) {\n    return <p>Loading orders…</p>;\n  }\n  if (error) {\n    return <p role=\"alert\">{error.message}</p>;\n  }\n  return <p>{data.items.length} orders</p>;\n}",
+    "lang": "tsx",
+    "options": [
+      "The last line (TS18048): <code>isLoading</code> does not rule out a pending query that is not fetching",
+      "<code>error.message</code>: the error is typed <code>unknown</code> by default",
+      "The destructuring line: a discriminated union loses its narrowing as soon as it is destructured",
+      "None: after both checks, <code>data</code> is always defined"
+    ],
+    "answer": 0,
+    "explain": "Measured with TanStack Query 5.104.5: \"'data' is possibly 'undefined'\" (TS18048) on the last line. The reference defines <code>isLoading</code> as <code>isFetching &amp;&amp; isPending</code>, so a disabled query passes both checks; early returns on <code>isPending</code> and <code>isError</code> compile, destructured or not. The default error type is <code>Error</code>, not <code>unknown</code>."
+  },
+  {
+    "id": "m34.q16",
+    "module": "m34",
+    "section": "async-state",
+    "q": "An interviewer asks you to type the state of a \"refund order\" request in the back office (not started, running, failed with a message, done with a refund id). Which design would you defend?",
+    "options": [
+      "<code>{ isRunning: boolean; isDone: boolean; error?: string; refundId?: string }</code>",
+      "A string enum <code>RefundState</code> plus a separate <code>refundId</code> variable",
+      "<code>{ state: string; payload: any }</code>, so new states need no type change",
+      "A union on <code>status</code>: <code>idle</code>, <code>running</code>, <code>failed</code> with <code>message</code>, <code>done</code> with <code>refundId</code>"
+    ],
+    "answer": 3,
+    "explain": "The union puts each field in the only state where it exists, so <code>refundId</code> can be read only after checking <code>status === 'done'</code>, and adding a state is caught by the exhaustiveness check from M04. The flags look simpler but allow running and done at once, and <code>any</code> gives up checking."
+  },
+  {
+    "id": "m34.q17",
+    "module": "m34",
+    "section": "exclusive-props",
+    "q": "A colleague types the shared action as below. What happens on the last line?",
+    "code": "type LinkProps = { href: string; children: ReactNode };\ntype ClickProps = { onClick: () => void; children: ReactNode };\n\nexport function Action(props: LinkProps | ClickProps) {\n  return 'href' in props ? <a href={props.href}>{props.children}</a> : <button type=\"button\" onClick={props.onClick}>{props.children}</button>;\n}\n\nexport const refund = <Action href=\"/orders/ord_7f3k\" onClick={refundOrder}>Refund</Action>;",
+    "lang": "tsx",
+    "options": [
+      "TS2322: the object matches neither member",
+      "It compiles: excess property checks accept a key of any member",
+      "TS2353: <code>onClick</code> does not exist on <code>LinkProps</code>",
+      "It compiles, and <code>Action</code> calls <code>refundOrder</code> when the agent clicks the rendered link"
+    ],
+    "answer": 1,
+    "explain": "Measured: no error. On a union, the excess property check accepts any key that exists in some member, so the call is assignable to <code>LinkProps</code>; the component then renders a link and silently drops the handler. Adding <code>onClick?: never</code> to <code>LinkProps</code> and <code>href?: never</code> to <code>ClickProps</code> turns it into TS2322."
+  },
+  {
+    "id": "m34.q18",
+    "module": "m34",
+    "section": "generics",
+    "q": "This line, in <code>status-pill.tsx</code>, breaks the build with TS17008. What is the bug?",
+    "code": "export const StatusPill = <T>(props: { value: T; format: (value: T) => string }) => <span>{props.format(props.value)}</span>;",
+    "lang": "tsx",
+    "options": [
+      "Arrow functions cannot be generic in TypeScript",
+      "A component can only have a type parameter when it is declared with <code>React.FC&lt;Props&gt;</code>",
+      "In <code>.tsx</code>, <code>&lt;T&gt;</code> parses as a JSX tag: write <code>&lt;T,&gt;</code> or a function",
+      "<code>T</code> needs a constraint such as <code>T extends object</code>"
+    ],
+    "answer": 2,
+    "explain": "Measured: \"JSX element 'T' has no corresponding closing tag\" (TS17008), a parse error, not a type error. <code>&lt;T,&gt;</code> or a function declaration removes the ambiguity. Generic arrows are fine in <code>.ts</code> files, and <code>React.FC</code> makes generics harder, not possible."
+  },
+  {
+    "id": "m34.q19",
+    "module": "m34",
+    "section": "generics",
+    "q": "The refund dialog renders <code>&lt;Select options={refundReasons} value=\"broken\" onChange={trackReason} getLabel={…} /&gt;</code>, where <code>refundReasons</code> is <code>['damaged', 'late_delivery', 'wrong_item'] as const</code> and <code>trackReason</code> accepts any string. It compiles. Which change makes it fail?",
+    "options": [
+      "Type <code>value</code> as <code>NoInfer&lt;Option&gt;</code> in <code>SelectProps</code>",
+      "Remove <code>as const</code> from <code>refundReasons</code>",
+      "Add <code>Option extends string</code> as a constraint",
+      "Type <code>options</code> as <code>Option[]</code> instead of <code>readonly Option[]</code>"
+    ],
+    "answer": 0,
+    "explain": "Without <code>NoInfer</code>, TypeScript collects candidates from <code>value</code> too and widens <code>Option</code> to include <code>\"broken\"</code>; with it, only <code>options</code> decides and the call fails with TS2322 (both measured). A <code>string</code> constraint still accepts \"broken\", and removing <code>as const</code> widens <code>Option</code> to <code>string</code>, the opposite of the goal."
+  },
+  {
+    "id": "m34.q20",
+    "module": "m34",
+    "section": "polymorphic",
+    "q": "A teammate proposes an <code>as</code> prop on every component of <code>@shop/ui</code>, buttons and dialogs included, \"for flexibility\". What is the senior answer?",
+    "options": [
+      "Agree: once the types compile, polymorphism costs nothing to the team or to the compiler",
+      "Agree, but write the props with <code>any</code> to keep compile times low",
+      "Refuse all polymorphism and wrap native elements by hand in every app",
+      "Keep <code>as</code> for a few primitives; use separate components elsewhere"
+    ],
+    "answer": 3,
+    "explain": "The cost is real and measured: unreadable errors, an unchecked implementation, and about 9,200 instantiations for 200 uses. Primitives earn it; a button that becomes a link changes behaviour, so separate components (or Radix <code>asChild</code>, Base UI <code>render</code>) are clearer. Refusing everything is the over-correction."
+  },
+  {
+    "id": "m34.q21",
+    "module": "m34",
+    "section": "context-hooks",
+    "q": "What does tsc report on the last line?",
+    "code": "export function useDisclosure(initiallyOpen = false) {\n  const [isOpen, setIsOpen] = useState(initiallyOpen);\n  const toggle = useCallback(() => {\n    setIsOpen((open) => !open);\n  }, []);\n  return [isOpen, toggle];\n}\n\nconst [isCartOpen, toggleCart] = useDisclosure();\ntoggleCart();",
+    "lang": "ts",
+    "options": [
+      "Nothing: TypeScript infers the tuple <code>[boolean, () =&gt; void]</code> from the array literal",
+      "TS2349: the inferred type is an array, so <code>toggleCart</code> may be a boolean",
+      "TS2554: <code>useDisclosure</code> expects one argument",
+      "TS2304: <code>toggleCart</code> is not defined"
+    ],
+    "answer": 1,
+    "explain": "An array literal is inferred as an array of the union of its elements, not as a tuple. Measured: TS2349 (\"Not all constituents … are callable\"), plus TS2722 under <code>noUncheckedIndexedAccess</code>. <code>return [isOpen, toggle] as const</code> gives <code>readonly [boolean, () =&gt; void]</code>. The argument has a default value, so the call with none is valid."
+  },
+  {
+    "id": "m34.q22",
+    "module": "m34",
+    "section": "context-hooks",
+    "q": "Why does <code>setOrders([order])</code> fail with TS2322 here, and what is the fix?",
+    "code": "const [orders, setOrders] = useState([]);\n// later, when an order arrives:\nsetOrders([order]);",
+    "lang": "tsx",
+    "options": [
+      "It is inferred as <code>never[]</code>; write <code>useState&lt;OrderSummary[]&gt;([])</code>",
+      "State arrays are read-only; use <code>orders.push(order)</code> instead",
+      "<code>setOrders</code> only accepts a function; write <code>setOrders(() =&gt; [order])</code>",
+      "The state is <code>any[]</code>, which strict mode refuses; add <code>as OrderSummary[]</code> to the call"
+    ],
+    "answer": 0,
+    "explain": "With nothing to infer from, an empty array literal gives <code>never[]</code> under strict settings, and measured, \"Type 'OrderSummary' is not assignable to type 'never'\" (TS2322). A type argument states the intent. Mutating with <code>push</code> would compile against a typed array, but React would not re-render."
+  },
+  {
+    "id": "m34.q23",
+    "module": "m34",
+    "section": "utility-types",
+    "q": "What does tsc report for the first export?",
+    "code": "type OrderView =\n  | { status: 'paid'; id: string; paidAt: string }\n  | { status: 'refunded'; id: string; refundedAt: string };\n\ntype OrderViewDraft = Omit<OrderView, 'id'>;\n\nexport const draft: OrderViewDraft = { status: 'paid', paidAt: '2026-10-31' };\nexport const keys: keyof OrderViewDraft = 'status';",
+    "lang": "ts",
+    "options": [
+      "Nothing: <code>Omit</code> removes <code>id</code> from each member and keeps the other fields",
+      "TS2322: <code>status</code> must be <code>'paid' | 'refunded'</code>",
+      "TS2353: <code>Omit</code> on a union keeps only shared keys",
+      "TS2741: <code>refundedAt</code> is missing"
+    ],
+    "answer": 2,
+    "explain": "<code>Omit</code> is a mapped type over <code>keyof OrderView</code>, and the keys of a union are those its members share: here only <code>status</code> (measured: the second export compiles, and <code>paidAt</code> fails with TS2353). A distributive version, <code>T extends unknown ? Omit&lt;T, K&gt; : never</code>, applies <code>Omit</code> to each member."
+  },
+  {
+    "id": "m34.q24",
+    "module": "m34",
+    "section": "utility-types",
+    "q": "Asked to \"write a pick that keeps key safety\", which signature would you ship?",
+    "options": [
+      "<code>function pick&lt;T&gt;(source: T, keys: string[]): Partial&lt;T&gt;</code>",
+      "<code>function pick&lt;T extends object, K extends keyof T&gt;(source: T, keys: readonly K[]): Pick&lt;T, K&gt;</code>",
+      "<code>function pick(source: object, keys: string[]): Record&lt;string, unknown&gt;</code>",
+      "<code>function pick&lt;T, K extends string&gt;(source: T, keys: K[]): Record&lt;K, unknown&gt;</code>"
+    ],
+    "answer": 1,
+    "explain": "<code>K extends keyof T</code> rejects unknown keys (measured: <code>'total'</code> fails with TS2322), and the <code>Pick&lt;T, K&gt;</code> return type knows exactly which keys exist (<code>.totalCents</code> fails with TS2339). <code>Partial&lt;T&gt;</code> looks close, but it accepts any string key and returns every field as optional."
+  },
+  {
+    "id": "m34.q25",
+    "module": "m34",
+    "section": "type-level",
+    "q": "What is the type <code>Statuses</code>?",
+    "code": "type ElementOf<T> = T extends readonly (infer Item)[] ? Item : never;\n\nconst shippedStatuses = ['paid', 'shipped'] as const;\ntype Statuses = ElementOf<typeof shippedStatuses>;",
+    "lang": "ts",
+    "options": [
+      "<code>string</code>",
+      "<code>never</code>, because a readonly tuple is not an array",
+      "<code>readonly ['paid', 'shipped']</code>",
+      "<code>'paid' | 'shipped'</code>"
+    ],
+    "answer": 3,
+    "explain": "The tuple matches <code>readonly (infer Item)[]</code>, and <code>infer</code> captures the element type, the union of its literal members (measured: assigning <code>'refunded'</code> fails with TS2322). It would be <code>never</code> without <code>readonly</code> in the pattern, because a readonly tuple does not match a mutable array type. <code>as const</code> keeps the literals, so it is not <code>string</code>."
+  },
+  {
+    "id": "m34.q26",
+    "module": "m34",
+    "section": "type-level",
+    "q": "Which call fails to compile with the lesson's <code>buildPath</code> and <code>RouteParams</code>?",
+    "options": [
+      "<code>buildPath('/orders/:orderId', { orderId: 'ord_7f3k' })</code>",
+      "<code>buildPath('/orders', {})</code>",
+      "<code>buildPath('/orders/:orderId/refunds/:refundId', { orderId: 'ord_7f3k' })</code>",
+      "<code>buildPath('/orders/:orderId/refunds/:refundId', { orderId: 'ord_7f3k', refundId: 'ref_2b' })</code>"
+    ],
+    "answer": 2,
+    "explain": "The conditional type extracts both <code>orderId</code> and <code>refundId</code> from the pattern, so an object without <code>refundId</code> fails (TS2345 in tsc 6.0.3, TS2741 in 7.0.2, both measured). A pattern with no parameter yields <code>{}</code>, so <code>buildPath('/orders', {})</code> compiles."
+  },
+  {
+    "id": "m34.q27",
+    "module": "m34",
+    "section": "type-level",
+    "q": "The badge map must have one entry per <code>OrderStatus</code>, and <code>statusBadges.paid.icon</code> must keep the type <code>'check'</code>. Which declaration does both?",
+    "options": [
+      "<code>const statusBadges = { … } as const satisfies Record&lt;OrderStatus, BadgeStyle&gt;</code>",
+      "<code>const statusBadges: Readonly&lt;Record&lt;OrderStatus, BadgeStyle&gt;&gt; = { … } as const</code>",
+      "<code>const statusBadges = { … } as Record&lt;OrderStatus, BadgeStyle&gt;</code>",
+      "<code>const statusBadges = { … } as const</code>"
+    ],
+    "answer": 0,
+    "explain": "<code>satisfies</code> checks every key and value against the record without changing the variable's type, and <code>as const</code> keeps the literals. The annotated version also checks the keys, which makes it tempting, but the annotation, not <code>as const</code>, decides the variable's type: measured, <code>paid.icon</code> widens to the whole icon union (TS2322 against <code>'check'</code>). <code>as</code> even accepted an object with three statuses missing, and <code>as const</code> alone checks nothing."
+  },
+  {
+    "id": "m34.q28",
+    "module": "m34",
+    "section": "boundary",
+    "q": "Which fix for Monday's <code>NaN €</code> incident would you ship?",
+    "options": [
+      "Write <code>useQuery&lt;Order[]&gt;(…)</code> so that the data is typed at every call site of the hook",
+      "Replace <code>as Order[]</code> with <code>as unknown as Order[]</code>, which is stricter",
+      "Parse the body as <code>unknown</code> with a schema in <code>fetchOrders</code>",
+      "Rename the field back to <code>total</code> in the BFF and add a comment"
+    ],
+    "answer": 2,
+    "explain": "Only a runtime check can catch a payload that changed after the build; measured with Zod 4.6.7, the old body fails at path <code>[\"items\", 0, \"totalCents\"]</code>. A type argument on <code>useQuery</code> is the same unchecked claim as <code>as</code>, moved elsewhere, and <code>as unknown as</code> is looser, not stricter."
+  },
+  {
+    "id": "m34.q29",
+    "module": "m34",
+    "section": "boundary",
+    "q": "In code review you see <code>const order = 5 as Order;</code> fail with TS2352, and the author \"fixes\" it with <code>5 as unknown as Order</code>. What do you say?",
+    "options": [
+      "Approve: the double cast is the documented way to convert types",
+      "Ask for a real fix: the double cast silences the only check",
+      "Approve, but ask for <code>satisfies Order</code> on the next line",
+      "Ask for <code>&lt;Order&gt;5</code>, the angle-bracket cast, which TypeScript checks more strictly than <code>as</code>"
+    ],
+    "answer": 1,
+    "explain": "<code>as</code> refuses only conversions with no overlap (TS2352, measured); going through <code>unknown</code> removes even that, and the program still holds a number where an <code>Order</code> is expected. Angle-bracket casts are the same assertion with another syntax, and they do not parse in <code>.tsx</code> files."
+  },
+  {
+    "id": "m34.q30",
+    "module": "m34",
+    "section": "senior",
+    "q": "An interviewer asks: \"Enum or literal union for the order statuses in the back office?\" Which answer fits the lesson?",
+    "options": [
+      "An enum, because only enums give named constants",
+      "An enum, because a union cannot be iterated at runtime",
+      "Either one: since TypeScript 5, both compile to the same JavaScript object at runtime",
+      "A literal union, plus an <code>as const</code> object when runtime values are needed"
+    ],
+    "answer": 3,
+    "explain": "Measured: a string enum fails under <code>erasableSyntaxOnly</code> (TS1294), and <code>label('paid')</code> fails with TS2345 when the parameter is the enum. An <code>as const</code> object gives named constants and an iterable list, which covers the two reasons people pick enums. They do not compile to the same JavaScript: a union emits nothing, an enum emits an object."
+  }
+]

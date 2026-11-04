@@ -1,0 +1,426 @@
+[
+  {
+    "id": "m19.q1",
+    "module": "m19",
+    "section": "why",
+    "q": "Which situation is the strongest argument for keeping the catalogue in MongoDB rather than PostgreSQL with a <code>jsonb</code> column?",
+    "options": [
+      "The team wants to avoid writing migrations for the orders table",
+      "The data needs foreign keys between products, stock and orders",
+      "Each product is read as one unit, its fields vary by category, and queries filter on those fields",
+      "The product page must join products with customers on every view"
+    ],
+    "answer": 2,
+    "explain": "MongoDB fits records read as one unit whose shape varies, with normal indexes on fields inside the documents. Foreign keys and joins on every view are arguments for PostgreSQL, and the orders table is relational data that stays in PostgreSQL."
+  },
+  {
+    "id": "m19.q2",
+    "module": "m19",
+    "section": "embedding",
+    "q": "Product documents embed every review in an array. A popular product has 60,000 reviews of about 300 bytes each. What happens?",
+    "options": [
+      "The document passes the 16 MiB limit, so the update adding a review is rejected",
+      "MongoDB moves the oldest reviews to an overflow collection automatically",
+      "The document grows without limit, but reads stay fast because only the needed fields are loaded",
+      "The server splits the document into two documents with the same _id"
+    ],
+    "answer": 0,
+    "explain": "60,000 × 300 bytes is 18 MB, above the 16 MiB (16,777,216 bytes) BSON document limit, so the write fails. Nothing moves data automatically: the outlier or subset pattern does it by design, in your code. And every read of the product loads the whole array before that point."
+  },
+  {
+    "id": "m19.q3",
+    "module": "m19",
+    "section": "embedding",
+    "q": "Which of these writes is atomic in MongoDB without a transaction?",
+    "options": [
+      "Inserting a review and updating its product in two calls",
+      "An <code>updateMany</code> that marks 500 reviews as published",
+      "Two <code>updateOne</code> calls sent with <code>Promise.all</code>",
+      "One <code>updateOne</code> that pushes a preview and increments two counters in the same document"
+    ],
+    "answer": 3,
+    "explain": "Per the docs, a write is atomic at the level of a single document, even when it modifies several fields. updateMany is atomic per document, not as a whole, and separate calls are independent writes whatever the client-side grouping."
+  },
+  {
+    "id": "m19.q4",
+    "module": "m19",
+    "section": "patterns",
+    "q": "The product page shows the 10 latest reviews. Which design is the subset pattern?",
+    "options": [
+      "Embed every review in the product and project 10 of them in each query",
+      "Embed the 10 latest reviews in the product and keep all reviews in a reviews collection",
+      "Store reviews only in a reviews collection and join them with $lookup on each page view",
+      "Store one document per hour of reviews for each product"
+    ],
+    "answer": 1,
+    "explain": "The subset pattern embeds the small part of a large related set that the page shows and keeps the full set referenced; the manual's example is product reviews. Projecting 10 of an embedded array still loads and stores the full array, and grouping by hour is the bucket pattern."
+  },
+  {
+    "id": "m19.q5",
+    "module": "m19",
+    "section": "driver",
+    "q": "A back-office script, run from <code>mongosh</code>, writes <code>stars: \"5\"</code> as a string. Which layer rejects it?",
+    "options": [
+      "The TypeScript type <code>Collection&lt;ReviewDoc&gt;</code> in the Catalogue service",
+      "The Mongoose schema of the Catalogue service",
+      "A <code>$jsonSchema</code> validator on the reviews collection",
+      "The unique index on productId and customer id"
+    ],
+    "answer": 2,
+    "explain": "A $jsonSchema validator runs in the server on every insert and update, whatever the client. TypeScript types and Mongoose schemas only check the application that uses them; the driver docs state that other applications and tools bypass Mongoose validation."
+  },
+  {
+    "id": "m19.q6",
+    "module": "m19",
+    "section": "driver",
+    "q": "How should the Catalogue service create its <code>MongoClient</code>?",
+    "options": [
+      "Once per process at startup, shared by every request, since each client keeps its own connection pool",
+      "Once per request, closed at the end of the request to free the connection",
+      "Once per collection, so each collection gets its own pool",
+      "Once per query, with maxPoolSize set to 1"
+    ],
+    "answer": 0,
+    "explain": "Each MongoClient holds a connection pool per server (maxPoolSize 100 by default), so one shared client per process reuses connections. A client per request opens and closes connections and pools constantly, which costs latency and server resources."
+  },
+  {
+    "id": "m19.q7",
+    "module": "m19",
+    "section": "indexes",
+    "q": "The query filters <code>productId</code> and <code>status</code> by equality and <code>stars &gt;= 4</code>, and sorts by <code>createdAt</code> descending. Which index follows ESR?",
+    "options": [
+      "<code>{ stars: 1, productId: 1, status: 1, createdAt: -1 }</code>",
+      "<code>{ productId: 1, status: 1, stars: 1, createdAt: -1 }</code>",
+      "<code>{ createdAt: -1, productId: 1, status: 1, stars: 1 }</code>",
+      "<code>{ productId: 1, status: 1, createdAt: -1, stars: 1 }</code>"
+    ],
+    "answer": 3,
+    "explain": "ESR puts equality fields first, then the sort field, then the range field. Putting stars before createdAt (the second option) is the tempting order from SQL habits, but after a range the entries are no longer sorted by date, so the server adds an in-memory SORT stage."
+  },
+  {
+    "id": "m19.q8",
+    "module": "m19",
+    "section": "index-types",
+    "q": "Invitations have a TTL index on <code>expiresAt</code> with <code>expireAfterSeconds: 0</code>. What do the docs guarantee?",
+    "options": [
+      "Each invitation is deleted at the exact second of expiresAt",
+      "Invitations are deleted after expiresAt, by a background task that runs every 60 seconds, possibly later",
+      "Invitations are deleted by every secondary independently",
+      "Invitations without an expiresAt field are deleted at once"
+    ],
+    "answer": 1,
+    "explain": "The TTL task runs every 60 seconds and the docs say deletion is not immediate and may lag further. It deletes only on the primary, the secondaries replicate the deletes, and a document without the indexed date field never expires."
+  },
+  {
+    "id": "m19.q9",
+    "module": "m19",
+    "section": "aggregation",
+    "q": "A pipeline starts with <code>$facet</code> and filters on <code>productId</code> inside each sub-pipeline. What does the server do, per the docs?",
+    "options": [
+      "A collection scan, because a $facet in first position does not use indexes",
+      "One index scan per sub-pipeline on the productId index",
+      "It rejects the pipeline, because $facet must come last",
+      "It moves the filter before $facet automatically and uses the index"
+    ],
+    "answer": 0,
+    "explain": "The $facet documentation states that a $facet placed first performs a COLLSCAN, while earlier stages such as $match can use indexes. Put the shared $match before $facet, as in the reviewStats function of section 7."
+  },
+  {
+    "id": "m19.q10",
+    "module": "m19",
+    "section": "replication",
+    "q": "The service writes reviews with <code>w: 1</code>. The primary fails right after acknowledging a review, before any secondary copied it. What can happen?",
+    "options": [
+      "Nothing: w: 1 waits for the journal on every member",
+      "The new primary fetches the review from the old one before accepting writes",
+      "The review can be rolled back and disappear, although the client was told it was saved",
+      "The driver resends the review automatically because the acknowledgement was lost"
+    ],
+    "answer": 2,
+    "explain": "The write concern docs warn that with w: 1, data can be rolled back if the primary steps down before the writes replicate to a secondary. The acknowledgement was received, so there is nothing for the driver to retry; w: 'majority' prevents the loss."
+  },
+  {
+    "id": "m19.q11",
+    "module": "m19",
+    "section": "transactions",
+    "q": "Inside <code>session.withTransaction</code>, which mistake makes one write escape the transaction?",
+    "options": [
+      "Awaiting each operation one after the other",
+      "Calling <code>updateOne</code> without passing <code>{ session }</code>",
+      "Returning a value from the callback",
+      "Using the default write concern for the commit"
+    ],
+    "answer": 1,
+    "explain": "Only operations that receive the session belong to the transaction; one without it runs on its own and is not rolled back. Awaiting operations one by one is what the driver docs require, and returning a value is allowed: withTransaction returns it."
+  },
+  {
+    "id": "m19.q12",
+    "module": "m19",
+    "section": "change-streams",
+    "q": "When should the sync process save the resume token of a change event?",
+    "options": [
+      "Before processing the event, so a crash never processes it twice",
+      "Only when the process shuts down cleanly",
+      "Once a day, together with a full resync",
+      "After the event has been applied to the Orders API, with an idempotent write"
+    ],
+    "answer": 3,
+    "explain": "Saving after processing gives at-least-once delivery: a crash replays the last event, which an idempotent upsert absorbs. Saving before processing gives at-most-once: a crash between saving and applying loses the event for good."
+  },
+  {
+    "id": "m19.q13",
+    "module": "m19",
+    "section": "indexes",
+    "q": "The reviews tab is slow. The explain output of its query shows this summary. What is the best fix?",
+    "code": "winningPlan: SORT <- FETCH <- IXSCAN { productId: 1, status: 1, stars: 1, createdAt: -1 }\nnReturned: 20\ntotalKeysExamined: 41200\ntotalDocsExamined: 41200",
+    "lang": "text",
+    "options": [
+      "Replace the index with { productId: 1, status: 1, createdAt: -1, stars: 1 } so the index provides the order",
+      "Add allowDiskUse so the sort can spill to disk",
+      "Add a separate single-field index on createdAt",
+      "Raise maxPoolSize so more queries run in parallel"
+    ],
+    "answer": 0,
+    "explain": "The SORT stage shows an in-memory sort: with the range on stars before createdAt, the server reads every matching entry, sorts them, and returns 20. ESR order (sort before range) lets the index return entries by date and stop early. Disk spill or more connections do not reduce the 41,200 reads."
+  },
+  {
+    "id": "m19.q14",
+    "module": "m19",
+    "section": "index-types",
+    "q": "With the index <code>{ productId: 1, status: 1, createdAt: -1, stars: 1 }</code>, which query is covered?",
+    "options": [
+      "<code>find({ productId, status: 'published' }, { projection: { stars: 1, createdAt: 1 } })</code>",
+      "<code>find({ productId, status: 'published' }, { projection: { _id: 0, stars: 1, title: 1 } })</code>",
+      "<code>find({ productId, status: 'published' }, { projection: { _id: 0, stars: 1, createdAt: 1 } })</code>",
+      "<code>find({ productId, status: null }, { projection: { _id: 0, stars: 1 } })</code>"
+    ],
+    "answer": 2,
+    "explain": "A covered query reads and returns only indexed fields and excludes _id, which the index does not hold. The first option returns _id by default, the second returns title, which is not in the index, and the docs exclude predicates that test for null from covered queries."
+  },
+  {
+    "id": "m19.q15",
+    "module": "m19",
+    "section": "index-types",
+    "q": "The team adds a unique index on <code>giftCode</code> in <code>reviews</code>; most reviews have no gift code. The second review without one fails with error 11000. Why, and what is the fix?",
+    "options": [
+      "Unique indexes reject every document missing the field; make giftCode required",
+      "A missing field is indexed as null, so only one document may lack it; use a partial index on documents where giftCode exists",
+      "The index was created before the data; drop it and recreate it",
+      "Error 11000 means a write conflict; retry the insert"
+    ],
+    "answer": 1,
+    "explain": "Per the docs, a unique single-field index stores null for a missing field, so a second document without giftCode duplicates that null. With partialFilterExpression: { giftCode: { $exists: true } }, the uniqueness only applies to documents that have a code. Code 11000 is DuplicateKey, not a write conflict (112)."
+  },
+  {
+    "id": "m19.q16",
+    "module": "m19",
+    "section": "index-types",
+    "q": "Products have two array fields, <code>tags</code> and <code>colours</code>. A colleague creates <code>{ tags: 1, colours: 1 }</code>. What happens?",
+    "options": [
+      "MongoDB indexes every combination of tag and colour",
+      "The index is created but used only for queries on tags",
+      "MongoDB converts the index into two single-field indexes",
+      "It is refused: a compound multikey index allows at most one array field per document"
+    ],
+    "answer": 3,
+    "explain": "The multikey docs state that each indexed document can have at most one indexed field whose value is an array: creation fails if existing documents have both as arrays, and later inserts that break the rule fail. Index the two fields separately, or reshape the data."
+  },
+  {
+    "id": "m19.q17",
+    "module": "m19",
+    "section": "index-types",
+    "q": "There is a partial index <code>{ createdAt: 1 }</code> with <code>partialFilterExpression: { status: 'pending' }</code>. The moderation screen runs <code>find({ createdAt: { $gte: since } })</code>. Is the index used?",
+    "options": [
+      "No: the query does not include the status filter, so using the index could miss documents",
+      "Yes: createdAt is the indexed field",
+      "Yes, but only with a hint",
+      "No, because partial indexes only serve equality conditions"
+    ],
+    "answer": 0,
+    "explain": "The docs say MongoDB does not use a partial index when it could return an incomplete result: the query must contain the filter expression (or a subset of it). Adding status: 'pending' to the query lets it use the index. Partial indexes serve range conditions such as $gte fine."
+  },
+  {
+    "id": "m19.q18",
+    "module": "m19",
+    "section": "aggregation",
+    "q": "A developer joins reviews to products with <code>$lookup</code> on every product page view and asks why the page is slow under load. What is the best answer?",
+    "options": [
+      "Add allowDiskUse: true to the pipeline",
+      "Move the $lookup after a $facet",
+      "The model ignores the access pattern: embed the subset of reviews the page shows instead of joining on every view",
+      "Replace $lookup with Mongoose populate, which is always faster"
+    ],
+    "answer": 2,
+    "explain": "A join on the hottest read path means the data the page reads together is not stored together; the subset pattern removes the join. populate runs extra queries, which the driver docs describe as useful in some cases, not always faster, and disk spill does not help a small join repeated thousands of times."
+  },
+  {
+    "id": "m19.q19",
+    "module": "m19",
+    "section": "aggregation",
+    "q": "A report lists products with their reviews: <code>$lookup</code> into <code>reviews</code> as <code>reviews</code>, then <code>{ $unwind: '$reviews' }</code>. Products with no review are missing from the report. Why?",
+    "options": [
+      "$lookup returns null for products without reviews and $unwind fails silently",
+      "By default $unwind outputs nothing for a document whose array is empty; use preserveNullAndEmptyArrays: true",
+      "$lookup skips local documents that have no match, like an inner join",
+      "The 16 MiB limit removed those products from the result"
+    ],
+    "answer": 1,
+    "explain": "$lookup is a left outer join and returns an empty array when nothing matches. It is $unwind that drops documents whose array is empty or missing, because preserveNullAndEmptyArrays defaults to false. Set it to true to keep those products."
+  },
+  {
+    "id": "m19.q20",
+    "module": "m19",
+    "section": "patterns",
+    "q": "The rating summary is updated with <code>$inc</code> on every review. Marketing now imports 2 million historical reviews in one night. What would you do with the summary?",
+    "options": [
+      "Keep $inc per review and wrap the import in one transaction",
+      "Drop the summary and compute the average with $group on every page view",
+      "Run 2 million updateOne calls in parallel with Promise.all",
+      "Import the reviews, then recompute the summaries once with $group and $merge, the computed pattern as a batch job"
+    ],
+    "answer": 3,
+    "explain": "For a bulk load, one aggregation that groups by product and merges into products rewrites each summary once instead of 2 million counter updates. One transaction of 2 million writes runs against the one-minute default limit, and computing on every page view gives up the read optimisation the pattern exists for."
+  },
+  {
+    "id": "m19.q21",
+    "module": "m19",
+    "section": "replication",
+    "q": "After posting a review, the customer is redirected to the product page, which reads with <code>readPreference: 'secondaryPreferred'</code>. Sometimes the new review is missing. What is the best fix?",
+    "options": [
+      "Write the review with w: 1 so it is faster",
+      "Add a 1-second sleep before the redirect",
+      "Read the page that must show the customer's own write from the primary, and keep secondaries for reports",
+      "Use readConcern: 'local' on the secondary"
+    ],
+    "answer": 2,
+    "explain": "Secondaries apply the oplog asynchronously, so they can lag behind the primary. Reads that must see the user's own write go to the primary (or use a causally consistent session). A sleep only hides the lag, and read concern local still reads that lagging secondary."
+  },
+  {
+    "id": "m19.q22",
+    "module": "m19",
+    "section": "replication",
+    "q": "During a planned failover with default driver settings, which write is NOT retried automatically when it hits the election?",
+    "options": [
+      "An <code>updateMany</code> that unpublishes all reviews of a product",
+      "An <code>insertOne</code> of a review",
+      "A <code>findOneAndUpdate</code> on a product",
+      "An <code>updateOne</code> with <code>$inc</code> on a summary"
+    ],
+    "answer": 0,
+    "explain": "Retryable writes cover single-document operations (insertOne, updateOne, findOneAndUpdate, deleteOne and similar) and are retried once. updateMany is a multi-document write and is not retryable, so the code must handle that error itself."
+  },
+  {
+    "id": "m19.q23",
+    "module": "m19",
+    "section": "transactions",
+    "q": "What is wrong with this code?",
+    "code": "await session.withTransaction(async (txSession) => {\n  await Promise.all([\n    reviews.insertOne(review, { session: txSession }),\n    products.updateOne({ _id: review.productId }, reviewUpdate(review), { session: txSession }),\n  ]);\n  await mailer.send(review.author.customerId, 'Thanks for your review');\n});",
+    "lang": "ts",
+    "options": [
+      "Nothing: both writes pass the session and the email is sent after them",
+      "Operations run in parallel in one transaction, and the email can be sent several times because the callback may be retried",
+      "withTransaction does not accept an async callback",
+      "insertOne cannot be used inside a transaction"
+    ],
+    "answer": 1,
+    "explain": "The Node driver does not support parallel operations within one transaction (the docs say they usually cause server errors), and withTransaction re-runs the whole callback on a transient error, so the email could go out twice. Await the writes one by one and send the email after the transaction commits."
+  },
+  {
+    "id": "m19.q24",
+    "module": "m19",
+    "section": "transactions",
+    "q": "A teammate wants every review publication in a multi-document transaction so the product summary is never off by one. Reviews peak at 300 a minute on launch days. What do you answer?",
+    "options": [
+      "Agree: transactions in MongoDB cost the same as single-document writes",
+      "Refuse transactions entirely: MongoDB transactions are not ACID",
+      "Agree, and also raise transactionLifetimeLimitSeconds to one hour to be safe",
+      "Keep the two writes and repair the derived summary with a periodic job; a transaction buys little for data that can be recomputed"
+    ],
+    "answer": 3,
+    "explain": "The summary is derived from reviews, so a rare drift can be repaired by recomputing it, without paying the documented extra cost of transactions on the hot path. MongoDB transactions are ACID, so refusing them on that ground is wrong; a longer lifetime limit only lets long transactions hold resources longer."
+  },
+  {
+    "id": "m19.q25",
+    "module": "m19",
+    "section": "driver",
+    "q": "A Mongoose endpoint returns 1,000 reviews as JSON and the pods use too much memory. Which change does the Mongoose documentation recommend for this read path?",
+    "options": [
+      "Call populate() on the author of each review",
+      "Convert each document with toObject() after loading it",
+      "Add .lean() to the query, so Mongoose returns plain objects instead of full documents",
+      "Switch the schema to strict: false"
+    ],
+    "answer": 2,
+    "explain": "lean() skips hydration: no change tracking, getters, virtuals or save, and the docs measure lean objects at about 3 times smaller in memory. toObject() still builds the full document first, and populate adds queries and data instead of removing them."
+  },
+  {
+    "id": "m19.q26",
+    "module": "m19",
+    "section": "sharding",
+    "q": "The <code>reviews</code> collection is sharded on <code>{ createdAt: 1 }</code>. Under launch traffic, one shard is at 100% CPU while the others are idle. Why?",
+    "options": [
+      "createdAt always increases, so every insert goes to the chunk holding the highest values, on one shard",
+      "The balancer is disabled during the day",
+      "mongos sends every write to the primary shard of the database",
+      "Range sharding never spreads data; only hashed sharding does"
+    ],
+    "answer": 0,
+    "explain": "The shard key docs explain that with a monotonically increasing key, all new inserts are routed to the chunk with maxKey as its upper bound, making its shard the write bottleneck. Range sharding does spread existing data, but not new inserts on a monotonic key."
+  },
+  {
+    "id": "m19.q27",
+    "module": "m19",
+    "section": "sharding",
+    "q": "You shard <code>reviews</code> on <code>{ _id: 'hashed' }</code>. Writes are now even. What happens to the reviews tab query by <code>productId</code>?",
+    "options": [
+      "It is targeted to one shard, because productId is indexed",
+      "It is broadcast to every shard, because it does not contain the shard key",
+      "It fails until you add productId to the shard key",
+      "It is targeted, because hashed keys support any equality query"
+    ],
+    "answer": 1,
+    "explain": "mongos targets queries that contain the shard key or a prefix of it; a query on productId contains neither, so it is a scatter-gather to all shards. Having an index on productId on each shard does not tell mongos where the documents live."
+  },
+  {
+    "id": "m19.q28",
+    "module": "m19",
+    "section": "change-streams",
+    "q": "The product sync was stopped for a week. On restart with the stored resume token it fails with <code>ChangeStreamHistoryLost</code> (code 286). What do you do?",
+    "options": [
+      "Retry with the same token until the oplog grows back",
+      "Open the stream with startAfter and the same token",
+      "Open the stream without a token and accept the missing week",
+      "Resynchronise the full catalogue copy, then start a new stream, and size the oplog window above the longest expected outage"
+    ],
+    "answer": 3,
+    "explain": "Resuming needs the operation of the token to still be in the oplog; after a week it is gone, and no option recovers it. startAfter only helps after an invalidate event. Starting fresh without a resync leaves a week of changes missing, so resync, restart, and alert on watcher downtime."
+  },
+  {
+    "id": "m19.q29",
+    "module": "m19",
+    "section": "change-streams",
+    "q": "The Orders API runs 6 replicas, and each one opens the same change stream on <code>products</code> to update its PostgreSQL table. What is the main problem?",
+    "options": [
+      "Change streams allow only one cursor per collection, so five replicas fail",
+      "Each replica receives a different subset of the events",
+      "Every replica applies every change, so each update runs 6 times; run a single watcher instead",
+      "The events are not majority-committed when several watchers are open"
+    ],
+    "answer": 2,
+    "explain": "Each change stream is an independent cursor that receives every matching event, so six watchers write each change six times and race each other on the stored resume token. One watcher (a dedicated process, or one elected replica) with an idempotent sink is the usual design. Opening several streams is allowed; they simply do not share the work."
+  },
+  {
+    "id": "m19.q30",
+    "module": "m19",
+    "section": "senior",
+    "q": "The shop adds a loyalty programme: points earned on paid orders, spent at checkout, never negative, audited by finance. Where would you store the points ledger?",
+    "options": [
+      "In PostgreSQL next to orders: it is relational, needs constraints and transactions with the order, and is audited",
+      "In MongoDB, embedded in each customer document, because it is read with the customer",
+      "In MongoDB, one document per customer updated with $inc, because single-document writes are atomic",
+      "In the Redis cache, because points are read on every page"
+    ],
+    "answer": 0,
+    "explain": "The ledger changes together with orders, needs a never-negative constraint and an audit trail, and is written in the same flow as the payment: that is PostgreSQL's strength, in the same transaction as the order. An atomic $inc is not a ledger and cannot share a transaction with an order in another database, and a cache is not a system of record."
+  }
+]

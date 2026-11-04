@@ -63,7 +63,7 @@ describe('App', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Start playing' }));
     // A topic never studied is asked straight away.
-    expect(screen.getByRole('heading', { name: /var.*let.*const/ })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /var.*let.*const/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Lesson' })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Show the answer' }));
@@ -83,6 +83,7 @@ describe('App', () => {
     const store = memoryStore();
     render(<App store={store} now={now} random={random} />);
     await user.click(await screen.findByRole('button', { name: 'Start playing' }));
+    await screen.findByLabelText(`Question 1 of ${SERIES_LENGTH}`);
 
     // The first question is missed on purpose, so the series must end with at least one replay.
     await answerOnScreen(user, { right: false, attempt: 0 });
@@ -115,7 +116,7 @@ describe('App', () => {
 
     await user.click(await screen.findByText('JavaScript core'));
     await user.click(screen.getByRole('button', { name: 'Play JavaScript core' }));
-    expect(screen.getByText(/^Lesson ·/)).toBeInTheDocument();
+    expect(await screen.findByText(/^Lesson ·/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Got it, ask me' }));
 
     // The header button opens the current topic's lesson at any time.
@@ -135,6 +136,7 @@ describe('App', () => {
     render(<App store={store} now={now} random={random} />);
 
     await user.click(await screen.findByRole('button', { name: 'Mock interview' }));
+    await screen.findByText('Say it out loud');
     // No lesson first, and no way to open it during the interview.
     expect(screen.queryByText(/^Lesson ·/)).not.toBeInTheDocument();
     expect(screen.getByText('Say it out loud')).toBeInTheDocument();
@@ -196,7 +198,7 @@ describe('App', () => {
 
     await user.click(await screen.findByText('Behavioural and scenarios'));
     await user.click(screen.getByRole('button', { name: 'Play Behavioural and scenarios' }));
-    await user.click(screen.getByRole('button', { name: 'Got it, ask me' }));
+    await user.click(await screen.findByRole('button', { name: 'Got it, ask me' }));
 
     expect(screen.getByRole('heading', { name: /worked across the whole stack/ })).toBeInTheDocument();
   });

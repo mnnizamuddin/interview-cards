@@ -1,0 +1,434 @@
+[
+  {
+    "id": "m35.q1",
+    "module": "m35",
+    "section": "levels",
+    "q": "Which test would have caught the Pay button that stayed disabled after a declined card?",
+    "options": [
+      "A snapshot of the checkout's first render, updated whenever the markup changes on purpose",
+      "A test asserting that the <code>submitted</code> state becomes true on click and false after a success",
+      "A component test that answers <code>POST /orders</code> with 402, clicks Pay, then expects Pay enabled",
+      "A unit test checking that <code>placeOrder</code> throws a typed error on a 402 response"
+    ],
+    "answer": 2,
+    "explain": "Only that test reaches the declined-card path and checks what the customer can do next. The snapshot records the first render, the state test checks an implementation detail (it would pass with the bug), and the unit test proves placeOrder throws but says nothing about the button."
+  },
+  {
+    "id": "m35.q2",
+    "module": "m35",
+    "section": "levels",
+    "q": "Which checkout behaviour cannot be checked reliably in a jsdom component test?",
+    "options": [
+      "The alert shown after a 402 response, with the text the customer reads",
+      "The order summary staying visible while the customer scrolls",
+      "The Pay button being disabled while the order request is in flight",
+      "The accessible name the address field gets from its label element"
+    ],
+    "answer": 1,
+    "explain": "jsdom has no layout engine: measured, getBoundingClientRect() returned zeros and IntersectionObserver was undefined, so scrolling and sticky positioning need a real browser. The other three are DOM state and accessibility information, which jsdom and Testing Library handle well."
+  },
+  {
+    "id": "m35.q3",
+    "module": "m35",
+    "section": "queries",
+    "q": "Which query should a test use first to find the Pay button?",
+    "options": [
+      "<code>screen.getByTestId('checkout-pay-button')</code>",
+      "<code>container.querySelector('button.btn-primary')</code>",
+      "<code>screen.getByText('Pay', { selector: 'button' })</code>",
+      "<code>screen.getByRole('button', { name: 'Pay' })</code>"
+    ],
+    "answer": 3,
+    "explain": "Testing Library ranks getByRole first: it finds the element the way assistive technology does, by role and accessible name. getByText with a selector finds it too, but ties the test to the tag and skips the accessible-name check; test ids are the last resort, and a CSS class is an implementation detail that broke the old suite."
+  },
+  {
+    "id": "m35.q4",
+    "module": "m35",
+    "section": "queries",
+    "q": "Before the customer clicks Pay, no error message must be shown. Which assertion is right?",
+    "options": [
+      "<code>expect(screen.getByRole('alert')).not.toBeInTheDocument()</code>",
+      "<code>expect(screen.getAllByRole('alert')).toHaveLength(0)</code>",
+      "<code>expect(screen.queryByRole('alert')).not.toBeInTheDocument()</code>",
+      "<code>await expect(screen.findByRole('alert')).rejects.toThrow()</code>"
+    ],
+    "answer": 2,
+    "explain": "queryBy returns null when nothing matches, so the negative assertion can run. getBy and getAllBy throw on zero matches before expect is even reached, so those tests fail. The findBy version works but waits a full second for nothing."
+  },
+  {
+    "id": "m35.q5",
+    "module": "m35",
+    "section": "events",
+    "q": "An input has an <code>onChange</code> handler. A test runs <code>fireEvent.change(input, { target: { value: 'mug' } })</code>. How many times does the handler run?",
+    "options": [
+      "Once, with the full value \"mug\"",
+      "Three times: \"m\", \"mu\", then \"mug\"",
+      "Zero: React ignores change events made by fireEvent",
+      "Four times: one per character plus one on blur"
+    ],
+    "answer": 0,
+    "explain": "fireEvent dispatches one change event with the final value (measured: one call with \"mug\", no keydown). user.type would call it three times, which is why a fireEvent test could not reveal a request per keystroke."
+  },
+  {
+    "id": "m35.q6",
+    "module": "m35",
+    "section": "async",
+    "q": "What does <code>await screen.findByRole('alert')</code> do when no alert ever appears?",
+    "options": [
+      "It resolves to null at once, so the test can assert absence",
+      "It throws synchronously, like getByRole, before any retry",
+      "It waits until the test runner's own timeout, 5 s in Vitest",
+      "It retries, then rejects after 1,000 ms by default"
+    ],
+    "answer": 3,
+    "explain": "findBy queries retry until the element appears or their own timeout passes: measured, the promise rejected after 1,019 ms with \"Unable to find role=\"alert\"\" and the DOM printed. Returning null is queryBy, and the 5 s Vitest timeout only matters if something never settles."
+  },
+  {
+    "id": "m35.q7",
+    "module": "m35",
+    "section": "async",
+    "q": "What does <code>await waitFor(() =&gt; {})</code> check?",
+    "options": [
+      "Nothing: an empty callback never throws",
+      "That React has finished all of its pending renders and effects",
+      "That no request started by the component is still in flight",
+      "That the DOM has stopped changing for one 50 ms interval"
+    ],
+    "answer": 0,
+    "explain": "waitFor resolves as soon as its callback stops throwing, and an empty callback never throws: measured, it resolved in 1 ms while the status was still \"loading\". It is not a \"wait for React\" helper; put the assertion you expect inside it, or use findBy."
+  },
+  {
+    "id": "m35.q8",
+    "module": "m35",
+    "section": "network",
+    "q": "How should MSW be organised for the storefront's component tests?",
+    "options": [
+      "A new setupServer inside each test, listening and closing in that test, with only the handlers it needs",
+      "One server, happy-path handlers, <code>server.use</code> per error case, <code>resetHandlers</code> after each test",
+      "No handlers by default, with unhandled requests passed through to a staging Orders API",
+      "One handler set per file and no reset, since each test file already runs in its own worker"
+    ],
+    "answer": 1,
+    "explain": "Default happy-path handlers keep most tests short, server.use overrides one endpoint for one test, and resetHandlers removes that override so it cannot leak into the next test of the same file. Files are isolated from each other, but tests inside one file share the server."
+  },
+  {
+    "id": "m35.q9",
+    "module": "m35",
+    "section": "providers",
+    "q": "Why does each test get its own <code>QueryClient</code>?",
+    "options": [
+      "A QueryClient cannot be reused after its provider unmounts, so the second render throws",
+      "React StrictMode refuses a client that was created outside the component tree",
+      "MSW must register its handlers on each client separately, or requests are not intercepted",
+      "The client holds the cache, so a test could see data another test loaded"
+    ],
+    "answer": 3,
+    "explain": "Measured with the app's shared client and a 60 s staleTime: the second test made 0 requests and showed the first test's order. A client per test, built in the render helper, removes that coupling. The other reasons do not exist: MSW works at the network level, not per client."
+  },
+  {
+    "id": "m35.q10",
+    "module": "m35",
+    "section": "timers",
+    "q": "A test calls <code>vi.useFakeTimers()</code>, then <code>userEvent.setup()</code> with no options, then <code>await user.type(input, '10 rue')</code>. What happens?",
+    "options": [
+      "The text is typed instantly, because fake timers skip every delay",
+      "The text is typed, but the debounce timer fires after the first key",
+      "Typing stalls: user-event waits with setTimeout between keys",
+      "Vitest throws an error saying fake timers are not supported by user-event"
+    ],
+    "answer": 2,
+    "explain": "user-event waits between keystrokes with setTimeout, and fake timers only move when the test moves them: measured, not one character was typed after 2 s. The user-event docs say advanceTimers is necessary with fake timers: userEvent.setup({ advanceTimers: vi.advanceTimersByTime })."
+  },
+  {
+    "id": "m35.q11",
+    "module": "m35",
+    "section": "hooks",
+    "q": "When should a custom hook get its own <code>renderHook</code> tests?",
+    "options": [
+      "Always: every hook is a unit, and testing it through a component hides its failures",
+      "When several components share it and its contract has many cases",
+      "Never: renderHook was deprecated with React 19 and its test utilities",
+      "Only when the hook holds no state, since state needs a real component to render"
+    ],
+    "answer": 1,
+    "explain": "A shared hook with its own contract deserves direct tests at its boundaries. A hook written for one component is better tested through that component, as the Testing Library docs advise preferring render. renderHook is part of @testing-library/react 16, not deprecated."
+  },
+  {
+    "id": "m35.q12",
+    "module": "m35",
+    "section": "snapshots",
+    "q": "Why did the Pay button snapshot stay green through the incident, then fail last week?",
+    "options": [
+      "Snapshots ignore boolean attributes such as <code>disabled</code>, but they do compare whitespace",
+      "The snapshot file was never committed, so each CI run wrote a new one and passed",
+      "It held the first render only, and it compares markup, classes included",
+      "Snapshot serialisers only understand class components, not hooks"
+    ],
+    "answer": 2,
+    "explain": "A snapshot records the states the test reaches, and this one never clicked Pay. It compares serialised HTML, classes included: measured, renaming btn-primary produced a diff although nothing was broken. That pairing (misses the bug, fails on the refactor) is the usual case."
+  },
+  {
+    "id": "m35.q13",
+    "module": "m35",
+    "section": "queries",
+    "q": "What does the last line do?",
+    "code": "render(\n  <form>\n    <label htmlFor=\"city\">City</label>\n    <input id=\"city\" placeholder=\"Paris\" />\n    <input placeholder=\"Postcode\" />\n  </form>,\n);\nscreen.getByRole('textbox', { name: 'Postcode' });",
+    "lang": "tsx",
+    "options": [
+      "It returns the second input, because its placeholder becomes its accessible name",
+      "It returns the first input, the only textbox that has a label at all",
+      "It throws \"Found multiple elements with the role \"textbox\"\", as two inputs match",
+      "It throws \"Unable to find an accessible element…\": no textbox is named \"Postcode\""
+    ],
+    "answer": 3,
+    "explain": "Testing Library computes an empty accessible name for an input with only a placeholder (measured: Name \"\"), so no textbox is named \"Postcode\" and getByRole throws. That is also a real accessibility bug: give the field a label. \"Multiple elements\" only happens without a name filter."
+  },
+  {
+    "id": "m35.q14",
+    "module": "m35",
+    "section": "e2e",
+    "q": "While the payment is in flight, the button reads \"Paying…\". What does each library do with a query for the name \"Pay\"?",
+    "code": "// Testing Library\nscreen.queryByRole('button', { name: 'Pay' });\n// Playwright\nawait page.getByRole('button', { name: 'Pay' }).count();",
+    "lang": "ts",
+    "options": [
+      "Both match \"Paying…\", since both libraries compare names as case-insensitive substrings",
+      "Testing Library returns null; Playwright counts 1 unless <code>exact: true</code>",
+      "Neither matches: both compare whole, case-sensitive names unless told otherwise",
+      "Testing Library matches \"Paying…\"; Playwright returns 0 because it is strict"
+    ],
+    "answer": 1,
+    "explain": "Measured: Testing Library's string name matched the whole name, so queryByRole returned null, while Playwright's count was 1 and became 0 with exact: true. Playwright's docs say role names match a case-insensitive substring by default. Assuming the two libraries agree is how an E2E test passes on the wrong button."
+  },
+  {
+    "id": "m35.q15",
+    "module": "m35",
+    "section": "async",
+    "q": "What is the bug in this test?",
+    "code": "await waitFor(() => {\n  fireEvent.click(screen.getByRole('button', { name: 'Pay' }));\n  expect(screen.getByRole('status')).toHaveTextContent('Order ord_1 is paid');\n});",
+    "lang": "tsx",
+    "options": [
+      "waitFor re-runs the callback, so Pay is clicked several times",
+      "fireEvent cannot be called inside waitFor, so the callback throws every time",
+      "Nothing: the click runs once, and only the failing assertion is retried",
+      "getByRole inside waitFor never retries, so the status is read only once"
+    ],
+    "answer": 0,
+    "explain": "waitFor retries the callback on an interval and on DOM changes, side effects included: measured, Pay was clicked 5 times before the status appeared. Click once before waiting, then wait with findByRole('status'), which also makes a double payment visible instead of hidden."
+  },
+  {
+    "id": "m35.q16",
+    "module": "m35",
+    "section": "async",
+    "q": "A test prints \"An update to OrderStatus inside a test was not wrapped in act(...)\". It renders the page, sleeps 100 ms with setTimeout, then calls getByRole. Which fix would you ship?",
+    "options": [
+      "Wrap the setTimeout in act() and keep the 100 ms sleep, which the warning asks for",
+      "Mock console.error in the setup file so CI logs stay clean and readable",
+      "Replace the sleep and getByRole with <code>findByRole</code> on the final state",
+      "Turn off the act environment flag for this file, since the result is correct anyway"
+    ],
+    "answer": 2,
+    "explain": "findBy waits for the state the user would see, inside Testing Library's act handling: measured, the same component produced no warning with findByText. Wrapping the sleep keeps a timing guess that is slow locally and short on CI, and silencing the warning or the flag hides the race."
+  },
+  {
+    "id": "m35.q17",
+    "module": "m35",
+    "section": "async",
+    "q": "In a Vitest project without <code>globals: true</code> and with no cleanup in the setup file, each test passes alone, but the second test of a file fails with \"Found multiple elements with the role \"button\"\". Why?",
+    "options": [
+      "Vitest runs the tests of one file in parallel, so both render at the same time",
+      "Automatic cleanup needs a global afterEach, so the first test's DOM stays",
+      "jsdom cannot unmount React 19 roots, so every render adds to the same page",
+      "React 19 keeps every root alive until the test file ends, by design"
+    ],
+    "answer": 1,
+    "explain": "Testing Library registers cleanup only when afterEach is a global, as the docs say: measured, the previous test's element was still in the page. Turn on globals or call cleanup() in afterEach. Tests in one Vitest file run one after another, not in parallel."
+  },
+  {
+    "id": "m35.q18",
+    "module": "m35",
+    "section": "network",
+    "q": "With MSW 2 and <code>onUnhandledRequest: 'error'</code>, a new component calls <code>GET /cart</code>, which has no handler. What happens in the test?",
+    "options": [
+      "The request goes to the real network, and the test continues with whatever comes back",
+      "MSW answers with an empty 200 response, so the component renders an empty cart",
+      "MSW logs a warning, and the previous test's handler answers the request",
+      "MSW prints an error naming the request, and the fetch rejects"
+    ],
+    "answer": 3,
+    "explain": "Measured on MSW 2.15: \"[MSW] Error: intercepted a request without a matching request handler\" listed the method and URL, and fetch rejected. The forgotten mock fails visibly instead of hitting the network. In MSW 3 the option is onUnhandledFrame, and the old name is no longer read."
+  },
+  {
+    "id": "m35.q19",
+    "module": "m35",
+    "section": "network",
+    "q": "You need to assert that the button shows \"Paying…\" and is disabled while <code>POST /orders</code> is pending. Which approach is deterministic?",
+    "options": [
+      "Hold the handler on a promise the test resolves after asserting",
+      "Add a 200 ms delay to the handler and assert within the first 200 ms of the click",
+      "Mock <code>useMutation</code> to return <code>isPending: true</code> for the whole test",
+      "Click Pay, sleep 50 ms so the request starts, then assert on the button"
+    ],
+    "answer": 0,
+    "explain": "A held response stays pending until the test releases it, so the in-flight state is checked with no timing at all (measured, then the paid status appeared after resolve). A delay or a sleep races the clock, and mocking useMutation no longer tests the component's real wiring."
+  },
+  {
+    "id": "m35.q20",
+    "module": "m35",
+    "section": "providers",
+    "q": "A component renders an alert when its query fails. With <code>new QueryClient()</code> and a handler answering 500, <code>await screen.findByRole('alert')</code> fails. Why?",
+    "options": [
+      "The 500 response is cached as a success, because its body is valid JSON",
+      "findBy cannot see elements that TanStack Query renders in a later batch",
+      "The query retries 3 times first, which outlasts findBy's timeout",
+      "MSW does not support 500 responses in Node, so the request hangs"
+    ],
+    "answer": 2,
+    "explain": "Queries retry failed requests 3 times by default with exponential backoff: measured, findBy gave up at 1,000 ms while the alert appeared after 7,082 ms and 4 requests. A test client with retry: false showed the alert after 22 ms and 1 request."
+  },
+  {
+    "id": "m35.q21",
+    "module": "m35",
+    "section": "providers",
+    "q": "Both tests use the app's module-level <code>queryClient</code> (staleTime 60 s). Test 1 answers <code>GET /orders/ord_1</code> with <code>paid</code>; test 2 overrides it with <code>refunded</code>. How many requests does test 2 make, and what does it show?",
+    "options": [
+      "One request, because the handler changed; it shows \"refunded\"",
+      "Zero requests; it shows \"paid\" from test 1",
+      "One request; it shows \"paid\" first, then \"refunded\"",
+      "Two requests, because a remount refetches twice in tests"
+    ],
+    "answer": 1,
+    "explain": "The cached order is still fresh for 60 s, so the second mount uses it without a request: measured, 0 requests and \"Order ord_1 is paid\". Without staleTime it would refetch on mount, which is why this leak shows up only with some settings. A client per test removes it."
+  },
+  {
+    "id": "m35.q22",
+    "module": "m35",
+    "section": "providers",
+    "q": "For the order status component, a colleague proposes <code>vi.mock</code> on the <code>useOrder</code> hook to return <code>{ data: order }</code>. Which design would you ship?",
+    "options": [
+      "The hook mock, because the tests become synchronous, fast and independent of the network",
+      "A <code>vi.fn</code> replacing <code>fetch</code> in each test, scripted with the order JSON",
+      "A real QueryClient per test and MSW handlers for the order",
+      "An E2E test only, since hooks that fetch data cannot run in jsdom"
+    ],
+    "answer": 2,
+    "explain": "With MSW and a real client the test runs the loading state, the error state and the cache, where the bugs live, and survives a switch from useQuery to useSuspenseQuery. The hook mock skips all of that and ties tests to an internal name; a fetch mock is the \"mock what you do not own\" mistake of M14."
+  },
+  {
+    "id": "m35.q23",
+    "module": "m35",
+    "section": "timers",
+    "q": "Under Vitest, this test hits the 5 s test timeout. Why?",
+    "code": "vi.useFakeTimers();\nconst user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });\nrenderWithProviders(<AddressAutocomplete />);\nawait user.type(screen.getByRole('textbox', { name: 'Delivery address' }), '10 rue de Rivoli');\nawait act(() => vi.advanceTimersByTimeAsync(300));\nawait screen.findByRole('list', { name: 'Address suggestions' });",
+    "lang": "tsx",
+    "options": [
+      "Testing Library waits for a setTimeout(0) it only advances under Jest",
+      "advanceTimers must be vi.runAllTimers, or the remaining keystrokes never fire",
+      "MSW cannot answer requests while fake timers are installed, so the query hangs",
+      "act cannot wrap an async function, so the debounce update is never applied"
+    ],
+    "answer": 0,
+    "explain": "Testing Library's asyncWrapper waits for a setTimeout(0) and only calls jest.advanceTimersByTime when it detects a jest global; under Vitest fake timers that timer never fires (measured: the test timed out). vi.useFakeTimers({ shouldAdvanceTime: true }) fixed it. MSW kept answering in the passing version."
+  },
+  {
+    "id": "m35.q24",
+    "module": "m35",
+    "section": "ci",
+    "q": "An axe scan of the checkout in CI reports zero violations. What can you conclude?",
+    "options": [
+      "The checkout meets WCAG 2.1 AA, since those were the tags scanned",
+      "Screen reader users can complete the checkout from start to end",
+      "No accessibility work is needed until the checkout markup changes again",
+      "Only that axe found nothing it can detect; manual checks remain"
+    ],
+    "answer": 3,
+    "explain": "The Playwright docs state that automated scans catch common problems such as missing or invalid attributes, while many issues can only be found with manual testing. Zero violations is a useful gate in CI, not a conformance claim: focus order, meaningful names and flows need people."
+  },
+  {
+    "id": "m35.q25",
+    "module": "m35",
+    "section": "hooks",
+    "q": "What is <code>result.current</code> after the last line, and what else happens?",
+    "code": "vi.useFakeTimers();\nconst { result, rerender } = renderHook(\n  ({ value }) => useDebouncedValue(value, 300),\n  { initialProps: { value: '10 r' } },\n);\nrerender({ value: '10 rue de Rivoli' });\nvi.advanceTimersByTime(300);\nconsole.log(result.current);",
+    "lang": "tsx",
+    "options": [
+      "\"10 rue de Rivoli\", since the 300 ms have passed, with no warning",
+      "\"10 r\", plus an act(...) warning from React",
+      "undefined, because the cleanup cleared the timer and the state",
+      "It throws, because renderHook does not support fake timers"
+    ],
+    "answer": 1,
+    "explain": "The timer fired setDebounced outside act, so React had not rendered the update when the test read it: measured, result.current was still \"10 r\" and the act warning was printed. Wrapping the advance in act() gave \"10 rue de Rivoli\"."
+  },
+  {
+    "id": "m35.q26",
+    "module": "m35",
+    "section": "snapshots",
+    "q": "The storefront has a DOM snapshot for every component, and people update them with <code>vitest -u</code> without reading the diff. Which plan would you ship?",
+    "options": [
+      "Run <code>vitest -u</code> automatically in CI, so that snapshots stop blocking merges for markup changes",
+      "Role-based assertions for behaviour, aria snapshots or screenshots for a few pages",
+      "Keep them all and add a review rule: every snapshot diff needs two approvals before merge",
+      "Convert every snapshot to <code>toMatchInlineSnapshot</code>, so reviewers see the HTML in the test file"
+    ],
+    "answer": 1,
+    "explain": "DOM snapshots miss behaviour they never reach and fail on harmless markup, so the fix is different assertions, not more process. Behaviour goes to role-based tests, structure to aria snapshots that ignore classes, and visuals to a few screenshots. Inlining large HTML only moves the noise into the test file."
+  },
+  {
+    "id": "m35.q27",
+    "module": "m35",
+    "section": "ci",
+    "q": "This E2E line fails about once in twenty runs on CI. Why, and what is the fix?",
+    "code": "expect(await page.getByRole('button', { name: 'Pay', exact: true }).isEnabled()).toBe(true);",
+    "lang": "ts",
+    "options": [
+      "<code>isEnabled()</code> is deprecated and unreliable; read <code>getAttribute('disabled')</code> instead",
+      "The <code>exact</code> option makes name matching flaky on CI fonts; remove it",
+      "CI machines are slower; raise the global test timeout to 30 s",
+      "It reads once; use <code>await expect(locator).toBeEnabled()</code>"
+    ],
+    "answer": 3,
+    "explain": "isEnabled returns the state at that instant, so a button re-enabled a few milliseconds later fails the test on a slow runner. The web-first assertion retries until it passes or times out (5 s by default, measured in the failure output). A longer global timeout changes nothing for a one-shot read."
+  },
+  {
+    "id": "m35.q28",
+    "module": "m35",
+    "section": "snapshots",
+    "q": "A developer adds <code>await expect(page).toHaveScreenshot('checkout.png')</code> and runs it on a Windows laptop, then pushes. CI runs on Linux. What happens?",
+    "options": [
+      "Local run writes <code>checkout-win32.png</code>; CI has no Linux baseline",
+      "The first run passes and writes one baseline that every platform then shares",
+      "Playwright converts the Windows baseline to each platform when CI first runs it",
+      "The test is skipped on CI with a warning, because the platform differs from the baseline"
+    ],
+    "answer": 0,
+    "explain": "Measured on Playwright 1.64: the first run failed with \"A snapshot doesn't exist … writing actual\" and wrote checkout-win32.png. The platform in the name means a Linux run looks for a different file, and fonts render differently anyway, so generate baselines in the same environment as CI, such as its container."
+  },
+  {
+    "id": "m35.q29",
+    "module": "m35",
+    "section": "ci",
+    "q": "With <code>retries: 2</code>, a checkout test fails once and passes on its first retry. With <code>failOnFlakyTests</code> off, what does Playwright report?",
+    "options": [
+      "The test as failed, and the run fails",
+      "The test as passed, with no record of the failure",
+      "The test as flaky, and the run passes",
+      "The test as skipped after a failed attempt"
+    ],
+    "answer": 2,
+    "explain": "Measured on Playwright 1.64: a test that failed and then passed on retry was listed as \"1 flaky\" and the run passed. That is why the CI configuration of section 11 sets failOnFlakyTests: retries still give you a trace, but the flake no longer hides behind a green build."
+  },
+  {
+    "id": "m35.q30",
+    "module": "m35",
+    "section": "senior",
+    "q": "An interviewer asks: \"Your component tests were green, yet checkout broke twice. What do you change first?\" Which answer shows senior judgment?",
+    "options": [
+      "Raise the coverage threshold to 90% in CI, so that the untested error paths have to get tests",
+      "A user-level regression test per incident at the cheapest level, and drop the tests that hid them",
+      "Replace the component tests with Playwright E2E tests, since only a real browser shows what customers see",
+      "Add snapshots of the error and loading states, so that every state of checkout is covered next time"
+    ],
+    "answer": 1,
+    "explain": "Both bugs were behaviours no test reached: a component test with a 402 and one counting requests under fake timers would have caught them in milliseconds. Coverage counts executed lines, not meaningful assertions, an all-E2E suite is slow and flaky, and another snapshot repeats the original mistake."
+  }
+]

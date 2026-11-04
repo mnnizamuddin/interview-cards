@@ -1,0 +1,438 @@
+[
+  {
+    "id": "m09.q1",
+    "module": "m09",
+    "section": "guarantees",
+    "q": "The checkout decrements product 7's stock, then the <code>INSERT INTO orders</code> fails because the database restarts. What is stored afterwards?",
+    "options": [
+      "The stock decrement without the order",
+      "Neither the decrement nor the order",
+      "The order without the decrement",
+      "The decrement, and the order once the database is back"
+    ],
+    "answer": 1,
+    "explain": "Atomicity: nothing of an uncommitted transaction survives, so the decrement is undone with it (measured on PostgreSQL 18.6: when the second statement failed after the first write, the first write was undone). Durability only applies to work whose <code>COMMIT</code> returned, so there is nothing to \"finish\" after the restart."
+  },
+  {
+    "id": "m09.q2",
+    "module": "m09",
+    "section": "guarantees",
+    "q": "Product 7 has 5 units. Two checkouts run this code at the same time, interleaved as shown. What is the final stock?",
+    "code": "// Alice reads 5, then Bob reads 5\nconst stock = await readStock(productId);        // both checkouts\nawait setStock(productId, stock - quantity);     // Alice buys 2, then Bob buys 3",
+    "lang": "ts",
+    "options": [
+      "0",
+      "3",
+      "2",
+      "The second write fails with a serialization error"
+    ],
+    "answer": 2,
+    "explain": "Alice writes 3, then Bob writes 5 − 3 = 2 from his stale read, so her decrement is overwritten: a lost update, with no error at the default Read Committed level (measured on PostgreSQL 18.6). 0 is the correct business result, which only an atomic statement, a lock or a version check would give."
+  },
+  {
+    "id": "m09.q3",
+    "module": "m09",
+    "section": "isolation",
+    "q": "What is PostgreSQL's default isolation level, and when does it take its snapshot?",
+    "options": [
+      "Read Committed: a new snapshot at the start of each statement",
+      "Repeatable Read: one snapshot at the first statement of the transaction",
+      "Serializable: one snapshot at <code>BEGIN</code>",
+      "Read Committed: one snapshot at <code>BEGIN</code>"
+    ],
+    "answer": 0,
+    "explain": "Measured: <code>SHOW transaction_isolation</code> returns <code>read committed</code>, and the documentation says each statement sees data committed before that statement began. The \"one snapshot per transaction\" behaviour belongs to Repeatable Read and Serializable, and it starts at the first statement, not at <code>BEGIN</code>."
+  },
+  {
+    "id": "m09.q4",
+    "module": "m09",
+    "section": "isolation",
+    "q": "Customer 42 owns 1 console; the limit is 2. In two tabs, two transactions each count the customer's units (1), see room, and each insert an order for 1 unit. At Repeatable Read, what happens?",
+    "options": [
+      "The second insert fails with 40001",
+      "The second transaction waits for the first one",
+      "The second count sees the first insert and refuses",
+      "Both commit and the customer ends with 3 consoles"
+    ],
+    "answer": 3,
+    "explain": "Both commit: this is write skew. Each transaction inserted a different row, so there was no same-row conflict for Repeatable Read to detect (measured on PostgreSQL 18.6 with this pattern). At Serializable the second insert failed with 40001 instead."
+  },
+  {
+    "id": "m09.q5",
+    "module": "m09",
+    "section": "mvcc",
+    "q": "Transaction 753 has updated product 7 from 1 unit to 0 and not committed. Another session runs <code>SELECT stock FROM products WHERE id = 7</code>. What happens?",
+    "options": [
+      "It waits until 753 commits or rolls back",
+      "It returns 1 immediately",
+      "It returns 0 immediately",
+      "It fails with 55P03"
+    ],
+    "answer": 1,
+    "explain": "Measured: the old version came back at once, with <code>xmax = 753</code> marking who is replacing it. Under MVCC readers never wait for writers and never see uncommitted data; only locking reads such as <code>FOR UPDATE</code> wait."
+  },
+  {
+    "id": "m09.q6",
+    "module": "m09",
+    "section": "mvcc",
+    "q": "A CSV export script runs <code>BEGIN</code>, then hangs on a slow upload, and its connection stays idle inside the open transaction. With PostgreSQL's default settings, which is true?",
+    "options": [
+      "PostgreSQL rolls it back once <code>deadlock_timeout</code> (1 s by default) has passed",
+      "It holds locks on the rows it touched, but other tables are not affected",
+      "It keeps its locks and blocks VACUUM cleanup in every table",
+      "Autovacuum terminates the session during its next run on that table"
+    ],
+    "answer": 2,
+    "explain": "Measured: <code>idle_in_transaction_session_timeout</code> and <code>transaction_timeout</code> are both 0 (off), and with one transaction open, VACUUM reported 100 dead versions \"not yet removable\" in an unrelated table. <code>deadlock_timeout</code> only governs deadlock checks for sessions that are waiting on a lock."
+  },
+  {
+    "id": "m09.q7",
+    "module": "m09",
+    "section": "atomic",
+    "q": "<code>UPDATE products SET stock = stock - $2 WHERE id = $1 AND stock &gt;= $2 RETURNING stock</code> returns no row. What does it mean?",
+    "options": [
+      "The stock cannot cover the quantity, or the product does not exist",
+      "Another transaction holds the row, so the statement gave up",
+      "A <code>CHECK</code> constraint rejected the new stock",
+      "The update succeeded but <code>RETURNING</code> needs a transaction"
+    ],
+    "answer": 0,
+    "explain": "Measured with this statement shape: decrements succeeded while the value lasted, then the same decrement matched 0 rows. A locked row makes the statement wait, not return empty, and a <code>CHECK</code> violation is an error (23514), not an empty result."
+  },
+  {
+    "id": "m09.q8",
+    "module": "m09",
+    "section": "pessimistic",
+    "q": "Another checkout holds customer 42's row locked. You run <code>SELECT id FROM customers WHERE id = 42 FOR UPDATE NOWAIT</code>. Result?",
+    "options": [
+      "It waits until the other transaction commits or rolls back, then locks",
+      "It returns an empty result, because locked rows are left out",
+      "It returns the row as last committed, without taking the lock",
+      "Error 55P03: could not obtain lock on row in relation \"customers\""
+    ],
+    "answer": 3,
+    "explain": "Measured. <code>NOWAIT</code> turns a wait into an immediate error you can map to \"busy, try again\". Returning no row is what <code>SKIP LOCKED</code> would do."
+  },
+  {
+    "id": "m09.q9",
+    "module": "m09",
+    "section": "workers",
+    "q": "Relay A's transaction has claimed outbox row 1 and is still open. Relay B runs the claim with <code>FOR UPDATE SKIP LOCKED</code> in its sub-select. What does B get?",
+    "options": [
+      "Row 1, after A commits",
+      "An error, because row 1 is locked",
+      "Row 2, without waiting",
+      "No row until A finishes"
+    ],
+    "answer": 2,
+    "explain": "Measured: B claimed row 2 at once, while a plain <code>SELECT</code> of the first pending row still returned row 1. That is the queue pattern: every worker takes the oldest row nobody holds, and nobody waits."
+  },
+  {
+    "id": "m09.q10",
+    "module": "m09",
+    "section": "optimistic",
+    "q": "The versioned <code>UPDATE orders … WHERE id = $1 AND version = $2</code> matches 0 rows for a <code>PATCH /orders/1042</code> with <code>If-Match: \"1\"</code>. What should the API do?",
+    "options": [
+      "Retry the update automatically with the current version from the database",
+      "Answer 412 Precondition Failed so the client reloads and decides again",
+      "Answer 404 Not Found, since no row matched the id and version",
+      "Wait one second, then retry once with version 1 before giving up"
+    ],
+    "answer": 1,
+    "explain": "The order changed since version 1 was read (measured: the stale save matched 0 rows). Retrying with the current version would overwrite the customer's change without anyone seeing it, recreating the lost update."
+  },
+  {
+    "id": "m09.q11",
+    "module": "m09",
+    "section": "retries",
+    "q": "Which errors should a generic \"retry the transaction\" helper retry automatically?",
+    "options": [
+      "40001 (serialization failure) and 40P01 (deadlock)",
+      "Every SQLSTATE that starts with 40",
+      "Every error, up to five attempts",
+      "23505 (unique violation) and 55P03 (lock not available)"
+    ],
+    "answer": 0,
+    "explain": "The PostgreSQL documentation recommends retrying 40001 unconditionally and 40P01 as advisable. Class 40 also contains 40003 (statement completion unknown), where rerunning may apply the change twice, and 23505 may be a permanent error that only fails again."
+  },
+  {
+    "id": "m09.q12",
+    "module": "m09",
+    "section": "workers",
+    "q": "At 02:00, <code>SELECT pg_try_advisory_xact_lock(917001)</code> returns <code>false</code> on pod B. What does that mean?",
+    "options": [
+      "The key is outside the allowed range and must fit in 32 bits",
+      "Pod B still holds the lock from yesterday’s run and must release it first",
+      "The lock will be granted to pod B as soon as the current statement ends",
+      "Another session holds the lock, so pod B should skip this run"
+    ],
+    "answer": 3,
+    "explain": "Measured: while one transaction held the key, the other session got <code>false</code> immediately. A session asking for a lock it already holds gets <code>true</code> (advisory locks are re-entrant), and the transaction-level variant is released at commit, so yesterday's lock cannot linger."
+  },
+  {
+    "id": "m09.q13",
+    "module": "m09",
+    "section": "guarantees",
+    "q": "A code review shows this checkout. What is the bug?",
+    "code": "await pool.query('BEGIN');\nawait pool.query('UPDATE products SET stock = stock - $2 WHERE id = $1', [productId, quantity]);\nawait pool.query('INSERT INTO orders (product_id, quantity, customer_id) VALUES ($1, $2, $3)',\n  [productId, quantity, customerId]);\nawait pool.query('COMMIT');",
+    "lang": "ts",
+    "options": [
+      "The two statements must be merged into one statement to be atomic",
+      "It needs <code>SERIALIZABLE</code>, otherwise the two statements are not atomic",
+      "Each <code>pool.query</code> may run on a different connection",
+      "<code>COMMIT</code> must be sent before the second statement, not after it"
+    ],
+    "answer": 2,
+    "explain": "node-postgres documents it: \"Do not use transactions with the pool.query method\", because each call can take a different client. Take one client with <code>pool.connect()</code>, run every statement on it, and release it in <code>finally</code>. Isolation levels do not change atomicity."
+  },
+  {
+    "id": "m09.q14",
+    "module": "m09",
+    "section": "webhook",
+    "q": "Inside the webhook transaction, the first insert fails with 23505 and the code catches it and continues. What does the second query do?",
+    "code": "try {\n  await client.query('INSERT INTO payments (order_id, amount_cents, provider_event_id) VALUES ($1, $2, $3)', values);\n} catch {\n  logger.warn('duplicate webhook ignored');\n}\nawait client.query(\"UPDATE orders SET status = 'paid' WHERE id = $1 AND status = 'pending'\", [orderId]);",
+    "lang": "ts",
+    "options": [
+      "It fails with 25P02: the transaction is aborted",
+      "It updates the order as usual, since the error was caught",
+      "It updates the order as it was when the transaction began",
+      "It fails with 23505 again, because the error is replayed"
+    ],
+    "answer": 0,
+    "explain": "Measured: after any error, PostgreSQL rejects every statement until <code>ROLLBACK</code>. Use <code>ON CONFLICT DO NOTHING</code> to make the duplicate a normal outcome, or a savepoint (<code>ROLLBACK TO SAVEPOINT</code> made the transaction usable again in the same test)."
+  },
+  {
+    "id": "m09.q15",
+    "module": "m09",
+    "section": "guarantees",
+    "q": "A statement fails inside a transaction, the code swallows the error and then sends <code>COMMIT</code>. What happens?",
+    "options": [
+      "<code>COMMIT</code> fails with 25P02, so the caller sees the error",
+      "<code>COMMIT</code> returns without error, and nothing is saved",
+      "<code>COMMIT</code> saves the statements that succeeded before the error",
+      "<code>COMMIT</code> hangs until the client sends an explicit <code>ROLLBACK</code>"
+    ],
+    "answer": 1,
+    "explain": "Measured on PostgreSQL 18.6: no error, command tag <code>ROLLBACK</code>, and the earlier update was not stored. That is why a transaction helper must rethrow, and why swallowing errors inside a transaction leads to silent data loss."
+  },
+  {
+    "id": "m09.q16",
+    "module": "m09",
+    "section": "pessimistic",
+    "q": "The per-customer limit lets two concurrent checkouts of customer 42 both pass. You must stay at Read Committed. Which fix closes the race?",
+    "options": [
+      "Wrap the count and the insert together in one <code>BEGIN</code>/<code>COMMIT</code> block",
+      "Add <code>FOR UPDATE</code> to the <code>SELECT sum(quantity)</code> so the orders are locked",
+      "Run only the count at Repeatable Read so it reads a stable snapshot",
+      "Lock the customer row with <code>SELECT … FOR UPDATE</code> before counting"
+    ],
+    "answer": 3,
+    "explain": "Locking the customer row makes every checkout of that customer take turns, so the count cannot go stale (measured: a second locker got 55P03 under NOWAIT). <code>FOR UPDATE</code> on an aggregate is rejected with 0A000, and a transaction alone or Repeatable Read still let write skew through (measured)."
+  },
+  {
+    "id": "m09.q17",
+    "module": "m09",
+    "section": "pessimistic",
+    "q": "What does PostgreSQL 18 do with this query?",
+    "code": "SELECT sum(quantity) FROM orders WHERE customer_id = 42 FOR UPDATE;",
+    "lang": "sql",
+    "options": [
+      "Fails with 0A000: FOR UPDATE is not allowed with aggregate functions",
+      "Locks every order row of customer 42",
+      "Locks the whole orders table",
+      "Locks the matching order rows and also blocks future inserts for customer 42"
+    ],
+    "answer": 0,
+    "explain": "Measured. The documentation says locking clauses cannot be used where returned rows cannot be identified with table rows, such as aggregation. Even if it worked, it could not lock orders that do not exist yet; that is why you lock the parent customer row."
+  },
+  {
+    "id": "m09.q18",
+    "module": "m09",
+    "section": "isolation",
+    "q": "At Repeatable Read, Bob's transaction read product 7, then Alice's checkout updated product 7 and committed. Bob now runs <code>UPDATE products SET stock = stock - 1 WHERE id = 7</code>. What happens according to the documentation?",
+    "options": [
+      "Bob re-applies his update to the new committed version, as Read Committed does",
+      "Bob waits for Alice forever, because his snapshot predates her commit",
+      "Bob fails with 40001: could not serialize access due to concurrent update",
+      "Bob silently updates the old version he saw, overwriting Alice’s committed change"
+    ],
+    "answer": 2,
+    "explain": "The documentation: a Repeatable Read transaction cannot modify or lock rows changed by other transactions after it began, and fails with that 40001 message; it must be retried from the start. Re-applying to the new version is the Read Committed behaviour."
+  },
+  {
+    "id": "m09.q19",
+    "module": "m09",
+    "section": "atomic",
+    "q": "Product 7 has 1 unit. Two checkouts at Read Committed run the statement below at the same time with <code>$2 = 1</code>. What is the outcome?",
+    "code": "UPDATE products SET stock = stock - $2\n WHERE id = $1 AND stock >= $2;",
+    "lang": "sql",
+    "options": [
+      "Both succeed, and the CHECK constraint then fails the second with 23514",
+      "One succeeds; the other rechecks its WHERE on 0 units and updates 0 rows",
+      "The second fails with 40001 because the row changed under it",
+      "Both succeed and the stock ends at 0: one sale is lost"
+    ],
+    "answer": 1,
+    "explain": "The documentation: at Read Committed, the second updater waits for the first to commit, then re-evaluates its <code>WHERE</code> clause on the updated row. 0 &gt;= 1 is false, so it matches nothing and the route refuses the sale. 40001 is what Repeatable Read would raise instead."
+  },
+  {
+    "id": "m09.q20",
+    "module": "m09",
+    "section": "retries",
+    "q": "Your logs show occasional 40P01 errors on bundle checkouts: some baskets reserve product 7 then 9, others 9 then 7. Which fix would you ship first?",
+    "options": [
+      "Raise <code>deadlock_timeout</code> to 10 s so the cycle has time to resolve",
+      "Move checkouts to Serializable so PostgreSQL orders the transactions",
+      "Lock each product with <code>FOR UPDATE NOWAIT</code> and answer 409 when busy",
+      "Lock all the basket's products first, in ascending id order, then reserve"
+    ],
+    "answer": 3,
+    "explain": "A consistent lock order removes the cycle, which the documentation calls the best defence; keep the 40P01 retry as a safety net. A larger <code>deadlock_timeout</code> only delays detection, and Serializable does not prevent waits on row locks."
+  },
+  {
+    "id": "m09.q21",
+    "module": "m09",
+    "section": "optimistic",
+    "q": "Your API uses version-based optimistic concurrency on orders. A client sends a <code>PATCH</code> without <code>If-Match</code>. With a strict policy, what is the right response?",
+    "options": [
+      "428 Precondition Required",
+      "412 Precondition Failed",
+      "409 Conflict",
+      "200, applying the change to the current version"
+    ],
+    "answer": 0,
+    "explain": "428 says \"this request must be conditional\", while 412 means a condition was sent and failed. Applying the change without a version check silently allows the lost update the version column exists to prevent."
+  },
+  {
+    "id": "m09.q22",
+    "module": "m09",
+    "section": "workers",
+    "q": "Inside one transaction, a relay runs this twice, without updating the row in between. What does the second call return?",
+    "code": "SELECT id FROM outbox\n WHERE status = 'pending'\n ORDER BY id LIMIT 1\n   FOR UPDATE SKIP LOCKED;",
+    "lang": "sql",
+    "options": [
+      "Row 2, because row 1 is now locked by this transaction",
+      "No row, because SKIP LOCKED never returns the same row twice",
+      "Row 1 again: a transaction does not skip its own locks",
+      "Error 55P03, because the row is already locked"
+    ],
+    "answer": 2,
+    "explain": "Measured: row 1 both times. <code>SKIP LOCKED</code> only skips rows locked by other transactions. To take a batch, claim <code>LIMIT n</code> rows in one statement, or mark each row as sending before the next pick."
+  },
+  {
+    "id": "m09.q23",
+    "module": "m09",
+    "section": "webhook",
+    "q": "The first payment webhook handler opened a transaction, recorded the payment, sent the confirmation email over HTTP (sometimes 30 s), then committed. Which design would you ship?",
+    "options": [
+      "Keep the single transaction and raise the pool size so slow calls do not exhaust it",
+      "Record the payment and an outbox row, commit, and let a relay send the email",
+      "Keep it, and set <code>idle_in_transaction_session_timeout</code> to 60 s to end stuck sessions",
+      "Run the whole handler at Serializable with retries so concurrent deliveries cannot conflict"
+    ],
+    "answer": 1,
+    "explain": "The HTTP call must leave the transaction: during the wait it holds locks and a connection, and blocks VACUUM cleanup. A bigger pool only moves the bottleneck, and retrying a transaction that already sent an email sends it twice."
+  },
+  {
+    "id": "m09.q24",
+    "module": "m09",
+    "section": "mvcc",
+    "q": "Product 7's row is at <code>xmin = 752, ctid = (0,1)</code>. Transaction 753 updates its stock and commits. What does <code>SELECT xmin, ctid FROM products WHERE id = 7</code> show next?",
+    "options": [
+      "<code>752, (0,1)</code>: the row was overwritten in place by 753",
+      "<code>753, (0,1)</code>: same position, but the creator is now 753",
+      "<code>752, (0,2)</code>: moved to a new position, creator unchanged",
+      "<code>753</code> and a new ctid such as <code>(0,2)</code>: a new row version"
+    ],
+    "answer": 3,
+    "explain": "Measured: <code>753 | (0,2)</code>. An update writes a new version created by the updating transaction, and the old one stays as a dead version until VACUUM removes it. That is why update-heavy tables depend on autovacuum."
+  },
+  {
+    "id": "m09.q25",
+    "module": "m09",
+    "section": "retries",
+    "q": "What is wrong with this use of the retry helper at Serializable?",
+    "code": "const product = await productRepository.findById(productId);\nawait withRetries(pool, async (client) => {\n  if (product.stock < quantity) {\n    throw new SoldOutError(productId);\n  }\n  await client.query('UPDATE products SET stock = $2 WHERE id = $1',\n    [productId, product.stock - quantity]);\n});",
+    "lang": "ts",
+    "options": [
+      "Nothing is wrong: the helper reruns the update, so a conflict is always resolved",
+      "It should catch 40001 inside the callback and rerun the UPDATE there",
+      "The read and decision sit outside the callback, so retries use stale data",
+      "Serializable rejects an <code>UPDATE</code> that sets a constant value"
+    ],
+    "answer": 2,
+    "explain": "The documentation says the retry must rerun \"all logic that decides which SQL to issue\". Here every attempt reuses the old stock, so a retry can still oversell. Catching 40001 inside the callback would be worse, since the transaction is already aborted (25P02)."
+  },
+  {
+    "id": "m09.q26",
+    "module": "m09",
+    "section": "workers",
+    "q": "The Orders API connects through PgBouncer in transaction pooling mode and uses <code>pg_advisory_lock</code> / <code>pg_advisory_unlock</code> to make the nightly reconciliation run once. What is the risk, and the fix?",
+    "options": [
+      "Lock and unlock can land on different connections; use <code>pg_try_advisory_xact_lock</code>",
+      "PgBouncer disables advisory locks entirely; move the lock to Redis instead",
+      "PgBouncer releases session locks at every commit; lock a dummy row with FOR UPDATE instead",
+      "No risk: advisory locks belong to the database, not to a connection"
+    ],
+    "answer": 0,
+    "explain": "The PgBouncer feature table lists session-level advisory locks as \"Never\" supported in transaction pooling: your next transaction may run on another server connection, so the unlock misses or the lock leaks. The transaction-level variant lives and dies with one transaction, which a transaction pooler keeps on one connection."
+  },
+  {
+    "id": "m09.q27",
+    "module": "m09",
+    "section": "webhook",
+    "q": "The provider redelivers the same event, with the same event id. What does this statement return on the replay?",
+    "code": "INSERT INTO payments (order_id, amount_cents, provider_event_id)\nVALUES ($1, $2, $3)\nON CONFLICT (provider_event_id) DO NOTHING\nRETURNING id;",
+    "lang": "sql",
+    "options": [
+      "The id of the existing payment, since the conflicting row is returned",
+      "Zero rows, so the handler stops and the route answers 200",
+      "Error 23505: duplicate key value violates unique constraint",
+      "A second payment row with a new id"
+    ],
+    "answer": 1,
+    "explain": "Measured: 1 row the first time, 0 rows on the replay. <code>RETURNING</code> only returns rows actually inserted, so the existing id is not returned; read it with a second query if you need it. Without <code>ON CONFLICT</code> the replay would raise 23505."
+  },
+  {
+    "id": "m09.q28",
+    "module": "m09",
+    "section": "isolation",
+    "q": "The team moves the Orders API to Serializable. What must change in the application code for this to be safe?",
+    "options": [
+      "Nothing: Serializable only adds waiting, so existing code keeps working unchanged",
+      "Add <code>FOR UPDATE</code> to every read so Serializable has fewer conflicts to detect",
+      "Raise <code>deadlock_timeout</code> so the extra waits do not turn into errors",
+      "Run every transaction through a retry-on-40001 helper, side-effect free"
+    ],
+    "answer": 3,
+    "explain": "Serializable adds aborts, not waits: the documentation says applications must be prepared to retry serialization failures and to treat data read as valid only after commit. The documentation even suggests removing explicit <code>FOR UPDATE</code> locks made unnecessary by Serializable."
+  },
+  {
+    "id": "m09.q29",
+    "module": "m09",
+    "section": "atomic",
+    "q": "Flash sale: 10,000 requests per second try to reserve the last 500 consoles. Which approach do you pick first?",
+    "options": [
+      "<code>UPDATE products SET stock = stock - 1 WHERE id = $1 AND stock &gt; 0</code>, checking the row count",
+      "<code>SELECT stock</code>, check it in Node, then <code>UPDATE products</code> at Serializable with retries on 40001",
+      "Optimistic locking with a <code>version</code> column on products and automatic retries on 0 rows",
+      "<code>SELECT stock … FOR UPDATE</code>, check it in Node, then <code>UPDATE products SET stock = stock - 1</code>"
+    ],
+    "answer": 0,
+    "explain": "The rule fits in the <code>WHERE</code>, so one atomic statement is correct at Read Committed and holds the row lock only for that statement. On a single hot row, Serializable and optimistic retries would mostly produce conflicts, and <code>FOR UPDATE</code> holds the lock across two round trips."
+  },
+  {
+    "id": "m09.q30",
+    "module": "m09",
+    "section": "mvcc",
+    "q": "A bug leaves connections \"idle in transaction\" after an exception. Which setting makes PostgreSQL end such sessions on its own?",
+    "options": [
+      "<code>lock_timeout</code>",
+      "<code>statement_timeout</code>",
+      "<code>idle_in_transaction_session_timeout</code>",
+      "<code>deadlock_timeout</code>"
+    ],
+    "answer": 2,
+    "explain": "The documentation: it terminates a session idle inside an open transaction for longer than the limit (measured default 0, disabled). <code>statement_timeout</code> only limits a running statement, and an idle session is not running one."
+  }
+]

@@ -1,0 +1,434 @@
+[
+  {
+    "id": "m38.q1",
+    "module": "m38",
+    "section": "scoring",
+    "q": "The 60-minute React round on the orders table begins. What is the best use of the first five minutes?",
+    "options": [
+      "Start typing the component at once, and explain the design later if there is time left",
+      "Restate the task, ask two or three questions, and say the plan: a working version first",
+      "Set up a global store and a design system first, so that the code scales with the features",
+      "Write the complete test suite before any component code, as strict TDD would require"
+    ],
+    "answer": 1,
+    "explain": "The scorecard grades clarifying and planning before anything else, and a plan that reaches working code early. Starting at once is the tempting answer, but it hides your reasoning and often builds the wrong thing. A store or a full test suite up front spends the round on setup instead of a working feature."
+  },
+  {
+    "id": "m38.q2",
+    "module": "m38",
+    "section": "promise-all",
+    "q": "Why does <code>promiseAll</code> store each result with <code>results[index] = result</code> instead of <code>results.push(result)</code>?",
+    "options": [
+      "Because push is slower than index assignment once the array has more than a few items",
+      "Because push throws on an array that was created with new Array(n) and has empty slots",
+      "Because push follows the completion order, and the result must follow the input order",
+      "Because TypeScript cannot infer the element type when push is called on a generic array"
+    ],
+    "answer": 2,
+    "explain": "Promise.all fulfils with results in the order of the inputs, whatever order they finish in. push appends in completion order, so a slow first promise ends up last. push works fine on such an array and is not meaningfully slower; the problem is the order."
+  },
+  {
+    "id": "m38.q3",
+    "module": "m38",
+    "section": "emitter",
+    "q": "In the <code>Emitter</code> of section 3, why does <code>emit</code> not copy the listener array before looping over it?",
+    "options": [
+      "Because on, once and off replace the array instead of mutating it, so emit holds a snapshot",
+      "Because for...of takes a copy of the array before the first iteration, so changes are safe",
+      "Because a listener cannot call off while an emit is running, so the array cannot change",
+      "Because private class fields are frozen for the duration of a method call on the instance"
+    ],
+    "answer": 0,
+    "explain": "off uses toSpliced and on uses a spread, both of which create new arrays, so the loop keeps iterating the old one. for...of does not copy: it reads the live array, which is why a mutating implementation needs a copy. Listeners can and do call off during an emit, which is exactly the case this design handles."
+  },
+  {
+    "id": "m38.q4",
+    "module": "m38",
+    "section": "debounce",
+    "q": "A search box uses <code>debounce(search, 300)</code>. The user types \"r\", \"re\" and \"red\" within 200 ms, then stops. What happens?",
+    "options": [
+      "Three searches, one per keystroke, each 300 ms after its keystroke",
+      "One search for \"r\", because the first call wins",
+      "One search for \"red\", 300 ms after the first keystroke",
+      "One search for \"red\", 300 ms after the last keystroke"
+    ],
+    "answer": 3,
+    "explain": "Each call clears the pending timer and starts a new one with the latest arguments, so only the last call survives, 300 ms after it. Counting from the first keystroke is the tempting mistake: that would be closer to a throttle with a trailing call. The test of section 4 checks exactly this with mock timers."
+  },
+  {
+    "id": "m38.q5",
+    "module": "m38",
+    "section": "concurrency",
+    "q": "Why do the workers of <code>mapWithLimit</code> share one <code>items.entries()</code> iterator?",
+    "options": [
+      "Because an iterator runs each of its items on a separate thread, which gives real parallelism",
+      "Because each next() hands out one item and its index exactly once, so no item is taken twice",
+      "Because Promise.all only accepts iterators, and an array would make it run sequentially",
+      "Because a shared iterator makes the results come back in completion order, which is faster"
+    ],
+    "answer": 1,
+    "explain": "The shared iterator is the queue: whichever worker is free takes the next item, and the index tells it where to store the result, which keeps the input order. Iterators do not create threads; JavaScript runs one worker at a time and they interleave at each await."
+  },
+  {
+    "id": "m38.q6",
+    "module": "m38",
+    "section": "concurrency",
+    "q": "The interviewer asks for <code>deepClone</code> of an order that holds a Date, a Map and a reference to itself. What is the best first answer?",
+    "options": [
+      "Name structuredClone, which keeps Date, Map and cycles, then write it by hand only if asked",
+      "Use JSON.parse(JSON.stringify(order)), which keeps Dates, Maps and nested objects intact",
+      "Use the spread operator, which copies nested objects and Maps along with the top level",
+      "Use Object.assign({}, order), which follows the self-reference and copies it once, safely"
+    ],
+    "answer": 0,
+    "explain": "Measured on Node 24, structuredClone kept the Date, the Map and the cycle, and threw DataCloneError on a function. A JSON round trip turns the Date into a string, drops undefined and throws on a cycle. Spread and Object.assign copy only the first level."
+  },
+  {
+    "id": "m38.q7",
+    "module": "m38",
+    "section": "data-table",
+    "q": "Why does <code>OrdersTable</code> compute its rows with <code>selectOrders</code> during render instead of storing them in state from an effect?",
+    "options": [
+      "Because an effect is not allowed to call setState, so the rows could never be stored there",
+      "Because useState cannot hold arrays of more than a few hundred items without slowing down",
+      "Because the props stay the single source of truth: no stale copy and no extra render",
+      "Because code that runs during render is moved to a worker thread by React 19 automatically"
+    ],
+    "answer": 2,
+    "explain": "Derived data belongs in render: a copy in state can fall out of sync with the props and arrives one render late. Effects can call setState, which is precisely the pattern that causes the extra render. Render runs on the main thread like everything else."
+  },
+  {
+    "id": "m38.q8",
+    "module": "m38",
+    "section": "modal",
+    "q": "What does <code>dialog.showModal()</code> give you that a <code>div</code> with <code>role=\"dialog\"</code> does not?",
+    "options": [
+      "Only a nicer default style and a backdrop; focus and keyboard handling are still up to you",
+      "A focus trap and Escape handling, but focus is not returned to the opener after closing",
+      "Server-side rendering of the dialog content, so it appears before the JavaScript loads",
+      "Focus moved inside, an inert page behind, Escape to close, focus returned to the opener"
+    ],
+    "answer": 3,
+    "explain": "Measured in Chromium, showModal focused the first button, kept Tab and clicks away from the page behind, closed on Escape, and returned focus to the Refund button. A div with a role only announces itself as a dialog; all of that behaviour would be yours to write."
+  },
+  {
+    "id": "m38.q9",
+    "module": "m38",
+    "section": "take-home",
+    "q": "Which states should the fetch-and-display take-home handle before the reviewers open it?",
+    "options": [
+      "Only data, because the API is reliable in the exercise",
+      "Loading, error with a way to retry, empty, and data",
+      "Loading and data; errors belong in the console",
+      "Data and a 404 page"
+    ],
+    "answer": 1,
+    "explain": "Reviewers check the unhappy states first: what a user sees while waiting, when the request fails, and when there is nothing to show. Logging errors to the console leaves the user with a blank or frozen screen and no way to retry."
+  },
+  {
+    "id": "m38.q10",
+    "module": "m38",
+    "section": "code-review",
+    "q": "In the reviewed <code>OrderNotes</code>, the list displays in the right order. Why is <code>notes.sort(...)</code> still a bug?",
+    "options": [
+      "sort reorders the array in place, and that array belongs to the parent or the query cache",
+      "sort returns undefined, so the state is set to undefined and the list renders nothing",
+      "sort cannot compare ISO date strings with localeCompare, so the order is only approximate",
+      "sort runs asynchronously on large arrays and may finish after React has rendered the list"
+    ],
+    "answer": 0,
+    "explain": "Array.prototype.sort mutates and returns the same array, so the component changes data it does not own; the reproduction showed the parent's array reordered. sort does return the array, which is why the bug looks harmless. toSorted returns a sorted copy."
+  },
+  {
+    "id": "m38.q11",
+    "module": "m38",
+    "section": "debugging",
+    "q": "The Pay button does nothing on click and the console is clean. What does <code>document.elementFromPoint(x, y)</code> at the button's position tell you?",
+    "options": [
+      "Whether the button has a click listener attached, and which function the listener calls",
+      "The list of CSS rules that apply to the button, including the ones that were overridden",
+      "Which element actually receives a click at that point, for example an invisible overlay",
+      "Whether the button is disabled, either by its own attribute or by a parent fieldset"
+    ],
+    "answer": 2,
+    "explain": "elementFromPoint returns the topmost element that hit-testing finds at that position. In the reproduction it returned a transparent toast region covering the page, which is why the click never reached the button. Listeners and styles are inspected in DevTools, not with this call."
+  },
+  {
+    "id": "m38.q12",
+    "module": "m38",
+    "section": "ai-round",
+    "q": "In the AI-allowed round, the assistant writes the suggestion list with <code>&lt;div onClick&gt;</code> items. What do you do?",
+    "options": [
+      "Accept it as it is, since the existing tests pass and the interviewer wants to see speed",
+      "Ask the assistant to add a comment that explains why a div was used instead of a button",
+      "Delete the generated code and rewrite all of it by hand, without explaining the decision",
+      "Say why it fails keyboard users, ask for the APG pattern, review it, add a keyboard test"
+    ],
+    "answer": 3,
+    "explain": "The grade is how you direct and check the assistant: name the defect, give it the right context, review its output aloud and prove the behaviour with a test. Passing tests do not prove accessibility if they never use the keyboard. Rewriting silently hides the skill being graded."
+  },
+  {
+    "id": "m38.q13",
+    "module": "m38",
+    "section": "promise-all",
+    "q": "A candidate writes this <code>Promise.all</code>. What does the last line print?",
+    "code": "function promiseAll(values) {\n  return new Promise((resolve, reject) => {\n    const results = [];\n    values.forEach((value) => {\n      Promise.resolve(value).then((result) => {\n        results.push(result);\n        if (results.length === values.length) {\n          resolve(results);\n        }\n      }, reject);\n    });\n  });\n}\n\nconst price = new Promise((resolve) => setTimeout(() => resolve('price'), 20));\nconsole.log(await promiseAll([price, 'stock']));",
+    "lang": "js",
+    "options": [
+      "[ 'price', 'stock' ]",
+      "[ 'stock' ]",
+      "[ 'stock', 'price' ]",
+      "Nothing: the promise never resolves"
+    ],
+    "answer": 2,
+    "explain": "push records results in completion order: \"stock\" is ready at once, \"price\" after 20 ms. Run on Node 24, it printed [ 'stock', 'price' ], while the native Promise.all printed [ 'price', 'stock' ]. Storing by index fixes it."
+  },
+  {
+    "id": "m38.q14",
+    "module": "m38",
+    "section": "promise-all",
+    "q": "Another version stores results by index and resolves when a counter reaches 0, but has no check for an empty list. What happens with <code>await promiseAll([])</code>?",
+    "options": [
+      "It never settles: forEach runs no callback, so nothing ever calls resolve",
+      "It resolves with an empty array, exactly like the native Promise.all does for an empty list",
+      "It rejects with a TypeError, because the counter starts at zero and goes below it",
+      "It resolves with undefined, because the results array never receives an element"
+    ],
+    "answer": 0,
+    "explain": "The counter is only checked inside the then callbacks, and an empty list has none. Run on Node 24, that version was still pending after 100 ms, while Promise.all([]) fulfilled with []. The early return for an empty list is part of the answer."
+  },
+  {
+    "id": "m38.q15",
+    "module": "m38",
+    "section": "emitter",
+    "q": "What does this print in a browser?",
+    "code": "const target = new EventTarget();\nconst seen = [];\nconst second = () => seen.push('second');\ntarget.addEventListener('paid', () => {\n  seen.push('first');\n  target.removeEventListener('paid', second);\n});\ntarget.addEventListener('paid', second);\ntarget.dispatchEvent(new Event('paid'));\n\nconst twice = () => seen.push('dup');\ntarget.addEventListener('shipped', twice);\ntarget.addEventListener('shipped', twice);\ntarget.dispatchEvent(new Event('shipped'));\nconsole.log(seen);",
+    "lang": "js",
+    "options": [
+      "['first', 'second', 'dup', 'dup']",
+      "['first', 'second', 'dup']",
+      "['first', 'dup', 'dup']",
+      "['first', 'dup']"
+    ],
+    "answer": 3,
+    "explain": "Measured in Chromium: a DOM EventTarget skips a listener removed during dispatch, and ignores a second registration of the same function. The first option is what Node's EventEmitter gives with the equivalent code (also measured), which is why you state your emitter's semantics."
+  },
+  {
+    "id": "m38.q16",
+    "module": "m38",
+    "section": "emitter",
+    "q": "What is the bug in this <code>once</code>, given that <code>off</code> removes by identity?",
+    "code": "once(event, listener) {\n  const wrapper = (...args) => {\n    this.off(event, wrapper);\n    listener(...args);\n  };\n  this.on(event, wrapper);\n}\n\n// usage\nemitter.once('order:paid', showToast);\nemitter.off('order:paid', showToast);\nemitter.emit('order:paid', 'ord_1042');",
+    "lang": "js",
+    "options": [
+      "The wrapper runs twice on the first emit, because off is called while the loop is running",
+      "off compares with showToast, but the list holds the wrapper, so the toast still shows once",
+      "The arrow function loses this, so this.off throws a TypeError on the first emit",
+      "once must return a promise that resolves on the first event, or the listener leaks"
+    ],
+    "answer": 1,
+    "explain": "The registered function is the wrapper, so off(event, showToast) finds nothing; run on Node 24, the listener still fired once. Store the original function next to a once flag, as section 3 does, or keep a map from original to wrapper. Arrow functions keep this from once, so this.off works."
+  },
+  {
+    "id": "m38.q17",
+    "module": "m38",
+    "section": "debounce",
+    "q": "How many times does this component call <code>searchProducts</code> when the user types \"red\"?",
+    "code": "export function SearchBox() {\n  const [term, setTerm] = useState('');\n  const search = debounce((value: string) => searchProducts(value), 300);\n  return (\n    <input\n      aria-label=\"Search\"\n      value={term}\n      onChange={(event) => {\n        setTerm(event.target.value);\n        search(event.target.value);\n      }}\n    />\n  );\n}",
+    "lang": "tsx",
+    "options": [
+      "Three times, for \"r\", \"re\" and \"red\": each render creates a new debounced function",
+      "Once, for \"red\", 300 ms after the last keystroke, which is what debounce is for",
+      "Once, for \"r\", because the first debounced call wins and the later ones are dropped",
+      "Never, because each state update re-renders the component and that cancels the timer"
+    ],
+    "answer": 0,
+    "explain": "Each keystroke re-renders, and each render builds a fresh debounce whose timer nobody clears. Measured with React 19.3.1 and user-event: three calls. Creating the debounced function once (a useState initializer or a ref) gave one call for \"red\". Nothing in React cancels a timer for you."
+  },
+  {
+    "id": "m38.q18",
+    "module": "m38",
+    "section": "debounce",
+    "q": "With the <code>debounce</code> of section 4, what does <code>saved</code> contain at the end of this test?",
+    "code": "t.mock.timers.enable({ apis: ['setTimeout'] });\nconst saved: string[] = [];\nconst saveDraft = debounce((note: string) => saved.push(note), 300);\n\nsaveDraft('a'); t.mock.timers.tick(200);\nsaveDraft('b'); t.mock.timers.tick(200);\nsaveDraft('c'); t.mock.timers.tick(300);\nsaveDraft('d'); t.mock.timers.tick(100);",
+    "lang": "ts",
+    "options": [
+      "['a', 'b', 'c', 'd']",
+      "['c', 'd']",
+      "['c']",
+      "['a', 'c']"
+    ],
+    "answer": 2,
+    "explain": "\"a\" and \"b\" are each replaced before 300 ms pass; \"c\" gets its full 300 ms and runs; \"d\" has waited only 100 ms when the test ends. Run with node:test on Node 24, saved was ['c']. Answering ['a', 'c'] confuses debounce with a leading throttle."
+  },
+  {
+    "id": "m38.q19",
+    "module": "m38",
+    "section": "concurrency",
+    "q": "To refund orders 3 at a time, a colleague cuts the list into chunks of 3 and awaits <code>Promise.all</code> per chunk. The tasks take 100, 10, 10, 10, 10 and 10 ms. Compared with <code>mapWithLimit(items, 3, task)</code>, what happens?",
+    "options": [
+      "Both take the same time, about 100 ms, because both of them keep exactly 3 tasks running at all times",
+      "Chunks are faster, about 60 ms, because one Promise.all per chunk has less overhead than a pool of workers",
+      "Chunks start all 6 tasks at once, because Promise.all is called before the loop waits",
+      "Each chunk waits for its slowest task (120 ms in total, measured); the pool refills slots and took 101 ms"
+    ],
+    "answer": 3,
+    "explain": "With chunks, the 10 ms tasks of the second chunk wait for the 100 ms task of the first. Measured on Node 24: about 120 ms for the chunks, 101 ms for the pool. Both respect the limit, which is why they look equivalent, but only the pool refills a slot as soon as it frees."
+  },
+  {
+    "id": "m38.q20",
+    "module": "m38",
+    "section": "concurrency",
+    "q": "Remove the guard on <code>limit</code> from <code>mapWithLimit</code>, then call it with three orders and a limit of 0. What happens?",
+    "options": [
+      "It runs the tasks one at a time, because Math.min falls back to a single worker",
+      "It resolves with an array of 3 empty slots, without calling the task once",
+      "It never settles, because no worker is ever started to drain the shared iterator",
+      "It throws a RangeError from Array.from, because a length of 0 is not allowed there"
+    ],
+    "answer": 1,
+    "explain": "Math.min(0, 3) starts zero workers, Promise.all([]) fulfils at once, and the pre-sized results array comes back with 3 holes (checked on Node 24). That silent success is worse than an error, which is why the function validates the limit first."
+  },
+  {
+    "id": "m38.q21",
+    "module": "m38",
+    "section": "concurrency",
+    "q": "Your <code>curry</code> calls the function once it has received <code>fn.length</code> arguments. The interviewer curries <code>function orderTotal(amount, shipping = 499, discount) {…}</code>. What does <code>curry(orderTotal)(4500)</code> do?",
+    "options": [
+      "It calls orderTotal at once with only the amount, because orderTotal.length is 1",
+      "It returns a function that waits for the shipping and discount arguments, one at a time",
+      "It throws a TypeError, because curry cannot read the length of a function with defaults",
+      "It calls orderTotal with shipping set to 499 and discount set to 0 by default"
+    ],
+    "answer": 0,
+    "explain": "Function length counts parameters before the first one with a default value or a rest parameter; on Node 24, ((a, b = 1) => 0).length is 1. So the curried function has all it expects after one argument. A good answer names this and offers an explicit arity parameter."
+  },
+  {
+    "id": "m38.q22",
+    "module": "m38",
+    "section": "data-table",
+    "q": "A pull request on the orders table contains this. Which change would you ship?",
+    "code": "const [rows, setRows] = useState<OrderRow[]>([]);\nuseEffect(() => {\n  setRows(orders.sort(byTotal));\n}, [orders]);",
+    "lang": "tsx",
+    "options": [
+      "Switch to useLayoutEffect, so the sorted rows are set before the browser paints the table",
+      "Add byTotal to the dependency array, so the effect also re-runs when the comparator changes",
+      "Drop the state and the effect, and compute orders.toSorted(byTotal) during render",
+      "Deep-clone orders with JSON before sorting, so the parent's array is never mutated"
+    ],
+    "answer": 2,
+    "explain": "Derived data is computed in render: no stale copy, no extra render, and toSorted leaves the parent's array alone. useLayoutEffect hides the flash but keeps the second render, the copy in state and the mutation. A JSON clone fixes only the mutation, at a cost, and breaks types such as Date."
+  },
+  {
+    "id": "m38.q23",
+    "module": "m38",
+    "section": "data-table",
+    "q": "The status filter handler is <code>setQuery({ ...query, status })</code>, without <code>page: 0</code>. An agent on page 3 of 45 orders filters to \"paid\", which matches 15. What do they see?",
+    "options": [
+      "Page 1 of 1 with 15 orders, because React resets state on change",
+      "Page 3 of 3 with the same rows",
+      "An error thrown by slice",
+      "\"Page 3 of 1\" and an empty table"
+    ],
+    "answer": 3,
+    "explain": "The page index stays at 2 while only one page exists, so slice(40, 60) returns nothing. Reproduced in jsdom with Testing Library: \"Page 3 of 1\" and zero rows. Reset the page in the same handler that changes the filter; React never resets state for you, and slice does not throw past the end."
+  },
+  {
+    "id": "m38.q24",
+    "module": "m38",
+    "section": "modal",
+    "q": "The refund dialog is open with <code>showModal()</code> and holds Cancel and Confirm. Focus is on Confirm, and the user presses Tab. What happens in Chromium?",
+    "options": [
+      "Focus moves to the first link of the page behind the dialog, as in normal document order",
+      "Focus leaves the buttons for the document itself, then the next Tab returns to Cancel",
+      "Nothing happens: the browser disables the Tab key while a modal dialog is open",
+      "The dialog closes, because focus leaving its last element counts as a light dismiss"
+    ],
+    "answer": 1,
+    "explain": "Measured in Chromium with Playwright: Tab from Confirm went to the document, then back to Cancel, and never to the links behind, which are inert. The tempting first option is what happens with a div styled as a modal and no focus handling."
+  },
+  {
+    "id": "m38.q25",
+    "module": "m38",
+    "section": "modal",
+    "q": "After Confirm, the parent sets <code>open</code> to false and the <code>Modal</code> effect calls <code>dialog.close()</code>. Does the <code>onClose</code> prop run?",
+    "options": [
+      "Yes: close fires on every close, Escape or dialog.close(), so keep onClose idempotent",
+      "No: the close event fires only when the user closes the dialog with the Escape key",
+      "No: React does not dispatch events that are triggered by code running inside an effect",
+      "Yes, but only in development, because StrictMode runs the effect a second time"
+    ],
+    "answer": 0,
+    "explain": "Measured in Chromium: onClose ran once after Escape and once after the parent closed the dialog through the effect. So setting state to false again is harmless, but a side effect such as an analytics event in onClose would fire for both."
+  },
+  {
+    "id": "m38.q26",
+    "module": "m38",
+    "section": "data-table",
+    "q": "For the select-all checkbox, a candidate writes <code>&lt;input type=\"checkbox\" checked={allSelected} indeterminate={someSelected} onChange={toggleAll} /&gt;</code>. What happens with React 19.3.1?",
+    "options": [
+      "The checkbox shows the mixed state whenever some orders are selected, and the full state when all are",
+      "React writes an indeterminate attribute to the DOM, and the browser reads it to draw the mixed state",
+      "TypeScript accepts the prop, and React sets the property after hydration, so it works only on the client",
+      "React warns and the property stays false; set input.indeterminate in a ref callback"
+    ],
+    "answer": 3,
+    "explain": "indeterminate is a DOM property with no HTML attribute. In jsdom with React 19.3.1, the prop logged a warning and the property stayed false, and TypeScript rejects the prop. A ref callback that sets input.indeterminate made the property true."
+  },
+  {
+    "id": "m38.q27",
+    "module": "m38",
+    "section": "take-home",
+    "q": "Your MSW test of the error state times out, though the component shows the error in the browser after a few seconds. What is the most likely cause?",
+    "options": [
+      "MSW cannot return a 503 status from a handler, so the request hangs until the test times out",
+      "findByRole does not wait for asynchronous updates, so it fails before the error state appears",
+      "The test client keeps the default of 3 retries with exponential backoff before the error shows",
+      "fetch rejects on a 503 status, so the error is thrown outside React and never reaches the component"
+    ],
+    "answer": 2,
+    "explain": "The TanStack Query documentation lists 3 retries with exponential backoff as a default; a test client with retry: false shows the error at once. fetch does not reject on a 503 (only on network failure), which is why fetchOrders checks response.ok. findByRole does wait, but only about a second by default."
+  },
+  {
+    "id": "m38.q28",
+    "module": "m38",
+    "section": "code-review",
+    "q": "You have 5 minutes left in the review of <code>OrderNotes</code> and have found every issue. In which order do you present them?",
+    "options": [
+      "The missing key first, because it is the only problem that React itself reports in the console",
+      "User text rendered as HTML first, as a blocker; then accessibility and correctness; the effect last",
+      "Style and naming first, to build rapport, then the bugs in the order you found them",
+      "In the order they appear in the file, so the author can follow along line by line"
+    ],
+    "answer": 1,
+    "explain": "Severity decides: user text rendered as HTML is script injection in an agent's session, so it blocks the merge. Accessibility and correctness issues follow, and the extra render is a suggestion. Leading with the console warning or with file order buries the one finding that matters most."
+  },
+  {
+    "id": "m38.q29",
+    "module": "m38",
+    "section": "debugging",
+    "q": "On the storefront, <code>elementFromPoint</code> at the Pay button returns <code>div.toast-region</code>, an empty container fixed over the whole page with a high z-index. Which fix would you ship?",
+    "options": [
+      "Give the region pointer-events: none, and pointer-events: auto to the toasts inside it",
+      "Raise the Pay button's z-index above the toast region, so that it is on top again",
+      "Add a click handler on the toast region that forwards the click to the pay function",
+      "Remove aria-live from the region, because live regions capture pointer events in Chromium"
+    ],
+    "answer": 0,
+    "explain": "Measured in Chromium: with pointer-events: none on the region, the same mouse click reached the button. Raising one button's z-index fixes only that button and leaves every other control covered; forwarding clicks is a hack. aria-live does not affect hit-testing."
+  },
+  {
+    "id": "m38.q30",
+    "module": "m38",
+    "section": "senior",
+    "q": "After your orders table works, the interviewer asks: \"Why did you not just use a table library?\" What is the best answer?",
+    "options": [
+      "Libraries are always slower than hand-written code, so I avoid them for anything on a hot path like a table",
+      "Serious companies do not allow third-party UI libraries in production because of supply-chain risk",
+      "I prefer to own all the code I ship, so I would write and maintain our own table at work as well",
+      "The round asked me to build it; at work I would use a headless table library and server-side sorting for large data"
+    ],
+    "answer": 3,
+    "explain": "A senior separates the exercise from the job: building it by hand shows the skill, and choosing a maintained library at work shows judgement. The other answers state preferences or false generalisations instead of trade-offs, and invite a follow-up you cannot win."
+  }
+]

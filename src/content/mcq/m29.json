@@ -1,0 +1,430 @@
+[
+  {
+    "id": "m29.q1",
+    "module": "m29",
+    "section": "render-commit",
+    "q": "The agent clicks Refresh in <code>OrderHeader</code>, which updates its state. Its child <code>StatusBadge</code> receives the same <code>status</code> prop as before and is not wrapped in <code>memo</code>. What does React do with <code>StatusBadge</code>?",
+    "options": [
+      "It skips calling it, because React compares its props first and they did not change",
+      "It calls it again, compares the result, and leaves its DOM untouched",
+      "It calls it again and replaces its <code>span</code> in the DOM",
+      "It calls it only after the commit of <code>OrderHeader</code>"
+    ],
+    "answer": 1,
+    "explain": "A state change renders the component and, by default, all its children, whatever their props. Rendering is not committing: measured on React 19.3.1, the child was called once more and a MutationObserver saw zero DOM mutations. Skipping a child with unchanged props is what <code>memo</code> or the React Compiler adds; it is not the default."
+  },
+  {
+    "id": "m29.q2",
+    "module": "m29",
+    "section": "render-commit",
+    "q": "Which of these is allowed in the body of a component, during render?",
+    "options": [
+      "Pushing each rendered line into an array declared at module level",
+      "Sorting the <code>lines</code> array received in props with <code>lines.sort()</code>",
+      "Creating a local array and pushing into it before returning the JSX",
+      "Writing the id of the displayed order to localStorage"
+    ],
+    "answer": 2,
+    "explain": "Mutating a value created during this render is local mutation, and react.dev says it is fine: each render starts from scratch. <code>lines.sort()</code> is tempting because it looks like local work, but it mutates the array the parent (or the query cache) owns; use <code>toSorted()</code>. The module-level array and the localStorage write change things that exist outside the render."
+  },
+  {
+    "id": "m29.q3",
+    "module": "m29",
+    "section": "snapshot",
+    "q": "From <code>selectedCount === 0</code>, a click handler runs <code>setSelectedCount(selectedCount + 1)</code> three times. What does the counter show, and after how many renders?",
+    "options": [
+      "3, after three renders",
+      "1, after one render",
+      "3, after one render",
+      "1, after three renders"
+    ],
+    "answer": 1,
+    "explain": "During the handler, <code>selectedCount</code> is the snapshot value 0, so each call asks for 0 + 1, and React batches the three into one render: measured, 1 after one render. \"3 after one render\" is what updater functions give: <code>setSelectedCount((count) =&gt; count + 1)</code>."
+  },
+  {
+    "id": "m29.q4",
+    "module": "m29",
+    "section": "snapshot",
+    "q": "An async click handler awaits a call to the BFF, then calls two different setters one after the other. How many renders does React 19 perform for those two updates?",
+    "options": [
+      "One: React batches updates in promises and timeouts too, since React 18",
+      "Two: updates after an <code>await</code> are no longer inside the event, so each renders",
+      "None until the next user event",
+      "One per setter, unless the handler is wrapped in <code>startTransition</code>"
+    ],
+    "answer": 0,
+    "explain": "Automatic batching, introduced in React 18, groups updates made in promises, timeouts and native events, not only in React event handlers. Measured on React 19.3.1: one render for two setters after an <code>await</code>. \"Two renders\" was the behaviour before React 18, which is why the misconception survives."
+  },
+  {
+    "id": "m29.q5",
+    "module": "m29",
+    "section": "derived",
+    "q": "A component stores <code>selectedLineIds</code> in state and copies its size into a second state, <code>selectedCount</code>, with <code>useEffect</code>. What happens when the selection goes from 1 line to 3?",
+    "options": [
+      "One render, because React batches the effect's update with the click",
+      "One render, because the effect runs before the commit, so the stale count is never visible",
+      "Nothing until the next click, because effects only run on mount",
+      "Two renders: the first commits the stale count 1, then the effect's update renders 3"
+    ],
+    "answer": 3,
+    "explain": "Effects run after the commit, so the copy is updated one render too late: measured, the component rendered with 1, then with 3. The update set in the effect is a new render, not part of the click's batch. Computing <code>selectedLineIds.size</code> during render gives one render and no drift."
+  },
+  {
+    "id": "m29.q6",
+    "module": "m29",
+    "section": "derived",
+    "q": "<code>RefundForm</code> holds <code>useState(order.refundableCents)</code>. The parent renders it for order A (1000), then, at the same place and without a key, for order B (2500). What does the amount field show?",
+    "options": [
+      "1000: the argument of <code>useState</code> is only read on the first render",
+      "2500: a new prop triggers a re-render, which re-reads the initial value",
+      "2500 after a short flash of 1000",
+      "0: React resets state when a prop changes"
+    ],
+    "answer": 0,
+    "explain": "The argument of <code>useState</code> is the initial value, used once when the component mounts; later renders ignore it. Measured: the field kept 1000. The re-render does happen, which makes the 2500 options tempting, but rendering never re-initialises existing state."
+  },
+  {
+    "id": "m29.q7",
+    "module": "m29",
+    "section": "identity",
+    "q": "What does <code>&lt;RefundForm key={order.id} order={order} /&gt;</code> do when the agent moves from order 1042 to order 1043?",
+    "options": [
+      "It only speeds up the comparison of the form with its previous version",
+      "It keeps the form state and only passes the new <code>order</code> prop to it",
+      "React unmounts the old form with its state and DOM, and mounts a fresh one",
+      "It triggers a warning, because <code>key</code> is reserved for elements rendered in a list"
+    ],
+    "answer": 2,
+    "explain": "A key is the identity of an element at its position: a new key means a different component, so React destroys the old subtree and mounts a new one with initial state. Keeping state and updating props is what happens without the key, which is the bug. Keys are not limited to lists."
+  },
+  {
+    "id": "m29.q8",
+    "module": "m29",
+    "section": "keys",
+    "q": "The agent can add a manual adjustment line to the refund before it is saved, so it has no database id yet. What key should its row use?",
+    "options": [
+      "Its index in the list, since new lines are always appended at the end",
+      "<code>Math.random()</code> in the JSX, which gives each row a unique key",
+      "An id from <code>crypto.randomUUID()</code>, created with the line and stored on it",
+      "The label the agent typed, since two adjustment lines rarely share a label"
+    ],
+    "answer": 2,
+    "explain": "react.dev says locally created data should get an id when the item is created, from a counter, <code>crypto.randomUUID()</code> or a package. A random value generated in the JSX changes on every render and remounts every row. The index breaks on deletion, and a typed label is neither unique nor stable while the agent edits it."
+  },
+  {
+    "id": "m29.q9",
+    "module": "m29",
+    "section": "nested",
+    "q": "<code>NoteEditor</code> is declared inside <code>NotesPanel</code>. Why does it lose its state on every keystroke in the note?",
+    "options": [
+      "Because hooks called inside a nested function are reset by React on every render",
+      "Because the input is controlled by the parent's state, which overwrites the child's state",
+      "Because React re-renders, and therefore resets, children whose props changed",
+      "Each parent render creates a new function, so React sees a new type and remounts it"
+    ],
+    "answer": 3,
+    "explain": "The element type is the function, compared by identity. A new function on every parent render means a different type at the same position, so React destroys the old subtree, its state and DOM included. Measured: the toggle reset, the input was a new DOM node and focus was lost. A controlled input alone does not lose state."
+  },
+  {
+    "id": "m29.q10",
+    "module": "m29",
+    "section": "conditional",
+    "q": "What does <code>{order.openDisputes.length &amp;&amp; &lt;DisputeBadge /&gt;}</code> render for an order with no open disputes?",
+    "options": [
+      "Nothing",
+      "The text 0",
+      "The text false",
+      "A console error about an invalid child"
+    ],
+    "answer": 1,
+    "explain": "<code>0 &amp;&amp; x</code> evaluates to 0, and React renders numbers as text. Measured: the header showed \"0\". React renders nothing for <code>false</code>, <code>null</code> and <code>undefined</code>, which is why the \"nothing\" answer feels right; make the left side a boolean with <code>length &gt; 0</code>."
+  },
+  {
+    "id": "m29.q11",
+    "module": "m29",
+    "section": "inputs",
+    "q": "The refund reason input is <code>&lt;input value={reason} onChange={…} /&gt;</code>, and <code>reason</code> starts as <code>undefined</code>. The agent types a letter. What does React 19 report?",
+    "options": [
+      "A warning that a component is changing an uncontrolled input to be controlled",
+      "Nothing: React treats <code>undefined</code> as an empty string for a controlled input",
+      "An error that stops the render",
+      "A warning that the input is read-only"
+    ],
+    "answer": 0,
+    "explain": "<code>value={undefined}</code> means uncontrolled; a string means controlled, and an input cannot switch. Measured on React 19.3.1, the warning reads \"A component is changing an uncontrolled input to be controlled\". The read-only warning is for <code>value</code> without <code>onChange</code>. Start from <code>''</code>."
+  },
+  {
+    "id": "m29.q12",
+    "module": "m29",
+    "section": "strict-mode",
+    "q": "In development under <code>&lt;StrictMode&gt;</code>, which functions does React call twice?",
+    "options": [
+      "Event handlers attached in the JSX, and the bodies of effects",
+      "Only the component body, and only on the first mount of the tree",
+      "Every function declared in the component file, helpers included",
+      "The component body, <code>useState</code> initializers and updater functions"
+    ],
+    "answer": 3,
+    "explain": "StrictMode double-calls render-phase code: component bodies, the functions passed to <code>useState</code>, <code>useMemo</code> and <code>useReducer</code>, and updaters (measured: two calls each on React 19.3.1). Event handlers are not called twice; effects are not called twice either, they get one extra setup and cleanup cycle."
+  },
+  {
+    "id": "m29.q13",
+    "module": "m29",
+    "section": "snapshot",
+    "q": "The status is <code>'paid'</code>. The agent clicks the refund button. What does the log print one second later?",
+    "code": "const [status, setStatus] = useState<OrderStatus>('paid');\n\nfunction handleRefundClick() {\n  setStatus('refunded');\n  setTimeout(() => {\n    console.log(status);\n  }, 1000);\n}",
+    "lang": "tsx",
+    "options": [
+      "<code>refunded</code>, because the re-render finished long before the timeout fired",
+      "<code>undefined</code>, because the closure was reset by the render",
+      "<code>paid</code>: the callback closed over the snapshot of the clicked render",
+      "It depends on whether React has committed the update yet"
+    ],
+    "answer": 2,
+    "explain": "The handler and its timeout callback belong to the render where status was <code>'paid'</code>; a later render creates new variables but cannot change that one. Measured: the screen showed refunded while the log printed paid. The tempting answer assumes the variable is updated in place, which never happens."
+  },
+  {
+    "id": "m29.q14",
+    "module": "m29",
+    "section": "snapshot",
+    "q": "From <code>selectedCount === 0</code>, what does the counter show after this handler runs?",
+    "code": "function handleClick() {\n  setSelectedCount(selectedCount + 5);\n  setSelectedCount((count) => count + 1);\n  setSelectedCount(42);\n  setSelectedCount((count) => count * 2);\n}",
+    "lang": "tsx",
+    "options": [
+      "12",
+      "84",
+      "42",
+      "6"
+    ],
+    "answer": 1,
+    "explain": "React processes the queue in order: a plain value replaces the result so far, an updater computes from it. 0 + 5 = 5, then 6, then 42, then 84; measured on React 19.3.1. 42 is tempting if you think the last plain value wins, but the updater queued after it still runs."
+  },
+  {
+    "id": "m29.q15",
+    "module": "m29",
+    "section": "derived",
+    "q": "The refund panel must show the total of the selected lines. A colleague proposes <code>const [total, setTotal] = useState(0)</code> and an effect that recomputes it when the selection changes. Which version would you ship?",
+    "options": [
+      "The colleague's version, but with <code>useLayoutEffect</code> so the stale total is never painted on screen",
+      "Store the total in the BFF and refetch it after each click",
+      "The colleague's version, because effects keep render pure",
+      "Compute it during render from the lines and selected ids; add <code>useMemo</code> only if profiling says so"
+    ],
+    "answer": 3,
+    "explain": "A derived value computed during render is always in sync and costs one render; the effect version adds a render with a stale value (measured: two renders). A layout effect hides the flicker but keeps two sources of truth and the extra render. Refetching from the server for a local sum adds latency for nothing."
+  },
+  {
+    "id": "m29.q16",
+    "module": "m29",
+    "section": "conditional",
+    "q": "The agent types in the shipping address form, then toggles to the other mode. What happens to the form's internal state?",
+    "code": "{isEditing ? <AddressForm mode=\"edit\" /> : <AddressForm mode=\"view\" />}",
+    "lang": "tsx",
+    "options": [
+      "Kept: same type at the same position, so React sees one component with a new prop",
+      "Reset: each branch of a ternary creates its own component, with its own separate state",
+      "It is reset, because the <code>mode</code> prop changed",
+      "It is kept only if the component is wrapped in <code>memo</code>"
+    ],
+    "answer": 0,
+    "explain": "Position in the tree, not position in the JSX source, decides identity, and both branches render <code>AddressForm</code> at the same place. Measured with a counter: after the switch it still showed 2. Writing two separate <code>&amp;&amp;</code> expressions, or giving different keys, would reset it."
+  },
+  {
+    "id": "m29.q17",
+    "module": "m29",
+    "section": "identity",
+    "q": "When a dispute is open, the order page wraps its content in a <code>&lt;section className=\"disputed\"&gt;</code> instead of a <code>&lt;div&gt;</code>. Agents notice the refund form empties when a dispute opens. Why?",
+    "options": [
+      "The className change forces a remount of every child",
+      "A different element type at that position destroys the subtree, form state included",
+      "The parent re-renders with new props, and React resets the state of children on re-render",
+      "The form is uncontrolled, so a new class clears its inputs"
+    ],
+    "answer": 1,
+    "explain": "Reconciliation tears down a subtree when the type at a position changes, and <code>div</code> to <code>section</code> is a type change. Measured: a counter inside went back to 0. A className change alone only updates the attribute on the same DOM node, and re-rendering never resets state by itself."
+  },
+  {
+    "id": "m29.q18",
+    "module": "m29",
+    "section": "keys",
+    "q": "Each <code>RefundLineRow</code> keeps the typed quantity in local state. The agent types mug 1, T-shirt 2, cap 3, then removes the mug. What do the remaining rows show?",
+    "code": "{lines.map((line, index) => (\n  <RefundLineRow key={index} line={line} onRemove={onRemove} />\n))}",
+    "lang": "tsx",
+    "options": [
+      "T-shirt 2, cap 3",
+      "T-shirt 1, cap 2",
+      "T-shirt 1, cap 3",
+      "T-shirt empty, cap empty"
+    ],
+    "answer": 1,
+    "explain": "After the removal, the T-shirt has key 0 and the cap key 1, so they inherit the state of the old rows 0 and 1: measured, T-shirt 1, cap 2. \"T-shirt 2, cap 3\" is what <code>key={line.id}</code> gives, which is the fix."
+  },
+  {
+    "id": "m29.q19",
+    "module": "m29",
+    "section": "keys",
+    "q": "To silence the missing key warning, a pull request adds <code>key={crypto.randomUUID()}</code> to each row of the refund lines. What is the bug?",
+    "options": [
+      "None, as long as every generated id is unique among the sibling rows",
+      "Long UUID strings make React compare keys slowly in large lists of refund lines",
+      "<code>crypto.randomUUID</code> is not available in the browsers agents use",
+      "Keys change on every render, so every row remounts and loses its state each time"
+    ],
+    "answer": 3,
+    "explain": "Keys must be stable between renders. A key generated during render never matches the previous one, so React destroys and recreates every row: measured, a typed quantity vanished after one parent re-render, and the input was a new DOM node. Uniqueness is necessary but not enough; generate the id once, when the item is created."
+  },
+  {
+    "id": "m29.q20",
+    "module": "m29",
+    "section": "keys",
+    "q": "The order page renders the order lines in two places: the lines table and the refund panel, both with <code>key={line.id}</code>. A reviewer says keys must be unique on the page. Is that right?",
+    "options": [
+      "Yes: React keeps a global key registry and warns on duplicates",
+      "Yes: otherwise both lists share the same state",
+      "No: keys only have to be unique among the children of one parent",
+      "No: React ignores keys outside of a <code>map</code>"
+    ],
+    "answer": 2,
+    "explain": "react.dev states that keys are not globally unique: they only identify an element among its siblings. Two lists under different parents can use the same ids safely. Duplicates warn only among siblings of the same parent, and keys also work outside <code>map</code>, for example to reset a form."
+  },
+  {
+    "id": "m29.q21",
+    "module": "m29",
+    "section": "nested",
+    "q": "<code>NoteEditor</code> is declared inside <code>NotesPanel</code> because it reads <code>draft</code> and <code>setDraft</code> from the closure. Which fix would you ship?",
+    "options": [
+      "Move <code>NoteEditor</code> to module level and pass <code>draft</code> and <code>onDraftChange</code> as props",
+      "Wrap the inner function in <code>useCallback</code> so its identity stays stable across renders",
+      "Add <code>key=\"note-editor\"</code> to the inner component",
+      "Turn the input into an uncontrolled input"
+    ],
+    "answer": 0,
+    "explain": "Declaring the component once at module level gives it a stable type, and props make its dependencies explicit; react.dev says to never nest component definitions. <code>useCallback</code> would hide the bug until the dependencies change, then remount again, and a constant key does not help because the type still changes."
+  },
+  {
+    "id": "m29.q22",
+    "module": "m29",
+    "section": "conditional",
+    "q": "The header computes <code>const refundRate = refundedCents / totalCents</code> and renders <code>{refundRate &amp;&amp; &lt;RateBadge rate={refundRate} /&gt;}</code>. For a free replacement order, both amounts are 0. What does the header show?",
+    "options": [
+      "Nothing",
+      "The text NaN",
+      "The text 0",
+      "The text Infinity"
+    ],
+    "answer": 1,
+    "explain": "0 / 0 is NaN; NaN is falsy, so <code>&amp;&amp;</code> returns it, and React renders numbers as text. Measured: \"NaN\" appeared in the header. Infinity would need a non-zero numerator; nothing would require a boolean, such as <code>Number.isFinite(refundRate) &amp;&amp; refundRate &gt; 0</code>."
+  },
+  {
+    "id": "m29.q23",
+    "module": "m29",
+    "section": "conditional",
+    "q": "Which expression renders nothing at all when <code>disputes</code> is an empty array?",
+    "options": [
+      "<code>{disputes.length &amp;&amp; &lt;DisputeBadge /&gt;}</code>",
+      "<code>{disputes.length !== undefined &amp;&amp; &lt;DisputeBadge /&gt;}</code>",
+      "<code>{disputes?.length &amp;&amp; &lt;DisputeBadge /&gt;}</code>",
+      "<code>{disputes.length &gt; 0 ? &lt;DisputeBadge /&gt; : null}</code>"
+    ],
+    "answer": 3,
+    "explain": "A boolean condition with a <code>null</code> branch renders nothing. The first renders 0, the second renders the badge because the length is always defined, and optional chaining in the third changes nothing for an empty array: it still evaluates to 0, which React renders. Prefer an explicit comparison over relying on falsy values."
+  },
+  {
+    "id": "m29.q24",
+    "module": "m29",
+    "section": "inputs",
+    "q": "The shared <code>RefundAmountInput</code> is used by the refund form, which must validate the amount, and by a quick filter that only needs a callback. Which API do you design?",
+    "options": [
+      "Always controlled: every caller must pass <code>value</code> and <code>onChange</code> and own the state",
+      "Always uncontrolled, with a ref the parent reads on submit",
+      "<code>value</code> + <code>onValueChange</code>, or <code>defaultValue</code>; the mode follows from <code>value</code> being defined",
+      "A <code>controlled</code> boolean prop that callers can flip at any time"
+    ],
+    "answer": 2,
+    "explain": "Mirroring the native input lets each caller pick the cheapest mode, and the mode follows from <code>value</code> being undefined or not. Measured both ways in section 8. Always-controlled works but forces state on callers that do not need it; a flippable mode reproduces the controlled-to-uncontrolled problem React warns about."
+  },
+  {
+    "id": "m29.q25",
+    "module": "m29",
+    "section": "inputs",
+    "q": "The refund form renders <code>&lt;input value={amount} /&gt;</code> with no <code>onChange</code>. The agent types a digit. What happens?",
+    "options": [
+      "The field keeps showing <code>amount</code>, and React warns about a read-only field",
+      "The digit appears, and React updates <code>amount</code> for you through the value prop",
+      "The digit appears, because the DOM owns the value until the next render",
+      "React throws, because a controlled input requires a handler"
+    ],
+    "answer": 0,
+    "explain": "With <code>value</code>, React forces the displayed value; with nothing updating <code>amount</code>, each keystroke is reverted. Measured: typing left the field unchanged and the console warned \"You provided a value prop to a form field without an onChange handler\". Use <code>defaultValue</code>, add <code>onChange</code>, or set <code>readOnly</code>."
+  },
+  {
+    "id": "m29.q26",
+    "module": "m29",
+    "section": "inputs",
+    "q": "The BFF returns <code>refundReason: null</code> for orders without a reason, and the form renders <code>&lt;input value={order.refundReason} onChange={…} /&gt;</code>. What is the fix you ship?",
+    "options": [
+      "Remove <code>value</code> and rely on <code>defaultValue={order.refundReason}</code> plus the state",
+      "Turn off the warning in development",
+      "Pass <code>value={order.refundReason || undefined}</code>",
+      "Pass <code>value={order.refundReason ?? ''}</code>, controlled from the first render"
+    ],
+    "answer": 3,
+    "explain": "A controlled input must always receive a string; <code>?? ''</code> turns null into an empty string and keeps the mode fixed. Measured, a null value warns that \"value prop on input should not be null\". Mapping it to <code>undefined</code> makes the input uncontrolled at first, which leads to the switching warning as soon as a value arrives."
+  },
+  {
+    "id": "m29.q27",
+    "module": "m29",
+    "section": "strict-mode",
+    "q": "After enabling StrictMode, the running-total column shows 24.00 and 104.00 instead of 12.00 and 52.00, in development only. What do you do?",
+    "options": [
+      "Fix the component to sum in a variable created during render, and keep StrictMode",
+      "Disable StrictMode for this page, since the production build shows correct totals",
+      "Wrap the row in <code>memo</code> so it renders once",
+      "Move the running total into a <code>useRef</code> so React does not reset it"
+    ],
+    "answer": 0,
+    "explain": "A pure component returns the same result on both calls; a different result means it mutates something that outlives the render, and production shows the same bug after any refresh (measured: 64.00 and 104.00). <code>memo</code> only skips some renders and a ref still mutates during render, so neither fixes the purity."
+  },
+  {
+    "id": "m29.q28",
+    "module": "m29",
+    "section": "strict-mode",
+    "q": "A developer logs in the body of <code>OrderHeader</code> and sees two logs per render on the local dev server, but one per render in the production build. What is the explanation?",
+    "options": [
+      "Vite's hot module replacement renders each component twice in development to diff them",
+      "The component is mounted twice because of a missing key",
+      "StrictMode calls component bodies twice, in development only, to expose impure code",
+      "React 19 renders on the server and on the client in development"
+    ],
+    "answer": 2,
+    "explain": "Double rendering is StrictMode's check, and react.dev states the checks are development-only. Measured: two calls per render under StrictMode, one without it. A key problem would remount, not double each render, and this back office is a Vite single-page app with no server rendering."
+  },
+  {
+    "id": "m29.q29",
+    "module": "m29",
+    "section": "identity",
+    "q": "An interviewer asks: \"What are Fiber and reconciliation?\" Which answer is accurate at the level expected?",
+    "options": [
+      "Fiber is a virtual DOM library React uses to render HTML on the server, and reconciliation merges that HTML into the page",
+      "A tree of fibers holds state; React compares each render with it by type, position and key, then commits the differences",
+      "Reconciliation is the browser comparing the old and new DOM trees before painting, and Fiber is its scheduler",
+      "Fiber is the hook system, and reconciliation is React checking that hooks are called in the same order on every render"
+    ],
+    "answer": 1,
+    "explain": "Fiber has been React's core engine since React 16, and each node of its tree is a fiber that holds state; reconciliation is React's comparison, using element type and key, before the commit. The browser does not diff anything: React computes the minimal DOM operations itself. Hook order matters, but it is not what reconciliation means."
+  },
+  {
+    "id": "m29.q30",
+    "module": "m29",
+    "section": "senior",
+    "q": "The status is already <code>'paid'</code>. The agent clicks \"Mark as paid\" again, which calls <code>setStatus('paid')</code>. What does React do?",
+    "options": [
+      "It re-renders the page and all its children, because calling a setter always schedules a render",
+      "It throws, because setting the same value is a bug",
+      "It queues the update until a different value arrives",
+      "It bails out after an <code>Object.is</code> check; it may call the component again, never its children"
+    ],
+    "answer": 3,
+    "explain": "React bails out when the new state is identical by <code>Object.is</code>. Measured on React 19.3.1: right after a real change, the same value called the parent once more with zero child renders; a further identical call caused no render at all. react.dev documents this \"may still call your component\" case; it never re-renders the children."
+  }
+]

@@ -1,0 +1,432 @@
+[
+  {
+    "id": "m06.q1",
+    "module": "m06",
+    "section": "choose",
+    "q": "How does NestJS relate to Express and Fastify?",
+    "options": [
+      "It replaces them with its own HTTP server written in TypeScript",
+      "It is a plugin you register inside an Express or Fastify app",
+      "It adds modules, a DI container and request slots, and runs on Express or Fastify through an adapter",
+      "It only works with Express; Fastify needs a separate framework"
+    ],
+    "answer": 2,
+    "explain": "NestJS is an application framework: it provides structure and delegates HTTP to an adapter (<code>@nestjs/platform-express</code> by default, <code>@nestjs/platform-fastify</code> on request). It is not a plugin inside those frameworks, and the Fastify adapter is official."
+  },
+  {
+    "id": "m06.q2",
+    "module": "m06",
+    "section": "layers",
+    "q": "Where should the rule \"only a paid order can be cancelled\" live?",
+    "options": [
+      "In the use case, which throws a domain error that the HTTP layer maps to 409",
+      "In the controller, next to the status code it produces",
+      "In the repository, as a condition of the UPDATE query only",
+      "In a guard, so the handler never runs for unpaid orders"
+    ],
+    "answer": 0,
+    "explain": "Business rules belong to the use case so every caller (controller, queue consumer, test) applies them. A guard is for authentication and authorisation, not for business state; a conditional update can back the rule up, but the rule and its error belong to the use case."
+  },
+  {
+    "id": "m06.q3",
+    "module": "m06",
+    "section": "layers",
+    "q": "In ports and adapters, what is a port?",
+    "options": [
+      "The TCP port the HTTP server listens on",
+      "An interface declared by the core (for example <code>OrderRepository</code>) describing what it needs from the outside",
+      "A class that implements a database query",
+      "A Nest module that exports a service"
+    ],
+    "answer": 1,
+    "explain": "A port is owned by the application core and names a capability it needs; adapters such as a Postgres repository implement it. The class with the SQL is the adapter, not the port, which is why the core never imports a driver."
+  },
+  {
+    "id": "m06.q4",
+    "module": "m06",
+    "section": "wiring",
+    "q": "What is a composition root?",
+    "options": [
+      "The root module that every NestJS app must declare",
+      "A base class that all services extend to receive dependencies",
+      "A global registry that any file can query for a dependency",
+      "The one place, run once at startup, that creates the concrete adapters and passes them to the code that needs them"
+    ],
+    "answer": 3,
+    "explain": "The composition root builds the object graph explicitly, for example <code>buildApp(config)</code> creating the pool, the repository and the use case. A global registry queried from anywhere is the service locator pattern, which hides dependencies instead of passing them in."
+  },
+  {
+    "id": "m06.q5",
+    "module": "m06",
+    "section": "nest-di",
+    "q": "A Nest service needs an <code>OrderRepository</code>, which is a TypeScript interface. Why does it need <code>@Inject(ORDER_REPOSITORY)</code>?",
+    "options": [
+      "Interfaces do not exist at runtime, so Nest cannot resolve them from the parameter type and needs a token",
+      "Because <code>@Inject</code> makes the provider request-scoped",
+      "Because Nest can only inject classes from the same module without it",
+      "Because the decorator turns the interface into an abstract class"
+    ],
+    "answer": 0,
+    "explain": "Nest reads constructor parameter types recorded by <code>emitDecoratorMetadata</code>; an interface is erased by the compiler, so there is nothing to look up. A Symbol or string token registered with <code>{ provide: TOKEN, useClass: … }</code> fills the gap. <code>@Inject</code> has no effect on scope."
+  },
+  {
+    "id": "m06.q6",
+    "module": "m06",
+    "section": "nest-di",
+    "q": "What is the default scope of a Nest provider?",
+    "options": [
+      "One instance per request",
+      "One instance per module that imports it",
+      "One instance for the whole application (singleton)",
+      "A new instance for each consumer (transient)"
+    ],
+    "answer": 2,
+    "explain": "Providers are singletons unless declared otherwise. <code>Scope.REQUEST</code> and <code>Scope.TRANSIENT</code> are opt-in, and request scope spreads to every consumer, which is why singletons with a context store are preferred."
+  },
+  {
+    "id": "m06.q7",
+    "module": "m06",
+    "section": "nest-request",
+    "q": "In which order do these run for a successful request in NestJS?",
+    "options": [
+      "Middleware, pipe, guard, interceptor, handler",
+      "Middleware, guard, interceptor, pipe, handler",
+      "Guard, middleware, pipe, interceptor, handler",
+      "Middleware, interceptor, guard, pipe, handler"
+    ],
+    "answer": 1,
+    "explain": "The Nest docs and a measurement on Nest 12.3.2 agree: middleware, guards, interceptors (before), pipes, then the handler, then interceptors on the way out. Guards come before pipes, so an unauthenticated request is rejected before its body is validated."
+  },
+  {
+    "id": "m06.q8",
+    "module": "m06",
+    "section": "nest-request",
+    "q": "On Nest 12, how do you validate a request body with a Zod schema without an extra library?",
+    "options": [
+      "Call <code>schema.parse(body)</code> inside every handler",
+      "Wrap the schema with <code>createZodDto</code> and use <code>ValidationPipe</code>",
+      "Add class-validator decorators generated from the schema",
+      "Write <code>@Body({ schema: CreateOrderSchema })</code> and register <code>StandardSchemaValidationPipe</code>"
+    ],
+    "answer": 3,
+    "explain": "Nest 12 accepts any Standard Schema library on <code>@Body</code>, <code>@Query</code> and <code>@Param</code>, and <code>StandardSchemaValidationPipe</code> validates those parameters. <code>createZodDto</code> comes from the separate nestjs-zod library and pairs with its own <code>ZodValidationPipe</code>, not with class-validator's <code>ValidationPipe</code>."
+  },
+  {
+    "id": "m06.q9",
+    "module": "m06",
+    "section": "errors",
+    "q": "In the old Express 5 <code>server.ts</code>, an async route throws after an <code>await</code>, and a four-parameter error handler is registered last. What happens?",
+    "code": "\napp.get('/orders/:id', async (req, res) => {\n  const order = await orders.findById(req.params.id);\n  if (order === undefined) {\n    throw new OrderNotFoundError(req.params.id);\n  }\n  res.json(order);\n});",
+    "lang": "ts",
+    "options": [
+      "The process crashes with an unhandled rejection",
+      "The request hangs until the client times out",
+      "Express sends its default HTML 500 page",
+      "The error reaches the error handler, which answers with the mapped response"
+    ],
+    "answer": 3,
+    "explain": "Express 5 passes a rejected promise from a handler to <code>next(err)</code>. Measured on Express 5.3.0: this route's error reached the handler, which answered a 404 Problem Details. The hang or crash happened in Express 4 without a wrapper such as <code>express-async-errors</code>."
+  },
+  {
+    "id": "m06.q10",
+    "module": "m06",
+    "section": "config",
+    "q": "The config schema reads <code>FEATURE_REFUNDS: z.coerce.boolean()</code> and the environment has <code>FEATURE_REFUNDS=false</code>. What is the value?",
+    "options": [
+      "<code>true</code>, because any non-empty string is truthy",
+      "<code>false</code>",
+      "A validation error at startup",
+      "<code>undefined</code>, so the default applies"
+    ],
+    "answer": 0,
+    "explain": "Measured on Zod 4.6.7: <code>z.coerce.boolean().parse('false')</code> returns <code>true</code>, since coercion is <code>Boolean('false')</code>. <code>z.stringbool()</code> reads \"false\", \"0\", \"no\" and \"off\" as false and rejects unknown words."
+  },
+  {
+    "id": "m06.q11",
+    "module": "m06",
+    "section": "context",
+    "q": "What does <code>AsyncLocalStorage.run(store, fn)</code> give a service?",
+    "options": [
+      "A cache shared by all requests for the lifetime of the process",
+      "Access to <code>store</code> from any code started by <code>fn</code>, across <code>await</code>s, and from nothing else",
+      "A new worker thread with its own copy of <code>store</code>",
+      "A way to make a Nest provider request-scoped"
+    ],
+    "answer": 1,
+    "explain": "The store follows the asynchronous work started inside <code>run</code>, so each request sees its own request id even when many are interleaved. It is not shared across requests (that would be a module variable), and it is what lets Nest code avoid request scope (nestjs-cls is built on it)."
+  },
+  {
+    "id": "m06.q12",
+    "module": "m06",
+    "section": "shutdown",
+    "q": "A Kubernetes pod receives <code>SIGTERM</code>. What should the service do first?",
+    "options": [
+      "Close the database pool so no new queries start",
+      "Call <code>process.exit(0)</code>; Kubernetes restarts the work elsewhere",
+      "Stop listening immediately so no request arrives after the signal",
+      "Keep serving while failing the readiness probe, and wait a few seconds for endpoint removal to propagate"
+    ],
+    "answer": 3,
+    "explain": "Kubernetes removes the pod from endpoints at the same time as it sends <code>SIGTERM</code>, so new requests can still arrive briefly; closing the listener at once turns them into errors. Closing the pool first breaks the requests still in flight."
+  },
+  {
+    "id": "m06.q13",
+    "module": "m06",
+    "section": "choose",
+    "q": "Besides the Orders API, the team must ship a small endpoint for the delivery partner that runs as a Cloudflare Worker and also, for local development, on Node. Which framework fits best?",
+    "options": [
+      "NestJS with the Fastify adapter",
+      "Express 5",
+      "Hono, which is built on Web-standard Request and Response and runs on Workers and on Node",
+      "Fastify 5 with its serverless mode"
+    ],
+    "answer": 2,
+    "explain": "Hono's documentation lists Cloudflare Workers, Deno, Bun, AWS Lambda and Node (through its Node adapter) because it only uses Web standards. Express and Fastify are built on Node's <code>http</code> module, and NestJS adds a heavy build and container that a small edge function does not need."
+  },
+  {
+    "id": "m06.q14",
+    "module": "m06",
+    "section": "nest-request",
+    "q": "A NestJS app registers a global guard, interceptor, pipe and exception filter that each log their name. <code>OrdersService.get</code> throws <code>OrderNotFoundError</code>, which the filter handles. What is logged?",
+    "code": "\n// middleware > ? (each component pushes its name)\n@Get(':id')\nget(@Param('id') id: string) {\n  return this.orders.get(id); // throws OrderNotFoundError\n}",
+    "lang": "ts",
+    "options": [
+      "middleware > guard > interceptor:before > pipe > handler > service > interceptor:error > filter",
+      "middleware > guard > pipe > interceptor:before > handler > service > filter > interceptor:error",
+      "middleware > interceptor:before > guard > pipe > handler > service > filter",
+      "middleware > guard > interceptor:before > pipe > handler > service > filter"
+    ],
+    "answer": 0,
+    "explain": "Measured on Nest 12.3.2 with the Fastify adapter: the interceptor wraps the handler as an RxJS stream, so it sees the error before the filter turns it into a response. The tempting last option forgets that interceptors are on the error path too, which matters when an interceptor maps or logs errors."
+  },
+  {
+    "id": "m06.q15",
+    "module": "m06",
+    "section": "nest-di",
+    "q": "A singleton <code>TenantContext</code> provider was changed to <code>Scope.REQUEST</code> to hold the current tenant. <code>OrdersController</code> injects it. What happens to the controller?",
+    "options": [
+      "Nothing: controllers are always singletons",
+      "It is constructed again for every request, as is every provider in the chain that depends on <code>TenantContext</code>",
+      "Nest refuses to start because controllers cannot depend on request-scoped providers",
+      "It keeps the instance created for the first request"
+    ],
+    "answer": 1,
+    "explain": "Request scope bubbles up the injection chain (Nest docs). Measured on Nest 12.3.2: a controller injecting a request-scoped provider was constructed twice for two requests. Storing the tenant with nestjs-cls keeps everything singleton."
+  },
+  {
+    "id": "m06.q16",
+    "module": "m06",
+    "section": "errors",
+    "q": "A Fastify 5 service has no <code>setErrorHandler</code>. A handler fails with <code>new Error('connect ECONNREFUSED 10.0.3.7:5432')</code>. What does the client receive?",
+    "options": [
+      "A 500 whose JSON body contains <code>\"message\":\"connect ECONNREFUSED 10.0.3.7:5432\"</code>",
+      "A 500 with a generic \"Internal Server Error\" message only",
+      "A 502 Bad Gateway, since the database is unreachable",
+      "The connection is reset without a response"
+    ],
+    "answer": 0,
+    "explain": "Measured on Fastify 5.12.7: <code>{\"statusCode\":500,\"error\":\"Internal Server Error\",\"message\":\"connect ECONNREFUSED 10.0.3.7:5432\"}</code>. The generic body is what NestJS does by default, not Fastify; a custom error handler that maps through <code>toProblem</code> and logs the details is required."
+  },
+  {
+    "id": "m06.q17",
+    "module": "m06",
+    "section": "shutdown",
+    "q": "A Fastify 5 service calls <code>await app.close()</code> on <code>SIGTERM</code>. One request is in flight on a keep-alive connection and finishes 300 ms later. Default settings. When does <code>close()</code> resolve?",
+    "options": [
+      "Right after the in-flight response is sent",
+      "Immediately: <code>close()</code> destroys every connection",
+      "Never, until Kubernetes sends <code>SIGKILL</code>",
+      "About 72 seconds later, when the idle keep-alive connection times out"
+    ],
+    "answer": 3,
+    "explain": "Measured on Fastify 5.12.7: <code>close()</code> resolved after 73 s, because the connection stayed open after its response until Fastify's 72 000 ms <code>keepAliveTimeout</code>. Sending <code>Connection: close</code> on responses during the shutdown brought it to 41 ms; in Kubernetes the 30 s grace period would have ended in a <code>SIGKILL</code> first."
+  },
+  {
+    "id": "m06.q18",
+    "module": "m06",
+    "section": "shutdown",
+    "q": "Which fix would you ship so that in-flight requests on keep-alive connections no longer delay the shutdown, without cutting them off?",
+    "options": [
+      "Call <code>server.closeAllConnections()</code> as soon as <code>SIGTERM</code> arrives",
+      "Set <code>keepAliveTimeout: 0</code> for the whole life of the server",
+      "Send <code>Connection: close</code> on responses written once shutdown has started, and keep a deadline that destroys leftovers",
+      "Raise <code>terminationGracePeriodSeconds</code> to 120 seconds"
+    ],
+    "answer": 2,
+    "explain": "The client closes the connection after its response, so the server closes as soon as the last request ends (25 ms on Express, 41 ms on Fastify, measured), and the deadline covers a stuck request. <code>closeAllConnections()</code> at once kills the requests you wanted to finish, and disabling keep-alive costs a new connection per request in normal operation."
+  },
+  {
+    "id": "m06.q19",
+    "module": "m06",
+    "section": "nest-di",
+    "q": "A developer tries to run a Nest service without a build, using Node 24's type stripping: <code>node src/main.ts</code>. What happens?",
+    "code": "\n@Injectable()\nexport class OrdersService {\n  // ...\n}",
+    "lang": "ts",
+    "options": [
+      "It runs, but dependency injection fails at the first request",
+      "It fails to parse: type stripping does not run decorators, so the @ is a syntax error",
+      "It runs normally: Node 24 supports decorators natively",
+      "It runs only if <code>reflect-metadata</code> is imported first"
+    ],
+    "answer": 1,
+    "explain": "Measured on Node 24.11: <code>SyntaxError: Invalid or unexpected token</code> at <code>@Injectable()</code>. Nest also needs <code>emitDecoratorMetadata</code>, which only a compiler (tsc or SWC) can produce, so Nest projects keep a build step; <code>reflect-metadata</code> cannot help a file that does not parse."
+  },
+  {
+    "id": "m06.q20",
+    "module": "m06",
+    "section": "config",
+    "q": "Config uses <code>@nestjs/config</code> with <code>PORT: z.coerce.number().int().default(3000)</code>. The deployment sets <code>PORT=</code> (empty). Which value does <code>config.get('PORT')</code> return?",
+    "options": [
+      "3000, because the variable is empty",
+      "The app refuses to start: an empty string is not a number",
+      "<code>NaN</code>, and <code>listen</code> throws",
+      "0, so the server would listen on a random free port"
+    ],
+    "answer": 3,
+    "explain": "Measured with @nestjs/config 12.0.1 and Zod 4.6.7: <code>0</code>. <code>Number('')</code> is 0 and <code>.default</code> only applies to <code>undefined</code>. Drop blank values before validation (a small <code>validate</code> function) so an empty variable counts as missing."
+  },
+  {
+    "id": "m06.q21",
+    "module": "m06",
+    "section": "errors",
+    "q": "A NestJS 12 app has no custom exception filter. A service throws <code>new Error('connect ECONNREFUSED 10.0.3.7:5432')</code>. What does the client receive?",
+    "options": [
+      "A 500 with the original error message in the body",
+      "A 500 with <code>{\"statusCode\":500,\"message\":\"Internal server error\"}</code>",
+      "A 500 with an <code>application/problem+json</code> body",
+      "A 503, because the error looks like a connection failure"
+    ],
+    "answer": 1,
+    "explain": "Measured on Nest 12.3.2 (Fastify adapter): Nest's built-in filter answers any unrecognised exception with that generic body. It does not leak the message, but it is not Problem Details either, so a global <code>@Catch()</code> filter calling <code>toProblem</code> is still the way to get one format."
+  },
+  {
+    "id": "m06.q22",
+    "module": "m06",
+    "section": "errors",
+    "q": "A Nest app has a global <code>ProblemFilter</code> and a controller-level filter <code>@Catch(OrderNotFoundError)</code>. The controller throws <code>OrderNotFoundError</code>. Which filters run?",
+    "options": [
+      "Only the controller-level filter: the closest matching filter handles it and exceptions do not pass from filter to filter",
+      "Both, controller first, then global",
+      "Both, global first, then controller",
+      "Only the global filter, because global filters always win"
+    ],
+    "answer": 0,
+    "explain": "The Nest docs: filters are checked from route to controller to global, and a handled exception is not passed on to another filter. So a controller filter that answers differently silently bypasses the global Problem Details mapping, which is a good reason to keep one global filter."
+  },
+  {
+    "id": "m06.q23",
+    "module": "m06",
+    "section": "layers",
+    "q": "The back-office routes of the Orders API only list, create and edit delivery zones, with no business rules. A colleague proposes ports, adapters and a use case per operation. What do you answer?",
+    "options": [
+      "Agree: every service must follow hexagonal architecture to be testable",
+      "Agree, and also split it into three microservices to keep it clean",
+      "Refuse layering entirely and put SQL in the route handlers",
+      "Keep a thin controller over a repository; introduce use cases and ports when rules or external systems appear"
+    ],
+    "answer": 3,
+    "explain": "Ports pay off where there are rules to test without a database or external systems to replace. For plain CRUD they add files without protection; the layering still keeps SQL out of controllers, so rules can be added later without a rewrite."
+  },
+  {
+    "id": "m06.q24",
+    "module": "m06",
+    "section": "senior",
+    "q": "A 12-person team wants to split its tangled orders monolith into four microservices to fix the coupling. What would you propose first?",
+    "options": [
+      "Split now: separate deployables force clean boundaries",
+      "A modular monolith: modules with their own tables and a small public API, boundaries enforced in CI, and extraction later only for a scaling, deploy or ownership reason",
+      "Move all shared code into one <code>common</code> package used by every module",
+      "Put each module in its own repository so imports become impossible"
+    ],
+    "answer": 1,
+    "explain": "Splitting tangled code produces tangled services plus network failures and distributed transactions. Boundaries first, checked by a lint rule such as <code>@nx/enforce-module-boundaries</code> or dependency-cruiser, then extraction when one module really needs to scale or deploy separately; a big <code>common</code> package recreates the coupling."
+  },
+  {
+    "id": "m06.q25",
+    "module": "m06",
+    "section": "senior",
+    "q": "The Orders API now lives in a monorepo with 30 packages and six teams. CI takes 40 minutes, and teams keep importing each other's internals. Which tooling addresses both problems?",
+    "options": [
+      "pnpm workspaces alone, with <code>pnpm -r test</code>",
+      "One root <code>tsconfig.json</code> with path aliases",
+      "Nx: affected commands and caching for CI time, and the module boundary rule with project tags for the imports",
+      "Split into 30 repositories published to a private registry"
+    ],
+    "answer": 2,
+    "explain": "Nx caches and runs only affected tasks, and <code>@nx/enforce-module-boundaries</code> with <code>depConstraints</code> fails the lint when a project imports one it is not allowed to. pnpm workspaces alone link packages but neither cache nor enforce; Turborepo would cover caching but not the boundary rule."
+  },
+  {
+    "id": "m06.q26",
+    "module": "m06",
+    "section": "config",
+    "q": "A Dockerfile contains <code>ENV STRIPE_API_KEY=sk_live_…</code> \"because the registry is private\". What is the problem and the fix?",
+    "options": [
+      "No problem: a private registry protects the image",
+      "The variable is only visible at build time, so the app cannot read it",
+      "Only the size: secrets should be compressed",
+      "The key persists in the image for everyone who can pull it; inject it at runtime from a secret manager and rotate the leaked key"
+    ],
+    "answer": 3,
+    "explain": "Docker's docs say build arguments and environment variables are inappropriate for secrets because they persist in the final image. Anyone with pull access, every cache and every copy of the image now holds a live key, so it must be rotated, then provided at runtime by the platform."
+  },
+  {
+    "id": "m06.q27",
+    "module": "m06",
+    "section": "context",
+    "q": "What is the bug in this request-id middleware under real traffic?",
+    "code": "\nlet currentRequestId = '';\n\napp.use((req, res, next) => {\n  currentRequestId = req.get('x-request-id') ?? randomUUID();\n  next();\n});\n\nexport function logWithRequestId(message: string): void {\n  logger.info({ requestId: currentRequestId }, message);\n}",
+    "lang": "ts",
+    "options": [
+      "Nothing, because Node runs JavaScript on one thread",
+      "Concurrent requests overwrite the shared variable, so logs written after an <code>await</code> carry another request's id; use AsyncLocalStorage",
+      "<code>randomUUID</code> is too slow to call per request",
+      "The middleware must be registered after the routes"
+    ],
+    "answer": 1,
+    "explain": "One thread does not mean one request at a time: while request A awaits the database, request B runs the middleware and overwrites the variable. <code>AsyncLocalStorage.run</code> gives each request its own store across awaits (measured with a pino <code>mixin</code>)."
+  },
+  {
+    "id": "m06.q28",
+    "module": "m06",
+    "section": "nest-request",
+    "q": "A Nest app on the Fastify adapter runs fine locally, but in its Docker container every request from outside fails to connect. <code>main.ts</code> calls <code>await app.listen(3000)</code>. Likely cause?",
+    "options": [
+      "Fastify listens on localhost by default; listen on <code>0.0.0.0</code> inside the container",
+      "The Fastify adapter needs <code>enableShutdownHooks()</code> to accept connections",
+      "Port 3000 is reserved inside Docker containers",
+      "Nest needs the Express adapter in containers"
+    ],
+    "answer": 0,
+    "explain": "The Nest docs for the Fastify adapter: Fastify listens only on localhost by default, so pass <code>'0.0.0.0'</code> to accept connections from other hosts, which includes Docker's port mapping. Shutdown hooks only concern signals, and nothing reserves port 3000."
+  },
+  {
+    "id": "m06.q29",
+    "module": "m06",
+    "section": "shutdown",
+    "q": "In a NestJS 12 app with <code>enableShutdownHooks()</code>, where do you close the PostgreSQL pool, and where do you fail readiness?",
+    "options": [
+      "Both in <code>onModuleDestroy</code>, which runs after the server has closed",
+      "Pool in <code>beforeApplicationShutdown</code>, readiness in <code>onApplicationShutdown</code>",
+      "Fail readiness and wait in <code>beforeApplicationShutdown</code> (the server still serves); close the pool in <code>onApplicationShutdown</code> (after the server has closed)",
+      "Both in a <code>process.on('SIGTERM')</code> handler, since Nest hooks run after the process exits"
+    ],
+    "answer": 2,
+    "explain": "Measured on Nest 12.3.2 with both adapters: <code>onModuleDestroy</code> and <code>beforeApplicationShutdown</code> ran while a new connection still got 200, then the server closed, then <code>onApplicationShutdown</code> ran. Closing the pool before the server has drained breaks the requests still in flight."
+  },
+  {
+    "id": "m06.q30",
+    "module": "m06",
+    "section": "nest-request",
+    "q": "With <code>StandardSchemaValidationPipe</code> registered globally, a client POSTs <code>{\"sku\":\"A\",\"quantity\":2,\"extra\":1}</code>. What does the handler receive?",
+    "code": "\nconst CreateOrder = z.object({ sku: z.string().min(1), quantity: z.number().int().min(1) });\n\n@Post()\ncreate(@Body({ schema: CreateOrder }) body: z.infer<typeof CreateOrder>) {\n  return body;\n}",
+    "lang": "ts",
+    "options": [
+      "The raw body, including <code>extra</code>, since the pipe only validates",
+      "A 400 error, because <code>extra</code> is not in the schema",
+      "<code>{ sku: 'A', quantity: 2 }</code>: the schema's output, with the unknown key removed",
+      "An instance of a generated DTO class"
+    ],
+    "answer": 2,
+    "explain": "Measured on Nest 12.3.2: the handler received <code>{\"sku\":\"A\",\"quantity\":2}</code> as a plain object. The pipe passes the schema's output by default (<code>transform: true</code>), and Zod objects strip unknown keys; a 400 would need <code>z.strictObject</code>."
+  }
+]

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { CARDS_BY_ID, UNITS } from '../content/index.ts';
+import { UNITS } from '../content/catalog.ts';
+import type { Content } from '../content/load.ts';
 import type { Card } from '../content/types.ts';
 import { OpenQuestion } from '../exercises/OpenQuestion.tsx';
 import { exerciseKey, type Exercise } from '../play/engine.ts';
@@ -16,14 +17,15 @@ const UNIT_TITLES = new Map(UNITS.map((unit) => [unit.id, unit.title]));
  * loud and self-checked. The lesson stays hidden until the summary at the end.
  */
 export function MockInterviewScreen({
-  cards,
+  content,
   progress,
   onProgress,
   onExit,
   now,
   random = Math.random,
 }: {
-  cards: Card[];
+  /** The topics to draw from, already downloaded. */
+  content: Content;
   progress: Progress;
   onProgress: (progress: Progress) => void;
   onExit: () => void;
@@ -31,12 +33,13 @@ export function MockInterviewScreen({
   now: () => number;
   random?: () => number;
 }) {
+  const { cards } = content;
   const [interview, setInterview] = useState<MockInterview | undefined>(() => pickMockInterview(cards, progress, now(), random));
   const [index, setIndex] = useState(0);
   const [results, setResults] = useState<boolean[]>([]);
   const [reviewing, setReviewing] = useState(false);
 
-  const card = interview ? CARDS_BY_ID.get(interview.cardId) : undefined;
+  const card = interview ? content.cardsById.get(interview.cardId) : undefined;
   if (!interview || !card) {
     return null;
   }

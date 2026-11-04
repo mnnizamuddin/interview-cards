@@ -1,0 +1,446 @@
+[
+  {
+    "id": "m23.q1",
+    "module": "m23",
+    "section": "scope",
+    "q": "In an ES module, what does this function print when called?",
+    "code": "function shippingSummary() {\n  console.log(freeShippingFrom);\n  var freeShippingFrom = 5000;\n  console.log(currency);\n  const currency = 'EUR';\n}",
+    "lang": "js",
+    "options": [
+      "5000, then EUR, because both declarations are hoisted with their values",
+      "undefined, then a ReferenceError",
+      "A ReferenceError on the first line, before anything prints",
+      "undefined, then undefined, since both are hoisted"
+    ],
+    "answer": 1,
+    "explain": "The var is hoisted and initialized to undefined, so the first log prints undefined. The const is hoisted but uninitialized: reading it in its temporal dead zone throws \"Cannot access 'currency' before initialization\" (measured on Node 24). Two undefined values would be the behaviour if both were var."
+  },
+  {
+    "id": "m23.q2",
+    "module": "m23",
+    "section": "closures",
+    "q": "A function created inside another function reads one of its variables. What does the inner function keep?",
+    "options": [
+      "A copy of the variable's value at the moment the function was created",
+      "Nothing: the variable is freed when the outer function returns",
+      "Access to the variable itself, so it sees later changes",
+      "A copy that is refreshed only when the outer function is called again"
+    ],
+    "answer": 2,
+    "explain": "A closure keeps the variable binding, not a snapshot, and keeps it alive as long as the inner function is reachable. That is why listeners created in a var loop all read the final index. The \"copy at creation\" idea is the misconception the loop question tests."
+  },
+  {
+    "id": "m23.q3",
+    "module": "m23",
+    "section": "this",
+    "q": "In an ES module, <code>[1250, 399].map(priceFormatter.format)</code> throws \"Cannot read properties of undefined (reading 'locale')\", while <code>priceFormatter.format(1250)</code> works. Why?",
+    "options": [
+      "map calls it as a plain function, so this is undefined in strict code",
+      "map calls it with this set to the array, which has no locale property",
+      "Intl.NumberFormat cannot be created inside an array callback",
+      "Methods written with the shorthand syntax lose their body when passed as values"
+    ],
+    "answer": 0,
+    "explain": "Passing priceFormatter.format hands over the function without its object, and map calls it as a plain function; ES modules are strict, so this is undefined (measured). map only uses its optional second argument as this, and none was given, so the array is not this."
+  },
+  {
+    "id": "m23.q4",
+    "module": "m23",
+    "section": "this",
+    "q": "Which statement about arrow functions and <code>this</code> is true?",
+    "options": [
+      "call and bind set its this, exactly as they do for regular functions",
+      "Its this is always the global object, even inside a method",
+      "Its this is the object it is stored on, like a method shorthand",
+      "It takes this from the surrounding code; call and bind cannot change it"
+    ],
+    "answer": 3,
+    "explain": "Arrows have no this of their own: they read the this of the scope where they are written. Measured: calling an arrow class field with .call({ count: 99 }) still used the instance's count. Storing an arrow on an object does not make the object its this."
+  },
+  {
+    "id": "m23.q5",
+    "module": "m23",
+    "section": "classes",
+    "q": "For <code>const cart = new Cart()</code>, where does the <code>addLine</code> method defined in the class body live?",
+    "options": [
+      "On cart itself, copied there by the constructor on every new",
+      "On Cart.prototype, shared by every instance through the prototype chain",
+      "On the Cart function itself, as a static property shared by instances",
+      "In a hidden per-instance method table created by the engine"
+    ],
+    "answer": 1,
+    "explain": "Class methods are installed once on Cart.prototype; each instance links to it. Measured: Object.hasOwn(cart, 'addLine') is false and Object.hasOwn(Cart.prototype, 'addLine') is true. Only fields, such as #lines or an arrow function field, are created on each instance."
+  },
+  {
+    "id": "m23.q6",
+    "module": "m23",
+    "section": "classes",
+    "q": "A TypeScript class declares <code>private lines</code>; another declares <code>#lines</code>. What differs at run time?",
+    "options": [
+      "Nothing: both are erased by the compiler and become ordinary properties",
+      "Both are enforced at run time, but #lines is faster because it skips the prototype",
+      "private is erased at compile time; #lines is unreachable from outside the class",
+      "private hides the property from JSON.stringify and Object.keys; #lines does not"
+    ],
+    "answer": 2,
+    "explain": "TypeScript's private is a compile-time check only, so bracket access or plain JavaScript still reach the property. A # field is private for the engine: measured, it does not appear in Object.keys or JSON.stringify, and cart['#lines'] is undefined."
+  },
+  {
+    "id": "m23.q7",
+    "module": "m23",
+    "section": "coercion",
+    "q": "A quantity input is cleared, so its value is <code>''</code>. What is <code>'' == 0</code>, and why?",
+    "options": [
+      "false, because a string never equals a number without a cast",
+      "true, because == converts the empty string to the number 0",
+      "false, because the empty string converts to NaN, and NaN equals nothing",
+      "It throws a TypeError, because == refuses to compare different types"
+    ],
+    "answer": 1,
+    "explain": "When == compares a string with a number, it converts the string to a number, and Number('') is 0 (measured). That is how removeEmptyLines dropped the line. NaN is what you get from Number('abc'), not from the empty string."
+  },
+  {
+    "id": "m23.q8",
+    "module": "m23",
+    "section": "modules",
+    "q": "Why can a bundler remove an unused export of an ES module but not of a CommonJS module?",
+    "options": [
+      "ES modules are always smaller after minification, so unused code stands out",
+      "CommonJS modules are evaluated twice, once per bundle, so code cannot be dropped",
+      "Only ES modules can run in a browser, so CommonJS code is never bundled",
+      "Static import and export reveal the graph before running; require() is a run-time call"
+    ],
+    "answer": 3,
+    "explain": "Static declarations let the bundler see which exports are imported without executing anything; measured with Vite 8.3.4, an unused export disappeared from the bundle. require() can take a computed path and run anywhere, so the bundler cannot know what is used."
+  },
+  {
+    "id": "m23.q9",
+    "module": "m23",
+    "section": "iterators",
+    "q": "What makes an object usable in <code>for...of</code> and with spread?",
+    "options": [
+      "A Symbol.iterator method returning an object with next()",
+      "A length property and numeric keys, like an array",
+      "Being created by a class, whose instances are iterable by default",
+      "A forEach method, which for...of calls for each value"
+    ],
+    "answer": 0,
+    "explain": "That is the iteration protocol: an iterable returns an iterator, whose next() gives { value, done }. A plain object with length and numeric keys is array-like, not iterable, and for...of on a plain object throws \"is not iterable\" (measured)."
+  },
+  {
+    "id": "m23.q10",
+    "module": "m23",
+    "section": "copying",
+    "q": "You call <code>structuredClone(new Money(1250))</code>, where <code>Money</code> is a class with a <code>#cents</code> field and a <code>format()</code> method. What do you get?",
+    "options": [
+      "A Money instance with the same #cents and the same methods",
+      "A DataCloneError, because class instances cannot be cloned",
+      "A plain object with the public fields only: no methods, no #cents",
+      "A Money instance whose #cents is reset to undefined"
+    ],
+    "answer": 2,
+    "explain": "The structured clone algorithm copies plain data and does not walk the prototype chain or duplicate private elements; measured in Node 24 and Chromium, the copy was { currency: 'EUR' } and instanceof Money was false. DataCloneError is thrown for functions, not for class instances."
+  },
+  {
+    "id": "m23.q11",
+    "module": "m23",
+    "section": "collections",
+    "q": "Search terms are counted with <code>counts[term] = (counts[term] || 0) + 1</code> in a plain object. A customer searches \"constructor\". What happens?",
+    "options": [
+      "counts.constructor becomes 1, like any other new search term",
+      "counts.constructor becomes the inherited function's source text followed by 1",
+      "A TypeError is thrown, because constructor is read-only on objects",
+      "The term is skipped, because constructor is a reserved word in JavaScript"
+    ],
+    "answer": 1,
+    "explain": "A plain object inherits constructor from Object.prototype, so counts['constructor'] is a function, || keeps it, and function + 1 concatenates (measured: 'function Object() { [native code] }1'). A Map has no inherited keys, which is why it is the right dictionary."
+  },
+  {
+    "id": "m23.q12",
+    "module": "m23",
+    "section": "memory",
+    "q": "What distinguishes a <code>WeakMap</code> from a <code>Map</code>?",
+    "options": [
+      "Its keys do not keep their objects alive; it is not iterable and has no size",
+      "It frees its entries after a fixed delay, like a cache with a time limit",
+      "It accepts any key type, including strings, but holds its values weakly",
+      "It is faster than Map, so it suits large caches keyed by product id"
+    ],
+    "answer": 0,
+    "explain": "A WeakMap entry disappears when its key object is no longer reachable elsewhere; keys must be objects or unregistered symbols, and a string key throws (measured). A cache keyed by string ids therefore cannot be a WeakMap: it needs a bounded Map such as an LRU."
+  },
+  {
+    "id": "m23.q13",
+    "module": "m23",
+    "section": "scope",
+    "q": "What happens when this code runs?",
+    "code": "let total = 10;\n\nfunction printTotal() {\n  console.log(total);\n  let total = 20;\n}\n\nprintTotal();",
+    "lang": "js",
+    "options": [
+      "It prints 10, from the outer variable",
+      "It prints undefined, as a var would",
+      "It prints 20, the hoisted value",
+      "It throws a ReferenceError"
+    ],
+    "answer": 3,
+    "explain": "The inner let total shadows the outer one for the whole function body, and the log reads it in its temporal dead zone: \"Cannot access 'total' before initialization\" (measured on Node 24). Printing 10 would need the outer variable to be visible, but the inner declaration hides it from the start of the block."
+  },
+  {
+    "id": "m23.q14",
+    "module": "m23",
+    "section": "closures",
+    "q": "What does this print?",
+    "code": "const getters = [];\nlet i = 0;\nfor (; i < 3; i++) {\n  getters.push(() => i);\n}\nconsole.log(getters.map((get) => get()));",
+    "lang": "js",
+    "options": [
+      "[0, 1, 2]",
+      "[3, 3, 3]",
+      "[undefined, undefined, undefined]",
+      "[2, 2, 2]"
+    ],
+    "answer": 1,
+    "explain": "The per-iteration binding only applies to a let declared in the for header. Here i is declared once outside the loop, so every arrow closes over the same variable, which is 3 when they run (measured). Writing let inside the header would print [0, 1, 2]."
+  },
+  {
+    "id": "m23.q15",
+    "module": "m23",
+    "section": "closures",
+    "q": "What does this print?",
+    "code": "function createIdGenerator(prefix) {\n  let next = 1;\n  return () => prefix + next++;\n}\n\nconst cartIds = createIdGenerator('cart-');\nconst otherIds = createIdGenerator('cart-');\nconsole.log(cartIds(), cartIds(), otherIds());",
+    "lang": "js",
+    "options": [
+      "cart-1 cart-2 cart-3",
+      "cart-1 cart-1 cart-1",
+      "cart-1 cart-2 cart-1",
+      "cart-2 cart-3 cart-2"
+    ],
+    "answer": 2,
+    "explain": "Each call to createIdGenerator creates a new scope with its own next, and each returned arrow keeps its own. next++ returns the old value, so the first call gives cart-1 (measured). A shared counter, the cart-3 option, would need next to live outside the factory."
+  },
+  {
+    "id": "m23.q16",
+    "module": "m23",
+    "section": "this",
+    "q": "In an ES module, what happens when <code>cart.labels()</code> is called?",
+    "code": "const cart = {\n  currency: 'EUR',\n  lines: [1250, 399],\n  labels() {\n    return this.lines.map(function (cents) {\n      return cents + ' ' + this.currency;\n    });\n  },\n};",
+    "lang": "js",
+    "options": [
+      "It throws a TypeError: the inner function's this is undefined",
+      "It returns ['1250 EUR', '399 EUR']: the inner function inherits this",
+      "It returns ['1250 undefined', '399 undefined'] from the global object",
+      "It throws a ReferenceError: currency is not defined in that scope"
+    ],
+    "answer": 0,
+    "explain": "labels is called as a method, so its own this is cart, but the inner function is called by map as a plain function and gets its own this: undefined in strict code, so this.currency throws (measured). An arrow callback would read the method's this and return the EUR labels. The undefined labels appear only in old non-module scripts, where this is the global object."
+  },
+  {
+    "id": "m23.q17",
+    "module": "m23",
+    "section": "this",
+    "q": "What does the last line print?",
+    "code": "function storeName() {\n  return this.name;\n}\n\nconst bound = storeName.bind({ name: 'storefront' }).bind({ name: 'back office' });\nconsole.log(bound.call({ name: 'admin' }));",
+    "lang": "js",
+    "options": [
+      "admin",
+      "back office",
+      "undefined",
+      "storefront"
+    ],
+    "answer": 3,
+    "explain": "bind returns a function whose this is fixed for good: binding it again or calling it with call cannot change it, so the first bind wins (measured: storefront). The back office option assumes the last bind overrides, which is the usual misconception."
+  },
+  {
+    "id": "m23.q18",
+    "module": "m23",
+    "section": "classes",
+    "q": "Given the <code>Cart</code> class with a <code>#lines</code> field and <code>static isCart(value)</code> that returns <code>#lines in value</code>, what does this print?",
+    "code": "const fake = Object.create(Cart.prototype);\nconsole.log(fake instanceof Cart, Cart.isCart(fake));",
+    "lang": "js",
+    "options": [
+      "false false",
+      "true false",
+      "true true",
+      "It throws a TypeError, because fake has no #lines"
+    ],
+    "answer": 1,
+    "explain": "instanceof only checks whether Cart.prototype is in the chain, and Object.create put it there, so it is true. No constructor ran, so the object has no #lines, and the #lines in check returns false without throwing (measured). That is why a brand check is more reliable than instanceof."
+  },
+  {
+    "id": "m23.q19",
+    "module": "m23",
+    "section": "classes",
+    "q": "What does this print?",
+    "code": "function Product(name) {\n  this.name = name;\n}\nProduct.prototype.label = function () { return 'Product ' + this.name; };\n\nconst mug = new Product('Mug');\nProduct.prototype.label = function () { return 'New ' + this.name; };\nconsole.log(mug.label());",
+    "lang": "js",
+    "options": [
+      "Product Mug",
+      "It throws, because label was replaced after mug was created",
+      "New Mug",
+      "undefined"
+    ],
+    "answer": 2,
+    "explain": "mug does not copy the methods: it links to Product.prototype and looks label up there at call time, so it sees the replacement (measured: New Mug). Product Mug would require the instance to hold its own copy of the method."
+  },
+  {
+    "id": "m23.q20",
+    "module": "m23",
+    "section": "coercion",
+    "q": "What does this print?",
+    "code": "console.log(1 + 2 + '3', '1' + 2 + 3, '5' - 2);",
+    "lang": "js",
+    "options": [
+      "6 6 3",
+      "33 123 3",
+      "123 123 52",
+      "33 15 3"
+    ],
+    "answer": 1,
+    "explain": "+ is evaluated left to right: 1 + 2 is 3, then 3 + '3' concatenates to '33'; '1' + 2 starts a string, so the result is '123'; - always converts to numbers, so '5' - 2 is 3 (measured). The '15' option assumes 2 + 3 is computed first."
+  },
+  {
+    "id": "m23.q21",
+    "module": "m23",
+    "section": "coercion",
+    "q": "A product card shows <code>line.quantity || 1</code> as the default quantity. A customer sets the quantity to 0 to keep the line but not buy it, and the card shows 1. Which fix would you ship?",
+    "options": [
+      "line.quantity ?? 1, which falls back only for null and undefined",
+      "Number(line.quantity) || 1, so that string quantities are converted",
+      "line.quantity == 0 ? 1 : line.quantity, to handle zero explicitly",
+      "Math.max(line.quantity, 1), so the quantity is never below 1"
+    ],
+    "answer": 0,
+    "explain": "|| falls back for every falsy value, and 0 is falsy, so 0 || 1 is 1; ?? falls back only for null and undefined, so 0 ?? 1 is 0 (measured). Converting with Number keeps the || problem, and the == 0 version forces the same wrong default on purpose."
+  },
+  {
+    "id": "m23.q22",
+    "module": "m23",
+    "section": "modules",
+    "q": "<code>cart-store</code> exports <code>let itemCount = 0</code> and <code>function addItem() { itemCount += 1; }</code>. What do the two importers print?",
+    "code": "// header.mjs (ES module)\nimport { itemCount, addItem } from './cart-store.mjs';\naddItem();\nconsole.log(itemCount);\n\n// header.cjs (CommonJS; cart-store.cjs exports { itemCount, addItem })\nconst { itemCount, addItem } = require('./cart-store.cjs');\naddItem();\nconsole.log(itemCount);",
+    "lang": "js",
+    "options": [
+      "1 and 1",
+      "0 and 0",
+      "0 and 1",
+      "1 and 0"
+    ],
+    "answer": 3,
+    "explain": "An ES import is a live binding to the exporter's variable, so it reads the incremented value. CommonJS destructuring copies the value present in module.exports at require time, and addItem changes only the module's local variable (measured on Node 24: 1, then 0)."
+  },
+  {
+    "id": "m23.q23",
+    "module": "m23",
+    "section": "errors",
+    "q": "A checkout failure is logged with <code>logger.info(JSON.stringify(error))</code>, where <code>error</code> is a <code>CheckoutError</code> (a subclass declaring <code>name</code> as a class field) wrapping a network error as <code>cause</code>. What reaches the log?",
+    "options": [
+      "The name, message, stack and cause",
+      "The name and message, without the stack",
+      "{\"name\":\"CheckoutError\"}",
+      "{}"
+    ],
+    "answer": 2,
+    "explain": "JSON.stringify keeps own enumerable properties. The name class field is one; message, stack and cause are set as non-enumerable properties, so only the name survives (measured). An Error without the name field would give {}. Pass the error to the logger or error tracker, which serializes errors explicitly."
+  },
+  {
+    "id": "m23.q24",
+    "module": "m23",
+    "section": "iterators",
+    "q": "What does this print?",
+    "code": "function* checkoutSteps() {\n  console.log('start');\n  yield 'address';\n  console.log('after address');\n  yield 'payment';\n}\n\nconst steps = checkoutSteps();\nconsole.log('created');\nconsole.log(steps.next().value);",
+    "lang": "js",
+    "options": [
+      "start, created, address",
+      "created, start, address",
+      "created, address",
+      "start, after address, created, address"
+    ],
+    "answer": 1,
+    "explain": "Calling a generator function runs none of its body; it returns a paused generator. The first next() runs up to the first yield, printing start, then returns address (measured). The body never reaches after address because next() is not called again."
+  },
+  {
+    "id": "m23.q25",
+    "module": "m23",
+    "section": "iterators",
+    "q": "What does this print?",
+    "code": "function* promoCodes() {\n  yield 'BLACKFRIDAY';\n  yield 'FREESHIP';\n}\n\nconst codes = promoCodes();\nconsole.log([...codes].length, [...codes].length);",
+    "lang": "js",
+    "options": [
+      "2 2",
+      "2 0",
+      "0 0",
+      "It throws, because a generator cannot be spread twice"
+    ],
+    "answer": 1,
+    "explain": "A generator object is an iterator, and an iterator can be consumed once: the second spread finds it done and produces an empty array (measured). Calling promoCodes() again, or making a class iterable with a generator method, gives a fresh iterator each time."
+  },
+  {
+    "id": "m23.q26",
+    "module": "m23",
+    "section": "copying",
+    "q": "The Undo snapshot is made with <code>JSON.parse(JSON.stringify(cart))</code>. What do <code>typeof snapshot.updatedAt</code> and <code>snapshot.lines</code> give, if <code>updatedAt</code> is a <code>Date</code> and <code>lines</code> a <code>Map</code> with one entry?",
+    "options": [
+      "'object' (a Date) and an equal Map",
+      "'string' and an equal Map",
+      "'object' and an empty object",
+      "'string' and an empty object"
+    ],
+    "answer": 3,
+    "explain": "JSON.stringify calls Date's toJSON, so the date comes back as an ISO string, and a Map has no enumerable own properties, so it becomes {} (measured). structuredClone would keep both the Date and the Map, which is why it fits an in-memory snapshot."
+  },
+  {
+    "id": "m23.q27",
+    "module": "m23",
+    "section": "copying",
+    "q": "The cart drawer sorts prices in cents with <code>prices.sort()</code>, where <code>prices</code> is <code>[1250, 399, 10000, 900]</code>. What is the result, and what else happens?",
+    "options": [
+      "[399, 900, 1250, 10000], and prices is unchanged",
+      "[399, 900, 1250, 10000], and prices is sorted in place",
+      "[10000, 1250, 399, 900], and prices is sorted in place",
+      "[10000, 1250, 399, 900], and prices is unchanged"
+    ],
+    "answer": 2,
+    "explain": "Without a comparator, sort converts values to strings and compares them, so '10000' comes before '1250' (measured), and sort mutates the array it is called on. prices.toSorted((a, b) =&gt; a - b) returns a new, numerically sorted array and leaves prices alone."
+  },
+  {
+    "id": "m23.q28",
+    "module": "m23",
+    "section": "memory",
+    "q": "In Next.js server code, a teammate stores the current customer's cart in a module-level variable \"to avoid fetching it twice per request\". What is the main risk?",
+    "options": [
+      "One module instance serves every request: customers see each other's carts",
+      "It is reset at the start of every request, so the cache never saves a fetch",
+      "Module-level variables are forbidden in server code, so the build fails",
+      "The variable is serialized into the HTML, so the cart leaks to the browser"
+    ],
+    "answer": 0,
+    "explain": "A module is evaluated once and shared by all importers for the life of the process, so module state on a server is shared across requests and users: a data leak between customers and a memory leak. Per-request data must live in the request scope; the \"reset on every request\" option describes what the teammate wrongly assumes."
+  },
+  {
+    "id": "m23.q29",
+    "module": "m23",
+    "section": "memory",
+    "q": "A server-side cache of price labels grows without limit. It is a module-level <code>Map</code> keyed by product id, and products change rarely. Which fix would you ship?",
+    "options": [
+      "Replace it with a WeakMap keyed by product id, so the GC frees entries",
+      "Clear the whole Map every hour with setInterval to cap its growth",
+      "Call the garbage collector at the end of each request to reclaim it",
+      "Bound it: an LRU with a maximum size, plus a time limit if prices change"
+    ],
+    "answer": 3,
+    "explain": "A bounded LRU keeps memory flat and keeps the useful entries; a Map's insertion order gives one in a few lines. A WeakMap cannot take a string id as a key (it throws \"Invalid value used as weak map key\", measured), and clearing everything hourly throws away the hot entries while still growing between clears."
+  },
+  {
+    "id": "m23.q30",
+    "module": "m23",
+    "section": "senior",
+    "q": "The storefront uses Next.js with its default browser targets. A teammate wants to use <code>cartIds.intersection(outOfStockIds)</code> in a client component. What do you answer?",
+    "options": [
+      "Fine: Next.js transpiles every ES2025 feature, methods included, down to its targets",
+      "Fine: Next.js detects missing built-in methods and injects a polyfill for each one",
+      "Safari 16.4 lacks Set methods and Next.js does not polyfill them: polyfill or use filter",
+      "Set methods are still a proposal, so no browser ships them yet"
+    ],
+    "answer": 2,
+    "explain": "Next.js targets Safari 16.4 by default and injects only a few polyfills (fetch, URL, Object.assign); its docs say you add any other yourself. MDN data gives Set.prototype.intersection in Safari 17, Chrome 122 and Firefox 127. Transpiling rewrites syntax, but cannot create a missing method; the methods are standard since ES2025."
+  }
+]

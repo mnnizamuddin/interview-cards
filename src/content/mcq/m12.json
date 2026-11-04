@@ -1,0 +1,430 @@
+[
+  {
+    "id": "m12.q1",
+    "module": "m12",
+    "section": "bola",
+    "q": "A logged-in customer changes <code>GET /orders/ord_a1</code> to <code>GET /orders/ord_b1</code> and receives another customer's order. Which OWASP API risk is it?",
+    "options": [
+      "API2 Broken Authentication",
+      "API1 Broken Object Level Authorization",
+      "API5 Broken Function Level Authorization",
+      "API8 Security Misconfiguration"
+    ],
+    "answer": 1,
+    "explain": "The caller is correctly authenticated, so it is not API2; what is missing is the check that this particular object belongs to them, which is BOLA. API5 is about whole functions, such as a customer reaching an admin route, not about one object among many of the same kind."
+  },
+  {
+    "id": "m12.q2",
+    "module": "m12",
+    "section": "input-output",
+    "q": "<code>PATCH /me</code> accepts <code>{\"displayName\": \"Ana\", \"role\": \"admin\"}</code> and the customer becomes an administrator. Which OWASP API risk is it?",
+    "options": [
+      "API1 Broken Object Level Authorization",
+      "API5 Broken Function Level Authorization",
+      "API3 Broken Object Property Level Authorization",
+      "API4 Unrestricted Resource Consumption"
+    ],
+    "answer": 2,
+    "explain": "The caller edits their own object, which they may do, but sets a property they must not write: that is mass assignment, which the 2023 edition merged with excessive data exposure into API3. It is not API1 because the object is theirs, and not API5 because the route itself is allowed."
+  },
+  {
+    "id": "m12.q3",
+    "module": "m12",
+    "section": "identity",
+    "q": "In the authorization code flow with PKCE, an attacker steals the authorisation <code>code</code> from the redirect. Why can they not exchange it for tokens?",
+    "options": [
+      "The token endpoint also requires the <code>code_verifier</code>, which only the client that started the flow holds",
+      "The code is encrypted with the IdP's private key",
+      "The code is bound to the attacker's IP address and rejected",
+      "The code expires before an attacker can use it"
+    ],
+    "answer": 0,
+    "explain": "The client sent only the hash of the verifier (the challenge) in the authorize URL; at the token endpoint it must present the verifier itself, and the IdP checks that its SHA-256 matches. Codes are short-lived, but a short lifetime alone does not stop an attacker who uses the code at once."
+  },
+  {
+    "id": "m12.q4",
+    "module": "m12",
+    "section": "identity",
+    "q": "With passkeys implemented through SimpleWebAuthn, what does the Orders API store for each credential?",
+    "options": [
+      "A salted Argon2id hash of the passkey",
+      "The private key, encrypted with a server secret",
+      "A shared secret that the device and the server both use to sign",
+      "The credential id, the public key and a signature counter"
+    ],
+    "answer": 3,
+    "explain": "The device keeps the private key; the server keeps the credential id, the public key to verify signatures and the counter it updates after each login (SimpleWebAuthn's documentation). There is no shared secret, which is why a database leak reveals nothing an attacker can log in with."
+  },
+  {
+    "id": "m12.q5",
+    "module": "m12",
+    "section": "passwords",
+    "q": "Which setting is one of the OWASP Password Storage Cheat Sheet minimums for Argon2id?",
+    "options": [
+      "<code>m=19456</code> (19 MiB), <code>t=2</code>, <code>p=1</code>",
+      "<code>m=1024</code> (1 MiB), <code>t=1</code>, <code>p=1</code>",
+      "<code>m=19456</code> (19 MiB), <code>t=1</code>, <code>p=4</code>",
+      "<code>N=2^17</code>, <code>r=8</code>, <code>p=1</code>"
+    ],
+    "answer": 0,
+    "explain": "OWASP lists five equivalent Argon2id settings, including 19 MiB with two passes and parallelism 1, and 46 MiB with one pass. <code>N=2^17, r=8, p=1</code> is real too, but it is the scrypt setting, not an Argon2id one."
+  },
+  {
+    "id": "m12.q6",
+    "module": "m12",
+    "section": "passwords",
+    "q": "The login handler returns 401 immediately when the e-mail is unknown, and runs a 65 ms Argon2id verification when it exists. What is the problem?",
+    "options": [
+      "Nothing, as long as both cases return the same status code",
+      "The unknown-e-mail path wastes no CPU, which is the desired behaviour",
+      "The response time reveals which e-mails have accounts; verify against a dummy hash so both paths cost the same",
+      "The 401 should be a 404 for unknown e-mails"
+    ],
+    "answer": 2,
+    "explain": "Identical status codes are not enough when the timing differs by a full hash: an attacker can enumerate accounts by measuring. Checking the password against a dummy hash made with the same settings makes both paths cost the same, and the body stays identical."
+  },
+  {
+    "id": "m12.q7",
+    "module": "m12",
+    "section": "sessions",
+    "q": "What does the <code>HttpOnly</code> attribute on the BFF's session cookie protect against?",
+    "options": [
+      "The browser attaching the cookie to requests sent from another site",
+      "A script injected into your page (XSS) reading the cookie and sending it to an attacker",
+      "The cookie being sent over plain HTTP",
+      "A sibling subdomain overwriting the cookie"
+    ],
+    "answer": 1,
+    "explain": "MDN: <code>HttpOnly</code> forbids JavaScript access through <code>document.cookie</code>, but the browser still sends the cookie with requests. Stopping cross-site sending is <code>SameSite</code>, HTTPS-only is <code>Secure</code>, and subdomain overwrites are stopped by the <code>__Host-</code> prefix."
+  },
+  {
+    "id": "m12.q8",
+    "module": "m12",
+    "section": "sessions",
+    "q": "A request with <code>Origin: https://evil.example</code> reaches the Orders API (Fastify), which has no CORS plugin. What happened when this was measured?",
+    "options": [
+      "Fastify rejected it with 403",
+      "Fastify answered 204 to a preflight and blocked the request",
+      "The browser refused to send the request",
+      "Fastify answered a normal 200 without any <code>Access-Control-*</code> header; only a browser would hide the response from the script"
+    ],
+    "answer": 3,
+    "explain": "CORS is enforced by browsers on what a script may read, not by the server on what it accepts: the handler ran and returned 200. That is why CORS is not access control, and why state-changing requests need CSRF protection and authorisation of their own."
+  },
+  {
+    "id": "m12.q9",
+    "module": "m12",
+    "section": "tokens",
+    "q": "A service expects HS256 and calls <code>jwtVerify(token, secret, { issuer, audience })</code> without <code>algorithms</code>. A token signed with HS512 and the same secret arrives. What did jose 6.2.12 do?",
+    "options": [
+      "Rejected it with <code>JOSEAlgNotAllowed</code>",
+      "Accepted it",
+      "Rejected it with <code>JWSSignatureVerificationFailed</code>",
+      "Threw a <code>TypeError</code> about the key length"
+    ],
+    "answer": 1,
+    "explain": "Measured: accepted, with <code>protectedHeader.alg</code> equal to HS512. With <code>algorithms: ['HS256']</code> it was rejected with <code>JOSEAlgNotAllowed</code>. The signature is valid for the algorithm the token names, which is exactly why the verifier, not the token, must choose the algorithm."
+  },
+  {
+    "id": "m12.q10",
+    "module": "m12",
+    "section": "tokens",
+    "q": "The mobile app's refresh tokens are rotated on every use. The server receives a refresh token that was already exchanged an hour ago. What should it do?",
+    "options": [
+      "Treat it as stolen: revoke the whole token family and require a new login",
+      "Issue new tokens, since the token is still within its lifetime",
+      "Ignore the request and return the tokens issued an hour ago",
+      "Return 429 so the client slows down"
+    ],
+    "answer": 0,
+    "explain": "With rotation, a legitimate client never presents an old refresh token again, so reuse means someone copied it; revoking the family cuts off both the attacker and the copied chain. Issuing new tokens would hand the attacker a fresh session."
+  },
+  {
+    "id": "m12.q11",
+    "module": "m12",
+    "section": "bola",
+    "q": "Why put <code>AND customer_id = $2</code> in the query rather than load the order by id and check the owner in the handler?",
+    "options": [
+      "The database checks ownership faster than JavaScript",
+      "It removes the need to verify the access token",
+      "A forgotten check returns nothing instead of another customer's data, and \"not yours\" looks exactly like \"not found\"",
+      "PostgreSQL refuses queries on the orders table without it"
+    ],
+    "answer": 2,
+    "explain": "Run against PostgreSQL 18, customer A asking for customer B's order got an empty result, so the route answered the same 404 as a missing id. The point is structural safety, not speed; the caller's id still comes from a verified session or token."
+  },
+  {
+    "id": "m12.q12",
+    "module": "m12",
+    "section": "input-output",
+    "q": "With Zod 4, what does <code>z.object({ displayName: z.string() }).parse({ displayName: 'Ana', role: 'admin' })</code> return?",
+    "options": [
+      "It throws a ZodError with the code <code>unrecognized_keys</code>",
+      "<code>{ displayName: 'Ana', role: 'admin' }</code>",
+      "<code>{ displayName: 'Ana', role: undefined }</code>",
+      "<code>{ displayName: 'Ana' }</code>"
+    ],
+    "answer": 3,
+    "explain": "Measured with zod 4.6.7: a plain <code>z.object</code> strips unknown keys without an error. The <code>unrecognized_keys</code> error comes from <code>z.strictObject</code>, which you choose when you want probing and client bugs to fail loudly."
+  },
+  {
+    "id": "m12.q13",
+    "module": "m12",
+    "section": "abuse",
+    "q": "The login endpoint, running on six replicas, is under a credential-stuffing attack: thousands of e-mails tried from thousands of IPs. Which rate-limiting design do you ship?",
+    "options": [
+      "An in-memory limit of 5 attempts per IP on each replica",
+      "A global limit of 100 logins per minute for the whole service",
+      "Limits per account and per IP, with counters in a shared store such as Redis, answering 429 with <code>Retry-After</code>",
+      "Locking each account permanently after 5 failures"
+    ],
+    "answer": 2,
+    "explain": "Stuffing spreads across many accounts and many IPs, so you need both keys, and in-memory counters on six replicas multiply the limit by six. A global limit locks out real customers during the attack, and permanent lockouts let an attacker deny service to any account they name."
+  },
+  {
+    "id": "m12.q14",
+    "module": "m12",
+    "section": "abuse",
+    "q": "A reviewer approves this SSRF guard for order-update webhooks. A business customer then registers the URL <code>https://hooks.slack.com@169.254.169.254/latest/meta-data/</code>. What happens?",
+    "code": "export async function postToWebhook(rawUrl: string, payload: unknown): Promise<Response> {\n  if (!rawUrl.startsWith('https://hooks.slack.com')) {\n    throw new ForbiddenDestinationError(rawUrl);\n  }\n  return fetch(rawUrl, { method: 'POST', body: JSON.stringify(payload) });\n}",
+    "lang": "ts",
+    "options": [
+      "The guard rejects it because the string contains an <code>@</code>",
+      "The guard accepts it and <code>fetch</code> calls 169.254.169.254, because everything before <code>@</code> is user information, not the host",
+      "The guard accepts it but <code>fetch</code> refuses URLs with credentials",
+      "The guard accepts it and <code>fetch</code> calls hooks.slack.com"
+    ],
+    "answer": 1,
+    "explain": "Measured: <code>new URL('https://hooks.slack.com@169.254.169.254/latest').hostname</code> is <code>169.254.169.254</code>. A string prefix test checks text, not the destination; parse with <code>new URL</code>, compare <code>hostname</code> against an allow-list, and add <code>redirect: 'error'</code>."
+  },
+  {
+    "id": "m12.q15",
+    "module": "m12",
+    "section": "tokens",
+    "q": "An internal tool mints tokens without an <code>exp</code> claim. The Orders API verifies them as below. What happens to such a token with jose 6.2.12?",
+    "code": "const { payload } = await jwtVerify(token, jwks, {\n  algorithms: ['ES256'],\n  issuer: 'https://id.example.com',\n  audience: 'orders-api',\n});",
+    "lang": "ts",
+    "options": [
+      "It is accepted, and stays valid forever",
+      "It is rejected with <code>JWTExpired</code>",
+      "It is rejected with <code>JWTClaimValidationFailed</code>: missing required \"exp\" claim",
+      "It is accepted for the default lifetime of 15 minutes"
+    ],
+    "answer": 0,
+    "explain": "Measured: without <code>requiredClaims: ['exp']</code>, a token with no expiry was accepted. The \"missing required exp\" error appears only once you list <code>exp</code> in <code>requiredClaims</code>; jose has no default lifetime unless you set <code>maxTokenAge</code>."
+  },
+  {
+    "id": "m12.q16",
+    "module": "m12",
+    "section": "tokens",
+    "q": "A test issues a token with <code>exp</code> = T and calls <code>jwtVerify</code> with <code>currentDate</code> exactly equal to T and no clock tolerance. Which assertion passes?",
+    "options": [
+      "The token is accepted, because it expires after T",
+      "The token is accepted only if <code>iat</code> is before T",
+      "The token is rejected with <code>JWSSignatureVerificationFailed</code>",
+      "The token is rejected with <code>JWTExpired</code>"
+    ],
+    "answer": 3,
+    "explain": "Measured: one second before <code>exp</code> was accepted and exactly <code>exp</code> was rejected with <code>JWTExpired</code> (\"exp\" claim timestamp check failed), so <code>exp</code> is exclusive. Pin such boundaries with an injected clock rather than the real one."
+  },
+  {
+    "id": "m12.q17",
+    "module": "m12",
+    "section": "tokens",
+    "q": "During a signing-key rotation, the IdP removed the old key from its JWKS at the same moment it started signing with the new one. Access tokens live 15 minutes. What does the Orders API see?",
+    "options": [
+      "Tokens signed with the old key fail with <code>JWKSNoMatchingKey</code> until they expire, so users get 401s; the old key should have stayed published for at least the token lifetime",
+      "Nothing: jose falls back to the newest key in the set",
+      "Tokens signed with the new key fail until the JWKS cache expires",
+      "jose throws <code>JWKSMultipleMatchingKeys</code> for every token"
+    ],
+    "answer": 0,
+    "explain": "Measured with a local JWKS: once the old key was gone, its tokens failed with <code>JWKSNoMatchingKey</code>. New-key tokens are fine, because an unknown <code>kid</code> triggers a refetch. The safe order is publish the new key, sign with it, and remove the old one after the longest token lifetime."
+  },
+  {
+    "id": "m12.q18",
+    "module": "m12",
+    "section": "passwords",
+    "q": "A colleague wants to drop the native dependency and hash passwords with Node's built-in <code>crypto.argon2()</code> (callback form). Measured on Node 24.11.1, what did that call do?",
+    "options": [
+      "It ran entirely on the libuv thread pool, like <code>crypto.scrypt</code>",
+      "It threw <code>ERR_FEATURE_UNAVAILABLE</code>, because Argon2 is not in Node 24",
+      "It returned only after about one hash duration, blocking the event loop; eight parallel calls froze it for about 480 ms",
+      "It printed an experimental warning and fell back to scrypt"
+    ],
+    "answer": 2,
+    "explain": "Argon2 has been in <code>node:crypto</code> since v24.7.0, but on 24.11.1 the callback call itself took about 65 ms at <code>m=19456, t=2</code> before returning. @node-rs/argon2 ran eight hashes in 132 ms with the loop never blocked more than 39 ms, so it is the safer choice until a re-measurement shows otherwise."
+  },
+  {
+    "id": "m12.q19",
+    "module": "m12",
+    "section": "passwords",
+    "q": "What happens when this runs on Node 24 (OWASP's scrypt setting, no other option)?",
+    "code": "import { randomBytes, scryptSync } from 'node:crypto';\n\nconst key = scryptSync('correct horse', randomBytes(16), 32, { N: 2 ** 17, r: 8, p: 1 });\nconsole.log(key.length);",
+    "lang": "ts",
+    "options": [
+      "It prints 32 after about a quarter of a second",
+      "It throws <code>ERR_CRYPTO_INVALID_SCRYPT_PARAMS</code>: memory limit exceeded",
+      "It prints 32 at once, because N is silently capped",
+      "It throws because the salt must be a string"
+    ],
+    "answer": 1,
+    "explain": "Measured: this setting needs about 128 × N × r = 128 MiB, above Node's default <code>maxmem</code>, so it throws. With a larger <code>maxmem</code> it worked (about 380 ms here), and in a server you would use the async <code>scrypt</code> anyway."
+  },
+  {
+    "id": "m12.q20",
+    "module": "m12",
+    "section": "identity",
+    "q": "The shop's React single-page app currently keeps the access and refresh tokens in <code>localStorage</code>. What does RFC 10017 (OAuth 2.0 for Browser-Based Applications) recommend for a business application like this?",
+    "options": [
+      "Move the tokens to <code>sessionStorage</code>",
+      "Encrypt the tokens in <code>localStorage</code> with a key from the server",
+      "Keep the tokens in memory and refresh on every page load",
+      "A backend-for-frontend that runs the OAuth flow, keeps tokens server-side, and gives the browser an HttpOnly session cookie"
+    ],
+    "answer": 3,
+    "explain": "RFC 10017 ranks the BFF as the most secure browser architecture and strongly recommends it for business applications. Any storage JavaScript can read, including <code>sessionStorage</code> or an in-page decryption key, is readable by an injected script too."
+  },
+  {
+    "id": "m12.q21",
+    "module": "m12",
+    "section": "identity",
+    "q": "A team proposes the OAuth “resource owner password credentials” grant so the shop's mobile app can post the customer's password directly to the token endpoint. What does RFC 9700 say?",
+    "options": [
+      "It is allowed for first-party mobile apps",
+      "It must not be used",
+      "It is allowed if combined with PKCE",
+      "It is deprecated but acceptable until OAuth 2.1 is published"
+    ],
+    "answer": 1,
+    "explain": "RFC 9700, the current OAuth security best practice, states that the password grant MUST NOT be used, and the OAuth 2.1 draft drops it. The app should use the authorization code flow with PKCE in the system browser, which also lets the IdP offer passkeys and SSO."
+  },
+  {
+    "id": "m12.q22",
+    "module": "m12",
+    "section": "sessions",
+    "q": "The BFF uses a <code>SameSite=Lax</code> session cookie. The auditor asks for a proper CSRF defence on <code>POST /orders/:id/cancel</code>. Which answer matches the OWASP CSRF cheat sheet?",
+    "options": [
+      "Add a CSRF token (synchroniser or signed double-submit) or reject cross-site requests using <code>Sec-Fetch-Site</code>, with an <code>Origin</code> check as fallback; SameSite stays as defence in depth",
+      "Nothing: <code>SameSite=Lax</code> fully prevents CSRF",
+      "Add a strict CORS policy listing only your front-end origin",
+      "Mark the cookie <code>HttpOnly</code>"
+    ],
+    "answer": 0,
+    "explain": "OWASP calls SameSite useful defence in depth that does not replace a proper CSRF defence. CORS does not stop a form POST from being sent, and <code>HttpOnly</code> stops scripts reading the cookie, not the browser attaching it."
+  },
+  {
+    "id": "m12.q23",
+    "module": "m12",
+    "section": "tokens",
+    "q": "An attacker finds an XSS bug in a single-page app that stores its JWT access token in <code>localStorage</code>. What can they do?",
+    "options": [
+      "Nothing, because the token is signed",
+      "Read the claims but not use the token, which is bound to the browser",
+      "Read the token and use it from their own machine until it expires",
+      "Modify the claims, since the payload is only base64url"
+    ],
+    "answer": 2,
+    "explain": "A bearer token works for whoever presents it, so the attacker can replay it anywhere until <code>exp</code>. Editing the claims fails (measured: <code>JWSSignatureVerificationFailed</code>). Only sender-constrained tokens (DPoP) or keeping tokens out of the page (BFF) limit this."
+  },
+  {
+    "id": "m12.q24",
+    "module": "m12",
+    "section": "bola",
+    "q": "Customer A requests <code>GET /orders/ord_77/invoice</code>, and order <code>ord_77</code> belongs to customer B. What should the Orders API answer?",
+    "options": [
+      "403 Forbidden, to be explicit about the reason",
+      "401 Unauthorized, so the client logs in again",
+      "200 with the amounts removed",
+      "404 Not Found, exactly as for an id that does not exist"
+    ],
+    "answer": 3,
+    "explain": "A 403 confirms that the order exists, which helps an attacker enumerate ids. 401 means \"who are you?\", which is wrong for an authenticated caller. When a caller may legitimately know an object exists (a shared resource they lost access to), 403 can be the right product choice."
+  },
+  {
+    "id": "m12.q25",
+    "module": "m12",
+    "section": "authz",
+    "q": "The shop adds business accounts: buyers belong to teams, teams belong to a company account, orders belong to the company, and a company can share its order history with its accounting firm, whose staff then see those orders. Which authorisation model and tool fit best?",
+    "options": [
+      "RBAC with a role claim from the IdP",
+      "ReBAC with a Zanzibar-style system such as OpenFGA",
+      "ABAC with a single rule on the order's owner",
+      "No model: check <code>customer_id</code> in every query"
+    ],
+    "answer": 1,
+    "explain": "Access here follows chains of relationships (buyer in team, team in company, company shares with firm), which is what relationship-based access control models directly. A role cannot say \"orders of this company\", and an owner check ignores sharing; OpenFGA is the CNCF incubating project built for this."
+  },
+  {
+    "id": "m12.q26",
+    "module": "m12",
+    "section": "bola",
+    "q": "Which automated test is most likely to catch a BOLA regression in the Orders API before production?",
+    "options": [
+      "A test that requests every route without a token and expects 401",
+      "A load test that checks the p99 latency of each route",
+      "For every route that takes an id, log in as customer A, request customer B's object, and expect the same 404 as a missing id",
+      "A unit test of the JWT verification function"
+    ],
+    "answer": 2,
+    "explain": "BOLA happens to authenticated callers, so tests without a token pass while the bug is present. Only a test that crosses ownership, customer A asking for customer B's object, exercises the missing check; token verification tests cover API2, not API1."
+  },
+  {
+    "id": "m12.q27",
+    "module": "m12",
+    "section": "input-output",
+    "q": "What does the client receive from this Fastify 5 route?",
+    "code": "app.get('/me', {\n  schema: {\n    response: {\n      200: { type: 'object', properties: { id: { type: 'string' }, email: { type: 'string' } } },\n    },\n  },\n}, async () => ({ id: 'u1', email: 'a@b.c', passwordHash: '$argon2id$v=19$...' }));",
+    "lang": "ts",
+    "options": [
+      "<code>{\"id\":\"u1\",\"email\":\"a@b.c\"}</code>",
+      "The full object, including <code>passwordHash</code>",
+      "A 500 error, because the object has an extra property",
+      "An empty object, because the schema has no <code>required</code> list"
+    ],
+    "answer": 0,
+    "explain": "Measured: Fastify serialises with the response schema and drops properties it does not list. That makes the schema an allow-list of outgoing fields, the output half of API3; without a response schema the whole object, hash included, would have been sent."
+  },
+  {
+    "id": "m12.q28",
+    "module": "m12",
+    "section": "abuse",
+    "q": "The BFF (Express 5) uses <code>app.use(express.json())</code> with no options. A client posts a 101 KiB JSON body. What happens?",
+    "options": [
+      "It is parsed normally; Express has no default limit",
+      "413 with the error type <code>entity.too.large</code>, because the default limit is 100 KB",
+      "The connection is reset without a response",
+      "400 with a JSON syntax error"
+    ],
+    "answer": 1,
+    "explain": "Measured: a body just under 100 KiB returned 200 and a 101 KiB body returned 413 <code>entity.too.large</code>. Fastify's default <code>bodyLimit</code> is 1 MiB (also measured, with <code>FST_ERR_CTP_BODY_TOO_LARGE</code>); set the limit your API actually needs."
+  },
+  {
+    "id": "m12.q29",
+    "module": "m12",
+    "section": "supply-chain",
+    "q": "A popular package's maintainer account is phished and a malicious version is published at 14:00; it is detected and removed at 16:30. The Orders API's CI runs <code>pnpm install</code> at 15:00 with pnpm 12 defaults. What protects it?",
+    "options": [
+      "The lockfile alone, whatever the version range",
+      "<code>pnpm audit</code>, which flags the version as soon as it is published",
+      "Nothing, because the version satisfies the semver range",
+      "<code>minimumReleaseAge</code> (1,440 minutes by default) skips versions published less than a day ago, and dependency install scripts are blocked unless allowed"
+    ],
+    "answer": 3,
+    "explain": "pnpm's documentation lists <code>minimumReleaseAge: 1440</code> and blocked dependency builds as defaults; together they avoid most hours-long compromises like the September 2025 ones. A lockfile helps only if CI installs it frozen and nobody updates it in that window, and an audit database knows about a malicious version only after someone reports it."
+  },
+  {
+    "id": "m12.q30",
+    "module": "m12",
+    "section": "supply-chain",
+    "q": "The Orders API's Dockerfile contains <code>ARG NPM_TOKEN</code> and <code>RUN npm ci</code> with the token, and the image is pushed to a shared registry. What is wrong, and what is the fix?",
+    "options": [
+      "Nothing, as long as the registry is private to the company",
+      "The token must be passed with <code>ENV</code> instead of <code>ARG</code>",
+      "Build arguments persist in the image, so anyone who pulls it can read the token; use a build secret (<code>RUN --mount=type=secret</code>) and rotate the token",
+      "The token is safe because registries encrypt images at rest"
+    ],
+    "answer": 2,
+    "explain": "Docker's documentation says build arguments and environment variables are inappropriate for secrets because they persist in the final image, where anyone who pulls it can read them. Build secrets are mounted only for the <code>RUN</code> step, and a token that may have leaked must be rotated."
+  }
+]

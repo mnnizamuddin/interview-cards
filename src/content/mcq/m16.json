@@ -1,0 +1,428 @@
+[
+  {
+    "id": "m16.q1",
+    "module": "m16",
+    "section": "method",
+    "q": "In a system design round, what is the interviewer mainly grading?",
+    "options": [
+      "Whether your final diagram matches the architecture the company actually runs",
+      "How you reason: clarifying requirements, letting numbers drive choices, and naming what each choice costs",
+      "How many technologies you can name and place on the diagram",
+      "Whether you finish every step of the method before the time runs out"
+    ],
+    "answer": 1,
+    "explain": "There is no single right design, so the round grades the reasoning that leads to one. Matching the company's real architecture is not expected, and naming many technologies without a requirement behind them is a negative signal."
+  },
+  {
+    "id": "m16.q2",
+    "module": "m16",
+    "section": "method",
+    "q": "Which of these is a <b>non-functional</b> requirement for the flash-sale checkout?",
+    "options": [
+      "Customers can reserve one console each",
+      "A reservation expires after 10 minutes",
+      "Checkout answers in under 300 ms at the 99th percentile during the spike",
+      "Customers receive a confirmation e-mail after paying"
+    ],
+    "answer": 2,
+    "explain": "A non-functional requirement says how well the system must work (latency, availability, scale, durability). The other three describe what the system does, so they are functional. The latency target under the spike is the kind of requirement that later justifies a cheap \"sold out\" answer from the cache."
+  },
+  {
+    "id": "m16.q3",
+    "module": "m16",
+    "section": "estimates",
+    "q": "You assume a million waiting customers, each refreshing the product page every 2 seconds. About how many page reads per second?",
+    "options": [
+      "About 5,000",
+      "About 50,000",
+      "About 5,000,000",
+      "About 500,000"
+    ],
+    "answer": 3,
+    "explain": "1,000,000 customers / 2 seconds = 500,000 reads per second (recomputed in Node). 5,000,000 comes from multiplying by the interval instead of dividing. At that rate the product page and its stock count must come from a CDN or a cache, never from the database."
+  },
+  {
+    "id": "m16.q4",
+    "module": "m16",
+    "section": "estimates",
+    "q": "A service handles 1 million requests a day, spread evenly. Roughly how many requests per second is that?",
+    "options": [
+      "About 12",
+      "About 120",
+      "About 1.2",
+      "About 1,200"
+    ],
+    "answer": 0,
+    "explain": "1,000,000 / 86,400 seconds ≈ 11.6, so about 12 per second. It is worth memorising: a million a day is a small load that one server handles easily, which is why the peak matters more than the daily total, as the flash sale shows with 1 million attempts in one minute."
+  },
+  {
+    "id": "m16.q5",
+    "module": "m16",
+    "section": "high-level",
+    "q": "Three services (e-mails, analytics, accounting) must each read every <code>order.paid</code> event, and a fraud service added next month must be able to replay last week's events. Which block fits?",
+    "options": [
+      "A queue such as SQS, because it delivers each message to a worker",
+      "A log such as Kafka, because events stay for a retention period and each consumer reads the stream",
+      "A read replica of the orders database",
+      "A cache with a long expiry holding the latest events"
+    ],
+    "answer": 1,
+    "explain": "Kafka documents that events are not deleted after consumption and are kept for a configurable retention, so several consumers read the same stream and a new one can replay it. A queue hands each message to one consumer and deletes it once processed, so it cannot serve three readers plus a replay."
+  },
+  {
+    "id": "m16.q6",
+    "module": "m16",
+    "section": "high-level",
+    "q": "The \"My orders\" page reads from a read replica. Right after paying, a customer opens it and sees the order still waiting for payment. What is happening?",
+    "options": [
+      "The cache-aside pattern returned an expired entry",
+      "The primary rejected the payment update and the webhook did not notice",
+      "The load balancer sent the request to an unhealthy instance",
+      "Replication lag: the read went to a replica that had not yet applied the write"
+    ],
+    "answer": 3,
+    "explain": "Replicas apply the primary's changes slightly later, so a read sent to a replica just after a write can miss it. The usual fix is read-your-writes: send that customer's reads to the primary for a short time after a write. No cache is involved in the scenario, so cache expiry does not explain it."
+  },
+  {
+    "id": "m16.q7",
+    "module": "m16",
+    "section": "stock",
+    "q": "What does the CAP theorem actually constrain?",
+    "options": [
+      "What a replicated store can do during a network partition: answer possibly stale data, or refuse to answer",
+      "Every distributed system at all times: it can only ever have two of consistency, availability and partition tolerance",
+      "The trade between latency and consistency when the network is healthy",
+      "Whether a database supports transactions across several tables"
+    ],
+    "answer": 0,
+    "explain": "CAP says that during a partition a system must choose between consistency (latest write or an error) and availability (a non-error answer from every working node). Without a partition both are possible, so \"pick two at all times\" is the popular misreading. The healthy-network trade between latency and consistency is what PACELC adds."
+  },
+  {
+    "id": "m16.q8",
+    "module": "m16",
+    "section": "idempotency",
+    "q": "The payment webhook records each event id in a <code>processed_events</code> table. Why must that insert be in the same transaction as the effects?",
+    "options": [
+      "Because PostgreSQL refuses an <code>ON CONFLICT</code> clause outside a transaction",
+      "To make the payment provider deliver each event only once",
+      "So that a crash leaves either both the id and the effects or neither, and a redelivery applies the effects exactly once",
+      "To make the insert faster by batching it with the updates"
+    ],
+    "answer": 2,
+    "explain": "If the id committed without the effects, a crash would make the redelivery skip work that never happened; if the effects committed without the id, the redelivery would apply them twice. Committing both together gives an exactly-once effect on top of at-least-once delivery. The provider still redelivers; the consumer makes that harmless."
+  },
+  {
+    "id": "m16.q9",
+    "module": "m16",
+    "section": "rate-limiter",
+    "q": "A fixed window limiter allows 100 requests per minute. A client sends 100 requests at 59.9 s and 100 more at 60.0 s. How many are accepted?",
+    "options": [
+      "100",
+      "200",
+      "150",
+      "0, because the client exceeded the limit"
+    ],
+    "answer": 1,
+    "explain": "The counter resets at the minute boundary, so the second batch lands in a fresh window. Measured on Node 24: the fixed window accepted 200 while a sliding window counter accepted 100. That double burst at the boundary is the classic weakness of the fixed window."
+  },
+  {
+    "id": "m16.q10",
+    "module": "m16",
+    "section": "rate-limiter",
+    "q": "A token bucket has capacity 5 and refills 2 tokens per second. A client sends 5 requests at t = 0. When is the next request allowed?",
+    "options": [
+      "At t = 2,500 ms, when the bucket is full again",
+      "At t = 1,000 ms",
+      "Not before the next minute starts",
+      "At t = 500 ms"
+    ],
+    "answer": 3,
+    "explain": "2 tokens per second is one token every 500 ms, and one token is enough for one request. Run with the module's token bucket: a sixth request at 0 ms is refused with a 500 ms wait, and the request at 500 ms is allowed. Waiting for a full bucket is not required."
+  },
+  {
+    "id": "m16.q11",
+    "module": "m16",
+    "section": "url-shortener",
+    "q": "The product team wants click counts on every short link. Which redirect status do you return?",
+    "options": [
+      "302, because caches may reuse a 301 and later clicks would not reach you",
+      "301, because it is the fastest for users",
+      "308, because it keeps the request method",
+      "200 with an HTML page that redirects with JavaScript"
+    ],
+    "answer": 0,
+    "explain": "RFC 9110 lists 301 and 308 as heuristically cacheable, and says that after a 302 the client ought to keep using the original URL. A cached 301 means clicks you never see and a target you cannot change. 308 has the same caching issue as 301."
+  },
+  {
+    "id": "m16.q12",
+    "module": "m16",
+    "section": "notifications",
+    "q": "Why use separate queues per channel and priority (for example <code>push.urgent</code>, <code>push.bulk</code>, <code>sms</code>)?",
+    "options": [
+      "Because each provider requires its own queue technology",
+      "To guarantee that each message is delivered exactly once",
+      "So that a slow provider or a 10-million campaign cannot delay login codes or other channels",
+      "To reduce the storage cost of the queue"
+    ],
+    "answer": 2,
+    "explain": "One shared queue means a campaign burst or a slow SMS provider holds up everything behind it. Separate queues let urgent messages and healthy channels keep flowing with their own workers. Queue layout does nothing for exactly-once; deduplication handles duplicates."
+  },
+  {
+    "id": "m16.q13",
+    "module": "m16",
+    "section": "rate-limiter",
+    "q": "The Orders API runs on 10 replicas behind a load balancer, each with an in-memory limiter of 100 requests per minute per customer. What can one client actually get?",
+    "options": [
+      "Exactly 100 per minute",
+      "About 10 per minute",
+      "Up to about 1,000 per minute, spread across the replicas",
+      "Unlimited, because in-memory state resets on every request"
+    ],
+    "answer": 2,
+    "explain": "Each replica only counts what it sees, so a client spread evenly gets 10 × 100. The fix is shared state in Redis or Valkey with an atomic update, or dividing the limit by the replica count and accepting the imprecision. In-memory state does not reset per request; it lives as long as the process."
+  },
+  {
+    "id": "m16.q14",
+    "module": "m16",
+    "section": "rate-limiter",
+    "q": "A teammate implements the distributed limiter like this. Under load, clients sometimes get more than the limit. Why?",
+    "code": "async function allow(redis: RedisClientType, key: string, limit: number): Promise<boolean> {\n  const current = Number(await redis.get(key) ?? 0);\n  if (current >= limit) {\n    return false;\n  }\n  await redis.set(key, String(current + 1), { EX: 60 });\n  return true;\n}",
+    "lang": "ts",
+    "options": [
+      "The read and the write are two separate commands, so two replicas can both read the same count and both accept",
+      "The 60-second expiry resets the counter on every request",
+      "<code>Number(null)</code> returns <code>NaN</code>, so the comparison is always false",
+      "Redis converts the counter to a float and loses precision"
+    ],
+    "answer": 0,
+    "explain": "Between the GET and the SET, another replica can run the same GET and see the same value, so both accept the last slot: the check-then-act race of section 5, in Redis. The fix is one atomic operation, an INCR with an expiry or a Lua script, which Redis runs without interleaving other commands. The code uses <code>?? 0</code>, so a missing key gives 0, not NaN."
+  },
+  {
+    "id": "m16.q15",
+    "module": "m16",
+    "section": "rate-limiter",
+    "q": "A checkout attempt is refused, and the next token arrives in 1,001 ms. What do you send in <code>Retry-After</code>?",
+    "options": [
+      "1",
+      "1001",
+      "2",
+      "1.001"
+    ],
+    "answer": 2,
+    "explain": "RFC 9110 defines the delay form of Retry-After as a whole number of seconds. Rounding 1.001 s down to 1 invites a retry that is refused again, so round up to 2. Milliseconds (1001) and decimals (1.001) are not valid values."
+  },
+  {
+    "id": "m16.q16",
+    "module": "m16",
+    "section": "rate-limiter",
+    "q": "The Valkey behind your limiters becomes unreachable. What do you do for the general per-customer limit and for the login-attempts limit?",
+    "options": [
+      "Fail closed for both, since an unprotected API is worse than an unavailable one",
+      "Fail open for the per-customer limit and log an alert; fail closed for login attempts",
+      "Fail open for both, since availability always comes first",
+      "Stop the API replicas so the load balancer drains them until Valkey is back"
+    ],
+    "answer": 1,
+    "explain": "A limiter outage should not become an API outage: Stripe writes that requests should not be affected if Redis goes down. Login limits protect against brute force, and letting every attempt through is exactly what an attacker wants, so they fail closed. Treating both the same ignores what each limit protects."
+  },
+  {
+    "id": "m16.q17",
+    "module": "m16",
+    "section": "rate-limiter",
+    "q": "Using the module's <code>createTokenBucket</code>, what does this print?",
+    "code": "let now = 0;\nconst take = createTokenBucket({ capacity: 10, refillPerSecond: 1 }, () => now);\n\ntake('customer-42');      // one request at t = 0\nnow = 30_000;             // the client is idle for 30 seconds\nlet allowed = 0;\nfor (let i = 0; i < 15; i += 1) {\n  if (take('customer-42').allowed) {\n    allowed += 1;\n  }\n}\nconsole.log(allowed);",
+    "lang": "ts",
+    "options": [
+      "15",
+      "30",
+      "9",
+      "10"
+    ],
+    "answer": 3,
+    "explain": "After 30 s the bucket would hold 39 tokens, but the refill is capped at the capacity of 10, so 10 of the 15 requests pass (measured on Node 24). That cap is what bounds a burst after a quiet period. 15 or 30 would mean the bucket had no capacity limit."
+  },
+  {
+    "id": "m16.q18",
+    "module": "m16",
+    "section": "ids",
+    "q": "You generate random 7-character base-62 order numbers. Roughly when does the chance of at least one collision reach 50%?",
+    "options": [
+      "After about 2.2 million numbers",
+      "When the space is half full, around 1.76 trillion numbers",
+      "Never, if the random generator is cryptographically secure",
+      "After about 3.5 billion numbers"
+    ],
+    "answer": 0,
+    "explain": "The birthday paradox: the 50% point is about 1.18 × √(62<sup>7</sup>) ≈ 2.2 million, far before the space fills. A secure generator is still random, so it collides at the same rate. Random codes therefore always need a unique constraint and a retry."
+  },
+  {
+    "id": "m16.q19",
+    "module": "m16",
+    "section": "ids",
+    "q": "What is the main problem with order numbers that are a database sequence written in base 62?",
+    "options": [
+      "They collide once the sequence passes 62<sup>6</sup>",
+      "They cannot be decoded back to the id",
+      "They are longer than random codes for the same number of orders",
+      "They are guessable: anyone can walk the numbers, and two orders reveal your sales volume"
+    ],
+    "answer": 3,
+    "explain": "A sequence never collides and is as short as any code for the same count. But consecutive numbers can be walked one by one, and two orders a few minutes apart tell a competitor how many units you sold. Mitigations: random codes with a uniqueness check, or a reversible shuffle of the id (multiply by a number coprime with 62<sup>7</sup>, modulo 62<sup>7</sup>)."
+  },
+  {
+    "id": "m16.q20",
+    "module": "m16",
+    "section": "ids",
+    "q": "With the module's <code>encodeBase62</code> (alphabet <code>0-9a-zA-Z</code>), what does this print?",
+    "code": "console.log(encodeBase62(3844), encodeBase62(61));",
+    "lang": "ts",
+    "options": [
+      "<code>100 Z</code>",
+      "<code>ZZ z</code>",
+      "<code>100 z</code>",
+      "<code>1000 Z</code>"
+    ],
+    "answer": 0,
+    "explain": "3,844 is 62<sup>2</sup>, so it is written 1 followed by two zeros, like 100 in base 10; 61 is the last digit of the alphabet, upper-case Z. Measured on Node 24: <code>100 Z</code>. Lower-case z is digit 35, and ZZ is 3,843."
+  },
+  {
+    "id": "m16.q21",
+    "module": "m16",
+    "section": "url-scale",
+    "q": "The links table outgrows one primary and you must shard it. Which shard key?",
+    "options": [
+      "The creation date, so recent links are stored together",
+      "The owner's country, so data stays close to users",
+      "A hash of the short code, since every redirect looks up exactly one code",
+      "The length of the target URL"
+    ],
+    "answer": 2,
+    "explain": "The hot path is \"find the URL for this code\", so hashing the code sends each lookup to exactly one shard and spreads load evenly. Sharding by date puts every new link, and most clicks, on the newest shard: a hot shard. Country gives very uneven shards and still needs the code to find the row."
+  },
+  {
+    "id": "m16.q22",
+    "module": "m16",
+    "section": "url-scale",
+    "q": "At peak the shortener serves about 11,600 redirects per second. How do you count clicks?",
+    "options": [
+      "Run <code>UPDATE links SET clicks = clicks + 1</code> inside each redirect, in the same transaction",
+      "Publish a click event to a queue or log from the redirect and aggregate counts asynchronously",
+      "Use 301 redirects and read the counts from the browser cache",
+      "Count clicks in each instance's memory and never persist them"
+    ],
+    "answer": 1,
+    "explain": "An update per click turns the read path into a write path and makes viral links a hot row with lock contention. An event published to a queue or a log keeps the redirect a single cache read, and counts become eventually consistent, which the requirement allows. 301 hides clicks; memory-only counts are lost on restart."
+  },
+  {
+    "id": "m16.q23",
+    "module": "m16",
+    "section": "ids",
+    "q": "A colleague suggests printing the UUIDv7 primary key (PostgreSQL 18 <code>uuidv7()</code>) as the order number in the confirmation e-mail. What is your answer?",
+    "options": [
+      "Good idea: UUIDv7 is random, so numbers are unguessable and short",
+      "Impossible: PostgreSQL cannot generate UUIDv7",
+      "Good idea, as long as each one is truncated to 7 characters, which keeps it unique",
+      "Fine as a primary key, but 128 bits is 22 base-62 characters, too long for an order number, and its prefix is a timestamp"
+    ],
+    "answer": 3,
+    "explain": "UUIDv7 starts with a 48-bit millisecond timestamp (RFC 9562), which makes it a good time-ordered primary key, and PostgreSQL 18 generates it. But 128 bits need 22 base-62 characters, and truncating loses the uniqueness guarantee. Keep the UUID as the key and generate a separate short order number."
+  },
+  {
+    "id": "m16.q24",
+    "module": "m16",
+    "section": "notifications",
+    "q": "A push worker calls the provider successfully, then crashes before acknowledging the queue message, which is redelivered. How do you avoid a duplicate push?",
+    "options": [
+      "Configure the queue for exactly-once delivery, which solves it end to end",
+      "Store a dedup key such as (notification id, channel) and have the worker skip messages already sent",
+      "Acknowledge the message before calling the provider",
+      "Never retry push notifications"
+    ],
+    "answer": 1,
+    "explain": "Redelivery is normal at-least-once behaviour, and a dedup key checked before the call keeps duplicates rare. Acknowledging first turns duplicates into lost messages, and no queue setting makes a call to an outside provider exactly-once, since the provider is outside the queue's transaction."
+  },
+  {
+    "id": "m16.q25",
+    "module": "m16",
+    "section": "notifications",
+    "q": "The notification service inserts the notification row, commits, then publishes to the queue. Rarely, a notification is never sent. What do you change?",
+    "options": [
+      "Publish to the queue first, then insert the row",
+      "Retry the publish three times inside the request",
+      "Write an outbox row in the same transaction as the notification and let a relay publish it",
+      "Use a faster queue so the gap between commit and publish is smaller"
+    ],
+    "answer": 2,
+    "explain": "Two separate writes can fail halfway: a crash after the commit and before the publish loses the message. The outbox makes the message part of the same transaction, and a relay publishes it later, at least once. Publishing first just moves the gap (a message for a row that never committed), and retries do not survive a crash."
+  },
+  {
+    "id": "m16.q26",
+    "module": "m16",
+    "section": "notifications",
+    "q": "With 10 million users and 5 notifications per user per day, plus the 9:50 push to every user delivered in 10 minutes, what drives the queue and worker sizing?",
+    "options": [
+      "The campaign peak, about 16,700 per second, roughly 29 times the average",
+      "The daily total of 50 million, spread evenly over the day",
+      "The average of about 580 per second, with 20% headroom",
+      "The number of channels, since each needs one worker"
+    ],
+    "answer": 0,
+    "explain": "10,000,000 / 600 s ≈ 16,700 per second, against an average of 50,000,000 / 86,400 ≈ 580 (recomputed in Node: a ratio of 28.8). Sizing for the average would leave the campaign queued for hours. Queues absorb the burst, and autoscaled workers drain it at the rate providers accept."
+  },
+  {
+    "id": "m16.q27",
+    "module": "m16",
+    "section": "stock",
+    "q": "Which of these features of the shop genuinely needs strong consistency?",
+    "options": [
+      "The remaining-stock count shown on the product page",
+      "The unread badge count in the app's notification inbox",
+      "The \"popular now\" list on the home page",
+      "Taking one of the 10,000 consoles for a customer"
+    ],
+    "answer": 3,
+    "explain": "Two customers must never both get the last console, so the decision has to come from one authoritative place: a conditional update on the primary. The displayed stock count, badges and popularity lists tolerate a few seconds of delay, so they can be eventually consistent and served from caches or replicas."
+  },
+  {
+    "id": "m16.q28",
+    "module": "m16",
+    "section": "senior",
+    "q": "A team of 8 engineers starts a new product with uncertain traffic. The interviewer asks how you would structure the backend. What is the strongest answer?",
+    "options": [
+      "One microservice per entity from day one, so each can scale independently later",
+      "A modular monolith on managed PostgreSQL, with module boundaries that allow extracting a service when a concrete reason appears",
+      "A self-hosted Kubernetes cluster with Kafka between every component, to be ready for any scale",
+      "Serverless functions for each endpoint, with no shared database"
+    ],
+    "answer": 1,
+    "explain": "A modular monolith keeps transactions, refactoring and operations cheap for a small team, and strict module boundaries keep a later extraction possible. Splitting before there is a reason (independent scaling, release cadence, team ownership) adds network failures and operating cost with no benefit yet."
+  },
+  {
+    "id": "m16.q29",
+    "module": "m16",
+    "section": "senior",
+    "q": "You finished the flash-sale design. The interviewer says: \"Next year, 10 million customers and 100,000 units.\" What is your first move?",
+    "options": [
+      "Shard the database, since it will be the bottleneck",
+      "Move every component to microservices so each scales alone",
+      "Redo the estimates and find which component crosses its limit first",
+      "Double every component's capacity, then multiply by five"
+    ],
+    "answer": 2,
+    "explain": "Scaling starts from numbers: attempts go from about 16,700 to about 167,000 per second and page reads to 5 million, while payments (about 170 per second) still fit one primary. So the stock row, the cache and the CDN are what change. Sharding first scales the part that was not the problem."
+  },
+  {
+    "id": "m16.q30",
+    "module": "m16",
+    "section": "stock",
+    "q": "Your database waits until a replica in another region confirms each write before answering the client. No network partition is happening. In PACELC terms, what are you trading?",
+    "options": [
+      "Availability for partition tolerance",
+      "Consistency for availability",
+      "Durability for throughput",
+      "Latency for consistency: each write is slower so that both regions agree"
+    ],
+    "answer": 3,
+    "explain": "PACELC says that Else, when there is no partition, a system trades latency against consistency. Waiting for the remote replica adds a cross-region round trip to every write in exchange for consistent data in both regions. Consistency versus availability is the choice CAP describes during a partition, which is not happening here."
+  }
+]

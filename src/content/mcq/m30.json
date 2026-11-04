@@ -1,0 +1,438 @@
+[
+  {
+    "id": "m30.q1",
+    "module": "m30",
+    "section": "purpose",
+    "q": "The orders table shows the orders of the selected status. Where should the filtered list be computed?",
+    "options": [
+      "In a <code>useEffect</code> that stores it in state when <code>orders</code> or <code>status</code> change.",
+      "During render, as a constant computed from the props and the state.",
+      "In a <code>useLayoutEffect</code>, so that the list is ready before the browser paints.",
+      "In a ref, updated by the handler that changes the status filter."
+    ],
+    "answer": 1,
+    "explain": "Derived data is computed during render: it is always in sync and costs one render. The effect version is the tempting one, but it renders once with the stale list, then again after storing the new one, and <code>react-hooks/set-state-in-effect</code> flags it."
+  },
+  {
+    "id": "m30.q2",
+    "module": "m30",
+    "section": "purpose",
+    "q": "The refund form keeps the amount typed for the previous order when the agent opens another one. Which fix is the idiomatic one?",
+    "options": [
+      "An effect that calls <code>setAmount('')</code> whenever <code>orderId</code> changes.",
+      "Keeping the amount in a ref so that it is not preserved between renders.",
+      "Wrapping <code>RefundForm</code> in <code>memo</code> so it re-renders only when the order changes.",
+      "Rendering it as <code>&lt;RefundForm key={order.id} order={order} /&gt;</code>."
+    ],
+    "answer": 3,
+    "explain": "A new key makes React treat the form as a new component with fresh state; measured, the typed amount was emptied on the change of key. The effect works too, but it renders the old amount first and adds an effect with no external system."
+  },
+  {
+    "id": "m30.q3",
+    "module": "m30",
+    "section": "lifecycle",
+    "q": "In development, inside <code>&lt;StrictMode&gt;</code>, <code>LiveStatusFeed</code> mounts with <code>status=\"paid\"</code>. Its effect logs \"connect\" in setup and \"disconnect\" in cleanup. What is logged?",
+    "options": [
+      "connect paid, disconnect paid, connect paid",
+      "connect paid, connect paid",
+      "connect paid",
+      "connect paid, disconnect paid"
+    ],
+    "answer": 0,
+    "explain": "StrictMode runs one extra setup and cleanup right after the first mount, in development only; measured with React 19.3.1. \"connect paid\" alone is what the production build logs."
+  },
+  {
+    "id": "m30.q4",
+    "module": "m30",
+    "section": "loops",
+    "q": "Why does an effect with the dependency array <code>[params]</code>, where <code>const params = { status, limit: 50 }</code> is declared in the component body, run after every render?",
+    "options": [
+      "Because <code>fetchOrders</code> returns a new promise each time it is called.",
+      "Because an effect with dependencies still runs after every render in development.",
+      "Because <code>params</code> is a new object each render, and <code>Object.is</code> compares references.",
+      "Because <code>setOrders</code> is a new function on every render."
+    ],
+    "answer": 2,
+    "explain": "Dependencies are compared with <code>Object.is</code>, so a new object is always \"different\"; measured, about 45 requests in 500 ms. State setters are stable across renders, so they never cause a re-run."
+  },
+  {
+    "id": "m30.q5",
+    "module": "m30",
+    "section": "stale",
+    "q": "The badge calls <code>setNewCount(newCount + 1)</code> from a stream listener created in an effect with <code>[status]</code>. After three events it shows 1. Why?",
+    "options": [
+      "React batches the three updates into a single one, so only the last of them is applied.",
+      "The listener captured <code>newCount</code> from the first render, so each call computes 0 + 1.",
+      "The stream delivers events faster than React can re-render the badge.",
+      "Updates from outside a React event handler wait for the next user interaction."
+    ],
+    "answer": 1,
+    "explain": "The listener is a closure over the first render's <code>newCount</code>, which is 0 forever: a stale closure. Batching is real but not the cause: each event is applied, it just computes the same value; the updater form fixes it."
+  },
+  {
+    "id": "m30.q6",
+    "module": "m30",
+    "section": "stale",
+    "q": "The listener must read <code>soundEnabled</code>, but toggling the sound must not reconnect the stream. What do you use?",
+    "options": [
+      "Add <code>soundEnabled</code> to the dependency array of the stream effect.",
+      "Wrap the listener in <code>useCallback</code> with <code>[soundEnabled]</code> as its dependency list.",
+      "Disable the exhaustive-deps rule on the dependency array line.",
+      "Move the chime logic into a function created with <code>useEffectEvent</code>."
+    ],
+    "answer": 3,
+    "explain": "An effect event always sees the latest props and is not a dependency, so the stream stays open; measured, no reconnection. <code>useCallback</code> with <code>[soundEnabled]</code> changes identity when the sound toggles, so the effect that uses it reconnects anyway."
+  },
+  {
+    "id": "m30.q7",
+    "module": "m30",
+    "section": "races",
+    "q": "The panel fetches in an effect without cleanup. The agent clicks order A, then order B; B's response arrives first. What does the panel show at the end?",
+    "options": [
+      "Order A, because its response arrived last and its <code>setOrder</code> ran last.",
+      "Order B, because React discards updates from an effect whose dependencies changed.",
+      "Order B, because the second <code>fetch</code> cancels the first one automatically.",
+      "Nothing: React throws because two effects updated the same state."
+    ],
+    "answer": 0,
+    "explain": "Without a cleanup, both responses call <code>setOrder</code> and the last one wins; measured, the naive panel ended on A. React does not discard those updates by itself: that is the job of the ignore flag or the <code>AbortController</code> in the cleanup."
+  },
+  {
+    "id": "m30.q8",
+    "module": "m30",
+    "section": "refs",
+    "q": "The page writes the stream's last event id to <code>lastEventIdRef.current</code> on every event. What happens on screen when it changes?",
+    "options": [
+      "The page re-renders, as it would after a <code>setState</code>.",
+      "The page re-renders only if the ref is listed in an effect's dependencies.",
+      "Nothing: writing to a ref never triggers a render.",
+      "React logs a warning, because refs are read-only after the mount."
+    ],
+    "answer": 2,
+    "explain": "A ref is a mutable box that React does not watch; measured, mutations left the render count unchanged. Listing a ref in dependencies does not help either: the ref object itself never changes identity."
+  },
+  {
+    "id": "m30.q9",
+    "module": "m30",
+    "section": "layout",
+    "q": "The actions menu measures itself and flips above when it overflows. Why use <code>useLayoutEffect</code> instead of <code>useEffect</code>?",
+    "options": [
+      "It runs before the DOM is updated, so the measure uses the previous layout.",
+      "Its code, and the state update it schedules, are processed before the browser repaints.",
+      "It also runs during server rendering, so the first HTML already has the right position.",
+      "It runs on a separate thread, so measuring the menu does not block the main thread."
+    ],
+    "answer": 1,
+    "explain": "React guarantees that a layout effect and its updates are processed before the repaint; measured in Chromium, the browser never saw the unflipped menu. It runs after the DOM update, not before, otherwise there would be nothing to measure."
+  },
+  {
+    "id": "m30.q10",
+    "module": "m30",
+    "section": "external-store",
+    "q": "What does <code>useSyncExternalStore</code> need at minimum?",
+    "options": [
+      "A <code>subscribe(callback)</code> that returns an unsubscribe function, and a <code>getSnapshot()</code>.",
+      "A setup function that returns a cleanup function, plus a dependency array.",
+      "A <code>getSnapshot()</code> and a <code>getServerSnapshot()</code>; subscribing happens in an effect.",
+      "A reducer function and an initial state, like <code>useReducer</code>."
+    ],
+    "answer": 0,
+    "explain": "The hook subscribes for you and reads the current value with <code>getSnapshot</code>; the server snapshot is a third, optional argument, required only for server rendering. Setup plus dependencies is the shape of <code>useEffect</code>, not of this hook."
+  },
+  {
+    "id": "m30.q11",
+    "module": "m30",
+    "section": "custom-hooks",
+    "q": "Two components each call <code>useDebouncedValue(query, 300)</code>. What do they share?",
+    "options": [
+      "The debounced value: the second call reads the state of the first one.",
+      "The timer: a keystroke in one component cancels the other's update.",
+      "Nothing at all until both are wrapped in the same context provider.",
+      "Only the code: each call has its own state and its own timer."
+    ],
+    "answer": 3,
+    "explain": "A custom hook shares logic, never state; measured, two components using the same hook kept separate values. Sharing state needs a store, a context or lifted state, not a hook."
+  },
+  {
+    "id": "m30.q12",
+    "module": "m30",
+    "section": "boundaries",
+    "q": "The detail panel throws during render and no error boundary wraps it. What does the agent see with React 19?",
+    "options": [
+      "Only the panel disappears; the table and the toolbar stay on screen.",
+      "The last successful render stays frozen on screen until a reload.",
+      "The whole root is unmounted: an empty page until a reload.",
+      "React retries the render three times, then shows a default fallback."
+    ],
+    "answer": 2,
+    "explain": "Without a boundary, React unmounts the whole root; measured, the container was empty and <code>onUncaughtError</code> was called. Keeping the rest of the screen alive is exactly what a boundary around the panel does."
+  },
+  {
+    "id": "m30.q13",
+    "module": "m30",
+    "section": "lifecycle",
+    "q": "What does this log when <code>Parent</code> mounts (no StrictMode)?",
+    "code": "function Child() {\n  useEffect(() => { console.log('child effect'); }, []);\n  useLayoutEffect(() => { console.log('child layout'); }, []);\n  return null;\n}\n\nfunction Parent() {\n  useEffect(() => { console.log('parent effect'); }, []);\n  useLayoutEffect(() => { console.log('parent layout'); }, []);\n  return <Child />;\n}",
+    "lang": "tsx",
+    "options": [
+      "child layout, parent layout, child effect, parent effect",
+      "parent layout, child layout, parent effect, child effect",
+      "parent effect, parent layout, child effect, child layout",
+      "child layout, child effect, parent layout, parent effect"
+    ],
+    "answer": 0,
+    "explain": "All layout effects of the commit run before any passive effect, and within each phase children run before their parent; measured on React 19.3.1. Rendering goes parent first, which makes the second option tempting, but effects run bottom-up so a parent can rely on its children being set up."
+  },
+  {
+    "id": "m30.q14",
+    "module": "m30",
+    "section": "stale",
+    "q": "The \"time since order\" ticker was written like this. What does it show after ten seconds?",
+    "code": "export function SecondsSinceOpen() {\n  const [seconds, setSeconds] = useState(0);\n  useEffect(() => {\n    const timer = setInterval(() => setSeconds(seconds + 1), 1000);\n    return () => clearInterval(timer);\n  }, []);\n  return <span>{seconds} s</span>;\n}",
+    "lang": "tsx",
+    "options": [
+      "10 s, because the interval fired ten times and each tick added one.",
+      "0 s, because state set from an interval is ignored.",
+      "1 s, because every tick computes 0 + 1 from the first render.",
+      "A growing number, twice as fast under StrictMode."
+    ],
+    "answer": 2,
+    "explain": "The interval callback closes over <code>seconds = 0</code> forever, so each tick sets 1; measured, it stayed at 1. exhaustive-deps flags the missing <code>seconds</code> and suggests the updater <code>setSeconds((s) =&gt; s + 1)</code>, which counts correctly."
+  },
+  {
+    "id": "m30.q15",
+    "module": "m30",
+    "section": "stale",
+    "q": "What does the screen show after this component mounts?",
+    "code": "const [count, setCount] = useState(0);\nuseEffect(() => {\n  setCount(count + 1);\n  setCount(count + 1);\n}, []);\nreturn <span>{count}</span>;",
+    "lang": "tsx",
+    "options": [
+      "2",
+      "1",
+      "0, because updates made inside an effect are discarded",
+      "Nothing: it loops, because the effect sets state"
+    ],
+    "answer": 1,
+    "explain": "Both calls read the same <code>count</code> of 0 and set 1; measured, the renders saw 0, then 1. Two updater calls, <code>setCount((c) =&gt; c + 1)</code>, would give 2; the empty dependency array prevents any loop."
+  },
+  {
+    "id": "m30.q16",
+    "module": "m30",
+    "section": "lifecycle",
+    "q": "A colleague sees \"connect paid\" twice in development and adds a <code>hasConnectedRef</code> so that the second setup returns early. Which change do you ship instead?",
+    "options": [
+      "The ref flag as written, since the production build runs the effect only once anyway.",
+      "Removing <code>&lt;StrictMode&gt;</code>, since the double run is only a development artefact.",
+      "Opening the stream in the component body, guarded by a module-level variable.",
+      "A cleanup that closes the stream, so setup, cleanup, setup leaves one stream open."
+    ],
+    "answer": 3,
+    "explain": "The double run reveals a missing cleanup, and react.dev lists the ref flag as a pitfall: production would still leak on every filter change and unmount. Removing StrictMode hides the symptom and keeps the leak."
+  },
+  {
+    "id": "m30.q17",
+    "module": "m30",
+    "section": "loops",
+    "q": "The orders table loops on <code>[params]</code>, an object built in the component body from <code>status</code>. Which fix do you ship?",
+    "options": [
+      "Build the object inside the effect and depend on <code>status</code>.",
+      "Remove <code>params</code> from the array and disable exhaustive-deps on that line.",
+      "Use <code>JSON.stringify(params)</code> as the dependency instead of the object.",
+      "Switch to <code>useLayoutEffect</code> so the request starts before the next render."
+    ],
+    "answer": 0,
+    "explain": "Depending on the primitive the object is built from is what the lint rule suggests; measured, 1 request instead of about 45 in half a second. Stringifying works, but it serialises on every render and hides what the effect really depends on."
+  },
+  {
+    "id": "m30.q18",
+    "module": "m30",
+    "section": "loops",
+    "q": "What happens in development with React 19.3 when this component mounts?",
+    "code": "const [summary, setSummary] = useState({ count: 0 });\nuseEffect(() => {\n  setSummary({ count: orders.length });\n}, [summary, orders]);",
+    "lang": "tsx",
+    "options": [
+      "React throws \"Too many re-renders\" and the root is unmounted.",
+      "The effect runs twice, then React bails out because the count is the same.",
+      "React logs \"Maximum update depth exceeded\" and the loop keeps going.",
+      "Nothing visible: React skips the effect because the summary is equal by value."
+    ],
+    "answer": 2,
+    "explain": "Each update stores a new object, so <code>summary</code> changes and the effect runs again; measured, about 1,640 runs in a second with a console error and no throw. React compares with <code>Object.is</code>, not by value, so it never bails out; the fix is to compute the summary during render."
+  },
+  {
+    "id": "m30.q19",
+    "module": "m30",
+    "section": "races",
+    "q": "This panel aborts the previous request. The agent clicks order A, then order B. What do they see?",
+    "code": "useEffect(() => {\n  const controller = new AbortController();\n  async function loadOrder(): Promise<void> {\n    try {\n      const response = await fetch('/bff/orders/' + orderId, { signal: controller.signal });\n      setOrder((await response.json()) as Order);\n    } catch (caught) {\n      setError(caught as Error);\n    }\n  }\n  void loadOrder();\n  return () => controller.abort();\n}, [orderId]);\n// render: if (error) { return <p role=\"alert\">{error.name}: {error.message}</p>; }",
+    "lang": "tsx",
+    "options": [
+      "Order B, because the aborted request for A never settles.",
+      "An abort error message instead of order B.",
+      "Order A, because aborting does not stop the first response.",
+      "Order B briefly, then order A when its response arrives."
+    ],
+    "answer": 1,
+    "explain": "An aborted fetch rejects with an <code>AbortError</code>, and this catch stores it as an error; measured, the panel showed \"AbortError: This operation was aborted\" although B loaded. The fix checks <code>controller.signal.aborted</code> before <code>setError</code>; an aborted fetch does settle, by rejecting."
+  },
+  {
+    "id": "m30.q20",
+    "module": "m30",
+    "section": "races",
+    "q": "The panel now works with an <code>AbortController</code>. In review, what is the strongest reason to replace the effect with <code>useQuery</code>?",
+    "options": [
+      "Effects have no way to cancel a request, and <code>useQuery</code> can cancel it.",
+      "<code>useQuery</code> fetches during render, so there is no extra render.",
+      "React 19 deprecated fetching from inside <code>useEffect</code>.",
+      "It adds the cache, retries and deduplication the effect lacks."
+    ],
+    "answer": 3,
+    "explain": "The effect already cancels correctly; what it lacks is everything around the request (cache, retries, deduplication, refetching), which TanStack Query provides. Effects can cancel with an <code>AbortController</code>, as the code under review does, so the first option is false."
+  },
+  {
+    "id": "m30.q21",
+    "module": "m30",
+    "section": "stale",
+    "q": "Which use of <code>useEffectEvent</code> is a bug?",
+    "options": [
+      "Passing <code>onStatusEvent</code> as a prop to a child that calls it on click.",
+      "Calling <code>onStatusEvent</code> from the stream listener set up in an effect.",
+      "Reading <code>soundEnabled</code> inside <code>onStatusEvent</code> without listing it.",
+      "Leaving <code>onStatusEvent</code> out of the effect's dependency array."
+    ],
+    "answer": 0,
+    "explain": "react.dev says effect events must only be called from effects or other effect events, never passed to other components or hooks; use a regular function or <code>useCallback</code> for a child's handler. Leaving it out of the dependencies is the intended use: effect events are not dependencies."
+  },
+  {
+    "id": "m30.q22",
+    "module": "m30",
+    "section": "refs",
+    "q": "After five stream events, what is on screen?",
+    "code": "export function EventCounter({ status }: { status: OrderStatus }) {\n  const received = useRef(0);\n  useEffect(() => openOrderStatusStream(status, () => { received.current += 1; }), [status]);\n  return <span>{received.current} received</span>;\n}",
+    "lang": "tsx",
+    "options": [
+      "5 received",
+      "0 received",
+      "1 received",
+      "An error: refs cannot be read during render"
+    ],
+    "answer": 1,
+    "explain": "The ref is incremented, but nothing re-renders, so the screen keeps the first render's 0; measured. React does not throw, but the <code>react-hooks/refs</code> lint rule reports reading <code>current</code> during render as an error: a count shown on screen belongs in state."
+  },
+  {
+    "id": "m30.q23",
+    "module": "m30",
+    "section": "refs",
+    "q": "In a React 19 codebase, the parent of <code>SearchInput</code> needs its input element. What do you write?",
+    "options": [
+      "Wrap <code>SearchInput</code> in <code>forwardRef</code>, the only way a function component receives a ref.",
+      "Accept a prop named <code>inputRef</code>, because <code>ref</code> never reaches a function component.",
+      "Accept <code>ref</code> as a regular prop and pass it to the <code>&lt;input&gt;</code>.",
+      "Return the input node from <code>useImperativeHandle</code> inside <code>SearchInput</code>."
+    ],
+    "answer": 2,
+    "explain": "Since React 19, <code>ref</code> is a normal prop for function components, and react.dev says <code>forwardRef</code> is no longer necessary and will be deprecated. <code>forwardRef</code> still works, but it is no longer the only way, nor the recommended one."
+  },
+  {
+    "id": "m30.q24",
+    "module": "m30",
+    "section": "layout",
+    "q": "The Next.js storefront, rendered on the server, reuses the actions menu and its <code>useLayoutEffect</code>. What should you expect?",
+    "options": [
+      "The effect runs on the server with a default viewport of 1280 by 720 pixels.",
+      "Next.js turns it into a <code>useEffect</code> during the build.",
+      "The server render fails and the page answers with a 500.",
+      "It does not run on the server; the menu is measured in the browser."
+    ],
+    "answer": 3,
+    "explain": "Effects only run on the client; measured with react-dom/server, the layout effect neither ran nor raised an error. There is no layout on the server, so there is no viewport to measure with."
+  },
+  {
+    "id": "m30.q25",
+    "module": "m30",
+    "section": "external-store",
+    "q": "What happens when a component calls this hook?",
+    "code": "function useLiveStats() {\n  return useSyncExternalStore(liveOrdersStore.subscribe, () => ({\n    total: liveOrdersStore.getSnapshot().length,\n  }));\n}",
+    "lang": "ts",
+    "options": [
+      "A warning that getSnapshot should be cached, then \"Maximum update depth exceeded\".",
+      "It works, because React compares the old and new snapshots by value, field by field.",
+      "It works, but it re-renders on every store event, even unrelated ones.",
+      "TypeScript rejects it, because getSnapshot must return a primitive."
+    ],
+    "answer": 0,
+    "explain": "Each call returns a new object, so React sees a change on every check; measured, the warning then the update-depth error. Returning the number itself, or a cached object, fixes it; React compares snapshots with <code>Object.is</code>, never by value."
+  },
+  {
+    "id": "m30.q26",
+    "module": "m30",
+    "section": "external-store",
+    "q": "The storefront reuses <code>useOnlineStatus</code>, but someone dropped its third argument. What happens when the page is rendered on the server?",
+    "options": [
+      "The hook returns <code>undefined</code> on the server, so the banner is hidden.",
+      "React reports \"Missing getServerSnapshot\" and falls back to client rendering.",
+      "The server reads <code>navigator.onLine</code> from Node, which is always true.",
+      "Nothing changes: the third argument only matters for React Native."
+    ],
+    "answer": 1,
+    "explain": "react.dev says omitting <code>getServerSnapshot</code> makes server rendering throw; measured with react-dom/server: \"Missing getServerSnapshot, which is required for server-rendered content. Will revert to client rendering.\" The hook never silently returns undefined."
+  },
+  {
+    "id": "m30.q27",
+    "module": "m30",
+    "section": "custom-hooks",
+    "q": "The table and the stats bar both call <code>useLiveOrders('paid')</code>, and the BFF now sees two streams per agent. Which fix keeps the hook correct?",
+    "options": [
+      "Add a module-level flag so that the second call to the hook skips its own effect.",
+      "Merge the table and the stats bar into one larger component that calls the hook.",
+      "Call it once in the page and pass the data down, or count subscribers in the store.",
+      "Wrap the hook's effect in <code>useMemo</code> so it runs once per status."
+    ],
+    "answer": 2,
+    "explain": "One caller per screen, or a store that opens the stream for its first subscriber and closes it after its last, gives one stream with correct cleanup. A module-level flag breaks as soon as the first caller unmounts: the second one is left without a stream."
+  },
+  {
+    "id": "m30.q28",
+    "module": "m30",
+    "section": "custom-hooks",
+    "q": "The displayed order goes from <code>paid</code> to <code>refunded</code>. What happens?",
+    "code": "export function OrderNotes({ order }: { order: Order }) {\n  const [draft, setDraft] = useState('');\n  if (order.status === 'refunded') {\n    return <p>Refunded orders have no notes.</p>;\n  }\n  const [saving, setSaving] = useState(false);\n  // ...\n}",
+    "lang": "tsx",
+    "options": [
+      "Nothing goes wrong: early returns placed before a hook are allowed since React 19.",
+      "The draft is kept and comes back when the order returns to <code>paid</code>.",
+      "Only a lint warning appears; at runtime React skips the missing hook.",
+      "React throws, because this render called fewer hooks than the previous one."
+    ],
+    "answer": 3,
+    "explain": "Measured: \"Rendered fewer hooks than expected. This may be caused by an accidental early return statement.\" The lint rule reports it as an error too (<code>rules-of-hooks</code>), so the fix is to call every hook before the early return."
+  },
+  {
+    "id": "m30.q29",
+    "module": "m30",
+    "section": "boundaries",
+    "q": "The refund button's click handler throws when the API answers 409. The panel is inside <code>PanelErrorBoundary</code>. What happens, and what do you ship?",
+    "options": [
+      "The boundary catches it and shows its fallback, so there is nothing to change.",
+      "The boundary does not catch it; catch it in the handler and show it from state.",
+      "The whole root unmounts, so you add a second boundary around the refund button.",
+      "React swallows it silently; add <code>onUncaughtError</code> to see it."
+    ],
+    "answer": 1,
+    "explain": "Boundaries do not catch event handler errors; measured, the boundary stayed untouched and the error reached the window's error event. A 409 is an expected outcome, so the handler catches it and sets an error state the panel renders."
+  },
+  {
+    "id": "m30.q30",
+    "module": "m30",
+    "section": "portals",
+    "q": "The refund modal is rendered by the order row with <code>createPortal(…, document.body)</code>. Clicking \"Confirm refund\" also opens the row's detail panel. Why?",
+    "options": [
+      "Portal events bubble through the React tree, so the click reaches the row's <code>onClick</code>.",
+      "The modal sits inside the row in the DOM, so the native click event bubbles up to the row.",
+      "<code>document.body</code> forwards every click to the element that rendered the portal.",
+      "React dispatches the click to every component that shares the modal's <code>key</code>."
+    ],
+    "answer": 0,
+    "explain": "A portal moves the DOM node, not the React position, and react.dev says portal events propagate through the React tree; measured, the row's React handler fired while a native listener on the row did not. The DOM explanation is wrong: the modal is under <code>body</code>, outside the row."
+  }
+]

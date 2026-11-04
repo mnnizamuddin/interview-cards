@@ -1,12 +1,13 @@
 /**
  * Copies the quiz questions of the track sections that cards point to (`mcqSections`) from the
- * Senior Full-Stack Track into `src/content/mcq.generated.json`. The track lives next to this
+ * Senior Full-Stack Track into `src/content/mcq/mXX.json`, one file per track module, so the app
+ * downloads a module's questions only when a card that uses them is played. The track lives next to this
  * project on the author's machine only, so the generated file is committed and Vercel never
  * needs the track.
  *
  * Usage: pnpm import-mcq [path to backend-drills/track/modules/en]
  */
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { ALL_CARDS } from '../src/content/cards/index.ts';
@@ -24,7 +25,7 @@ type TrackQuestion = {
 };
 
 const modulesDir = resolve(process.argv[2] ?? join(import.meta.dirname, '../../backend-drills/track/modules/en'));
-const outFile = join(import.meta.dirname, '../src/content/mcq.generated.json');
+const outDir = join(import.meta.dirname, '../src/content/mcq');
 const sectionsFile = join(import.meta.dirname, '../src/content/track-sections.generated.json');
 
 /** Runs a track module file, which assigns itself to `window.TRACK_CONTENT.en[id]`. */
@@ -62,8 +63,13 @@ for (const ref of wanted) {
   }
 }
 
-writeFileSync(outFile, `${JSON.stringify(mcqs, null, 2)}\n`);
-console.log(`Wrote ${mcqs.length} questions from ${moduleIds.join(', ')} to ${outFile}`);
+rmSync(outDir, { recursive: true, force: true });
+mkdirSync(outDir);
+for (const moduleId of moduleIds) {
+  const questions = mcqs.filter((mcq) => mcq.module === moduleId);
+  writeFileSync(join(outDir, `${moduleId}.json`), `${JSON.stringify(questions, null, 2)}\n`);
+}
+console.log(`Wrote ${mcqs.length} questions from ${moduleIds.join(', ')} to ${outDir}`);
 
 /**
  * Every track section that has quiz questions, so a test can check that each one has a card

@@ -156,5 +156,5 @@ pnpm typecheck
 
 Use the pnpm at `%LOCALAPPDATA%\pnpm\bin\pnpm` (`/c/Users/mohamed.nizamuddin/AppData/Local/pnpm/bin/pnpm`
 in Git Bash). The test "every unit has at least one card" fails until all units are written; ignore it.
-The test about track sections fails until `pnpm import-mcq` is rerun by the main session; ignore it too.
+The test about track sections fails until `pnpm import-mcq` is rerun by the main session, and the topic list test until `pnpm topics` is; ignore them too.
 Every other test must pass for your cards.

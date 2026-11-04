@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { CARDS, MCQS, UNITS } from './index.ts';
+import { TOPICS } from './catalog.ts';
 import { QUESTION_LISTS } from './lists.ts';
+import type { Card } from './types.ts';
 import TRACK_SECTIONS from './track-sections.generated.json';
 
 /** `list#1` to `list#count`. */
@@ -127,6 +129,23 @@ describe('cards', () => {
     const linked = new Set(CARDS.flatMap((card) => card.mcqSections));
     const missing = TRACK_SECTIONS.filter((section) => !linked.has(section));
     expect(missing).toEqual([]);
+  });
+
+  it('lists every card in the topic list, in order and up to date (else run pnpm topics)', () => {
+    const cardFiles = import.meta.glob<Record<string, unknown>>(['./cards/*.ts', '!./cards/index.ts'], { eager: true });
+    const fileOf = new Map(
+      Object.entries(cardFiles).flatMap(([path, module]) =>
+        (Object.values(module).filter(Array.isArray).flat() as Card[]).map((card) => [card.id, path.replace('./cards/', '').replace('.ts', '')] as const),
+      ),
+    );
+    const expected = CARDS.map((card) => ({
+      id: card.id,
+      unit: card.unit,
+      topic: card.topic,
+      file: fileOf.get(card.id),
+      mcqModules: [...new Set(card.mcqSections.map((section) => section.split('#')[0]!))].toSorted(),
+    }));
+    expect(TOPICS).toEqual(expected);
   });
 
   it('every unit has at least one card', () => {

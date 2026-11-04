@@ -1,0 +1,434 @@
+[
+  {
+    "id": "m32.q1",
+    "module": "m32",
+    "section": "kinds",
+    "q": "In the back office, which piece of state is <b>server state</b>?",
+    "options": [
+      "Whether the refund dialog is open",
+      "The status of order <code>ord_42</code>",
+      "The status filter of the orders table",
+      "The amount an agent is typing in the refund form"
+    ],
+    "answer": 1,
+    "explain": "The order status is owned by the server and can change while the page is open (another agent refunds the order), so the client only holds a cache of it. The status filter is tempting because it is about statuses, but it is chosen by the agent: it is URL state."
+  },
+  {
+    "id": "m32.q2",
+    "module": "m32",
+    "section": "url",
+    "q": "The orders table writes its status filter with <code>setSearchParams(next, { replace: true })</code>. What does <code>replace</code> change?",
+    "options": [
+      "It replaces the whole query string, so the other parameters such as the cursor are dropped",
+      "It reloads the route's data from the server instead of reusing what is cached",
+      "It keeps the filter in memory and leaves the address bar unchanged until the next navigation",
+      "It rewrites the current history entry instead of adding a new one"
+    ],
+    "answer": 3,
+    "explain": "Measured with React Router 7.18.4: with replace the history length did not grow, without it each change added one entry. Which parameters are kept depends on the URLSearchParams you build, not on replace; the hook in the lesson copies the previous ones on purpose."
+  },
+  {
+    "id": "m32.q3",
+    "module": "m32",
+    "section": "server-cache",
+    "q": "Two components mount at the same time and both call <code>useQuery</code> with the key <code>['orders', 'list', { status: 'paid' }]</code>. How many requests reach the server?",
+    "options": [
+      "One: same key, one cache entry, one shared request",
+      "Two: each useQuery call owns its fetch and its copy of the data",
+      "Two, unless staleTime is above 0, which turns on deduplication",
+      "None until one of the components calls refetch() explicitly"
+    ],
+    "answer": 0,
+    "explain": "Measured with MSW: one request. Components with the same query key share one cache entry, and a request already in flight is reused. staleTime controls whether a later mount refetches, not whether simultaneous requests are deduplicated."
+  },
+  {
+    "id": "m32.q4",
+    "module": "m32",
+    "section": "server-cache",
+    "q": "What is the difference between <code>staleTime</code> and <code>gcTime</code>?",
+    "options": [
+      "staleTime is the request timeout; gcTime is the delay between two retries",
+      "They are the same setting, renamed between TanStack Query v4 and v5",
+      "staleTime: how long data is fresh; gcTime: how long unused data is kept",
+      "staleTime applies to queries shown on screen; gcTime applies to mutations"
+    ],
+    "answer": 2,
+    "explain": "Fresh data is served with no request; after staleTime it is refetched on triggers such as mount or focus. gcTime (5 minutes by default) is how long an entry no component uses is kept before removal. gcTime was called cacheTime in v4, but staleTime is a different setting."
+  },
+  {
+    "id": "m32.q5",
+    "module": "m32",
+    "section": "invalidation",
+    "q": "After a refund, the hook calls <code>invalidateQueries({ queryKey: ['orders'] })</code>. A <code>refunded</code> list is in the cache but not on screen. What happens to it?",
+    "options": [
+      "It is removed from the cache, and the next visit starts from a spinner",
+      "It is marked stale and refetches when a component uses it again",
+      "It refetches immediately, in parallel with the queries on screen",
+      "Nothing: the key ['orders'] only invalidates an exact match"
+    ],
+    "answer": 1,
+    "explain": "Measured: the list and detail on screen refetched at once, while the inactive refunded list was only marked invalidated. Prefix matching is the default, so ['orders'] does match it; it just has no observer to refetch for."
+  },
+  {
+    "id": "m32.q6",
+    "module": "m32",
+    "section": "waterfalls",
+    "q": "What is a request waterfall?",
+    "options": [
+      "Requests started one after another although they did not depend on each other",
+      "A failed request retried several times with exponential backoff until it finally succeeds",
+      "Several components sending the same request at the same moment",
+      "A long list loaded page by page, each page waiting for its cursor"
+    ],
+    "answer": 0,
+    "explain": "In the order detail, the refunds request waited for the order request only because RefundList rendered after the order loaded: about 300 ms instead of 130 ms with 100 ms per request (measured). Duplicate simultaneous requests are a different problem, solved by deduplication."
+  },
+  {
+    "id": "m32.q7",
+    "module": "m32",
+    "section": "optimistic",
+    "q": "In the optimistic priority toggle, why does <code>onMutate</code> return <code>{ previous }</code>?",
+    "options": [
+      "TanStack Query requires onMutate to return the variables it received",
+      "To send the previous value to the server so it can detect conflicts",
+      "To let the mutation retry automatically with the previous value",
+      "So onError can restore the snapshot if the server refuses"
+    ],
+    "answer": 3,
+    "explain": "What onMutate returns reaches onError and onSettled; the snapshot is how the rollback restores the cache. Measured with a 409: the toggle showed true, then false again. The server never sees that object."
+  },
+  {
+    "id": "m32.q8",
+    "module": "m32",
+    "section": "context",
+    "q": "A cart Context has the value <code>{ items, addItem }</code>. Product cards read it only to get <code>addItem</code>. What happens to the cards when an item is added?",
+    "options": [
+      "Nothing: they do not read items, so React skips them",
+      "Only the card that was clicked re-renders, because it called addItem",
+      "All of them, because the Context value is a new object",
+      "They re-render only if they are not wrapped in memo"
+    ],
+    "answer": 2,
+    "explain": "Every component that reads a Context re-renders when its value changes by Object.is, whatever field it uses. Measured: one addition re-rendered all 20 cards. memo does not help, because a Context change bypasses it; splitting actions into their own stable Context does (zero card renders)."
+  },
+  {
+    "id": "m32.q9",
+    "module": "m32",
+    "section": "stores",
+    "q": "Which sequence is the Redux data flow?",
+    "options": [
+      "Dispatch, reducers compute new state, subscribers notified, selectors re-run",
+      "Components write to the store directly, then the reducers validate and log the change",
+      "Selectors fetch the data, then dispatch it to the reducers to be stored",
+      "Reducers call the API, then dispatch an action with the response"
+    ],
+    "answer": 0,
+    "explain": "Actions describe what happened, reducers compute the next state without side effects, and useSelector re-runs after every dispatched action, re-rendering on a new reference. Reducers never call APIs: async work happens before the dispatch (a thunk or RTK Query)."
+  },
+  {
+    "id": "m32.q10",
+    "module": "m32",
+    "section": "actions",
+    "q": "With <code>useActionState(placeOrder, initialState)</code> on a form, what does <code>placeOrder</code> receive?",
+    "options": [
+      "The submit event, on which it must call preventDefault",
+      "The previous state first, then the form's FormData",
+      "The FormData only",
+      "The new state and a setState function"
+    ],
+    "answer": 1,
+    "explain": "The docs: the action receives the previous (or initial) state first, then the payload, which for a form is FormData. A function passed directly to a form's action prop receives FormData alone; useActionState adds the state in front, so a function moved from one to the other must change its parameters."
+  },
+  {
+    "id": "m32.q11",
+    "module": "m32",
+    "section": "use-optimistic",
+    "q": "An agent adds a note with <code>useOptimistic</code> and the save fails. The code catches the error and does not update <code>notes</code>. What does the list show after the Action ends?",
+    "options": [
+      "The note, marked \"sending\", until the page reloads",
+      "The note, because optimistic state is kept until replaced",
+      "An empty list",
+      "The notes as they were before, without the failed one"
+    ],
+    "answer": 3,
+    "explain": "Optimistic state only renders while an Action runs; afterwards React shows the real value, which never changed. Measured: the note disappeared and the error message showed. Nothing to roll back by hand, unlike the cache writes of section 6."
+  },
+  {
+    "id": "m32.q12",
+    "module": "m32",
+    "section": "complex-forms",
+    "q": "Why does React Hook Form re-render less than a form built with controlled inputs?",
+    "options": [
+      "It batches every keystroke into one render per animation frame",
+      "It relies on the React Compiler to skip renders of unchanged fields",
+      "Its inputs are uncontrolled by default, read through refs",
+      "It validates only on the server, so the client never re-renders"
+    ],
+    "answer": 2,
+    "explain": "React Hook Form registers uncontrolled native inputs through refs, so, per its FAQ, typing does not require the entire form to re-render. A controlled input stores each keystroke in React state, which re-renders the component that owns that state."
+  },
+  {
+    "id": "m32.q13",
+    "module": "m32",
+    "section": "server-cache",
+    "q": "The orders table uses the default options. An agent opens it, goes to an order for two minutes, then comes back. What do they see?",
+    "options": [
+      "The cached rows at once, while a background refetch updates them",
+      "A spinner: the data was removed when the table unmounted",
+      "The cached rows, and no request, because the data is still in memory",
+      "An error until they reload"
+    ],
+    "answer": 0,
+    "explain": "Two minutes is within the 5-minute gcTime, so the entry is still cached and paints at once; with staleTime 0 it is stale, so the remount refetches in the background. Measured: cached text on first paint and a second request. \"No request\" would need a staleTime longer than two minutes."
+  },
+  {
+    "id": "m32.q14",
+    "module": "m32",
+    "section": "waterfalls",
+    "q": "A row prefetches on hover; the detail page then mounts. Both use the same key. How many detail requests are sent?",
+    "code": "// row\nvoid queryClient.query({ queryKey: ['orders', 'detail', id], queryFn: getOrder, staleTime: 60_000 }).catch(noop);\n\n// detail page, mounted right after the hover\nuseQuery({ queryKey: ['orders', 'detail', id], queryFn: getOrder });",
+    "lang": "tsx",
+    "options": [
+      "One: the prefetch filled the cache, so the page reads it without a request",
+      "One, and the page shows a spinner until the prefetch resolves a second time",
+      "Two: the page's staleTime is 0, so the cached data is stale on mount",
+      "Zero for the page: useQuery never fetches when the cache has data"
+    ],
+    "answer": 2,
+    "explain": "Measured: two requests with staleTime 0 on the page, one when both used 60 s. Freshness is judged by the observer's own staleTime. The cache was filled, so the page paints at once, but it refetches. Share one queryOptions factory so both sides agree."
+  },
+  {
+    "id": "m32.q15",
+    "module": "m32",
+    "section": "waterfalls",
+    "q": "Which change removes the waterfall in this order detail?",
+    "code": "function OrderDetailPage({ orderId }: { orderId: string }) {\n  const order = useQuery(orderQueries.detail(orderId));\n  if (order.isPending) {\n    return <p>Loading order…</p>;\n  }\n  return <RefundList orderId={orderId} />; // calls useQuery(orderQueries.refunds(orderId))\n}",
+    "lang": "tsx",
+    "options": [
+      "Wrap RefundList in memo so it renders before the order arrives",
+      "Also call the refunds query in OrderDetailPage, before the early return",
+      "Set staleTime: Infinity on the order query so it never blocks the page",
+      "Fetch the refunds in a useEffect inside RefundList to start them earlier"
+    ],
+    "answer": 1,
+    "explain": "The refunds request waits only because RefundList is rendered after the order arrives. Calling useQuery for refunds in the parent (result ignored, notifyOnChangeProps: []) starts it at once; RefundList reads the same cache entry. Measured: about 130 ms instead of 300 ms with 100 ms per request."
+  },
+  {
+    "id": "m32.q16",
+    "module": "m32",
+    "section": "invalidation",
+    "q": "After a refund, the button re-enables while the table still shows <code>paid</code> for a moment. Which change makes the mutation stay pending until fresh data is in?",
+    "code": "useMutation({\n  mutationFn: postRefund,\n  onSuccess: () => {\n    queryClient.invalidateQueries({ queryKey: ['orders'] });\n  },\n});",
+    "lang": "ts",
+    "options": [
+      "Call refetchQueries instead of invalidateQueries, which only marks data stale",
+      "Move the invalidation to onSettled, which runs after the cache is updated",
+      "Add retry: 3 to the mutation so it waits for the server to be consistent",
+      "Return the promise from invalidateQueries in onSuccess"
+    ],
+    "answer": 3,
+    "explain": "The braces discard the promise, so the mutation succeeds as soon as the POST does. The docs say returning the promise from onSuccess keeps the mutation pending until it settles, here until the refetch finishes. refetchQueries has the same issue if its promise is also dropped."
+  },
+  {
+    "id": "m32.q17",
+    "module": "m32",
+    "section": "optimistic",
+    "q": "An agent toggles priority on, then off, 60 ms apart. Each onSettled invalidates the order. The toggle shows on, off, <b>on</b>, off. What causes the third value?",
+    "options": [
+      "The first edit's refetch landed while the second PATCH was still in flight",
+      "onError rolled back the second edit to the snapshot taken by the first one",
+      "React batched the two optimistic cache writes and applied them in reverse order",
+      "The server applied the two PATCH requests out of order and saved the wrong value"
+    ],
+    "answer": 0,
+    "explain": "Measured: the first mutation settled, invalidated, and its refetch landed while the second PATCH was still in flight, so the server still said true. The fix: invalidate only when isMutating for that key equals 1 (the current one), and cancel queries in onMutate. Nothing failed, so no rollback ran."
+  },
+  {
+    "id": "m32.q18",
+    "module": "m32",
+    "section": "optimistic",
+    "q": "Why does the optimistic hook call <code>cancelQueries</code> on the order before writing the cache?",
+    "options": [
+      "To stop the mutation itself from being sent twice by a double click",
+      "Because setQueryData throws an error while the same query is fetching",
+      "So a refetch already in flight cannot overwrite the optimistic value",
+      "To free the memory used by the old data before writing the new value"
+    ],
+    "answer": 2,
+    "explain": "A refetch started before the click carries the old server state; if it resolves after setQueryData, the toggle jumps back. Cancelling it removes that window. setQueryData does not throw during a fetch, which is exactly why the race exists."
+  },
+  {
+    "id": "m32.q19",
+    "module": "m32",
+    "section": "context",
+    "q": "A teammate says: \"We do not need TanStack Query, we load the orders once in a Context provider.\" Which argument is the strongest?",
+    "options": [
+      "Context can only hold primitive values and stable functions, not arrays of objects",
+      "Context does not cache, dedupe, expire or invalidate: we would rebuild that",
+      "Context is deprecated in React 19 in favour of the use hook and stores",
+      "Context values cannot be read from custom hooks, only from components"
+    ],
+    "answer": 1,
+    "explain": "Context only hands a value down the tree; every concern of server state (freshness, sharing requests, invalidation after writes, cancellation) would be hand-written. It is fine for rarely-changing client values. React 19 did not deprecate Context; it added the &lt;Context value&gt; provider syntax."
+  },
+  {
+    "id": "m32.q20",
+    "module": "m32",
+    "section": "stores",
+    "q": "This back office component re-renders on every keystroke in an unrelated search box (the search text is in Redux). Why?",
+    "code": "const { ids, open } = useSelector((state: RootState) => ({\n  ids: state.selection.orderIds,\n  open: state.ui.bulkMenuOpen,\n}));",
+    "lang": "tsx",
+    "options": [
+      "The search reducer mutates the selection slice by accident on each keystroke",
+      "useSelector re-renders the component after every action, whatever it returns",
+      "Destructuring the result subscribes the component to the whole store",
+      "The selector builds a new object on each call, and the check is ==="
+    ],
+    "answer": 3,
+    "explain": "useSelector re-runs after every dispatched action but re-renders only when the result is a new reference, and an object literal always is. Select each value separately, pass shallowEqual, or memoise. The second option is the tempting half-truth: the selector re-runs every time, the render does not have to."
+  },
+  {
+    "id": "m32.q21",
+    "module": "m32",
+    "section": "stores",
+    "q": "A Zustand cart store is read by a badge with <code>useCartStore((state) => state.lines.length)</code>. An \"add to wishlist\" action in the same store changes only <code>state.wishlist</code>. Does the badge re-render?",
+    "options": [
+      "No: the selected length is unchanged, and Zustand compares it with ===",
+      "Yes: every set call re-renders every component subscribed to the store",
+      "Yes, unless the store is created inside a provider at the root of the app",
+      "No, because Zustand only re-renders components on route navigation"
+    ],
+    "answer": 0,
+    "explain": "Zustand's README says it detects changes with strict equality on the selected value. A primitive like a length stays equal, so no re-render. A selector building a new object would re-render each time; useShallow is the fix there. Zustand needs no provider."
+  },
+  {
+    "id": "m32.q22",
+    "module": "m32",
+    "section": "actions",
+    "q": "Why does the button never show \"Placing your order…\"?",
+    "code": "export function CheckoutForm() {\n  const { pending } = useFormStatus();\n  return (\n    <form action={placeOrderAction}>\n      <input name=\"email\" type=\"email\" required />\n      <button type=\"submit\" disabled={pending}>{pending ? 'Placing your order…' : 'Place order'}</button>\n    </form>\n  );\n}",
+    "lang": "tsx",
+    "options": [
+      "useFormStatus only works with Server Functions, not with client actions",
+      "It only reads a form rendered by a parent: move the button into a child",
+      "The action must first be wrapped in startTransition to report its status",
+      "The button needs a formAction prop instead of type=\"submit\" to be tracked"
+    ],
+    "answer": 1,
+    "explain": "Measured: pending stayed false in the component that renders the form and became true in a child. The docs state the hook only reports on a parent form. It works with any function action, not only Server Functions."
+  },
+  {
+    "id": "m32.q23",
+    "module": "m32",
+    "section": "actions",
+    "q": "A checkout form uses <code>useActionState</code> and does <b>not</b> disable its button. The customer double-clicks. What happens?",
+    "options": [
+      "React ignores the second submit while the first one is still pending",
+      "The second submit aborts the first request and only the second order is sent",
+      "Both run, one after the other: React queues them, so two orders are posted",
+      "Both run in parallel, and the server keeps whichever request finishes first"
+    ],
+    "answer": 2,
+    "explain": "Measured: two clicks, two action calls, the second starting when the first finished (the docs: calls are queued and run sequentially). Nothing is aborted or ignored. Disable the button with useFormStatus and send the same idempotency key so the server answers a duplicate with the first order."
+  },
+  {
+    "id": "m32.q24",
+    "module": "m32",
+    "section": "actions",
+    "q": "The checkout action catches a 503 and returns <code>{ error }</code>. The customer sees the error, and the email field is now empty. Why?",
+    "options": [
+      "React resets uncontrolled fields after the action, even with an error state",
+      "The 503 response told the browser to clear its autofill data for the whole form",
+      "useActionState remounts the form with fresh fields on every new state",
+      "The email input lost its name attribute when the error was rendered"
+    ],
+    "answer": 0,
+    "explain": "The docs say uncontrolled fields are reset after the action succeeds, and an action that returns normally has succeeded. Measured: the field was empty after a returned error, and kept the email with defaultValue={state.email}. The form is not remounted; the fields are reset to their default values."
+  },
+  {
+    "id": "m32.q25",
+    "module": "m32",
+    "section": "use-optimistic",
+    "q": "After a successful save, the notes list briefly shows the new note twice: once saved, once \"sending\". What is the fix?",
+    "code": "async function addNote(formData: FormData): Promise<void> {\n  const text = String(formData.get('note'));\n  addOptimisticNote(text);\n  const saved = await postNote(orderId, text);\n  setNotes((current) => [...current, saved]);\n}",
+    "lang": "tsx",
+    "options": [
+      "Call addOptimisticNote after the await, once the server has answered",
+      "Wrap the setNotes that follows the await in startTransition",
+      "Give the optimistic note the same key as the saved note so React merges them",
+      "Replace useOptimistic with useState and remove the note manually on success"
+    ],
+    "answer": 1,
+    "explain": "Updates after an await are not yet part of the Action (react.dev documents this caveat), so setNotes rendered while the optimistic note was still applied. Measured: a duplicate frame without startTransition, none with it. Moving the optimistic call after the await would remove the instant feedback."
+  },
+  {
+    "id": "m32.q26",
+    "module": "m32",
+    "section": "complex-forms",
+    "q": "The refund form converts euros to cents with <code>values.amountEuros * 100</code>. An agent enters 19.99. What does the API receive?",
+    "options": [
+      "1999, because multiplying by 100 shifts the decimal point exactly",
+      "1998, because JavaScript truncates the fraction when it multiplies",
+      "1998.9999999999998: round with Math.round before sending",
+      "19.99, because a number input sends its value as typed"
+    ],
+    "answer": 2,
+    "explain": "Measured in Node: 19.99 * 100 is 1998.9999999999998, because 19.99 has no exact binary representation. Truncation would give 1998, one cent short. Math.round(19.99 * 100) gives 1999."
+  },
+  {
+    "id": "m32.q27",
+    "module": "m32",
+    "section": "url",
+    "q": "An agent filters the orders table on <code>shipped</code> while on page 4 (a cursor in the URL). The new list shows rows that do not match, or an error. What is the bug?",
+    "options": [
+      "The query key does not include the filters, so the old page is served",
+      "The old cursor was kept, but it belongs to the previous filtered list",
+      "The status should live in useState, which updates faster than the URL can",
+      "React Router caches the previous search params for the current route"
+    ],
+    "answer": 1,
+    "explain": "A keyset cursor (M05) encodes a position in one list; reused with another filter it points to nothing meaningful, and the API may reject it. The hook in section 2 deletes the cursor whenever the filter changes. A missing filter in the key would show stale rows, not mismatched pages."
+  },
+  {
+    "id": "m32.q28",
+    "module": "m32",
+    "section": "context",
+    "q": "The cart lives in <code>useState</code> in the product page component, which renders the header, the filter panel and 20 cards directly. One item is added. What re-renders?",
+    "options": [
+      "Only the header, because it is the only component that shows the count",
+      "The header and the card that was clicked, because they took part in the event",
+      "Nothing until the cart is saved to the server and the response arrives",
+      "The page and everything it renders, cards and filter panel included"
+    ],
+    "answer": 3,
+    "explain": "A state change re-renders its component and, by default, every child it renders. Measured: 20 cards and the filter panel re-rendered. Moving the cart into a provider that receives the page as children, with actions split out, reduced it to the badge."
+  },
+  {
+    "id": "m32.q29",
+    "module": "m32",
+    "section": "invalidation",
+    "q": "\"My orders\" uses <code>useInfiniteQuery</code> and the customer has loaded 5 pages. After cancelling an order, the code invalidates the query. What happens?",
+    "options": [
+      "Only the first page is refetched, and the other four pages are dropped",
+      "All 5 pages are refetched in sequence, each cursor from the previous page",
+      "All 5 pages are refetched in parallel, one request per stored cursor",
+      "Nothing happens: infinite queries are never matched by invalidateQueries calls"
+    ],
+    "answer": 1,
+    "explain": "Measured with two loaded pages: the refetch requested page 1, then page 2, in sequence, since the second cursor comes from the first response. With many pages that is a slow chain; maxPages limits how many pages are kept."
+  },
+  {
+    "id": "m32.q30",
+    "module": "m32",
+    "section": "senior",
+    "q": "A teammate proposes a Zustand store with <code>orders</code> and a <code>loadOrders()</code> action, called on app start, \"so every screen has the orders\". Which answer would you give in review?",
+    "options": [
+      "No: orders are server state; use TanStack Query and its shared cache",
+      "Yes, but with Redux Toolkit instead, because it is the standard for global state",
+      "Yes, as long as the store is persisted to localStorage between visits",
+      "No: put the orders in a Context provider so that they load only once"
+    ],
+    "answer": 0,
+    "explain": "A client store would hold a second copy of server data, with no staleness, deduplication or invalidation: the stale-status bug again. Redux Toolkit or Context change the container, not the problem. If the codebase is already on Redux, RTK Query is the equivalent of TanStack Query there."
+  }
+]

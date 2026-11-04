@@ -1,0 +1,430 @@
+[
+  {
+    "id": "m17.q1",
+    "module": "m17",
+    "section": "platform",
+    "q": "A team of four starts a new service on AWS. Nobody in the company runs Kubernetes today. Which platform is the usual default in 2026?",
+    "options": [
+      "EKS with managed node groups, so the team can grow into Kubernetes later",
+      "ECS on Fargate, with one service per container image",
+      "Lambda for every route, behind API Gateway",
+      "EC2 virtual machines running PM2 in cluster mode"
+    ],
+    "answer": 1,
+    "explain": "ECS on Fargate runs containers without servers or a cluster to upgrade, which suits a small team with no Kubernetes skills. EKS is the right call when the company already operates Kubernetes and its ecosystem; adopting it \"for later\" means owning nodes, add-ons and upgrades now. Lambda fits scheduled or spiky work better than a whole service."
+  },
+  {
+    "id": "m17.q2",
+    "module": "m17",
+    "section": "dockerfile",
+    "q": "Why does the Dockerfile copy <code>package.json</code> and <code>package-lock.json</code>, run <code>npm ci</code>, and only then copy <code>src</code>?",
+    "options": [
+      "So the install layer stays cached when only the source changes",
+      "Because <code>npm ci</code> refuses to run when source files are present",
+      "To make the final image smaller, since fewer files are copied into it",
+      "Because <code>COPY src</code> fails unless <code>node_modules</code> already exists in the stage"
+    ],
+    "answer": 0,
+    "explain": "Per Docker's cache docs, when a layer changes, every layer after it is rebuilt. Copying the manifests first means a commit that changes only <code>src</code> reuses the cached <code>npm ci</code> layer. The order does not change the size of the final image; the multi-stage build does that."
+  },
+  {
+    "id": "m17.q3",
+    "module": "m17",
+    "section": "dockerfile",
+    "q": "The build stage stays on <code>node:24-trixie-slim</code>, but someone switches only the runtime stage to <code>node:24-alpine</code> to save space. The service uses a native addon compiled during <code>npm ci</code>. What is the risk?",
+    "options": [
+      "Alpine images cannot run as a non-root user, so the pod security context rejects them",
+      "There is no Node 24 image for Alpine, so the stage silently falls back to an older Node",
+      "Alpine uses musl, not glibc, so the addon built in the Debian stage may not load",
+      "Alpine images end up larger than slim ones once the addon's libraries are added"
+    ],
+    "answer": 2,
+    "explain": "The docker-node README states that Alpine uses musl libc and that programs built for Debian's glibc in general do not run on it. The addon was compiled against glibc in the build stage, so it can fail at runtime. Alpine is in fact about 25 % smaller than slim, which is why people try it; build and run on the same libc."
+  },
+  {
+    "id": "m17.q4",
+    "module": "m17",
+    "section": "pid1",
+    "q": "The Dockerfile ends with <code>CMD node dist/server.js</code> (shell form). What happens on <code>docker stop</code>?",
+    "options": [
+      "Node receives <code>SIGTERM</code> directly and runs its graceful shutdown handler",
+      "Docker sends <code>SIGINT</code> for shell-form commands instead, and Node exits on <code>SIGINT</code> by default",
+      "The container restarts at once, because the shell exits with code 143",
+      "<code>/bin/sh -c</code> does not pass the signal, so the container is killed after 10 seconds"
+    ],
+    "answer": 3,
+    "explain": "Docker's reference says the shell form runs the command under <code>/bin/sh -c</code>, which does not pass signals, so the program does not receive <code>SIGTERM</code> from <code>docker stop</code>. After the 10-second default the daemon sends <code>SIGKILL</code>, and requests in flight are cut. The exec form <code>[\"node\", \"dist/server.js\"]</code> fixes it."
+  },
+  {
+    "id": "m17.q5",
+    "module": "m17",
+    "section": "ci",
+    "q": "Why does the workflow reference <code>actions/checkout@3d3c42e…</code> instead of <code>actions/checkout@v7</code>?",
+    "options": [
+      "A tag can be moved to other code; a full commit SHA cannot",
+      "GitHub runs SHA-pinned actions faster, because their code is cached on the runner image",
+      "Version tags are not allowed for actions published by GitHub",
+      "A SHA makes the action update itself to the latest release"
+    ],
+    "answer": 0,
+    "explain": "GitHub's security guide says a tag \"can be moved or deleted\" if someone gains access to the action's repository. That happened in March 2026, when 76 of the 77 tags of trivy-action were force-pushed to malicious code. A SHA pins the exact code; updates come from a bot such as Dependabot proposing a new SHA."
+  },
+  {
+    "id": "m17.q6",
+    "module": "m17",
+    "section": "image",
+    "q": "The ECR repository has tag immutability on. A script tries to push a hotfix build under the tag <code>3f9c2a1</code>, which the current release already uses. What happens?",
+    "options": [
+      "ECR moves the tag to the new image and keeps the old image untagged in the repository",
+      "ECR stores both images under the same tag",
+      "The push is rejected with <code>ImageTagAlreadyExistsException</code>",
+      "ECR accepts the push but blocks pulls of the new image"
+    ],
+    "answer": 2,
+    "explain": "Per the ECR docs, once tag immutability is on, pushing an image with a tag already in the repository returns <code>ImageTagAlreadyExistsException</code>. That guarantee is what makes \"this tag means this commit\" true. Overwriting the tag is what a mutable repository, the default, would do."
+  },
+  {
+    "id": "m17.q7",
+    "module": "m17",
+    "section": "oidc",
+    "q": "In the deploy role's trust policy, what does the condition <code>sub = repo:shop/orders-api:environment:production</code> achieve?",
+    "options": [
+      "It gives the role access to the production AWS account",
+      "Only that repository's jobs targeting <code>production</code> can assume the role",
+      "It keeps the temporary credentials valid until the environment is deleted in GitHub",
+      "It encrypts the OIDC token with the environment's secrets"
+    ],
+    "answer": 1,
+    "explain": "The <code>sub</code> claim of GitHub's OIDC token names the repository and the context of the job; with an environment, it is <code>repo:ORG/REPO:environment:NAME</code>. Matching it with <code>StringEquals</code> means a pull request run (subject <code>…:pull_request</code>) or another repository cannot assume the role. The condition restricts who; the permissions policy decides what."
+  },
+  {
+    "id": "m17.q8",
+    "module": "m17",
+    "section": "oidc",
+    "q": "The Orders API pods use EKS Pod Identity. What must the application code do to get AWS credentials?",
+    "options": [
+      "Call STS <code>AssumeRole</code> at startup with the role ARN, then refresh it every hour",
+      "Read the access key and secret from a Kubernetes Secret mounted into the pod",
+      "Pass the service account token to every client constructor",
+      "Nothing: clients created without credentials use the SDK's default chain"
+    ],
+    "answer": 3,
+    "explain": "Per the EKS docs, EKS sets environment variables in the pod's containers that point the AWS SDKs to the Pod Identity Agent, which issues temporary, rotated credentials. The default credential chain picks them up, so <code>new S3Client({})</code> is enough. A static key in a Secret is exactly what Pod Identity removes."
+  },
+  {
+    "id": "m17.q9",
+    "module": "m17",
+    "section": "deploy",
+    "q": "With Helm 4, the deploy step runs <code>helm upgrade --install orders-api ./chart</code> with no wait or rollback option. The new pods crash-loop. What does the CI job report?",
+    "options": [
+      "Success: without a wait option, Helm 4 waits only for hooks",
+      "Failure: Helm 4 always waits until every pod of the Deployment is ready",
+      "Failure, and Helm rolls back to the previous release automatically",
+      "The job hangs until the 5-minute default timeout, then fails"
+    ],
+    "answer": 0,
+    "explain": "Helm 4's <code>upgrade</code> docs give <code>hookOnly</code> as the wait strategy when <code>--wait</code> is omitted, so the command returns once the manifests are applied. Add <code>--wait</code>, or <code>--rollback-on-failure</code>, which also sets the wait to <code>watcher</code> and returns to the last successful release on failure."
+  },
+  {
+    "id": "m17.q10",
+    "module": "m17",
+    "section": "managed",
+    "q": "The API never downloads exports itself, yet its IAM policy grants <code>s3:GetObject</code> on <code>exports/*</code>. Why?",
+    "options": [
+      "S3 requires it on any request that lists or reads objects in the bucket",
+      "Without it, the API could not write new exports into the <code>exports/</code> prefix",
+      "A presigned URL uses the signer's permissions, so the API needs them",
+      "It lets the API run the CSV generation inside S3 instead of in the pod"
+    ],
+    "answer": 2,
+    "explain": "Per the S3 docs, a presigned URL works only if it was created by a principal allowed to perform the operation it represents. The API signs download links, so its role needs <code>s3:GetObject</code> on those keys, and nothing broader. Listing a bucket needs <code>s3:ListBucket</code>, and writing needs <code>s3:PutObject</code>, which this role does not have."
+  },
+  {
+    "id": "m17.q11",
+    "module": "m17",
+    "section": "lambda",
+    "q": "Why does the export Lambda create its pg pool and its S3 client at the top level of the module, and give the pool <code>max: 1</code>?",
+    "options": [
+      "Top-level code runs again before each invocation, which keeps the connection fresh",
+      "Init runs once per environment and is reused; an environment runs one invocation at a time",
+      "Lambda forbids opening network connections inside the handler function itself",
+      "<code>max: 1</code> is required by RDS Proxy, which rejects any client pool holding more than one connection"
+    ],
+    "answer": 1,
+    "explain": "The Lambda docs recommend initialising SDK clients and database connections outside the handler, because the init phase runs once per environment and later invocations reuse them. Each environment serves one request at a time, so a second connection would sit idle and count against the database's limit. Top-level code does not run again for each invocation."
+  },
+  {
+    "id": "m17.q12",
+    "module": "m17",
+    "section": "terraform",
+    "q": "Two engineers start <code>terraform apply</code> on the same state at the same moment. The S3 backend has <code>use_lockfile = true</code>. What happens?",
+    "options": [
+      "Both applies run, and the one that finishes last overwrites the state",
+      "Terraform merges both plans into one and applies them in order",
+      "S3 versioning rejects the second write of the state file",
+      "The second run fails to acquire the lock and stops"
+    ],
+    "answer": 3,
+    "explain": "Locking exists so that one run at a time can write a state. With <code>use_lockfile</code>, generally available since Terraform 1.11, the lock is a file stored next to the state in S3, and the second run fails to acquire it. Versioning only keeps old copies of the state; it does not prevent concurrent writes."
+  },
+  {
+    "id": "m17.q13",
+    "module": "m17",
+    "section": "platform",
+    "q": "An interviewer asks: \"Lambda or containers for the Orders API itself?\" It serves a steady 400 requests per second all day, each about 80 ms and mostly waiting on PostgreSQL, with Black Friday peaks five times higher, and the company runs EKS. What is the best answer?",
+    "options": [
+      "Lambda, because it scales to zero and is therefore the cheapest option at any traffic level",
+      "Lambda behind API Gateway, since cold starts no longer exist on the Node 24 runtime",
+      "Containers on the existing EKS cluster, with Lambda kept for side jobs like the export",
+      "One large EC2 instance, so that the whole API shares a single connection pool"
+    ],
+    "answer": 2,
+    "explain": "Steady traffic keeps containers busy, while Lambda would bill every environment for its full duration, database waits included, with one request per environment and one set of connections each. The company already runs EKS, so the marginal cost is low. Scaling to zero helps only workloads with idle time, and cold starts still exist."
+  },
+  {
+    "id": "m17.q14",
+    "module": "m17",
+    "section": "dockerfile",
+    "q": "In review you find this Dockerfile, and the repository has no <code>.dockerignore</code>. What do you ask to fix first?",
+    "code": "FROM node:24-trixie-slim\nWORKDIR /app\nCOPY . .\nRUN npm install\nRUN npm run build\nCMD [\"node\", \"dist/server.js\"]",
+    "lang": "docker",
+    "options": [
+      "Multi-stage, manifests before source, <code>npm ci</code>, and a <code>.dockerignore</code>",
+      "Switch <code>CMD</code> to the shell form so that environment variables are expanded at start",
+      "Move to <code>node:24-alpine</code> first, because the image size is the main risk here",
+      "Add <code>EXPOSE 3000</code>, otherwise Kubernetes cannot send traffic to the container"
+    ],
+    "answer": 0,
+    "explain": "<code>COPY . .</code> before the install rebuilds the dependencies on every commit and, without a <code>.dockerignore</code>, copies the host's <code>node_modules</code> and <code>.env</code> into an image the company can pull. A single stage also ships the compiler and dev dependencies, and <code>npm install</code> does not install the lockfile exactly. The shell form would break signal delivery; <code>EXPOSE</code> is documentation."
+  },
+  {
+    "id": "m17.q15",
+    "module": "m17",
+    "section": "pid1",
+    "q": "The image ends with <code>USER node</code>. The pod sets <code>securityContext.runAsNonRoot: true</code> and no <code>runAsUser</code>. What happens when the pod starts?",
+    "options": [
+      "It starts normally, because the <code>node</code> user of the image is not root",
+      "It starts as root, because Kubernetes ignores the <code>USER</code> line of the image",
+      "Kubernetes replaces the user with uid 65534 (nobody) and starts it",
+      "It fails to start: the kubelet cannot verify a non-numeric user"
+    ],
+    "answer": 3,
+    "explain": "With <code>runAsNonRoot</code> and no <code>runAsUser</code>, the kubelet checks the image's user, and its source returns the error \"image has non-numeric user (node), cannot verify user is non-root\". Write <code>USER 1000</code> in the Dockerfile or set <code>runAsUser: 1000</code>. Kubernetes uses the image's user when no <code>runAsUser</code> is set; it does not ignore it."
+  },
+  {
+    "id": "m17.q16",
+    "module": "m17",
+    "section": "dockerfile",
+    "q": "The build installs a private npm package, so a colleague adds <code>ARG NPM_TOKEN</code> and passes it with <code>--build-arg</code>. What do you suggest?",
+    "options": [
+      "It is fine if the next <code>RUN</code> deletes the <code>.npmrc</code> that holds the token",
+      "Use a secret mount: build arguments persist in the image",
+      "Move the token to an <code>ENV</code> line, because <code>ENV</code> values are not stored in the image",
+      "Keep the build argument, but push the image only to a private registry"
+    ],
+    "answer": 1,
+    "explain": "Docker's documentation says build arguments and <code>ENV</code> values persist in the final image, and M12 treats such a token as leaked to everyone who can pull. A secret mount exposes the token as a file during one <code>RUN</code> without writing it to a layer. Deleting a file in a later layer leaves it in the earlier one, and a private registry does not make the token secret."
+  },
+  {
+    "id": "m17.q17",
+    "module": "m17",
+    "section": "ci",
+    "q": "Two pull requests are merged one minute apart. The second merge cancels the first workflow run while its <code>helm upgrade</code> is halfway through. Which setting causes this, and what is the fix?",
+    "code": "concurrency:\n  group: orders-api-${{ github.ref }}\n  cancel-in-progress: true",
+    "lang": "yaml",
+    "options": [
+      "The group name: use <code>github.sha</code> instead, so that two runs never share a group",
+      "Nothing in this block: Helm cancels itself whenever a newer release starts",
+      "<code>cancel-in-progress</code> also cancels runs on <code>main</code>: limit it to pull requests",
+      "The workflow lacks <code>permissions: actions: write</code>, so GitHub cancels it"
+    ],
+    "answer": 2,
+    "explain": "GitHub documents that <code>cancel-in-progress: true</code> cancels the running job or workflow in the same group, and every push to <code>main</code> shares the <code>refs/heads/main</code> group. An expression such as <code>github.event_name == 'pull_request'</code> limits cancellation to pull requests, and a <code>deploy-production</code> group with <code>cancel-in-progress: false</code> serialises deploys. A per-SHA group would allow two deploys at once."
+  },
+  {
+    "id": "m17.q18",
+    "module": "m17",
+    "section": "image",
+    "q": "Production manifests use <code>orders-api:latest</code>, pushed by every merge to <code>main</code>. During an incident, what is the main problem?",
+    "options": [
+      "Nobody knows which commit runs, and there is nothing precise to roll back to",
+      "ECR does not scan images whose only tag is <code>latest</code>, so CVEs go unnoticed",
+      "Kubernetes refuses to pull an image tagged <code>latest</code> in a production namespace",
+      "The <code>latest</code> tag makes every pull download the full image, which slows deploys"
+    ],
+    "answer": 0,
+    "explain": "A movable tag says nothing about content: a pod rescheduled after a new push can pull a newer image than its neighbours, and \"roll back to latest\" means nothing. Commit-SHA tags in an immutable repository, deployed by digest, fix all three. ECR scans by image, not by tag name, and Kubernetes pulls <code>latest</code> without complaint."
+  },
+  {
+    "id": "m17.q19",
+    "module": "m17",
+    "section": "oidc",
+    "q": "This condition is in the trust policy of <code>orders-api-deploy</code>. What is the risk?",
+    "code": "\"Condition\": {\n  \"StringEquals\": { \"token.actions.githubusercontent.com:aud\": \"sts.amazonaws.com\" },\n  \"StringLike\": { \"token.actions.githubusercontent.com:sub\": \"repo:shop/*\" }\n}",
+    "lang": "json",
+    "options": [
+      "None: the audience check already limits the role to the Orders API workflows",
+      "Only forks of <code>shop/orders-api</code> in other organisations can now assume the role",
+      "The credentials now last 12 hours instead of the default of one hour",
+      "Any repository, branch or pull request of the <code>shop</code> organisation can deploy"
+    ],
+    "answer": 3,
+    "explain": "The wildcard matches every subject that starts with <code>repo:shop/</code>, so every repository, branch and pull request of the organisation qualifies. The audience only proves the token was minted for STS, by any GitHub workflow. Pin the subject with <code>StringEquals</code> to <code>repo:shop/orders-api:environment:production</code>. Session duration is set by the role and the action, not by this condition."
+  },
+  {
+    "id": "m17.q20",
+    "module": "m17",
+    "section": "oidc",
+    "q": "Pod Identity is configured for the Orders API, yet CloudTrail shows its S3 calls signed by the IAM user <code>vm-legacy</code>. What is the most likely cause?",
+    "options": [
+      "Pod Identity falls back to IAM users whenever the node agent is overloaded",
+      "An old <code>AWS_ACCESS_KEY_ID</code> in the pod wins: the SDK checks env vars first",
+      "CloudTrail logs Pod Identity calls under the last IAM user that edited the role",
+      "The bucket policy forces every request to be signed by that IAM user"
+    ],
+    "answer": 1,
+    "explain": "The SDK for JavaScript v3 tries <code>fromEnv()</code> before the container credential provider, so leftover static keys silently win. Remove the variables from the pod, then deactivate the key in IAM. CloudTrail records the identity that really signed the request, which is why it reveals the problem."
+  },
+  {
+    "id": "m17.q21",
+    "module": "m17",
+    "section": "tf-safety",
+    "q": "The nightly drift job runs <code>terraform plan -detailed-exitcode</code> on production and exits with code 2. What does it mean, and what do you do?",
+    "options": [
+      "Terraform crashed during the refresh; rerunning the job usually clears it",
+      "The state is locked by another run; delete the lock file and rerun",
+      "Changes are present: inspect them, then codify or revert",
+      "No changes: exit code 2 only means that two providers were checked"
+    ],
+    "answer": 2,
+    "explain": "Per the plan docs, exit code 0 is an empty diff, 1 an error, and 2 a successful plan with changes. A refresh-only plan shows what changed outside Terraform; the team then writes the change into the code or applies to undo it, after reading the plan. Never auto-apply a drift fix: the console change may have been an incident fix."
+  },
+  {
+    "id": "m17.q22",
+    "module": "m17",
+    "section": "deploy",
+    "q": "Version 42 renamed <code>orders.total</code> to <code>orders.total_cents</code> in the same migration and is broken. The team rolls back to the digest of version 41. What happens?",
+    "options": [
+      "Version 41 fails on queries that read <code>orders.total</code>",
+      "The rollback also reverts the migration, so version 41 works again",
+      "Helm detects the schema change and refuses to roll the release back",
+      "Kubernetes keeps the version 42 pods running until the migration is undone"
+    ],
+    "answer": 0,
+    "explain": "Redeploying a digest changes the code, never the database. A rename in one step breaks the previous version, which is why migrations follow expand and contract (M10): add the new column, write both, switch reads, and drop the old one only when no running version needs it. Neither Helm nor Kubernetes knows anything about the schema."
+  },
+  {
+    "id": "m17.q23",
+    "module": "m17",
+    "section": "deploy",
+    "q": "The repository is private, the company is on GitHub Team, and the <code>production</code> environment lists two required reviewers. Deploys still run without any approval. Why?",
+    "options": [
+      "Required reviewers only apply to jobs that read secrets from the environment",
+      "The deploy job also needs <code>permissions: deployments: write</code> to request approval",
+      "Approvals given on earlier runs carry over to the following runs",
+      "On Free, Pro and Team, required reviewers work only in public repositories"
+    ],
+    "answer": 3,
+    "explain": "GitHub's environments documentation states that on the Free, Pro and Team plans, required reviewers and wait timers are only available for public repositories. A private repository needs a higher plan for this gate, or another one, such as a protected branch that only release managers can push to. Approvals are per run; they do not carry over."
+  },
+  {
+    "id": "m17.q24",
+    "module": "m17",
+    "section": "lambda",
+    "q": "The export Lambda used to e-mail a presigned link created with <code>expiresIn</code> of seven days. Customers report that links fail after a few hours. Why, and what is the fix?",
+    "options": [
+      "S3 caps presigned URLs at one hour, so the e-mail must be resent every hour",
+      "It expired with the role's temporary credentials; sign at click time",
+      "A bucket lifecycle rule deleted the files; lifecycle rules must be disabled",
+      "Seven days exceeds the SDK maximum, so it silently signs for one hour"
+    ],
+    "answer": 1,
+    "explain": "Per the S3 docs, a URL signed with temporary credentials expires when those credentials do, even if it asked for longer; seven days is only possible with long-term IAM user credentials, which the team just removed. Signing at click time in <code>GET /exports/orders.csv</code> keeps links short-lived and needs no long-term key. The CLI and SDKs accept up to seven days."
+  },
+  {
+    "id": "m17.q25",
+    "module": "m17",
+    "section": "lambda",
+    "q": "EventBridge Scheduler retried the nightly export after a timeout, and finance found two files for the same night: <code>orders-2026-10-29-a81f.csv</code> and <code>orders-2026-10-29-c3d0.csv</code>. Which change makes retries safe?",
+    "options": [
+      "Turn off retries on the schedule, so each night runs exactly once",
+      "Add a random delay before the export so two attempts never overlap",
+      "Derive the key from the scheduled time, so a retry overwrites",
+      "Raise the Lambda timeout to 15 minutes so the export never times out"
+    ],
+    "answer": 2,
+    "explain": "Scheduler delivers at least once, so the handler must be idempotent; the scheduled time is the same for every attempt of a run, so a key derived from it turns a retry into an overwrite. Turning retries off trades duplicates for missing exports, and a longer timeout reduces retries without removing them."
+  },
+  {
+    "id": "m17.q26",
+    "module": "m17",
+    "section": "lambda",
+    "q": "The team considers moving the payment webhook to Lambda. On Black Friday it receives 2,000 calls per second, each taking 0.5 s. What happens with default settings?",
+    "options": [
+      "1,000 environments: the whole default regional quota, and 1,000 connections",
+      "4,000 environments, and Lambda queues the extra calls until one is free",
+      "A single environment, because Node handles all those concurrent calls asynchronously",
+      "2,000 environments, one for each call arriving in the same second"
+    ],
+    "answer": 0,
+    "explain": "Concurrency = 2,000 requests per second × 0.5 s = 1,000, which equals the default per-region concurrency quota, so the other functions of the account get throttled too. Each environment handles one request at a time and opens its own connections, ten times PostgreSQL's default limit of 100, so this design also needs RDS Proxy and reserved concurrency."
+  },
+  {
+    "id": "m17.q27",
+    "module": "m17",
+    "section": "tf-safety",
+    "q": "After moving <code>aws_db_instance.orders</code> into <code>modules/postgres</code>, the plan shows the old address \"will be destroyed\" and <code>module.orders_db.aws_db_instance.this</code> \"will be created\". What is the right fix?",
+    "options": [
+      "Apply, then restore the database from the final snapshot",
+      "Run <code>terraform apply -refresh-only</code> so Terraform notices the move",
+      "Add <code>create_before_destroy</code> so the new database exists before the old one goes",
+      "Add a <code>moved</code> block from the old address to the new one"
+    ],
+    "answer": 3,
+    "explain": "Terraform tracks objects by address, so a new address looks like a new resource and the missing one like a deletion. A <code>moved</code> block renames the address in the state without touching the object. <code>create_before_destroy</code> would create a second, empty database; restoring from a snapshot loses every order written since."
+  },
+  {
+    "id": "m17.q28",
+    "module": "m17",
+    "section": "tf-safety",
+    "q": "A \"cleanup\" pull request deletes the whole <code>module \"orders_db\"</code> call. Inside the module, the RDS resource has <code>lifecycle { prevent_destroy = true }</code>. What actually stops the database from being deleted?",
+    "options": [
+      "<code>prevent_destroy</code>, which stays recorded in the state after the block is removed",
+      "<code>deletion_protection</code>, which AWS enforces whatever the tool",
+      "Nothing: once merged, the apply deletes the database whatever is set",
+      "The S3 backend, which refuses plans that remove whole modules"
+    ],
+    "answer": 1,
+    "explain": "The lifecycle docs say <code>prevent_destroy</code> does not prevent destruction once the resource's configuration is removed, because the setting disappears with the block. <code>deletion_protection</code> is an attribute of the AWS instance, so RDS refuses the delete call. A plan guard on protected types and a final snapshot add two more layers."
+  },
+  {
+    "id": "m17.q29",
+    "module": "m17",
+    "section": "tf-safety",
+    "q": "The guard script of section 11 runs on this <code>plan.json</code>. What does it print, and with which exit code?",
+    "code": "{ \"resource_changes\": [\n  { \"address\": \"module.orders_db.aws_db_instance.this\", \"type\": \"aws_db_instance\",\n    \"change\": { \"actions\": [\"create\", \"delete\"] } },\n  { \"address\": \"aws_sqs_queue.order_paid_dlq\", \"type\": \"aws_sqs_queue\",\n    \"change\": { \"actions\": [\"delete\"] } }\n] }",
+    "lang": "json",
+    "options": [
+      "\"No protected resource is deleted.\" with exit code 0, because the database is recreated first",
+      "Both addresses, because both plans contain a delete",
+      "It flags <code>module.orders_db.aws_db_instance.this (create, delete)</code> and exits with code 1",
+      "It throws, because <code>[\"create\", \"delete\"]</code> is not a valid action list"
+    ],
+    "answer": 2,
+    "explain": "A replacement is written as two actions, and <code>includes('delete')</code> catches both orders, as Terraform's JSON format docs intend; create-before-destroy still destroys the old database. The SQS queue is not a protected type, so only the database is listed. Measured on Node 24.11 with this exact plan: one line, exit code 1."
+  },
+  {
+    "id": "m17.q30",
+    "module": "m17",
+    "section": "senior",
+    "q": "\"How do you ship a Node service to production?\" Which answer would convince a senior interviewer?",
+    "options": [
+      "PR checks, one scanned SHA-tagged image, an approved OIDC deploy by digest that rolls back, reviewed Terraform",
+      "We build the image on each server with <code>docker compose up --build</code>, which keeps staging and production identical",
+      "GitHub Actions with an administrator access key in the repository secrets, deploying <code>latest</code> on every push",
+      "We use Kubernetes, so the platform itself takes care of shipping, health checks and rollback"
+    ],
+    "answer": 0,
+    "explain": "The first answer follows one commit and names the risk each step removes: untested code, unknown images, long-lived keys, unready pods, unreviewed infrastructure. Building on the server recreates the VM problem, an admin key and <code>latest</code> are what this module removes, and \"Kubernetes takes care of it\" names a tool without a process."
+  }
+]

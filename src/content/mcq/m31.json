@@ -1,0 +1,438 @@
+[
+  {
+    "id": "m31.q1",
+    "module": "m31",
+    "section": "measure",
+    "q": "The Profiler shows that <code>OrderRow</code> rendered 5,000 times during one keystroke. How do you make React DevTools tell you why each row rendered?",
+    "options": [
+      "Wrap each row in <code>&lt;StrictMode&gt;</code>, which logs the cause of every render",
+      "Tick \"Record why each component rendered while profiling\", then record again",
+      "Log the props in the row and compare them by hand",
+      "Switch to a production build, where the Profiler names the cause of each commit"
+    ],
+    "answer": 1,
+    "explain": "The Profiler setting \"Record why each component rendered while profiling\" adds a \"Why did this render?\" section to the selected component, with reasons such as \"The parent component rendered.\" or \"Props changed:\". StrictMode only double-calls render functions to expose impure code; it explains nothing about causes."
+  },
+  {
+    "id": "m31.q2",
+    "module": "m31",
+    "section": "why-render",
+    "q": "Which of these does <b>not</b>, on its own, make a component render?",
+    "options": [
+      "Its parent component rendered, with identical props",
+      "A context that the component reads received a new value",
+      "A prop object was mutated in place",
+      "A custom hook it calls updated a state variable it holds"
+    ],
+    "answer": 2,
+    "explain": "React renders a component when its state (including a hook's state) changes, when its parent renders, or when a context it reads changes. Mutating an object does not notify React at all, which is why mutation leads to stale UI. \"Parent rendered\" is the tempting wrong answer, but it is precisely the default cause: React renders all children of a rendering component."
+  },
+  {
+    "id": "m31.q3",
+    "module": "m31",
+    "section": "why-render",
+    "q": "The page keeps <code>isColumnMenuOpen</code> in <code>OrdersPage</code>, which also renders the 5,000-row table. What is the cheapest change that stops the table from rendering when the menu opens?",
+    "options": [
+      "Move the open state into a <code>ColumnMenu</code> component",
+      "Wrap <code>setColumnMenuOpen</code> in <code>useCallback</code> so the table gets a stable setter",
+      "Store the open state in a ref instead",
+      "Wrap <code>OrdersPage</code> in <code>memo</code> so its children skip the render"
+    ],
+    "answer": 0,
+    "explain": "With the state inside <code>ColumnMenu</code>, toggling it renders the menu only, and <code>OrdersPage</code> has no state left to re-render the table: no memoization needed. Wrapping <code>OrdersPage</code> in <code>memo</code> is the tempting answer, but <code>memo</code> only skips renders caused by the parent, never by the component's own state; and a ref would not update the UI at all."
+  },
+  {
+    "id": "m31.q4",
+    "module": "m31",
+    "section": "memo",
+    "q": "How does <code>memo</code> decide to skip a render?",
+    "options": [
+      "It deep-compares the old and new props, recursively",
+      "It compares the rendered output of the last render with the new one",
+      "It skips when the parent rendered for a reason unrelated to this child",
+      "It compares each prop with <code>Object.is</code> and skips when all are equal"
+    ],
+    "answer": 3,
+    "explain": "By default <code>memo</code> compares each prop with <code>Object.is</code>, a shallow comparison: equal primitives match, but two different objects with the same content do not. React never deep-compares props by default, and comparing rendered output would require rendering, which is what <code>memo</code> avoids."
+  },
+  {
+    "id": "m31.q5",
+    "module": "m31",
+    "section": "memo",
+    "q": "<code>OrderSummary</code> is cheap; <code>MemoPanel</code> is wrapped in <code>memo</code>. Each keystroke renders <code>OrdersPage</code>. Does <code>MemoPanel</code> render?",
+    "code": "export function OrdersPage({ orders }: { orders: readonly Order[] }) {\n  const [query, setQuery] = useState('');\n  return (\n    <>\n      <input aria-label=\"Filter\" value={query} onChange={(event) => setQuery(event.target.value)} />\n      <MemoPanel>\n        <OrderSummary orders={orders} />\n      </MemoPanel>\n    </>\n  );\n}",
+    "lang": "tsx",
+    "options": [
+      "No: none of its props depends on <code>query</code>",
+      "No: <code>memo</code> leaves <code>children</code> out of its comparison, since they are only elements",
+      "Yes: <code>children</code> is a new element object on every render",
+      "Only in development, because of StrictMode"
+    ],
+    "answer": 2,
+    "explain": "JSX creates a new element object on every render, and <code>children</code> is an ordinary prop, so <code>Object.is</code> sees a change each time: measured on React 19.3.1, the memoized wrapper and its child rendered after one keystroke. React has no special case that ignores <code>children</code>; memoize the element or let the compiler do it."
+  },
+  {
+    "id": "m31.q6",
+    "module": "m31",
+    "section": "live-updates",
+    "q": "Rows are memoized and keyed by array index. A new order arrives and is inserted at the top of the 5,000 orders. How many existing rows render?",
+    "options": [
+      "All of them: every index now holds a different order",
+      "None: a memoized row renders only when its own order object changes",
+      "Only the last row",
+      "One: React detects the insertion and shifts the existing rows"
+    ],
+    "answer": 0,
+    "explain": "With <code>key={index}</code>, the row at position 0 now receives the new order, the row at position 1 the former first order, and so on: every row's <code>order</code> prop changed. Measured on React 19.3.1: 5,001 renders with index keys, 1 with <code>key={order.id}</code>. React cannot detect an insertion without stable keys."
+  },
+  {
+    "id": "m31.q7",
+    "module": "m31",
+    "section": "context",
+    "q": "Each memoized row calls <code>useContext(BackOfficeContext)</code> to read <code>selectedOrderId</code>. The provider value also holds <code>query</code>. What happens to the rows on a keystroke?",
+    "options": [
+      "None: <code>memo</code> stops renders while the row's own props are unchanged",
+      "Only the rows matching the new query",
+      "Each row renders, but React skips its commit, so it costs nothing",
+      "Every row renders: every reader of a changed context does"
+    ],
+    "answer": 3,
+    "explain": "When the provider's value changes, React re-renders every component that reads that context, and react.dev states that <code>memo</code> does not prevent it. Measured: 5,000 row renders per keystroke until the query moved to its own context. Renders are not free just because the DOM does not change."
+  },
+  {
+    "id": "m31.q8",
+    "module": "m31",
+    "section": "compiler",
+    "q": "What does the React Compiler do?",
+    "options": [
+      "At runtime, it skips components whose props did not change",
+      "At build time, it adds memoization to components and hooks",
+      "It turns slow renders into transitions",
+      "At runtime, it deep-compares props in place of <code>memo</code>, so <code>memo</code> becomes useless"
+    ],
+    "answer": 1,
+    "explain": "The compiler is a build-time Babel plugin that rewrites components and hooks to cache values, callbacks and JSX, equivalent to <code>memo</code>, <code>useMemo</code> and <code>useCallback</code>, even conditionally. It does not change update priorities, and nothing in it deep-compares props at runtime."
+  },
+  {
+    "id": "m31.q9",
+    "module": "m31",
+    "section": "concurrent",
+    "q": "The page passes <code>useDeferredValue(query)</code> to <code>FilteredOrdersTable</code>, which is <b>not</b> wrapped in <code>memo</code>. How many times does the table render for one keystroke?",
+    "options": [
+      "Once, with the new query, after the input has painted",
+      "Once, with the old query only",
+      "Twice: with the old query, then with the new one",
+      "Zero times until the user stops typing, as with a debounce"
+    ],
+    "answer": 2,
+    "explain": "The urgent render renders the parent, and without <code>memo</code> the table renders too, with the old deferred value; then the background render runs with the new value. Measured on React 19.3.1: 2 renders without <code>memo</code>, 1 with it. That is why react.dev says the optimisation requires <code>memo</code>."
+  },
+  {
+    "id": "m31.q10",
+    "module": "m31",
+    "section": "transition-limits",
+    "q": "What does <code>startTransition(fn)</code> do with <code>fn</code>?",
+    "options": [
+      "It runs <code>fn</code> in a Web Worker",
+      "It schedules <code>fn</code> to run later, when the browser reports that it is idle",
+      "It runs <code>fn</code> in slices of 5 ms, yielding between slices",
+      "It calls <code>fn</code> now and defers the state updates made in it"
+    ],
+    "answer": 3,
+    "explain": "react.dev states that the function is called immediately; only the state updates scheduled synchronously during it become transitions. So computation inside <code>fn</code> runs on the main thread right away (measured: 152 to 160 ms per keystroke with a 150 ms calculation inside). Slicing applies to rendering, between components, not to your callback."
+  },
+  {
+    "id": "m31.q11",
+    "module": "m31",
+    "section": "virtualise",
+    "q": "Which is a real cost of virtualising the orders table?",
+    "options": [
+      "Find-in-page cannot find orders whose rows are not rendered",
+      "Every row must be wrapped in <code>memo</code>, or virtualisation has no effect",
+      "The list must be sorted on the server",
+      "Only fixed row heights are supported, so long rows get truncated"
+    ],
+    "answer": 0,
+    "explain": "A virtualised list renders only the visible rows, so the rest is not in the DOM, and find-in-page, printing and \"select all\" only see what is rendered. TanStack Virtual handles variable heights with <code>measureElement</code>, and works without <code>memo</code> because it renders only a few dozen rows."
+  },
+  {
+    "id": "m31.q12",
+    "module": "m31",
+    "section": "suspense-activity",
+    "q": "The Refunds tab is wrapped in <code>&lt;Activity mode=\"hidden\"&gt;</code> while the agent looks at History. What is true for the hidden tab?",
+    "options": [
+      "It is unmounted: its state is lost and its effects are cleaned up",
+      "Its DOM is hidden, its effects destroyed, its state kept",
+      "It keeps its effects running but stops re-rendering",
+      "Its DOM is removed and its state is saved to sessionStorage until shown"
+    ],
+    "answer": 1,
+    "explain": "A hidden Activity keeps the children's state and DOM, hides the DOM with <code>display: none</code>, and destroys their effects; showing it again restores the state and re-creates the effects (measured on React 19.3.1). Unmounting is what conditional rendering does, and is the cause of the lost refund note."
+  },
+  {
+    "id": "m31.q13",
+    "module": "m31",
+    "section": "memo",
+    "q": "An interviewer shows this code: \"<code>OrderRow</code> is memoized, yet the Profiler shows all rows rendering on each keystroke, with 'Props changed: (onOpen)'. Which fix would you ship?\"",
+    "code": "export function OrdersTable({ orders, query }: { orders: readonly Order[]; query: string }) {\n  const navigate = useNavigate();\n  return (\n    <table>\n      <tbody>\n        {orders.map((order) => (\n          <OrderRow key={order.id} order={order} onOpen={(orderId) => navigate('/orders/' + orderId)} />\n        ))}\n      </tbody>\n    </table>\n  );\n}",
+    "lang": "tsx",
+    "options": [
+      "Give <code>memo</code> a custom comparison that ignores <code>onOpen</code>, since it always navigates",
+      "Remove <code>memo</code>: it cannot work with callback props",
+      "Deep-compare every prop in a custom comparison",
+      "Create <code>onOpen</code> once with <code>useCallback</code>, or enable the compiler"
+    ],
+    "answer": 3,
+    "explain": "The inline arrow is a new function on every render, so <code>Object.is</code> sees a changed prop. A stable function from <code>useCallback</code> fixes it, and the compiler would cache it automatically. Ignoring <code>onOpen</code> in a custom comparison is the tempting shortcut, but react.dev warns that the row would then keep calling a stale handler from an older render."
+  },
+  {
+    "id": "m31.q14",
+    "module": "m31",
+    "section": "live-updates",
+    "q": "Rows are memoized and the handler stable. An order changes from <code>paid</code> to <code>shipped</code> through this live update. What does the agent see?",
+    "code": "setOrders((previous) => {\n  const order = previous.find((candidate) => candidate.id === event.orderId);\n  if (order !== undefined) {\n    order.status = event.status;\n  }\n  return [...previous];\n});",
+    "lang": "ts",
+    "options": [
+      "The row updates to <code>shipped</code>, because the array is a new reference",
+      "Every row renders again",
+      "The row still shows <code>paid</code>: <code>memo</code> sees the same order object",
+      "React throws in development, because state was mutated in place"
+    ],
+    "answer": 2,
+    "explain": "The table renders because the array is new, but each row receives the same <code>order</code> object as before, mutated in place, so <code>memo</code> skips all of them: measured, 0 row renders and a stale badge. React does not detect mutation and throws nothing. The fix is to replace the changed order with <code>{ ...order, status }</code>."
+  },
+  {
+    "id": "m31.q15",
+    "module": "m31",
+    "section": "context",
+    "q": "After every route change, all components that read <code>AuthContext</code> render, although the user did not change. What is the most likely cause?",
+    "code": "export function App({ children }: { children: ReactNode }) {\n  const location = useLocation();\n  const [currentUser, setCurrentUser] = useState<User | null>(null);\n  trackPage(location.pathname);\n  return <AuthContext value={{ currentUser, setCurrentUser }}>{children}</AuthContext>;\n}",
+    "lang": "tsx",
+    "options": [
+      "The value is a new object on every render of <code>App</code>",
+      "<code>setCurrentUser</code> gets a new identity on every render, which changes the value",
+      "Calling <code>trackPage</code> during render resets the context",
+      "Readers of a context always re-render on navigation"
+    ],
+    "answer": 0,
+    "explain": "<code>App</code> renders on each route change, creating a new <code>{ currentUser, setCurrentUser }</code> object; <code>Object.is</code> sees a different value and every reader renders. Wrapping it in <code>useMemo</code> with <code>[currentUser]</code> fixes it, as react.dev shows. State setters are stable, so they are not the cause."
+  },
+  {
+    "id": "m31.q16",
+    "module": "m31",
+    "section": "context",
+    "q": "In a Redux back office, the orders toolbar re-renders after every dispatched action, even actions about notifications. Its code is below. What is the bug?",
+    "code": "const { pendingCount, query } = useSelector((state: RootState) => ({\n  pendingCount: state.orders.pendingCount,\n  query: state.orders.query,\n}));",
+    "lang": "ts",
+    "options": [
+      "React-Redux does not support destructuring a selector result",
+      "The selector returns a new object each time, compared with <code>===</code>",
+      "<code>useSelector</code> re-renders on every action by design, whatever the selector returns",
+      "The toolbar should read the store with <code>useContext</code>"
+    ],
+    "answer": 1,
+    "explain": "<code>useSelector</code> runs the selector after every dispatched action and re-renders when the result is not <code>===</code> to the previous one; a new object literal is always different. Select each field separately, use a memoized selector (Reselect) or pass <code>shallowEqual</code>. It does not re-render on every action when the result is stable."
+  },
+  {
+    "id": "m31.q17",
+    "module": "m31",
+    "section": "context",
+    "q": "What happens when this hook is used in a row, on React 19?",
+    "code": "export function useRowView(orderId: string) {\n  return useSyncExternalStore(selectionStore.subscribe, () => ({\n    isSelected: selectionStore.getSelectedOrderId() === orderId,\n  }));\n}",
+    "lang": "ts",
+    "options": [
+      "It works, and the row renders only when <code>isSelected</code> flips from one value to the other",
+      "It works, but every row renders on every store change",
+      "It fails to type-check: <code>getSnapshot</code> must return a primitive",
+      "React warns that the snapshot should be cached, then throws"
+    ],
+    "answer": 3,
+    "explain": "<code>getSnapshot</code> must return the same value while the store has not changed; a new object on each call looks like a change every time. Measured on React 19.3.1: the error \"The result of getSnapshot should be cached to avoid an infinite loop\", then \"Maximum update depth exceeded\". Objects are allowed if cached; returning the boolean itself is the simple fix."
+  },
+  {
+    "id": "m31.q18",
+    "module": "m31",
+    "section": "compiler",
+    "q": "Your team enables the React Compiler in an existing app full of <code>useMemo</code> and <code>useCallback</code>. A colleague opens a PR that removes all of them \"since the compiler does it now\". What do you answer?",
+    "options": [
+      "Approve: the compiler ignores manual memoization, so the hooks are dead code",
+      "Reject: the compiler needs manual memoization to work",
+      "Keep them, or remove them with tests: removal can change the output",
+      "Approve, with <code>'use no memo'</code> in every touched file"
+    ],
+    "answer": 2,
+    "explain": "react.dev recommends leaving existing memoization in place, because removing it can change compilation output, or removing it carefully with tests; effects that depend on a memoized value are the usual risk. The compiler does not ignore manual hooks, and does not need them either; in new code, it is the default and the hooks are escape hatches."
+  },
+  {
+    "id": "m31.q19",
+    "module": "m31",
+    "section": "compiler",
+    "q": "You introduce the React Compiler into the back office, a large Vite app with patchy tests. Which plan would you defend?",
+    "options": [
+      "Turn it on everywhere with <code>^1.0.0</code>, ship, and fix what agents report",
+      "Lint first, then compile part of the app, with an exact version pin",
+      "Remove every <code>useMemo</code> first, then enable it everywhere at once",
+      "Wait: the compiler is still experimental"
+    ],
+    "answer": 1,
+    "explain": "This is the rollout react.dev describes: the <code>recommended</code> config of eslint-plugin-react-hooks surfaces Rules of React violations, incremental adoption limits the blast radius, and an exact version avoids silent behaviour changes without good test coverage. The compiler has been stable since 1.0 (7 October 2025), so waiting is not justified."
+  },
+  {
+    "id": "m31.q20",
+    "module": "m31",
+    "section": "compiler",
+    "q": "The lint reports on the virtualised table: \"Compilation Skipped: Use of incompatible library\" on <code>useVirtualizer</code>. What does it mean?",
+    "options": [
+      "The build fails until the call is removed",
+      "TanStack Virtual does not work with React 19, so the table breaks at runtime",
+      "The compiler memoizes the component anyway and warns in the browser at runtime",
+      "The compiler leaves this component unmemoized, to avoid stale UI"
+    ],
+    "answer": 3,
+    "explain": "The message is a warning: the compiler skips memoizing that component to avoid stale UI, because <code>useVirtualizer()</code> returns functions that cannot be memoized safely (measured with eslint-plugin-react-hooks 7.1.1). The component still works as plain React; only automatic memoization is lost there. TanStack Table and React Hook Form's <code>watch</code> are on the same list."
+  },
+  {
+    "id": "m31.q21",
+    "module": "m31",
+    "section": "compiler",
+    "q": "The compiler is enabled and the ✨ badge shows on <code>OrdersTable</code>, yet each keystroke still takes over 100 ms. The table filters 5,000 orders by <code>query</code>. Why?",
+    "options": [
+      "A new query is a new input: the filter must run again",
+      "The compiler only optimises development builds, not production",
+      "The compiler never memoizes the result of <code>Array.prototype.filter</code>",
+      "The compiler disables concurrent rendering"
+    ],
+    "answer": 0,
+    "explain": "Memoization caches results for unchanged inputs; a new query is a new input, so the expensive part runs anyway. That is the \"one render is too slow\" problem, solved by deferring (<code>useDeferredValue</code>), rendering less (virtualisation) or computing less. The compiler targets production builds, and react.dev shows it memoizing calculations made during render, such as this filter."
+  },
+  {
+    "id": "m31.q22",
+    "module": "m31",
+    "section": "concurrent",
+    "q": "To fix the lagging filter, a colleague writes this. What is wrong?",
+    "code": "const [query, setQuery] = useState('');\nconst [isPending, startTransition] = useTransition();\n\n<input\n  aria-label=\"Filter\"\n  value={query}\n  onChange={(event) => startTransition(() => setQuery(event.target.value))}\n/>\n<FilteredOrdersTable orders={orders} query={query} />",
+    "lang": "tsx",
+    "options": [
+      "<code>isPending</code> is never read, so React ignores the transition",
+      "Nothing: react.dev recommends this pattern for search inputs",
+      "The input's own value must not be in a transition",
+      "<code>startTransition</code> must be imported from react-dom, not taken from the hook"
+    ],
+    "answer": 2,
+    "explain": "An input must update synchronously with its change event, and transitions are non-blocking, so react.dev states they cannot control text inputs. Keep <code>query</code> urgent and either set a second <code>tableQuery</code> state inside the transition or pass <code>useDeferredValue(query)</code> to a memoized table. Reading <code>isPending</code> is optional."
+  },
+  {
+    "id": "m31.q23",
+    "module": "m31",
+    "section": "concurrent",
+    "q": "The back office has two searches: filtering the 5,000 orders already in memory, and a customer search that calls <code>GET /customers?q=</code>. What would you use for each?",
+    "options": [
+      "<code>useDeferredValue</code> for both: deferring the value also limits network calls",
+      "A deferred value for the filter, a debounce for the API",
+      "A 300 ms debounce for both, to keep one pattern",
+      "A transition for the API call, nothing for the filter"
+    ],
+    "answer": 1,
+    "explain": "Deferred rendering has no fixed delay and is interruptible, which suits rendering work; it does not reduce the number of requests. react.dev notes that debouncing still helps for non-rendering work such as network calls. A debounce on the in-memory filter only postpones the moment the render blocks the keystroke."
+  },
+  {
+    "id": "m31.q24",
+    "module": "m31",
+    "section": "transition-limits",
+    "q": "\"Why does wrapping an expensive calculation in startTransition still freeze typing?\" Pick the best answer.",
+    "code": "function handleChange(event: ChangeEvent<HTMLInputElement>): void {\n  setQuery(event.target.value);\n  startTransition(() => {\n    setRanked(rankOrders(orders, event.target.value)); // about 150 ms\n  });\n}",
+    "lang": "tsx",
+    "options": [
+      "Transitions only work with <code>useTransition</code>, not the standalone function",
+      "Both updates are batched into one urgent render",
+      "React treats every update inside an event handler as urgent",
+      "The callback runs now, so <code>rankOrders</code> runs inside the keystroke"
+    ],
+    "answer": 3,
+    "explain": "React calls the callback right away, so the 150 ms calculation runs in the event handler before the browser can paint; measured in Chromium, each keystroke took 152 to 160 ms. The standalone <code>startTransition</code> marks updates exactly like the hook's, without <code>isPending</code>. Move the work into rendering under a deferred value, make it smaller, or move it to a worker."
+  },
+  {
+    "id": "m31.q25",
+    "module": "m31",
+    "section": "transition-limits",
+    "q": "Both versions do 150 ms of work per update in a deferred render: version A in one component's <code>useMemo</code>, version B split across 50 small components of 3 ms each. What did typing look like in Chromium?",
+    "options": [
+      "Both were smooth: a deferred render never blocks input",
+      "Both blocked typing for about 150 ms per keystroke, since the total work is equal",
+      "A delayed keystrokes; B kept them all under 16 ms",
+      "B was worse: 50 components cost more than one"
+    ],
+    "answer": 2,
+    "explain": "React checks whether to yield between components, never inside one, so A is a single 150 ms block: measured, 150 ms long tasks and keystrokes delayed up to about 100 ms. B gives React 50 points to yield, and no keystroke exceeded 16 ms. Deferral only helps when the work is divisible."
+  },
+  {
+    "id": "m31.q26",
+    "module": "m31",
+    "section": "virtualise",
+    "q": "Product asks for \"all 50,000 orders of the year in one table, fast\". What would you propose first?",
+    "options": [
+      "Server-side pagination first; virtualise only if a long scroll is needed",
+      "Render all 50,000 rows with the React Compiler, which skips unchanged rows",
+      "Render all rows in one transition",
+      "Load all rows and hide off-screen ones with CSS"
+    ],
+    "answer": 0,
+    "explain": "Rendering cost grows with the number of rows in the DOM: measured, 5,000 rows took 0.6 to 3.6 s to mount against under 30 ms for a 40-row window. Pagination also cuts the data sent; virtualisation is the answer when one long scrollable list is a real need. The compiler and transitions do not reduce the work of rendering rows that change."
+  },
+  {
+    "id": "m31.q27",
+    "module": "m31",
+    "section": "virtualise",
+    "q": "An accessibility review of the virtualised orders table says a screen reader announces \"table with 30 rows\". What is missing?",
+    "options": [
+      "<code>aria-busy</code> on the table while the agent scrolls",
+      "<code>aria-rowcount</code> on the table and <code>aria-rowindex</code> on rows",
+      "A <code>tabindex</code> on every rendered row so it can be counted",
+      "Nothing: screen readers cannot announce the size of a virtualised list"
+    ],
+    "answer": 1,
+    "explain": "MDN says <code>aria-rowcount</code> is needed when not all rows are in the DOM, to give the real size of the table, and each rendered row then carries its position with <code>aria-rowindex</code>. Without them, assistive technology counts only the rendered rows. <code>aria-busy</code> signals updates in progress, not the size."
+  },
+  {
+    "id": "m31.q28",
+    "module": "m31",
+    "section": "suspense-activity",
+    "q": "Where would you put Suspense boundaries on the order detail page (header, lines, refunds tab, history tab)?",
+    "options": [
+      "Around every component that loads something, so each piece appears as soon as it can",
+      "One boundary around the whole app",
+      "Where the design shows loading states: the panel, the lazy tab",
+      "None: Suspense only works with Server Components"
+    ],
+    "answer": 2,
+    "explain": "Everything inside one boundary appears together, so boundaries encode the loading sequence; react.dev advises against a boundary around every component and suggests following the designers' loading states. One boundary for everything makes the slowest part hold back the page. Suspense works on the client with <code>lazy</code> and <code>use</code> too."
+  },
+  {
+    "id": "m31.q29",
+    "module": "m31",
+    "section": "suspense-activity",
+    "q": "Clicking the Refunds tab, whose code is not loaded yet, replaces the whole panel with a skeleton. With <code>startTransition(() =&gt; setTab('refunds'))</code> instead of a plain <code>setTab</code>, what happens?",
+    "options": [
+      "Details stays on screen, with <code>isPending</code> true until Refunds is ready",
+      "The skeleton still shows, but for a shorter time because the code loads in parallel",
+      "The Refunds tab renders empty, then fills in",
+      "React throws: <code>lazy</code> cannot load inside a transition"
+    ],
+    "answer": 0,
+    "explain": "A transition tells React not to hide already revealed content with a fallback: it keeps the Details tab and reports <code>isPending</code>. Measured on React 19.3.1: the plain switch showed the fallback, the transition kept Details with <code>isPending</code> true, then showed the form when the code arrived. Transitions do not speed up loading."
+  },
+  {
+    "id": "m31.q30",
+    "module": "m31",
+    "section": "suspense-activity",
+    "q": "The History tab subscribes to live order events in an effect, and is wrapped in <code>&lt;Activity&gt;</code>. What happens to the subscription while the tab is hidden?",
+    "options": [
+      "It keeps running, and the hidden tab updates in real time",
+      "It keeps running, but React buffers the events until the tab is visible again",
+      "It is cancelled, and the tab's state is reset when shown",
+      "Cleanup runs on hide, the effect re-runs on show, state is kept"
+    ],
+    "answer": 3,
+    "explain": "Hiding an Activity destroys its children's effects, which runs their cleanups, and showing it re-creates them; the state is kept throughout (measured on React 19.3.1). So the subscription stops while hidden, and the effect must refetch or resubscribe on show. State is not reset: that is the difference with conditional rendering."
+  }
+]

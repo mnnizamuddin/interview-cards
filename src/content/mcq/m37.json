@@ -1,0 +1,432 @@
+[
+  {
+    "id": "m37.q1",
+    "module": "m37",
+    "section": "method",
+    "q": "In the RADIO method, what does the <b>I</b> step produce?",
+    "options": [
+      "The component tree, with the state each component owns and the events that flow between them.",
+      "The APIs between components and with the server: names, parameters, return values.",
+      "The list of optimisations, ordered by their expected effect on the Core Web Vitals of the page.",
+      "The core entities and their fields, each marked as coming from the server or the client."
+    ],
+    "answer": 1,
+    "explain": "I is the Interface definition: the endpoints and the component props, with their parameters and return values. The component tree is the Architecture step and the entities are the Data model step, which is why the first and last options are tempting."
+  },
+  {
+    "id": "m37.q2",
+    "module": "m37",
+    "section": "method",
+    "q": "According to the GreatFrontEnd playbook, roughly how much of the session should go to optimisations and the deep dive?",
+    "options": [
+      "About 10%, the cap for requirements",
+      "About 20%, like the architecture",
+      "About 25%, a quarter of the round",
+      "About 40%"
+    ],
+    "answer": 3,
+    "explain": "The playbook gives roughly 40% to the O step, the largest share, because the deep dive is where seniority shows. 10% is the cap it gives to requirements, and 20% is the share of architecture and of the interface."
+  },
+  {
+    "id": "m37.q3",
+    "module": "m37",
+    "section": "autocomplete",
+    "q": "Why does the suggestions API return matched character ranges instead of a label with <code>&lt;mark&gt;</code> tags already in it?",
+    "options": [
+      "So the client builds the marks as text: no server markup is ever inserted as HTML.",
+      "Ranges are smaller than HTML, which matters because HTTP/2 compresses headers but not bodies.",
+      "A CDN refuses to cache JSON responses that contain HTML tags, so the list would never be cached.",
+      "ARIA forbids any child element inside <code>role=\"option\"</code>, so a mark would break the pattern."
+    ],
+    "answer": 0,
+    "explain": "Inserting server HTML means <code>dangerouslySetInnerHTML</code>, a cross-site scripting risk; ranges let React render text and <code>&lt;mark&gt;</code> elements safely. CDNs cache JSON regardless of its content, and options may contain elements, as the APG examples do."
+  },
+  {
+    "id": "m37.q4",
+    "module": "m37",
+    "section": "suggestions",
+    "q": "The customer types <i>chair</i> with keystrokes 80 ms apart, and the hook debounces by 250 ms. How many suggestion requests were sent in the jsdom measurement?",
+    "options": [
+      "Five, one per keystroke",
+      "Two, for <i>ch</i> and <i>chair</i>",
+      "One, for <i>chair</i>",
+      "None until the input loses focus"
+    ],
+    "answer": 2,
+    "explain": "Each keystroke resets the 250 ms timer, so the term only settles after the last one: one request, for <i>chair</i>. Two requests would need a pause longer than the delay in the middle of the word."
+  },
+  {
+    "id": "m37.q5",
+    "module": "m37",
+    "section": "suggestions",
+    "q": "Which question of the caching checklist says that personal recent searches must never be served with <code>Cache-Control: public</code>?",
+    "options": [
+      "Freshness",
+      "Scope",
+      "Lifetime",
+      "Version"
+    ],
+    "answer": 1,
+    "explain": "Scope asks who may share an entry: public suggestions can be shared by everyone at the CDN, personal data must not be. Freshness and lifetime are about time, not about who sees the entry."
+  },
+  {
+    "id": "m37.q6",
+    "module": "m37",
+    "section": "combobox",
+    "q": "In the APG combobox pattern, where is DOM focus while the customer moves through the suggestions with the arrow keys?",
+    "options": [
+      "On the input, while <code>aria-activedescendant</code> points to the active option.",
+      "On the active option, moved there with <code>focus()</code> on each arrow key press.",
+      "On the listbox, which needs <code>tabindex=\"0\"</code> so that it can receive the arrow keys.",
+      "On the document body, until the customer presses Enter to pick an option."
+    ],
+    "answer": 0,
+    "explain": "The APG says DOM focus stays on the combobox; assistive technology follows <code>aria-activedescendant</code>. Moving real focus to the option would stop the customer from typing, which is why the second option is wrong despite being a common implementation."
+  },
+  {
+    "id": "m37.q7",
+    "module": "m37",
+    "section": "orders-table",
+    "q": "Why do the filters and the sort of the orders table live in the URL?",
+    "options": [
+      "Because the server can only render a table from query parameters, never from a request body.",
+      "Because TanStack Query needs the URL as its query key to cache each view of the table separately.",
+      "Because React state is lost on every re-render of the table, while the URL survives re-renders.",
+      "So an agent can share a link, reload, and use the back button without losing the view."
+    ],
+    "answer": 3,
+    "explain": "The URL makes the view shareable, reloadable and part of the history. TanStack Query takes any serialisable key, not the URL, and React state survives re-renders; it is lost on reload, which is the point of the URL."
+  },
+  {
+    "id": "m37.q8",
+    "module": "m37",
+    "section": "orders-table",
+    "q": "Measured in Chromium, changing one cell of a 5,000-row table re-laid out the table in 110 to 180 ms. Why does virtualisation fix this?",
+    "options": [
+      "It moves the layout work to a worker thread, so the main thread stays free for input.",
+      "It draws the rows on a canvas, which the browser does not need to lay out at all.",
+      "Only the visible rows exist in the DOM, so layout handles about 50 rows.",
+      "It switches the table to <code>table-layout: fixed</code>, which skips measuring cell contents."
+    ],
+    "answer": 2,
+    "explain": "Layout cost follows the number of elements, and virtualisation keeps only the visible rows: the 50-row table re-laid out in under 10 ms. <code>table-layout: fixed</code> alone still took 30 to 45 ms at 5,000 rows, and layout never runs in a worker."
+  },
+  {
+    "id": "m37.q9",
+    "module": "m37",
+    "section": "live-orders",
+    "q": "100 status events arrive 5 ms apart. Written to the query cache one by one, they caused 96 commits of the table. How many with a buffer flushed every 250 ms, in the same measurement?",
+    "options": [
+      "7",
+      "96",
+      "1",
+      "25"
+    ],
+    "answer": 0,
+    "explain": "The events spread over about half a second, so a 250 ms flush applies them in a handful of batches: 7 commits, counting the first renders. One commit would need all events in a single flush."
+  },
+  {
+    "id": "m37.q10",
+    "module": "m37",
+    "section": "order-edits",
+    "q": "Which back office action is a good fit for an optimistic update?",
+    "options": [
+      "Refunding 50 € to a customer.",
+      "Assigning an order to yourself.",
+      "Deleting a customer account.",
+      "Cancelling a shipped order with the carrier."
+    ],
+    "answer": 1,
+    "explain": "Optimistic updates suit actions that nearly always succeed and are cheap to undo on screen. A refund, a deletion or a carrier cancellation has consequences the agent must see confirmed, so they show a pending state and wait."
+  },
+  {
+    "id": "m37.q11",
+    "module": "m37",
+    "section": "product-page",
+    "q": "Which props should the main product photo get with <code>next/image</code> in Next.js 16?",
+    "options": [
+      "<code>priority</code>, which preloads the image and marks it as the LCP element.",
+      "<code>loading=\"lazy\"</code> with a blur placeholder, so the page shell paints first.",
+      "<code>preload</code> and <code>fetchPriority=\"high\"</code> together, for the strongest hint to the browser.",
+      "<code>loading=\"eager\"</code> and <code>fetchPriority=\"high\"</code>, plus width and height."
+    ],
+    "answer": 3,
+    "explain": "web.dev says never lazy-load the LCP image and recommends high fetch priority; next/image lazy-loads by default, hence <code>loading=\"eager\"</code>. <code>priority</code> is deprecated since Next.js 16, and the docs list \"when fetchPriority is used\" among the cases where <code>preload</code> should not be."
+  },
+  {
+    "id": "m37.q12",
+    "module": "m37",
+    "section": "checkout",
+    "q": "When should the storefront create a new idempotency key for <code>POST /orders</code>?",
+    "options": [
+      "On every click of Place order, so each click is a distinct request.",
+      "On every automatic retry, so the server can tell the attempts apart.",
+      "When the intent changes, such as a new cart version.",
+      "Once per browser session, stored in localStorage so a reload keeps it."
+    ],
+    "answer": 2,
+    "explain": "The key identifies one intent: retries and second clicks must reuse it so the server replays the first answer. A new key per click or per retry defeats the purpose, and one key per session would make the server replay an old order for a new cart."
+  },
+  {
+    "id": "m37.q13",
+    "module": "m37",
+    "section": "suggestions",
+    "q": "The customer types <i>ch</i>, then <i>cha</i>; the <i>ch</i> request is the slower one. What can this component end up showing?",
+    "code": "function Suggestions({ term }: { term: string }) {\n  const [results, setResults] = useState<Suggestion[]>([]);\n  useEffect(() => {\n    if (term.length < 2) {\n      return;\n    }\n    void searchProducts(term).then(setResults);\n  }, [term]);\n  return <SuggestionList items={results} />;\n}",
+    "lang": "tsx",
+    "options": [
+      "The results for <i>ch</i>: its answer arrives last and overwrites the answer for <i>cha</i>.",
+      "Always the results for <i>cha</i>: React ignores state updates from an effect that has re-run.",
+      "An error: React throws when state is set after the effect re-ran.",
+      "Both lists merged, because <code>setResults</code> is batched."
+    ],
+    "answer": 0,
+    "explain": "Measured with React 19.3 in jsdom: the naive component showed the <i>ch</i> results after <i>cha</i> was typed. React does not discard updates from an old effect; you need a cleanup flag, an abort, or data keyed by term as with TanStack Query."
+  },
+  {
+    "id": "m37.q14",
+    "module": "m37",
+    "section": "suggestions",
+    "q": "With <code>useSuggestions</code> (signal passed to fetch), the customer types <i>ch</i>, then <i>cha</i> before <i>ch</i> answers, waits for <i>cha</i>'s list, then deletes back to <i>ch</i>. What happens on the way back to <i>ch</i>?",
+    "options": [
+      "<i>ch</i> is served from the cache with no request, because it was requested a few seconds earlier.",
+      "The list keeps showing the results for <i>cha</i> until the debounce timer fires for <i>ch</i> again.",
+      "A new request: the first was cancelled, and a cancelled query reverts to its empty state.",
+      "The query moves to an error state and the customer sees an <code>AbortError</code> message under the box."
+    ],
+    "answer": 2,
+    "explain": "TanStack Query reverts a cancelled query to its previous state, here empty, so <i>ch</i> was requested again in the measurement while <i>cha</i> was served from the cache. The cancellation is not reported as an error, which rules out the last option."
+  },
+  {
+    "id": "m37.q15",
+    "module": "m37",
+    "section": "suggestions",
+    "q": "A colleague removes <code>signal</code> from the query function. <i>ch</i> is slower than <i>cha</i>. What did the jsdom measurement show?",
+    "options": [
+      "<i>ch</i>'s results flashed on screen for a moment, then <i>cha</i>'s results replaced them.",
+      "<i>cha</i>'s results; the late <i>ch</i> answer was stored under its own key.",
+      "<i>ch</i>'s results, because its answer arrived last and replaced the <i>cha</i> entry.",
+      "Nothing at all until both requests had finished, then <i>cha</i>'s results."
+    ],
+    "answer": 1,
+    "explain": "Keying by term is what prevents the race: the component reads the <i>cha</i> entry, and the late <i>ch</i> answer only fills its own entry. The signal saves bandwidth and connections; it is not what keeps the screen correct."
+  },
+  {
+    "id": "m37.q16",
+    "module": "m37",
+    "section": "senior",
+    "q": "The interviewer asks: \"After launch, how do you know the autocomplete is good?\" Which answer is the senior one?",
+    "options": [
+      "A Lighthouse performance score above 90, checked in CI on every pull request that touches search.",
+      "The number of React renders per keystroke, read from the Profiler in a production build.",
+      "The CPU usage and p99 latency of the search service during the evening peak hour.",
+      "Field data: keystroke-to-list time, share of searches ending on a suggestion, errors, INP at p75."
+    ],
+    "answer": 3,
+    "explain": "Requirements were stated as user experience, so the measures are field data from real sessions that map to them. Lighthouse is a lab check on one machine and renders per keystroke are a means; neither tells you whether customers find products faster."
+  },
+  {
+    "id": "m37.q17",
+    "module": "m37",
+    "section": "combobox",
+    "q": "In Chromium, the list is open in this <code>&lt;input type=\"search\"&gt;</code> and the customer presses Escape once. What happens?",
+    "code": "} else if (event.key === 'Escape') {\n  setOpen(false);\n  setActive(-1);\n}",
+    "lang": "tsx",
+    "options": [
+      "The list closes and the browser also clears the text.",
+      "The list closes and the text stays, which is what the APG expects from a combobox.",
+      "Nothing happens, because Escape is not delivered to keydown handlers in a search input.",
+      "The list closes and the surrounding form is submitted with the current text."
+    ],
+    "answer": 0,
+    "explain": "Measured with Playwright 1.64: Escape in a search input cleared the field. Calling <code>event.preventDefault()</code> while the list is open makes the first Escape only close it, and leaves the second to clear the field."
+  },
+  {
+    "id": "m37.q18",
+    "module": "m37",
+    "section": "combobox",
+    "q": "A mouse click on a suggestion picks nothing: the list just closes. The input closes the list in <code>onBlur</code>, and options only have <code>onClick</code>. What is the bug?",
+    "options": [
+      "Options need <code>tabindex=\"0\"</code>, otherwise the browser does not deliver clicks to list items.",
+      "React does not fire <code>onClick</code> on elements that carry <code>role=\"option\"</code>, only on buttons and links.",
+      "<code>mousedown</code> blurs the input, and <code>onBlur</code> removes the list before <code>click</code> fires.",
+      "<code>aria-selected</code> must be true before an option can be clicked, so the first click only selects."
+    ],
+    "answer": 2,
+    "explain": "Measured in Chromium: without the mousedown guard nothing was picked; with it, mouse clicks and touch taps picked the option. Adding <code>tabindex</code> would make it worse, since the option would take focus away from the input."
+  },
+  {
+    "id": "m37.q19",
+    "module": "m37",
+    "section": "orders-table",
+    "q": "Agents filter 2 million orders by status and sort them by amount. Where should filtering and sorting run?",
+    "options": [
+      "In the browser, after loading every order once into IndexedDB for instant sorting.",
+      "On the server, with the parameters in the URL and the query key.",
+      "In a web worker, so the main thread stays free while it sorts the 2 million rows.",
+      "In the memory of the BFF, refreshed every minute from the Orders API."
+    ],
+    "answer": 1,
+    "explain": "Millions of rows cannot be downloaded to each agent, so the database, with its indexes, filters and sorts. A worker only moves the cost of data the client should not hold, and a BFF copy is a stale second database."
+  },
+  {
+    "id": "m37.q20",
+    "module": "m37",
+    "section": "orders-table",
+    "q": "What does this call return with the <code>OrdersSearch</code> schema of section 5 (Zod 4.6)?",
+    "code": "readOrdersSearch(new URLSearchParams('status=lost&sort=hack'));",
+    "lang": "ts",
+    "options": [
+      "It throws a <code>ZodError</code> with two issues.",
+      "<code>{ status: 'lost', sort: 'hack' }</code>, because URL values are not checked.",
+      "<code>{}</code>, because invalid fields are removed and defaults are ignored.",
+      "An object with <code>status: undefined</code> and <code>sort: '-createdAt'</code>."
+    ],
+    "answer": 3,
+    "explain": "Each field has <code>.catch()</code>, so an invalid value falls back: no status, and the default sort. Without <code>.catch()</code> the parse would throw, which is what you do not want for a link someone typed or edited by hand."
+  },
+  {
+    "id": "m37.q21",
+    "module": "m37",
+    "section": "live-orders",
+    "q": "A first draft of the batch function looked like this. What goes wrong?",
+    "code": "const latest = new Map(events.map((event) => [event.orderId, event]));\nclient.setQueriesData<OrdersPage>({ queryKey: ['orders', 'list'] }, (page) =>\n  page && { ...page, rows: page.rows.map((row) => {\n    const event = latest.get(row.id);\n    return event && event.version > row.version ? { ...row, status: event.status, version: event.version } : row;\n  }) });",
+    "lang": "ts",
+    "options": [
+      "<code>Map</code> does not keep insertion order, so the events of a batch are applied in a random order.",
+      "<code>setQueriesData</code> only updates the first query that matches the key, not every view of the list.",
+      "An older event after a newer one in the same batch wins, and the row goes stale.",
+      "Rows without an event throw, because <code>latest.get</code> returns undefined for orders not in the batch."
+    ],
+    "answer": 2,
+    "explain": "A map built from pairs keeps the last pair per key, so arrival order wins over version: measured, the row went back to an old status. Keep the highest version per order instead. Undefined is handled by the <code>event &amp;&amp;</code> check, so the last option does not happen."
+  },
+  {
+    "id": "m37.q22",
+    "module": "m37",
+    "section": "live-orders",
+    "q": "Your per-event version rendered 3 times for 100 events in the demo, and 96 times in production. Why?",
+    "options": [
+      "The demo events came in one burst and were batched; spread out, each one rendered.",
+      "Production builds of React turn automatic batching off to keep each update predictable.",
+      "<code>EventSource</code> groups the events of a stream together in development builds only.",
+      "StrictMode renders every component twice in production, which doubles the commits."
+    ],
+    "answer": 0,
+    "explain": "Measured in Chromium: the same code committed about 3 times for a burst and 96 times for events 5 ms apart. React batches updates that land together, not updates spread over separate tasks; StrictMode double rendering happens in development only."
+  },
+  {
+    "id": "m37.q23",
+    "module": "m37",
+    "section": "order-edits",
+    "q": "Why does <code>onMutate</code> call <code>cancelQueries</code> before writing the optimistic row?",
+    "options": [
+      "To abort the mutation itself if the agent navigates away before the server answers.",
+      "So a refetch in flight cannot land later and overwrite the optimistic row.",
+      "Because <code>setQueryData</code> throws an error while a query with the same key is fetching.",
+      "To empty the cache, so that the next render reads the list from the server again."
+    ],
+    "answer": 1,
+    "explain": "TanStack Query's guide cancels outgoing refetches \"so they don't overwrite our optimistic update\". <code>setQueryData</code> works during a fetch; the problem is that the older server answer would arrive later and win."
+  },
+  {
+    "id": "m37.q24",
+    "module": "m37",
+    "section": "order-edits",
+    "q": "The orders table now has editable status and assignee cells, and it is virtualised. Which accessibility design fits?",
+    "options": [
+      "A native table with every cell and every control in the tab order, in reading order.",
+      "<code>role=\"grid\"</code> with <code>tabindex=\"0\"</code> on every cell, so the Tab key reaches each cell in turn.",
+      "<code>aria-live=\"assertive\"</code> on each row, so every change is announced as soon as it happens.",
+      "The APG grid: one tab stop, arrow keys, <code>aria-sort</code>, <code>aria-rowcount</code> and <code>aria-rowindex</code>."
+    ],
+    "answer": 3,
+    "explain": "The APG grid pattern is meant for interactive tabular data and has one tab stop, with arrow keys inside. Putting every cell in the tab order makes a table of hundreds of cells unusable with a keyboard, and assertive live regions on every row would interrupt constantly."
+  },
+  {
+    "id": "m37.q25",
+    "module": "m37",
+    "section": "product-page",
+    "q": "Product pages must be indexable, have a fast LCP, and show current stock. Which design would you ship?",
+    "options": [
+      "Tagged product data in the static shell, revalidated on change; stock and cart per request in Suspense.",
+      "Client-side rendering with TanStack Query for every part, so the stock and the price are always fresh.",
+      "Full server rendering on every request with no cache at all, so every part of the page is always current.",
+      "Every product prerendered at build time, and the whole site rebuilt every night with the new catalogue."
+    ],
+    "answer": 0,
+    "explain": "Shared content cached and revalidated on change gives HTML for search engines and a CDN-fast shell, while the parts that must be current stream per request. Client rendering hurts indexing and LCP, rendering everything per request makes every visit pay for the slowest data, and nightly builds leave prices wrong for hours."
+  },
+  {
+    "id": "m37.q26",
+    "module": "m37",
+    "section": "product-page",
+    "q": "Marketing wants an A/B test on the Buy button of the product page. Which design?",
+    "options": [
+      "Render variant A, read the cookie in <code>useEffect</code>, and swap the button to variant B when needed.",
+      "Pick a random variant in the Server Component on every request, without storing anything.",
+      "Assign it in <code>proxy.ts</code> with a cookie, render it on the server, key the cache by variant.",
+      "Hide the button with CSS until the A/B testing script has loaded, then show the right one."
+    ],
+    "answer": 2,
+    "explain": "Server assignment avoids flicker and layout shift, the cookie keeps each customer in one variant, and keying the cache by variant keeps one shell per variant. Random assignment per request moves customers between variants, which ruins the test."
+  },
+  {
+    "id": "m37.q27",
+    "module": "m37",
+    "section": "product-page",
+    "q": "Analytics events are lost when customers switch apps on their phones. Which fix?",
+    "options": [
+      "Send them with <code>fetch</code> inside an <code>unload</code> handler, which runs when the page is closed.",
+      "Flush them with <code>navigator.sendBeacon</code> when <code>visibilitychange</code> reports the page hidden.",
+      "Send them with a synchronous XMLHttpRequest in <code>beforeunload</code> so they cannot be dropped.",
+      "Await a <code>fetch</code> for every event as it happens, so nothing is left in memory to lose."
+    ],
+    "answer": 1,
+    "explain": "MDN calls <code>visibilitychange</code> the most reliable moment and <code>sendBeacon</code> the API made for it. <code>unload</code> and <code>beforeunload</code> often never fire on mobile, and <code>unload</code> also keeps the page out of the back/forward cache."
+  },
+  {
+    "id": "m37.q28",
+    "module": "m37",
+    "section": "checkout",
+    "q": "With <code>PlaceOrderButton</code> as written (<code>disabled={placeOrder.isPending}</code>), what did a double-click send in Chromium?",
+    "options": [
+      "One request, because the disabled button blocked the second click before it fired.",
+      "Two requests carrying two different keys, so the server created two orders.",
+      "No request at all, because the second click cancelled the first mutation.",
+      "Two requests with the same idempotency key, so the server creates one order."
+    ],
+    "answer": 3,
+    "explain": "<code>isPending</code> reached the button only after the second click, so two POSTs left, both with the key created by the first click. That is why the key, checked by the server, is the guarantee and the disabled state is only comfort."
+  },
+  {
+    "id": "m37.q29",
+    "module": "m37",
+    "section": "feed",
+    "q": "A feed creates its IntersectionObserver once, on mount. The first page is 100 px tall in a 900 px viewport. What happens?",
+    "code": "useEffect(() => {\n  const observer = new IntersectionObserver((entries) => {\n    if (entries[0].isIntersecting) {\n      void loadNextPage();\n    }\n  });\n  observer.observe(sentinelRef.current!);\n  return () => observer.disconnect();\n}, []);",
+    "lang": "tsx",
+    "options": [
+      "One page loads, then nothing: the sentinel never stops intersecting, so no new callback.",
+      "Pages load one after another, each time the callback runs, until the sentinel leaves the viewport.",
+      "An endless loop of requests, because the sentinel is always intersecting the viewport.",
+      "The observer throws an error, because the sentinel element moved after the first page."
+    ],
+    "answer": 0,
+    "explain": "An observer reports changes in intersection, not states: measured in Chromium, the long-lived observer fired once and the list stopped at 100 px. Recreating it after each page reports the current state again, and the feed then filled the screen."
+  },
+  {
+    "id": "m37.q30",
+    "module": "m37",
+    "section": "feed",
+    "q": "Twelve new items are published while the customer reads the feed. What do you do?",
+    "options": [
+      "Insert them at the top at once: customers expect a live feed.",
+      "Show a \"Show 12 new items\" button and insert them when clicked.",
+      "Reload the whole feed every minute so it stays current.",
+      "Insert them at the top, then scroll down by their height in a timeout."
+    ],
+    "answer": 1,
+    "explain": "Inserting above the reader moves the content she is reading and counts against CLS. web.dev excludes shifts within 500 ms of a click from CLS, so inserting on her click is both polite and free; compensating the scroll in a timeout still flickers and is fragile."
+  }
+]
