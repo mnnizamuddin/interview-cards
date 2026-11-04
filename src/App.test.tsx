@@ -5,12 +5,41 @@ import { App, type ProgressStore } from './App.tsx';
 import { CARDS } from './content/index.ts';
 import { pickMockInterview } from './play/mock-interview.ts';
 import { emptyProgress, type Progress } from './play/progress.ts';
+import { SERIES_LENGTH } from './play/series.ts';
 import { THEME_KEY } from './ui/theme.ts';
 
 /** A frozen clock: the tests never depend on the real date. */
 const now = () => new Date(2026, 10, 3, 9, 0);
 /** Never draws a check on a handled topic. */
 const random = () => 0.99;
+
+/**
+ * Answers whatever question is on screen. Spoken questions follow `right`. True/false and
+ * multiple-choice answers cannot be chosen blind, so `attempt` picks a different option on each
+ * try, which makes a replayed question right after a few tries.
+ */
+async function answerOnScreen(user: ReturnType<typeof userEvent.setup>, { right, attempt }: { right: boolean; attempt: number }) {
+  const reveal = screen.queryByRole('button', { name: 'Show the answer' });
+  if (reveal) {
+    await user.click(reveal);
+    if (right) {
+      // Follow-ups have no key points to tick.
+      for (const checkbox of screen.queryAllByRole('checkbox')) {
+        await user.click(checkbox);
+      }
+    }
+    await user.click(screen.getByRole('button', { name: right ? 'I had it' : 'I missed it' }));
+    return;
+  }
+  const trueButton = screen.queryByRole('button', { name: 'True' });
+  if (trueButton) {
+    await user.click(attempt % 2 === 0 ? trueButton : screen.getByRole('button', { name: 'False' }));
+  } else {
+    const options = screen.getAllByRole('listitem').map((item) => item.querySelector('button')!);
+    await user.click(options[attempt % options.length]!);
+  }
+  await user.click(screen.getByRole('button', { name: 'Continue' }));
+}
 
 function memoryStore(initial: Progress = emptyProgress()): ProgressStore & { saved: () => Progress } {
   let current = initial;
@@ -43,7 +72,37 @@ describe('App', () => {
 
     expect(store.saved()).toMatchObject({ step: 1, topics: { 'js-scope': { lessonSeen: false, results: [{ correct: true, graded: false }] } } });
     expect(screen.queryByText(/^Lesson ·/)).not.toBeInTheDocument();
-    expect(screen.getByLabelText('1 right out of 1 this time')).toBeInTheDocument();
+    expect(screen.getByLabelText(`Question 2 of ${SERIES_LENGTH}`)).toBeInTheDocument();
+  });
+
+  it('plays a series, replays the missed questions without saving them, then shows a summary', async () => {
+    const user = userEvent.setup();
+    const store = memoryStore();
+    render(<App store={store} now={now} random={random} />);
+    await user.click(await screen.findByRole('button', { name: 'Start playing' }));
+
+    // The first question is missed on purpose, so the series must end with at least one replay.
+    await answerOnScreen(user, { right: false, attempt: 0 });
+    for (let question = 2; question <= SERIES_LENGTH; question += 1) {
+      expect(screen.getByLabelText(`Question ${question} of ${SERIES_LENGTH}`)).toBeInTheDocument();
+      await answerOnScreen(user, { right: true, attempt: 0 });
+    }
+    expect(store.saved().step).toBe(SERIES_LENGTH);
+
+    expect(screen.getByText(/^Missed earlier: one more try/)).toBeInTheDocument();
+    for (let attempt = 0; !screen.queryByText('Series complete'); attempt += 1) {
+      expect(attempt, 'the replays never end').toBeLessThan(60);
+      await answerOnScreen(user, { right: true, attempt });
+    }
+    // Replays are practice: nothing more was saved.
+    expect(store.saved().step).toBe(SERIES_LENGTH);
+    expect(screen.getByRole('heading', { name: new RegExp(`of ${SERIES_LENGTH} right first time`) })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Missed this time' })).toBeInTheDocument();
+    // The main mode never shows lessons, not even in the summary.
+    expect(screen.queryByRole('button', { name: /^Lesson on/ })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Next series' }));
+    expect(screen.getByLabelText(`Question 1 of ${SERIES_LENGTH}`)).toBeInTheDocument();
   });
 
   it('teaches in unit practice: a lesson first, then a lesson button and a review after a reveal', async () => {
