@@ -39,20 +39,23 @@ export function exerciseKey(exercise: Exercise): string {
 
 /**
  * Returns the next exercises: one question, preceded by the topic's lesson the first time the
- * topic comes up. Returns `[]` only when `cards` is empty.
+ * topic comes up when `teach` is set (unit practice). The main mode passes `teach: false` and
+ * gets questions only. Returns `[]` only when `cards` is empty.
  */
 export function nextExercises(
   cards: readonly Card[],
   mcqsByCard: ReadonlyMap<string, readonly Mcq[]>,
   progress: Progress,
   random: () => number = Math.random,
+  { teach = true }: { teach?: boolean } = {},
 ): Exercise[] {
   const card = pickTopic(cards, progress, random);
   if (!card) {
     return [];
   }
   const question = pickQuestion(card, mcqsByCard.get(card.id) ?? [], progress);
-  return progress.topics[card.id]?.lessonSeen ? [question] : [{ kind: 'lesson', cardId: card.id }, question];
+  const needsLesson = teach && !progress.topics[card.id]?.lessonSeen;
+  return needsLesson ? [{ kind: 'lesson', cardId: card.id }, question] : [question];
 }
 
 /**

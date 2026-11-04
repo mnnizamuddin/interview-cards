@@ -13,11 +13,16 @@ const UNIT_TITLES = new Map(UNITS.map((unit) => [unit.id, unit.title]));
 
 /**
  * The endless stream of questions on `cards`: every answer is saved at once, and the learner
- * stops whenever they want. A missed question offers the topic's lesson.
+ * stops whenever they want.
+ *
+ * With `teach` (unit practice), new topics open with their lesson, a header button shows the
+ * current topic's lesson, and a miss offers it. Without it (the main mode), `cards` must be
+ * started topics only, and no lesson is ever shown: it is pure recall.
  */
 export function PlayScreen({
   cards,
   title,
+  teach,
   progress,
   onProgress,
   onStop,
@@ -25,12 +30,13 @@ export function PlayScreen({
 }: {
   cards: Card[];
   title: string;
+  teach: boolean;
   progress: Progress;
   onProgress: (progress: Progress) => void;
   onStop: () => void;
   random?: () => number;
 }) {
-  const [queue, setQueue] = useState<Exercise[]>(() => nextExercises(cards, MCQS_BY_CARD, progress, random));
+  const [queue, setQueue] = useState<Exercise[]>(() => nextExercises(cards, MCQS_BY_CARD, progress, random, { teach }));
   const [turn, setTurn] = useState(0);
   const [reviewing, setReviewing] = useState(false);
   const [sitting, setSitting] = useState({ answered: 0, correct: 0 });
@@ -42,7 +48,7 @@ export function PlayScreen({
 
   function advance(updated: Progress) {
     const rest = queue.slice(1);
-    setQueue(rest.length > 0 ? rest : nextExercises(cards, MCQS_BY_CARD, updated, random));
+    setQueue(rest.length > 0 ? rest : nextExercises(cards, MCQS_BY_CARD, updated, random, { teach }));
     setTurn((value) => value + 1);
     setReviewing(false);
   }
@@ -79,6 +85,15 @@ export function PlayScreen({
         <span className="text-right text-sm font-bold text-muted" aria-label={`${sitting.correct} right out of ${sitting.answered} this time`}>
           ✓ {sitting.correct}/{sitting.answered}
         </span>
+        {teach && current && current.kind !== 'lesson' && !reviewing && (
+          <button
+            type="button"
+            onClick={() => setReviewing(true)}
+            className="rounded-full border-2 border-line px-3 py-1 text-sm font-bold text-sky-500"
+          >
+            Lesson
+          </button>
+        )}
       </header>
 
       {justHandled && (
@@ -100,7 +115,7 @@ export function PlayScreen({
                 card={card}
                 onLessonDone={() => finishLesson(current)}
                 onAnswer={(result) => finishQuestion(current, result)}
-                onReviewLesson={() => setReviewing(true)}
+                onReviewLesson={teach ? () => setReviewing(true) : undefined}
               />
             </div>
           </>
@@ -121,7 +136,8 @@ function ExerciseView({
   card: Card;
   onLessonDone: () => void;
   onAnswer: (result: ExerciseResult) => void;
-  onReviewLesson: () => void;
+  /** Absent in the main mode, which never shows lessons. */
+  onReviewLesson?: () => void;
 }) {
   switch (exercise.kind) {
     case 'lesson':

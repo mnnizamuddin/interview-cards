@@ -13,7 +13,7 @@ export function TrapExercise({
 }: {
   trap: Trap;
   onDone: (result: ExerciseResult) => void;
-  onReviewLesson: () => void;
+  onReviewLesson?: () => void;
 }) {
   const [choice, setChoice] = useState<boolean | null>(null);
   const correct = choice === trap.isTrue;

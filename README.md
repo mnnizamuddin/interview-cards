@@ -6,11 +6,12 @@ There are 106 topics, covering every question of Mocklingo’s full-stack list. 
 
 ## How playing works
 
-- The engine (`src/play/engine.ts`) keeps about 3 topics in progress at a time. A new topic starts with its lesson card.
+- Two modes. **Keep playing** (main mode) asks questions on every topic, studied or not, and never shows a lesson: pure recall. **Play this unit** is where you learn: a new topic opens with its lesson card, a "Lesson" button in the header shows the current topic's lesson at any time, and a miss offers "Review the lesson".
+- The engine (`src/play/engine.ts`) keeps about 3 topics in progress at a time.
 - A topic whose last answer was wrong comes back after a short rest; now and then a handled topic is checked again (15%).
 - Each topic cycles through its questions, the one shown longest ago first.
 - A topic is **handled** when your last 3 answers on it were right. The home screen shows the share handled, overall and per unit.
-- After a miss, "Review the lesson" opens the topic’s lesson; lessons are also browsable from each unit.
+- Lessons are also browsable from each unit's topic list.
 - "Play this unit" limits the stream to one unit.
 - **Mock interview** (home screen, or per unit) picks a topic you do not handle yet and asks its main question, then up to 4 follow-ups in a row, with no lesson until the summary at the end. Answers count toward the topic like any other.
 

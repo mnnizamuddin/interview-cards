@@ -52,6 +52,10 @@ describe('nextExercises', () => {
     ]);
   });
 
+  it('asks a new topic straight away, with no lesson, when not teaching', () => {
+    expect(nextExercises(CARDS, NO_MCQS, emptyProgress(), NEVER, { teach: false })).toEqual([{ kind: 'open', cardId: 'a' }]);
+  });
+
   it('learns three topics at a time before starting a fourth', () => {
     const { seen } = play(emptyProgress(), 5, () => false);
     const topics = seen.filter((exercise) => exercise.kind !== 'lesson').map((exercise) => exercise.cardId);

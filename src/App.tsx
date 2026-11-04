@@ -57,6 +57,7 @@ export function App({ store, now, random }: { store: ProgressStore; now: () => D
       <PlayScreen
         cards={unit ? CARDS.filter((card) => card.unit === unit.id) : CARDS}
         title={unit ? unit.title : 'All topics'}
+        teach={unit !== undefined}
         progress={progress}
         onProgress={setProgress}
         onStop={goHome}

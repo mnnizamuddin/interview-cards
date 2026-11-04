@@ -23,38 +23,44 @@ function memoryStore(initial: Progress = emptyProgress()): ProgressStore & { sav
 }
 
 describe('App', () => {
-  it('opens a topic with its lesson, then asks its interview question and saves the answer', async () => {
+  it('asks questions on any topic in the main mode, with no lesson at all', async () => {
     const user = userEvent.setup();
     const store = memoryStore();
     render(<App store={store} now={now} random={random} />);
 
     await user.click(await screen.findByRole('button', { name: 'Start playing' }));
-    expect(screen.getByText(/^Lesson ·/)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Got it, ask me' }));
-
+    // A topic never studied is asked straight away.
     expect(screen.getByRole('heading', { name: /var.*let.*const/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Lesson' })).not.toBeInTheDocument();
+
     await user.click(screen.getByRole('button', { name: 'Show the answer' }));
+    expect(screen.queryByRole('button', { name: 'Review the lesson' })).not.toBeInTheDocument();
     for (const checkbox of screen.getAllByRole('checkbox')) {
       await user.click(checkbox);
     }
     await user.click(screen.getByRole('button', { name: 'I had it' }));
 
-    expect(store.saved()).toMatchObject({ step: 1, topics: { 'js-scope': { lessonSeen: true, results: [true] } } });
-    // Fewer than three topics are being learned, so the next one starts with its lesson.
-    expect(screen.getByRole('button', { name: 'Got it, ask me' })).toBeInTheDocument();
+    expect(store.saved()).toMatchObject({ step: 1, topics: { 'js-scope': { lessonSeen: false, results: [true] } } });
+    expect(screen.queryByText(/^Lesson ·/)).not.toBeInTheDocument();
     expect(screen.getByLabelText('1 right out of 1 this time')).toBeInTheDocument();
   });
 
-  it('offers the lesson again after a missed question', async () => {
+  it('teaches in unit practice: a lesson first, then a lesson button and a review after a reveal', async () => {
     const user = userEvent.setup();
     render(<App store={memoryStore()} now={now} random={random} />);
 
-    await user.click(await screen.findByRole('button', { name: 'Start playing' }));
+    await user.click(await screen.findByText('JavaScript core'));
+    await user.click(screen.getAllByRole('button', { name: 'Play this unit' })[0]!);
+    expect(screen.getByText(/^Lesson ·/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Got it, ask me' }));
+
+    // The header button opens the current topic's lesson at any time.
+    await user.click(screen.getByRole('button', { name: 'Lesson' }));
+    await user.click(screen.getByRole('button', { name: 'Back to the question' }));
+
     await user.click(screen.getByRole('button', { name: 'Show the answer' }));
     await user.click(screen.getByRole('button', { name: 'Review the lesson' }));
     await user.click(screen.getByRole('button', { name: 'Back to the question' }));
-
     // The revealed answer is still there after the lesson.
     expect(screen.getByRole('button', { name: 'I missed it' })).toBeInTheDocument();
   });
