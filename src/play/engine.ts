@@ -55,6 +55,11 @@ export type NextOptions = {
   random?: () => number;
   /** Unit practice (`true`, the default) opens a new topic with its lesson; the main mode does not. */
   teach?: boolean;
+  /**
+   * How a new topic is chosen: in learning order (the default, for unit practice), or at random
+   * among the topics not started yet (the main mode, so every fresh start covers different ground).
+   */
+  newTopics?: 'in-order' | 'random';
 };
 
 /**
@@ -65,9 +70,9 @@ export function nextExercises(
   cards: readonly Card[],
   mcqsByCard: ReadonlyMap<string, readonly Mcq[]>,
   progress: Progress,
-  { now, random = Math.random, teach = true }: NextOptions,
+  { now, random = Math.random, teach = true, newTopics = 'in-order' }: NextOptions,
 ): Exercise[] {
-  const card = pickTopic(cards, progress, random, now);
+  const card = pickTopic(cards, progress, random, now, newTopics);
   if (!card) {
     return [];
   }
@@ -80,11 +85,18 @@ export function nextExercises(
  * Chooses the topic, in this order of priority:
  * 1. a topic whose last answer was wrong comes back once it has rested;
  * 2. now and then, a rested handled topic is checked again;
- * 3. while fewer than {@link TOPICS_IN_PROGRESS} topics are being learned, a new one starts;
+ * 3. while fewer than {@link TOPICS_IN_PROGRESS} topics are being learned, a new one starts,
+ *    the next in learning order or a random one, as `newTopics` says;
  * 4. otherwise, the topic being learned that was seen longest ago, rested ones first.
  * A handled topic that has gone stale counts as being learned, so it comes back for a check.
  */
-function pickTopic(cards: readonly Card[], progress: Progress, random: () => number, now: number): Card | undefined {
+function pickTopic(
+  cards: readonly Card[],
+  progress: Progress,
+  random: () => number,
+  now: number,
+  newTopics: 'in-order' | 'random',
+): Card | undefined {
   const stateOf = (card: Card) => progress.topics[card.id];
   const byLastStep = (a: Card, b: Card) => stateOf(a)!.lastStep - stateOf(b)!.lastStep;
   const hasRested = (card: Card) => progress.step - stateOf(card)!.lastStep > REST_STEPS;
@@ -95,6 +107,7 @@ function pickTopic(cards: readonly Card[], progress: Progress, random: () => num
   const restedLearning = learning.filter(hasRested);
   const restedHandled = handled.filter(hasRested);
   const missed = restedLearning.filter((card) => stateOf(card)!.results.at(-1)?.correct === false);
+  const nextFresh = () => (newTopics === 'random' ? fresh[Math.floor(random() * fresh.length)] : fresh[0]);
 
   if (missed.length > 0) {
     return missed[0];
@@ -103,9 +116,9 @@ function pickTopic(cards: readonly Card[], progress: Progress, random: () => num
     return restedHandled[0];
   }
   if (learning.length < TOPICS_IN_PROGRESS && fresh.length > 0) {
-    return fresh[0];
+    return nextFresh();
   }
-  return restedLearning[0] ?? learning[0] ?? fresh[0] ?? restedHandled[0] ?? handled[0];
+  return restedLearning[0] ?? learning[0] ?? nextFresh() ?? restedHandled[0] ?? handled[0];
 }
 
 /**

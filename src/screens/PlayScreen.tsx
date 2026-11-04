@@ -56,7 +56,7 @@ export function PlayScreen({
   const { cards } = content;
   /** The first questions of a series: the weak spots in a review, else the engine's next pick. */
   function planFor(current: Progress): Exercise[] {
-    return review ? pickReview(cards, content.mcqsByCard, current, now()) : nextExercises(cards, content.mcqsByCard, current, { now: now(), random, teach });
+    return review ? pickReview(cards, content.mcqsByCard, current, now()) : nextExercises(cards, content.mcqsByCard, current, { now: now(), random, teach, newTopics: teach ? 'in-order' : 'random' });
   }
 
   const [queue, setQueue] = useState<Exercise[]>(() => planFor(progress));
@@ -78,7 +78,7 @@ export function PlayScreen({
   function advanceQueue(updated: Progress) {
     const rest = queue.slice(1);
     // A review is planned up front; the engine's stream is refilled as it runs out.
-    setQueue(rest.length > 0 || review ? rest : nextExercises(cards, content.mcqsByCard, updated, { now: now(), random, teach }));
+    setQueue(rest.length > 0 || review ? rest : nextExercises(cards, content.mcqsByCard, updated, { now: now(), random, teach, newTopics: teach ? 'in-order' : 'random' }));
   }
 
   function finishLesson(exercise: Exercise) {

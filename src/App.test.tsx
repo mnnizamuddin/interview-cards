@@ -14,6 +14,14 @@ const now = () => new Date(2026, 10, 3, 9, 0);
 const random = () => 0.99;
 
 /**
+ * The main mode draws new topics at random, so with `random` fixed at 0.99 it starts on the card
+ * at that position in learning order.
+ */
+const FIRST_MAIN_TOPIC = CARDS[Math.floor(random() * CARDS.length)]!;
+/** A heading's accessible name: the question without the backticks of its inline code. */
+const FIRST_MAIN_QUESTION = FIRST_MAIN_TOPIC.question.replaceAll('`', '');
+
+/**
  * Answers whatever question is on screen. Spoken questions follow `right`. True/false and
  * multiple-choice answers cannot be chosen blind, so `attempt` picks a different option on each
  * try, which makes a replayed question right after a few tries.
@@ -63,8 +71,9 @@ describe('App', () => {
     render(<App store={store} now={now} random={random} />);
 
     await user.click(await screen.findByRole('button', { name: 'Start playing' }));
-    // A topic never studied is asked straight away.
-    expect(await screen.findByRole('heading', { name: /var.*let.*const/ })).toBeInTheDocument();
+    // A topic never studied is asked straight away, drawn at random rather than the first in order.
+    expect(await screen.findByRole('heading', { name: FIRST_MAIN_QUESTION })).toBeInTheDocument();
+    expect(FIRST_MAIN_TOPIC.id).not.toBe(CARDS[0]!.id);
     expect(screen.queryByRole('button', { name: 'Lesson' })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Show the answer' }));
@@ -74,7 +83,7 @@ describe('App', () => {
     }
     await user.click(screen.getByRole('button', { name: 'I had it' }));
 
-    expect(store.saved()).toMatchObject({ step: 1, topics: { 'js-scope': { lessonSeen: false, results: [{ correct: true, graded: false }] } } });
+    expect(store.saved()).toMatchObject({ step: 1, topics: { [FIRST_MAIN_TOPIC.id]: { lessonSeen: false, results: [{ correct: true, graded: false }] } } });
     expect(screen.queryByText(/^Lesson ·/)).not.toBeInTheDocument();
     expect(screen.getByLabelText(`Question 2 of ${SERIES_LENGTH}`)).toBeInTheDocument();
   });
@@ -206,7 +215,7 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: 'Review weak spots (1)' }));
     // The missed main question comes back, alone: the review has one question.
-    expect(await screen.findByRole('heading', { name: /var.*let.*const/ })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: FIRST_MAIN_QUESTION })).toBeInTheDocument();
     expect(screen.getByLabelText('Question 1 of 1')).toBeInTheDocument();
     await answerOnScreen(user, { right: true, attempt: 0 });
 

@@ -58,6 +58,16 @@ describe('nextExercises', () => {
     expect(nextExercises(CARDS, NO_MCQS, emptyProgress(), { now: NOW, random: NEVER, teach: false })).toEqual([{ kind: 'open', cardId: 'a' }]);
   });
 
+  it('starts new topics in learning order by default, or at random when asked', () => {
+    const first = (newTopics: 'in-order' | 'random', random: () => number) =>
+      nextExercises(CARDS, NO_MCQS, emptyProgress(), { now: NOW, random, teach: false, newTopics })[0]?.cardId;
+    expect(first('in-order', () => 0.5)).toBe('a');
+    // Five new topics: 0 picks the first, 0.5 the third, 0.99 the last.
+    expect(first('random', () => 0)).toBe('a');
+    expect(first('random', () => 0.5)).toBe('c');
+    expect(first('random', () => 0.99)).toBe('e');
+  });
+
   it('learns three topics at a time before starting a fourth', () => {
     const { seen } = play(emptyProgress(), 5, () => false);
     const topics = seen.filter((exercise) => exercise.kind !== 'lesson').map((exercise) => exercise.cardId);
