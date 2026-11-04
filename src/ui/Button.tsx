@@ -4,7 +4,7 @@ type Variant = 'primary' | 'secondary' | 'success' | 'danger' | 'ghost' | 'ghost
 
 /**
  * Chunky, pressable buttons: a coloured face over a darker bottom edge (`press` in styles.css).
- * Coloured buttons use large bold text, because white on orange or green needs it to stay readable.
+ * Coloured buttons use large bold text, which also keeps white on green readable.
  */
 const VARIANTS: Record<Variant, string> = {
   primary: 'press border-2 border-brand-strong border-b-brand-edge bg-brand-strong text-[1.2rem] font-extrabold text-white',

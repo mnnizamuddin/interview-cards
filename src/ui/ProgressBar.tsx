@@ -21,7 +21,7 @@ export function ProgressBar({
     : { 'aria-hidden': true };
   return (
     <span className={`block ${height} overflow-hidden rounded-full bg-surface`} {...a11y}>
-      <span className="relative block h-full rounded-full bg-brand transition-[width] duration-300" style={{ width: `${share}%` }}>
+      <span className="relative block h-full rounded-full bg-progress transition-[width] duration-300" style={{ width: `${share}%` }}>
         {share > 4 && <span className="absolute inset-x-2 top-[22%] h-[28%] rounded-full bg-white/35" />}
       </span>
     </span>

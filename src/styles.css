@@ -5,15 +5,15 @@
 
 @theme {
   /*
-   * Orange is the brand. `brand` is the vivid fill (progress, highlights, borders), `brand-strong`
-   * the face of buttons with white text (3.6:1, so their text is large and bold), `brand-edge` the
-   * darker 3D edge under them, `brand-ink` the orange for text. Green only ever means "correct".
+   * Blue is the brand, far from the green of "correct" and the red of "wrong". `brand` is the
+   * vivid fill (selection, highlights, borders), `brand-strong` the face of buttons with white text
+   * (5.2:1), `brand-edge` the darker 3D edge under them, `brand-ink` the blue for text.
    */
-  --color-brand: #f97316;
-  --color-brand-strong: #ea580c;
-  --color-brand-edge: #c2410c;
-  --color-brand-ink: #c2410c;
-  --color-brand-soft: #ffedd5;
+  --color-brand: #3b82f6;
+  --color-brand-strong: #2563eb;
+  --color-brand-edge: #1d4ed8;
+  --color-brand-ink: #1d4ed8;
+  --color-brand-soft: #dbeafe;
   --color-success: #16a34a;
   --color-success-edge: #15803d;
   --color-success-soft: #dcfce7;
@@ -23,6 +23,8 @@
   --color-danger-soft: #fee2e2;
   --color-danger-ink: #b91c1c;
   --color-gold: #ca8a04;
+  /* Progress has its own warm gold, an "achievement" colour: never an action (blue), right or wrong. */
+  --color-progress: #f5b60b;
   --font-sans: 'Nunito Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
 }
@@ -50,7 +52,7 @@
 
 /* `data-theme` is set on <html> by the script in index.html: the saved choice, else the system setting. */
 :root[data-theme='dark'] {
-  /* Neutral greys, no blue tint, so the orange stays the only colour. */
+  /* Neutral greys, no blue tint in the page itself: the brand blue stays the only colour. */
   --bg: #141414;
   --card: #1e1e1f;
   --surface: #2a2a2b;
@@ -58,13 +60,14 @@
   --text: #f5f5f4;
   --muted: #a8a29e;
   --inline-code-bg: #2e2c2a;
-  --color-brand-ink: #fdba74;
-  --color-brand-soft: #3a2413;
+  --color-brand-ink: #93c5fd;
+  --color-brand-soft: #1b2a47;
   --color-success-soft: #14301c;
   --color-success-ink: #4ade80;
   --color-danger-soft: #3b1717;
   --color-danger-ink: #f87171;
   --color-gold: #facc15;
+  --color-progress: #fbbf24;
   color-scheme: dark;
 }
 

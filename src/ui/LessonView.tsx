@@ -38,7 +38,7 @@ export function LessonView({
           aria-valuemin={0}
           aria-valuemax={100}
         >
-          <div className="h-full rounded-full bg-brand transition-[width] duration-150" style={{ width: `${reading * 100}%` }} />
+          <div className="h-full rounded-full bg-progress transition-[width] duration-150" style={{ width: `${reading * 100}%` }} />
         </div>
       </header>
 
