@@ -163,7 +163,7 @@ export const deliveryMoreCards: Card[] = [
       },
       {
         question: 'What does a real database show that a mock hides?',
-        answer: 'Wrong SQL, missing constraints and type details. A `date` column comes back as a JavaScript `Date` at UTC midnight, and a duplicate key rejects with PostgreSQL code 23505, which the repository must map to a domain error.',
+        answer: 'Wrong SQL, missing constraints and type details. With node-postgres, a `date` column comes back as a JavaScript `Date` at midnight in the process time zone, and a duplicate key rejects with PostgreSQL code 23505, which the repository must map to a domain error.',
       },
       {
         question: 'How do you run integration test files in parallel?',

@@ -912,7 +912,7 @@ el.textContent = reviewText;                         // safe sink: strings are f
       },
       {
         question: 'What happens if you send with a target origin that does not match?',
-        answer: "The browser drops the message, with only a console warning. That is the protection: if the iframe was navigated to another site, your data does not reach it. With `\"*\"`, it would.",
+        answer: "The browser drops the message, with only a console message, no exception. That is the protection: if the iframe was navigated to another site, your data does not reach it. With `\"*\"`, it would.",
       },
       {
         question: 'How do you subscribe to messages in a React component?',
@@ -1146,7 +1146,7 @@ frame.contentWindow?.postMessage({ type: 'checkout.ready' }, PAYMENT_ORIGIN);`,
       },
     ],
     answer:
-      'First contrast: WCAG asks at least 4.5 to 1 for normal text, 3 to 1 for large text, and 3 to 1 for control borders and focus indicators. Colour must never be the only signal, so a status dot also needs its text. Then motion: I honour `prefers-reduced-motion` by replacing a slide with a short fade, not by removing feedback. Then hidden focus: WCAG 2.2 says a sticky bar must not cover the focused field, which I fix with `scroll-padding-bottom` plus room at the end of the page. And touch targets of at least 24 by 24 CSS pixels, 44 being more comfortable on a phone.',
+      'First contrast: WCAG asks at least 4.5 to 1 for normal text, 3 to 1 for large text, and 3 to 1 for control borders and focus indicators. Colour must never be the only signal, so a status dot also needs its text. Then motion: I honour `prefers-reduced-motion` by replacing a slide with a short fade, not by removing feedback. Then hidden focus: WCAG 2.2 says a sticky bar must not entirely cover the focused field, which I fix with `scroll-padding-bottom` plus room at the end of the page. And touch targets of at least 24 by 24 CSS pixels, 44 being more comfortable on a phone.',
     keyPoints: [
       'Text 4.5:1, large text 3:1, controls and focus rings 3:1',
       'Never colour alone: add text or an icon',
@@ -1220,14 +1220,14 @@ frame.contentWindow?.postMessage({ type: 'checkout.ready' }, PAYMENT_ORIGIN);`,
         { term: 'WCAG 1.4.11 non-text', detail: '3:1 for control borders and focus indicators.' },
         { term: 'WCAG 1.4.1 colour', detail: 'Never the only signal: a status dot also needs text, such as "Refunded".' },
         { term: '`prefers-reduced-motion`', detail: 'Reflects the system setting; replace movement with a short fade, keep the feedback.' },
-        { term: 'WCAG 2.4.11 focus', detail: 'A sticky bar must not hide the focused element: `scroll-padding-bottom` plus end padding.' },
+        { term: 'WCAG 2.4.11 focus', detail: 'A sticky bar must not entirely hide the focused element: `scroll-padding-bottom` plus end padding.' },
         { term: 'WCAG 2.5.8 target size', detail: 'At least 24 by 24 CSS pixels unless spaced apart; 44 px (AAA) is more comfortable.' },
       ],
       points: [
         'WCAG 1.4.3 (AA) asks a contrast ratio of 4.5:1 for text and 3:1 for large text (about 24 px, or 18.5 px bold). 1.4.11 asks 3:1 for control borders and focus indicators.',
         'Colour must never be the only signal (WCAG 1.4.1): a red or green status dot also needs its text, such as "Refunded".',
         "`prefers-reduced-motion` reflects the system's \"reduce motion\" setting. Honour it by replacing movement with a short fade, not by removing all feedback.",
-        'WCAG 2.2 adds 2.4.11 Focus Not Obscured: a sticky bar must not hide the focused element. `scroll-padding-bottom` plus padding at the end of the page fixes it.',
+        'WCAG 2.2 adds 2.4.11 Focus Not Obscured (AA): a sticky bar must not entirely hide the focused element. `scroll-padding-bottom` plus padding at the end of the page fixes it.',
         'WCAG 2.5.8 Target Size (AA) asks pointer targets of at least 24 by 24 CSS pixels, unless spaced apart; 44 px (the AAA level) is more comfortable on a phone.',
       ],
       code: `.cart-drawer { transition: transform 300ms ease-out; }

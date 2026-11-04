@@ -840,7 +840,7 @@ export const makeCancelOrder = (orders: OrderRepository) => async (id: string) =
     explanation:
       'It tests operational maturity: whether misconfiguration shows up at deploy time or as a production incident. Seniors know the string coercion traps, keep a single typed config object, and keep secrets out of the image.',
     example:
-      'A deploy of the Orders API forgot `DATABASE_URL`; the pods started normally and the first order of the night failed at 3 a.m. With a Zod schema checked at startup, the same mistake made the process log `DATABASE_URL: Invalid input` and exit with code 1, so the next bad deploy failed within seconds, before any customer hit it.',
+      'A deploy of the Orders API forgot `DATABASE_URL`; the pods started normally and the first order of the night failed at 3 a.m. With a Zod schema checked at startup, the same mistake made the process log `Invalid input` for `DATABASE_URL` and exit with code 1, so the next bad deploy failed within seconds, before any customer hit it.',
     mistakes: [
       'Reading `process.env` all over the code, so a missing variable fails only when its code path runs',
       'Using `z.coerce.boolean()` for flags, which reads "false" as true; use `z.stringbool()`',

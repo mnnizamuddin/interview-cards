@@ -1155,7 +1155,7 @@ console.log(typeof JSON.parse(JSON.stringify(order)).at);         // string`,
     followUps: [
       {
         question: 'When would you use a `WeakMap`?',
-        answer: 'To attach data to objects you do not own, like DOM nodes, without keeping them alive: when the key object is collected, its entry goes too. Keys must be objects, and a WeakMap cannot be iterated. A `WeakSet` does the same for membership, like marking which nodes were already set up.',
+        answer: 'To attach data to objects you do not own, like DOM nodes, without keeping them alive: when the key object is collected, its entry goes too. Keys must be objects or unregistered symbols, and a WeakMap cannot be iterated. A `WeakSet` does the same for membership, like marking which nodes were already set up.',
         fromLists: ['frontend-100#32.2'],
       },
       {

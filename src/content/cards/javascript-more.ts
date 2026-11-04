@@ -526,7 +526,7 @@ grid.addEventListener('click', (event) => {
         { term: '`for...of`', detail: 'Use it when you need `break` or `await`.' },
       ],
       points: [
-        'All four call a callback with `(item, index, array)` for each item, left to right. They differ in what they return, and none of them changes the original array.',
+        'All four call a callback for each item, left to right: `forEach`, `map` and `filter` pass `(item, index, array)`, and `reduce` passes the accumulator first. None of them changes the original array.',
         '`forEach` returns `undefined`: use it for side effects. A `return` in its callback only ends that call, and it ignores returned promises, so an `await` inside does not make the loop wait.',
         '`map` returns a new array of the same length with each item transformed. `filter` returns a new array of the items for which the callback returned a truthy value.',
         '`reduce(fn, initial)` folds the array into one value: each call gets the accumulator and an item and returns the next accumulator. Without `initial`, an empty array throws a TypeError.',

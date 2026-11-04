@@ -209,7 +209,7 @@ function Layout({ agent }: { agent: Agent }) {
       {
         question: 'How would you handle derived state in Zustand?',
         answer:
-          'I do not store it: I compute it in the selector, like `useCartStore((s) => s.lines.length)`, which re-renders only when the number changes. A selector that builds a new array or object needs `useShallow`, or the component re-renders on every store change. For an expensive value, I memoize it.',
+          'I do not store it: I compute it in the selector, like `useCartStore((s) => s.lines.length)`, which re-renders only when the number changes. A selector that builds a new array or object needs `useShallow`, or Zustand 5 loops with "Maximum update depth exceeded". For an expensive value, I memoize it.',
         fromLists: ['react-50#28.2'],
       },
       {
@@ -338,7 +338,7 @@ dispatch(cartSlice.actions.added({ productId: 'mug', quantity: 1 }));`,
       {
         question: 'How does TanStack Query handle race conditions between rapid refetches?',
         answer:
-          'Each result is stored under its query key, so an old filter\'s answer cannot land in the new filter\'s entry. For the same key, a new refetch cancels the running one by default (`cancelRefetch: true`), and the query function gets an `AbortSignal` so the request is really aborted.',
+          'Each result is stored under its query key, so an old filter\'s answer cannot land in the new filter\'s entry. For the same key, a new refetch cancels the running one by default (`cancelRefetch: true`), and when the query function passes its `AbortSignal` to `fetch`, the request is really aborted.',
         fromLists: ['frontend-100#53.1'],
       },
       {

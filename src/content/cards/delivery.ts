@@ -1510,7 +1510,7 @@ it('applies 10% off once, in cents', () => {
     followUps: [
       {
         question: 'What do automated accessibility tools consistently miss?',
-        answer: 'Anything that needs judgement or interaction: whether alt text is meaningful, a logical focus order, focus moved into a dialog and back, keyboard traps, announcements that make sense, and reflow at 320 CSS px or 200% zoom. They also see only the states that are rendered during the scan.',
+        answer: 'Anything that needs judgement or interaction: whether alt text is meaningful, a logical focus order, focus moved into a dialog and back, keyboard traps, announcements that make sense, reflow at 320 CSS px and text resized to 200%. They also see only the states that are rendered during the scan.',
         fromLists: ['frontend-100#81.1'],
       },
       {
@@ -1561,15 +1561,15 @@ expect(onRemove).toHaveBeenCalledWith('prod_mug');`,
       takeaways: [
         { term: '`eslint-plugin-jsx-a11y`', detail: 'Flags invalid ARIA in JSX as you type.' },
         { term: 'Query by role and name', detail: 'Component tests that query by role and accessible name fail when, say, a button has no name.' },
-        { term: '`@axe-core/playwright`', detail: 'Runs axe on key pages and their open states in CI. Its README claims about 57% of WCAG issues on average.' },
-        { term: 'What machines miss', detail: 'Meaningful alt text, logical focus order, clear announcements, focus traps, reflow at 320 CSS px or 200% zoom.' },
+        { term: '`@axe-core/playwright`', detail: 'Runs axe on key pages and their open states in CI. The axe-core README claims about 57% of WCAG issues on average.' },
+        { term: 'What machines miss', detail: 'Meaningful alt text, logical focus order, clear announcements, focus traps, reflow at 320 CSS px, text resized to 200%.' },
         { term: 'Keyboard tests', detail: 'Tab order, arrows in widgets, Escape closing a dialog and focus returning to its trigger. Custom widgets follow the APG.' },
         { term: 'Manual passes', detail: 'Keyboard-only and screen reader passes on critical journeys, such as NVDA on Windows and VoiceOver with Safari.' },
       ],
       points: [
         'Automate in layers: `eslint-plugin-jsx-a11y` flags invalid ARIA in JSX, component tests query by role and accessible name, and an axe scan runs on key pages in CI.',
         'axe-core checks what a machine can decide: missing labels, contrast, invalid ARIA, duplicate ids. Its README claims about 57% of WCAG issues on average, only in rendered states.',
-        'Machines miss judgement: meaningful alt text, a logical focus order, understandable announcements, focus traps, and reflow at 320 CSS px wide or 200% zoom.',
+        'Machines miss judgement: meaningful alt text, a logical focus order, understandable announcements, focus traps, reflow at 320 CSS px wide, and text resized to 200%.',
         'Write keyboard tests for behaviour: Tab order, arrows inside widgets, Escape closing a dialog and focus returning to its trigger. Custom widgets follow the WAI-ARIA Authoring Practices (APG).',
         'Before release, do a keyboard-only pass and a screen reader pass on critical journeys, for example NVDA on Windows and VoiceOver with Safari on a Mac or iPhone.',
       ],
@@ -2383,7 +2383,7 @@ app.get('/livez', async (request, reply) => {
       },
     ],
     answer:
-      'On a deploy Kubernetes sends SIGTERM, waits the grace period, 30 seconds by default, then sends SIGKILL. The pod leaves the Service endpoints at about the same time, not before, so new requests can still arrive for a moment. So on SIGTERM my Node service fails readiness, waits a few seconds, stops accepting connections, lets in-flight requests finish with a deadline that closes leftover keep-alive connections, then closes the database pool, flushes telemetry and exits, all within the grace period. The container starts `node` directly, because `npm start` swallows the signal.',
+      'On a deploy Kubernetes sends SIGTERM, waits the grace period, 30 seconds by default, then sends SIGKILL. The pod leaves the Service endpoints at about the same time, not before, so new requests can still arrive for a moment. So on SIGTERM my Node service fails readiness, waits a few seconds, stops accepting connections, lets in-flight requests finish with a deadline that closes leftover keep-alive connections, then closes the database pool, flushes telemetry and exits, all within the grace period. The container starts `node` directly, because `npm start` puts npm and a shell in front of it, which may not pass the signal on.',
     keyPoints: [
       'SIGTERM, grace period (30 s default), then SIGKILL',
       'Endpoint removal is concurrent: fail readiness, then wait',
@@ -2396,7 +2396,7 @@ app.get('/livez', async (request, reply) => {
       'Every deploy of the Orders API cut a few checkouts with 502s: pods exited at once on SIGTERM while the load balancer still sent them traffic. The team added a 5-second drain after failing readiness, then `server.close()` with a deadline that closes the remaining connections. Over the next 50 deploys, no request failed because of a rollout.',
     mistakes: [
       'Exiting immediately on SIGTERM',
-      'Starting the app with `npm start`, which does not pass SIGTERM on to Node',
+      'Starting the app with `npm start`, which puts npm and a shell between SIGTERM and Node',
       'A shutdown longer than the grace period, so SIGKILL cuts it anyway',
     ],
     followUps: [
@@ -2463,14 +2463,14 @@ app.get('/livez', async (request, reply) => {
         { term: 'Endpoint removal', detail: 'Happens about the same time as SIGTERM, not before: fail readiness and keep serving a few seconds.' },
         { term: '`server.close()`', detail: 'Refuses new connections and waits for in-flight requests. Busy keep-alive connections need a deadline to close them.' },
         { term: 'Release resources', detail: 'Close the database pool, flush logs and telemetry, and exit within the grace period.' },
-        { term: '`CMD` runs `node` directly', detail: '`npm start` swallows SIGTERM, so start `node` in the Dockerfile and handle SIGTERM in code.' },
+        { term: '`CMD` runs `node` directly', detail: '`npm start` adds npm and a shell that may not pass SIGTERM on, so start `node` and handle SIGTERM in code.' },
       ],
       points: [
         'On a deploy, Kubernetes runs any `preStop` hook, sends SIGTERM, waits `terminationGracePeriodSeconds` (30 s by default), then sends SIGKILL to whatever still runs.',
         'The pod leaves the Service endpoints at about the same time as SIGTERM, not before. So fail readiness and keep serving a few seconds before you stop accepting connections.',
         'Then `server.close()` refuses new connections and waits for in-flight requests. A keep-alive connection busy at that moment can carry another request, so a deadline closes all connections.',
         'Last, close the database pool, flush logs and telemetry, and exit, all within the grace period. Requests that can run longer need their own deadline.',
-        "The signal must reach Node: start `node` directly in the Dockerfile's `CMD`, since `npm start` swallows SIGTERM, and handle SIGTERM in the code.",
+        "The signal must reach Node: start `node` directly in the Dockerfile's `CMD`, since `npm start` adds npm and a shell that may not pass SIGTERM on, and handle SIGTERM in the code.",
       ],
       code: `process.once('SIGTERM', async () => {
   shuttingDown = true;                 // /readyz now answers 503

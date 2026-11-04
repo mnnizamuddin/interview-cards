@@ -720,7 +720,7 @@ export const webPlatformCards: Card[] = [
       },
       {
         question: 'How do you handle responsive typography?',
-        answer: 'Sizes in `rem`, so the user\'s font setting applies, and fluid headings with `clamp()`, like `clamp(1.5rem, 1rem + 2vw, 2.5rem)`: they grow with the viewport between a minimum and a maximum. A `vw`-only size ignores zoom, so I always mix it with `rem` and keep the maximum at least twice the minimum.',
+        answer: 'Sizes in `rem`, so the user\'s font setting applies, and fluid headings with `clamp()`, like `clamp(1.25rem, 1rem + 2vw, 2.5rem)`: they grow with the viewport between a minimum and a maximum. A `vw`-only size ignores zoom, so I always mix it with `rem` and keep the maximum at least twice the minimum.',
         fromLists: ['frontend-100#6.2'],
       },
     ],
@@ -1943,7 +1943,7 @@ button, input, select, textarea {
       },
       {
         question: 'What is `clamp()`, and how does it help with fluid typography?',
-        answer: '`clamp(min, preferred, max)` returns the preferred value kept between the bounds. `font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem)` grows with the viewport with no breakpoint, never below 1.5rem or above 2.5rem. MDN advises a maximum at least twice the minimum, so text can still reach 200% zoom.',
+        answer: '`clamp(min, preferred, max)` returns the preferred value kept between the bounds. `font-size: clamp(1.25rem, 1rem + 2vw, 2.5rem)` grows with the viewport with no breakpoint, never below 1.25rem or above 2.5rem. MDN advises a maximum at least twice the minimum, so text can still reach 200% zoom.',
         fromLists: ['frontend-100#10.2'],
       },
     ],
@@ -2000,7 +2000,7 @@ body { font-size: 14px; }`,
 .price { font-size: 1.25rem; }     /* 20px at the default 16px */
 .badge { padding: 0.25em 0.5em; }  /* follows the badge's own text */
 .hero { min-height: 100svh; }      /* fits with the browser bars shown */
-h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem); }`,
+h1 { font-size: clamp(1.25rem, 1rem + 2vw, 2.5rem); }`,
       codeLang: 'css',
     },
     mcqSections: [],
@@ -3110,7 +3110,7 @@ self.addEventListener('activate', (event) => {
         'The WAI-ARIA Authoring Practices Guide (APG) defines the combobox: `role="combobox"`, a label, `aria-expanded`, and `aria-controls` pointing to a `role="listbox"` popup of `role="option"` items.',
         'DOM focus stays on the combobox. `aria-activedescendant` holds the id of the highlighted option, so screen readers announce it, and `aria-selected="true"` marks the chosen value.',
         'Keyboard: Down Arrow opens the list and moves through options, Enter accepts, Escape closes without changing the value, Alt+Down opens without moving. Scroll the active option into view yourself.',
-        'A select-only combobox, like a size picker, accepts no typing and behaves like a native `select`. ARIA adds no behaviour: every key is yours to implement and test.',
+        'A select-only combobox, like a size picker, has no text input, only type-ahead to an option, and behaves like a native `select`. ARIA adds no behaviour: every key is yours to implement and test.',
       ],
       code: `<span id="size-label">Size</span>
 <div role="combobox" tabindex="0" aria-labelledby="size-label"

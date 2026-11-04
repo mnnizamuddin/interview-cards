@@ -65,10 +65,10 @@ export const frontendDesignCards: Card[] = [
       {
         statement: 'Most of a frontend design round should go to clarifying requirements.',
         isTrue: false,
-        why: 'The RADIO playbook suggests not more than 10% for requirements and about 40% for optimisations and the deep dive.',
+        why: 'The RADIO playbook keeps requirements to a small share, around 10 to 15%, and about 40% for optimisations and the deep dive.',
         twin: {
           statement: 'In a frontend design round, requirements should take a small share of the time, with about 40% kept for optimisations and the deep dive.',
-          why: 'The RADIO playbook suggests not more than 10% for requirements and about 40% for optimisations and the deep dive.',
+          why: 'The RADIO playbook keeps requirements to a small share, around 10 to 15%, and about 40% for optimisations and the deep dive.',
         },
       },
       {
@@ -86,16 +86,16 @@ export const frontendDesignCards: Card[] = [
         'A frontend system design round is a 45 to 60 minute talk where you design a screen, its data and its behaviour out loud. It grades reasoning about the client, not servers or shards.',
       takeaways: [
         { term: 'RADIO', detail: 'Requirements, Architecture, Data model, Interface, Optimisations and deep dive. Announce the plan first.' },
-        { term: 'Requirements', detail: 'At most 10% of the time: about the first 5 minutes of 45. Write the answers where the interviewer sees them.' },
+        { term: 'Requirements', detail: 'A small share, around 10 to 15%: about the first 5 minutes of 45. Write the answers where the interviewer sees them.' },
         { term: 'Useful questions', detail: 'Only those that change a later step: users and devices, core features, "fast" as a number, freshness, a11y, offline.' },
         { term: 'Architecture and data', detail: 'Components and who talks to whom, then entities and where each piece of state lives.' },
-        { term: 'Time split', detail: 'About 20% architecture, 10% data, 20% interface and 40% optimisations and deep dive.' },
+        { term: 'Time split', detail: 'About 20% architecture, 10% data, 15 to 20% interface and 40% optimisations and deep dive.' },
         { term: 'Close', detail: 'Say choices as "X, which costs Y; if Z mattered more, W", and tie each requirement to the part that meets it.' },
       ],
       points: [
         'A frontend system design round is a 45 to 60 minute talk where you design a screen, its data and its behaviour out loud. It grades reasoning about the client, not servers or shards.',
         'RADIO names the steps: Requirements, Architecture (components and who talks to whom), Data model (entities and where each piece of state lives), Interface (the APIs), Optimisations and deep dive.',
-        'Suggested shares: at most 10% requirements, about 20% architecture, 10% data, 20% interface and 40% optimisations. In a 45-minute slot, requirements end around minute 5.',
+        'Suggested shares: around 10 to 15% requirements, about 20% architecture, 10% data, 15 to 20% interface and 40% optimisations. In a 45-minute slot, requirements end around minute 5.',
         'Ask each requirement question because its answer changes a later step: users and devices, core features, "fast" as a number, data freshness, accessibility, browsers, offline, languages.',
         'Say every choice as "X, which costs Y; if Z mattered more, W", check in at each step, and close by tying each requirement to the part of the design that meets it.',
       ],
@@ -539,7 +539,7 @@ const query = useQuery({
       },
     ],
     answer:
-      'The guarantee is an `Idempotency-Key` on `POST /orders`, created once per purchase intent with `crypto.randomUUID()` and reused by every retry and every second click, so the Orders API returns the first answer instead of creating another order. I create a new key only when the cart version changes. Disabling the button is comfort, not protection: measured, a double-click still sent two POSTs, both with the same key. Behind it, a unique constraint on the cart id catches a reload that lost the key. Then I design each answer: 409 back to the cart, 422 onto the form fields, 5xx retried with the same key.',
+      'The guarantee is an `Idempotency-Key` on `POST /orders`, created once per purchase intent with `crypto.randomUUID()` and reused by every retry and every second click, so the Orders API returns the first answer instead of creating another order. I create a new key only when the cart version changes. Disabling the button is comfort, not protection: after a timeout it re-enables, and the next click posts again. Behind it, a unique constraint on the cart id catches a reload that lost the key. Then I design each answer: 409 back to the cart, 422 onto the form fields, 5xx retried with the same key.',
     keyPoints: [
       'One idempotency key per purchase intent, reused by every retry',
       'A new key only when the cart version changes',
@@ -547,11 +547,11 @@ const query = useQuery({
       'A screen per answer: 201, 409, 422, 5xx or network',
     ],
     explanation:
-      'It tests whether a frontend candidate sees that the client creates the duplicate and must carry the key, not only the server. Seniors back the claim with the double-click behaviour, scope the key to the cart contents, and design what the customer sees for each response, offline included.',
+      'It tests whether a frontend candidate sees that the client creates the duplicate and must carry the key, not only the server. Seniors explain why a disabled button is not enough, scope the key to the cart contents, and design what the customer sees for each response, offline included.',
     example:
-      'After a storefront release, support saw a few duplicate orders from customers on slow mobile networks who clicked Place order twice. The button already disabled itself while pending, but the second click landed before it re-rendered. Keeping one key per cart version in a ref and sending it on every attempt ended the duplicates: the API now replays the first answer.',
+      'After a storefront release, support saw a few duplicate orders from customers on slow mobile networks who clicked Place order twice. The button already disabled itself while pending, but it re-enabled when the slow request timed out on the client, after the server had created the order. Keeping one key per cart version in a ref and sending it on every attempt ended the duplicates: the API now replays the first answer.',
     mistakes: [
-      'Relying on a disabled button: two clicks can both send before the button re-renders',
+      'Relying on a disabled button: it re-enables after a timeout, and the next click sends a second order',
       'Creating a new key on every click, which defeats the purpose',
       'Keeping the same key after the cart changed, so the server replays an answer for other contents',
     ],
@@ -573,19 +573,19 @@ const query = useQuery({
       {
         statement: 'A button disabled while the request is pending is enough to prevent a double order.',
         isTrue: false,
-        why: 'Measured, a double-click sent two POSTs before the disabled state reached the button; the idempotency key is what prevents the second order.',
+        why: 'When the request times out after the server created the order, the button re-enables and the next click posts again; the idempotency key is what prevents the second order.',
         twin: {
-          statement: 'A double-click can send two POSTs even when the button is disabled while the request is pending.',
-          why: 'Measured, both POSTs left before the disabled state reached the button; the idempotency key is what prevents the second order.',
+          statement: 'A button disabled while the request is pending can still let a customer place a second order.',
+          why: 'When the request times out after the server created the order, the button re-enables and the next click posts again; only the idempotency key stops it.',
         },
       },
       {
-        statement: '`crypto.randomUUID()` is only available in secure contexts, such as HTTPS or a local address.',
+        statement: '`crypto.randomUUID()` is only available in secure contexts, such as HTTPS or `localhost`.',
         isTrue: true,
         why: 'MDN restricts it to secure contexts, so a staging site over plain HTTP breaks the key generation.',
         twin: {
           statement: '`crypto.randomUUID()` works on any page, including a staging site over plain HTTP.',
-          why: 'MDN restricts it to secure contexts, such as HTTPS or a local address.',
+          why: 'MDN restricts it to secure contexts, such as HTTPS or `localhost`.',
         },
       },
       {
@@ -606,14 +606,14 @@ const query = useQuery({
         { term: 'Validation in three places', detail: 'Browser constraints and `autocomplete`, a shared Zod schema on the client, and the server again.' },
         { term: '`Idempotency-Key`', detail: 'Created once per purchase intent with `crypto.randomUUID()`, reused by every retry and second click.' },
         { term: 'New key', detail: 'Only when the cart version changes.' },
-        { term: 'Disabled button', detail: 'Comfort, not protection: a fast double-click can send two requests. A unique constraint on the cart id backs it.' },
+        { term: 'Disabled button', detail: 'Comfort, not protection: it re-enables after a timeout and the next click posts again. A unique constraint on the cart id backs it.' },
         { term: 'A screen per answer', detail: '201 to payment, 409 back to the cart, 422 onto the fields, 5xx or network retried with the same key.' },
       ],
       points: [
         'The cart is server state: a cart id in an HTTP-only cookie and the contents on the server. The UI reads it through a query; adding an item is a mutation, which can be optimistic.',
         'Validate the form in three places with one schema: browser constraints and `autocomplete` tokens, a shared Zod schema on the client, and the server again, because a client can be bypassed.',
         'An `Idempotency-Key` on `POST /orders`, created once per purchase intent and reused by retries and second clicks, makes the API return the first answer instead of a second order.',
-        'A disabled button is not enough: a fast double-click can send two requests before it re-renders. Create a new key only when the cart changes, and keep a unique constraint on the cart id.',
+        'A disabled button is not enough: after a timeout it re-enables, even if the server created the order, and a click posts again. Create a new key only when the cart changes, and keep a unique constraint on the cart id.',
         'Design a screen per answer: 201 goes to payment, 409 back to the cart with the changed line, 422 onto the fields, and 5xx or network errors are retried with the same key.',
       ],
       code: `function submit(): void {

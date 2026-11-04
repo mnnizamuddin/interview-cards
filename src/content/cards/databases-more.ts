@@ -299,10 +299,10 @@ CREATE INDEX orders_created_brin ON orders USING brin (created_at);`,
       {
         statement: 'If the pod holding `pg_try_advisory_xact_lock` dies, the lock is freed when its connection closes.',
         isTrue: true,
-        why: 'The lock belongs to the server session; when the connection drops, PostgreSQL releases it.',
+        why: 'When the connection drops, PostgreSQL ends the session and rolls back its transaction, which releases the lock.',
         twin: {
           statement: 'If the pod holding `pg_try_advisory_xact_lock` dies, the lock stays held until an operator releases it.',
-          why: 'The lock belongs to the server session; when the connection drops, PostgreSQL releases it.',
+          why: 'When the connection drops, PostgreSQL ends the session and rolls back its transaction, which releases the lock.',
         },
       },
     ],
@@ -799,14 +799,14 @@ LIMIT 10;`,
         'A JSONB column stores a parsed JSON document that PostgreSQL can index and search. It fits data kept and returned whole; fields you query or constrain belong in real columns.',
       takeaways: [
         { term: '`jsonb`', detail: 'Parsed binary form: keys reordered, only the last duplicate kept.' },
-        { term: '`json`', detail: 'Keeps the exact text, useful only to verify a signature later.' },
+        { term: '`json`', detail: 'Keeps the exact text, useful when key order or the exact bytes matter, like a signature check.' },
         { term: 'Good fit', detail: 'Raw provider payloads, sparse optional attributes, settings: stored and returned whole.' },
         { term: 'Missing column', detail: 'Inside a document: no types, no `NOT NULL`, no foreign keys, no per-field statistics.' },
         { term: 'Operators', detail: '`->` returns `jsonb`, `->>` and `#>>` return `text`, `@>` tests containment and is served by GIN.' },
         { term: 'Hot field', detail: 'Promote it with an expression index. On PostgreSQL 18, generated columns are virtual by default and cannot be indexed.' },
       ],
       points: [
-        '`jsonb` stores a parsed JSON document in a binary form: keys are reordered and only the last duplicate kept. Plain `json` keeps the exact text, useful only to verify a signature later.',
+        '`jsonb` stores a parsed JSON document in a binary form: keys are reordered and only the last duplicate kept. Plain `json` keeps the exact text, useful when key order or the exact bytes matter, like a signature check.',
         'Use JSONB for data stored and returned whole: raw provider payloads, sparse optional attributes, settings. Keep the fields you query as real columns next to it.',
         'Inside a document there are no types, no `NOT NULL` and no foreign keys, and the planner keeps no statistics per field. A queried or constrained field is a missing column.',
         '`->` returns `jsonb`, `->>` and `#>>` return `text`, and `@>` tests containment, the operator a GIN index serves. Cast extracted text before comparing numbers.',
@@ -914,14 +914,14 @@ CREATE INDEX webhook_events_amount_idx ON webhook_events
         { term: 'Migrations table', detail: 'Records which files ran, so each environment applies only the new ones.' },
         { term: 'Treated as code', detail: 'In the repository, reviewed with the change, run on a real PostgreSQL in CI, linted with Squawk.' },
         { term: 'One runner', detail: 'A CI/CD step or a Kubernetes Job before the new code starts, never every instance at startup.' },
-        { term: 'Runner lock', detail: 'Tools take a lock, so two runners cannot apply the same file.' },
+        { term: 'Runner lock', detail: "Most tools take a lock, so two runners cannot apply the same file; Drizzle's `migrate()` does not." },
         { term: 'Fix forward', detail: "Never edit a migration that ran anywhere shared; a down migration cannot restore a dropped column's data." },
         { term: 'No-transaction migrations', detail: "For `CREATE INDEX CONCURRENTLY`: opt out of the tool's transaction, drop a leftover invalid index before retrying." },
       ],
       points: [
         'A migration is a versioned file that changes the schema, and sometimes data, by one step. The tool records applied files in a table, so each environment runs only the new ones.',
         'Migrations are code: in the repository, reviewed with the application change, run against a real PostgreSQL in CI, and linted (Squawk flags locking or breaking statements).',
-        'One runner applies them before the new code starts: a CI/CD step or a Kubernetes Job, never every API instance at startup. Tools take a lock so two runners cannot apply the same file.',
+        'One runner applies them before the new code starts: a CI/CD step or a Kubernetes Job, never every API instance at startup. Most tools take a lock so two runners cannot apply the same file.',
         'Never edit a migration that ran anywhere shared; fix forward with a new one. A down migration cannot restore a dropped column\'s data, so keep each step backward compatible.',
         'Some statements refuse a transaction, like `CREATE INDEX CONCURRENTLY`: that migration opts out of the tool\'s transaction and drops a leftover invalid index before retrying.',
       ],
@@ -1073,7 +1073,7 @@ try {
     questionVariants: [
       {
         question: 'During an incident, one runaway report query held locks for 20 minutes, and the Orders API hung instead of returning errors. Which settings were missing?',
-        bridge: 'PostgreSQL\'s timeouts are off by default; `statement_timeout` and `lock_timeout` on the API role turn a hang into an error.',
+        bridge: 'PostgreSQL\'s statement and lock timeouts are off by default; `statement_timeout` and `lock_timeout` on the API role turn a hang into an error.',
       },
       {
         question: 'The `pg` client gives up after 5 seconds, so a colleague says PostgreSQL needs no `statement_timeout`. What do you answer?',
@@ -1081,9 +1081,9 @@ try {
       },
     ],
     answer:
-      'All of PostgreSQL\'s timeouts are off by default, so an incident becomes a hang instead of an error. I set `statement_timeout` for a runaway query, `lock_timeout` for a statement waiting on a lock, and `idle_in_transaction_session_timeout` for a transaction the code forgot to end. I set them on the API\'s role with `ALTER ROLE`, not in `postgresql.conf`, so migrations and admin work keep their own, and raise them with `SET LOCAL` for a long export. On the client, the pool\'s connection timeout stops waiting for a connection. Client timeouts only stop waiting; the server keeps working, so I pair them with `statement_timeout`.',
+      'PostgreSQL\'s statement, lock and idle timeouts are off by default, so an incident becomes a hang instead of an error. I set `statement_timeout` for a runaway query, `lock_timeout` for a statement waiting on a lock, and `idle_in_transaction_session_timeout` for a transaction the code forgot to end. I set them on the API\'s role with `ALTER ROLE`, not in `postgresql.conf`, so migrations and admin work keep their own, and raise them with `SET LOCAL` for a long export. On the client, the pool\'s connection timeout stops waiting for a connection. Client timeouts only stop waiting; the server keeps working, so I pair them with `statement_timeout`.',
     keyPoints: [
-      'Server timeouts are off by default: an incident becomes a hang',
+      'Statement and lock timeouts are off by default: incidents hang',
       '`statement_timeout`, `lock_timeout`, idle-in-transaction timeout',
       'Set on the API role; `SET LOCAL` for exceptions',
       'Client timeouts stop the waiting, not the server\'s work',
@@ -1148,7 +1148,7 @@ COMMIT;`,
     ],
     lesson: {
       intro:
-        "PostgreSQL's timeouts are all off by default, so a runaway query or a forgotten transaction becomes a hang instead of an error. Timeouts on server and client turn incidents into fast failures.",
+        "PostgreSQL's statement, lock and idle timeouts are all off by default, so a runaway query or a forgotten transaction becomes a hang instead of an error. Timeouts on server and client turn incidents into fast failures.",
       takeaways: [
         { term: '`statement_timeout`', detail: 'Cancels any single statement that runs too long (`57014`).' },
         { term: '`lock_timeout`', detail: 'Fails a statement that waits too long for a lock (`55P03`).' },

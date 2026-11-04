@@ -314,7 +314,7 @@ await placeOrder(cart, signal); // forwards it to every call`,
       {
         question: 'Would you write the retry loop yourself?',
         answer:
-          'Rarely. `p-retry` covers a few calls; `cockatiel` combines retry, circuit breaker and timeout in one policy. I check the defaults: `p-retry` randomizes nothing unless `randomize` is on. No library classifies my errors or adds the idempotency key for me.',
+          'Rarely. `p-retry` covers a few calls; `cockatiel` combines retry, circuit breaker and timeout in one policy. I check the defaults: `p-retry` randomizes nothing unless `randomize` is on. No library knows which of my HTTP statuses are transient or adds the idempotency key for me.',
       },
     ],
     traps: [
@@ -337,11 +337,11 @@ await placeOrder(cart, signal); // forwards it to every call`,
         },
       },
       {
-        statement: '`p-retry` 8 randomizes its delays by default.',
+        statement: '`p-retry` randomizes its delays by default.',
         isTrue: false,
         why: 'Its `randomize` option is `false` by default, so there is no jitter unless you turn it on.',
         twin: {
-          statement: '`p-retry` 8 adds no jitter to its delays unless you set its `randomize` option.',
+          statement: '`p-retry` adds no jitter to its delays unless you set its `randomize` option.',
           why: '`randomize` is `false` by default, so the delays are deterministic until you turn it on.',
         },
       },

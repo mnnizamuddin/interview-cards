@@ -79,10 +79,10 @@ export const backendApiCards: Card[] = [
       {
         statement: 'GraphQL responses are cached by CDNs as easily as REST `GET` responses.',
         isTrue: false,
-        why: 'Operations are usually POSTs to one URL, which HTTP caches do not store; CDN caching needs GET with persisted query ids.',
+        why: 'Operations are usually POSTs to one URL, which HTTP caches generally do not store; CDN caching needs GET with persisted query ids.',
         twin: {
-          statement: 'GraphQL operations sent as `POST`s to one URL are not stored by HTTP caches such as CDNs.',
-          why: 'HTTP caches do not store POST responses; CDN caching needs GET with persisted query ids.',
+          statement: 'GraphQL operations sent as `POST`s to one URL are not stored by default by HTTP caches such as CDNs.',
+          why: 'HTTP caches generally do not store POST responses; CDN caching needs GET with persisted query ids.',
         },
       },
     ],
@@ -157,7 +157,7 @@ Content-Type: application/json
       },
     ],
     answer:
-      '401 Unauthorized really means unauthenticated: the request has no valid credentials, because the token is missing, expired or invalid. The client should log in or refresh its token, and RFC 9110 says a 401 must carry a `WWW-Authenticate` header. 403 Forbidden means the server knows who you are and refuses this action: a customer calling an admin refund route. Logging in again will not help. One nuance: when a customer asks for another customer\'s order, I answer 404, not 403, because a 403 would confirm that the order exists.',
+      '401 Unauthorized really means unauthenticated: the request has no valid credentials, because the token is missing, expired or invalid. The client should log in or refresh its token, and RFC 9110 says a 401 must carry a `WWW-Authenticate` header. 403 Forbidden means the server knows who you are and refuses this action: a customer calling an admin refund route. Logging in again as the same user will not help. One nuance: when a customer asks for another customer\'s order, I answer 404, not 403, because a 403 would confirm that the order exists.',
     keyPoints: [
       '401: no valid credentials, the caller is not authenticated',
       '403: the caller is known but not allowed',
@@ -196,11 +196,11 @@ Content-Type: application/json
     ],
     traps: [
       {
-        statement: 'Logging in again can fix a 403.',
+        statement: 'Logging in again as the same user can fix a 403.',
         isTrue: false,
         why: 'The server already knows who you are and refuses the action; only a change of permissions helps.',
         twin: {
-          statement: 'Logging in again cannot fix a 403.',
+          statement: 'Logging in again as the same user cannot fix a 403.',
           why: 'The server already knows who you are and refuses the action; only a change of permissions helps.',
         },
       },
@@ -247,7 +247,7 @@ Content-Type: application/json
       takeaways: [
         { term: '401 Unauthorized', detail: 'No valid credentials: the token is missing, expired or invalid. It really means unauthenticated.' },
         { term: '`WWW-Authenticate`', detail: 'RFC 9110 requires it on a 401, saying how to authenticate.' },
-        { term: '403 Forbidden', detail: 'The caller is known and refused, like a customer on the refund route. New credentials will not help.' },
+        { term: '403 Forbidden', detail: 'The caller is known and refused, like a customer on the refund route. Logging in again as the same user will not help.' },
         { term: '404 instead of 403', detail: 'RFC 9110 allows it to hide that a resource exists, such as another customer\'s order.' },
         { term: 'Client on 401', detail: 'The BFF refreshes the token once or sends the user to log in.' },
         { term: 'Client on 403', detail: 'The UI says which permission is missing, and never sends the user back to log in.' },
@@ -255,7 +255,7 @@ Content-Type: application/json
       points: [
         'Authentication answers "who are you?"; authorisation answers "are you allowed to do this?". HTTP has one status code for each failure: 401 for the first, 403 for the second.',
         '401 Unauthorized means the request has no valid credentials: the token is missing, expired or invalid. RFC 9110 requires a `WWW-Authenticate` header saying how to authenticate.',
-        '403 Forbidden means the server knows the caller and refuses the action, like a customer calling the refund route. New credentials will not help, so the client must not send the user back to log in.',
+        '403 Forbidden means the server knows the caller and refuses the action, like a customer calling the refund route. Logging in again as the same user will not help, so the client must not send the user back to log in.',
         'RFC 9110 lets a server answer 404 instead of 403 to hide that a resource exists. Answering 404 for another customer\'s order stops anyone from learning which order ids are real.',
         'Clients react differently: on 401 the BFF refreshes the token once or sends the user to log in; on 403 the UI says which permission is missing.',
       ],
@@ -563,7 +563,7 @@ app.use((err, req, res, next) => {       // four parameters: the error handler
     explanation:
       'It tests whether you understand why Node scales for I/O-bound services and where it breaks. A senior answer separates waiting (cheap) from computing (shared by every request) and knows the libuv thread pool exists.',
     example:
-      'The Orders API hashed customer passwords with `pbkdf2Sync` in the login route. During the 9 am peak every route slowed down, because each hash held the main thread; in a test, four synchronous hashes delayed a 10 ms timer by about 380 ms, while the async version delayed it by 1 ms. Switching to the async API removed the stalls.',
+      'The Orders API hashed customer passwords with `pbkdf2Sync` in the login route. During the 9 am peak every route slowed down, because each hash held the main thread; in a test, four synchronous hashes delayed a 10 ms timer by over a second, while the async version delayed it by about 10 ms. Switching to the async API removed the stalls.',
     mistakes: [
       'Believing an `async` function runs on another thread',
       'Using `*Sync` file or crypto APIs inside request handlers',
@@ -645,7 +645,7 @@ async function hashPassword(password: string, salt: string) {
 async function hashPassword(password: string, salt: string) {
   return pbkdf2Sync(password, salt, 600_000, 64, 'sha512');
 }`,
-        why: 'The async `pbkdf2` runs on the libuv thread pool and frees the main thread. `pbkdf2Sync` holds it for the whole hash, and `async` changes nothing. Measured on Node 24 with four logins at once: a 10 ms timer fired 1 ms late with `better` and 2.6 s late with `worse`.',
+        why: 'The async `pbkdf2` runs on the libuv thread pool and frees the main thread. `pbkdf2Sync` holds it for the whole hash, and `async` changes nothing. Measured on Node 24 with four logins at once: a 10 ms timer fired about 10 ms late with `better` and over a second late with `worse`.',
       },
     ],
     lesson: {
@@ -671,7 +671,7 @@ async function hashPassword(password: string, salt: string) {
 const start = Date.now();
 setTimeout(() => console.log('late by', Date.now() - start - 10, 'ms'), 10);
 
-// Measured on Node 24: the 10 ms timer fired about 200 ms late.
+// Measured on Node 24: the 10 ms timer fired about 300 ms late.
 pbkdf2Sync('secret', 'salt', 600_000, 64, 'sha512');
 // The async version runs on the pool: the timer was 4 ms late.
 // pbkdf2('secret', 'salt', 600_000, 64, 'sha512', onDone);`,
@@ -837,7 +837,7 @@ const challenge = createHash('sha256').update(verifier).digest('base64url');
       'Exact allow-list, never reflect any origin; CORS is not authorisation',
     ],
     explanation:
-      'Most candidates know how to silence a CORS error; the interviewer wants to know whether you understand what it protects. Seniors say who enforces it (the browser), what it never stops (the request reaching the server), and why reflecting any origin with credentials is a vulnerability.',
+      'Most candidates know how to silence a CORS error; the interviewer wants to know whether you understand what it protects. Seniors say who enforces it (the browser), what it does not stop (a simple request reaching the server), and why reflecting any origin with credentials is a vulnerability.',
     example:
       'The BFF answered every request with `Access-Control-Allow-Origin` set to whatever `Origin` arrived, plus credentials. A pentester\'s page on another domain read an agent\'s orders through the agent\'s cookie. Since the back office SPA and its BFF share one origin, the team removed CORS from the BFF entirely, and the attack page could no longer read anything.',
     mistakes: [

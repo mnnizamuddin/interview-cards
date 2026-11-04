@@ -36,7 +36,7 @@ export const securityCards: Card[] = [
     example:
       'A customer review containing `<img src=x onerror=...>` ran in the browser of support agents, because the back office rendered reviews with `dangerouslySetInnerHTML` to keep their formatting. The team sanitised review HTML with DOMPurify and an allow-list of formatting tags, right before the sink, and added a CSP with nonces; a pentest retest found the payload displayed as harmless text.',
     mistakes: [
-      'Believing React makes XSS impossible, while `dangerouslySetInnerHTML` and `data:` URLs bypass it',
+      'Believing React makes XSS impossible, while `dangerouslySetInnerHTML` and `innerHTML` through a ref bypass it',
       'Writing a regular expression that strips `<script>` tags and calling it sanitisation',
       'Storing tokens in `localStorage`, where any XSS can read them',
     ],
@@ -176,7 +176,7 @@ export const securityCards: Card[] = [
       },
       {
         question: 'How do parameterised queries stop SQL injection at a technical level?',
-        answer: 'PostgreSQL\'s extended protocol sends the SQL text with `$1` placeholders in one message, and the values separately in a later bind step. The statement is already parsed into a plan when the values arrive, so an input like `\' OR 1=1` is only ever compared as a string.',
+        answer: 'PostgreSQL\'s extended protocol sends the SQL text with `$1` placeholders in one message, and the values separately in a later bind step. The statement is already parsed when the values arrive, so an input like `\' OR 1=1` is only ever compared as a string.',
         fromLists: ['fullstack-100#82.1', 'backend-100#63.1'],
       },
       {

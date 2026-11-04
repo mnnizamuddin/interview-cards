@@ -724,7 +724,7 @@ const onInput = _.debounce(() => {
         { term: 'Byte budget', detail: 'Per chunk, checked on every pull request, for example with `size-limit`.' },
       ],
       points: [
-        'A bundle analyzer reads a production build and draws each chunk as a treemap, one rectangle per module. Vite: `rollup-plugin-visualizer`; webpack: `webpack-bundle-analyzer`; Next.js 16.1+: `next analyze`.',
+        'A bundle analyzer reads a production build and draws each chunk as a treemap, one rectangle per module. Vite: `rollup-plugin-visualizer`; webpack: `webpack-bundle-analyzer`; Next.js: `next analyze`.',
         'Three sizes: stat (the source before minification), parsed (the minified code the browser parses and runs) and gzip or Brotli (what crosses the network).',
         'Look for the biggest blocks in the entry chunk: a heavy library used for one function, duplicate versions, whole icon sets or locale data, code only one route needs.',
         'Fix by replacing or removing the dependency, importing only what you use, lazy loading the feature, or rendering on the server. Then rebuild and compare.',
@@ -732,7 +732,7 @@ const onInput = _.debounce(() => {
       ],
       code: `# Vite: add rollup-plugin-visualizer to vite.config.ts, then
 pnpm build                 # also writes an HTML treemap of the chunks
-# Next.js 16.1+ with Turbopack
+# Next.js 16 with Turbopack (first named experimental-analyze)
 npx next analyze
 # Byte budgets from the "size-limit" section of package.json
 npx size-limit`,
@@ -907,7 +907,7 @@ npx size-limit`,
       {
         question: 'Which tools analyze bundle size and find heavy dependencies?',
         answer:
-          'The bundler\'s analyzer: `rollup-plugin-visualizer` for Vite, `webpack-bundle-analyzer`, or `next analyze` in Next.js 16.1+, to see each module\'s weight per chunk. The DevTools Coverage tab shows how much downloaded JavaScript never ran, and `size-limit` guards the result in CI.',
+          'The bundler\'s analyzer: `rollup-plugin-visualizer` for Vite, `webpack-bundle-analyzer`, or `next analyze` in recent Next.js 16 releases, to see each module\'s weight per chunk. The DevTools Coverage tab shows how much downloaded JavaScript never ran, and `size-limit` guards the result in CI.',
         fromLists: ['react-50#32.1'],
       },
       {

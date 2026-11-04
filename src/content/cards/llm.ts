@@ -76,10 +76,10 @@ export const llmCards: Card[] = [
       {
         statement: 'A spend-cap 429 is solved by waiting for its `retry-after` header.',
         isTrue: false,
-        why: 'The spend-limit 429 has no `retry-after` and blocks the organisation until the next month; only another provider helps.',
+        why: 'The spend-limit 429 has no `retry-after` and blocks the organisation until the next month unless it moves to a higher tier; until then only another provider helps.',
         twin: {
           statement: "Waiting for a `retry-after` header does not solve a spend-cap 429.",
-          why: "The spend-limit 429 has no `retry-after` and blocks the organisation until the next month; only another provider helps.",
+          why: "The spend-limit 429 has no `retry-after` and blocks the organisation until the next month unless it moves to a higher tier; until then only another provider helps.",
         },
       },
     ],
@@ -566,10 +566,10 @@ if (message.stop_reason !== 'end_turn' || !message.parsed_output) {
       {
         statement: 'All the tool results of one round go back to the model in a single user message.',
         isTrue: true,
-        why: 'The API requires it; each `tool_result` carries the `tool_use_id` it answers.',
+        why: "Anthropic's docs call separate messages wrong, since they teach the model to stop calling tools in parallel; each `tool_result` carries the `tool_use_id` it answers.",
         twin: {
           statement: "Each tool result of one round goes back to the model in its own user message.",
-          why: "The API requires all the results of a round in a single user message, each `tool_result` carrying its `tool_use_id`.",
+          why: "Anthropic's docs call separate messages wrong, since they teach the model to stop calling tools in parallel; all the results go in one user message.",
         },
       },
     ],

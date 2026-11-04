@@ -436,11 +436,11 @@ GROUP BY c.id;
         },
       },
       {
-        statement: 'Since PostgreSQL 12, a CTE referenced once in a query is folded into the main query by default.',
+        statement: 'Since PostgreSQL 12, a non-recursive, side-effect-free CTE referenced once is folded into the main query by default.',
         isTrue: true,
         why: 'A non-recursive, side-effect-free CTE referenced once is inlined, so outer filters can use indexes on its table.',
         twin: {
-          statement: 'Since PostgreSQL 12, a CTE referenced once is still computed separately by default, as an optimisation fence.',
+          statement: 'Since PostgreSQL 12, a non-recursive, side-effect-free CTE referenced once is still computed separately by default, as an optimisation fence.',
           why: 'A non-recursive, side-effect-free CTE referenced once is inlined by default, so outer filters can use indexes on its table.',
         },
       },
@@ -721,7 +721,7 @@ FROM orders WHERE status = 'paid';`,
   sum(shipping_cents)
     OVER (ORDER BY placed_on) AS running
 FROM orders WHERE status = 'paid';`,
-        why: "With an `ORDER BY`, the default frame is `RANGE ... CURRENT ROW`, which includes the current row's peers. Ending the order with the unique `id` adds one order per row: 500, then 1200 for a 700 order the same day. Ordered by day alone, both orders of that day show 1200, as if they had been paid together.",
+        why: "With an `ORDER BY`, the default frame is `RANGE ... CURRENT ROW`, which includes the current row's peers. When two orders share a day, say 500 and 700 of shipping, ending the order with the unique `id` adds one order per row: 500, then 1200. Ordered by day alone, both orders of that day show 1200, as if they had been paid together.",
       },
     ],
     lesson: {

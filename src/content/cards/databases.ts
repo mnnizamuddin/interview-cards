@@ -328,7 +328,7 @@ HAVING o.total_cents <> sum(l.quantity * l.unit_price_cents);`,
   ON orders (customer_id, created_at);`,
         worse: `CREATE INDEX orders_created_customer_idx
   ON orders (created_at, customer_id);`,
-        why: "With the equality column first, the customer's entries sit together, already sorted by date: PostgreSQL reads the last 20 and stops, 23 pages on 400,000 orders. With `created_at` first, the customer's entries are scattered across the index, so it walks it backwards skipping everyone else's: 348 pages, and more for a quiet customer.",
+        why: "With the equality column first, the customer's entries sit together, already sorted by date: PostgreSQL reads the last 20 and stops, 23 pages on 400,000 orders. With `created_at` first, the customer's entries are scattered across the index, so it walks it backwards skipping everyone else's: hundreds of pages, and more for a quiet customer.",
       },
     ],
     lesson: {
@@ -1354,7 +1354,7 @@ RETURNING id;`,
     followUps: [
       {
         question: 'How does failover work when the primary goes down?',
-        answer: 'PostgreSQL does not detect a failed primary itself: a tool such as Patroni, or the managed service, notices it, promotes the most up-to-date standby with `pg_promote()` and moves the address clients use. The old primary must be fenced so it never takes writes again, or two primaries split the data.',
+        answer: 'PostgreSQL does not detect a failed primary itself: a tool such as Patroni, or the managed service, notices it, promotes the most up-to-date standby, as `pg_ctl promote` does, and moves the address clients use. The old primary must be fenced so it never takes writes again, or two primaries split the data.',
         fromLists: ['backend-100#30.1'],
       },
       {

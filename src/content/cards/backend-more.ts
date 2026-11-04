@@ -157,7 +157,7 @@ PATCH /orders/ord_42  If-Match: "1"     -> 412 Precondition Failed  (the stale a
       'One output schema per role where visibility differs',
     ],
     explanation:
-      'Interviewers ask it because it is the most common API bug after object-level authorization, and ORMs make it easy with `update(request.body)`. A senior answer names both directions, explains why allow-lists beat deny-lists, and extends validation to data coming from partners.',
+      'Interviewers ask it because OWASP rates it common and easy to exploit, and ORMs make it easy with `update(request.body)`. A senior answer names both directions, explains why allow-lists beat deny-lists, and extends validation to data coming from partners.',
     example:
       'A security audit of the Orders API found that `PATCH /me` passed the request body straight to the update, so a customer could send `"role": "admin"`, and `GET /me` returned the whole customer row with `passwordHash`. The team added a strict Zod schema for the body and a public customer schema for responses. The audit\'s retest found neither issue, and a probing client now gets a 400 that names the unknown key.',
     mistakes: [
@@ -759,7 +759,7 @@ for (const socket of wss.clients) {
       },
       {
         question: 'What does a durable workflow engine like Temporal add?',
-        answer: 'It records every step in an event history, so after a crash it replays the history instead of running completed steps again. Side effects go in activities, which it retries by default. Workflow code must be deterministic: no `Date.now()`, random numbers or direct I/O in it.',
+        answer: 'It records every step in an event history, so after a crash it replays the history instead of running completed steps again. Side effects go in activities, which it retries by default. Workflow code must be deterministic, with no direct I/O; the TypeScript SDK makes `Date.now()` and `Math.random()` replay-safe.',
       },
       {
         question: 'Which steps go last in a saga?',

@@ -2072,10 +2072,10 @@ const row = _jsxs("li", { className: "order", children: ["Order ", order.number]
       {
         statement: 'Changing `ref.current` makes the component render again.',
         isTrue: false,
-        why: 'React does not track refs; only state updates and new props schedule a render.',
+        why: 'React does not track refs; only a state update, in the component, a parent or a context it reads, schedules a render.',
         twin: {
           statement: 'Changing `ref.current` does not make the component render again.',
-          why: 'React does not track refs; only state updates and new props schedule a render.',
+          why: 'React does not track refs; only a state update, in the component, a parent or a context it reads, schedules a render.',
         },
       },
       {

@@ -668,7 +668,7 @@ VALUES ($1, $2, 'OrderRefunded', $3);`,
 INSERT INTO events (stream_id, version, type, payload)
 SELECT $1, coalesce(max(version), 0) + 1, 'OrderRefunded', $3
 FROM events WHERE stream_id = $1;`,
-        why: 'The writer appends with the version it read plus one, and the primary key `(stream_id, version)` rejects a second writer that read the same version: it reloads and decides again. Computing `max(version) + 1` at insert time always finds a free number, so a writer that decided on stale state, such as refunding an order already refunded, appends anyway.',
+        why: 'The writer appends with the version it read plus one, and the primary key `(stream_id, version)` rejects a second writer that read the same version: it reloads and decides again. Computing `max(version) + 1` at insert time takes whatever number is free when it runs, so a writer that decided on stale state, such as refunding an order already refunded, appends anyway.',
       },
     ],
     lesson: {

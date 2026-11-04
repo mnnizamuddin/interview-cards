@@ -289,7 +289,7 @@ app.get('/products/:sku', async (req, res) => {
       {
         question: 'What is a covered query?',
         answer:
-          'One answered from the index alone, without loading documents. Every queried and returned field must be in the index, the projection must exclude `_id` with `_id: 0`, and no returned field may be an array. In `explain`, the `IXSCAN` is not under a `FETCH`.',
+          'One answered from the index alone, without loading documents. Every queried and returned field must be in the index, the projection must exclude `_id` with `_id: 0` unless the index holds it, and no returned field may be an array. In `explain`, the `IXSCAN` is not under a `FETCH`.',
       },
       {
         question: 'How does a TTL index work?',
