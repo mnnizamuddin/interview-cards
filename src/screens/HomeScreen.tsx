@@ -3,6 +3,7 @@ import type { Card, Unit } from '../content/types.ts';
 import { countHandled, HANDLED_FOR_MS, toCurrentProgress, topicStatus, type Progress, type TopicStatus } from '../play/progress.ts';
 import { Button } from '../ui/Button.tsx';
 import { Text } from '../ui/Text.tsx';
+import { ThemeToggle } from '../ui/ThemeToggle.tsx';
 
 const STATUS_STYLES: Record<TopicStatus, { label: string; dot: string }> = {
   new: { label: 'New', dot: 'bg-line' },
@@ -27,6 +28,7 @@ export function HomeScreen({
   onMockInterview,
   onOpenLesson,
   onImport,
+  onReset,
 }: {
   units: Unit[];
   cards: Card[];
@@ -41,6 +43,8 @@ export function HomeScreen({
   onMockInterview: (unitId?: string) => void;
   onOpenLesson: (cardId: string) => void;
   onImport: (progress: Progress) => void;
+  /** Deletes all progress on this device, once the learner has confirmed. */
+  onReset: () => void;
 }) {
   const handled = countHandled(cards.map((card) => card.id), progress, now);
   const share = percent(handled, cards.length);
@@ -49,8 +53,9 @@ export function HomeScreen({
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col gap-6 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
-      <header>
+      <header className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-extrabold text-brand">Interview Cards</h1>
+        <ThemeToggle />
       </header>
 
       <section className="rounded-3xl border-2 border-line p-5">
@@ -126,13 +131,25 @@ export function HomeScreen({
         })}
       </section>
 
-      <BackupSection progress={progress} today={today} now={now} onImport={onImport} />
+      <BackupSection progress={progress} today={today} now={now} onImport={onImport} onReset={onReset} />
     </div>
   );
 }
 
 /** Progress lives on this device only; the backup file is how it survives a reset or a new phone. */
-function BackupSection({ progress, today, now, onImport }: { progress: Progress; today: string; now: number; onImport: (progress: Progress) => void }) {
+function BackupSection({
+  progress,
+  today,
+  now,
+  onImport,
+  onReset,
+}: {
+  progress: Progress;
+  today: string;
+  now: number;
+  onImport: (progress: Progress) => void;
+  onReset: () => void;
+}) {
   const fileInput = useRef<HTMLInputElement>(null);
 
   function exportProgress() {
@@ -159,6 +176,12 @@ function BackupSection({ progress, today, now, onImport }: { progress: Progress;
     }
   }
 
+  function resetProgress() {
+    if (window.confirm('Delete all your progress on this device? Back it up first if you may want it again.')) {
+      onReset();
+    }
+  }
+
   return (
     <footer className="mt-4 flex flex-col items-center gap-1 border-t-2 border-line pt-4 text-sm">
       <p className="text-center text-muted">Your progress is stored on this device only.</p>
@@ -168,6 +191,9 @@ function BackupSection({ progress, today, now, onImport }: { progress: Progress;
         </Button>
         <Button variant="ghost" onClick={() => fileInput.current?.click()}>
           Restore
+        </Button>
+        <Button variant="ghost-danger" onClick={resetProgress}>
+          Reset
         </Button>
       </div>
       <input

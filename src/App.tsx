@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CARDS, CARDS_BY_ID, UNITS } from './content/index.ts';
 import { toDayKey } from './play/day.ts';
-import type { Progress } from './play/progress.ts';
+import { emptyProgress, type Progress } from './play/progress.ts';
 import { HomeScreen } from './screens/HomeScreen.tsx';
 import { MockInterviewScreen } from './screens/MockInterviewScreen.tsx';
 import { PlayScreen } from './screens/PlayScreen.tsx';
@@ -103,6 +103,7 @@ export function App({ store, now, random }: { store: ProgressStore; now: () => D
       onMockInterview={(unitId) => setScreen({ name: 'mock', unitId })}
       onOpenLesson={(cardId) => setScreen({ name: 'lesson', cardId })}
       onImport={setProgress}
+      onReset={() => setProgress(emptyProgress())}
     />
   );
 }

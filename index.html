@@ -12,6 +12,22 @@
     <link rel="icon" type="image/png" href="/icons/icon-192.png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <title>Interview Cards</title>
+    <script>
+      // Sets the theme before the first paint, so the page never flashes the wrong colours.
+      // The saved choice wins, else the system setting. Same key as src/ui/theme.ts.
+      (function () {
+        var theme = null;
+        try {
+          theme = localStorage.getItem('interview-cards-theme');
+        } catch (error) {
+          theme = null;
+        }
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

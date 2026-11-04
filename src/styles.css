@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* `dark:` classes follow the theme picked in the app, not only the system setting. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
 @theme {
   --color-brand: #16a34a;
   --color-brand-dark: #15803d;
@@ -31,18 +34,17 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #111315;
-    --surface: #1c1f22;
-    --border: #2e3237;
-    --text: #f4f4f5;
-    --muted: #a1a1aa;
-    --code-bg: #24282c;
-    --color-brand-soft: #14361f;
-    --color-danger-soft: #3b1515;
-    color-scheme: dark;
-  }
+/* `data-theme` is set on <html> by the script in index.html: the saved choice, else the system setting. */
+:root[data-theme='dark'] {
+  --bg: #111315;
+  --surface: #1c1f22;
+  --border: #2e3237;
+  --text: #f4f4f5;
+  --muted: #a1a1aa;
+  --code-bg: #24282c;
+  --color-brand-soft: #14361f;
+  --color-danger-soft: #3b1515;
+  color-scheme: dark;
 }
 
 html,

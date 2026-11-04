@@ -1,10 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { App, type ProgressStore } from './App.tsx';
 import { CARDS } from './content/index.ts';
 import { pickMockInterview } from './play/mock-interview.ts';
 import { emptyProgress, type Progress } from './play/progress.ts';
+import { THEME_KEY } from './ui/theme.ts';
 
 /** A frozen clock: the tests never depend on the real date. */
 const now = () => new Date(2026, 10, 3, 9, 0);
@@ -93,6 +94,37 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Back to the summary' }));
     await user.click(screen.getByRole('button', { name: 'Next interview' }));
     expect(screen.getByText('Say it out loud')).toBeInTheDocument();
+  });
+
+  it('resets all progress once the learner confirms', async () => {
+    const user = userEvent.setup();
+    const store = memoryStore({ ...emptyProgress(), step: 12 });
+    const confirm = vi.spyOn(window, 'confirm');
+    render(<App store={store} now={now} random={random} />);
+
+    confirm.mockReturnValueOnce(false);
+    await user.click(await screen.findByRole('button', { name: 'Reset' }));
+    expect(store.saved().step).toBe(12);
+
+    confirm.mockReturnValueOnce(true);
+    await user.click(screen.getByRole('button', { name: 'Reset' }));
+    expect(store.saved()).toEqual(emptyProgress());
+    confirm.mockRestore();
+  });
+
+  it('switches between the light and dark themes and remembers the choice', async () => {
+    const user = userEvent.setup();
+    document.documentElement.dataset.theme = 'light';
+    render(<App store={memoryStore()} now={now} random={random} />);
+
+    await user.click(await screen.findByRole('button', { name: 'Switch to the dark theme' }));
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(localStorage.getItem(THEME_KEY)).toBe('dark');
+
+    await user.click(screen.getByRole('button', { name: 'Switch to the light theme' }));
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(localStorage.getItem(THEME_KEY)).toBe('light');
+    localStorage.removeItem(THEME_KEY);
   });
 
   it('plays the unit the learner picks', async () => {
