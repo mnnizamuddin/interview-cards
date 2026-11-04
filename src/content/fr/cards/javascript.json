@@ -1,0 +1,1036 @@
+{
+  "js-scope": {
+    "topic": "var, let, const et hoisting",
+    "question": "Quelle est la différence entre `var`, `let` et `const`, et qu’est-ce que le hoisting ?",
+    "answer": "`var` a une portée de fonction ; `let` et `const` ont une portée de bloc. Les trois sont hoistés : le moteur crée les noms avant d’exécuter le code. Un `var` commence à `undefined`, alors que `let` et `const` restent non initialisés jusqu’à leur ligne, donc les lire avant lève une ReferenceError : cette fenêtre, c’est la temporal dead zone. `const` interdit de réaffecter la variable, pas de modifier l’objet qu’elle référence. J’utilise `const` par défaut, `let` quand je réaffecte, et jamais `var`.",
+    "keyPoints": [
+      "`var` a une portée de fonction ; `let` et `const` une portée de bloc",
+      "Les trois sont hoistés ; un `var` commence à `undefined`",
+      "`let` et `const` lèvent une erreur avant leur ligne : la temporal dead zone",
+      "`const` bloque la réaffectation, pas la mutation"
+    ],
+    "explanation": "Les recruteurs s’en servent pour vérifier que tu sais ce qui se passe avant l’exécution de la première ligne. Le hoisting explique pourquoi on peut appeler une déclaration de fonction au-dessus de sa ligne, et la temporal dead zone une ReferenceError qui semble impossible. Le point sur `const` piège ceux qui croient qu’un tableau `const` est figé.",
+    "example": "Dans le `cart.js` de la boutique, le récapitulatif de livraison affichait « Offerte dès undefined » parce qu’il lisait un seuil `var` au-dessus de sa déclaration. Passer à `const` a transformé ce bug silencieux en ReferenceError sur la ligne exacte : c’est pourquoi l’équipe interdit désormais `var` avec la règle ESLint `no-var`.",
+    "mistakes": [
+      "Dire que `let` et `const` ne sont pas hoistés : ils le sont, mais restent non initialisés",
+      "Croire que `const items = []` rend le tableau immuable : `items.push()` marche toujours",
+      "Oublier que les déclarations de fonction sont hoistées avec leur corps, contrairement à une fonction stockée dans un `const`"
+    ],
+    "followUps": [
+      {
+        "question": "Que renvoie `typeof` pour une variable `let` lue dans sa temporal dead zone ?",
+        "answer": "Rien : il lève aussi une ReferenceError. `typeof` ne protège que les noms jamais déclarés, pour lesquels il renvoie « undefined »."
+      },
+      {
+        "question": "Pourquoi une boucle `for` avec `var` et `setTimeout` affiche-t-elle trois fois le même nombre ?",
+        "answer": "Il y a une seule variable de portée fonction, partagée par tous les callbacks, et elle contient la valeur finale quand ils s’exécutent. `let` dans l’en-tête de la boucle crée une nouvelle variable à chaque itération."
+      },
+      {
+        "question": "Qu’est-ce que la temporal dead zone, et comment s’applique-t-elle à `let` et `const` ?",
+        "answer": "C’est la portion entre le début de la portée et la ligne de déclaration. Le nom `let` ou `const` y existe déjà mais n’est pas initialisé, donc toute lecture ou écriture lève une ReferenceError, même `typeof`. Ça transforme un `undefined` silencieux en erreur sur la ligne exacte."
+      },
+      {
+        "question": "Comment rendez-vous un objet vraiment immuable, et pas seulement sa variable ?",
+        "answer": "`Object.freeze(order)` rend ses propriétés propres en lecture seule et bloque tout ajout ou suppression : en mode strict, en affecter une lève une TypeError. C’est superficiel, donc les objets imbriqués restent modifiables sauf si je les gèle aussi. En TypeScript, `readonly` et `as const` donnent la même garantie, mais seulement à la compilation."
+      },
+      {
+        "question": "Pourquoi `var` est-il considéré comme dépassé ?",
+        "answer": "Il ignore les blocs : il fuit hors des `if` et des corps de boucle, et il est partagé par les callbacks d’une boucle. Il vaut `undefined` avant sa ligne au lieu de lever une erreur, et au niveau racine d’un script classique il devient une propriété de `window`. `let` et `const` corrigent les trois, donc on interdit `var` avec `no-var`."
+      },
+      {
+        "question": "Les déclarations de classe sont-elles hoistées comme les déclarations de fonction ?",
+        "answer": "Non. Une déclaration de classe est hoistée comme `let` : le nom existe dès le début de la portée mais reste non initialisé, donc `new Order()` au-dessus de la ligne `class Order` lève une ReferenceError. Une déclaration de fonction est hoistée avec son corps et peut être appelée au-dessus de sa ligne."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Les déclarations `let` et `const` ne sont pas hoistées.",
+        "why": "Elles sont hoistées mais restent non initialisées jusqu’à leur ligne : les lire avant lève une erreur. C’est la temporal dead zone.",
+        "twin": {
+          "statement": "Les déclarations `let` et `const` sont hoistées, mais restent non initialisées jusqu’à leur ligne.",
+          "why": "Le nom existe dès le début de la portée ; le lire avant sa ligne lève une ReferenceError : c’est la temporal dead zone."
+        }
+      },
+      {
+        "statement": "On peut toujours ajouter des éléments à un tableau `const`.",
+        "why": "`const` verrouille la variable, pas la valeur. `Object.freeze` ou un type readonly empêche la mutation.",
+        "twin": {
+          "statement": "Déclarer un tableau avec `const` empêche `items.push()` d’y ajouter quoi que ce soit.",
+          "why": "`const` bloque seulement la réaffectation de la variable ; le tableau reste modifiable sauf si tu le gèles."
+        }
+      },
+      {
+        "statement": "`typeof` sur une variable jamais déclarée lève une ReferenceError.",
+        "why": "Il renvoie « undefined ». Il ne lève une erreur que pour un nom `let`, `const` ou `class` lu dans sa temporal dead zone.",
+        "twin": {
+          "statement": "`typeof` sur une variable jamais déclarée renvoie la chaîne « undefined ».",
+          "why": "Il ne lève jamais d’erreur pour un nom non déclaré. Il n’en lève que pour un nom `let`, `const` ou `class` lu dans sa temporal dead zone."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "La portée décide où un nom est utilisable, et le hoisting ce qu’il contient avant l’exécution de sa ligne. `var`, `let` et `const` diffèrent sur les deux, ce qui explique la plupart des `undefined` et des ReferenceError « impossibles ».",
+      "points": [
+        "La portée, c’est là où un nom est visible. `var` appartient à toute la fonction ; `let` et `const` au bloc `{}` le plus proche. Un `let` dans un en-tête `for` reçoit même une nouvelle variable à chaque itération.",
+        "Le hoisting : le moteur crée chaque nom déclaré en entrant dans la portée, avant qu’aucune ligne ne s’exécute. Un `var` est créé avec la valeur `undefined`, donc le lire trop tôt donne `undefined`, pas une erreur.",
+        "Un nom `let`, `const` ou `class` est aussi hoisté mais reste non initialisé jusqu’à sa ligne. Le lire avant, même avec `typeof`, lève une ReferenceError : cette portion, c’est la temporal dead zone (TDZ).",
+        "Une déclaration de fonction est hoistée avec son corps, donc on peut l’appeler au-dessus de sa ligne. Une fonction stockée dans un `const` suit la règle de `const` et lève une erreur si on l’appelle avant sa ligne.",
+        "`const` empêche de réaffecter la variable, pas de modifier l’objet : `items.push()` marche toujours. Utilise `const` par défaut, `let` quand tu réaffectes, et jamais `var`."
+      ],
+      "takeaways": [
+        {
+          "term": "`var`",
+          "detail": "Portée de fonction. Hoisté avec la valeur `undefined` : une lecture anticipée donne `undefined`, pas une erreur."
+        },
+        {
+          "term": "`let`",
+          "detail": "Portée de bloc. Hoisté mais non initialisé : le lire avant sa ligne lève une ReferenceError (la TDZ)."
+        },
+        {
+          "term": "`const`",
+          "detail": "Comme `let`, sans réaffectation possible. L’objet qu’il contient peut changer : `items.push()` marche."
+        },
+        {
+          "term": "`let` dans un `for`",
+          "detail": "Une nouvelle variable à chaque itération, donc chaque callback garde sa propre valeur."
+        },
+        {
+          "term": "Déclaration de fonction",
+          "detail": "Hoistée avec son corps : on peut l’appeler au-dessus de sa ligne."
+        },
+        {
+          "term": "Choix par défaut",
+          "detail": "`const` d’abord, `let` quand tu réaffectes, jamais `var`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un job de relance boucle sur les commandes et appelle `setTimeout` ; chaque callback plante avec « Cannot read properties of undefined ». Les commandes sont correctes. Que se passe-t-il ?",
+        "bridge": "Le compteur de boucle est un `var` : une seule variable de portée fonction, partagée par tous les callbacks. C’est la différence de portée entre `var` et `let`."
+      },
+      {
+        "question": "Un collègue affirme que `const items = []` rend la liste immuable. Que lui répondez-vous, et que garantissent vraiment `var`, `let` et `const` ?",
+        "bridge": "Le même sujet par une idée reçue : `const` verrouille la variable, pas la valeur, et chaque mot-clé diffère par sa portée et son hoisting."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux programment une relance par commande une seconde plus tard. Laquelle faut-il livrer ?",
+        "why": "Avec `let`, chaque itération a son propre `i`, donc chaque callback lit sa propre commande. Avec `var`, tous les callbacks partagent un seul `i`, qui vaut `orders.length` quand ils s’exécutent : `orders[i]` vaut `undefined` et chaque relance lève « Cannot read properties of undefined »."
+      }
+    ]
+  },
+  "js-closures": {
+    "topic": "Closures",
+    "question": "Qu’est-ce qu’une closure, et où en utilisez-vous dans du vrai code ?",
+    "answer": "Une closure, c’est une fonction avec les variables de la portée où elle a été créée. La fonction garde ces variables en vie et peut les lire et les modifier après le retour de la fonction englobante. J’utilise des closures pour l’état privé, comme un compteur ou un cache dans une fonction factory, pour les callbacks qui ont besoin de contexte, et pour des utilitaires comme `debounce`, qui garde son timer entre les appels. React s’en sert aussi : les handlers de chaque rendu capturent les props et le state de ce rendu.",
+    "keyPoints": [
+      "Une fonction plus les variables de la portée où elle a été créée",
+      "Ces variables restent en vie après le retour de la fonction englobante",
+      "Sert pour l’état privé, les callbacks, `debounce` et la mémoïsation",
+      "Les handlers React capturent le state d’un rendu"
+    ],
+    "explanation": "La question vérifie que tu vois la portée comme quelque chose qui peut survivre à un appel de fonction. On attend d’un senior qu’il la relie à de vrais bugs : les stale closures en React, et les boucles dont tous les callbacks partagent une seule variable.",
+    "example": "Le champ de recherche de la boutique appelle `debounce(fetchSuggestions, 300)`. `debounce` garde sa variable `timer` dans une closure, donc chaque frappe annule le timer précédent. Dans le tiroir du panier, un callback d’intervalle lisait toujours les `items` du premier rendu, parce qu’il avait capturé ce rendu ; le correctif a été une mise à jour fonctionnelle, `setItems((prev) => ...)`.",
+    "mistakes": [
+      "Définir une closure comme « une fonction dans une fonction » sans parler des variables capturées",
+      "Croire qu’une closure copie les valeurs : elle garde un lien vivant vers la variable",
+      "Ignorer le bug de stale closure dans les effets et intervalles React"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qu’une stale closure en React, et comment la corrigez-vous ?",
+        "answer": "Un callback a capturé le state d’un ancien rendu, par exemple dans un intervalle créé une fois dans un effet. Je corrige avec une mise à jour fonctionnelle du state, en mettant la valeur dans les dépendances de l’effet, ou en lisant la dernière valeur depuis une ref."
+      },
+      {
+        "question": "Les closures peuvent-elles causer des fuites mémoire ?",
+        "answer": "Oui, quand une fonction à longue durée de vie, comme un listener global ou un callback en cache, capture un gros objet. L’objet reste atteignable tant que la fonction l’est."
+      },
+      {
+        "question": "Pourquoi `var` dans une boucle avec un callback async se comporte-t-il autrement que `let` ?",
+        "answer": "`var` crée une seule variable pour toute la fonction, donc chaque callback capture la même variable et lit sa valeur finale quand il s’exécute. `let` dans l’en-tête de la boucle crée un nouveau binding à chaque itération, donc chaque callback capture sa propre valeur."
+      },
+      {
+        "question": "Pouvez-vous écrire une fonction de mémoïsation simple avec une closure ?",
+        "answer": "`function memoize(fn) { const cache = new Map(); return (arg) => { if (!cache.has(arg)) { cache.set(arg, fn(arg)); } return cache.get(arg); }; }`. Le `cache` vit dans la closure, privé à la fonction renvoyée. En vrai code, je borne sa taille pour qu’il ne grossisse pas indéfiniment."
+      },
+      {
+        "question": "Quel lien y a-t-il entre les closures et le module pattern ?",
+        "answer": "Le module pattern est une fonction, souvent exécutée tout de suite, qui garde des variables privées et renvoie des fonctions qui les capturent : elles seules accèdent au state. Les modules ES donnent maintenant à chaque fichier sa propre portée, donc une variable de premier niveau est privée sauf si elle est exportée, mais une factory à état privé reste la même idée de closure."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une closure capture une copie de la valeur de la variable au moment où la fonction est créée.",
+        "why": "Elle garde un lien vers la variable elle-même, donc les changements ultérieurs sont visibles dans la fonction.",
+        "twin": {
+          "statement": "Une closure voit les changements faits plus tard sur une variable qu’elle a capturée.",
+          "why": "Elle garde un lien vers la variable elle-même, pas une copie de sa valeur."
+        }
+      },
+      {
+        "statement": "Deux compteurs créés par deux appels de la même fonction factory ne partagent pas leur compte.",
+        "why": "Chaque appel crée une nouvelle portée, donc chaque fonction renvoyée capture sa propre variable.",
+        "twin": {
+          "statement": "Deux compteurs créés par deux appels de la même fonction factory partagent un seul compte.",
+          "why": "Chaque appel crée une nouvelle portée, donc chaque fonction renvoyée capture sa propre variable."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une closure, c’est une fonction avec les variables de la portée où elle a été créée. Elle les garde en vie après le retour de la fonction englobante, ce qui donne l’état privé, `debounce` et chaque handler React.",
+      "points": [
+        "Une closure, c’est une fonction avec les variables de la portée où elle a été créée. Toute fonction JavaScript se souvient de cette portée ; ce n’est pas une option à activer.",
+        "Les variables capturées restent en vie après le retour de la fonction englobante, tant que la fonction est atteignable. La closure garde un lien vivant vers elles, pas une copie : les changements ultérieurs y sont visibles.",
+        "Chaque appel de la fonction englobante crée une nouvelle portée, donc deux compteurs issus de deux appels de la même factory gardent des comptes séparés. C’est ainsi que les closures donnent un état privé.",
+        "Usages typiques : une factory à état privé, un cache de mémoïsation, des callbacks qui ont besoin de contexte, et `debounce`, qui garde son timer dans une closure entre les appels.",
+        "En React, les handlers de chaque rendu capturent les props et le state de ce rendu. Un callback créé une fois, comme un intervalle dans un effet, continue de lire l’ancien state : une stale closure. Corrige avec une mise à jour fonctionnelle ou une ref."
+      ],
+      "takeaways": [
+        {
+          "term": "Closure",
+          "detail": "Une fonction plus les variables de la portée où elle a été créée. Toute fonction en a une ; rien à activer."
+        },
+        {
+          "term": "Lien vivant, pas une copie",
+          "detail": "Les variables capturées restent en vie tant que la fonction est atteignable, et les changements ultérieurs y sont visibles."
+        },
+        {
+          "term": "Une portée par appel",
+          "detail": "Chaque appel d’une factory crée une nouvelle portée : deux compteurs de la même factory gardent des comptes séparés."
+        },
+        {
+          "term": "Usages typiques",
+          "detail": "État privé, cache de mémoïsation, callbacks qui ont besoin de contexte, et `debounce`, qui garde son timer."
+        },
+        {
+          "term": "Stale closure",
+          "detail": "Un callback créé une fois, comme un intervalle dans un effet, continue de lire le state du premier rendu."
+        },
+        {
+          "term": "Corriger une stale closure",
+          "detail": "Utilise une mise à jour fonctionnelle du state ou une ref, pour que le callback lise la valeur actuelle."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, un `setInterval` créé au montage de l’écran des commandes affiche le `count` des nouvelles commandes toutes les 10 secondes, et il affiche toujours 0 alors que des commandes arrivent. Qu’est-ce qui l’explique ?",
+        "bridge": "Le callback de l’intervalle est une closure sur le `count` du premier rendu, une variable qui ne change jamais. Les fonctions de chaque rendu capturent le state de ce rendu."
+      },
+      {
+        "question": "Comment expliqueriez-vous à un junior pourquoi un helper `debounce` se souvient encore de son timer entre deux appels, alors que la fonction qui a créé la variable du timer a déjà retourné ?",
+        "bridge": "Cette mémoire, c’est une closure : la fonction renvoyée garde en vie les variables de la fonction englobante et peut les lire et les modifier plus tard."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux mémoïsent la recherche de prix pour les cartes produit de la boutique. Laquelle appelle le service de prix une fois par produit ?",
+        "why": "Quand la Map est créée dans `memoize`, la fonction renvoyée capture ce `cache` unique, qui survit entre les appels : trois recherches du même produit appellent le service une fois. Créée dans la fonction renvoyée, une nouvelle Map vide naît à chaque appel et disparaît au retour, donc rien n’est jamais mis en cache : trois recherches, trois appels."
+      }
+    ]
+  },
+  "js-this": {
+    "topic": "Le mot-clé this",
+    "question": "Comment la valeur de `this` est-elle déterminée en JavaScript ?",
+    "answer": "`this` dépend de la façon dont la fonction est appelée, pas de l’endroit où elle est écrite. Appelée en `obj.method()`, c’est `obj`. Appelée comme une simple fonction, c’est `undefined` en mode strict, ce qui inclut les modules et les classes. `new` le lie au nouvel objet, et `call`, `apply` et `bind` le fixent explicitement. Les fonctions fléchées n’ont pas leur propre `this` : elles utilisent le `this` de la portée qui les entoure. Du coup, une méthode passée en callback perd son objet, ce que je corrige avec une fonction fléchée ou `bind`.",
+    "keyPoints": [
+      "Déterminé par l’appel, pas par l’endroit où la fonction est écrite",
+      "`obj.method()` donne `obj` ; un appel simple donne `undefined` en mode strict",
+      "`new`, `call`, `apply` et `bind` le fixent explicitement",
+      "Les fonctions fléchées prennent le `this` de la portée englobante"
+    ],
+    "explanation": "C’est un classique parce que le bug est très courant : passer `obj.method` en callback la détache de son objet. Une bonne réponse énumère les règles et explique pourquoi une fonction fléchée corrige les callbacks.",
+    "example": "Chaque bouton « Supprimer » du tiroir du panier de la boutique levait « Cannot read properties of undefined » parce que `cart.remove` était passé directement à `addEventListener`. Dans un listener DOM, `this` est l’élément, donc `this.lines` valait undefined. Passer `() => cart.remove(id)` garde `cart` comme receveur.",
+    "mistakes": [
+      "Dire que `this` désigne la fonction elle-même, ou l’endroit où elle a été définie",
+      "Écrire une méthode d’objet en fonction fléchée et s’attendre à ce que `this` soit l’objet",
+      "S’attendre à `window` sur un appel détaché : modules et classes sont en mode strict, donc c’est `undefined`"
+    ],
+    "followUps": [
+      {
+        "question": "Peut-on changer `this` sur une fonction renvoyée par `bind` ?",
+        "answer": "Non : rappeler `bind`, `call` ou `apply` dessus ne change pas `this`. Seul `new` ignore la valeur liée."
+      },
+      {
+        "question": "Pourquoi les handlers d’événements de classe sont-ils souvent écrits en champs fonctions fléchées ?",
+        "answer": "Un champ fonction fléchée est créé pour chaque instance et capture le `this` de cette instance, donc on peut le passer en callback sans risque. Le coût : une fonction par instance au lieu d’une méthode partagée sur le prototype."
+      },
+      {
+        "question": "Comment `this` se comporte-t-il dans une fonction fléchée par rapport à une fonction classique ?",
+        "answer": "Une fonction classique reçoit `this` à chaque appel : le receveur, `undefined` pour un appel simple en mode strict, le nouvel objet avec `new`. Une fonction fléchée n’a pas son propre `this` : elle utilise celui de la portée où elle est écrite, `call`, `apply` et `bind` ne peuvent pas le changer, et on ne peut pas l’appeler avec `new`."
+      },
+      {
+        "question": "Quelle est la différence entre `call`, `apply` et `bind` ?",
+        "answer": "`call` et `apply` exécutent la fonction tout de suite avec le `this` fourni : `call` prend les arguments un par un, `apply` en tableau. `bind` n’exécute rien : il renvoie une nouvelle fonction avec `this`, et éventuellement les premiers arguments, fixés définitivement. Aujourd’hui, `fn.call(obj, ...args)` remplace le plus souvent `apply`."
+      },
+      {
+        "question": "Comment corrigez-vous un `this` perdu dans une méthode de classe utilisée comme handler d’événement ?",
+        "answer": "Je la lie une fois dans le constructeur, `this.onClick = this.onClick.bind(this)`, je la déclare en champ fonction fléchée, ou je l’enveloppe là où je la passe, `() => this.onClick()`. Je garde une référence à la fonction passée, car `removeEventListener` a besoin de cette même fonction."
+      },
+      {
+        "question": "Pourquoi les fonctions fléchées ne conviennent-elles pas bien comme méthodes d’objet ?",
+        "answer": "Une fonction fléchée prend `this` dans la portée où le littéral objet est écrit, pas sur l’objet sur lequel on l’appelle. Dans un module ES, ce `this` extérieur vaut `undefined`, donc `cart.count()` écrit en fléchée ne peut pas lire `this.lines`. J’utilise la syntaxe courte de méthode, `count() { ... }`, qui reçoit l’objet de l’appel."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`call` et `apply` peuvent changer `this` dans une fonction fléchée.",
+        "why": "Les fonctions fléchées ignorent le `this` passé à `call`, `apply` et `bind` ; elles utilisent toujours le `this` de la portée englobante.",
+        "twin": {
+          "statement": "Une fonction fléchée garde le `this` de sa portée englobante même quand on l’appelle avec `call` ou `apply`.",
+          "why": "Les fonctions fléchées n’ont pas leur propre `this`, donc la valeur passée à `call`, `apply` ou `bind` est ignorée."
+        }
+      },
+      {
+        "statement": "Dans un module ES, `const f = obj.method; f();` exécute la méthode avec `this` à `undefined`.",
+        "why": "Les modules s’exécutent en mode strict, et un appel simple n’a pas de receveur.",
+        "twin": {
+          "statement": "Dans un module ES, `const f = obj.method; f();` exécute toujours la méthode avec `this` à `obj`.",
+          "why": "La méthode est détachée : un appel simple n’a pas de receveur, donc dans le mode strict d’un module `this` vaut `undefined`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "`this` est un paramètre caché fixé par la façon dont une fonction est appelée, pas par l’endroit où elle est écrite. Connaître les règles d’appel explique pourquoi une méthode passée en callback perd soudain son objet.",
+      "points": [
+        "`this` est un paramètre caché fixé par la façon dont une fonction est appelée, pas par l’endroit où elle est écrite. La même fonction peut recevoir un `this` différent à chaque appel.",
+        "Appelée en `obj.method()`, `this` vaut `obj`. Appelée simplement en `f()`, il vaut `undefined` en mode strict, ce qui couvre modules ES et classes. Dans un listener ajouté avec `addEventListener`, c’est l’élément.",
+        "`new` lie `this` au nouvel objet. `call` et `apply` le fixent pour un appel ; `bind` renvoie une fonction au `this` fixé définitivement : la relier ne change rien, seul `new` passe outre.",
+        "Les fonctions fléchées n’ont pas leur propre `this` : elles utilisent celui de la portée englobante, et `call`, `apply` et `bind` ne peuvent pas le changer. Une méthode d’objet écrite en fléchée ne voit donc pas l’objet.",
+        "Le bug classique : passer `cart.remove` en callback le détache de `cart`. Enveloppe-le, `() => cart.remove(id)`, ou lie-le. Les champs de classe en fonction fléchée le font par instance, au prix d’une fonction chacun."
+      ],
+      "takeaways": [
+        {
+          "term": "`obj.method()`",
+          "detail": "`this` vaut `obj`, l’objet avant le point."
+        },
+        {
+          "term": "Appel simple `f()`",
+          "detail": "`this` vaut `undefined` en mode strict, ce qui couvre modules ES et classes."
+        },
+        {
+          "term": "`new`",
+          "detail": "`this` est le nouvel objet en cours de création."
+        },
+        {
+          "term": "`call`, `apply`, `bind`",
+          "detail": "`call` et `apply` fixent `this` pour un appel ; `bind` renvoie une fonction au `this` fixé définitivement."
+        },
+        {
+          "term": "Fonction fléchée",
+          "detail": "Pas de `this` propre : elle utilise celui de la portée englobante, et `call`, `apply` et `bind` ne peuvent pas le changer."
+        },
+        {
+          "term": "Méthode perdue",
+          "detail": "Passer `cart.remove` en callback le détache : enveloppe-le, `() => cart.remove(id)`, ou lie-le."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans la boutique, `prices.map(priceFormatter.format)` lève « Cannot read properties of undefined (reading 'currency') », alors que `priceFormatter.format(1999)` marche. Pourquoi ?",
+        "bridge": "Passer la méthode la détache de son objet : `map` l’appelle comme une simple fonction, donc `this` vaut `undefined`. `this` dépend de l’appel, pas de l’endroit où la méthode est écrite."
+      },
+      {
+        "question": "Un collègue dit qu’une fonction fléchée n’est qu’une façon plus courte d’écrire une fonction. Où est-ce que ça ne tient plus, et comment `this` est-il déterminé pour chaque type de fonction ?",
+        "bridge": "Les fonctions fléchées n’ont pas leur propre `this`, alors que les fonctions classiques le reçoivent de l’appel. Cette différence est au cœur du fonctionnement de `this`."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux ajoutent au panier du back-office les SKU d’une liste collée. Laquelle s’exécute sans lever d’erreur ?",
+        "why": "La fonction fléchée appelle `cart.add(sku)`, donc `this` vaut `cart`. Passer `cart.add` seul détache la méthode : `forEach` l’appelle comme une simple fonction, et le corps d’une classe est en mode strict, donc `this` vaut `undefined`. Le premier SKU lève « Cannot read properties of undefined (reading 'lines') »."
+      }
+    ]
+  },
+  "js-prototypes": {
+    "topic": "Prototypes et classes",
+    "question": "Qu’est-ce que l’héritage prototypal, et quel lien ont les classes ES avec lui ?",
+    "answer": "Chaque objet a un lien caché vers un autre objet, son prototype. Quand une propriété n’est pas trouvée sur l’objet, le moteur la cherche le long de cette chaîne jusqu’à `null`. Les classes ES reposent là-dessus : les méthodes sont stockées une fois sur `Class.prototype`, et `extends` relie un prototype à un autre. Les classes ajoutent aussi de vraies fonctionnalités : on doit les appeler avec `new`, leur corps s’exécute en mode strict, et les champs `#private` sont vraiment privés. J’utilise des classes pour les types d’erreur et les services, et des objets simples pour les données.",
+    "keyPoints": [
+      "Les objets pointent vers un prototype ; la recherche d’une propriété parcourt la chaîne",
+      "Les méthodes de classe vivent une fois sur `Class.prototype`, partagées par les instances",
+      "`extends` relie les chaînes de prototypes",
+      "Les classes ajoutent l’appel avec `new` obligatoire, le mode strict et les champs `#private`"
+    ],
+    "explanation": "La question vérifie si tu vois les classes comme des classes Java ou comme des objets reliés à des objets. Une réponse senior sait ce que les classes ajoutent au-delà de la syntaxe, et pourquoi les méthodes sur le prototype sont partagées plutôt que copiées.",
+    "example": "L’API Orders définit `class PaymentError extends Error` avec un champ `code`. `instanceof PaymentError` marche parce que la chaîne de l’instance passe par `PaymentError.prototype`, puis `Error.prototype`, puis `Object.prototype`. Son champ `#attempts` ne peut pas être lu hors de la classe, même avec la notation entre crochets.",
+    "mistakes": [
+      "Dire que les méthodes sont copiées dans chaque instance : elles vivent une fois sur le prototype",
+      "Qualifier les classes de « simple syntaxe » sans parler des champs `#private`, de l’appel avec `new` obligatoire et du mode strict",
+      "Ajouter des méthodes aux prototypes natifs comme `Array.prototype` dans du code applicatif"
+    ],
+    "followUps": [
+      {
+        "question": "Quelle est la différence entre `prototype` et `__proto__` ?",
+        "answer": "`prototype` est une propriété des fonctions constructeurs et des classes : l’objet vers lequel pointeront les nouvelles instances. `__proto__`, qu’on lit plutôt avec `Object.getPrototypeOf`, est le lien réel d’un objet vers son prototype."
+      },
+      {
+        "question": "Comment fonctionne `instanceof` ?",
+        "answer": "Il vérifie si `Class.prototype` apparaît quelque part dans la chaîne de prototypes de l’objet. Il peut échouer entre realms, comme les iframes, et c’est pour ça que `Array.isArray` existe."
+      },
+      {
+        "question": "Comment implémenteriez-vous l’héritage sans la syntaxe `class` ?",
+        "answer": "Avec des fonctions constructeurs : l’enfant appelle le parent, `Base.call(this, code)`, et je relie les prototypes avec `Child.prototype = Object.create(Base.prototype)`, puis je rétablis `Child.prototype.constructor`. Pour des objets simples, `Object.create(base)` suffit. `extends` fait ce chaînage pour moi, donc j’utilise les classes."
+      },
+      {
+        "question": "Que fait `Object.create()`, et quel est son lien avec la chaîne de prototypes ?",
+        "answer": "`Object.create(proto)` renvoie un nouvel objet vide dont le prototype est `proto`, sans exécuter de constructeur : les recherches qui échouent sur lui continuent sur `proto`. `Object.create(null)` crée un objet sans aucun prototype : un dictionnaire sans clés héritées comme `toString`."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Les méthodes déclarées dans le corps d’une classe sont copiées sur chaque instance.",
+        "why": "Elles sont définies une fois sur `Class.prototype` et trouvées via la chaîne de prototypes.",
+        "twin": {
+          "statement": "Les méthodes déclarées dans le corps d’une classe sont stockées une fois sur le `prototype` de la classe et partagées par toutes les instances.",
+          "why": "Les instances les trouvent via la chaîne de prototypes au lieu d’en avoir leur propre copie."
+        }
+      },
+      {
+        "statement": "Appeler une classe sans `new` lève une TypeError.",
+        "why": "Un constructeur de classe ne peut pas être appelé comme une simple fonction : « Class constructor X cannot be invoked without 'new' ».",
+        "twin": {
+          "statement": "Appeler une classe sans `new` exécute son constructeur comme une simple fonction.",
+          "why": "Un constructeur de classe ne peut pas être appelé comme une simple fonction : l’appel lève une TypeError."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Chaque objet pointe vers un autre objet, son prototype, et une propriété absente est cherchée le long de cette chaîne. Les classes ES reposent sur ce mécanisme, avec quelques vraies fonctionnalités en plus.",
+      "points": [
+        "Chaque objet a un lien caché vers un autre objet, son prototype. Lire une propriété absente de l’objet fait chercher le moteur sur le prototype, puis sur le prototype de celui-ci, le long de la chaîne jusqu’à `null`.",
+        "`Class.prototype` est l’objet vers lequel pointent les nouvelles instances ; `Object.getPrototypeOf(obj)`, ou l’ancien `__proto__`, lit le lien réel d’un objet. Les méthodes de classe vivent une fois sur `Class.prototype` : partagées, pas copiées.",
+        "`class B extends A` relie `B.prototype` à `A.prototype`, donc les instances trouvent les méthodes des deux. `obj instanceof A` vérifie si `A.prototype` apparaît quelque part dans la chaîne de `obj`.",
+        "Les classes sont plus que de la syntaxe : en appeler une sans `new` lève une TypeError, le corps de classe s’exécute en mode strict, et les champs `#private` sont illisibles de l’extérieur, même avec les crochets.",
+        "`instanceof` peut échouer entre realms : un tableau venu d’une iframe a son propre `Array.prototype`, d’où l’existence de `Array.isArray`. N’ajoute jamais de méthodes aux prototypes natifs dans du code applicatif."
+      ],
+      "takeaways": [
+        {
+          "term": "Chaîne de prototypes",
+          "detail": "Une propriété absente de l’objet est cherchée sur son prototype, puis sur le prototype de celui-ci, jusqu’à `null`."
+        },
+        {
+          "term": "`Class.prototype`",
+          "detail": "L’objet vers lequel pointent les instances. Les méthodes de classe y vivent une fois : partagées, pas copiées."
+        },
+        {
+          "term": "`extends`",
+          "detail": "`class B extends A` relie `B.prototype` à `A.prototype`, donc les instances trouvent les méthodes des deux."
+        },
+        {
+          "term": "`instanceof`",
+          "detail": "Vérifie si `A.prototype` est quelque part dans la chaîne. Échoue entre realms : pour les tableaux, utilise `Array.isArray`."
+        },
+        {
+          "term": "Atouts des classes",
+          "detail": "Appeler une classe sans `new` lève une TypeError, et le corps de classe s’exécute en mode strict."
+        },
+        {
+          "term": "Champs `#private`",
+          "detail": "Vraiment privés : illisibles de l’extérieur, même avec les crochets."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un export CSV de l’API Orders crée 200 000 instances de `OrderLine`. Un reviewer craint que chacune porte sa propre copie des cinq méthodes de la classe. A-t-il raison ?",
+        "bridge": "Les méthodes de classe sont stockées une fois sur `OrderLine.prototype`, et chaque instance les trouve via sa chaîne de prototypes."
+      },
+      {
+        "question": "Un recruteur affirme que les classes ES ne sont que du sucre syntaxique sur les fonctions constructeurs. Êtes-vous d’accord, et comment l’héritage fonctionne-t-il vraiment en dessous ?",
+        "bridge": "Les classes reposent sur les chaînes de prototypes, mais elles ajoutent l’appel avec `new` obligatoire, le mode strict et les champs `#private` : c’est plus que du sucre."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux donnent une méthode `total()` à chacune des 50 000 commandes chargées dans le tableau du back-office. Laquelle stocke la méthode une seule fois ?",
+        "why": "Une méthode déclarée dans le corps de la classe vit une fois sur `Order.prototype`, et chaque commande la trouve via la chaîne de prototypes : `a.total === b.total` est vrai. Affecter une fonction fléchée dans le constructeur crée une nouvelle fonction sur chaque instance, donc 50 000 commandes portent 50 000 copies du même code."
+      }
+    ]
+  },
+  "js-equality": {
+    "topic": "Égalité, null et undefined",
+    "question": "Quelle est la différence entre `==` et `===`, et entre `null` et `undefined` ?",
+    "answer": "`===` compare sans convertir les types : des valeurs de types différents ne sont jamais égales. `==` convertit d’abord, avec des règles surprenantes, comme `'' == 0` qui vaut true. J’utilise `===` partout, avec une exception admise : `x == null` n’est vrai que pour `null` et `undefined`, donc il teste les deux d’un coup. `undefined` signifie qu’une valeur n’a jamais été définie : propriété absente, argument manquant, variable non initialisée. `null` est mis exprès pour dire « pas de valeur ». Et `typeof null` vaut « object », un vieux bug gardé pour la compatibilité.",
+    "keyPoints": [
+      "`===` ne convertit jamais les types ; `==` si",
+      "`x == null` ne correspond qu’à `null` et `undefined`",
+      "`undefined` : jamais défini ; `null` : vide volontairement",
+      "`typeof null` vaut « object »"
+    ],
+    "explanation": "Les questions d’égalité vérifient que tu sais que la coercition existe et que tu l’évites. L’exception `== null` et `typeof null` montrent une vraie expérience. Les seniors mentionnent aussi `??` et `?.`, qui ne considèrent comme absents que `null` et `undefined`.",
+    "example": "Le badge d’en-tête de la boutique affichait « 021 » articles : le compteur stocké revenait de `localStorage` sous forme de chaîne « 0 », et `\"0\" + 2 + 1` concatène. Convertir avec `Number()` à l’entrée de la valeur dans le code a corrigé le bug. La même revue a remplacé `qty || 1` par `qty ?? 1`, car `||` remplaçait aussi une vraie quantité de 0.",
+    "mistakes": [
+      "Utiliser `||` pour les valeurs par défaut quand 0, une chaîne vide ou `false` sont valides : utilise `??`",
+      "Tester `typeof x === \"object\"` sans exclure `null`",
+      "S’attendre à ce que `NaN === NaN` soit vrai : c’est faux ; utilise `Number.isNaN`"
+    ],
+    "followUps": [
+      {
+        "question": "Que renvoient `0 || 5` et `0 ?? 5` ?",
+        "answer": "`0 || 5` donne 5, car `||` se rabat sur toute valeur falsy. `0 ?? 5` donne 0, car `??` ne se rabat que sur `null` et `undefined`."
+      },
+      {
+        "question": "En quoi `Object.is` diffère-t-il de `===` ?",
+        "answer": "Il considère `NaN` égal à lui-même et distingue `+0` de `-0` ; sinon il se comporte comme `===`. React s’en sert pour savoir si le state a changé."
+      },
+      {
+        "question": "Que renvoient `typeof undefined` et `typeof null`, et pourquoi le second est-il étrange ?",
+        "answer": "`typeof undefined` vaut « undefined », mais `typeof null` vaut « object ». C’est un bug de la toute première implémentation du langage, gardé parce que le corriger casserait du code existant. Donc pour tester un objet, j’écris `value !== null && typeof value === 'object'`."
+      },
+      {
+        "question": "Comment vérifiez-vous en une expression qu’une valeur est `null` ou `undefined` ?",
+        "answer": "`value == null` est vrai pour exactement ces deux-là, et jamais pour 0, une chaîne vide ou `false`. C’est la seule comparaison lâche que je m’autorise. Quand il me faut juste une valeur de repli, `value ?? fallback` applique le même test."
+      },
+      {
+        "question": "Lequel utilisez-vous par défaut, `==` ou `===`, et pourquoi ?",
+        "answer": "`===`, parce qu’il compare sans convertir : le résultat ne dépend que des deux valeurs. `==` convertit d’abord les opérandes vers un type commun, et ces règles surprennent. Ma seule exception, c’est `== null`."
+      },
+      {
+        "question": "Pouvez-vous donner quelques résultats surprenants de `==` ?",
+        "answer": "`'' == 0`, `'0' == 0`, `'0' == false` et `[] == false` sont tous vrais, mais `'' == '0'` est faux : `==` n’est même pas transitif. `null == 0` est faux car `null` n’est égal qu’à `undefined`, et `NaN == NaN` est faux."
+      },
+      {
+        "question": "Pourquoi les guides de style et les règles de lint recommandent-ils `===` ?",
+        "answer": "Son résultat est prévisible et le lecteur voit les types attendus ; `==` cache des bugs derrière la coercition. La règle ESLint `eqeqeq` l’impose, et son option `{ \"null\": \"ignore\" }` garde le test `== null` autorisé."
+      },
+      {
+        "question": "Comment vérifieriez-vous qu’une valeur est `NaN` ?",
+        "answer": "`Number.isNaN(value)`, vrai uniquement pour la valeur `NaN` elle-même. Le `isNaN` global convertit d’abord, donc `isNaN('abc')` est vrai pour une simple chaîne. `Object.is(value, NaN)` marche aussi, et `value !== value` est la vieille astuce, puisque `NaN` est la seule valeur différente d’elle-même."
+      },
+      {
+        "question": "Comment le chaînage optionnel interagit-il avec `null` et `undefined` ?",
+        "answer": "`a?.b` s’arrête et renvoie `undefined` quand `a` vaut `null` ou `undefined`, et seulement dans ce cas : 0 ou une chaîne vide continuent. Il renvoie `undefined` même si `a` valait `null`. Il protège un seul niveau, donc `a?.b.c` lève toujours une erreur si `b` manque. Je l’associe à `??` : `order.customer?.name ?? 'Guest'`."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`null == undefined` est vrai, mais `null == 0` est faux.",
+        "why": "Avec `==`, `null` n’est égal qu’à `undefined` et à lui-même ; il n’est pas converti en 0.",
+        "twin": {
+          "statement": "`null == 0` est vrai, car `==` convertit `null` en 0.",
+          "why": "Avec `==`, `null` n’est égal qu’à `undefined` et à lui-même ; il n’est pas converti en nombre."
+        }
+      },
+      {
+        "statement": "`typeof null` renvoie « null ».",
+        "why": "Il renvoie « object », un bug de la première version du langage, gardé pour la compatibilité.",
+        "twin": {
+          "statement": "`typeof null` renvoie « object ».",
+          "why": "C’est un bug de la première version du langage, gardé pour la compatibilité."
+        }
+      },
+      {
+        "statement": "`[] == false` est vrai.",
+        "why": "`false` devient 0, le tableau devient « » puis 0, donc la comparaison est 0 == 0.",
+        "twin": {
+          "statement": "`[] == false` est faux, car un tableau vide est truthy.",
+          "why": "`==` ne teste pas la truthiness : `false` devient 0 et le tableau devient « » puis 0, donc la comparaison est 0 == 0."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "JavaScript a deux opérateurs d’égalité et deux valeurs « vides ». Savoir quand `==` convertit les types et ce que signifient `null` et `undefined` évite toute une famille de bugs silencieux.",
+      "points": [
+        "`===`, l’égalité stricte, compare sans convertir : des valeurs de types différents ne sont jamais égales. `==`, l’égalité lâche, convertit d’abord les opérandes vers un type commun : c’est la coercition.",
+        "Les règles de coercition surprennent : `'' == 0` et `[] == false` sont tous deux vrais, car chaque côté finit en nombre 0. Donc utilise `===` partout.",
+        "Le seul `==` admis : `x == null` n’est vrai que pour `null` et `undefined`, jamais pour 0 ou une chaîne vide, donc il teste les deux valeurs absentes d’un coup.",
+        "`undefined` signifie jamais défini : propriété absente, argument manquant, `var` avant sa valeur. `null` est affecté exprès pour dire « vide ». `typeof null` vaut « object », un vieux bug gardé pour la compatibilité.",
+        "`??` et `?.` ne considèrent comme absents que `null` et `undefined`, alors que `||` se rabat sur toute valeur falsy, 0 compris. `NaN === NaN` est faux : utilise `Number.isNaN`, ou `Object.is`, que React utilise pour comparer le state."
+      ],
+      "takeaways": [
+        {
+          "term": "`===`",
+          "detail": "Égalité stricte : aucune conversion, donc des valeurs de types différents ne sont jamais égales. À utiliser partout."
+        },
+        {
+          "term": "`==`",
+          "detail": "L’égalité lâche convertit d’abord (coercition) : `'' == 0` et `[] == false` sont tous deux vrais."
+        },
+        {
+          "term": "`x == null`",
+          "detail": "Le seul `==` admis : vrai uniquement pour `null` et `undefined`, jamais pour 0 ou une chaîne vide."
+        },
+        {
+          "term": "`undefined` vs `null`",
+          "detail": "`undefined` : jamais défini ; `null` est affecté exprès pour dire vide."
+        },
+        {
+          "term": "`typeof null`",
+          "detail": "Renvoie « object » : un vieux bug gardé pour la compatibilité."
+        },
+        {
+          "term": "`??` vs `||`",
+          "detail": "`??` ne se rabat que sur `null` et `undefined` ; `||` sur toute valeur falsy, 0 compris."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, le filtre `order.discount == ''` doit trouver les commandes sans remise, mais il trouve aussi celles dont la remise vaut 0. Pourquoi, et qu’écrivez-vous à la place ?",
+        "bridge": "`==` convertit les types avant de comparer, donc 0 est égal à la chaîne vide. `===` ne convertit jamais, c’est pourquoi il est le choix par défaut."
+      },
+      {
+        "question": "Un collègue interdit `==` partout, y compris `value == null`. Garderiez-vous cette exception, et quelle est la différence entre `null` et `undefined` ?",
+        "bridge": "`x == null` ne correspond qu’à `null` et `undefined` : c’est le seul usage admis de `==`. Les deux valeurs diffèrent par l’intention : jamais défini contre vide volontairement."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux lisent les frais de livraison ; un 0 stocké signifie livraison offerte pendant une campagne. Laquelle facture le bon montant ?",
+        "why": "`??` ne se rabat que sur `null` et `undefined`, donc des frais de 0 restent 0 et un réglage absent donne 499. `||` se rabat sur toute valeur falsy, 0 compris : pendant la campagne, chaque client paie quand même 4,99."
+      }
+    ]
+  },
+  "js-modules": {
+    "topic": "Modules ES et CommonJS",
+    "question": "Quelle est la différence entre les modules ES et CommonJS ?",
+    "answer": "CommonJS utilise `require` et `module.exports` : les modules se chargent de façon synchrone pendant l’exécution, et les valeurs qu’on en déstructure ne se mettent pas à jour ensuite. Les modules ES utilisent `import` et `export` : les imports sont statiques, résolus avant l’exécution du code, ce qui permet aux bundlers d’écarter les exports inutilisés, c’est le tree shaking. Les exports ES sont des live bindings : les importeurs voient les changements ultérieurs. Les modules ES s’exécutent en mode strict, autorisent le `await` de premier niveau, et `import()` charge un module à la demande, base du code splitting. Le nouveau code doit être en modules ES.",
+    "keyPoints": [
+      "CommonJS : `require`, synchrone, résolu à l’exécution",
+      "Modules ES : `import` statique, résolu avant l’exécution du code",
+      "Les imports statiques permettent le tree shaking ; les exports sont des live bindings",
+      "`import()` charge à la demande : la base du code splitting"
+    ],
+    "explanation": "Le bundling, le tree shaking et l’interop dans Node découlent tous d’une seule différence : chargement statique contre dynamique. On attend d’un senior qu’il explique pourquoi le tree shaking exige des modules ES et comment les deux systèmes cohabitent dans Node.",
+    "example": "La boutique embarquait toute une bibliothèque de dates parce qu’elle était importée via son build CommonJS. Passer au build ES module de la bibliothèque a permis au bundler d’écarter les fonctions inutilisées. La lourde autocomplétion d’adresse n’est chargée avec `import()` qu’à l’ouverture du formulaire de checkout.",
+    "mistakes": [
+      "Dire que le tree shaking marche pareil avec `require` : les bundlers ne peuvent pas l’analyser de façon fiable",
+      "Voir `import` comme une nouvelle syntaxe pour `require`",
+      "Utiliser `__dirname` dans un module ES : utilise `import.meta.dirname` (Node 20.11 et plus) ou `import.meta.url`"
+    ],
+    "followUps": [
+      {
+        "question": "Node peut-il charger un module ES avec `require` ?",
+        "answer": "Oui, dans les versions actuelles : `require()` d’un module ES marche sans flag depuis Node 22.12 et 20.19, tant que le module n’a pas de `await` de premier niveau."
+      },
+      {
+        "question": "Que change `\"type\": \"module\"` dans `package.json` ?",
+        "answer": "Les fichiers `.js` du package sont traités comme des modules ES. Sans lui, ils sont en CommonJS, et les modules ES demandent l’extension `.mjs`."
+      },
+      {
+        "question": "Qu’est-ce que le tree shaking et comment ça marche ?",
+        "answer": "Le bundler suit les instructions statiques `import` et `export` pour voir quels exports servent vraiment, et laisse le reste hors du bundle. Il faut des modules ES, puisque `require` peut être dynamique, et du code sans effets de bord : `\"sideEffects\": false` dans `package.json` dit à webpack qu’un fichier entier inutilisé peut être écarté."
+      },
+      {
+        "question": "Comment se comportent les imports circulaires en ESM et en CommonJS ?",
+        "answer": "En CommonJS, `require` dans un cycle renvoie les `exports` de l’autre module tels que remplis jusque-là, donc les valeurs manquantes valent `undefined` en silence. En modules ES, les bindings sont vivants : les déclarations de fonction hoistées marchent déjà, mais lire un export `const` ou `class` avant sa ligne lève une ReferenceError."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une valeur importée avec `import` reflète les changements faits plus tard par le module qui l’exporte.",
+        "why": "Les exports des modules ES sont des live bindings : l’importeur lit la valeur actuelle de la variable de l’exporteur.",
+        "twin": {
+          "statement": "Une valeur importée avec `import` est une copie prise au chargement du module, donc les changements ultérieurs dans le module exporteur ne sont pas visibles.",
+          "why": "Les exports des modules ES sont des live bindings : l’importeur lit toujours la valeur actuelle de l’exporteur."
+        }
+      },
+      {
+        "statement": "On peut réaffecter un binding importé dans le module qui l’importe.",
+        "why": "Les imports sont en lecture seule pour l’importeur : en affecter un lève une TypeError.",
+        "twin": {
+          "statement": "Affecter un binding importé dans le module qui l’importe lève une TypeError.",
+          "why": "Les imports sont en lecture seule pour l’importeur ; seul le module exporteur peut changer la valeur."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "JavaScript a deux systèmes de modules : CommonJS, le `require` d’origine de Node, et les modules ES standard avec `import` et `export`. Leur modèle de chargement explique le tree shaking, les live bindings et le code splitting.",
+      "points": [
+        "CommonJS est le système de modules d’origine de Node : `require()` charge un fichier de façon synchrone pendant l’exécution, et `module.exports` est un objet simple. Les valeurs qu’on en déstructure ne suivent pas les changements ultérieurs.",
+        "Les modules ES utilisent `import` et `export`. Les imports statiques sont résolus avant l’exécution, donc les outils connaissent tout le graphe de dépendances et les bundlers écartent les exports inutilisés : c’est le tree shaking.",
+        "Les exports des modules ES sont des live bindings : l’importeur lit toujours la valeur actuelle de l’exporteur. Les imports sont en lecture seule pour l’importeur : en affecter un lève une TypeError.",
+        "Les modules ES s’exécutent toujours en mode strict et autorisent le `await` de premier niveau. `import()` charge un module à la demande et renvoie une promesse : c’est la base du code splitting.",
+        "Dans Node, `\"type\": \"module\"` dans `package.json` fait des fichiers `.js` des modules ES ; sinon, utilise `.mjs`. `require()` d’un module ES sans `await` de premier niveau marche depuis Node 22.12 et 20.19."
+      ],
+      "takeaways": [
+        {
+          "term": "CommonJS",
+          "detail": "`require()` charge de façon synchrone à l’exécution ; les valeurs déstructurées de `module.exports` ne se mettent pas à jour."
+        },
+        {
+          "term": "`import` statique",
+          "detail": "Résolu avant l’exécution, donc les bundlers connaissent le graphe et écartent les exports inutilisés : le tree shaking."
+        },
+        {
+          "term": "Live bindings",
+          "detail": "Les importeurs lisent toujours la valeur actuelle de l’exporteur. Affecter un import lève une TypeError."
+        },
+        {
+          "term": "`import()`",
+          "detail": "Charge un module à la demande et renvoie une promesse : la base du code splitting."
+        },
+        {
+          "term": "Atouts des modules ES",
+          "detail": "Toujours en mode strict, et le `await` de premier niveau est autorisé."
+        },
+        {
+          "term": "`\"type\": \"module\"`",
+          "detail": "Dans `package.json`, fait des fichiers `.js` des modules ES dans Node ; sinon, utilise `.mjs`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La boutique importe une seule fonction d’un package utilitaire publié uniquement en CommonJS, et le bundle contient quand même tout le package. Pourquoi le bundler ne peut-il pas écarter le reste ?",
+        "bridge": "Le tree shaking exige des imports connus avant l’exécution. Le `require` de CommonJS est résolu pendant l’exécution ; les imports des modules ES sont statiques."
+      },
+      {
+        "question": "Le module A exporte `let count` et une fonction qui l’incrémente. Le module B importe les deux et appelle la fonction. Que voit B dans `count`, et la déstructuration CommonJS se comporterait-elle pareil ?",
+        "bridge": "Les exports des modules ES sont des live bindings, alors que les valeurs déstructurées de `require` ne se mettent pas à jour. C’est une différence centrale entre modules ES et CommonJS."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux chargent le modèle de facture stocké à côté du fichier, dans un package avec `\"type\": \"module\"`. Laquelle démarre ?",
+        "why": "Avec `\"type\": \"module\"`, le fichier est un module ES, et `__dirname` est une variable CommonJS que les modules ES n’ont pas : charger le module lève « ReferenceError: __dirname is not defined in ES module scope ». `import.meta.dirname`, disponible depuis Node 20.11, donne le dossier du module courant."
+      }
+    ]
+  },
+  "js-generators": {
+    "topic": "Itérateurs et générateurs",
+    "question": "Que sont les itérateurs et les générateurs, et quand utiliseriez-vous un générateur ?",
+    "answer": "Un itérable est un objet avec une méthode `[Symbol.iterator]` qui renvoie un itérateur : un objet dont `next()` renvoie `{ value, done }`. Ce protocole fait marcher `for...of`, le spread et la déstructuration. Un générateur, écrit `function*`, est la façon simple d’en construire un : chaque `yield` met la fonction en pause et fournit une valeur, et la fonction reprend au `next()` suivant. Les générateurs sont paresseux, donc je les utilise pour les séquences grandes ou infinies et pour lire des données page par page. Les générateurs async avec `for await...of` font pareil pour les streams et les API paginées.",
+    "keyPoints": [
+      "Itérable : `[Symbol.iterator]` ; itérateur : `next()` renvoie `{ value, done }`",
+      "Le protocole derrière `for...of`, le spread et la déstructuration",
+      "`function*` se met en pause à chaque `yield` : valeurs produites paresseusement",
+      "Générateurs async avec `for await...of` pour les pages et les streams"
+    ],
+    "explanation": "La question porte sur les protocoles plutôt que sur des détails de syntaxe. Une réponse senior donne un vrai usage, comme une pagination paresseuse ou du streaming, quand on ne veut pas tout en mémoire d’un coup.",
+    "example": "Le back-office exporte toutes les commandes de l’année. Un générateur async, `fetchOrderPages()`, demande 100 commandes, les yield, et ne demande la page suivante que quand la boucle la réclame. L’export écrit chaque page à son arrivée au lieu de garder 200 000 commandes en mémoire.",
+    "mistakes": [
+      "Confondre itérables et array-likes : un objet avec un `length` n’est pas itérable",
+      "Croire qu’appeler une fonction générateur exécute son corps",
+      "Oublier qu’un objet générateur ne se consomme qu’une fois"
+    ],
+    "followUps": [
+      {
+        "question": "Que se passe-t-il quand on sort avec `break` d’une boucle `for...of` sur un générateur ?",
+        "answer": "La boucle appelle le `return()` du générateur : il se termine et son bloc `finally` s’exécute. C’est là qu’on libère des ressources comme un curseur de base de données."
+      },
+      {
+        "question": "Que sont les iterator helpers ?",
+        "answer": "Des méthodes comme `.map()`, `.filter()` et `.take()` disponibles directement sur les itérateurs depuis ES2025. Elles restent paresseuses, contrairement à une conversion préalable en tableau."
+      },
+      {
+        "question": "Comment rendez-vous votre propre objet itérable avec un générateur ?",
+        "answer": "J’écris `[Symbol.iterator]` comme une méthode générateur : `*[Symbol.iterator]() { for (const line of this.lines) yield line; }`. Chaque `for...of` ou spread l’appelle et reçoit un nouveau générateur, donc on peut itérer le panier plusieurs fois, contrairement à un objet générateur unique."
+      },
+      {
+        "question": "Quel lien y a-t-il entre les générateurs et `async`/`await` ?",
+        "answer": "Une fonction async se comporte comme un générateur qui yield des promesses : elle se met en pause à chaque `await`, et un pilote la relance avec la valeur résolue. TypeScript compile encore les fonctions `async` ainsi pour une cible ES2015 : un générateur plus un helper `__awaiter`."
+      },
+      {
+        "question": "Pouvez-vous écrire un générateur qui produit une séquence infinie ?",
+        "answer": "`function* ids() { let id = 1; while (true) { yield id++; } }`. Il ne bloque jamais, car chaque valeur n’est calculée que quand `next()` la demande. Je prends ce qu’il me faut avec `ids().take(5)` ou un `break`, et je ne le spread jamais, ce qui bouclerait à l’infini."
+      },
+      {
+        "question": "En quoi les générateurs async diffèrent-ils des générateurs classiques ?",
+        "answer": "Une `async function*` peut faire `await` entre les yields, et son `next()` renvoie une promesse de `{ value, done }` au lieu de l’objet lui-même. Elle implémente `Symbol.asyncIterator`, pas `Symbol.iterator`, donc je la lis avec `for await...of`, par exemple pour récupérer les commandes page par page."
+      },
+      {
+        "question": "Comment `for...of` utilise-t-il le protocole d’itération ?",
+        "answer": "Il appelle une fois `obj[Symbol.iterator]()` pour obtenir un itérateur, puis appelle `next()` avant chaque tour et s’arrête quand `done` vaut true, en donnant `value` à la variable de boucle. Si je sors tôt avec `break`, `return` ou une exception, il appelle le `return()` de l’itérateur pour que la source puisse faire le ménage."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Appeler une fonction générateur exécute son corps jusqu’au premier `yield`.",
+        "why": "Elle renvoie un objet générateur sans rien exécuter ; le corps démarre au premier appel de `next()`.",
+        "twin": {
+          "statement": "Appeler une fonction générateur n’exécute rien de son corps tant que `next()` n’est pas appelé.",
+          "why": "Elle renvoie seulement un objet générateur ; le corps démarre au premier appel de `next()`."
+        }
+      },
+      {
+        "statement": "Interrompre une boucle `for...of` sur un générateur exécute le bloc `finally` du générateur.",
+        "why": "La boucle appelle le `return()` du générateur, qui le termine et exécute son bloc `finally`.",
+        "twin": {
+          "statement": "Interrompre une boucle `for...of` sur un générateur laisse son bloc `finally` non exécuté.",
+          "why": "La boucle appelle le `return()` du générateur, qui le termine et exécute son bloc `finally`."
+        }
+      },
+      {
+        "statement": "On peut parcourir un objet simple avec `for...of`.",
+        "why": "Les objets simples ne sont pas itérables. Parcours `Object.entries(obj)`, ou utilise une Map.",
+        "twin": {
+          "statement": "Parcourir un objet simple avec `for...of` lève une TypeError.",
+          "why": "Les objets simples ne sont pas itérables. Parcours `Object.entries(obj)`, ou utilise une Map."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le protocole d’itération est ce sur quoi reposent `for...of`, le spread et la déstructuration, et un générateur est la façon simple de l’implémenter. Les générateurs produisent les valeurs paresseusement, une à une.",
+      "points": [
+        "Un itérateur est un objet dont `next()` renvoie `{ value, done }`. Un itérable a une méthode `[Symbol.iterator]()` qui renvoie un itérateur. `for...of`, le spread et la déstructuration de tableau utilisent tous ce protocole.",
+        "Tableaux, chaînes, Maps, Sets et générateurs sont itérables. Les objets simples ne le sont pas, ni les array-likes qui n’ont qu’un `length` : parcours un objet avec `Object.entries(obj)`.",
+        "Appeler une fonction générateur, `function*`, renvoie un objet générateur sans exécuter le corps. Chaque `next()` l’exécute jusqu’au `yield` suivant, qui le met en pause et fournit une valeur : les valeurs arrivent paresseusement.",
+        "Un générateur ne se consomme qu’une fois. Quitter `for...of` tôt avec `break` appelle son `return()`, donc son bloc `finally` s’exécute : l’endroit où libérer une ressource comme un curseur de base de données.",
+        "Une `async function*` peut faire `await` entre les yields et se lit avec `for await...of`, idéal pour les API paginées et les streams. Les iterator helpers comme `.map()` et `.take()` (ES2025) gardent les itérateurs paresseux."
+      ],
+      "takeaways": [
+        {
+          "term": "Itérateur",
+          "detail": "Un objet dont `next()` renvoie `{ value, done }`."
+        },
+        {
+          "term": "Itérable",
+          "detail": "A une méthode `[Symbol.iterator]()` qui renvoie un itérateur. Les objets simples ne sont pas itérables : utilise `Object.entries`."
+        },
+        {
+          "term": "`function*`",
+          "detail": "L’appeler n’exécute rien ; chaque `next()` exécute le corps jusqu’au `yield` suivant, qui le met en pause."
+        },
+        {
+          "term": "Usage unique",
+          "detail": "Un générateur se consomme une fois. `break` dans `for...of` appelle `return()`, donc son bloc `finally` s’exécute."
+        },
+        {
+          "term": "`async function*`",
+          "detail": "Peut faire `await` entre les yields ; se lit avec `for await...of` pour les API paginées et les streams."
+        },
+        {
+          "term": "Iterator helpers",
+          "detail": "`.map()` et `.take()` (ES2025) transforment les itérateurs en les gardant paresseux."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’export CSV annuel de l’API Orders lit les commandes par 500 lignes. Vous voulez que les appelants écrivent `for await (const order of allOrders())` sans charger toutes les commandes en mémoire. Que construisez-vous ?",
+        "bridge": "Un générateur async : il récupère une page, yield ses lignes, et se met en pause jusqu’à ce que la boucle en demande plus. Les générateurs produisent les valeurs paresseusement."
+      },
+      {
+        "question": "Pourquoi `for...of` marche-t-il sur un tableau, une Map et une chaîne, mais pas sur un objet simple ? De quoi un objet a-t-il besoin pour le supporter ?",
+        "bridge": "`for...of` utilise le protocole d’itération : l’objet a besoin d’une méthode `[Symbol.iterator]` qui renvoie un itérateur, et un générateur est la façon simple d’en écrire une."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux alimentent l’export CSV annuel, 100 commandes par page. Laquelle ne garde qu’une page en mémoire à la fois ?",
+        "why": "Le générateur async ne récupère une page que quand la boucle `for await...of` demande la suivante, donc l’export écrit chaque page et la libère avant d’en récupérer une autre. L’autre version charge toutes les pages dans un seul tableau avant que l’export n’écrive sa première ligne : les 200 000 commandes sont en mémoire en même temps."
+      }
+    ]
+  },
+  "js-copying": {
+    "topic": "Copies superficielles et profondes",
+    "question": "Quelle est la différence entre une copie superficielle et une copie profonde, et comment faites-vous chacune ?",
+    "answer": "Une copie superficielle crée un nouvel objet de premier niveau mais partage les objets imbriqués : spread, `Object.assign` et `Array.prototype.slice` sont superficiels. Modifier un objet imbriqué via la copie modifie aussi l’original. Une copie profonde duplique chaque niveau. La façon native, c’est `structuredClone`, qui gère objets imbriqués, Dates, Maps, Sets et cycles, mais pas les fonctions. `JSON.parse(JSON.stringify(x))` est une vieille astuce qui perd des données : les Dates deviennent des chaînes et les valeurs `undefined` disparaissent. Dans le state React, je fais rarement de copie profonde : je copie seulement le chemin que je modifie.",
+    "keyPoints": [
+      "Superficielle : nouveau premier niveau, imbriqués partagés (spread, `Object.assign`)",
+      "Profonde : chaque niveau dupliqué",
+      "`structuredClone` garde Dates, Maps et cycles ; il refuse les fonctions",
+      "L’aller-retour JSON perd des données ; en React, copier le seul chemin modifié"
+    ],
+    "explanation": "Les mises à jour immuables sont partout en React et Redux, et le bug de copie superficielle est l’un des bugs de state les plus courants. Les recruteurs veulent entendre `structuredClone` et ses limites, et pourquoi les mises à jour immuables ne copient que ce qui a changé.",
+    "example": "Le bouton Annuler de la boutique sauvegardait `{ ...cart }` avant chaque changement, mais le tableau `lines` était partagé : modifier une quantité modifiait aussi la copie sauvegardée, et Annuler restaurait le panier cassé. Copier seulement la ligne modifiée, `lines.map((l) => (l.id === id ? { ...l, qty } : l))`, a corrigé le bug sans cloner tout le panier.",
+    "mistakes": [
+      "Qualifier le spread de copie profonde",
+      "Utiliser `JSON.parse(JSON.stringify(x))` sur des données avec des Dates, des Maps ou `undefined`",
+      "Cloner en profondeur tout le state à chaque mise à jour, ce qui donne une nouvelle référence à chaque partie inchangée et neutralise la mémoïsation"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce que `structuredClone` ne sait pas copier ?",
+        "answer": "Les fonctions et les nœuds DOM lui font lever une DataCloneError. Les instances de classe sont copiées en objets simples : leur prototype et leurs méthodes sont perdus."
+      },
+      {
+        "question": "Pourquoi React a-t-il besoin d’un nouvel objet pour faire un re-render après un changement de state ?",
+        "answer": "React compare l’ancien et le nouveau state avec `Object.is`. Muter le même objet garde la même référence, donc React ne voit aucun changement."
+      },
+      {
+        "question": "Comment feriez-vous une copie profonde d’un objet qui contient des fonctions ?",
+        "answer": "`structuredClone` lève une erreur sur les fonctions, et JSON les supprime. Les fonctions sont du comportement, pas des données, donc je les garde partagées : un petit clone récursif copie objets simples et tableaux et réutilise les fonctions telles quelles. Mieux encore, je sépare les données, je les clone avec `structuredClone`, et je reconstruis l’instance de classe à partir d’elles."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`structuredClone` garde les valeurs Date sous forme d’objets Date.",
+        "why": "Dates, Maps, Sets, tableaux typés et références cycliques survivent tous à `structuredClone`.",
+        "twin": {
+          "statement": "`structuredClone` transforme les valeurs Date en chaînes, comme l’aller-retour JSON.",
+          "why": "Les Dates survivent à `structuredClone` sous forme d’objets Date ; seul `JSON.stringify` les transforme en chaînes."
+        }
+      },
+      {
+        "statement": "`{ ...order }` copie aussi le tableau imbriqué `order.lines`.",
+        "why": "Le spread est superficiel : la copie pointe vers le même tableau `lines`.",
+        "twin": {
+          "statement": "Après `const copy = { ...order }`, `copy.lines` est le même tableau que `order.lines`.",
+          "why": "Le spread est superficiel : tableaux et objets imbriqués sont partagés par référence."
+        }
+      },
+      {
+        "statement": "`JSON.parse(JSON.stringify(x))` garde les propriétés dont la valeur est `undefined`.",
+        "why": "`JSON.stringify` les supprime, et il transforme les Dates en chaînes.",
+        "twin": {
+          "statement": "`JSON.parse(JSON.stringify(x))` supprime les propriétés dont la valeur est `undefined`.",
+          "why": "`JSON.stringify` les omet de la chaîne, donc elles manquent dans la copie."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Copier un objet peut dupliquer seulement le premier niveau ou chaque niveau. Savoir ce que donnent le spread et `structuredClone` évite des modifications qui changent l’original en silence.",
+      "points": [
+        "Une copie superficielle crée un nouvel objet de premier niveau mais partage les objets imbriqués. Le spread `{ ...x }`, `Object.assign` et `slice()` sont superficiels, donc modifier `copy.lines[0]` modifie aussi l’original.",
+        "Une copie profonde duplique chaque niveau. `structuredClone(x)` est la façon native : il garde Dates, Maps, Sets, tableaux typés et références cycliques.",
+        "`structuredClone` lève une DataCloneError sur les fonctions et les nœuds DOM, et transforme les instances de classe en objets simples, sans leur prototype ni leurs méthodes.",
+        "La vieille astuce `JSON.parse(JSON.stringify(x))` perd des données : les Dates deviennent des chaînes, les propriétés valant `undefined` ou des fonctions disparaissent, et les cycles lèvent une erreur.",
+        "React compare le state par référence avec `Object.is` : une mise à jour demande de nouveaux objets, mais seulement le long du chemin modifié. Tout cloner en profondeur donne de nouvelles références aux parties inchangées et neutralise la mémoïsation."
+      ],
+      "takeaways": [
+        {
+          "term": "Copie superficielle",
+          "detail": "Nouvel objet de premier niveau, imbriqués partagés : modifier `copy.lines[0]` modifie aussi l’original."
+        },
+        {
+          "term": "Outils superficiels",
+          "detail": "Le spread `{ ...x }`, `Object.assign` et `slice()`."
+        },
+        {
+          "term": "`structuredClone`",
+          "detail": "Copie profonde native : garde Dates, Maps, Sets, tableaux typés et références cycliques."
+        },
+        {
+          "term": "Limites de `structuredClone`",
+          "detail": "Lève une DataCloneError sur les fonctions et les nœuds DOM ; les instances de classe perdent leur prototype."
+        },
+        {
+          "term": "Aller-retour JSON",
+          "detail": "Avec pertes : les Dates deviennent des chaînes, les propriétés `undefined` et fonctions disparaissent, les cycles lèvent une erreur."
+        },
+        {
+          "term": "State React",
+          "detail": "Copie seulement le chemin modifié : tout cloner en profondeur crée de nouvelles références et neutralise la mémoïsation."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, un agent modifie une copie de commande faite avec `{ ...order }`, change la quantité d’une ligne, puis clique sur Annuler. La commande d’origine à l’écran affiche aussi la nouvelle quantité. Pourquoi ?",
+        "bridge": "Le spread fait une copie superficielle : la copie et l’original partagent le même tableau `lines` et les mêmes objets ligne."
+      },
+      {
+        "question": "Un collègue fait des copies profondes de tous ses objets avec `JSON.parse(JSON.stringify(x))`. Qu’est-ce qui peut mal tourner, et qu’utiliseriez-vous à la place ?",
+        "bridge": "L’aller-retour JSON est une copie profonde avec pertes. `structuredClone` est la copie profonde native, et une copie superficielle du chemin modifié suffit souvent."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux changent la quantité d’une ligne ; le panier garde l’état précédent pour Annuler. Laquelle laisse l’état précédent intact ?",
+        "why": "Mapper les lignes et faire un spread de celle qui change copie exactement le chemin modifié, donc le panier précédent garde sa quantité. `{ ...cart }` est superficiel : `next.lines` est le même tableau avec les mêmes objets ligne, donc `line.qty = qty` modifie aussi l’état sauvegardé, et Annuler restaure la nouvelle quantité."
+      }
+    ]
+  },
+  "js-memory": {
+    "topic": "Garbage collection et fuites mémoire",
+    "question": "Comment fonctionne le garbage collection en JavaScript, et qu’est-ce qui cause des fuites mémoire ?",
+    "answer": "Le moteur libère la mémoire qui n’est plus atteignable depuis les racines, comme les variables globales et la pile d’appels courante. Il utilise le mark-and-sweep, donc les cycles ne posent pas de problème. Une fuite, c’est quelque chose dont on n’a plus besoin mais qui reste atteignable. Les causes habituelles : des listeners et des intervalles jamais retirés, des abonnements jamais fermés, des caches qui ne font que grossir, comme une Map au niveau du module, et des closures qui retiennent de gros objets. Je trouve les fuites avec des heap snapshots : j’en prends un, je répète l’action, j’en prends un autre et je compare ce qui a grossi. `WeakMap` aide quand un cache ne doit pas garder ses clés en vie.",
+    "keyPoints": [
+      "Mémoire libérée si inatteignable depuis les racines ; les cycles sont collectés",
+      "Une fuite, ce sont des données inutiles encore atteignables",
+      "Causes : listeners, timers, abonnements, caches non bornés",
+      "Les trouver en comparant des heap snapshots ; `WeakMap` pour les caches"
+    ],
+    "explanation": "La question distingue ceux qui ont débogué une fuite de ceux qui l’ont seulement lue. Les recruteurs attendent l’atteignabilité plutôt que le comptage de références, des causes concrètes, et une méthode pour trouver la fuite.",
+    "example": "Le serveur Next.js de la boutique mettait les prix en cache dans une `Map` au niveau du module, avec l’URL de la requête comme clé. Chaque query string créait une nouvelle clé, donc la Map grossissait jusqu’au redémarrage du pod. La remplacer par un cache LRU borné à 5 000 entrées a aplati la courbe mémoire.",
+    "mistakes": [
+      "Dire que les références circulaires causent des fuites dans les moteurs modernes",
+      "Oublier le cleanup de `useEffect` pour les listeners, les intervalles et les abonnements",
+      "Utiliser une Map au niveau du module comme cache sur un serveur, où elle vit aussi longtemps que le processus"
+    ],
+    "followUps": [
+      {
+        "question": "Quand utiliseriez-vous une `WeakMap` ?",
+        "answer": "Pour attacher des données à des objets qui ne m’appartiennent pas, comme des nœuds DOM, sans les garder en vie : quand l’objet clé est collecté, son entrée part aussi. Les clés doivent être des objets ou des symboles non enregistrés, et on ne peut pas itérer une WeakMap. Un `WeakSet` fait pareil pour l’appartenance, par exemple pour marquer les nœuds déjà initialisés."
+      },
+      {
+        "question": "Comment confirmez-vous une fuite mémoire dans un service Node ?",
+        "answer": "Je surveille l’usage du heap dans le temps dans les métriques, puis je prends des heap snapshots, par exemple avec le flag `--heapsnapshot-signal` ou l’inspecteur, et je compare les objets qui continuent de grossir."
+      },
+      {
+        "question": "Comment trouvez-vous une fuite mémoire avec les Chrome DevTools ?",
+        "answer": "Dans le panneau Memory, je prends un heap snapshot, qui lance d’abord un garbage collection, puis je répète l’action et son inverse quelques fois, comme ouvrir et fermer une commande, et j’en prends un autre. La vue Comparison montre ce qui a été ajouté ; je sélectionne un objet qui grossit et je lis ses Retainers pour trouver le code qui le retient encore."
+      },
+      {
+        "question": "Qu’est-ce qu’un nœud DOM détaché et pourquoi utilise-t-il encore de la mémoire ?",
+        "answer": "C’est un élément retiré du document mais encore référencé depuis JavaScript : une variable, un cache ou la closure d’un listener. Comme il est atteignable, il ne peut pas être collecté, et il garde tout son sous-arbre en vie. Un heap snapshot permet de filtrer les objets retenus par des nœuds détachés."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Deux objets qui se référencent mutuellement ne sont jamais collectés par le garbage collector.",
+        "why": "Le mark-and-sweep collecte tout ce qui n’est pas atteignable depuis les racines, cycles compris.",
+        "twin": {
+          "statement": "Deux objets qui ne se référencent que mutuellement sont collectés dès que plus rien d’autre ne les atteint.",
+          "why": "Le mark-and-sweep libère tout ce qui n’est pas atteignable depuis les racines, cycles compris."
+        }
+      },
+      {
+        "statement": "Un callback de `setInterval` garde en vie les données qu’il utilise jusqu’à l’appel de `clearInterval`.",
+        "why": "Le timer reste atteignable, et la closure de son callback garde ces données atteignables avec lui.",
+        "twin": {
+          "statement": "Les données utilisées par un callback de `setInterval` peuvent être collectées pendant que l’intervalle tourne encore.",
+          "why": "Le timer actif garde son callback atteignable, et la closure du callback garde ces données atteignables jusqu’à `clearInterval`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le garbage collector libère la mémoire que plus rien ne peut atteindre. Une fuite, ce sont des données dont on n’a plus besoin mais qui restent atteignables, et sur un serveur ou une page à longue durée de vie, elle ne cesse de grossir.",
+      "points": [
+        "Le garbage collector libère les objets qui ne sont plus atteignables : aucune chaîne de références n’y mène depuis une racine, comme une variable globale ou une variable de la pile d’appels courante.",
+        "Les moteurs utilisent le mark-and-sweep : ils marquent tout ce qui est atteignable depuis les racines, puis libèrent le reste. Deux objets qui ne se référencent que mutuellement sont inatteignables, donc les cycles sont collectés.",
+        "Une fuite, c’est de la mémoire dont on n’a plus besoin mais qui reste atteignable. Causes habituelles : listeners et intervalles jamais retirés, abonnements jamais fermés, caches qui ne font que grossir, closures qui retiennent de gros objets.",
+        "Une `Map` au niveau du module vit sur un serveur aussi longtemps que le processus : utilise un cache LRU (least recently used) borné. Une `WeakMap` tient ses clés objets faiblement : une clé collectée emporte son entrée.",
+        "Pour trouver une fuite, surveille l’usage du heap dans le temps, puis compare des heap snapshots : prends-en un, répète l’action, prends-en un autre et regarde ce qui a grossi. Dans Node, `--heapsnapshot-signal` ou l’inspecteur écrit des snapshots."
+      ],
+      "takeaways": [
+        {
+          "term": "Atteignabilité",
+          "detail": "Un objet est libéré quand aucune chaîne de références n’y mène depuis une racine : une globale ou la pile d’appels."
+        },
+        {
+          "term": "Mark-and-sweep",
+          "detail": "Marque ce qui est atteignable, libère le reste. Les objets qui ne se référencent que mutuellement sont collectés."
+        },
+        {
+          "term": "Fuite",
+          "detail": "De la mémoire dont on n’a plus besoin mais qui reste atteignable."
+        },
+        {
+          "term": "Causes habituelles",
+          "detail": "Listeners et intervalles jamais retirés, abonnements ouverts, caches qui ne font que grossir, closures sur de gros objets."
+        },
+        {
+          "term": "Caches serveur",
+          "detail": "Une `Map` au niveau du module vit aussi longtemps que le processus : utilise un cache LRU borné, ou une `WeakMap` pour des clés objets."
+        },
+        {
+          "term": "Heap snapshots",
+          "detail": "Prends-en un, répète l’action, prends-en un autre et compare ce qui a grossi."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un pod de l’API Orders grossit d’environ 50 Mo par heure jusqu’à ce que Kubernetes le redémarre, alors que le trafic est stable. Une `Map` au niveau du module met en cache les clients par id. Que soupçonnez-vous, et comment le confirmez-vous ?",
+        "bridge": "Une fuite, ce sont des données inutiles encore atteignables, et un cache qui ne fait que grossir en est un cas classique. Comparer des heap snapshots montre ce qui grossit."
+      },
+      {
+        "question": "Un collègue affirme que JavaScript a un garbage collector, donc qu’une app JavaScript ne peut pas avoir de fuite mémoire. Que lui répondez-vous ?",
+        "bridge": "Le collector ne libère que ce qui est inatteignable depuis les racines ; une fuite, ce sont des données inutiles encore atteignables, donc jamais libérées."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux suivent la largeur de la fenêtre dans le détail de commande du back-office. Laquelle n’accumule pas de listeners quand les agents ouvrent des commandes ?",
+        "why": "Le cleanup retire le listener quand le détail de commande est démonté. Sans lui, `window` garde chaque listener, et la closure de chacun garde le state de son composant atteignable : après 50 commandes ouvertes par un agent, 50 listeners resize tournent encore à chaque redimensionnement, et aucune de cette mémoire ne peut être collectée."
+      }
+    ]
+  }
+}

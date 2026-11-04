@@ -7,14 +7,16 @@
  * Run it after adding, moving or renaming a card: `pnpm topics`. A content test fails when the
  * list is out of date.
  */
-import { readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ALL_CARDS } from '../src/content/cards/index.ts';
-import type { Card } from '../src/content/types.ts';
 import type { Topic } from '../src/content/catalog.ts';
+import type { CardText } from '../src/content/translation.ts';
+import type { Card } from '../src/content/types.ts';
 
 const cardsDir = join(import.meta.dirname, '../src/content/cards');
+const frenchDir = join(import.meta.dirname, '../src/content/fr/cards');
 const outFile = join(import.meta.dirname, '../src/content/topics.generated.json');
 
 /** Maps each card id to the card file that declares it. */
@@ -30,7 +32,19 @@ async function fileOfEachCard(): Promise<Map<string, string>> {
   return new Map(entries.flat());
 }
 
+/** The French topic name of each card that has a French overlay. */
+function frenchTopicNames(): Map<string, string> {
+  if (!existsSync(frenchDir)) {
+    return new Map();
+  }
+  const overlays = readdirSync(frenchDir)
+    .filter((file) => file.endsWith('.json'))
+    .map((file) => JSON.parse(readFileSync(join(frenchDir, file), 'utf8')) as Record<string, CardText>);
+  return new Map(overlays.flatMap((overlay) => Object.entries(overlay).map(([id, text]) => [id, text.topic] as const)));
+}
+
 const files = await fileOfEachCard();
+const frenchTopics = frenchTopicNames();
 const topics: Topic[] = ALL_CARDS.map((card) => {
   const file = files.get(card.id);
   if (!file) {
@@ -40,6 +54,7 @@ const topics: Topic[] = ALL_CARDS.map((card) => {
     id: card.id,
     unit: card.unit,
     topic: card.topic,
+    ...(frenchTopics.has(card.id) && { topicFr: frenchTopics.get(card.id) }),
     file,
     mcqModules: [...new Set(card.mcqSections.map((section) => section.split('#')[0]!))].toSorted(),
   };

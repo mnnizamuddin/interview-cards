@@ -1,0 +1,1815 @@
+{
+  "perf-code-splitting": {
+    "topic": "Code splitting",
+    "question": "Qu’est-ce que le code splitting, et comment le mettez-vous en place dans une app React ?",
+    "answer": "Le code splitting découpe le bundle JavaScript en plusieurs fichiers, appelés chunks, pour que le navigateur ne télécharge que le code dont l’écran courant a besoin. Le bundler démarre un nouveau chunk à chaque `import()` dynamique. En React, je l’enveloppe dans `React.lazy`, déclaré au niveau du module, et je rends le composant dans une boundary `Suspense` qui affiche un fallback pendant le téléchargement du chunk, avec une error boundary au cas où il échoue. Je découpe d’abord par route, puis les fonctionnalités lourdes que peu de gens utilisent, comme une bibliothèque de graphiques ou un éditeur de texte riche. Dans Next.js, les routes sont découpées automatiquement et `next/dynamic` couvre le reste.",
+    "keyPoints": [
+      "Découper le bundle en chunks téléchargés à la demande",
+      "Un `import()` dynamique crée un chunk ; `React.lazy` l’enveloppe",
+      "`Suspense` affiche un fallback ; une error boundary gère les échecs",
+      "Découper d’abord par route, puis les fonctionnalités lourdes et peu utilisées"
+    ],
+    "explanation": "Les recruteurs vérifient que tu connais le mécanisme, le bundler qui découpe à chaque `import()`, et pas seulement l’API React. Les seniors parlent de granularité, de la cascade de requêtes qu’un découpage peut créer, et de la façon dont ils ont mesuré le gain.",
+    "example": "Le back-office livrait un seul bundle de 1,4 Mo : les agents qui n’utilisaient que le tableau des commandes téléchargeaient aussi la bibliothèque de graphiques de la page des rapports. Découper par route avec `React.lazy` et mettre la bibliothèque de graphiques derrière un import dynamique a réduit le chunk d’entrée à environ 450 Ko, et la page des commandes est devenue utilisable environ une seconde plus tôt sur une connexion bridée.",
+    "mistakes": [
+      "Appeler `React.lazy` dans un composant : chaque rendu crée un nouveau composant lazy qui suspend à nouveau, et le fallback remplace le contenu ; déclare-le au niveau du module.",
+      "Découper en dizaines de chunks minuscules, ce qui ajoute des requêtes et des cascades au lieu d’économiser des octets.",
+      "Charger en lazy loading ce dont le premier écran a besoin, ce qui retarde justement le contenu que l’utilisateur attend."
+    ],
+    "followUps": [
+      {
+        "question": "Code splitting par route ou par composant : quelle est la différence ?",
+        "answer": "Le découpage par route fait un chunk par page, le choix par défaut le plus rentable : les utilisateurs ne téléchargent que les pages qu’ils visitent. Le découpage par composant agit dans une page, pour les parties lourdes affichées à la demande comme une modale, un éditeur ou un graphique. Je commence par les routes, puis je découpe les composants lourds inutiles au premier affichage."
+      },
+      {
+        "question": "Que fait `Suspense` pendant le chargement d’un chunk lazy, et quel fallback affichez-vous ?",
+        "answer": "Rendre un composant lazy dont le chunk n’est pas arrivé suspend, et React affiche le `fallback` de la boundary `Suspense` la plus proche jusqu’à son arrivée. J’utilise un skeleton à la taille du contenu final pour que rien ne bouge, et je place la boundary près de la partie lazy pour que le reste de la page reste visible."
+      },
+      {
+        "question": "Comment choisissez-vous la granularité : par route, par fonctionnalité ou plus fin ?",
+        "answer": "Par route par défaut, par fonctionnalité quand une partie est lourde et utilisée par une minorité, comme les remboursements ou les exports, et plus fin seulement quand le bundle analyzer montre une grosse dépendance derrière une interaction. Chaque chunk est une requête et peut lancer une cascade, donc je ne découpe jamais les petits composants ni le code dont tout le monde a besoin."
+      },
+      {
+        "question": "Comment mesureriez-vous l’impact du code splitting ?",
+        "answer": "Avant et après, je compare le chunk d’entrée dans le bundle analyzer, le JavaScript inutilisé dans l’onglet Coverage des DevTools, et le Total Blocking Time dans un Lighthouse bridé. Puis je confirme avec les données d’utilisateurs réels : LCP et INP au p75 sur les pages concernées, parce que les gains de labo n’atteignent pas toujours les utilisateurs."
+      },
+      {
+        "question": "Que se passe-t-il quand un chunk lazy ne se charge pas ?",
+        "answer": "La promesse de `import()` est rejetée, et React lance l’erreur vers l’error boundary la plus proche. Ça arrive souvent après un déploiement qui a supprimé les anciens chunks hashés alors qu’un onglet tourne encore sur l’ancienne version : la boundary propose de réessayer ou de recharger, et les anciens assets restent en ligne un moment après chaque déploiement."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un `import()` dynamique fait mettre au bundler le module importé dans un chunk séparé.",
+        "why": "C’est comme ça que les bundlers découpent le code : dans un build Vite 8, le module importé dynamiquement est devenu son propre fichier, absent du chunk d’entrée.",
+        "twin": {
+          "statement": "Un `import()` dynamique garde le module importé dans le chunk d’entrée.",
+          "why": "Les bundlers démarrent un nouveau chunk à chaque `import()` dynamique : dans un build Vite 8, le module est devenu son propre fichier."
+        }
+      },
+      {
+        "statement": "`React.lazy(() => import('./chart'))` fonctionne quand le composant de graphique n’est qu’un export nommé.",
+        "why": "La promesse doit se résoudre en un objet dont `default` est un composant ; mappe un export nommé avec `.then((m) => ({ default: m.Chart }))`.",
+        "twin": {
+          "statement": "`React.lazy` exige que l’export `default` du module importé soit un composant, donc un export nommé doit être mappé vers `default`.",
+          "why": "La promesse doit se résoudre en un objet dont `default` est un composant, par exemple avec `.then((m) => ({ default: m.Chart }))`."
+        }
+      },
+      {
+        "statement": "Déclarer un composant `React.lazy` dans le corps d’un autre composant est sans conséquence.",
+        "why": "Chaque rendu crée un nouveau composant lazy non chargé, qui suspend donc à nouveau, et le fallback remplace le contenu à chaque re-render ; déclare-le au niveau supérieur du module.",
+        "twin": {
+          "statement": "Déclarer un composant `React.lazy` dans le corps d’un autre composant le fait suspendre à nouveau à chaque re-render.",
+          "why": "Chaque rendu crée un nouveau composant lazy non chargé, donc déclare-le au niveau supérieur du module."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le code splitting découpe le bundle JavaScript en chunks pour que le navigateur ne télécharge que le code dont l’écran courant a besoin. C’est le principal levier sur le JavaScript du premier chargement dans une app React.",
+      "points": [
+        "Le code splitting découpe le bundle JavaScript en chunks. Le bundler démarre un nouveau chunk à chaque `import()` dynamique, et le navigateur ne le télécharge que quand ce code est nécessaire.",
+        "`React.lazy(() => import('./revenue-chart'))` transforme un chunk en composant. Appelle-le au niveau du module ; le module doit avoir un export par défaut, ou mappe un export nommé vers `default`.",
+        "Rendre un composant lazy avant l’arrivée de son chunk suspend : React affiche le fallback `Suspense` le plus proche. Si le téléchargement échoue, l’erreur va à l’error boundary la plus proche.",
+        "Découpe d’abord par route, puis les parties lourdes dont peu d’utilisateurs ont besoin (graphiques, éditeurs, modales). Chaque chunk est une requête de plus : les chunks minuscules et les chargements en chaîne coûtent plus qu’ils ne rapportent.",
+        "L’App Router de Next.js découpe par route et fait le code splitting des Server Components tout seul ; `next/dynamic`, un mélange de `React.lazy` et `Suspense`, charge les Client Components en lazy loading."
+      ],
+      "takeaways": [
+        {
+          "term": "`import()` dynamique",
+          "detail": "Le bundler démarre un nouveau chunk à chacun ; il n’est téléchargé que quand il est nécessaire."
+        },
+        {
+          "term": "`React.lazy`",
+          "detail": "Transforme un chunk en composant. L’appeler au niveau du module ; il faut un export par défaut."
+        },
+        {
+          "term": "`Suspense`",
+          "detail": "Affiche le fallback le plus proche pendant le téléchargement du chunk."
+        },
+        {
+          "term": "Error boundary",
+          "detail": "Reçoit l’erreur si le téléchargement du chunk échoue."
+        },
+        {
+          "term": "Quoi découper",
+          "detail": "Les routes d’abord, puis les parties lourdes peu utilisées. Chunks minuscules et chargements en chaîne coûtent plus qu’ils ne rapportent."
+        },
+        {
+          "term": "Next.js",
+          "detail": "Découpe par route automatiquement ; `next/dynamic` charge les Client Components en lazy loading."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le bundle d’entrée du back-office pèse 1,8 Mo parce qu’une bibliothèque de graphiques pour les stats de remboursement et un éditeur de texte riche pour les notes se chargent sur chaque écran, alors que peu d’agents s’en servent. Que faites-vous en React ?",
+        "bridge": "Le code splitting : un `import()` dynamique enveloppé dans `React.lazy` et `Suspense` déplace les fonctionnalités peu utilisées dans des chunks chargés à la demande."
+      },
+      {
+        "question": "Dans une app Next.js avec l’App Router, découpez-vous encore le code à la main ? Comment est-ce par rapport à une app React construite avec Vite ?",
+        "bridge": "La même technique selon le framework : Next.js découpe les routes automatiquement et propose `next/dynamic`, alors qu’une app Vite découpe avec `React.lazy` et `Suspense`."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux chargent en lazy loading le graphique de chiffre d’affaires de la page des rapports. Lequel garde le graphique à l’écran quand la plage de dates change ?",
+        "why": "Déclaré au niveau du module, le composant lazy se charge une fois et les rendus suivants le réutilisent. Déclaré dans le corps, chaque rendu crée un nouveau composant lazy non chargé, qui suspend donc à nouveau : en React 19.3, le graphique est masqué et le skeleton affiché à chaque changement de plage jusqu’à ce que `import()` se résolve de nouveau."
+      }
+    ]
+  },
+  "perf-lazy-loading": {
+    "topic": "Lazy loading",
+    "question": "Qu’est-ce que le lazy loading, et où l’appliquez-vous ?",
+    "answer": "Le lazy loading consiste à différer une ressource jusqu’à ce qu’elle soit vraiment nécessaire, au lieu de tout charger d’emblée. Je l’applique à trois niveaux. Les images et iframes sous la ligne de flottaison reçoivent `loading=\"lazy\"`, donc le navigateur les récupère à l’approche du viewport. Le code des routes, des modales et des widgets lourds se charge avec un `import()` dynamique au premier affichage. Les données et les sections secondaires se chargent page par page ou quand elles arrivent dans la vue, avec un `IntersectionObserver`. La règle que je garde : ne jamais charger en lazy loading ce dont le premier écran a besoin, surtout l’image LCP.",
+    "keyPoints": [
+      "Différer une ressource jusqu’à ce qu’elle soit nécessaire",
+      "Images et iframes sous la ligne de flottaison : `loading=\"lazy\"`",
+      "Le code avec `import()` dynamique ; sections et données au scroll",
+      "Jamais de lazy loading pour l’image LCP ni le contenu au-dessus de la ligne de flottaison"
+    ],
+    "explanation": "Ça ressemble à une question junior, mais le signal senior, c’est de savoir où ça fait mal : une image LCP en lazy loading démarre tard, parce que le navigateur attend le layout avant de la demander, et un contenu lazy sans espace réservé décale la mise en page.",
+    "example": "La page produit de la boutique chargeait toutes les images en lazy loading, l’image principale comprise, et le LCP au p75 tournait autour de 4 s. L’équipe a rendu l’image principale eager avec `fetchpriority=\"high\"`, gardé `loading=\"lazy\"` sur les photos d’avis et le carrousel « Vous aimerez aussi », et chargé le widget d’avis seulement quand sa section approchait du viewport. Le LCP est tombé à environ 2,3 s et le premier affichage a téléchargé environ 1 Mo de moins.",
+    "mistakes": [
+      "Charger l’image principale en lazy loading, ce qui retarde le LCP : la requête attend le layout au lieu de partir pendant le parsing du HTML.",
+      "Du contenu lazy sans largeur ni hauteur réservées, qui décale la mise en page à son arrivée.",
+      "Lire les positions des éléments dans un listener de scroll au lieu d’utiliser `IntersectionObserver` ou l’attribut natif `loading`."
+    ],
+    "followUps": [
+      {
+        "question": "Comment chargeriez-vous un composant en lazy loading seulement quand il arrive dans la vue ?",
+        "answer": "Je rends un placeholder à la taille finale et je le surveille avec un `IntersectionObserver` avec une `rootMargin` de 200px pour démarrer en avance. À la première intersection, je mets à jour un state qui rend un composant `React.lazy` dans `Suspense`, et je déconnecte l’observer. Seuls les utilisateurs qui défilent jusque-là téléchargent le chunk."
+      },
+      {
+        "question": "Quel est le risque d’un lazy loading trop agressif ?",
+        "answer": "Le contenu arrive tard : une image LCP ou un composant au-dessus de la ligne de flottaison en lazy loading ralentit le premier affichage, et chaque chunk lazy peut ajouter une cascade de requêtes et un spinner. Sans espace réservé, la mise en page bouge, et ceux qui défilent vite voient des placeholders. Je ne charge en lazy loading que ce qui est hors écran ou derrière une interaction."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Ajouter `loading=\"lazy\"` à l’image LCP accélère le chargement de la page.",
+        "why": "Une image lazy attend le layout avant d’être demandée ; mesuré dans Chromium derrière une feuille de style lente, elle démarrait environ 550 ms en retard au lieu d’environ 20 ms.",
+        "twin": {
+          "statement": "Ajouter `loading=\"lazy\"` à l’image LCP la retarde, car une image lazy attend le layout avant d’être demandée.",
+          "why": "Mesuré dans Chromium derrière une feuille de style lente, elle démarrait environ 550 ms en retard au lieu d’environ 20 ms."
+        }
+      },
+      {
+        "statement": "Le navigateur peut commencer à télécharger une `<img>` eager du HTML avant la fin du chargement du CSS de la page.",
+        "why": "Le preload scanner lit le HTML entrant et demande tout de suite les images qu’il trouve dans `src`, sans attendre le layout.",
+        "twin": {
+          "statement": "Le navigateur attend la fin du chargement du CSS de la page avant de commencer à télécharger une `<img>` eager du HTML.",
+          "why": "Le preload scanner lit le HTML entrant et demande tout de suite les images qu’il trouve dans `src`, sans attendre le layout."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le lazy loading diffère une ressource jusqu’à ce qu’elle soit nécessaire au lieu de tout charger d’emblée. Il s’applique aux images, au code et aux données, et ne doit jamais toucher ce dont le premier écran a besoin.",
+      "points": [
+        "Le lazy loading diffère une ressource jusqu’à ce qu’elle soit nécessaire : images et iframes sous la ligne de flottaison, code derrière une route ou un clic, données de sections que l’utilisateur n’atteindra peut-être jamais.",
+        "Pour les images et les iframes, le navigateur le fait pour toi : `loading=\"lazy\"` attend que l’élément soit mis en page et proche du viewport avant de le demander.",
+        "Pour les composants, rends un placeholder, surveille-le avec un `IntersectionObserver`, et rends un composant `React.lazy` quand il approche de l’écran. Une `rootMargin` démarre le chargement en avance.",
+        "Ne charge jamais l’image LCP en lazy loading : le preload scanner ne peut pas la récupérer tôt, donc elle démarre tard. Réserve la taille du contenu lazy pour éviter les décalages de mise en page."
+      ],
+      "takeaways": [
+        {
+          "term": "`loading=\"lazy\"`",
+          "detail": "Pour les images et iframes : le navigateur attend que l’élément soit proche du viewport avant de le demander."
+        },
+        {
+          "term": "Code",
+          "detail": "Routes, modales et widgets lourds se chargent avec un `import()` dynamique au premier affichage."
+        },
+        {
+          "term": "`IntersectionObserver`",
+          "detail": "Surveille un placeholder et rend un composant `React.lazy` quand il approche de l’écran."
+        },
+        {
+          "term": "`rootMargin`",
+          "detail": "Démarre le chargement avant que l’élément soit réellement visible."
+        },
+        {
+          "term": "Image LCP",
+          "detail": "Jamais en lazy loading : le preload scanner ne peut pas la récupérer tôt, donc elle démarre tard."
+        },
+        {
+          "term": "Décalages de mise en page",
+          "detail": "Réserver la taille du contenu lazy."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Après que quelqu’un a ajouté `loading=\"lazy\"` à toutes les images de la boutique, le LCP terrain des pages produits est passé de 2,1 s à 3,0 s. Qu’est-ce qui n’a pas marché, et où le lazy loading doit-il s’appliquer ?",
+        "bridge": "Le lazy loading ne doit jamais toucher ce dont le premier écran a besoin, surtout l’image LCP ; il sert au contenu sous la ligne de flottaison."
+      },
+      {
+        "question": "Le lazy loading s’applique aux images, au code et aux données. Donnez un exemple de chaque dans la boutique, et la règle que vous ne transgressez jamais.",
+        "bridge": "La même idée à trois niveaux : `loading=\"lazy\"`, un `import()` dynamique, et des données chargées au scroll, jamais pour le contenu au-dessus de la ligne de flottaison."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux rendent l’image principale de la page produit, son élément LCP. Laquelle doit partir en production ?",
+        "why": "Une image eager dans le HTML est demandée tout de suite par le preload scanner, et `fetchpriority=\"high\"` la passe en premier. Une image lazy attend le layout avant d’être demandée : mesuré dans Chromium derrière une feuille de style lente, elle démarrait environ 550 ms en retard au lieu d’environ 20 ms, ce qui retarde le LCP."
+      }
+    ]
+  },
+  "perf-images": {
+    "topic": "Optimisation des images",
+    "question": "Comment l’optimisation des images influe-t-elle sur la performance, et quelles techniques utilisez-vous ?",
+    "answer": "Les images sont en général les octets les plus lourds d’une page et souvent l’élément LCP, donc elles pèsent sur le temps de chargement, la consommation de données et la stabilité de la mise en page. Je sers des formats modernes comme AVIF ou WebP, et je redimensionne à la taille affichée avec `srcset` et `sizes`, pour qu’un téléphone ne télécharge pas un fichier desktop. Chaque image reçoit `width` et `height` pour que le navigateur réserve sa place et que rien ne bouge. Sous la ligne de flottaison, j’utilise `loading=\"lazy\"` ; l’image principale reçoit l’inverse : dans le HTML, eager, avec `fetchpriority=\"high\"`. En pratique, un CDN d’images ou `next/image` fait le redimensionnement et le choix du format pour moi.",
+    "keyPoints": [
+      "Les images sont les octets les plus lourds et souvent l’élément LCP",
+      "Formats modernes, `srcset` et `sizes` pour la taille affichée",
+      "`width` et `height` réservent la place : pas de décalage",
+      "Lazy sous la ligne de flottaison ; image principale eager avec `fetchpriority=\"high\"`"
+    ],
+    "explanation": "Les recruteurs veulent le lien entre images et Core Web Vitals : le LCP pour l’image principale, le CLS pour les dimensions manquantes. Une réponse senior couvre aussi la livraison, un CDN d’images ou un composant du framework, au lieu d’exporter les tailles à la main.",
+    "example": "Les photos produits de la boutique étaient des JPEG de 2000 pixels d’environ 600 Ko servis à tous les appareils. Les passer sur un CDN d’images qui renvoie de l’AVIF ou du WebP à la largeur demandée par `srcset`, avec un `sizes` calé sur la grille produits, a ramené l’image produit moyenne sur mobile sous 80 Ko, et ajouter `width` et `height` a supprimé les décalages de mise en page de la grille.",
+    "mistakes": [
+      "Servir une seule grande image à tous les écrans et la réduire en CSS : le fichier complet est quand même téléchargé.",
+      "Omettre `width` et `height`, si bien que le contenu saute quand l’image arrive.",
+      "Utiliser `srcset` avec des descripteurs `w` mais sans `sizes`, si bien que le navigateur suppose que l’image est aussi large que le viewport."
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce que ça change d’avoir un CDN avec optimisation automatique des images ?",
+        "answer": "Un CDN d’images redimensionne et convertit à la volée à partir d’un original, selon les paramètres d’URL et le header `Accept`, et met chaque variante en cache près de l’utilisateur. J’arrête d’exporter les tailles à la main et je génère les URL du `srcset`, et les navigateurs qui acceptent AVIF ou WebP les reçoivent. `next/image` fonctionne de la même façon via son loader."
+      },
+      {
+        "question": "`srcset` ou `<picture>` : quand avez-vous besoin de chacun ?",
+        "answer": "`srcset` avec `sizes`, c’est du changement de résolution : la même image en plusieurs largeurs, et le navigateur en choisit une. `<picture>` avec des éléments `<source>` sert quand je dois contrôler le choix : direction artistique, comme un cadrage plus serré sur mobile avec `media`, ou un format de repli avec `type`. Son `<img>` intérieure est obligatoire."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Avec `srcset` et `sizes`, c’est le navigateur qui décide quel fichier télécharger.",
+        "why": "Ce sont des indications : le navigateur choisit un candidat selon la largeur de l’emplacement et la densité de pixels de l’écran, c’est pourquoi la direction artistique demande `<picture>`.",
+        "twin": {
+          "statement": "Avec `srcset` et `sizes`, le développeur décide exactement quel fichier le navigateur télécharge.",
+          "why": "Ce sont des indications : le navigateur choisit un candidat selon la largeur de l’emplacement et la densité de pixels, c’est pourquoi la direction artistique demande `<picture>`."
+        }
+      },
+      {
+        "statement": "Une image réduite à 300 pixels en CSS télécharge moins d’octets que le fichier original.",
+        "why": "Le CSS ne change que la façon dont l’image est dessinée ; le fichier complet est téléchargé et décodé.",
+        "twin": {
+          "statement": "Une image réduite à 300 pixels en CSS télécharge quand même le fichier original complet.",
+          "why": "Le CSS ne change que la façon dont l’image est dessinée ; tout le fichier est téléchargé et décodé."
+        }
+      },
+      {
+        "statement": "Un élément `<picture>` sans `<img>` à l’intérieur affiche quand même la `<source>` correspondante.",
+        "why": "Les éléments `<source>` ne font que choisir le fichier ; c’est l’`<img>` qui l’affiche, donc sans elle aucune image n’apparaît.",
+        "twin": {
+          "statement": "Un élément `<picture>` a besoin d’une `<img>` à l’intérieur pour afficher quoi que ce soit.",
+          "why": "Les éléments `<source>` ne font que choisir le fichier ; c’est l’`<img>` qui l’affiche."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les images sont en général les octets les plus lourds d’une page et souvent son élément LCP : elles pèsent sur le temps de chargement, la consommation de données et la stabilité de la mise en page. Les optimiser, c’est une question de format, de taille, de dimensions et de priorité.",
+      "points": [
+        "Les images représentent souvent l’essentiel des octets d’une page et l’élément LCP des pages produits : leur poids et le moment où elles sont découvertes pèsent sur le LCP, et des dimensions manquantes causent des décalages (CLS).",
+        "`srcset` liste la même image en plusieurs largeurs et `sizes` indique la largeur d’affichage ; le navigateur télécharge alors le plus petit fichier adapté à l’écran et à la densité de pixels.",
+        "Utilise `<picture>` quand c’est toi qui choisis à la place du navigateur : un cadrage différent par écran (`media`) ou un format de repli (`type=\"image/avif\"`). Il faut quand même une `<img>` à l’intérieur.",
+        "Fixe toujours `width` et `height` (ou un `aspect-ratio`) pour réserver la place. Lazy loading sous la ligne de flottaison ; l’image principale en eager avec `fetchpriority=\"high\"`.",
+        "Un CDN d’images ou `next/image` redimensionne, convertit en AVIF ou WebP et met les variantes en cache : tu gardes un seul original et tu génères des URL au lieu d’exporter des tailles."
+      ],
+      "takeaways": [
+        {
+          "term": "Formats",
+          "detail": "Servir de l’AVIF ou du WebP."
+        },
+        {
+          "term": "`srcset` et `sizes`",
+          "detail": "Largeurs disponibles et largeur d’affichage ; le navigateur choisit le plus petit fichier pour l’écran et la densité de pixels."
+        },
+        {
+          "term": "`<picture>`",
+          "detail": "Quand c’est toi qui choisis : un cadrage par écran (`media`) ou un format de repli (`type`). Il faut quand même une `<img>`."
+        },
+        {
+          "term": "`width` et `height`",
+          "detail": "Ou un `aspect-ratio` : réserve la place pour que rien ne bouge (CLS)."
+        },
+        {
+          "term": "Image principale",
+          "detail": "Eager, dans le HTML, avec `fetchpriority=\"high\"`. Sous la ligne de flottaison : `loading=\"lazy\"`."
+        },
+        {
+          "term": "CDN d’images / `next/image`",
+          "detail": "Redimensionne, convertit en AVIF ou WebP et met les variantes en cache à partir d’un original."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Sur mobile, la page produit de la boutique télécharge une image principale de 2400 px de large et 900 Ko affichée sur 400 px, et le texte en dessous saute quand elle arrive. Que corrigez-vous ?",
+        "bridge": "L’optimisation des images : `srcset` et `sizes` pour la taille affichée, des formats modernes, et `width` et `height` pour réserver la place."
+      },
+      {
+        "question": "Un collègue dit que les images comptent peu puisque le JavaScript est déjà découpé en chunks. Comment les images influent-elles sur les Core Web Vitals ?",
+        "bridge": "Les images sont les octets les plus lourds et souvent l’élément LCP, et des dimensions manquantes causent des décalages de mise en page : elles pèsent sur le LCP et le CLS."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Dans la grille produits, chaque image est affichée sur un quart de la largeur d’écran sur desktop. Quel markup laisse le navigateur choisir le bon fichier ?",
+        "why": "`sizes` indique au navigateur la largeur d’affichage de l’image : sur un desktop de 1440px en 1x, il lui faut environ 360px et il peut prendre le fichier 400w. Sans `sizes`, le navigateur suppose que l’image est aussi large que le viewport, 1440px, et télécharge le fichier 800w pour chaque carte."
+      }
+    ]
+  },
+  "perf-tree-shaking": {
+    "topic": "Tree shaking",
+    "question": "Qu’est-ce que le tree shaking, et qu’est-ce qui rend du code tree-shakeable ?",
+    "answer": "Le tree shaking, c’est l’élimination du code mort au moment du bundle : le bundler suit le graphe des `import` et `export` depuis le point d’entrée et supprime les exports que rien n’utilise. Ça marche parce que les imports ES modules sont statiques : le graphe est connu sans exécuter le code. Du code est tree-shakeable quand il utilise les ES modules, exporte de petites fonctions nommées et ne fait aucun travail au chargement du module, ou déclare quels fichiers en font avec `sideEffects` dans `package.json`. Les effets de bord au niveau supérieur, les barrel files qui importent tout et CommonJS font garder au bundler plus que nécessaire. Je vérifie le résultat dans un bundle analyzer sur un build de production.",
+    "keyPoints": [
+      "Le bundler supprime les exports que rien n’importe",
+      "Repose sur les `import` et `export` statiques des ES modules",
+      "Exports nommés, aucun travail au chargement du module, champ `sideEffects`",
+      "Effets de bord et CommonJS font garder du code au bundler"
+    ],
+    "explanation": "La question sépare les candidats qui répètent le mot de ceux qui savent pourquoi une bibliothèque reste entière dans le bundle. Les seniors parlent des effets de bord, du champ `sideEffects` et de la façon dont ils ont vérifié le résultat.",
+    "example": "Le back-office importait un seul formateur de date depuis un package d’utilitaires interne, et pourtant une table de locales de 70 Ko atterrissait dans le chunk d’entrée. L’index du package importait un module qui enregistrait les locales au chargement, donc le bundler devait le garder. Déplacer l’enregistrement dans un appel explicite `registerLocales()` et déclarer `\"sideEffects\": false` a retiré la table du bundle.",
+    "mistakes": [
+      "Croire que le tree shaking supprime les lignes inutilisées dans une fonction : il supprime les exports et modules inutilisés.",
+      "Déclarer `\"sideEffects\": false` sur un package qui importe du CSS ou des polyfills, si bien que le bundler les supprime en production.",
+      "Juger le tree shaking sur un build de développement, qui ne l’applique pas."
+    ],
+    "followUps": [
+      {
+        "question": "Comment vérifieriez-vous que le tree shaking fonctionne, avec un bundle analyzer ?",
+        "answer": "Je fais un build de production, j’ouvre la treemap de `rollup-plugin-visualizer` (Vite) ou de `webpack-bundle-analyzer`, et je cherche le module censé avoir disparu. S’il est là, je trouve ce qui l’importe. Une vérification rapide en plus : chercher dans le chunk construit une chaîne venant du code inutilisé."
+      },
+      {
+        "question": "À quoi sert le champ `sideEffects` dans `package.json` ?",
+        "answer": "Il dit au bundler quels fichiers exécutent du code quand on les importe. Avec `false`, un module dont les exports sont inutilisés peut être entièrement ignoré, avec ses propres imports, au lieu d’être gardé par précaution. Un tableau liste les fichiers à garder, comme `[\"*.css\"]` ; y oublier le CSS supprime les styles en production."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Sans déclaration `sideEffects`, le bundler garde un module qui exécute du code à l’import même si aucun de ses exports n’est utilisé.",
+        "why": "Il ne peut pas savoir que le code de niveau supérieur est inutile : dans un build Vite 8, la ligne à effet de bord restait, et a disparu une fois que le package a déclaré `\"sideEffects\": false`.",
+        "twin": {
+          "statement": "Sans déclaration `sideEffects`, un module qui exécute du code à l’import est supprimé quand aucun de ses exports n’est utilisé.",
+          "why": "Le bundler ne peut pas savoir que le code de niveau supérieur est inutile : dans un build Vite 8, la ligne restait jusqu’à ce que le package déclare `\"sideEffects\": false`."
+        }
+      },
+      {
+        "statement": "`\"sideEffects\": false` est sans risque pour un package qui importe ses propres fichiers CSS.",
+        "why": "Un import CSS est un effet de bord ; le bundler peut le supprimer, donc liste plutôt les fichiers CSS dans un tableau `sideEffects`.",
+        "twin": {
+          "statement": "Un package qui importe ses propres fichiers CSS doit les lister dans un tableau `sideEffects` plutôt que mettre `\"sideEffects\": false`.",
+          "why": "Un import CSS est un effet de bord, donc `false` permet au bundler de le supprimer."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le tree shaking, c’est l’élimination du code mort au moment du bundle : le bundler ne garde que les exports que quelque chose importe. Que ça marche ou non dépend de la façon dont les modules sont écrits.",
+      "points": [
+        "Le tree shaking est l’élimination du code mort par le bundler : en partant de l’entrée, il garde les exports importés et supprime le reste. Il s’applique dans les builds de production.",
+        "Il a besoin des ES modules : `import` et `export` sont statiques, donc le graphe est connu avant l’exécution du code. Le `require` de CommonJS ne s’analyse que dans les cas simples.",
+        "Un module qui exécute du code quand on l’importe (enregistre un plugin, modifie un global, importe du CSS) a un effet de bord : le bundler le garde même si aucun de ses exports n’est utilisé.",
+        "`\"sideEffects\": false` dans `package.json` promet qu’il n’y en a aucun, donc les modules inutilisés sont entièrement ignorés ; un tableau comme `[\"*.css\"]` liste les fichiers à garder.",
+        "Écris du code tree-shakeable : petits exports nommés, aucun travail au niveau supérieur du module, pas de barrel file qui importe tout. Vérifie avec un bundle analyzer."
+      ],
+      "takeaways": [
+        {
+          "term": "Fonctionnement",
+          "detail": "Depuis l’entrée, garder les exports importés et supprimer le reste. S’applique aux builds de production."
+        },
+        {
+          "term": "ES modules",
+          "detail": "Les `import` et `export` statiques font connaître le graphe avant l’exécution. CommonJS seulement dans les cas simples."
+        },
+        {
+          "term": "Effet de bord",
+          "detail": "Un module qui exécute du code à l’import (un plugin, un global modifié, du CSS) est gardé même si aucun export n’est utilisé."
+        },
+        {
+          "term": "`\"sideEffects\": false`",
+          "detail": "Dans `package.json`, promet qu’il n’y en a aucun, donc les modules inutilisés sont ignorés ; un tableau comme `[\"*.css\"]` liste les fichiers à garder."
+        },
+        {
+          "term": "Code tree-shakeable",
+          "detail": "Petits exports nommés, aucun travail au niveau supérieur du module, pas de barrel file qui importe tout."
+        },
+        {
+          "term": "Vérifier",
+          "detail": "Contrôler le build de production dans un bundle analyzer."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le back-office importe un seul helper `formatDate` d’un package d’utilitaires interne, et pourtant le bundle analyzer montre tout le package, tables de locales comprises, dans le chunk d’entrée. Qu’est-ce qui peut causer ça ?",
+        "bridge": "Le tree shaking ne supprime les exports inutilisés que si les imports sont des ES modules statiques sans effets de bord au niveau du module ; CommonJS ou des effets de bord font garder du code."
+      },
+      {
+        "question": "Vous publiez le package du design system de la boutique. Que faites-vous pour que les bundlers des consommateurs puissent supprimer les composants qu’ils n’utilisent pas ?",
+        "bridge": "Rendre le code tree-shakeable : ES modules, petits exports nommés, aucun travail au chargement du module, et un champ `sideEffects` dans `package.json`."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "L’app n’importe que `formatPrice` depuis shop-utils, dont l’index réexporte ce fichier. Quelle version permet au bundler de supprimer la table de locales ?",
+        "why": "Quand l’enregistrement est dans une fonction exportée que personne n’importe, le bundler la supprime avec les données qu’elle utilise. Le code de niveau supérieur est un effet de bord que le bundler doit garder : dans un build Vite 8, la table de locales restait dans le bundle avec la seconde version et disparaissait avec la première."
+      }
+    ]
+  },
+  "perf-jank": {
+    "topic": "Jank et rendu fluide",
+    "question": "Qu’est-ce qui cause le jank, et comment le corrigez-vous ?",
+    "answer": "Le jank, c’est une saccade visible : le navigateur rate des frames parce que le travail d’une frame dépasse son budget, environ 16,7 ms à 60 Hz. Les causes habituelles sont les tâches JavaScript longues sur le main thread, le layout thrashing, où lectures de géométrie et écritures de style alternent et forcent un layout à chaque fois, et les animations de propriétés comme `top` ou `width` qui relancent layout et paint à chaque frame. Je corrige en n’animant que `transform` et `opacity`, en lisant avant d’écrire, en découpant les tâches longues avec `scheduler.yield()` ou en les passant dans un worker, et en virtualisant les longues listes. Je valide chaque correctif avec un enregistrement Performance.",
+    "keyPoints": [
+      "Frames ratées : plus d’environ 16,7 ms de travail par frame à 60 Hz",
+      "Causes : tâches longues, layout thrashing, animation de propriétés de layout",
+      "Animer `transform` et `opacity` ; regrouper les lectures avant les écritures",
+      "Découper les tâches longues ou utiliser un worker ; profiler avant et après"
+    ],
+    "explanation": "La question vérifie que tu connais le pipeline de rendu et le main thread unique. Un senior nomme le mécanisme précis, layout synchrone forcé, propriétés qui déclenchent un layout ou tâches longues, et prouve le correctif dans le panneau Performance au lieu de deviner.",
+    "example": "La barre « ajouter au panier » collante de la boutique saccadait sur mobile : un script alignait 500 cartes produit en lisant `offsetHeight` et en écrivant `minHeight` dans la même boucle, et la barre apparaissait en animant `bottom`. Lire d’abord toutes les hauteurs a fait passer l’alignement d’environ 780 ms à moins de 2 ms dans Chromium, et une transition sur `transform` a retiré le layout de chaque frame de l’animation.",
+    "mistakes": [
+      "Animer `top`, `left`, `width` ou `height`, ce qui relance le layout à chaque frame.",
+      "Lire `offsetHeight` ou `getBoundingClientRect()` après chaque écriture de style dans une boucle.",
+      "Mettre `will-change` partout comme remède : chaque layer coûte de la mémoire, et cela ne fait rien pour un JavaScript lent."
+    ],
+    "followUps": [
+      {
+        "question": "Comment profileriez-vous une animation saccadée dans le panneau Performance ?",
+        "answer": "J’enregistre avec le throttling CPU pendant que l’animation tourne, puis je regarde la piste Frames pour les frames perdues et, en dessous, la piste Main. Les tâches longues portent un triangle rouge avec la partie au-delà de 50 ms hachurée en rouge, et des blocs violets de rendu répétés à chaque frame montrent que l’animation déclenche style et layout."
+      },
+      {
+        "question": "Quelle est la différence entre le main thread et le thread du compositor ?",
+        "answer": "Le main thread exécute le JavaScript, le style, le layout et le paint. Le compositor assemble les layers peints en frames et peut déplacer ou estomper un layer tout seul, donc une animation de `transform` ou d’`opacity` sur son propre layer reste fluide même quand le main thread est occupé. Tout ce qui demande layout ou paint attend le main thread."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Animer `transform` évite de relancer le layout à chaque frame, alors qu’animer `top` ne l’évite pas.",
+        "why": "`top` modifie la géométrie, donc chaque frame relance layout et paint ; `transform` peut être géré par le compositor sans l’un ni l’autre.",
+        "twin": {
+          "statement": "Animer `top` évite de relancer le layout à chaque frame, alors qu’animer `transform` ne l’évite pas.",
+          "why": "C’est l’inverse : `top` modifie la géométrie, donc chaque frame relance layout et paint, alors que `transform` peut sauter les deux sur le compositor."
+        }
+      },
+      {
+        "statement": "Mettre `await Promise.resolve()` dans une longue boucle laisse le navigateur peindre entre les itérations.",
+        "why": "La suite est une microtâche, qui s’exécute avant que le navigateur puisse faire un rendu ; mesuré dans Chromium, le clic prenait toujours plus de 300 ms. Utilise `scheduler.yield()` ou `setTimeout`.",
+        "twin": {
+          "statement": "Mettre `await Promise.resolve()` dans une longue boucle ne laisse pas le navigateur peindre entre les itérations.",
+          "why": "La suite est une microtâche, qui s’exécute avant le rendu ; `scheduler.yield()` ou `setTimeout` rend la main au navigateur."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le jank est une saccade visible : le navigateur rate des frames parce que le travail d’une frame dépasse son budget. Les causes sont les tâches longues, les layouts forcés et l’animation des mauvaises propriétés.",
+      "points": [
+        "À 60 Hz, chaque frame dispose d’environ 16,7 ms. Le jank, c’est une frame qui dépasse : une animation ou un scroll saccade visiblement.",
+        "Chaque frame exécute JavaScript, style, layout, paint et composite, surtout sur le main thread. Un changement repart de la première étape qu’il touche : la géométrie coûte un layout, une couleur un paint.",
+        "`transform` et `opacity` peuvent sauter layout et paint : le thread du compositor déplace ou estompe un layer existant. Anime ces propriétés, pas `top`, `left`, `width` ou `height`.",
+        "Le layout thrashing, c’est une boucle qui écrit un style puis lit une géométrie (`offsetHeight`), forçant un layout à chaque fois. Fais toutes les lectures d’abord, puis toutes les écritures.",
+        "Une tâche longue (plus de 50 ms) bloque les frames et les saisies. Découpe-la avec `scheduler.yield()`, déplace le calcul pur dans un Web Worker et virtualise les longues listes."
+      ],
+      "takeaways": [
+        {
+          "term": "Budget de frame",
+          "detail": "Environ 16,7 ms par frame à 60 Hz."
+        },
+        {
+          "term": "Pipeline d’une frame",
+          "detail": "JavaScript, style, layout, paint, composite, surtout sur le main thread."
+        },
+        {
+          "term": "`transform` / `opacity`",
+          "detail": "Le compositor déplace ou estompe un layer, sans layout ni paint. Pas `top`, `left`, `width`, `height`."
+        },
+        {
+          "term": "Layout thrashing",
+          "detail": "Écrire un style puis lire `offsetHeight` dans une boucle. Toutes les lectures d’abord, puis toutes les écritures."
+        },
+        {
+          "term": "Tâche longue",
+          "detail": "Plus de 50 ms ; bloque frames et saisies. Découpe-la avec `scheduler.yield()` ou passe-la dans un Web Worker."
+        },
+        {
+          "term": "Longues listes",
+          "detail": "Virtualise-les. Valide chaque correctif avec un enregistrement Performance."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Avec 20 000 lignes chargées, le scroll du tableau des commandes du back-office saccade et la saisie dans son champ de filtre fige une demi-seconde. Où regardez-vous, et quels correctifs essayez-vous ?",
+        "bridge": "Le jank vient de frames hors budget : tâches longues, layout thrashing et animations coûteuses en layout ; virtualiser et découper le travail le corrige."
+      },
+      {
+        "question": "Pourquoi le budget d’une frame est-il d’environ 16,7 ms, et que se passe-t-il quand une tâche sur le main thread dure plus longtemps ?",
+        "bridge": "À 60 Hz, chaque frame dispose d’environ 16,7 ms ; un travail qui dépasse fait rater des frames au navigateur, ce que l’utilisateur voit comme du jank."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux font glisser depuis le bas la barre « ajouter au panier » collante de la boutique. Laquelle reste fluide sur mobile ?",
+        "why": "`transform` ne modifie aucune géométrie, donc le compositor peut faire glisser le layer déjà peint sans layout ni paint, même quand le main thread est occupé. Animer `bottom` modifie la géométrie, donc chaque frame relance layout et paint sur le main thread et la barre saccade dès qu’un script tourne."
+      }
+    ]
+  },
+  "perf-bundle-size": {
+    "topic": "Analyse et taille du bundle",
+    "question": "Qu’est-ce qu’un bundle analyzer, et comment l’utiliseriez-vous pour réduire la taille du bundle ?",
+    "answer": "Un bundle analyzer lit le build de production et dessine chaque chunk comme un treemap des modules qu’il contient, proportionnés à leur poids, donc je vois ce qui part vraiment en production. Je builde en mode production, j’ouvre le rapport et je cherche les plus gros blocs du chunk d’entrée : une grosse librairie utilisée pour une seule fonction, deux versions du même package, des jeux d’icônes entiers ou des données de locales. Ensuite je traite chacun : une alternative plus légère ou tree-shakeable, un chunk lazy pour les fonctionnalités rares, des versions dédupliquées, ou un rendu côté serveur. Je compare les tailles avant et après, et j’ajoute un budget en octets dans la CI pour que ça ne regrossisse pas.",
+    "keyPoints": [
+      "Un treemap des modules de chaque chunk du build de production",
+      "Repérer les grosses librairies, les doublons et les imports de librairie entière",
+      "Remplacer, charger en lazy, dédupliquer ou déplacer le travail côté serveur",
+      "Comparer avant et après ; garder un budget en octets dans la CI"
+    ],
+    "explanation": "Les recruteurs veulent une méthode, pas un nom d’outil : mesurer, trouver les plus gros coupables, corriger, remesurer, empêcher les régressions. Un senior sait quelle taille pèse sur quel coût et remet en question chaque nouvelle dépendance.",
+    "example": "L’analyzer du back-office montrait une librairie de dates complète avec toutes ses locales, 230 Ko parsés, utilisée seulement pour formater les dates de commande, et deux copies d’une librairie de graphiques tirées par des packages différents. Remplacer les dates par `Intl.DateTimeFormat`, dédupliquer la librairie de graphiques et charger en lazy la route des rapports a fait passer le chunk d’entrée de 1,1 Mo à 520 Ko parsés.",
+    "mistakes": [
+      "Juger la taille sur le build de développement, ni minifié ni tree-shaké.",
+      "Ne regarder que la taille gzip : le parsing et l’exécution suivent la taille non compressée.",
+      "Retirer une dépendance sans vérifier qui l’a tirée, si bien qu’un autre import la ramène."
+    ],
+    "followUps": [
+      {
+        "question": "Taille gzip ou taille brute et parsée : laquelle compte ?",
+        "answer": "Les deux, pour des coûts différents. La taille stat, c’est la source avant minification, la taille parsée, c’est le code minifié que le navigateur parse et exécute, et la taille gzip ou Brotli, c’est ce qui passe sur le réseau. Le temps de téléchargement suit la taille compressée ; le parsing et l’exécution sur le main thread suivent la taille parsée."
+      },
+      {
+        "question": "Comment mettriez-vous en place un budget de taille de bundle dans la CI ?",
+        "answer": "J’ajoute `size-limit` avec une limite par chunk d’entrée, par exemple 200 kB pour l’entrée du back-office, et je le lance sur chaque pull request : il échoue quand une limite est dépassée, et son action GitHub commente la variation de taille sur la PR. Les budgets en octets sont déterministes, donc jamais flaky comme les mesures de temps."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "La taille gzip est la seule taille qui compte pour les performances.",
+        "why": "Elle pèse sur le temps de téléchargement, mais le navigateur parse, compile et exécute le code non compressé sur le main thread.",
+        "twin": {
+          "statement": "En plus de la taille gzip, la taille non compressée compte pour les performances.",
+          "why": "Gzip pèse sur le temps de téléchargement, mais le navigateur parse, compile et exécute le code non compressé sur le main thread."
+        }
+      },
+      {
+        "statement": "Deux packages qui dépendent de versions majeures différentes d’une même librairie peuvent en mettre deux copies dans le bundle.",
+        "why": "Chacun a besoin de sa version, donc les deux sont bundlées ; l’analyzer montre la librairie deux fois.",
+        "twin": {
+          "statement": "Un bundler fusionne toujours deux versions majeures d’une même librairie en une seule copie.",
+          "why": "Chaque dépendant a besoin de sa version, donc les deux copies sont bundlées et l’analyzer montre la librairie deux fois."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un bundle analyzer dessine un build de production comme un treemap des modules de chaque chunk, et montre ce qui part vraiment en production. Il transforme « le bundle est gros » en une liste de correctifs précis.",
+      "points": [
+        "Un bundle analyzer lit un build de production et dessine chaque chunk comme un treemap, un rectangle par module. Vite : `rollup-plugin-visualizer` ; webpack : `webpack-bundle-analyzer` ; Next.js : `next analyze`.",
+        "Trois tailles : stat (la source avant minification), parsée (le code minifié que le navigateur parse et exécute) et gzip ou Brotli (ce qui passe sur le réseau).",
+        "Cherche les plus gros blocs du chunk d’entrée : une librairie lourde utilisée pour une fonction, des versions en double, des jeux d’icônes ou des données de locales entiers, du code dont une seule route a besoin.",
+        "Corrige en remplaçant ou retirant la dépendance, en n’important que ce que tu utilises, en chargeant la fonctionnalité en lazy ou en rendant côté serveur. Puis rebuilde et compare.",
+        "Verrouille le gain avec un budget en octets par chunk vérifié sur chaque pull request, par exemple avec `size-limit`."
+      ],
+      "takeaways": [
+        {
+          "term": "Outils",
+          "detail": "Vite : `rollup-plugin-visualizer` ; webpack : `webpack-bundle-analyzer`."
+        },
+        {
+          "term": "Stat / parsée / gzip",
+          "detail": "Source avant minification ; code minifié exécuté par le navigateur ; ce qui passe sur le réseau."
+        },
+        {
+          "term": "Quoi chercher",
+          "detail": "Dans le chunk d’entrée : une librairie lourde pour une fonction, des versions en double, des icônes ou locales entières."
+        },
+        {
+          "term": "Correctifs",
+          "detail": "Remplacer ou retirer la dépendance, n’importer que l’utile, charger en lazy ou rendre côté serveur."
+        },
+        {
+          "term": "Budget en octets",
+          "detail": "Par chunk, vérifié sur chaque pull request, par exemple avec `size-limit`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le chunk d’entrée de la boutique est passé de 180 Ko à 320 Ko gzippés en un mois, et personne ne sait pourquoi. Comment le découvrez-vous, et comment l’empêchez-vous de grossir à nouveau ?",
+        "bridge": "Un bundle analyzer sur le build de production montre quels modules remplissent chaque chunk ; un budget en octets dans la CI empêche la taille de regrossir."
+      },
+      {
+        "question": "Dans un rapport de bundle analyzer, quels motifs cherchez-vous en premier, et que faites-vous pour chacun ?",
+        "bridge": "Lire le treemap : grosses librairies utilisées pour une fonction, packages en double et imports de librairie entière, chacun avec son correctif."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux appliquent un debounce au champ de recherche de commandes du back-office avec lodash. Lequel garde le chunk d’entrée léger ?",
+        "why": "Importer le module seul bundle `debounce` et ses quelques helpers. `lodash` est un unique objet CommonJS, donc l’import par défaut tire toute la librairie pour une fonction : dans un build Vite 8 avec lodash 4.18, le chunk minifié faisait environ 4 Ko avec le premier import et 72 Ko avec le second."
+      }
+    ]
+  },
+  "perf-resource-hints": {
+    "topic": "Preload, prefetch et preconnect",
+    "question": "Quelle est la différence entre preload, prefetch et preconnect ?",
+    "answer": "Ce sont trois hints `<link>` qui lancent du travail réseau en avance. `preload` récupère en haute priorité une ressource dont la page courante a bientôt besoin, comme une police découverte tard via le CSS ou une image hero posée par JavaScript ; il lui faut un attribut `as`, et les polices demandent `crossorigin`. `prefetch` récupère en basse priorité ce dont une navigation suivante probable a besoin, et le garde dans le cache HTTP. `preconnect` ne télécharge rien : il établit à l’avance la connexion DNS, TCP et TLS vers une autre origine, comme un CDN d’images. Je les utilise avec parcimonie, parce que chaque hint dispute la bande passante à ce dont la page a vraiment besoin.",
+    "keyPoints": [
+      "`preload` : page courante, haute priorité, demande `as`",
+      "`prefetch` : navigation suivante probable, basse priorité, cache HTTP",
+      "`preconnect` : ouvre seulement DNS, TCP et TLS vers une origine",
+      "Peu de hints : chacun dispute la bande passante"
+    ],
+    "explanation": "La question vérifie que tu sais ce que coûte chaque hint et quand il aide. Un senior ne précharge que les fichiers critiques découverts tard, fait un preconnect vers une ou deux origines, et cite les speculation rules pour des pages suivantes entières.",
+    "example": "Les pages produit de la boutique chargeaient la police de la marque depuis une feuille de style, donc le navigateur ne la trouvait qu’après l’arrivée du CSS, et le texte s’affichait tard. Précharger l’unique fichier WOFF2 utilisé au-dessus de la ligne de flottaison et faire un preconnect vers le CDN d’images a lancé les deux pendant le parsing du HTML. Une première tentative qui préchargeait aussi six vignettes produit retardait l’image hero et a été annulée.",
+    "mistakes": [
+      "Précharger beaucoup de ressources : elles passent toutes en haute priorité et retardent celle qui est vraiment critique.",
+      "Oublier `crossorigin` sur le preload d’une police : la réponse préchargée ne correspond pas et la police est récupérée une seconde fois.",
+      "Faire un preconnect vers chaque origine tierce, ce qui ouvre des connexions dont la page n’aura peut-être pas besoin tout de suite."
+    ],
+    "followUps": [
+      {
+        "question": "Comment décidez-vous de ce qui vaut la peine d’être préchargé sur une page ?",
+        "answer": "Seulement ce dont la première vue a besoin et que le navigateur découvre tard : l’image LCP quand le CSS ou le JavaScript la pose, une police référencée depuis une feuille de style. Une ressource déjà dans le HTML est trouvée de toute façon par le preload scanner. Je vérifie dans le waterfall que la requête a avancé et que rien de critique n’a reculé."
+      },
+      {
+        "question": "Quel est le risque d’un prefetch excessif sur une connexion mobile facturée au volume ?",
+        "answer": "Chaque prefetch que l’utilisateur n’utilise jamais coûte des données et de la batterie, et sur un lien lent il fait concurrence à la page courante. Je ne fais de prefetch que pour les étapes suivantes probables, déclenché au survol ou quand un lien est visible, et je m’en passe quand l’utilisateur a demandé à économiser ses données (`navigator.connection.saveData`, là où c’est supporté)."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`preconnect` télécharge à l’avance les ressources de l’origine cible.",
+        "why": "Il ne fait que la résolution DNS, la connexion TCP et le handshake TLS ; rien n’est téléchargé.",
+        "twin": {
+          "statement": "`preconnect` ne fait que la résolution DNS, la connexion TCP et le handshake TLS vers une origine, et ne télécharge rien.",
+          "why": "Il prépare la connexion ; chaque ressource a toujours besoin de sa propre requête."
+        }
+      },
+      {
+        "statement": "`prefetch` vise les ressources d’une navigation future probable et les récupère en basse priorité.",
+        "why": "La page courante passe en premier ; la réponse préchargée attend dans le cache HTTP la navigation suivante.",
+        "twin": {
+          "statement": "`prefetch` récupère en haute priorité des ressources dont la page courante a besoin.",
+          "why": "Ça, c’est `preload` ; `prefetch` vise une navigation suivante probable, en basse priorité."
+        }
+      },
+      {
+        "statement": "Le preload d’une police de même origine fonctionne sans l’attribut `crossorigin`.",
+        "why": "Les polices sont récupérées en mode CORS, donc le preload doit poser `crossorigin` pour correspondre, même sur la même origine.",
+        "twin": {
+          "statement": "Le preload d’une police a besoin de l’attribut `crossorigin`, même quand la police est sur la même origine.",
+          "why": "Les polices sont récupérées en mode CORS, donc le preload doit poser `crossorigin` pour correspondre."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "`preload`, `prefetch` et `preconnect` sont des hints `<link>` qui lancent du travail réseau en avance. Ils diffèrent par ce qu’ils récupèrent et leur priorité, et trop de hints ralentissent la page.",
+      "points": [
+        "`<link rel=\"preload\" as=\"…\">` récupère en haute priorité une ressource dont la page courante a bientôt besoin. À réserver aux fichiers critiques découverts tard : une police issue du CSS, une image hero posée par le CSS.",
+        "`as` est obligatoire pour que le navigateur applique la bonne priorité, le bon cache et les bons en-têtes. Les preloads de polices et de `fetch` demandent `crossorigin`, même sur la même origine.",
+        "`<link rel=\"prefetch\">` récupère en basse priorité ce dont une navigation suivante probable a besoin et le garde dans le cache HTTP. Pour des pages suivantes entières, l’outil moderne, ce sont les speculation rules.",
+        "`<link rel=\"preconnect\">` ne télécharge rien : il ouvre tôt la connexion DNS, TCP et TLS vers une autre origine. À garder pour une ou deux origines critiques ; `dns-prefetch` pour les autres.",
+        "Les hints partagent la même bande passante : trop de preloads retardent la ressource LCP, et les prefetchs inutilisés gaspillent les données de l’utilisateur."
+      ],
+      "takeaways": [
+        {
+          "term": "`preload`",
+          "detail": "Une ressource dont la page courante a bientôt besoin, haute priorité : police issue du CSS, image hero posée par le CSS."
+        },
+        {
+          "term": "`as`",
+          "detail": "Obligatoire sur un preload pour la bonne priorité, le cache et les en-têtes. Polices et `fetch` demandent `crossorigin`."
+        },
+        {
+          "term": "`prefetch`",
+          "detail": "Basse priorité, pour une navigation suivante probable, gardé dans le cache HTTP. Speculation rules pour des pages entières."
+        },
+        {
+          "term": "`preconnect`",
+          "detail": "Ne télécharge rien : ouvre DNS, TCP et TLS vers une autre origine. Une ou deux origines critiques."
+        },
+        {
+          "term": "`dns-prefetch`",
+          "detail": "Pour les origines moins critiques."
+        },
+        {
+          "term": "Bande passante partagée",
+          "detail": "Trop de preloads retardent la ressource LCP ; les prefetchs inutilisés gaspillent les données de l’utilisateur."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Les images produit de la boutique viennent d’une origine distincte, un CDN d’images, et le waterfall montre 300 ms de DNS, TCP et TLS avant que l’image hero commence à se télécharger. Quel hint aide, et en quoi diffère-t-il de preload ?",
+        "bridge": "`preconnect` ouvre tôt la connexion vers une autre origine sans rien télécharger ; `preload` récupère une ressource précise dont la page a bientôt besoin."
+      },
+      {
+        "question": "La police de marque de la boutique est découverte tard via le CSS, et la plupart des visiteurs passent d’une page catégorie à une page produit. Quel hint utilisez-vous pour chaque cas ?",
+        "bridge": "`preload` pour une ressource de la page courante découverte tard, avec `as` et `crossorigin` pour les polices ; `prefetch` pour une navigation suivante probable."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux préchargent la police de marque utilisée par la feuille de style de la boutique. Quel preload est réellement utilisé ?",
+        "why": "Les polices sont récupérées en mode CORS, donc le preload d’une police a besoin de `crossorigin`, même sur la même origine, pour correspondre à la vraie requête. Sans lui, la réponse préchargée ne correspond pas : le navigateur télécharge la police une seconde fois quand le CSS la demande, et le preload n’a fait que gaspiller de la bande passante."
+      }
+    ]
+  },
+  "perf-slow-page": {
+    "topic": "Diagnostiquer un chargement lent",
+    "question": "Comment diagnostiqueriez-vous et amélioreriez-vous un premier chargement de page lent ?",
+    "answer": "Je pars des données terrain, le LCP, l’INP et le CLS des vrais utilisateurs au 75e percentile, puis je reproduis en labo avec throttling. Dans le panneau Network et Lighthouse, je découpe le temps : un TTFB lent pointe vers le serveur ou un cache CDN absent ; une requête hero tardive signifie que l’image est en lazy ou absente du HTML ; le CSS et les polices bloquants retardent le premier affichage ; un JavaScript lourd apparaît en tâches longues dans le panneau Performance. Ensuite je corrige la plus grosse part d’abord : mettre le HTML en cache à l’edge, prioriser le hero, découper et alléger les bundles, rendre côté serveur. Enfin, des budgets empêchent la régression.",
+    "keyPoints": [
+      "Partir des données terrain au p75, puis reproduire en labo avec throttling",
+      "Découper le temps : TTFB, découverte des ressources, téléchargement, rendu",
+      "Corriger la plus grosse part d’abord : cache, priorité du hero, moins de JS",
+      "Empêcher la régression : budgets en CI et alertes RUM"
+    ],
+    "explanation": "La question teste la méthode sous pression. Une réponse senior part des données réelles des utilisateurs, utilise le waterfall pour localiser le retard avant de proposer des correctifs, et boucle avec du monitoring ; réciter dix optimisations sans mesurer, c’est la réponse junior.",
+    "example": "Search Console signalait les pages produit de la boutique comme mauvaises sur mobile, avec un LCP à 4,1 s. L’attribution RUM montrait que l’essentiel venait du délai de chargement de la ressource : le hero était un `next/image` en lazy. Le passer en eager avec une fetch priority haute, servir la page depuis le cache du CDN et déplacer le widget d’avis dans un chunk lazy a ramené le LCP p75 sous 2,5 s.",
+    "mistakes": [
+      "Viser un score Lighthouse au lieu des métriques terrain au 75e percentile.",
+      "Optimiser le JavaScript alors que le waterfall montre que le temps part dans le TTFB ou une requête d’image tardive.",
+      "Tester uniquement sur un laptop et un réseau rapides, où le problème ne se voit pas."
+    ],
+    "followUps": [
+      {
+        "question": "Quelle est la différence entre TTFB, FCP et LCP ?",
+        "answer": "Le TTFB, c’est le temps jusqu’à l’arrivée du premier octet du HTML : travail serveur, réseau et redirections. Le FCP, c’est quand le premier texte ou la première image est peint. Le LCP, c’est quand la plus grande image ou le plus grand bloc de texte du viewport est peint, le contenu principal ; c’est bon à 2,5 s ou moins au p75."
+      },
+      {
+        "question": "Comment mettriez-vous en place un budget de performance dans la CI ?",
+        "answer": "Lighthouse CI sur chaque pull request contre les pages clés, avec des assertions par exemple LCP sous 2,5 s et CLS sous 0,1 sur la médiane de plusieurs runs, plus des budgets en octets sur les scripts, qui sont stables. Une assertion `error` fait échouer le build ; les budgets de temps ont une marge parce que les machines de CI sont bruitées."
+      },
+      {
+        "question": "Quels outils analysent la taille du bundle et trouvent les dépendances lourdes ?",
+        "answer": "L’analyzer du bundler : `rollup-plugin-visualizer` pour Vite, `webpack-bundle-analyzer`, ou `next analyze` dans les versions récentes de Next.js 16, pour voir le poids de chaque module par chunk. L’onglet Coverage des DevTools montre la part du JavaScript téléchargé qui n’a jamais tourné, et `size-limit` protège le résultat dans la CI."
+      },
+      {
+        "question": "En quoi le SSR améliore-t-il le LCP par rapport à un rendu purement côté client ?",
+        "answer": "En CSR pur, le HTML est une coquille vide : le navigateur télécharge et exécute le bundle, récupère les données, et seulement ensuite rend le contenu et demande l’image hero. En SSR, le contenu et le `<img>` sont dans le HTML, donc l’image part tout de suite et l’affichage n’attend pas le JavaScript."
+      },
+      {
+        "question": "Comment surveilleriez-vous les performances pour attraper les régressions avant que les utilisateurs les ressentent ?",
+        "answer": "Les contrôles de labo en CI attrapent la plupart des régressions avant le merge. En production, la librairie `web-vitals` envoie le LCP, l’INP et le CLS avec attribution depuis les vraies visites, et je déclenche une alerte quand le p75 d’un type de page franchit son seuil après une release, bien avant que les données sur 28 jours de Search Console bougent."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une page est bonne en LCP quand sa visite médiane affiche le plus grand élément en 2,5 s ou moins.",
+        "why": "Les Core Web Vitals sont évalués au 75e percentile des visites, plus exigeant que la médiane.",
+        "twin": {
+          "statement": "Une page est bonne en LCP quand 75 % de ses visites affichent le plus grand élément en 2,5 s ou moins.",
+          "why": "Les Core Web Vitals sont évalués au 75e percentile des visites, plus exigeant que la médiane."
+        }
+      },
+      {
+        "statement": "Le rendu côté serveur peut améliorer le LCP même quand il ralentit le TTFB.",
+        "why": "Le contenu et l’image hero sont dans le HTML, donc ils n’attendent plus le bundle JavaScript et un fetch côté client.",
+        "twin": {
+          "statement": "Le rendu côté serveur dégrade toujours le LCP quand il ralentit le TTFB.",
+          "why": "Le contenu et l’image hero arrivent dans le HTML, donc ils n’attendent plus le bundle et un fetch côté client, ce qui peut compenser un TTFB plus lent."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Diagnostiquer un premier chargement lent, c’est le confirmer avec des données d’utilisateurs réels, puis découper le temps pour trouver la part qui domine. La méthode : corriger la plus grosse part d’abord, puis la protéger.",
+      "points": [
+        "Les Core Web Vitals sont évalués au 75e percentile des visites réelles : LCP 2,5 s ou moins, INP 200 ms ou moins, CLS 0,1 ou moins. Les données terrain disent s’il y a un problème ; les outils de labo disent pourquoi.",
+        "Le TTFB est le premier octet du HTML ; le FCP le premier texte ou la première image peints ; le LCP le plus grand élément du viewport peint. Les écarts entre eux localisent le retard.",
+        "Le LCP se découpe en TTFB, délai de chargement de la ressource (jusqu’au départ de la requête du hero), temps de téléchargement et délai de rendu. Corrige la plus grosse part d’abord.",
+        "Correctifs habituels : mettre le HTML en cache sur un CDN, placer le `<img>` du hero dans le HTML avec `fetchpriority=\"high\"`, éviter le CSS et les polices bloquants, livrer moins de JavaScript, rendre côté serveur.",
+        "Empêcher la régression : Lighthouse CI et budgets en octets sur les pull requests, monitoring des utilisateurs réels avec `web-vitals`, et alertes sur le p75 après chaque release."
+      ],
+      "takeaways": [
+        {
+          "term": "Core Web Vitals",
+          "detail": "Au p75 des visites réelles : LCP 2,5 s ou moins, INP 200 ms ou moins, CLS 0,1 ou moins."
+        },
+        {
+          "term": "Terrain vs labo",
+          "detail": "Les données terrain disent s’il y a un problème ; les outils de labo disent pourquoi."
+        },
+        {
+          "term": "TTFB / FCP / LCP",
+          "detail": "Premier octet du HTML ; premier texte ou image peints ; plus grand élément peint. Les écarts localisent le retard."
+        },
+        {
+          "term": "Parts du LCP",
+          "detail": "TTFB, délai de chargement de la ressource, téléchargement, délai de rendu. La plus grosse d’abord."
+        },
+        {
+          "term": "Correctifs habituels",
+          "detail": "HTML en cache CDN, `<img>` du hero dans le HTML avec `fetchpriority=\"high\"`, pas de CSS bloquant, moins de JavaScript."
+        },
+        {
+          "term": "Empêcher la régression",
+          "detail": "Lighthouse CI et budgets en octets sur les PR, RUM avec `web-vitals`, alertes sur le p75 après les releases."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Les données terrain montrent les pages catégorie de la boutique à 4,2 s de LCP au 75e percentile, alors que Lighthouse sur votre laptop affiche 1,3 s. Comment diagnostiquez-vous et corrigez-vous ?",
+        "bridge": "Diagnostiquer un chargement lent part des données terrain, reproduit avec throttling, puis découpe le temps en TTFB, découverte, téléchargement et rendu."
+      },
+      {
+        "question": "Votre équipe est sûre que le premier chargement lent vient du bundle JavaScript. Quelles autres causes écarteriez-vous d’abord, et comment ?",
+        "bridge": "Découper le temps de chargement : un TTFB lent, une requête hero tardive, du CSS et des polices bloquants, et des tâches longues apparaissent chacun dans un outil différent."
+      }
+    ]
+  },
+  "perf-web-workers": {
+    "topic": "Web Workers",
+    "question": "Quel rôle jouent les Web Workers dans les performances frontend ?",
+    "answer": "Un Web Worker exécute du JavaScript sur un thread séparé avec sa propre event loop, donc un calcul lourd ne bloque plus le main thread, qui gère les saisies, le rendu et React. J’y déplace le travail limité par le CPU : filtrer ou trier de gros jeux de données, parser un gros CSV, traiter des images. Un worker n’a pas accès au DOM ; il parle à la page avec `postMessage`, et les messages sont copiés avec l’algorithme de structured clone, donc envoyer beaucoup de données a son propre coût. C’est mon dernier recours, après avoir réduit le travail et rendu la main, et ça corrige les tâches longues et l’INP, pas les requêtes réseau lentes.",
+    "keyPoints": [
+      "Un thread séparé : le travail lourd ne bloque plus saisies et rendu",
+      "Pour le travail limité par le CPU : filtrage, parsing, traitement d’images",
+      "Pas de DOM ; échange via `postMessage`, les données sont copiées",
+      "La copie coûte aussi ; à utiliser après les correctifs moins chers"
+    ],
+    "explanation": "La question vérifie que tu comprends le main thread unique et ce qu’un worker peut faire ou non. Un senior cite le coût de la copie, les transferable objects, et le fait qu’un worker est le dernier recours après avoir réduit le travail.",
+    "example": "L’autocomplétion de la boutique filtrait un index de 200 000 produits à chaque frappe, et la saisie avait environ 300 ms de retard. Déplacer le filtre dans un worker qui récupérait lui-même l’index, pour que seuls une courte requête et dix suggestions passent d’un thread à l’autre, a gardé chaque interaction de frappe sous 16 ms dans Chromium. Les réponses aux requêtes plus anciennes étaient ignorées grâce à un id de requête.",
+    "mistakes": [
+      "Envoyer un énorme objet au worker à chaque message, si bien que la copie elle-même bloque le main thread.",
+      "S’attendre à ce qu’un worker touche le DOM ou appelle directement les setters de state React.",
+      "Utiliser un worker pour du travail limité par le réseau, que le main thread gère déjà de façon asynchrone."
+    ],
+    "followUps": [
+      {
+        "question": "Comment les données passent-elles entre le main thread et un worker ?",
+        "answer": "Avec `postMessage` et un événement `message` de chaque côté. Les données sont copiées par structured clone : les objets, `Date` et `Map` survivent, une fonction lève une `DataCloneError`. Un `ArrayBuffer` transféré passe sans copie et laisse le buffer de l’émetteur vide. Un `SharedArrayBuffer` partage la mémoire mais exige l’isolation cross-origin."
+      },
+      {
+        "question": "Dedicated worker, shared worker ou service worker : quelle est la différence ?",
+        "answer": "Un dedicated worker appartient à la page qui l’a créé. Un shared worker est joignable par plusieurs onglets ou iframes de la même origine via un port, par exemple pour partager une connexion. Un service worker se place entre les pages et le réseau pour mettre en cache, fonctionner hors ligne et recevoir des push ; il n’est pas fait pour le calcul."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le code d’un Web Worker peut lire et modifier le DOM.",
+        "why": "Les workers n’ont pas de DOM : `document` y est undefined. Ils renvoient des résultats et c’est la page qui met à jour le DOM.",
+        "twin": {
+          "statement": "Le code d’un Web Worker n’a pas accès au DOM.",
+          "why": "`document` est undefined dans un worker ; il renvoie des résultats et c’est la page qui met à jour le DOM."
+        }
+      },
+      {
+        "statement": "Transférer un `ArrayBuffer` avec `postMessage` laisse le buffer de l’émetteur vide.",
+        "why": "La propriété passe au destinataire au lieu d’une copie : le `byteLength` de l’émetteur tombe à 0.",
+        "twin": {
+          "statement": "Transférer un `ArrayBuffer` avec `postMessage` laisse à l’émetteur une copie utilisable du buffer.",
+          "why": "La propriété passe au destinataire au lieu d’une copie : le `byteLength` de l’émetteur tombe à 0."
+        }
+      },
+      {
+        "statement": "On peut envoyer une fonction callback à un worker avec `postMessage`.",
+        "why": "Les fonctions ne passent pas le structured clone ; en envoyer une lève une `DataCloneError`.",
+        "twin": {
+          "statement": "Envoyer une fonction callback à un worker avec `postMessage` lève une `DataCloneError`.",
+          "why": "Les fonctions ne passent pas le structured clone, donc seules des données peuvent être envoyées."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un Web Worker exécute du JavaScript sur son propre thread, donc un calcul lourd ne bloque plus les saisies et le rendu sur le main thread. Il corrige les tâches longues et l’INP, pas les requêtes réseau lentes.",
+      "points": [
+        "Le main thread exécute ton JavaScript, gère les saisies et rend les frames. Un long calcul à cet endroit fige les taps et les animations : il apparaît en tâches longues et en mauvais INP.",
+        "Un Web Worker exécute un script sur son propre thread avec sa propre event loop. Il a `fetch` et les timers, mais pas de DOM : `document` y est undefined.",
+        "La page et le worker échangent avec `postMessage`. Les données sont copiées par structured clone (objets, `Date`, `Map` survivent ; les fonctions lèvent une erreur). Un `ArrayBuffer` peut être transféré à la place.",
+        "La copie, c’est aussi du travail sur le main thread : laisse le worker charger ses propres données et garde les messages petits. Les réponses peuvent arriver en retard : marque les requêtes d’un id et jette les réponses périmées.",
+        "Essaie d’abord les correctifs moins chers : réduire le travail, puis rendre la main avec `scheduler.yield()`, puis un worker. Un service worker est un autre outil : un proxy réseau pour le cache et le hors-ligne."
+      ],
+      "takeaways": [
+        {
+          "term": "Main thread",
+          "detail": "Exécute ton JavaScript, gère les saisies et rend les frames. Un long travail y donne des tâches longues et un mauvais INP."
+        },
+        {
+          "term": "Portée d’un worker",
+          "detail": "Son propre thread et sa propre event loop, `fetch` et timers, mais pas de DOM : `document` est undefined."
+        },
+        {
+          "term": "`postMessage`",
+          "detail": "Données copiées par structured clone : objets, `Date`, `Map` survivent ; les fonctions lèvent une erreur."
+        },
+        {
+          "term": "Transfert",
+          "detail": "Un `ArrayBuffer` peut être transféré au lieu d’être copié."
+        },
+        {
+          "term": "Hygiène des messages",
+          "detail": "La copie coûte du temps sur le main thread : messages petits, requêtes marquées d’un id, réponses périmées jetées."
+        },
+        {
+          "term": "Ordre des correctifs",
+          "detail": "Réduire le travail, puis `scheduler.yield()`, puis un worker."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le back-office parse dans le navigateur un export CSV de commandes de 40 Mo, et la page ignore tous les clics pendant 3 secondes. Comment un Web Worker peut-il aider, et que coûte-t-il ?",
+        "bridge": "Un parsing limité par le CPU bloque le main thread ; un Web Worker l’exécute sur un autre thread, au prix de la copie des données via `postMessage`."
+      },
+      {
+        "question": "Un collègue veut déplacer les appels API du back-office dans un Web Worker pour les accélérer. Que lui répondez-vous ?",
+        "bridge": "Les workers corrigent les tâches longues et l’INP, pas le temps réseau : ils conviennent au travail limité par le CPU, et leurs messages sont copiés."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Un worker filtre 200 000 produits pour le champ de recherche. Les deux lui envoient une requête à chaque frappe. Lequel garde la saisie fluide ?",
+        "why": "`postMessage` copie ses données par structured clone sur le thread émetteur. Une courte requête ne coûte presque rien ; 200 000 produits coûtent environ 150 à 200 ms par message mesurés sous Node 24, sur le main thread, à chaque frappe : exactement le retard que le worker devait supprimer."
+      }
+    ]
+  },
+  "fe-architecture": {
+    "topic": "Architecture frontend multi-équipes",
+    "question": "Comment concevriez-vous l’architecture frontend d’une grosse application utilisée par de nombreuses équipes ?",
+    "answer": "Je pars des frontières entre équipes : chaque équipe possède une tranche du domaine de bout en bout, comme les commandes, les remboursements ou les clients. Dans l’application, j’organise le code par fonctionnalité, avec des imports dans un seul sens, du code partagé vers les fonctionnalités puis vers le shell de l’app, et une règle de lint qui empêche les fonctionnalités de s’importer entre elles. L’UI partagée vient d’un package de design system versionné, et l’accès aux données passe par un seul client API. En général je garde tout dans un monorepo avec un task runner, pour qu’un changement transverse tienne en une pull request, et je ne découpe en micro-frontends que si les équipes ont vraiment besoin de déploiements indépendants.",
+    "keyPoints": [
+      "Les frontières suivent la responsabilité des équipes et du domaine",
+      "Dossiers par fonctionnalité, imports à sens unique imposés par le lint",
+      "Design system et client API en packages partagés",
+      "Monorepo par défaut ; micro-frontends seulement pour des déploiements indépendants"
+    ],
+    "explanation": "C’est une question de conception ouverte : les recruteurs cherchent une réflexion organisationnelle, responsabilités, frontières et circulation du changement, plus qu’une arborescence. Un senior explique comment les règles sont imposées et quand il découperait davantage, avec les coûts.",
+    "example": "Le back-office avait grossi jusqu’à 400 fichiers dans un seul dossier `components/` modifié par trois équipes, et déplacer le parcours de remboursement a cassé la page clients. L’équipe a réorganisé par fonctionnalité, ajouté des zones `import/no-restricted-paths` pour que les fonctionnalités ne puissent pas s’importer entre elles, et déplacé les composants génériques dans `@shop/ui` dans le même workspace pnpm. Les casses entre équipes n’ont plus atteint main, parce que la CI faisait désormais échouer la pull request.",
+    "mistakes": [
+      "Organiser par type technique (components, hooks, utils), si bien que chaque changement de fonctionnalité touche tous les dossiers.",
+      "Compter sur des conventions dans un wiki au lieu de règles de lint qui font échouer la CI.",
+      "Recourir aux micro-frontends pour partager du code, alors qu’un package dans un monorepo le fait sans coût au runtime."
+    ],
+    "followUps": [
+      {
+        "question": "Comment versionneriez-vous une librairie de composants partagée et géreriez-vous les breaking changes ?",
+        "answer": "Versionnage sémantique : une prop renommée, une valeur par défaut changée, un rôle modifié ou un token renommé, c’est une majeure. Chaque pull request porte un changeset qui enregistre le bump et la ligne de changelog, et la CI publie. Je déprécie d’abord, avec `@deprecated` en TSDoc et un warning en dev, et je supprime à la majeure suivante avec une note de migration."
+      },
+      {
+        "question": "Monorepo ou plusieurs dépôts pour un frontend multi-équipes ?",
+        "answer": "Un monorepo fait d’un changement sur une librairie et tous ses consommateurs une seule pull request atomique, avec une CI qui teste chaque app touchée ; il lui faut du cache pour rester rapide. Des dépôts séparés donnent une autonomie totale, mais le code partagé passe par des cycles de publication et de mise à jour, et les versions divergent. Pour les apps d’une entreprise, je prends le monorepo."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Regrouper le code par fonctionnalité signifie qu’un dossier de fonctionnalité contient ses propres composants, hooks et types.",
+        "why": "Tout ce dont une fonctionnalité a besoin vit ensemble, donc un changement reste local ; seul le code générique va dans des dossiers ou packages partagés.",
+        "twin": {
+          "statement": "Regrouper le code par fonctionnalité signifie un dossier `components` pour tous les composants et un dossier `hooks` pour tous les hooks.",
+          "why": "Ça, c’est un regroupement par type ; un dossier de fonctionnalité contient ses propres composants, hooks et types."
+        }
+      },
+      {
+        "statement": "Les micro-frontends sont la manière standard de partager des composants UI entre deux apps.",
+        "why": "Partager du code, c’est le rôle des packages ; les micro-frontends existent pour les déploiements indépendants et ajoutent des coûts au runtime.",
+        "twin": {
+          "statement": "Ce sont les packages, pas les micro-frontends, qui sont la manière standard de partager des composants UI entre deux apps.",
+          "why": "Les micro-frontends existent pour les déploiements indépendants et ajoutent des coûts au runtime."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’architecture frontend multi-équipes consiste à tracer des frontières pour que la plupart des changements restent dans une seule zone, et à les faire respecter par l’outillage. Le découpage des déploiements vient en dernier, seulement si nécessaire.",
+      "points": [
+        "Trace les frontières là où se séparent les équipes et le domaine : chaque équipe possède des fonctionnalités de bout en bout (commandes, remboursements, clients), donc la plupart des changements restent dans une zone.",
+        "Dans une app, regroupe le code par fonctionnalité, pas par type. Les imports vont dans un seul sens, partagé puis fonctionnalités puis app, et le shell de l’app compose les fonctionnalités en routes.",
+        "Fais respecter les frontières par l’outillage : des règles de lint comme `import/no-restricted-paths` ou les module boundaries de Nx font échouer la CI, ce qu’une convention de wiki ne fait jamais.",
+        "Partage via des packages : un design system, des tokens et un client API, versionnés en semver. Un monorepo les garde à côté de leurs consommateurs avec une seule CI.",
+        "Découpe les déploiements (micro-frontends) seulement quand des équipes doivent livrer des parties d’une même page à leur propre rythme : tu le paies en intégration au runtime et en décalage de versions."
+      ],
+      "takeaways": [
+        {
+          "term": "Frontières",
+          "detail": "Suivent les équipes et le domaine : chaque équipe possède des fonctionnalités de bout en bout (commandes, remboursements, clients)."
+        },
+        {
+          "term": "Dossiers par fonctionnalité",
+          "detail": "Regrouper par fonctionnalité, pas par type. Imports à sens unique : partagé, puis fonctionnalités, puis app."
+        },
+        {
+          "term": "Application des règles",
+          "detail": "Des règles de lint comme `import/no-restricted-paths` ou les module boundaries de Nx font échouer la CI ; une convention de wiki, non."
+        },
+        {
+          "term": "Packages partagés",
+          "detail": "Design system, tokens et client API, versionnés en semver."
+        },
+        {
+          "term": "Monorepo",
+          "detail": "Garde les packages à côté de leurs consommateurs avec une seule CI ; un changement transverse tient en une pull request."
+        },
+        {
+          "term": "Micro-frontends",
+          "detail": "Seulement pour des déploiements indépendants ; tu le paies en intégration au runtime et en décalage de versions."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Trois équipes travaillent maintenant sur le back-office : commandes, remboursements et clients. Les conflits de merge sont quotidiens, et un changement sur l’écran des remboursements a cassé le tableau des commandes. Comment restructureriez-vous le frontend ?",
+        "bridge": "Architecture multi-équipes : frontières selon la responsabilité du domaine, dossiers par fonctionnalité avec imports à sens unique, packages partagés et monorepo."
+      },
+      {
+        "question": "Quand découperiez-vous le back-office en micro-frontends, et pourquoi ne commenceriez-vous pas par là ?",
+        "bridge": "Les micro-frontends ne répondent qu’au besoin de déploiements indépendants ; une app modulaire dans un monorepo est le choix par défaut pour plusieurs équipes."
+      }
+    ]
+  },
+  "fe-design-system": {
+    "topic": "Concevoir un design system",
+    "question": "Comment concevriez-vous un design system réutilisable et qui passe à l’échelle ?",
+    "answer": "Je le construis en couches. D’abord les design tokens : des primitives comme la palette, et des tokens sémantiques comme `--color-action` que les composants utilisent, livrés en CSS custom properties pour qu’un thème ne soit qu’un remapping. Ensuite des composants accessibles, souvent sur une librairie headless comme Radix ou React Aria, avec une API réduite et cohérente : variantes en props, composition via children et compound components, attributs natifs et refs transmis. Chaque composant est documenté et testé dans Storybook, accessibilité comprise. Il est livré comme un package versionné avec semver et un changelog, tandis que les composants métier restent dans les apps. Et il lui faut des responsables et un processus de contribution, pas seulement du code.",
+    "keyPoints": [
+      "Tokens : primitives et tokens sémantiques en variables CSS",
+      "Composants accessibles avec une API réduite et cohérente",
+      "Storybook pour la documentation et les tests, accessibilité comprise",
+      "Package versionné, responsables et processus de contribution"
+    ],
+    "explanation": "Les recruteurs cherchent les couches, tokens, composants, documentation et release, et la gouvernance. Un senior dit ce qui reste hors du système, comment les breaking changes sont gérés et comment l’adoption est mesurée.",
+    "example": "La boutique et le back-office avaient trois nuances de l’indigo de la marque et deux modales différentes. L’équipe a créé `@shop/tokens` avec des variables CSS sémantiques et `@shop/ui` sur des primitives headless, documentés dans Storybook, et a migré le back-office écran par écran. Le mode sombre pour les agents de nuit n’a ensuite demandé qu’un attribut `data-theme` et un remapping de tokens, sans toucher aux composants.",
+    "mistakes": [
+      "Mettre des composants métier comme un tableau de commandes dans le design system, ce qui le lie à une seule app.",
+      "Laisser les composants utiliser des couleurs brutes au lieu de tokens sémantiques, si bien que thèmes et changements de marque touchent tous les fichiers.",
+      "Construire dialogues et menus à partir de zéro et rater la gestion du focus et le comportement clavier."
+    ],
+    "followUps": [
+      {
+        "question": "Comment géreriez-vous un breaking change sur un composant très utilisé ?",
+        "answer": "J’évite de casser sur place : j’ajoute la nouvelle API à côté de l’ancienne, je marque l’ancienne `@deprecated` avec un warning en développement, et je laisse aux consommateurs une mineure pour migrer, avec un codemod si le changement est mécanique. La suppression arrive à la majeure suivante avec une note de migration, quand une recherche dans le code montre qu’il reste peu d’usages."
+      },
+      {
+        "question": "Comment les design tokens passent-ils de Figma au code ?",
+        "answer": "Les designers définissent des variables dans Figma ; un plugin ou l’API de Figma les exporte en JSON, souvent au format W3C des design tokens. Une étape de build comme Style Dictionary transforme ce JSON en CSS custom properties et en constantes TypeScript dans le package de tokens, publié comme du code, donc un changement de couleur est une pull request relue."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Les composants d’un design system devraient utiliser des tokens sémantiques comme `--color-action` plutôt que des valeurs de palette.",
+        "why": "Un thème ou un changement de marque remappe alors les tokens sémantiques une seule fois, au lieu de modifier chaque composant.",
+        "twin": {
+          "statement": "Les composants d’un design system devraient utiliser directement des valeurs de palette comme `--blue-600` plutôt que des tokens sémantiques.",
+          "why": "Avec des tokens sémantiques comme `--color-action`, un thème ou un changement de marque les remappe une fois au lieu de modifier chaque composant."
+        }
+      },
+      {
+        "statement": "Renommer une prop de composant peut partir en version patch si le composant a le même rendu.",
+        "why": "Les consommateurs qui utilisent l’ancien nom cassent : toute prop supprimée ou renommée est un breaking change et demande une majeure.",
+        "twin": {
+          "statement": "Renommer une prop de composant est un breaking change qui demande une version majeure, même si le composant a le même rendu.",
+          "why": "Les consommateurs qui passent encore l’ancien nom cassent."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un design system, ce sont des tokens, des composants accessibles et le processus autour, livrés comme un package versionné. Il garde de nombreuses apps cohérentes sans que chaque équipe reconstruise la même UI.",
+      "points": [
+        "Un design token est une décision de design nommée et stockée une seule fois. Les primitives contiennent la palette (`--indigo-600`) ; les tokens sémantiques contiennent des rôles (`--color-action`). Les composants n’utilisent que les tokens sémantiques.",
+        "Livre les tokens en CSS custom properties : tous les outils de style peuvent les lire, et un thème est un remapping sous `[data-theme=\"dark\"]`, sans rendu React.",
+        "Construis des composants accessibles, souvent sur une librairie headless (Radix, React Aria, Base UI), avec une API réduite : variantes en props, children et compound components, attributs natifs transmis.",
+        "Documente et teste chaque composant dans Storybook. Publie en semver : props renommées, nouvelles valeurs par défaut, rôles modifiés et tokens renommés sont des versions majeures.",
+        "Garde les composants métier comme un tableau de commandes dans les apps, donne au système des responsables et un processus de contribution, et mesure l’adoption."
+      ],
+      "takeaways": [
+        {
+          "term": "Tokens primitifs",
+          "detail": "Contiennent des valeurs brutes comme la palette : `--indigo-600`."
+        },
+        {
+          "term": "Tokens sémantiques",
+          "detail": "Contiennent des rôles comme `--color-action` ; les composants n’utilisent que ceux-là."
+        },
+        {
+          "term": "CSS custom properties",
+          "detail": "Tous les outils les lisent ; un thème est un remapping sous `[data-theme=\"dark\"]`, sans rendu React."
+        },
+        {
+          "term": "Composants",
+          "detail": "Accessibles, souvent sur Radix, React Aria ou Base UI ; variantes en props, compound components, attributs natifs."
+        },
+        {
+          "term": "Storybook et semver",
+          "detail": "Documenter et tester chaque composant. Props renommées, nouvelles valeurs par défaut ou tokens renommés : version majeure."
+        },
+        {
+          "term": "Responsabilité",
+          "detail": "Les composants métier restent dans les apps. Des responsables, un processus de contribution, et l’adoption mesurée."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La boutique change d’identité visuelle et son bleu principal devient vert. Les composants de la boutique codent en dur des valeurs hexadécimales et le back-office utilise d’autres bleus. Comment un design system réduirait-il ce changement à peu de chose ?",
+        "bridge": "Design tokens : les composants utilisent des tokens sémantiques livrés en CSS custom properties, donc un changement de marque les remappe à un seul endroit."
+      },
+      {
+        "question": "À qui appartient un design system, et comment livrez-vous un changement sur un `Button` partagé sans casser la boutique ni le back-office ?",
+        "bridge": "La moitié non-code d’un design system : des responsables, un processus de contribution, et un package versionné avec semver et un changelog."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Le mode sombre remappe les tokens sémantiques sous `[data-theme=\"dark\"]`. Les deux stylent le bouton principal. Lequel suit le thème ?",
+        "why": "Les composants qui utilisent le token sémantique `--color-action` changent quand le thème le remappe, sans modifier le composant. Une primitive comme `--indigo-600` est identique dans tous les thèmes, donc le bouton reste indigo foncé en mode sombre, et un changement de marque oblige à modifier chaque composant qui nomme la palette."
+      }
+    ]
+  },
+  "fe-micro-frontends": {
+    "topic": "Micro-frontends",
+    "question": "Que sont les micro-frontends, et quand ont-ils du sens ?",
+    "answer": "Les micro-frontends découpent un produit web en parties que différentes équipes construisent et déploient indépendamment, composées en une seule expérience, en général au runtime avec Module Federation ou en routant des pages entières vers des apps séparées. Ils ont du sens quand plusieurs équipes doivent livrer des parties du même produit à leur propre rythme et qu’une release commune est devenue le goulot d’étranglement. Ils coûtent cher : intégration au runtime, dépendances partagées comme React qui doivent être chargées une seule fois, décalage de versions, tests end-to-end plus difficiles et UX incohérente. Pour une ou deux équipes, une app modulaire dans un monorepo apporte l’essentiel des bénéfices sans ces coûts.",
+    "keyPoints": [
+      "Des parties d’un produit construites et déployées par des équipes distinctes",
+      "Composées via Module Federation, routage de pages, iframes ou build",
+      "Utiles pour des déploiements indépendants, pas pour partager du code",
+      "Coûts : dépendances partagées, décalage de versions, tests, cohérence"
+    ],
+    "explanation": "C’est une question de compromis : les recruteurs attendent un peu de scepticisme et une décision liée à la structure des équipes et aux besoins de déploiement. Un senior nomme les options d’intégration et les problèmes que chacune apporte.",
+    "example": "Quand l’agence a proposé de charger ses écrans partenaires dans le back-office au runtime, l’équipe a comparé Module Federation et une app séparée. Une seule équipe externe était concernée et elle n’avait pas besoin de partager une page, donc le portail partenaires est resté une app à part, qui consomme le package publié `@shop/ui`. Cela a évité de négocier des versions de React partagées entre deux cycles de release.",
+    "mistakes": [
+      "Choisir les micro-frontends pour partager des composants, ce qu’un package fait pour une fraction du coût.",
+      "Laisser chaque micro-frontend charger sa propre copie de React, ce qui alourdit la page et casse les hooks.",
+      "Découper par couche technique plutôt que par domaine métier, si bien que chaque fonctionnalité demande encore plusieurs équipes."
+    ],
+    "followUps": [
+      {
+        "question": "Quelles stratégies d’intégration existent : Module Federation, iframes, composition au build ?",
+        "answer": "Au build : chaque partie est un package bundlé dans le shell ; simple, mais chaque release redéploie le shell. Module Federation : le shell charge du code distant au runtime, en partageant React une seule fois. Iframes : isolation forte, mais routage, dimensionnement et accessibilité pénibles. Router des URL entières vers des apps séparées est le plus simple de tous."
+      },
+      {
+        "question": "Comment gardez-vous un rendu cohérent entre des micro-frontends déployés indépendamment ?",
+        "answer": "Un package de design system partagé et des tokens en CSS custom properties, chargés une fois par le shell pour que chaque partie lise les mêmes variables, avec la librairie de composants partagée en singleton quand les parties tournent dans la même page. Des tests de régression visuelle par partie et une revue design des nouveaux motifs attrapent les dérives."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Avec Module Federation, React devrait être partagé en singleton entre l’hôte et les remotes.",
+        "why": "Deux copies de React sur une page provoquent l’erreur invalid hook call, donc React est déclaré `singleton: true`.",
+        "twin": {
+          "statement": "Avec Module Federation, l’hôte et chaque remote devraient charger leur propre copie de React.",
+          "why": "Deux copies de React sur une page provoquent l’erreur invalid hook call, donc React est partagé avec `singleton: true`."
+        }
+      },
+      {
+        "statement": "Avec la composition au build, une équipe peut livrer sa partie sans redéployer le shell.",
+        "why": "Les parties sont bundlées dans le shell au build, donc chaque changement demande un nouveau build et un nouveau déploiement du shell.",
+        "twin": {
+          "statement": "Avec la composition au build, livrer une partie demande un nouveau build et un nouveau déploiement du shell.",
+          "why": "Les parties sont bundlées dans le shell au build."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les micro-frontends découpent l’UI d’un produit en parties que des équipes distinctes construisent et déploient chacune de leur côté. Ils ne sont rentables que si les déploiements indépendants comptent plus que leurs coûts d’intégration.",
+      "points": [
+        "Les micro-frontends découpent l’UI d’un produit en parties que des équipes distinctes construisent, testent et déploient de leur côté, puis composent en une seule expérience.",
+        "Options de composition : au build (chaque partie est un package bundlé dans le shell), au runtime avec Module Federation (le shell charge du code distant), iframes, ou routage d’URL vers des apps différentes.",
+        "Les librairies partagées comme React doivent être chargées une seule fois (`singleton: true` dans Module Federation) : deux copies de React provoquent l’erreur invalid hook call.",
+        "Le bénéfice, ce sont les déploiements indépendants ; les coûts, l’intégration au runtime, le décalage de versions, des tests end-to-end plus difficiles et la dérive du design. Ce n’est pas un moyen de partager du code.",
+        "La cohérence vient d’un seul design system et de tokens chargés par le shell, plus des tests de régression visuelle dans chaque partie."
+      ],
+      "takeaways": [
+        {
+          "term": "Définition",
+          "detail": "Des parties d’un produit construites, testées et déployées par des équipes distinctes, composées en une seule expérience."
+        },
+        {
+          "term": "Composition",
+          "detail": "Packages au build, Module Federation au runtime, iframes, ou routage d’URL vers des apps différentes."
+        },
+        {
+          "term": "`singleton: true`",
+          "detail": "Partage React une seule fois dans Module Federation ; deux copies provoquent l’erreur invalid hook call."
+        },
+        {
+          "term": "Bénéfice",
+          "detail": "Des déploiements indépendants. Pas un moyen de partager du code."
+        },
+        {
+          "term": "Coûts",
+          "detail": "Intégration au runtime, décalage de versions, tests end-to-end plus difficiles, dérive du design."
+        },
+        {
+          "term": "Cohérence",
+          "detail": "Un seul design system et des tokens chargés par le shell, plus des tests de régression visuelle dans chaque partie."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Cinq équipes construisent des parties de la boutique, et chaque release attend un déploiement hebdomadaire commun qui les bloque toutes. Un directeur propose les micro-frontends. Quand cela vaut-il le coup, et qu’est-ce que ça coûtera ?",
+        "bridge": "Les micro-frontends sont rentables quand une release commune est le goulot d’étranglement d’équipes indépendantes, au prix de l’intégration au runtime et des dépendances partagées."
+      },
+      {
+        "question": "Un projet à deux équipes veut des micro-frontends pour que les deux apps partagent une librairie de composants. Que recommandez-vous à la place, et pourquoi ?",
+        "bridge": "Les micro-frontends servent aux déploiements indépendants, pas au partage de code ; pour une ou deux équipes, un monorepo modulaire apporte l’essentiel des bénéfices sans les coûts."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Le back-office charge un remote partenaire dont les composants utilisent des hooks. Les deux configurent Module Federation dans l’hôte. Laquelle fonctionne ?",
+        "why": "Avec React partagé en singleton, l’hôte et le remote utilisent une seule copie de React, donc les hooks du remote tournent dans l’arbre de l’hôte. Sans `shared`, le remote apporte son propre React : deux copies sur une page, ce qui l’alourdit et fait échouer les hooks du remote avec l’erreur invalid hook call."
+      }
+    ]
+  },
+  "fe-legacy-migration": {
+    "topic": "Migrer un frontend legacy",
+    "question": "Comment migreriez-vous un gros frontend legacy vers un framework moderne sans réécriture complète ?",
+    "answer": "J’utilise l’approche strangler fig : l’ancienne et la nouvelle app tournent côte à côte, et le nouveau code reprend une partie à la fois jusqu’à ce qu’on puisse supprimer l’ancien. La jonction, c’est en général la route : un proxy ou le routeur envoie les pages migrées vers la nouvelle app, ou je monte de nouveaux composants dans les anciennes pages. Les nouvelles fonctionnalités ne vont que dans la nouvelle stack. Chaque page migrée part derrière un feature flag pour pouvoir faire un rollback en quelques secondes, et je compare erreurs et performances avec l’ancienne version. Les briques communes, comme la session, le client API et les design tokens, sont extraites en premier pour que les deux stacks les utilisent.",
+    "keyPoints": [
+      "Strangler fig : remplacer partie par partie, les deux stacks côte à côte",
+      "Jonction sur la route, ou nouveaux composants montés dans les anciennes pages",
+      "Nouvelles fonctionnalités uniquement dans la nouvelle stack",
+      "Feature flag et métriques pour chaque partie migrée"
+    ],
+    "explanation": "Les recruteurs veulent de la gestion du risque : apporter de la valeur pendant la migration, pouvoir revenir en arrière, et un plan pour terminer. La réécriture big bang est l’échec classique, donc un senior explique les jonctions incrémentales et comment les deux stacks restent cohérentes.",
+    "example": "Le back-office a démarré comme une app AngularJS de 60 écrans. L’équipe a créé une app React sous Vite derrière le même BFF et y a routé `/orders` en premier, parce que ces écrans changeaient le plus souvent et avaient le plus de bugs. Avec un flag par page et des tokens partagés, les écrans de commandes ont migré en six semaines, et les autres écrans ont suivi sur deux trimestres.",
+    "mistakes": [
+      "Geler les fonctionnalités pour une réécriture complète qui ne livre rien pendant un an.",
+      "Migrer des pages sans interrupteur de rollback ni comparaison avec l’ancienne page.",
+      "Garder deux copies d’une logique partagée, comme l’authentification, qui divergent."
+    ],
+    "followUps": [
+      {
+        "question": "Comment géreriez-vous le state partagé ou les conflits de styles entre l’ancienne et la nouvelle stack ?",
+        "answer": "Pour le state, le serveur, l’URL et le cookie de session restent la source de vérité, donc les deux stacks lisent les mêmes données, avec des événements DOM custom pour les rares signaux live entre elles. Pour les styles, je cloisonne le nouveau code avec des CSS Modules ou des cascade layers et je partage les tokens en variables CSS, pour que l’ancien CSS global ne fuie pas."
+      },
+      {
+        "question": "Comment décidez-vous de l’ordre de migration des pages ?",
+        "answer": "Selon la valeur et le risque : les pages qui changent souvent, ont beaucoup de bugs ou bloquent une nouvelle fonctionnalité passent tôt, parce que la migration est rentabilisée plus vite. Je commence par une page réelle mais simple pour valider le setup, je privilégie les pages avec peu de dépendances, et je garde pour la fin celles qu’on touche rarement."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans une migration strangler fig, l’ancien et le nouveau frontend tournent en production en même temps.",
+        "why": "Le trafic passe vers la nouvelle app partie par partie, donc les deux coexistent jusqu’à la suppression de la dernière page legacy.",
+        "twin": {
+          "statement": "Dans une migration strangler fig, le nouveau frontend remplace l’ancien en une seule bascule.",
+          "why": "Le trafic passe partie par partie, donc les deux tournent en production jusqu’à la suppression de la dernière page legacy."
+        }
+      },
+      {
+        "statement": "Une réécriture complète est moins risquée qu’une migration incrémentale parce que l’équipe ne maintient qu’une seule stack.",
+        "why": "Une réécriture ne livre rien avant la bascule et échoue d’un bloc ; les étapes incrémentales livrent de la valeur et permettent un rollback.",
+        "twin": {
+          "statement": "Une migration incrémentale est moins risquée qu’une réécriture complète, même si l’équipe maintient deux stacks pendant un temps.",
+          "why": "Les étapes incrémentales livrent de la valeur et permettent un rollback ; une réécriture ne livre rien avant la bascule et échoue d’un bloc."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Migrer sans risque un gros frontend legacy, c’est le remplacer partie par partie pendant que les deux stacks tournent côte à côte : le pattern strangler fig. Une réécriture complète gèle les fonctionnalités et risque de ne jamais sortir.",
+      "points": [
+        "Le pattern strangler fig remplace un système legacy partie par partie : l’ancien et le nouveau tournent côte à côte, la nouvelle partie grandit, et l’ancienne est supprimée quand plus rien ne l’utilise.",
+        "La jonction, c’est souvent la route : un proxy ou un routeur envoie les URL migrées vers la nouvelle app. Dans une page, on peut aussi monter de nouveaux composants dans les anciennes pages.",
+        "Extrais d’abord ce dont les deux stacks ont besoin (session, client API, design tokens) pour qu’elles restent cohérentes, et empêche l’ancien CSS global de fuir dans les nouveaux composants.",
+        "Livre chaque page migrée derrière un feature flag, compare erreurs et performances avec l’ancienne, et fais un rollback en quelques secondes si besoin.",
+        "Ne construis les nouvelles fonctionnalités que dans la nouvelle stack, et suis les pages legacy restantes pour que la migration se termine vraiment."
+      ],
+      "takeaways": [
+        {
+          "term": "Strangler fig",
+          "detail": "L’ancien et le nouveau tournent côte à côte ; la nouvelle partie grandit et l’ancienne est supprimée une fois inutilisée."
+        },
+        {
+          "term": "Jonction",
+          "detail": "Souvent la route : un proxy ou un routeur envoie les URL migrées vers la nouvelle app. Ou des composants montés dans les anciennes pages."
+        },
+        {
+          "term": "Extraire d’abord",
+          "detail": "Session, client API et design tokens, pour que les deux stacks restent cohérentes."
+        },
+        {
+          "term": "Fuites de CSS",
+          "detail": "Empêcher l’ancien CSS global de fuir dans les nouveaux composants."
+        },
+        {
+          "term": "Feature flag",
+          "detail": "Chaque page migrée part derrière un flag ; comparer erreurs et performances, rollback en quelques secondes."
+        },
+        {
+          "term": "Terminer",
+          "detail": "Nouvelles fonctionnalités uniquement dans la nouvelle stack ; suivre les pages legacy restantes."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le back-office est une app AngularJS de 2016 avec 60 écrans, et la direction veut passer à React sans geler les fonctionnalités pendant un an. Comment migrez-vous ?",
+        "bridge": "L’approche strangler fig : les deux stacks tournent côte à côte et la nouvelle reprend route par route, chaque étape derrière un feature flag."
+      },
+      {
+        "question": "Un collègue plaide pour une réécriture big bang parce que maintenir deux stacks est pénible. Que lui répondez-vous ?",
+        "bridge": "L’argument de la migration incrémentale : une réécriture ne livre rien avant la bascule, alors que les étapes partie par partie livrent de la valeur et permettent un rollback."
+      }
+    ]
+  },
+  "fe-monorepo": {
+    "topic": "Monorepo frontend",
+    "question": "Comment structureriez-vous un monorepo frontend, et avec quels outils ?",
+    "answer": "Je le découpe en `apps`, la boutique et le back-office qu’on déploie, et `packages`, le code partagé : le design system, les tokens, le client API, et les configs ESLint et TypeScript communes. Les workspaces pnpm lient les packages locaux avec le protocole `workspace:`, donc un changement dans la librairie UI et son usage dans les deux apps tiennent en une pull request. Par-dessus, j’utilise Turborepo, ou Nx quand il y a beaucoup d’équipes et que je veux des frontières entre projets imposées : ils lancent les tâches dans l’ordre des dépendances et mettent leurs sorties en cache en local et à distance, donc la CI ne rebuilde que ce qui a changé. Changesets versionne les packages publiés.",
+    "keyPoints": [
+      "`apps/` pour ce qu’on déploie, `packages/` pour le code et les configs partagés",
+      "Les workspaces pnpm lient les packages avec `workspace:*`",
+      "Turborepo ou Nx : tâches dans l’ordre des dépendances et cache",
+      "Changesets pour les versions ; frontières imposées par l’outillage"
+    ],
+    "explanation": "La question vérifie une vraie pratique de l’outillage et du coût de la CI. Un senior explique comment le cache et les exécutions limitées au code touché gardent la CI rapide, et comment frontières et responsabilités tiennent quand le dépôt grossit.",
+    "example": "La boutique, le back-office, `@shop/ui` et `@shop/tokens` vivaient dans quatre dépôts, donc corriger les Tabs demandait quatre pull requests et une publication. Les regrouper dans un seul workspace pnpm avec Turborepo a ramené ça à une pull request, et avec le cache distant, les packages inchangés étaient restaurés au lieu d’être rebuildés, ce qui a fait passer la CI typique d’environ 14 à 5 minutes.",
+    "mistakes": [
+      "Builder et tester chaque package à chaque commit, ce qui rend la CI plus lente qu’avec des dépôts séparés.",
+      "Laisser les apps importer les internes les unes des autres au lieu de passer par des packages.",
+      "Oublier de déclarer les `outputs` d’une tâche, si bien que le cache n’a aucun fichier à restaurer."
+    ],
+    "followUps": [
+      {
+        "question": "Comment Nx ou Turborepo décident-ils de ce qu’il faut rebuilder ?",
+        "answer": "Les deux calculent un hash des entrées d’une tâche : les fichiers du package, ses dépendances, le lockfile, la config et les variables d’environnement. Si le hash correspond à une exécution précédente, les sorties et les logs sont restaurés depuis le cache local ou distant. Leurs modes affected comparent aussi la branche avec `main` et ne lancent que les tâches touchées par un changement."
+      },
+      {
+        "question": "Versions synchronisées ou indépendantes pour les packages internes ?",
+        "answer": "Les versions synchronisées font monter les packages ensemble : simple, adapté aux packages utilisés ensemble comme l’UI et les tokens. Les versions indépendantes ne font monter que ce qui a changé, avec des changelogs précis, mais il faut suivre les combinaisons compatibles. Changesets gère les deux (groupes `fixed`) ; les packages non publiés n’ont pas besoin de version : `workspace:*`."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Quand un package avec une dépendance `workspace:*` est publié avec pnpm, cette dépendance est remplacée par la vraie version.",
+        "why": "pnpm réécrit le protocole workspace à la publication, donc les consommateurs externes installent une version normale.",
+        "twin": {
+          "statement": "Quand un package avec une dépendance `workspace:*` est publié avec pnpm, la plage `workspace:*` est publiée telle quelle.",
+          "why": "pnpm réécrit le protocole workspace avec la vraie version à la publication."
+        }
+      },
+      {
+        "statement": "Turborepo restaure les fichiers d’une tâche depuis le cache même quand la tâche ne déclare aucun `outputs`.",
+        "why": "Seuls les fichiers listés dans `outputs` sont mis en cache ; sans eux, seuls les logs sont rejoués.",
+        "twin": {
+          "statement": "Turborepo ne restaure que les fichiers listés dans les `outputs` d’une tâche ; sans eux, seuls les logs sont rejoués.",
+          "why": "C’est la déclaration des `outputs` qui permet à un cache hit de restaurer les fichiers de la tâche."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un monorepo frontend regroupe apps et packages partagés dans un seul dépôt, donc un changement d’une librairie partagée et de ses consommateurs tient en une pull request. L’outillage garde les builds rapides et les versions en ordre.",
+      "points": [
+        "Un monorepo contient plusieurs packages dans un seul dépôt : `apps/` pour ce que tu déploies, `packages/` pour le code partagé comme le design system, les tokens, le client API et les configs.",
+        "Les workspaces pnpm listent les dossiers de packages dans `pnpm-workspace.yaml` ; une app dépend d’un package local avec `workspace:*`, remplacé par la vraie version à la publication.",
+        "Un task runner (Turborepo, Nx) lance les tâches dans l’ordre des dépendances, avec `dependsOn: [\"^build\"]` qui builde d’abord les dépendances, et met les sorties en cache selon un hash des entrées.",
+        "Le cache distant partage les sorties entre machines ; les exécutions affected limitent la CI à ce qu’un changement touche. Nx ajoute des frontières imposées entre projets grâce aux tags.",
+        "Changesets enregistre la montée de version et la ligne de changelog dans chaque pull request, puis versionne et publie les packages modifiés."
+      ],
+      "takeaways": [
+        {
+          "term": "`apps/` et `packages/`",
+          "detail": "Ce que tu déploies, et le code partagé : design system, tokens, client API, configs."
+        },
+        {
+          "term": "Workspaces pnpm",
+          "detail": "Dossiers listés dans `pnpm-workspace.yaml` ; `workspace:*` lie un package local, remplacé à la publication."
+        },
+        {
+          "term": "`dependsOn: [\"^build\"]`",
+          "detail": "Turborepo ou Nx builde d’abord les dépendances."
+        },
+        {
+          "term": "Cache",
+          "detail": "Sorties mises en cache selon un hash des entrées ; le cache distant les partage entre machines."
+        },
+        {
+          "term": "Exécutions affected",
+          "detail": "La CI ne lance que ce qu’un changement touche. Nx ajoute des frontières imposées par tags."
+        },
+        {
+          "term": "Changesets",
+          "detail": "Enregistre la montée de version et le changelog par PR, puis versionne et publie les packages modifiés."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Modifier un `Button` dans la librairie UI de la boutique demande trois pull requests : publier la librairie, la mettre à jour dans la boutique, puis dans le back-office. Et la CI rebuilde tout. Comment restructureriez-vous ?",
+        "bridge": "Un monorepo avec des workspaces pnpm lie les packages locaux, donc le changement tient en une pull request ; Turborepo ou Nx mettent les tâches en cache pour que la CI ne rebuilde que ce qui a changé."
+      },
+      {
+        "question": "Turborepo ou Nx : comment choisissez-vous, et qu’apportent-ils en plus des workspaces pnpm ?",
+        "bridge": "Le même sujet sous l’angle de l’outillage : les workspaces lient les packages, le task runner ordonne et met en cache les tâches, et Nx ajoute des frontières imposées entre projets."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux sont le job de CI des pull requests dans le monorepo pnpm et Turborepo de la boutique. Lequel garde la CI rapide quand le dépôt grossit ?",
+        "why": "Turborepo lance les tâches dans l’ordre des dépendances, restaure depuis son cache les résultats inchangés, et `--affected` limite l’exécution aux packages touchés par la branche. `pnpm -r` lint, teste et builde chaque package à chaque pull request, donc la CI devient plus lente qu’avec des dépôts séparés à mesure que les packages s’ajoutent."
+      }
+    ]
+  },
+  "fw-vue": {
+    "topic": "Vue : Options API et Composition API",
+    "question": "En Vue, quelle est la différence entre l’Options API et la Composition API ?",
+    "answer": "Ce sont deux façons d’écrire des composants Vue sur le même système de réactivité ; l’Options API est d’ailleurs implémentée au-dessus de la Composition API. Avec l’Options API, je déclare `data`, `methods`, `computed` et les hooks de cycle de vie comme options d’un objet et j’y accède via `this`. Avec la Composition API, en général dans `<script setup>`, j’appelle des fonctions importées comme `ref`, `computed` et `onMounted`, donc le code est regroupé par fonctionnalité et la logique réutilisable va dans des composables, proches des custom hooks React. Vue la recommande pour les applications complètes. Contrairement à un composant React, `setup` s’exécute une fois par instance, pas à chaque rendu.",
+    "keyPoints": [
+      "Même système de réactivité ; l’Options API repose sur la Composition API",
+      "Options : `data`, `methods`, hooks comme options d’objet, via `this`",
+      "Composition : `ref`, `computed` dans `<script setup>`, regroupés par fonctionnalité",
+      "Les composables réutilisent la logique ; `setup` s’exécute une fois, pas à chaque rendu"
+    ],
+    "explanation": "Pour un développeur React, les recruteurs vérifient que tu sais faire le parallèle : les composables sont les custom hooks de Vue, mais setup s’exécute une seule fois et la réactivité est suivie au lieu de réexécuter le composant. Une bonne réponse explique pourquoi les équipes sont passées à la Composition API : une logique regroupée par préoccupation et réutilisable sans mixins.",
+    "example": "Avant de choisir une stack pour le portail partenaires, l’équipe a réécrit le hook `useOrderStatus` de la boutique en composable Vue pour comparer. Le composable créait son `ref` et son polling une seule fois dans `setup` et n’avait besoin d’aucun tableau de dépendances, alors que le hook React se réexécutait à chaque rendu et reposait sur les dépendances de `useEffect`. Les relecteurs des deux côtés pouvaient lire le code de l’autre.",
+    "mistakes": [
+      "Dire que la Composition API a déprécié l’Options API : les deux sont supportées.",
+      "Traiter `setup` comme une fonction de rendu React qui s’exécute à chaque mise à jour.",
+      "Déstructurer un objet `reactive` et s’attendre à ce que les variables restent réactives."
+    ],
+    "followUps": [
+      {
+        "question": "`ref` ou `reactive` en Vue 3 ?",
+        "answer": "`ref` enveloppe n’importe quelle valeur, primitives comprises, dans un objet lu et écrit via `.value`, et les templates le déballent. `reactive` rend un objet lui-même réactif via un proxy, mais ne fonctionne qu’avec des objets, ne peut pas être remplacé en entier et perd sa réactivité à la déstructuration. Vue recommande `ref` comme API principale."
+      },
+      {
+        "question": "Comment fonctionne la réactivité de Vue sous le capot, avec les Proxies ?",
+        "answer": "`reactive` renvoie un Proxy : son trap `get` enregistre quel effet en cours lit quelle propriété (track), et son trap `set` relance ces effets (trigger). Les refs font la même chose avec un getter et un setter sur `.value`. Le rendu de chaque composant est un effet, donc un changement ne met à jour que les composants qui lisent la valeur."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "En Vue 3, l’Options API est implémentée au-dessus de la Composition API.",
+        "why": "La doc de Vue les décrit comme deux interfaces sur le même système, l’Options API reposant sur la Composition API.",
+        "twin": {
+          "statement": "En Vue 3, la Composition API est implémentée au-dessus de l’Options API.",
+          "why": "C’est l’inverse : l’Options API repose sur la Composition API, sur le même système de réactivité."
+        }
+      },
+      {
+        "statement": "`reactive()` peut contenir une valeur primitive comme un nombre.",
+        "why": "Il ne fonctionne qu’avec des objets, des tableaux et des collections comme `Map` ; utilise `ref` pour les primitives.",
+        "twin": {
+          "statement": "`reactive()` ne fonctionne qu’avec des objets, des tableaux et des collections comme `Map` ; les primitives demandent `ref`.",
+          "why": "Une primitive ne peut pas être enveloppée dans un proxy réactif, c’est à ça que sert `ref`."
+        }
+      },
+      {
+        "statement": "Déstructurer une propriété d’un objet `reactive` garde la nouvelle variable réactive.",
+        "why": "La variable contient une simple copie et ne passe plus par le proxy, donc les changements ne sont pas suivis.",
+        "twin": {
+          "statement": "Déstructurer une propriété d’un objet `reactive` donne une simple variable qui n’est plus suivie.",
+          "why": "La variable contient une copie et ne passe plus par le proxy, donc les changements ne sont pas suivis."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Vue propose deux styles sur un même système de réactivité : l’Options API avec des options d’objet et `this`, et la Composition API avec des fonctions importées. La seconde regroupe le code par fonctionnalité et est recommandée pour les applications.",
+      "points": [
+        "Vue propose deux styles sur un même système de réactivité. L’Options API déclare `data`, `methods`, `computed` et les hooks comme options d’un objet, accessibles via `this`.",
+        "La Composition API, en général dans `<script setup>`, utilise des fonctions importées : `ref`, `reactive`, `computed`, `watch`, `onMounted`. La logique est regroupée par fonctionnalité, pas par type d’option.",
+        "La logique réutilisable va dans des composables comme `useOrderStatus()`, l’équivalent Vue des custom hooks React. Contrairement à un composant React, `setup` s’exécute une fois par instance de composant.",
+        "`ref` contient n’importe quelle valeur derrière `.value` ; `reactive` rend un objet réactif via un Proxy mais ne peut pas contenir de primitives et casse à la déstructuration. Vue recommande `ref`.",
+        "Vue suit les valeurs réactives que lit le rendu de chaque composant et ne refait le rendu que des composants qui lisent une valeur modifiée : `computed` n’a besoin d’aucun tableau de dépendances."
+      ],
+      "takeaways": [
+        {
+          "term": "Options API",
+          "detail": "`data`, `methods`, `computed` et hooks comme options d’un objet, accessibles via `this`."
+        },
+        {
+          "term": "Composition API",
+          "detail": "Dans `<script setup>` : `ref`, `reactive`, `computed`, `watch`, `onMounted`, regroupés par fonctionnalité."
+        },
+        {
+          "term": "Composables",
+          "detail": "Logique réutilisable comme `useOrderStatus()`, l’équivalent Vue des custom hooks React."
+        },
+        {
+          "term": "`setup`",
+          "detail": "S’exécute une fois par instance de composant, contrairement à un composant React à chaque rendu."
+        },
+        {
+          "term": "`ref` vs `reactive`",
+          "detail": "`ref` contient n’importe quelle valeur derrière `.value` ; `reactive` refuse les primitives et casse à la déstructuration."
+        },
+        {
+          "term": "Suivi des dépendances",
+          "detail": "Vue ne refait le rendu que des composants qui lisent une valeur modifiée ; `computed` n’a pas de tableau de dépendances."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le widget de suivi de livraison intégré par la boutique est un composant Vue dont les options `data`, `methods` et `computed` s’étalent sur 600 lignes, donc le code d’une fonctionnalité est éparpillé à quatre endroits. Que suggéreriez-vous ?",
+        "bridge": "L’Options API regroupe le code par type d’option ; la Composition API dans `<script setup>` le regroupe par fonctionnalité et sort la logique réutilisable dans des composables."
+      },
+      {
+        "question": "En tant que développeur React, comment expliqueriez-vous `setup` et les composables de Vue en les comparant aux composants et aux custom hooks ?",
+        "bridge": "Les composables sont proches des custom hooks, mais `setup` s’exécute une fois par instance de composant au lieu de s’exécuter à chaque rendu."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux indiquent si une commande est payée pendant qu’un poller met à jour son statut. Lequel se met à jour quand le statut passe à `paid` ?",
+        "why": "Lire `order.status` passe par le proxy, donc le computed le suit et se recalcule quand le poller écrit. La déstructuration copie la chaîne une seule fois : `status` est une simple variable, le computed ne voit jamais le changement, et `isPaid` reste à false après le paiement de la commande."
+      }
+    ]
+  },
+  "fw-angular-di": {
+    "topic": "Injection de dépendances Angular",
+    "question": "En Angular, à quoi sert l’injection de dépendances, et comment fonctionne-t-elle ?",
+    "answer": "L’injection de dépendances, c’est quand une classe reçoit ce dont elle dépend au lieu de le créer. En Angular, un service comme `OrdersService` est enregistré avec un provider, et un composant le demande avec `inject(OrdersService)` ; l’injecteur crée l’instance et la lui fournit. Ça donne des singletons partagés pour l’accès à l’API et le state, un couplage faible et des tests faciles, puisqu’un test peut fournir un faux. Les injecteurs forment une hiérarchie, l’injecteur racine pour les services de toute l’app et les injecteurs d’élément pour les composants, donc l’endroit où je fournis un service décide de sa durée de vie et de qui le partage. Pour un développeur React, c’est proche du Context pour les services, intégré au framework.",
+    "keyPoints": [
+      "Une classe reçoit ses dépendances au lieu de les créer",
+      "Les providers enregistrent les services ; `inject()` interroge l’injecteur",
+      "Hiérarchie : singleton racine ou une instance par composant",
+      "Facile de changer d’implémentation et de la simuler en test"
+    ],
+    "explanation": "Les recruteurs vérifient que tu sais que la DI est centrale dans Angular et que sa hiérarchie décide des durées de vie. Pour un développeur React, la rapprocher du Context plus un conteneur montre de la compréhension plutôt que du par-cœur.",
+    "example": "Le portail partenaires, construit en Angular par l’agence, utilisait un `OrdersService` racine pour les appels API et un service `OrderEditState` fourni sur le composant de détail de commande, donc chaque commande ouverte avait son propre état d’édition, jeté à la fermeture du panneau. Les tests remplaçaient `OrdersService` par un faux via `useValue` et n’avaient besoin d’aucun mock HTTP.",
+    "mistakes": [
+      "Créer des services avec `new` dans les composants, ce qui contourne la DI et les rend difficiles à simuler.",
+      "Lister un service dans les `providers` d’un composant tout en attendant un singleton unique pour toute l’app.",
+      "Essayer de remplacer un provider de niveau composant via `TestBed.configureTestingModule`, qui ne définit que les providers de niveau module."
+    ],
+    "followUps": [
+      {
+        "question": "Fournir un service à la racine ou au niveau d’un composant : qu’est-ce qui change ?",
+        "answer": "À la racine, avec `@Injectable({ providedIn: 'root' })`, il y a une seule instance pour toute l’app, et le service est exclu du bundle si rien ne l’utilise. Dans les `providers` d’un composant, chaque instance du composant reçoit sa propre instance, visible par ses enfants et détruite avec lui : idéal pour un state propre à un écran."
+      },
+      {
+        "question": "Comment testeriez-vous un composant qui dépend d’un service injecté ?",
+        "answer": "Avec `TestBed`, je configure le module de test avec `{ provide: OrdersService, useValue: fakeOrders }`, je crée le composant et je vérifie ce qu’il affiche et les appels au faux. Si le composant liste le service dans ses propres `providers`, je le remplace avec `TestBed.overrideComponent` et `set: { providers: [...] }`."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un service listé dans le tableau `providers` d’un composant a une instance par instance de ce composant.",
+        "why": "Chaque instance du composant a son propre injecteur d’élément, et l’instance du service est détruite avec le composant.",
+        "twin": {
+          "statement": "Un service listé dans le tableau `providers` d’un composant est partagé par toutes les instances de ce composant.",
+          "why": "Chaque instance du composant a son propre injecteur d’élément, donc chacune reçoit sa propre instance du service."
+        }
+      },
+      {
+        "statement": "Un service avec `providedIn: 'root'` a une nouvelle instance pour chaque composant qui l’injecte.",
+        "why": "L’injecteur racine crée une seule instance et donne la même à chaque consommateur.",
+        "twin": {
+          "statement": "Un service avec `providedIn: 'root'` est une instance unique partagée par tous les composants qui l’injectent.",
+          "why": "L’injecteur racine la crée une fois et donne la même instance à chaque consommateur."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’injection de dépendances, c’est quand une classe reçoit ce dont elle a besoin au lieu de le créer. Angular l’intègre au framework via les providers et les injecteurs, ce qui rend aussi les services faciles à simuler en test.",
+      "points": [
+        "Injection de dépendances (DI) : une classe déclare ce dont elle a besoin, et autre chose le crée et le lui fournit. En Angular, cette autre chose, c’est l’injecteur.",
+        "Un service est enregistré avec un provider. `@Injectable({ providedIn: 'root' })` crée une instance unique pour toute l’app, exclue du bundle si rien ne l’utilise.",
+        "Un composant demande le service avec `inject(OrdersService)` dans un champ. Les versions récentes d’Angular proposent aussi `@Service()`, un raccourci pour un service racine qui utilise `inject()`.",
+        "Les injecteurs forment un arbre : un service dans les `providers` d’un composant a une instance par instance du composant, visible par ses enfants et détruite avec lui.",
+        "En test, `TestBed` substitue des faux avec `{ provide: OrdersService, useValue: fake }`. Pour un développeur React, la DI, c’est comme le Context pour les services, intégré au framework."
+      ],
+      "takeaways": [
+        {
+          "term": "Injection de dépendances",
+          "detail": "Une classe déclare ce dont elle a besoin ; l’injecteur le crée et le lui fournit."
+        },
+        {
+          "term": "`providedIn: 'root'`",
+          "detail": "Avec `@Injectable` : une instance unique pour toute l’app, exclue du bundle si rien ne l’utilise."
+        },
+        {
+          "term": "`inject()`",
+          "detail": "Un composant demande un service dans un champ : `inject(OrdersService)`."
+        },
+        {
+          "term": "`providers` d’un composant",
+          "detail": "Une instance par instance du composant, visible par ses enfants et détruite avec lui."
+        },
+        {
+          "term": "`TestBed`",
+          "detail": "Substitue des faux : `{ provide: OrdersService, useValue: fake }`."
+        },
+        {
+          "term": "Comparaison avec React",
+          "detail": "Comme le Context pour les services, intégré au framework."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans une version Angular du back-office, chaque onglet de commande ouvert doit garder ses propres notes non enregistrées, mais les notes fuient d’un onglet à l’autre parce que `NotesService` utilise `providedIn: 'root'`. Pourquoi, et que changez-vous ?",
+        "bridge": "L’endroit où un service est fourni décide de sa durée de vie : la racine donne un singleton partagé, les `providers` d’un composant donnent une instance par composant."
+      },
+      {
+        "question": "Pourquoi utiliser l’injection de dépendances plutôt que créer `OrdersService` avec `new` dans le composant ?",
+        "bridge": "L’intérêt de la DI : couplage faible, instances partagées, et des tests qui fournissent un faux au lieu du vrai service."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux donnent le service des commandes au composant de détail de commande. Lequel un test peut-il remplacer par un faux via `TestBed` ?",
+        "why": "Avec `inject()`, c’est l’injecteur qui fournit l’instance : l’app reçoit le singleton racine, et le `{ provide: OrdersService, useValue: fake }` d’un test le remplace. `new` contourne la DI : chaque composant a son propre service, et les tests ne peuvent pas le remplacer, donc ils font de vrais appels HTTP ou ont besoin de mocks."
+      }
+    ]
+  },
+  "fw-signals": {
+    "topic": "Signals et réactivité fine",
+    "question": "Que sont les signals, comme dans Solid, Angular, Vue ou Preact, et en quoi diffèrent-ils du modèle de state de React ?",
+    "answer": "Un signal est un conteneur de valeur réactif : le lire dans un calcul ou un template abonne ce code, et l’écrire notifie exactement ces lecteurs. Les valeurs dérivées sont des signals computed, et les effets se réexécutent quand ce qu’ils lisent change. Les mises à jour sont fines : dans Solid, une fonction de composant s’exécute une fois, et un changement ne met à jour que le DOM qui lit le signal. React fonctionne à l’inverse : le state est un snapshot par rendu, `setState` réexécute le composant et ses enfants, et React compare le résultat. Les signals évitent le travail par défaut ; React garde un modèle mental plus simple et s’appuie sur la mémoïsation, désormais automatisée par le React Compiler.",
+    "keyPoints": [
+      "Un conteneur de valeur qui suit ses lecteurs et les notifie",
+      "Valeurs computed et effets réexécutés seulement sur leurs dépendances",
+      "Mises à jour fines sans réexécuter le composant",
+      "React : snapshots, re-render du sous-arbre, diff ; le compiler mémoïse"
+    ],
+    "explanation": "C’est une question de tendance : les recruteurs veulent que tu comprennes les deux modèles et que tu défendes le compromis calmement. Une bonne réponse oppose le suivi des dépendances à la lecture aux re-renders explicites, et dit où chaque modèle fait mal.",
+    "example": "Dans la boutique, un compteur de stock en direct faisait re-render toute la section produit à chaque mise à jour. Le correctif React a été un petit composant `StockBadge` qui lit la valeur depuis un store avec un sélecteur, pour que seul le badge fasse un re-render. Avec des signals, la même mise à jour n’aurait touché que le nœud texte du badge, sans composant supplémentaire : c’est l’exemple que l’équipe utilisait pour expliquer les signals aux nouveaux.",
+    "mistakes": [
+      "Présenter les signals comme « `useState` sous un autre nom » : ils suivent leurs lecteurs et évitent de réexécuter le composant.",
+      "Affirmer que React refait le rendu de toute l’app à chaque changement : il refait le rendu du composant qui a modifié le state et de ses descendants.",
+      "Ignorer les coûts des signals : un graphe de dépendances implicite, et des lectures hors d’un contexte suivi, par exemple après un `await`, qui ne réagissent pas."
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi React a-t-il exploré un compiler plutôt que d’adopter les signals ?",
+        "answer": "Le modèle de React, c’est qu’un composant est une simple fonction des props et du state, avec un snapshot immuable par rendu. Son coût, ce sont des re-renders en trop, et le React Compiler en supprime l’essentiel au build avec une mémoïsation automatique, donc les composants existants deviennent plus rapides sans nouvelle primitive ni nouvelle façon d’écrire le code."
+      },
+      {
+        "question": "Réactivité fine ou re-render au niveau du composant : quels sont les compromis ?",
+        "answer": "La réactivité fine met à jour exactement ce qui a changé, donc elle reste rapide avec des mises à jour fréquentes, mais le graphe de dépendances est implicite, et une déstructuration ou une lecture hors d’une portée suivie casse les mises à jour sans bruit. Le re-render de composant est plus simple à comprendre et à déboguer, mais gaspille du travail sans mémoïsation."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans Solid, une fonction de composant s’exécute une fois, et les mises à jour suivantes ne touchent que ce qui lit le signal modifié.",
+        "why": "La doc de Solid dit que les composants s’exécutent une fois ; ce sont les lectures réactives dans le JSX qui se mettent à jour.",
+        "twin": {
+          "statement": "Dans Solid, une fonction de composant se réexécute chaque fois qu’un signal qu’elle lit change.",
+          "why": "Les composants Solid s’exécutent une fois ; seules les lectures réactives dans le JSX se mettent à jour."
+        }
+      },
+      {
+        "statement": "Les computed signals d’Angular se recalculent immédiatement à chaque changement de dépendance, même si personne ne les lit.",
+        "why": "Ils sont lazy et mémoïsés : la dérivation s’exécute à la première lecture, puis seulement après un changement de dépendance.",
+        "twin": {
+          "statement": "Les computed signals d’Angular sont lazy : la dérivation s’exécute à la première lecture, puis seulement après un changement de dépendance.",
+          "why": "Ils sont mémoïsés, donc un computed que personne ne lit ne fait aucun travail."
+        }
+      },
+      {
+        "statement": "Quand un state React change, React réexécute le composant qui le possède et, par défaut, ses enfants.",
+        "why": "Les enfants refont leur rendu sauf s’ils sont mémoïsés, ce que `memo` et le React Compiler évitent.",
+        "twin": {
+          "statement": "Quand un state React change, React ne réexécute que le composant qui le possède, jamais ses enfants.",
+          "why": "Les enfants refont leur rendu par défaut sauf s’ils sont mémoïsés, ce que `memo` et le React Compiler évitent."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un signal est une valeur réactive qui sait qui la lit et ne notifie que ces lecteurs quand elle change. Des frameworks comme Solid, Angular, Vue et Preact utilisent les signals pour des mises à jour fines, à l’inverse du modèle de re-render de React.",
+      "points": [
+        "Un signal est un conteneur de valeur qui enregistre qui le lit. Le lire dans un template, une valeur computed ou un effet abonne ce code ; l’écrire notifie exactement ces lecteurs.",
+        "Les API diffèrent : Solid `const [count, setCount] = createSignal(0)` ; Angular `count()` et `count.set(1)` ; Preact utilise `.value`. La doc de Vue présente les refs comme le même type de primitive.",
+        "Les mises à jour sont fines : Solid exécute une fonction de composant une fois, puis ne met à jour que le DOM qui lit un signal modifié, sans réexécuter le composant.",
+        "React traite le state comme un snapshot par rendu : `setState` réexécute le composant et ses enfants, et React compare le résultat. La mémoïsation, automatique avec le React Compiler, saute les parties inchangées.",
+        "Compromis : les signals font moins de travail par défaut mais cachent un graphe de dépendances ; les re-renders de React sont plus simples à comprendre mais coûtent du travail."
+      ],
+      "takeaways": [
+        {
+          "term": "Signal",
+          "detail": "Le lire dans un template, une valeur computed ou un effet abonne ce code ; l’écrire notifie exactement ces lecteurs."
+        },
+        {
+          "term": "API",
+          "detail": "Solid `createSignal(0)` ; Angular `count()` et `count.set(1)` ; Preact `.value` ; refs Vue."
+        },
+        {
+          "term": "Mises à jour fines",
+          "detail": "Solid exécute un composant une fois, puis ne met à jour que le DOM qui lit un signal modifié."
+        },
+        {
+          "term": "Modèle React",
+          "detail": "Le state est un snapshot par rendu : `setState` réexécute le composant et ses enfants, puis React compare."
+        },
+        {
+          "term": "React Compiler",
+          "detail": "Automatise la mémoïsation, donc les parties inchangées sont sautées."
+        },
+        {
+          "term": "Compromis",
+          "detail": "Les signals font moins de travail mais cachent un graphe de dépendances ; les re-renders React sont plus simples à comprendre."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, chaque frappe dans le champ de recherche de commandes refait le rendu de tout le tableau de 500 lignes, alors que seule la requête a changé. Un collègue dit « avec des signals, ça n’arriverait pas ». Que veut-il dire ?",
+        "bridge": "React réexécute le composant qui possède le state et ses enfants ; les signals ne mettent à jour que le code qui lit la valeur modifiée."
+      },
+      {
+        "question": "Expliquez à un développeur React ce que signifie la « réactivité fine » des signals de Solid ou d’Angular.",
+        "bridge": "Les signals savent qui les lit et ne notifient que ces lecteurs, alors que React réexécute les composants à chaque changement de state et compare le résultat."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux affichent le stock restant dans un composant Solid. Lequel met à jour le texte après un clic ?",
+        "why": "Une fonction de composant Solid s’exécute une fois ; seules les lectures réactives dans le JSX se mettent à jour. `{stock()}` dans le JSX abonne ce texte au signal. `left` est lu une seule fois dans le corps, hors de toute portée suivie, donc c’est un simple nombre : le signal change mais le bouton affiche toujours « 12 left »."
+      }
+    ]
+  },
+  "fw-islands": {
+    "topic": "Architecture en îles (islands)",
+    "question": "Qu’est-ce que l’architecture en îles, comme dans Astro, et pourquoi est-elle devenue populaire ?",
+    "answer": "L’architecture en îles rend une page en HTML statique côté serveur et n’hydrate que les composants interactifs, les îles, chacun de son côté. Dans Astro, les composants n’envoient aucun JavaScript par défaut ; j’active l’hydratation composant par composant avec une directive, comme `client:load` pour un bouton d’ajout au panier ou `client:visible` pour un widget d’avis qui s’hydrate quand il entre dans le viewport. Le reste, comme la description et le footer, reste du simple HTML. C’est devenu populaire pour les sites riches en contenu comme les pages marketing, les blogs et la documentation : ils chargent vite avec peu de travail sur le main thread, tout en gardant des composants React, Vue ou Svelte.",
+    "keyPoints": [
+      "Une page HTML statique avec des îles interactives isolées",
+      "Pas de JavaScript par défaut ; activation composant par composant",
+      "`client:load`, `client:idle`, `client:visible` contrôlent l’hydratation",
+      "Adaptée aux sites de contenu ; n’importe quel framework UI par île"
+    ],
+    "explanation": "Les recruteurs s’en servent pour voir si tu comprends le coût de l’hydratation et l’hydratation partielle. Un senior la compare aux Server Components et connaît ses limites : des îles isolées et le state partagé entre elles.",
+    "example": "Les guides d’achat de la boutique étaient construits dans le site Next.js et chargeaient environ 250 Ko de JavaScript pour du texte essentiellement statique. L’équipe les a refaits en Astro, en réutilisant le formulaire de newsletter et l’aperçu produit React comme îles avec `client:visible`. Les guides sont descendus à environ 30 Ko de JavaScript, et leurs problèmes d’INP sur les mobiles d’entrée de gamme ont disparu.",
+    "mistakes": [
+      "S’attendre à ce qu’un context React couvre plusieurs îles : chaque île est une racine séparée.",
+      "Faire de toute la page une seule grande île, ce qui ramène l’hydratation complète.",
+      "Choisir les îles pour des écrans de type application comme le back-office, où l’essentiel de la page est interactif."
+    ],
+    "followUps": [
+      {
+        "question": "Comment les îles se comparent-elles aux React Server Components pour réduire le JavaScript côté client ?",
+        "answer": "Les deux gardent les parties non interactives sur le serveur et n’envoient aucun code pour elles. Les îles sont des racines hydratées séparées sur une page statique. Avec les Server Components, un seul arbre React mêle parties serveur et client, et ses parties client partagent context et routage dans l’app. Les îles sont plus simples ; les Server Components conviennent aux sites type application."
+      },
+      {
+        "question": "Quel compromis les îles font-elles sur le state partagé entre îles ?",
+        "answer": "Les îles sont des racines isolées, donc un context React ou le state d’un parent ne peut pas les couvrir. Le state partagé doit vivre hors des composants : un petit store indépendant du framework comme Nano Stores, que recommande la doc d’Astro, des événements DOM, l’URL ou le storage. Un badge de panier mis à jour depuis une autre île demande un câblage délibéré."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans Astro, un composant sans directive `client:*` est rendu en HTML et n’envoie aucun JavaScript.",
+        "why": "Astro rend les composants en HTML statique par défaut ; une directive `client:*` active l’hydratation d’un composant.",
+        "twin": {
+          "statement": "Dans Astro, chaque composant envoie son JavaScript au navigateur sauf s’il s’en désactive explicitement.",
+          "why": "Les composants sont rendus en HTML statique par défaut ; une directive `client:*` active l’hydratation de l’un d’eux."
+        }
+      },
+      {
+        "statement": "Un provider de context React dans une île Astro rend sa valeur disponible aux autres îles de la page.",
+        "why": "Chaque île s’hydrate isolément comme sa propre racine ; partage le state avec un store comme Nano Stores.",
+        "twin": {
+          "statement": "Un provider de context React dans une île Astro ne partage pas sa valeur avec les autres îles.",
+          "why": "Chaque île s’hydrate isolément comme sa propre racine ; partage le state avec un store comme Nano Stores."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’architecture en îles rend une page en HTML statique et n’hydrate que ses composants interactifs, chacun de son côté. Elle garde rapides les sites riches en contenu tout en utilisant des frameworks à composants.",
+      "points": [
+        "L’architecture en îles rend la page en HTML statique et n’hydrate que les composants interactifs, les îles, chacun indépendamment des autres.",
+        "Dans Astro, les composants n’envoient aucun JavaScript par défaut. Une directive `client:*` l’active : `client:load` hydrate tout de suite, `client:idle` quand le navigateur est inactif, `client:visible` à l’entrée dans le viewport.",
+        "Chaque île peut utiliser un framework différent (React, Vue, Svelte, Solid). Les server islands (`server:defer`) rendent les parties dynamiques lentes sur le serveur, séparément de la page.",
+        "Les îles sont isolées : un context React ne couvre pas deux îles. Partage le state via un petit store comme Nano Stores, des événements ou l’URL.",
+        "Elles conviennent aux sites de contenu (marketing, blogs, docs) : chargements rapides, peu de travail sur le main thread. Les écrans de type application, surtout interactifs, y gagnent peu."
+      ],
+      "takeaways": [
+        {
+          "term": "Îles",
+          "detail": "Des composants interactifs hydratés indépendamment dans une page HTML par ailleurs statique."
+        },
+        {
+          "term": "Pas de JS par défaut",
+          "detail": "Les composants Astro n’envoient aucun JavaScript sauf si une directive `client:*` l’active."
+        },
+        {
+          "term": "`client:load` / `idle` / `visible`",
+          "detail": "Hydrater tout de suite ; quand le navigateur est inactif ; à l’entrée dans le viewport."
+        },
+        {
+          "term": "Server islands",
+          "detail": "`server:defer` rend les parties dynamiques lentes sur le serveur, séparément de la page."
+        },
+        {
+          "term": "Isolation",
+          "detail": "Un context React ne couvre pas plusieurs îles : partager le state avec Nano Stores, des événements ou l’URL."
+        },
+        {
+          "term": "Cas idéal",
+          "detail": "Sites de contenu (marketing, blogs, docs). Les écrans d’application surtout interactifs y gagnent peu."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le blog marketing de la boutique est une SPA React qui envoie 250 Ko de JavaScript pour afficher des articles dont la seule partie interactive est un formulaire de newsletter. Vers quelle architecture le feriez-vous migrer, et pourquoi ?",
+        "bridge": "Les îles : du HTML statique par défaut, avec seulement le composant interactif hydraté, comme Astro le fait avec les directives `client:*`."
+      },
+      {
+        "question": "Dans Astro, comment choisissez-vous entre `client:load`, `client:visible` et aucune directive pour un composant ?",
+        "bridge": "L’hydratation par île : sans directive, aucun JavaScript n’est envoyé, et chaque directive choisit quand ce composant précis s’hydrate."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux placent le bouton « Ajouter au panier » sur une page produit Astro. Lequel le fait fonctionner dans le navigateur ?",
+        "why": "Une directive `client:*` transforme le composant en île qui envoie son JavaScript et s’hydrate ; `client:load` le fait tout de suite. Sans directive, Astro rend le composant React en HTML statique et n’envoie aucun JavaScript, donc le bouton s’affiche mais cliquer dessus ne fait rien."
+      }
+    ]
+  }
+}

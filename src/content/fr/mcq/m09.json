@@ -1,0 +1,302 @@
+{
+  "m09.q1": {
+    "q": "Le checkout décrémente le stock du produit 7, puis l’<code>INSERT INTO orders</code> échoue parce que la base redémarre. Qu’est-ce qui est stocké ensuite ?",
+    "options": [
+      "La décrémentation du stock sans la commande",
+      "Ni la décrémentation ni la commande",
+      "La commande sans la décrémentation",
+      "La décrémentation, et la commande une fois la base revenue"
+    ],
+    "explain": "Atomicité : rien d’une transaction non validée ne survit, donc la décrémentation est annulée avec elle (mesuré sur PostgreSQL 18.6 : quand la seconde instruction a échoué après la première écriture, la première écriture a été annulée). La durabilité ne s’applique qu’au travail dont le <code>COMMIT</code> a répondu, donc il n’y a rien à « terminer » après le redémarrage."
+  },
+  "m09.q2": {
+    "q": "Le produit 7 a 5 unités. Deux checkouts exécutent ce code en même temps, entrelacés comme indiqué. Quel est le stock final ?",
+    "options": [
+      "0",
+      "3",
+      "2",
+      "La seconde écriture échoue avec une erreur de sérialisation"
+    ],
+    "explain": "Alice écrit 3, puis Bob écrit 5 − 3 = 2 à partir de sa lecture périmée, donc la décrémentation d’Alice est écrasée : une mise à jour perdue, sans aucune erreur au niveau Read Committed par défaut (mesuré sur PostgreSQL 18.6). 0 est le bon résultat métier, que seuls une instruction atomique, un verrou ou une vérification de version donneraient."
+  },
+  "m09.q3": {
+    "q": "Quel est le niveau d’isolation par défaut de PostgreSQL, et quand prend-il son snapshot ?",
+    "options": [
+      "Read Committed : un nouveau snapshot au début de chaque instruction",
+      "Repeatable Read : un seul snapshot à la première instruction de la transaction",
+      "Serializable : un seul snapshot au <code>BEGIN</code>",
+      "Read Committed : un seul snapshot au <code>BEGIN</code>"
+    ],
+    "explain": "Mesuré : <code>SHOW transaction_isolation</code> renvoie <code>read committed</code>, et la documentation dit que chaque instruction voit les données validées avant son début. Le comportement « un snapshot par transaction » est celui de Repeatable Read et de Serializable, et il commence à la première instruction, pas au <code>BEGIN</code>."
+  },
+  "m09.q4": {
+    "q": "Le client 42 possède 1 console ; la limite est de 2. Dans deux onglets, deux transactions comptent chacune les unités du client (1), voient de la place, et insèrent chacune une commande d'1 unité. En Repeatable Read, que se passe-t-il ?",
+    "options": [
+      "Le second insert échoue avec 40001",
+      "La seconde transaction attend la première",
+      "Le second comptage voit le premier insert et refuse",
+      "Les deux valident et le client finit avec 3 consoles"
+    ],
+    "explain": "Les deux valident : c’est un write skew. Chaque transaction a inséré une ligne différente, donc il n’y avait aucun conflit sur une même ligne que Repeatable Read puisse détecter (mesuré sur PostgreSQL 18.6 avec ce schéma). En Serializable, le second insert a échoué avec 40001."
+  },
+  "m09.q5": {
+    "q": "La transaction 753 a passé le produit 7 de 1 unité à 0 sans valider. Une autre session exécute <code>SELECT stock FROM products WHERE id = 7</code>. Que se passe-t-il ?",
+    "options": [
+      "Elle attend que 753 valide ou annule",
+      "Elle renvoie 1 immédiatement",
+      "Elle renvoie 0 immédiatement",
+      "Elle échoue avec 55P03"
+    ],
+    "explain": "Mesuré : l’ancienne version est revenue tout de suite, avec <code>xmax = 753</code> qui indique qui est en train de la remplacer. Avec MVCC, les lecteurs n’attendent jamais les écrivains et ne voient jamais de données non validées ; seules les lectures verrouillantes comme <code>FOR UPDATE</code> attendent."
+  },
+  "m09.q6": {
+    "q": "Un script d’export CSV lance <code>BEGIN</code>, puis reste bloqué sur un upload lent, et sa connexion reste inactive dans la transaction ouverte. Avec les réglages par défaut de PostgreSQL, qu’est-ce qui est vrai ?",
+    "options": [
+      "PostgreSQL l’annule une fois <code>deadlock_timeout</code> (1 s par défaut) écoulé",
+      "Elle tient des verrous sur les lignes qu’elle a touchées, mais les autres tables ne sont pas affectées",
+      "Elle garde ses verrous et bloque le nettoyage de VACUUM dans toutes les tables",
+      "L’autovacuum termine la session lors de son prochain passage sur cette table"
+    ],
+    "explain": "Mesuré : <code>idle_in_transaction_session_timeout</code> et <code>transaction_timeout</code> valent tous deux 0 (désactivés), et avec une transaction ouverte, VACUUM a signalé 100 versions mortes « not yet removable » dans une table sans rapport. <code>deadlock_timeout</code> ne régit que la détection de deadlock pour les sessions qui attendent un verrou."
+  },
+  "m09.q7": {
+    "q": "<code>UPDATE products SET stock = stock - $2 WHERE id = $1 AND stock &gt;= $2 RETURNING stock</code> ne renvoie aucune ligne. Qu’est-ce que ça signifie ?",
+    "options": [
+      "Le stock ne couvre pas la quantité, ou le produit n’existe pas",
+      "Une autre transaction tient la ligne, donc l’instruction a abandonné",
+      "Une contrainte <code>CHECK</code> a rejeté le nouveau stock",
+      "La mise à jour a réussi mais <code>RETURNING</code> a besoin d’une transaction"
+    ],
+    "explain": "Mesuré avec cette forme d’instruction : les décrémentations ont réussi tant que la valeur suffisait, puis la même décrémentation a touché 0 ligne. Une ligne verrouillée fait attendre l’instruction, elle ne la fait pas revenir vide, et une violation de <code>CHECK</code> est une erreur (23514), pas un résultat vide."
+  },
+  "m09.q8": {
+    "q": "Un autre checkout tient la ligne du client 42 verrouillée. Tu exécutes <code>SELECT id FROM customers WHERE id = 42 FOR UPDATE NOWAIT</code>. Résultat ?",
+    "options": [
+      "Elle attend que l’autre transaction valide ou annule, puis verrouille",
+      "Elle renvoie un résultat vide, parce que les lignes verrouillées sont écartées",
+      "Elle renvoie la ligne telle que validée en dernier, sans prendre le verrou",
+      "Erreur 55P03 : could not obtain lock on row in relation \"customers\""
+    ],
+    "explain": "Mesuré. <code>NOWAIT</code> transforme une attente en erreur immédiate que tu peux traduire en « occupé, réessaie ». Ne renvoyer aucune ligne, c’est ce que ferait <code>SKIP LOCKED</code>."
+  },
+  "m09.q9": {
+    "q": "La transaction du relais A a réclamé la ligne 1 de l’outbox et est toujours ouverte. Le relais B exécute la réclamation avec <code>FOR UPDATE SKIP LOCKED</code> dans sa sous-requête. Qu’obtient B ?",
+    "options": [
+      "La ligne 1, après le commit de A",
+      "Une erreur, parce que la ligne 1 est verrouillée",
+      "La ligne 2, sans attendre",
+      "Aucune ligne tant que A n’a pas fini"
+    ],
+    "explain": "Mesuré : B a réclamé la ligne 2 tout de suite, alors qu’un simple <code>SELECT</code> de la première ligne en attente renvoyait toujours la ligne 1. C’est le pattern de file : chaque worker prend la plus ancienne ligne que personne ne tient, et personne n’attend."
+  },
+  "m09.q10": {
+    "q": "L’<code>UPDATE orders … WHERE id = $1 AND version = $2</code> versionné touche 0 ligne pour un <code>PATCH /orders/1042</code> avec <code>If-Match: \"1\"</code>. Que doit faire l’API ?",
+    "options": [
+      "Rejouer automatiquement la mise à jour avec la version actuelle lue en base",
+      "Répondre 412 Precondition Failed pour que le client recharge et décide à nouveau",
+      "Répondre 404 Not Found, puisqu’aucune ligne ne correspondait à l’id et à la version",
+      "Attendre une seconde, puis réessayer une fois avec la version 1 avant d’abandonner"
+    ],
+    "explain": "La commande a changé depuis la lecture de la version 1 (mesuré : la sauvegarde périmée a touché 0 ligne). Réessayer avec la version actuelle écraserait la modification du client sans que personne ne la voie, ce qui recrée la mise à jour perdue."
+  },
+  "m09.q11": {
+    "q": "Quelles erreurs un helper générique « rejouer la transaction » doit-il rejouer automatiquement ?",
+    "options": [
+      "40001 (serialization failure) et 40P01 (deadlock)",
+      "Tous les SQLSTATE qui commencent par 40",
+      "Toutes les erreurs, jusqu’à cinq tentatives",
+      "23505 (unique violation) et 55P03 (lock not available)"
+    ],
+    "explain": "La documentation PostgreSQL recommande de rejouer 40001 sans condition et juge conseillé de rejouer 40P01. La classe 40 contient aussi 40003 (statement completion unknown), où réexécuter peut appliquer le changement deux fois, et 23505 peut être une erreur permanente qui ne fera qu’échouer à nouveau."
+  },
+  "m09.q12": {
+    "q": "À 02:00, <code>SELECT pg_try_advisory_xact_lock(917001)</code> renvoie <code>false</code> sur le pod B. Qu’est-ce que ça signifie ?",
+    "options": [
+      "La clé est hors de la plage autorisée et doit tenir sur 32 bits",
+      "Le pod B tient encore le verrou de l’exécution d’hier et doit d’abord le libérer",
+      "Le verrou sera accordé au pod B dès que l’instruction en cours se termine",
+      "Une autre session tient le verrou, donc le pod B doit sauter cette exécution"
+    ],
+    "explain": "Mesuré : pendant qu’une transaction tenait la clé, l’autre session a reçu <code>false</code> immédiatement. Une session qui demande un verrou qu’elle tient déjà reçoit <code>true</code> (les advisory locks sont réentrants), et la variante au niveau transaction est libérée au commit, donc le verrou d’hier ne peut pas traîner."
+  },
+  "m09.q13": {
+    "q": "Une code review montre ce checkout. Quel est le bug ?",
+    "options": [
+      "Les deux instructions doivent être fusionnées en une seule pour être atomiques",
+      "Il faut <code>SERIALIZABLE</code>, sinon les deux instructions ne sont pas atomiques",
+      "Chaque <code>pool.query</code> peut s’exécuter sur une connexion différente",
+      "<code>COMMIT</code> doit être envoyé avant la seconde instruction, pas après"
+    ],
+    "explain": "node-postgres le documente : « Do not use transactions with the pool.query method », parce que chaque appel peut prendre un client différent. Prends un client avec <code>pool.connect()</code>, exécute toutes les instructions dessus, et libère-le dans <code>finally</code>. Les niveaux d’isolation ne changent rien à l’atomicité."
+  },
+  "m09.q14": {
+    "q": "Dans la transaction du webhook, le premier insert échoue avec 23505 et le code l’attrape et continue. Que fait la deuxième requête ?",
+    "options": [
+      "Elle échoue avec 25P02 : la transaction est avortée",
+      "Elle met à jour la commande normalement, puisque l’erreur a été attrapée",
+      "Elle met à jour la commande telle qu’elle était au début de la transaction",
+      "Elle échoue à nouveau avec 23505, parce que l’erreur est rejouée"
+    ],
+    "explain": "Mesuré : après n’importe quelle erreur, PostgreSQL rejette toutes les instructions jusqu’au <code>ROLLBACK</code>. Utilise <code>ON CONFLICT DO NOTHING</code> pour faire du doublon un résultat normal, ou un savepoint (<code>ROLLBACK TO SAVEPOINT</code> a rendu la transaction de nouveau utilisable dans le même test)."
+  },
+  "m09.q15": {
+    "q": "Une instruction échoue dans une transaction, le code avale l’erreur puis envoie <code>COMMIT</code>. Que se passe-t-il ?",
+    "options": [
+      "<code>COMMIT</code> échoue avec 25P02, donc l’appelant voit l’erreur",
+      "<code>COMMIT</code> répond sans erreur, et rien n’est enregistré",
+      "<code>COMMIT</code> enregistre les instructions qui ont réussi avant l’erreur",
+      "<code>COMMIT</code> reste bloqué jusqu’à ce que le client envoie un <code>ROLLBACK</code> explicite"
+    ],
+    "explain": "Mesuré sur PostgreSQL 18.6 : aucune erreur, command tag <code>ROLLBACK</code>, et la mise à jour précédente n’a pas été enregistrée. C’est pourquoi un helper de transaction doit relancer l’erreur, et pourquoi avaler des erreurs dans une transaction mène à des pertes de données silencieuses."
+  },
+  "m09.q16": {
+    "q": "La limite par client laisse passer deux checkouts concurrents du client 42. Tu dois rester en Read Committed. Quel correctif ferme la race condition ?",
+    "options": [
+      "Envelopper le comptage et l’insert ensemble dans un seul bloc <code>BEGIN</code>/<code>COMMIT</code>",
+      "Ajouter <code>FOR UPDATE</code> au <code>SELECT sum(quantity)</code> pour verrouiller les commandes",
+      "Exécuter seulement le comptage en Repeatable Read pour qu’il lise un snapshot stable",
+      "Verrouiller la ligne du client avec <code>SELECT … FOR UPDATE</code> avant de compter"
+    ],
+    "explain": "Verrouiller la ligne du client fait passer chaque checkout de ce client à tour de rôle, donc le comptage ne peut pas devenir périmé (mesuré : un second verrouilleur a reçu 55P03 avec NOWAIT). <code>FOR UPDATE</code> sur un agrégat est rejeté avec 0A000, et une transaction seule ou Repeatable Read laissent encore passer le write skew (mesuré)."
+  },
+  "m09.q17": {
+    "q": "Que fait PostgreSQL 18 de cette requête ?",
+    "options": [
+      "Elle échoue avec 0A000 : FOR UPDATE is not allowed with aggregate functions",
+      "Elle verrouille toutes les lignes de commande du client 42",
+      "Elle verrouille toute la table orders",
+      "Elle verrouille les lignes de commande correspondantes et bloque aussi les futurs inserts pour le client 42"
+    ],
+    "explain": "Mesuré. La documentation dit que les clauses de verrouillage ne peuvent pas s’utiliser là où les lignes renvoyées ne peuvent pas être identifiées à des lignes de table, comme avec une agrégation. Même si ça marchait, ça ne pourrait pas verrouiller des commandes qui n’existent pas encore ; c’est pourquoi on verrouille la ligne parente du client."
+  },
+  "m09.q18": {
+    "q": "En Repeatable Read, la transaction de Bob a lu le produit 7, puis le checkout d’Alice a modifié le produit 7 et validé. Bob exécute maintenant <code>UPDATE products SET stock = stock - 1 WHERE id = 7</code>. Que se passe-t-il d’après la documentation ?",
+    "options": [
+      "Bob réapplique sa mise à jour sur la nouvelle version validée, comme le fait Read Committed",
+      "Bob attend Alice indéfiniment, parce que son snapshot est antérieur à son commit",
+      "Bob échoue avec 40001 : could not serialize access due to concurrent update",
+      "Bob met à jour en silence l’ancienne version qu’il a vue, écrasant la modification validée d’Alice"
+    ],
+    "explain": "La documentation : une transaction Repeatable Read ne peut pas modifier ni verrouiller des lignes changées par d’autres transactions après son début, et échoue avec ce message 40001 ; elle doit être rejouée depuis le début. Réappliquer sur la nouvelle version, c’est le comportement de Read Committed."
+  },
+  "m09.q19": {
+    "q": "Le produit 7 a 1 unité. Deux checkouts en Read Committed exécutent l’instruction ci-dessous en même temps avec <code>$2 = 1</code>. Quel est le résultat ?",
+    "options": [
+      "Les deux réussissent, puis la contrainte CHECK fait échouer le second avec 23514",
+      "L’un réussit ; l’autre réévalue son WHERE sur 0 unité et met à jour 0 ligne",
+      "Le second échoue avec 40001 parce que la ligne a changé sous lui",
+      "Les deux réussissent et le stock finit à 0 : une vente est perdue"
+    ],
+    "explain": "La documentation : en Read Committed, le second updater attend que le premier valide, puis réévalue sa clause <code>WHERE</code> sur la ligne mise à jour. 0 &gt;= 1 est faux, donc il ne touche rien et la route refuse la vente. 40001, c’est ce que Repeatable Read lèverait à la place."
+  },
+  "m09.q20": {
+    "q": "Tes logs montrent des erreurs 40P01 occasionnelles sur les checkouts de lots : certains paniers réservent le produit 7 puis le 9, d’autres le 9 puis le 7. Quel correctif livrerais-tu en premier ?",
+    "options": [
+      "Monter <code>deadlock_timeout</code> à 10 s pour que le cycle ait le temps de se résoudre",
+      "Passer les checkouts en Serializable pour que PostgreSQL ordonne les transactions",
+      "Verrouiller chaque produit avec <code>FOR UPDATE NOWAIT</code> et répondre 409 quand c’est occupé",
+      "Verrouiller d’abord tous les produits du panier, par id croissant, puis réserver"
+    ],
+    "explain": "Un ordre de verrouillage cohérent supprime le cycle, ce que la documentation appelle la meilleure défense ; garde le retry sur 40P01 comme filet de sécurité. Un <code>deadlock_timeout</code> plus grand ne fait que retarder la détection, et Serializable n’empêche pas les attentes sur les verrous de ligne."
+  },
+  "m09.q21": {
+    "q": "Ton API utilise une concurrence optimiste par version sur les commandes. Un client envoie un <code>PATCH</code> sans <code>If-Match</code>. Avec une politique stricte, quelle est la bonne réponse ?",
+    "options": [
+      "428 Precondition Required",
+      "412 Precondition Failed",
+      "409 Conflict",
+      "200, en appliquant la modification à la version actuelle"
+    ],
+    "explain": "428 dit « cette requête doit être conditionnelle », alors que 412 signifie qu’une condition a été envoyée et a échoué. Appliquer la modification sans vérifier la version autorise en silence la mise à jour perdue que la colonne version sert à empêcher."
+  },
+  "m09.q22": {
+    "q": "Dans une même transaction, un relais exécute ceci deux fois, sans modifier la ligne entre-temps. Que renvoie le second appel ?",
+    "options": [
+      "La ligne 2, parce que la ligne 1 est maintenant verrouillée par cette transaction",
+      "Aucune ligne, parce que SKIP LOCKED ne renvoie jamais deux fois la même ligne",
+      "Encore la ligne 1 : une transaction ne saute pas ses propres verrous",
+      "Erreur 55P03, parce que la ligne est déjà verrouillée"
+    ],
+    "explain": "Mesuré : la ligne 1 les deux fois. <code>SKIP LOCKED</code> ne saute que les lignes verrouillées par d’autres transactions. Pour prendre un lot, réclame <code>LIMIT n</code> lignes en une seule instruction, ou marque chaque ligne comme en cours d’envoi avant de choisir la suivante."
+  },
+  "m09.q23": {
+    "q": "Le premier handler du webhook de paiement ouvrait une transaction, enregistrait le paiement, envoyait l’e-mail de confirmation en HTTP (parfois 30 s), puis validait. Quel design livrerais-tu ?",
+    "options": [
+      "Garder la transaction unique et augmenter la taille du pool pour que les appels lents ne l’épuisent pas",
+      "Enregistrer le paiement et une ligne d’outbox, valider, et laisser un relais envoyer l’e-mail",
+      "Le garder, et régler <code>idle_in_transaction_session_timeout</code> à 60 s pour terminer les sessions bloquées",
+      "Exécuter tout le handler en Serializable avec des retries pour que les livraisons concurrentes ne puissent pas entrer en conflit"
+    ],
+    "explain": "L’appel HTTP doit sortir de la transaction : pendant l’attente, elle tient des verrous et une connexion, et bloque le nettoyage de VACUUM. Un pool plus grand ne fait que déplacer le goulot, et rejouer une transaction qui a déjà envoyé un e-mail l’envoie deux fois."
+  },
+  "m09.q24": {
+    "q": "La ligne du produit 7 est à <code>xmin = 752, ctid = (0,1)</code>. La transaction 753 modifie son stock et valide. Qu’affiche ensuite <code>SELECT xmin, ctid FROM products WHERE id = 7</code> ?",
+    "options": [
+      "<code>752, (0,1)</code> : la ligne a été écrasée sur place par 753",
+      "<code>753, (0,1)</code> : même position, mais le créateur est maintenant 753",
+      "<code>752, (0,2)</code> : déplacée à une nouvelle position, créateur inchangé",
+      "<code>753</code> et un nouveau ctid comme <code>(0,2)</code> : une nouvelle version de ligne"
+    ],
+    "explain": "Mesuré : <code>753 | (0,2)</code>. Un update écrit une nouvelle version créée par la transaction qui modifie, et l’ancienne reste comme version morte jusqu’à ce que VACUUM la retire. C’est pourquoi les tables très modifiées dépendent de l’autovacuum."
+  },
+  "m09.q25": {
+    "q": "Qu’est-ce qui ne va pas dans cet usage du helper de retry en Serializable ?",
+    "options": [
+      "Rien : le helper réexécute l’update, donc un conflit est toujours résolu",
+      "Il faudrait attraper 40001 dans le callback et réexécuter l’UPDATE à cet endroit",
+      "La lecture et la décision sont hors du callback, donc les retries utilisent des données périmées",
+      "Serializable rejette un <code>UPDATE</code> qui affecte une valeur constante"
+    ],
+    "explain": "La documentation dit que le retry doit réexécuter « all logic that decides which SQL to issue ». Ici, chaque tentative réutilise l’ancien stock, donc un retry peut encore survendre. Attraper 40001 dans le callback serait pire, puisque la transaction est déjà avortée (25P02)."
+  },
+  "m09.q26": {
+    "q": "L’API Orders se connecte via PgBouncer en mode transaction pooling et utilise <code>pg_advisory_lock</code> / <code>pg_advisory_unlock</code> pour que la réconciliation nocturne ne tourne qu’une fois. Quel est le risque, et le correctif ?",
+    "options": [
+      "Le lock et l’unlock peuvent tomber sur des connexions différentes ; utiliser <code>pg_try_advisory_xact_lock</code>",
+      "PgBouncer désactive complètement les advisory locks ; déplacer plutôt le verrou dans Redis",
+      "PgBouncer libère les verrous de session à chaque commit ; verrouiller plutôt une ligne factice avec FOR UPDATE",
+      "Aucun risque : les advisory locks appartiennent à la base, pas à une connexion"
+    ],
+    "explain": "Le tableau des fonctionnalités de PgBouncer indique que les advisory locks de session ne sont « Never » supportés en transaction pooling : ta transaction suivante peut tourner sur une autre connexion serveur, donc l’unlock rate sa cible ou le verrou fuit. La variante au niveau transaction vit et meurt avec une transaction, qu’un pooler en mode transaction garde sur une seule connexion."
+  },
+  "m09.q27": {
+    "q": "Le prestataire relivre le même événement, avec le même id d’événement. Que renvoie cette instruction au rejeu ?",
+    "options": [
+      "L’id du paiement existant, puisque la ligne en conflit est renvoyée",
+      "Zéro ligne, donc le handler s’arrête et la route répond 200",
+      "Erreur 23505 : duplicate key value violates unique constraint",
+      "Une seconde ligne de paiement avec un nouvel id"
+    ],
+    "explain": "Mesuré : 1 ligne la première fois, 0 ligne au rejeu. <code>RETURNING</code> ne renvoie que les lignes réellement insérées, donc l’id existant n’est pas renvoyé ; lis-le avec une seconde requête si tu en as besoin. Sans <code>ON CONFLICT</code>, le rejeu lèverait 23505."
+  },
+  "m09.q28": {
+    "q": "L’équipe passe l’API Orders en Serializable. Qu’est-ce qui doit changer dans le code applicatif pour que ce soit sûr ?",
+    "options": [
+      "Rien : Serializable ajoute seulement de l’attente, donc le code existant continue de marcher tel quel",
+      "Ajouter <code>FOR UPDATE</code> à chaque lecture pour que Serializable ait moins de conflits à détecter",
+      "Monter <code>deadlock_timeout</code> pour que les attentes supplémentaires ne se transforment pas en erreurs",
+      "Faire passer chaque transaction par un helper de retry sur 40001, sans effet de bord"
+    ],
+    "explain": "Serializable ajoute des abandons, pas des attentes : la documentation dit que les applications doivent être prêtes à rejouer les échecs de sérialisation et à ne considérer les données lues comme valides qu’après le commit. La documentation suggère même de retirer les verrous <code>FOR UPDATE</code> explicites rendus inutiles par Serializable."
+  },
+  "m09.q29": {
+    "q": "Vente flash : 10 000 requêtes par seconde essaient de réserver les 500 dernières consoles. Quelle approche choisis-tu en premier ?",
+    "options": [
+      "<code>UPDATE products SET stock = stock - 1 WHERE id = $1 AND stock &gt; 0</code>, en vérifiant le nombre de lignes",
+      "<code>SELECT stock</code>, le vérifier dans Node, puis <code>UPDATE products</code> en Serializable avec des retries sur 40001",
+      "Un verrouillage optimiste avec une colonne <code>version</code> sur products et des retries automatiques sur 0 ligne",
+      "<code>SELECT stock … FOR UPDATE</code>, le vérifier dans Node, puis <code>UPDATE products SET stock = stock - 1</code>"
+    ],
+    "explain": "La règle tient dans le <code>WHERE</code>, donc une seule instruction atomique est correcte en Read Committed et ne tient le verrou de ligne que pendant cette instruction. Sur une seule ligne très disputée, Serializable et les retries optimistes produiraient surtout des conflits, et <code>FOR UPDATE</code> tient le verrou sur deux allers-retours."
+  },
+  "m09.q30": {
+    "q": "Un bug laisse des connexions « idle in transaction » après une exception. Quel réglage fait terminer ces sessions par PostgreSQL lui-même ?",
+    "options": [
+      "<code>lock_timeout</code>",
+      "<code>statement_timeout</code>",
+      "<code>idle_in_transaction_session_timeout</code>",
+      "<code>deadlock_timeout</code>"
+    ],
+    "explain": "La documentation : il termine une session inactive dans une transaction ouverte au-delà de la limite (défaut mesuré 0, désactivé). <code>statement_timeout</code> ne limite qu’une instruction en cours d’exécution, et une session inactive n’en exécute aucune."
+  }
+}

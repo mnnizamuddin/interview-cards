@@ -1,0 +1,302 @@
+{
+  "m37.q1": {
+    "q": "Dans la méthode RADIO, que produit l’étape <b>I</b> ?",
+    "options": [
+      "L’arbre de composants, avec le state que possède chaque composant et les événements qui circulent entre eux.",
+      "Les API entre les composants et avec le serveur : noms, paramètres, valeurs de retour.",
+      "La liste des optimisations, classées selon leur effet attendu sur les Core Web Vitals de la page.",
+      "Les entités principales et leurs champs, chacun marqué comme venant du serveur ou du client."
+    ],
+    "explain": "I, c’est l’Interface definition : les endpoints et les props des composants, avec leurs paramètres et leurs valeurs de retour. L’arbre de composants relève de l’étape Architecture et les entités de l’étape Data model, c’est pourquoi la première et la dernière option sont tentantes."
+  },
+  "m37.q2": {
+    "q": "D’après le playbook de GreatFrontEnd, quelle part de la séance faut-il consacrer environ aux optimisations et à l’approfondissement ?",
+    "options": [
+      "Environ 10 %, le plafond pour les exigences",
+      "Environ 20 %, comme l’architecture",
+      "Environ 25 %, un quart de l’épreuve",
+      "Environ 40 %"
+    ],
+    "explain": "Le playbook donne environ 40 % à l’étape O, la plus grosse part, car c’est dans l’approfondissement que la séniorité se voit. 10 % est le plafond qu’il donne aux exigences, et 20 % la part de l’architecture et de l’interface."
+  },
+  "m37.q3": {
+    "q": "Pourquoi l’API de suggestions renvoie-t-elle les plages de caractères correspondantes plutôt qu’un libellé contenant déjà des balises <code>&lt;mark&gt;</code> ?",
+    "options": [
+      "Pour que le client construise les marques comme du texte : aucun markup du serveur n’est jamais inséré comme HTML.",
+      "Les plages sont plus petites que du HTML, ce qui compte car HTTP/2 compresse les en-têtes mais pas les corps.",
+      "Un CDN refuse de mettre en cache les réponses JSON qui contiennent des balises HTML, donc la liste ne serait jamais en cache.",
+      "ARIA interdit tout élément enfant dans <code>role=\"option\"</code>, donc une marque casserait le pattern."
+    ],
+    "explain": "Insérer du HTML venant du serveur implique <code>dangerouslySetInnerHTML</code>, un risque de cross-site scripting ; les plages permettent à React de rendre du texte et des éléments <code>&lt;mark&gt;</code> en toute sécurité. Les CDN mettent le JSON en cache quel que soit son contenu, et les options peuvent contenir des éléments, comme dans les exemples de l’APG."
+  },
+  "m37.q4": {
+    "q": "Le client tape <i>chair</i> avec 80 ms entre chaque frappe, et le hook fait un debounce de 250 ms. Combien de requêtes de suggestions ont été envoyées dans la mesure sous jsdom ?",
+    "options": [
+      "Cinq, une par frappe",
+      "Deux, pour <i>ch</i> et <i>chair</i>",
+      "Une, pour <i>chair</i>",
+      "Aucune tant que le champ n’a pas perdu le focus"
+    ],
+    "explain": "Chaque frappe relance le timer de 250 ms, donc le terme ne se stabilise qu’après la dernière : une requête, pour <i>chair</i>. Deux requêtes demanderaient une pause plus longue que le délai au milieu du mot."
+  },
+  "m37.q5": {
+    "q": "Quelle question de la checklist de cache dit que les recherches récentes personnelles ne doivent jamais être servies avec <code>Cache-Control: public</code> ?",
+    "options": [
+      "Fraîcheur",
+      "Portée",
+      "Durée de vie",
+      "Version"
+    ],
+    "explain": "La portée demande qui peut partager une entrée : les suggestions publiques peuvent être partagées par tous au niveau du CDN, les données personnelles non. La fraîcheur et la durée de vie concernent le temps, pas qui voit l’entrée."
+  },
+  "m37.q6": {
+    "q": "Dans le pattern combobox de l’APG, où se trouve le focus DOM pendant que le client parcourt les suggestions avec les flèches ?",
+    "options": [
+      "Sur le champ, pendant que <code>aria-activedescendant</code> pointe vers l’option active.",
+      "Sur l’option active, déplacé avec <code>focus()</code> à chaque appui sur une flèche.",
+      "Sur la listbox, qui a besoin de <code>tabindex=\"0\"</code> pour recevoir les flèches.",
+      "Sur le body du document, jusqu’à ce que le client appuie sur Entrée pour choisir une option."
+    ],
+    "explain": "L’APG indique que le focus DOM reste sur la combobox ; les technologies d’assistance suivent <code>aria-activedescendant</code>. Déplacer le vrai focus sur l’option empêcherait le client de taper, c’est pourquoi la deuxième option est fausse bien qu’elle soit une implémentation courante."
+  },
+  "m37.q7": {
+    "q": "Pourquoi les filtres et le tri du tableau des commandes sont-ils dans l’URL ?",
+    "options": [
+      "Parce que le serveur ne peut rendre un tableau qu’à partir de paramètres de requête, jamais d’un corps de requête.",
+      "Parce que TanStack Query a besoin de l’URL comme clé de requête pour mettre en cache chaque vue du tableau séparément.",
+      "Parce que le state React est perdu à chaque re-render du tableau, alors que l’URL survit aux re-renders.",
+      "Pour qu’un agent puisse partager un lien, recharger et utiliser le bouton retour sans perdre la vue."
+    ],
+    "explain": "L’URL rend la vue partageable, rechargeable et l’inscrit dans l’historique. TanStack Query accepte n’importe quelle clé sérialisable, pas l’URL, et le state React survit aux re-renders ; il est perdu au rechargement, et c’est tout l’intérêt de l’URL."
+  },
+  "m37.q8": {
+    "q": "Mesuré dans Chromium, modifier une cellule d’un tableau de 5 000 lignes a relancé le layout du tableau en 110 à 180 ms. Pourquoi la virtualisation corrige-t-elle cela ?",
+    "options": [
+      "Elle déplace le travail de layout dans un worker, donc le thread principal reste libre pour les saisies.",
+      "Elle dessine les lignes sur un canvas, que le navigateur n’a pas du tout besoin de mettre en page.",
+      "Seules les lignes visibles existent dans le DOM, donc le layout traite environ 50 lignes.",
+      "Elle passe le tableau en <code>table-layout: fixed</code>, ce qui évite de mesurer le contenu des cellules."
+    ],
+    "explain": "Le coût du layout suit le nombre d’éléments, et la virtualisation ne garde que les lignes visibles : le tableau de 50 lignes a refait son layout en moins de 10 ms. <code>table-layout: fixed</code> seul prenait encore 30 à 45 ms à 5 000 lignes, et le layout ne tourne jamais dans un worker."
+  },
+  "m37.q9": {
+    "q": "100 événements de statut arrivent à 5 ms d’intervalle. Écrits un par un dans le cache de requêtes, ils ont provoqué 96 commits du tableau. Combien avec un buffer vidé toutes les 250 ms, dans la même mesure ?",
+    "options": [
+      "7",
+      "96",
+      "1",
+      "25"
+    ],
+    "explain": "Les événements s’étalent sur environ une demi-seconde, donc un vidage toutes les 250 ms les applique en quelques lots : 7 commits, en comptant les premiers rendus. Un seul commit demanderait que tous les événements tombent dans un seul vidage."
+  },
+  "m37.q10": {
+    "q": "Quelle action du back-office se prête bien à une mise à jour optimiste ?",
+    "options": [
+      "Rembourser 50 € à un client.",
+      "S’assigner une commande.",
+      "Supprimer un compte client.",
+      "Annuler auprès du transporteur une commande expédiée."
+    ],
+    "explain": "Les mises à jour optimistes conviennent aux actions qui réussissent presque toujours et qui s’annulent facilement à l’écran. Un remboursement, une suppression ou une annulation chez le transporteur ont des conséquences que l’agent doit voir confirmées, donc elles affichent un état en attente et patientent."
+  },
+  "m37.q11": {
+    "q": "Quelles props donner à la photo principale du produit avec <code>next/image</code> dans Next.js 16 ?",
+    "options": [
+      "<code>priority</code>, qui précharge l’image et la marque comme élément LCP.",
+      "<code>loading=\"lazy\"</code> avec un placeholder flou, pour que la structure de la page s’affiche en premier.",
+      "<code>preload</code> et <code>fetchPriority=\"high\"</code> ensemble, pour l’indication la plus forte au navigateur.",
+      "<code>loading=\"eager\"</code> et <code>fetchPriority=\"high\"</code>, plus width et height."
+    ],
+    "explain": "web.dev dit de ne jamais faire de lazy loading sur l’image LCP et recommande une priorité de fetch haute ; next/image fait du lazy loading par défaut, d’où <code>loading=\"eager\"</code>. <code>priority</code> est déprécié depuis Next.js 16, et la doc cite « when fetchPriority is used » parmi les cas où <code>preload</code> ne doit pas l’être."
+  },
+  "m37.q12": {
+    "q": "Quand la boutique doit-elle créer une nouvelle clé d’idempotence pour <code>POST /orders</code> ?",
+    "options": [
+      "À chaque clic sur Commander, pour que chaque clic soit une requête distincte.",
+      "À chaque retry automatique, pour que le serveur puisse distinguer les tentatives.",
+      "Quand l’intention change, par exemple une nouvelle version du panier.",
+      "Une fois par session de navigateur, stockée dans localStorage pour qu’un rechargement la conserve."
+    ],
+    "explain": "La clé identifie une intention : les retries et les seconds clics doivent la réutiliser pour que le serveur rejoue la première réponse. Une nouvelle clé par clic ou par retry va à l’encontre du but, et une clé par session ferait rejouer par le serveur une ancienne commande pour un nouveau panier."
+  },
+  "m37.q13": {
+    "q": "Le client tape <i>ch</i>, puis <i>cha</i> ; la requête pour <i>ch</i> est la plus lente. Qu’est-ce que ce composant peut finir par afficher ?",
+    "options": [
+      "Les résultats pour <i>ch</i> : sa réponse arrive en dernier et écrase celle pour <i>cha</i>.",
+      "Toujours les résultats pour <i>cha</i> : React ignore les mises à jour de state d’un effet qui a été relancé.",
+      "Une erreur : React lève une erreur quand le state est modifié après la relance de l’effet.",
+      "Les deux listes fusionnées, car <code>setResults</code> est regroupé en lot."
+    ],
+    "explain": "Mesuré avec React 19.3 sous jsdom : le composant naïf a affiché les résultats de <i>ch</i> après la saisie de <i>cha</i>. React n’écarte pas les mises à jour d’un ancien effet ; il faut un flag dans le cleanup, un abort, ou des données indexées par terme comme avec TanStack Query."
+  },
+  "m37.q14": {
+    "q": "Avec <code>useSuggestions</code> (signal passé à fetch), le client tape <i>ch</i>, puis <i>cha</i> avant que <i>ch</i> réponde, attend la liste de <i>cha</i>, puis efface pour revenir à <i>ch</i>. Que se passe-t-il au retour sur <i>ch</i> ?",
+    "options": [
+      "<i>ch</i> est servi depuis le cache sans requête, car il a été demandé quelques secondes plus tôt.",
+      "La liste continue d’afficher les résultats de <i>cha</i> jusqu’à ce que le timer de debounce se déclenche à nouveau pour <i>ch</i>.",
+      "Une nouvelle requête : la première a été annulée, et une requête annulée revient à son état vide.",
+      "La requête passe en état d’erreur et le client voit un message <code>AbortError</code> sous le champ."
+    ],
+    "explain": "TanStack Query ramène une requête annulée à son état précédent, ici vide, donc <i>ch</i> a été redemandé dans la mesure alors que <i>cha</i> était servi depuis le cache. L’annulation n’est pas signalée comme une erreur, ce qui écarte la dernière option."
+  },
+  "m37.q15": {
+    "q": "Un collègue retire <code>signal</code> de la fonction de requête. <i>ch</i> est plus lent que <i>cha</i>. Qu’a montré la mesure sous jsdom ?",
+    "options": [
+      "Les résultats de <i>ch</i> ont brièvement flashé à l’écran, puis ceux de <i>cha</i> les ont remplacés.",
+      "Les résultats de <i>cha</i> ; la réponse tardive de <i>ch</i> a été stockée sous sa propre clé.",
+      "Les résultats de <i>ch</i>, car sa réponse est arrivée en dernier et a remplacé l’entrée de <i>cha</i>.",
+      "Rien du tout jusqu’à la fin des deux requêtes, puis les résultats de <i>cha</i>."
+    ],
+    "explain": "C’est l’indexation par terme qui empêche la race condition : le composant lit l’entrée de <i>cha</i>, et la réponse tardive de <i>ch</i> ne remplit que sa propre entrée. Le signal économise de la bande passante et des connexions ; ce n’est pas lui qui garde l’écran correct."
+  },
+  "m37.q16": {
+    "q": "Le recruteur demande : « Après le lancement, comment savez-vous que l’autocomplétion est bonne ? » Quelle réponse est celle d’un senior ?",
+    "options": [
+      "Un score de performance Lighthouse au-dessus de 90, vérifié en CI sur chaque pull request qui touche à la recherche.",
+      "Le nombre de rendus React par frappe, lu dans le Profiler sur un build de production.",
+      "L’utilisation CPU et la latence p99 du service de recherche pendant le pic du soir.",
+      "Les données terrain : temps entre frappe et liste, part des recherches finies sur une suggestion, erreurs, INP au p75."
+    ],
+    "explain": "Les exigences ont été formulées en termes d’expérience utilisateur, donc les mesures sont des données terrain de vraies sessions qui s’y rattachent. Lighthouse est une vérification de labo sur une seule machine et les rendus par frappe sont un moyen ; aucun des deux ne dit si les clients trouvent les produits plus vite."
+  },
+  "m37.q17": {
+    "q": "Dans Chromium, la liste est ouverte dans ce <code>&lt;input type=\"search\"&gt;</code> et le client appuie une fois sur Échap. Que se passe-t-il ?",
+    "options": [
+      "La liste se ferme et le navigateur efface aussi le texte.",
+      "La liste se ferme et le texte reste, ce que l’APG attend d’une combobox.",
+      "Rien, car Échap n’est pas transmis aux handlers keydown dans un champ de recherche.",
+      "La liste se ferme et le formulaire englobant est soumis avec le texte actuel."
+    ],
+    "explain": "Mesuré avec Playwright 1.64 : Échap dans un champ de recherche a vidé le champ. Appeler <code>event.preventDefault()</code> quand la liste est ouverte fait que le premier Échap ne fait que la fermer, et laisse le second vider le champ."
+  },
+  "m37.q18": {
+    "q": "Un clic de souris sur une suggestion ne sélectionne rien : la liste se ferme simplement. Le champ ferme la liste dans <code>onBlur</code>, et les options n’ont que <code>onClick</code>. Quel est le bug ?",
+    "options": [
+      "Les options ont besoin de <code>tabindex=\"0\"</code>, sinon le navigateur ne transmet pas les clics aux éléments de liste.",
+      "React ne déclenche pas <code>onClick</code> sur les éléments qui portent <code>role=\"option\"</code>, seulement sur les boutons et les liens.",
+      "<code>mousedown</code> retire le focus du champ, et <code>onBlur</code> supprime la liste avant que <code>click</code> se déclenche.",
+      "<code>aria-selected</code> doit valoir true avant qu’une option puisse être cliquée, donc le premier clic ne fait que sélectionner."
+    ],
+    "explain": "Mesuré dans Chromium : sans la garde sur mousedown, rien n’était sélectionné ; avec elle, les clics de souris et les taps tactiles sélectionnaient l’option. Ajouter <code>tabindex</code> aggraverait les choses, puisque l’option prendrait le focus au champ."
+  },
+  "m37.q19": {
+    "q": "Les agents filtrent 2 millions de commandes par statut et les trient par montant. Où le filtrage et le tri doivent-ils s’exécuter ?",
+    "options": [
+      "Dans le navigateur, après avoir chargé une fois toutes les commandes dans IndexedDB pour un tri instantané.",
+      "Sur le serveur, avec les paramètres dans l’URL et la clé de requête.",
+      "Dans un web worker, pour que le thread principal reste libre pendant le tri des 2 millions de lignes.",
+      "Dans la mémoire du BFF, rafraîchie chaque minute depuis l’API Orders."
+    ],
+    "explain": "Des millions de lignes ne peuvent pas être téléchargées par chaque agent, donc c’est la base de données, avec ses index, qui filtre et trie. Un worker ne fait que déplacer le coût de données que le client ne devrait pas détenir, et une copie dans le BFF est une seconde base périmée."
+  },
+  "m37.q20": {
+    "q": "Que renvoie cet appel avec le schéma <code>OrdersSearch</code> de la section 5 (Zod 4.6) ?",
+    "options": [
+      "Il lève une <code>ZodError</code> avec deux problèmes.",
+      "<code>{ status: 'lost', sort: 'hack' }</code>, car les valeurs de l’URL ne sont pas vérifiées.",
+      "<code>{}</code>, car les champs invalides sont retirés et les valeurs par défaut ignorées.",
+      "Un objet avec <code>status: undefined</code> et <code>sort: '-createdAt'</code>."
+    ],
+    "explain": "Chaque champ a un <code>.catch()</code>, donc une valeur invalide se rabat sur un repli : pas de statut, et le tri par défaut. Sans <code>.catch()</code>, le parse lèverait une erreur, ce qu’on ne veut pas pour un lien que quelqu’un a tapé ou modifié à la main."
+  },
+  "m37.q21": {
+    "q": "Une première version de la fonction de lot ressemblait à ceci. Qu’est-ce qui ne va pas ?",
+    "options": [
+      "<code>Map</code> ne conserve pas l’ordre d’insertion, donc les événements d’un lot sont appliqués dans un ordre aléatoire.",
+      "<code>setQueriesData</code> ne met à jour que la première requête qui correspond à la clé, pas toutes les vues de la liste.",
+      "Un événement plus ancien arrivé après un plus récent dans le même lot l’emporte, et la ligne devient périmée.",
+      "Les lignes sans événement lèvent une erreur, car <code>latest.get</code> renvoie undefined pour les commandes absentes du lot."
+    ],
+    "explain": "Une map construite à partir de paires garde la dernière paire par clé, donc l’ordre d’arrivée l’emporte sur la version : mesuré, la ligne est revenue à un ancien statut. Garde plutôt la version la plus haute par commande. Undefined est géré par la vérification <code>event &amp;&amp;</code>, donc la dernière option ne se produit pas."
+  },
+  "m37.q22": {
+    "q": "Ta version par événement a fait 3 rendus pour 100 événements dans la démo, et 96 en production. Pourquoi ?",
+    "options": [
+      "Les événements de la démo arrivaient en une rafale et ont été regroupés ; étalés, chacun a provoqué un rendu.",
+      "Les builds de production de React désactivent le batching automatique pour garder chaque mise à jour prévisible.",
+      "<code>EventSource</code> regroupe les événements d’un flux uniquement dans les builds de développement.",
+      "StrictMode rend chaque composant deux fois en production, ce qui double les commits."
+    ],
+    "explain": "Mesuré dans Chromium : le même code a fait environ 3 commits pour une rafale et 96 pour des événements espacés de 5 ms. React regroupe les mises à jour qui arrivent ensemble, pas celles étalées sur des tâches séparées ; le double rendu de StrictMode n’a lieu qu’en développement."
+  },
+  "m37.q23": {
+    "q": "Pourquoi <code>onMutate</code> appelle-t-il <code>cancelQueries</code> avant d’écrire la ligne optimiste ?",
+    "options": [
+      "Pour annuler la mutation elle-même si l’agent quitte la page avant que le serveur réponde.",
+      "Pour qu’un refetch en cours ne puisse pas arriver plus tard et écraser la ligne optimiste.",
+      "Parce que <code>setQueryData</code> lève une erreur pendant qu’une requête avec la même clé est en cours de fetch.",
+      "Pour vider le cache, afin que le rendu suivant relise la liste depuis le serveur."
+    ],
+    "explain": "Le guide de TanStack Query annule les refetchs en cours « so they don’t overwrite our optimistic update ». <code>setQueryData</code> fonctionne pendant un fetch ; le problème, c’est que l’ancienne réponse du serveur arriverait plus tard et l’emporterait."
+  },
+  "m37.q24": {
+    "q": "Le tableau des commandes a maintenant des cellules de statut et d’assigné modifiables, et il est virtualisé. Quelle conception d’accessibilité convient ?",
+    "options": [
+      "Un tableau natif avec chaque cellule et chaque contrôle dans l’ordre de tabulation, dans l’ordre de lecture.",
+      "<code>role=\"grid\"</code> avec <code>tabindex=\"0\"</code> sur chaque cellule, pour que la touche Tab atteigne chaque cellule à tour de rôle.",
+      "<code>aria-live=\"assertive\"</code> sur chaque ligne, pour que chaque changement soit annoncé dès qu’il a lieu.",
+      "La grille de l’APG : un seul arrêt de tabulation, les flèches, <code>aria-sort</code>, <code>aria-rowcount</code> et <code>aria-rowindex</code>."
+    ],
+    "explain": "Le pattern grid de l’APG est fait pour les données tabulaires interactives et a un seul arrêt de tabulation, avec les flèches à l’intérieur. Mettre chaque cellule dans l’ordre de tabulation rend un tableau de centaines de cellules inutilisable au clavier, et des live regions assertive sur chaque ligne interrompraient sans cesse."
+  },
+  "m37.q25": {
+    "q": "Les pages produit doivent être indexables, avoir un LCP rapide et afficher le stock actuel. Quelle conception livreriez-vous ?",
+    "options": [
+      "Données produit taguées dans la structure statique, revalidées au changement ; stock et panier par requête dans Suspense.",
+      "Un rendu côté client avec TanStack Query pour chaque partie, pour que le stock et le prix soient toujours à jour.",
+      "Un rendu serveur complet à chaque requête sans aucun cache, pour que chaque partie de la page soit toujours à jour.",
+      "Chaque produit prérendu au build, et tout le site reconstruit chaque nuit avec le nouveau catalogue."
+    ],
+    "explain": "Le contenu partagé, mis en cache et revalidé au changement, donne du HTML aux moteurs de recherche et une structure aussi rapide qu’un CDN, tandis que les parties qui doivent être à jour arrivent en streaming à chaque requête. Le rendu client nuit à l’indexation et au LCP, tout rendre à chaque requête fait payer à chaque visite la donnée la plus lente, et les builds nocturnes laissent des prix faux pendant des heures."
+  },
+  "m37.q26": {
+    "q": "Le marketing veut un test A/B sur le bouton Acheter de la page produit. Quelle conception ?",
+    "options": [
+      "Rendre la variante A, lire le cookie dans <code>useEffect</code>, et basculer le bouton sur la variante B si besoin.",
+      "Choisir une variante au hasard dans le Server Component à chaque requête, sans rien stocker.",
+      "L’assigner dans <code>proxy.ts</code> avec un cookie, la rendre côté serveur, indexer le cache par variante.",
+      "Cacher le bouton en CSS jusqu’au chargement du script d’A/B testing, puis afficher le bon."
+    ],
+    "explain": "L’assignation côté serveur évite le clignotement et le décalage de mise en page, le cookie garde chaque client dans une seule variante, et indexer le cache par variante garde une structure par variante. Une assignation aléatoire à chaque requête fait passer les clients d’une variante à l’autre, ce qui ruine le test."
+  },
+  "m37.q27": {
+    "q": "Des événements analytics sont perdus quand les clients changent d’app sur leur téléphone. Quel correctif ?",
+    "options": [
+      "Les envoyer avec <code>fetch</code> dans un handler <code>unload</code>, qui s’exécute à la fermeture de la page.",
+      "Les vider avec <code>navigator.sendBeacon</code> quand <code>visibilitychange</code> signale que la page est masquée.",
+      "Les envoyer avec un XMLHttpRequest synchrone dans <code>beforeunload</code> pour qu’ils ne puissent pas être perdus.",
+      "Attendre un <code>fetch</code> pour chaque événement au moment où il survient, pour ne rien laisser en mémoire à perdre."
+    ],
+    "explain": "MDN présente <code>visibilitychange</code> comme le moment le plus fiable et <code>sendBeacon</code> comme l’API faite pour ça. <code>unload</code> et <code>beforeunload</code> ne se déclenchent souvent jamais sur mobile, et <code>unload</code> exclut en plus la page du back/forward cache."
+  },
+  "m37.q28": {
+    "q": "Avec <code>PlaceOrderButton</code> tel qu’écrit (<code>disabled={placeOrder.isPending}</code>), qu’a envoyé un double-clic dans Chromium ?",
+    "options": [
+      "Une requête, car le bouton désactivé a bloqué le second clic avant qu’il se déclenche.",
+      "Deux requêtes portant deux clés différentes, donc le serveur a créé deux commandes.",
+      "Aucune requête, car le second clic a annulé la première mutation.",
+      "Deux requêtes avec la même clé d’idempotence, donc le serveur crée une seule commande."
+    ],
+    "explain": "<code>isPending</code> n’a atteint le bouton qu’après le second clic, donc deux POST sont partis, tous deux avec la clé créée par le premier clic. C’est pourquoi la clé, vérifiée par le serveur, est la garantie, et l’état désactivé n’est qu’un confort."
+  },
+  "m37.q29": {
+    "q": "Un fil crée son IntersectionObserver une seule fois, au montage. La première page fait 100 px de haut dans un viewport de 900 px. Que se passe-t-il ?",
+    "options": [
+      "Une page se charge, puis plus rien : la sentinelle ne cesse jamais d’intersecter, donc aucun nouveau callback.",
+      "Les pages se chargent l’une après l’autre, à chaque exécution du callback, jusqu’à ce que la sentinelle sorte du viewport.",
+      "Une boucle infinie de requêtes, car la sentinelle intersecte toujours le viewport.",
+      "L’observer lève une erreur, car l’élément sentinelle a bougé après la première page."
+    ],
+    "explain": "Un observer signale des changements d’intersection, pas des états : mesuré dans Chromium, l’observer de longue durée s’est déclenché une fois et la liste s’est arrêtée à 100 px. Le recréer après chaque page signale de nouveau l’état actuel, et le fil a alors rempli l’écran."
+  },
+  "m37.q30": {
+    "q": "Douze nouveaux éléments sont publiés pendant que la cliente lit le fil. Que fais-tu ?",
+    "options": [
+      "Les insérer en haut tout de suite : les clients attendent un fil en direct.",
+      "Afficher un bouton « Afficher 12 nouveaux éléments » et les insérer au clic.",
+      "Recharger tout le fil chaque minute pour qu’il reste à jour.",
+      "Les insérer en haut, puis faire défiler vers le bas de leur hauteur dans un timeout."
+    ],
+    "explain": "Insérer au-dessus de la lectrice déplace le contenu qu’elle lit et compte dans le CLS. web.dev exclut du CLS les décalages survenant dans les 500 ms après un clic, donc insérer au moment de son clic est à la fois poli et gratuit ; compenser le défilement dans un timeout clignote quand même et reste fragile."
+  }
+}

@@ -1,0 +1,302 @@
+{
+  "m05.q1": {
+    "q": "Selon la RFC 9110, quelles méthodes sont idempotentes ?",
+    "options": [
+      "GET et POST, parce que ce sont les deux méthodes les plus courantes",
+      "Seulement les méthodes sûres : GET, HEAD, OPTIONS et TRACE",
+      "PUT, DELETE et les méthodes sûres (GET, HEAD, OPTIONS, TRACE)",
+      "Toutes les méthodes sauf PATCH, que la RFC 5789 exclut"
+    ],
+    "explain": "RFC 9110 §9.2.2 : « PUT, DELETE, and safe request methods are idempotent. » La réponse tentante « toutes sauf PATCH » oublie POST, qui n’est ni sûre ni idempotente ; c’est pour ça que POST /orders a besoin d’une clé d’idempotence pour être rejouée."
+  },
+  "m05.q2": {
+    "q": "Une ressource commande a <code>status</code>, <code>shippingAddress</code> et <code>note</code>. L’app envoie <code>PUT /orders/ord_42</code> avec seulement <code>{ \"note\": \"leave at door\" }</code>. Que signifie cette requête ?",
+    "options": [
+      "Remplacer toute la commande par ce corps, donc les champs omis sont réinitialisés ou supprimés",
+      "Modifier la note et garder les autres champs, exactement comme un PATCH",
+      "Rien : PUT ne peut que créer des ressources, donc le serveur doit répondre 405",
+      "Ajouter la note à l’historique de la commande, parce que PUT n’est pas idempotent"
+    ],
+    "explain": "PUT envoie l’état complet de la ressource à cette URL ; ce qu’on omet n’est pas conservé. Le traiter comme un PATCH est le contresens tentant : pour modifier un champ, on envoie PATCH avec un corps JSON Merge Patch (RFC 7396). PUT est idempotent, et il peut créer ou remplacer."
+  },
+  "m05.q3": {
+    "q": "Un client avec un access token valide appelle <code>DELETE /products/prd_3</code>, une route réservée aux équipes du back-office. Quel statut convient ?",
+    "options": [
+      "401 Unauthorized, avec un en-tête WWW-Authenticate",
+      "403 Forbidden : l’appelant est connu mais pas autorisé",
+      "400 Bad Request, parce que la requête n’aurait pas dû être envoyée",
+      "409 Conflict, parce que le rôle entre en conflit avec l’opération"
+    ],
+    "explain": "Les identifiants sont valides, donc l’authentification a réussi ; le refus porte sur la permission, c’est un 403. Le 401 est pour des identifiants absents ou invalides, et la RFC 9110 exige qu’il porte un challenge WWW-Authenticate pour que le client s’authentifie ; envoyer un 401 ici ferait se reconnecter l’app pour rien."
+  },
+  "m05.q4": {
+    "q": "Le client A demande <code>GET /orders/ord_99</code>, qui appartient au client B. Quelle réponse la RFC 9110 autorise-t-elle explicitement pour ne pas révéler que la commande existe ?",
+    "options": [
+      "401 Unauthorized, pour que le client essaie d’autres identifiants",
+      "200 avec un objet vide, pour que le client ne voie rien",
+      "403 Forbidden, avec un detail expliquant que la commande appartient à quelqu’un d’autre",
+      "404 Not Found, comme si la commande n’existait pas"
+    ],
+    "explain": "RFC 9110 §15.5.4 : un serveur qui veut cacher l’existence d’une ressource interdite MAY répondre 404. Un 403 confirmerait que ord_99 existe, ce qui fait fuiter des informations sur d’autres clients. Un 200 avec un corps vide cache l’erreur à tous les outils génériques."
+  },
+  "m05.q5": {
+    "q": "Dans un problem RFC 9457, quel membre le code de l’app doit-il utiliser pour décider comment réagir ?",
+    "options": [
+      "<code>type</code>, l’URI qui identifie le genre de problème",
+      "<code>title</code>, le résumé court du type de problème",
+      "<code>detail</code>, l’explication de cette occurrence",
+      "<code>instance</code>, l’URI de cette occurrence"
+    ],
+    "explain": "La RFC 9457 dit que les consommateurs MUST utiliser l’URI type comme identifiant principal du problème. detail est destiné aux humains et les clients SHOULD NOT le parser ; title est un texte indicatif qui peut être traduit. Les données lisibles par machine vont dans des membres d’extension."
+  },
+  "m05.q6": {
+    "q": "Une API répond <code>HTTP 200</code> avec le corps <code>{\"type\":\"about:blank\",\"title\":\"Not Found\",\"status\":404}</code>. Qu’est-ce qui ne va pas ?",
+    "options": [
+      "Rien : c’est le membre status du corps que les clients lisent",
+      "Le type doit être une vraie URL, jamais about:blank",
+      "La ligne de réponse doit porter le même statut que le corps ; les logiciels génériques ne voient que le 200",
+      "Les corps problem ne sont autorisés qu’avec des statuts 5xx"
+    ],
+    "explain": "RFC 9457 : « Generators MUST use the same status code in the actual HTTP response. » Les caches, la logique de retry et le monitoring ne lisent jamais le corps, donc ils traitent cet échec comme un succès. about:blank est un type valide, et les problems s’utilisent avec n’importe quel code 4xx ou 5xx."
+  },
+  "m05.q7": {
+    "q": "L’app rejoue <code>POST /orders</code> avec une Idempotency-Key déjà utilisée, mais avec un montant différent. Que recommande le draft IETF Idempotency-Key ?",
+    "options": [
+      "Rejouer la réponse de la première requête",
+      "422 Unprocessable Content, avec un corps problem",
+      "409 Conflict, comme pour une requête encore en cours",
+      "Exécuter la nouvelle requête et écraser la réponse stockée"
+    ],
+    "explain": "Draft -08 §2.7 : réutiliser une clé avec un payload différent SHOULD donner 422. Le 409 est la réponse à un retry pendant que l’original est encore en traitement. Rejouer masquerait un bug client : l’app croirait que la seconde commande a été créée."
+  },
+  "m05.q8": {
+    "q": "Commandes d, c, b, a, de la plus récente à la plus ancienne. La page 1 est <code>LIMIT 2 OFFSET 0</code> et renvoie <code>[d, c]</code>. Une nouvelle commande e est créée, puis la page 2 est récupérée avec <code>LIMIT 2 OFFSET 2</code>. Qu’est-ce qui est revenu (mesuré sur PostgreSQL 18) ?",
+    "options": [
+      "<code>[b, a]</code>, parce que l’offset ignore les nouvelles lignes",
+      "<code>[a]</code>, parce qu’une ligne est passée en page 1",
+      "<code>[e, d]</code>, parce que les nouvelles lignes vont à la fin",
+      "<code>[c, b]</code>, donc c est affichée deux fois"
+    ],
+    "explain": "Mesuré avec PGlite : [c, b]. OFFSET compte des lignes, donc une nouvelle ligne en tête décale toutes les lignes d’un cran et c apparaît sur les deux pages. La requête keyset WHERE (created_at, id) &lt; (valeurs de c) renvoyait toujours [b, a]."
+  },
+  "m05.q9": {
+    "q": "L’app envoie <code>PATCH /orders/ord_42</code> avec <code>If-Match: \"3\"</code>, mais la commande est maintenant en version 4. Que doit répondre le serveur ?",
+    "options": [
+      "412 Precondition Failed, et ne rien appliquer",
+      "304 Not Modified, parce que le client a une vieille copie",
+      "409 Conflict après avoir appliqué la modification à la version 4",
+      "428 Precondition Required, parce que l’ETag est périmé"
+    ],
+    "explain": "If-Match rend l’écriture conditionnelle : quand la condition est fausse, la RFC 9110 fait répondre 412 au serveur sans appliquer la méthode. Le 428 (RFC 6585) est pour une requête sans aucune précondition alors qu’une est exigée ; le 304 est pour les lectures conditionnelles avec If-None-Match."
+  },
+  "m05.q10": {
+    "q": "Quel changement peut être livré sans nouvelle version d’API, d’après la liste publiée par GitHub ?",
+    "options": [
+      "Renommer le champ de réponse <code>total</code> en <code>totalCents</code>",
+      "Rendre obligatoire le paramètre optionnel <code>currency</code>",
+      "Ajouter un champ optionnel <code>giftMessage</code> à la réponse commande",
+      "Supprimer un endpoint que les logs montrent rarement appelé"
+    ],
+    "explain": "Ajouter un champ de réponse est additif : les lecteurs tolérants ignorent les champs qu’ils ne connaissent pas. Renommer un champ, rendre un paramètre obligatoire et supprimer une opération sont tous dans la liste des changements cassants de GitHub. Un endpoint rarement appelé a quand même des appelants : on le déprécie d’abord avec les en-têtes Deprecation et Sunset."
+  },
+  "m05.q11": {
+    "q": "La boutique va ouvrir l’API Orders v2 aux transporteurs, qui doivent construire leurs intégrations avant que le serveur existe. Quelle approche convient le mieux ?",
+    "options": [
+      "Code-first, en générant le document une fois le serveur terminé",
+      "Design-first : écrire et relire le document OpenAPI avec les partenaires, puis l’implémenter",
+      "tRPC, pour que les partenaires partagent les types TypeScript du serveur",
+      "Pas de document de contrat ; les partenaires lisent le code du SDK généré"
+    ],
+    "explain": "Quand les consommateurs doivent s’accorder sur le contrat avant que le code existe, le document vient d’abord et les deux côtés construisent à partir de lui. Le code-first convient quand une seule équipe possède serveur et clients, mais ici il ferait attendre les partenaires. tRPC ne marche que pour des clients TypeScript dans la même base de code."
+  },
+  "m05.q12": {
+    "q": "Le handler <code>POST /webhooks/payments</code> reçoit parfois deux fois le même événement <code>payment.succeeded</code>. Que doit-il faire ?",
+    "options": [
+      "Répondre 409 la seconde fois pour que l’émetteur arrête ses retries",
+      "Traiter chaque livraison : les émetteurs garantissent que chaque événement arrive une fois",
+      "Comparer les horodatages des événements et garder le plus récent",
+      "Stocker l’id de chaque événement traité avec une contrainte d’unicité et ignorer les doublons"
+    ],
+    "explain": "Les retries rendent les doublons normaux ; Stripe documente que les endpoints peuvent recevoir le même événement plusieurs fois et que l’ordre n’est pas garanti. Le récepteur déduplique donc sur l’id de l’événement (webhook-id dans Standard Webhooks). Répondre 409, c’est une réponse non-2xx, donc l’émetteur continuerait ses retries."
+  },
+  "m05.q13": {
+    "q": "Les e-mails du support client contiennent des liens comme <code>https://api.example.com/orders/ord_42/cancel?token=…</code> traités par une route <code>GET</code>. Depuis qu’un outil de chat affiche des aperçus de liens, des commandes s’annulent toutes seules. Quel correctif livreriez-vous ?",
+    "options": [
+      "Faire ouvrir au lien une page dont le bouton envoie <code>POST /orders/ord_42/cancellation</code>",
+      "Garder GET mais bloquer le user agent du bot d’aperçu",
+      "Garder GET mais exiger un second token dans la query string",
+      "Renvoyer 202 Accepted au lieu de 200 depuis la route GET"
+    ],
+    "explain": "GET est sûre par définition, donc les crawlers et les générateurs d’aperçus l’appellent librement ; la RFC 9110 dit qu’une ressource MUST interdire une action non sûre quand on y accède avec une méthode sûre. Bloquer un user agent règle ce bot-là, pas le suivant ; le changement d’état doit passer derrière un POST."
+  },
+  "m05.q14": {
+    "q": "Une recherche de commandes prend des filtres imbriqués trop gros pour une URL. Quelle affirmation est exacte en 2026 ?",
+    "options": [
+      "Envoyer un GET avec un corps JSON : le fetch de Node le supporte et les caches le gèrent",
+      "Utiliser QUERY (RFC 10008), sûre et idempotente avec un corps, si toute la chaîne la supporte ; sinon un POST /orders/search documenté",
+      "Utiliser PUT /orders/search, parce que PUT est idempotent et accepte un corps",
+      "Répartir les filtres sur plusieurs requêtes GET et fusionner les résultats côté client"
+    ],
+    "explain": "La RFC 10008 (juin 2026) définit QUERY comme sûre et idempotente avec un corps de requête ; Fastify 5.12.7 la routait nativement dans notre test. Un GET avec corps n’est pas une option : mesuré, le fetch de Node lève « Request with GET/HEAD method cannot have body. » PUT signifie « remplacer la ressource à cette URL », ce qu’une recherche n’est pas."
+  },
+  "m05.q15": {
+    "q": "Quel est le problème en production avec ce handler v1 ?",
+    "options": [
+      "Le 201 devrait être un 200, parce que la commande n’est pas encore payée",
+      "reply.send sans await laisse fuir la promesse et la réponse n’est jamais envoyée",
+      "Les échecs partent en 200, donc l’alerting, la logique de retry et les dashboards de taux d’erreur voient des succès",
+      "Le corps d’une erreur doit être une chaîne, donc l’objet casse la sérialisation"
+    ],
+    "explain": "Sans reply.code, Fastify envoie 200, donc une commande en rupture de stock est invisible pour tous les outils qui ne lisent que le statut. Le correctif est un corps problem avec le bon statut, comme 409 ou 422 avec un type documenté. Retourner reply.send depuis un handler async est le pattern Fastify correct."
+  },
+  "m05.q16": {
+    "q": "Une app Fastify 5.12.7 n’a que <code>GET /orders</code>. Un client envoie <code>DELETE /orders</code>. Qu’a-t-il reçu (mesuré) ?",
+    "options": [
+      "405 Method Not Allowed avec <code>Allow: GET, HEAD</code>",
+      "200 avec un corps vide, parce que DELETE est idempotent",
+      "501 Not Implemented, parce que la méthode est inconnue",
+      "404 avec <code>{\"message\":\"Route DELETE:/orders not found\",…}</code>"
+    ],
+    "explain": "Mesuré : Fastify a répondu 404 avec son corps JSON par défaut, pas le 405 que décrit la RFC 9110 (un 405 MUST inclure un en-tête Allow). C’est une relance courante en entretien : connais les comportements par défaut de ton framework, et ajoute toi-même la gestion du 405 si ton contrat la promet."
+  },
+  "m05.q17": {
+    "q": "Pendant un failover de la base, toutes les requêtes vers l’API Orders échouent pendant environ 30 secondes. Quelle réponse aide le plus les clients ?",
+    "options": [
+      "429 Too Many Requests avec les en-têtes RateLimit",
+      "503 Service Unavailable avec <code>Retry-After: 30</code>",
+      "500 Internal Server Error avec l’erreur de la base dans detail",
+      "200 avec un flag « degraded » dans le corps"
+    ],
+    "explain": "La RFC 9110 définit le 503 pour une surcharge temporaire ou une maintenance, et Retry-After dit aux clients quand revenir. Le 429 signifie que ce client a dépassé son quota, ce qui est faux ici et trompe le backoff par client. Un 500 ne dit rien aux clients sur le retry, et l’erreur de la base ne doit jamais leur parvenir."
+  },
+  "m05.q18": {
+    "q": "Quel est le bug dans ce gestionnaire d’erreurs ?",
+    "options": [
+      "Pour un 500, detail expose aux clients le message d’erreur interne (SQL, noms d’hôtes)",
+      "about:blank ne peut pas être utilisé avec un statut autre que 404",
+      "title doit être différent à chaque occurrence de l’erreur",
+      "statusCode n’est jamais défini sur les erreurs Fastify, donc tout devient un 500"
+    ],
+    "explain": "Un message d’erreur inattendu peut contenir une requête SQL, un nom d’hôte ou un secret ; un 500 doit seulement dire qu’une erreur inattendue s’est produite, avec un id de requête, et logger le reste. Avec about:blank, le title doit être la phrase du statut, ce que ce code fait correctement. Fastify définit statusCode sur ses propres erreurs, comme 400 pour un JSON invalide."
+  },
+  "m05.q19": {
+    "q": "Une couche d’idempotence cherche la clé, crée la commande si la clé est inconnue, puis enregistre la clé avec la réponse. Deux retries de <code>POST /orders</code> avec la même clé arrivent à 5 ms d’intervalle. Que se passe-t-il ?",
+    "options": [
+      "Le second retry attend sur un verrou jusqu’à ce que le premier finisse",
+      "La base rejette la seconde commande parce que la clé est unique",
+      "Les deux voient une clé inconnue et créent chacun une commande ; la clé doit être réservée avant le travail",
+      "Le second retry reçoit 409, parce que le premier est encore en cours"
+    ],
+    "explain": "Vérifier puis agir de part et d’autre d’un await est une race condition : rien ne marque la clé comme prise avant la fin. Réserver d’abord (INSERT … ON CONFLICT DO NOTHING RETURNING) donne exactement un propriétaire, et l’autre requête voit une clé en cours et reçoit 409. La clé unique ne protège que la table d’idempotence, pas la commande déjà créée deux fois."
+  },
+  "m05.q20": {
+    "q": "Cette requête renvoie 0 ligne. Que doit faire la requête HTTP ensuite ?",
+    "options": [
+      "Exécuter l’opération : 0 ligne signifie que l’insert a réussi silencieusement",
+      "Rejouer l’INSERT jusqu’à ce qu’il renvoie 1 ligne",
+      "Répondre 500, parce que l’insert a échoué sur une violation d’unicité",
+      "Lire la ligne existante : rejouer si terminée, 409 si en cours, 422 si l’empreinte diffère"
+    ],
+    "explain": "Mesuré avec PGlite : le premier insert a renvoyé 1 ligne (cette requête possède la clé) et le second 0 ligne parce que la clé existait. ON CONFLICT DO NOTHING ne lève aucune erreur ; un INSERT simple aurait échoué avec 23505. Zéro ligne signifie que quelqu’un d’autre possède la clé, donc la requête la lit et décide."
+  },
+  "m05.q21": {
+    "q": "Avec l’API v1 de Stripe, un <code>POST</code> avec une clé d’idempotence échoue à la validation des paramètres. Le client corrige le corps et réessaie avec la même clé. Que documente Stripe ?",
+    "options": [
+      "Le retry reçoit l’erreur de validation stockée, parce que la première réponse est enregistrée",
+      "Le retry s’exécute : les résultats ne sont enregistrés qu’une fois l’exécution commencée, et un échec de validation n’enregistre rien",
+      "Le retry reçoit 422, parce que le corps diffère de la première requête",
+      "Le retry reçoit 409 jusqu’à l’expiration des 24 heures"
+    ],
+    "explain": "Stripe : « If incoming parameters fail validation … we don’t save the idempotent result », donc le client peut réessayer. L’enregistrement de la première réponse, « including 500 errors », ne s’applique qu’une fois que l’endpoint a commencé à s’exécuter. La règle du 422 pour un corps différent concerne une clé stockée, et il n’y en a pas ici."
+  },
+  "m05.q22": {
+    "q": "Les commandes o1, o2, o3 ont le même <code>created_at</code> ; o4 est plus ancienne. La page 1, triée par <code>created_at DESC, id DESC</code> avec une limite de 2, a renvoyé <code>[o3, o2]</code>. La page 2 utilise <code>WHERE created_at &lt; $1 ORDER BY created_at DESC LIMIT 2</code> avec l’horodatage de o2. Qu’a-t-elle renvoyé (mesuré) ?",
+    "options": [
+      "<code>[o4]</code> : o1 est sautée parce qu’elle partage l’horodatage frontière",
+      "<code>[o1, o4]</code> : la base conserve l’ordre d’insertion",
+      "<code>[o2, o1]</code> : les lignes égales à la frontière sont incluses",
+      "Une erreur, parce que le tri a des doublons"
+    ],
+    "explain": "Mesuré avec PGlite : [o4]. Strictement inférieur à l’horodatage exclut toutes les lignes ayant cet horodatage, y compris o1, qui n’a jamais été affichée. Comparer le tuple (created_at, id) &lt; (valeurs de o2) a renvoyé [o1, o4] : le départage par id rend l’ordre total."
+  },
+  "m05.q23": {
+    "q": "Un collègue décode les curseurs avec <code>JSON.parse(Buffer.from(cursor, 'base64url').toString())</code> sans validation, en arguant que Node rejette le base64 invalide. Qu’est-ce qui est vrai ?",
+    "options": [
+      "Il a raison : Buffer.from lève une erreur sur les caractères hors de l’alphabet base64url",
+      "La validation est inutile parce que les curseurs sont chiffrés par base64url",
+      "Buffer.from ne lève pas d’erreur : '%%%not-base64' a été décodé en octets parasites, donc il faut parser dans un try et valider la forme",
+      "Les curseurs devraient être du JSON brut dans la query string pour éviter tout décodage"
+    ],
+    "explain": "Mesuré sur Node 24 : Buffer.from('%%%not-base64', 'base64url') a renvoyé des octets parasites sans lever d’erreur, et un curseur bien formé peut quand même avoir une mauvaise forme ou un faux horodatage. Base64url est un encodage, pas un chiffrement. Décode dans un try, valide avec un schéma, réponds 400 sinon, et signe-le si la falsification compte."
+  },
+  "m05.q24": {
+    "q": "Quel est le bug de concurrence dans ce handler PATCH ?",
+    "options": [
+      "If-Match doit être comparé en comparaison faible, donc la vérification échoue toujours",
+      "Le handler devrait répondre 409, pas 412, quand les versions diffèrent",
+      "La version devrait être incrémentée par le client, pas par le SQL",
+      "Une autre requête peut modifier la commande entre la vérification et l’UPDATE ; mettre AND version = $3 dans le WHERE"
+    ],
+    "explain": "La vérification et l’écriture sont deux étapes, donc deux requêtes avec le même ETag peuvent toutes deux passer la vérification et écrire : la mise à jour perdue revient. Mettre la version attendue dans le WHERE de l’UPDATE laisse la base décider de façon atomique ; mesuré, la mise à jour périmée n’a renvoyé aucune ligne. La RFC 9110 exige une comparaison forte pour If-Match, pas faible."
+  },
+  "m05.q25": {
+    "q": "Plusieurs agents du support modifient les mêmes commandes, et d’anciens clients du back-office n’envoient jamais <code>If-Match</code>, donc ils écrasent encore des modifications. Que peut faire le serveur ?",
+    "options": [
+      "Répondre 412 à toutes les écritures pour que les clients rechargent d’abord",
+      "Exiger l’en-tête : répondre 428 Precondition Required aux écritures sans If-Match",
+      "Répondre 304 Not Modified aux écritures sans ETag",
+      "Verrouiller la ligne de la commande tout le temps qu’un agent l’a ouverte"
+    ],
+    "explain": "La RFC 6585 définit le 428 exactement pour ça : le serveur d’origine exige que la requête soit conditionnelle, pour éviter les mises à jour perdues. Le 412 est pour une précondition envoyée et fausse. Des verrous tenus pendant le temps de réflexion de l’utilisateur bloquent les autres agents et cassent quand un onglet est fermé."
+  },
+  "m05.q26": {
+    "q": "L’API ajoute <code>\"partially_refunded\"</code> à l’enum <code>status</code> des commandes, un changement additif dans la liste de GitHub. L’app Android plante alors sur certaines commandes. Pourquoi, et qu’est-ce qui l’évite ?",
+    "options": [
+      "Ajouter des valeurs d’enum est cassant dans toute API, donc une v2 était nécessaire",
+      "Le serveur aurait dû envoyer un en-tête Sunset pour l’ancien enum",
+      "Le switch client était exhaustif sans default ; documenter que les enums peuvent grandir et faire gérer les valeurs inconnues aux clients",
+      "Le JSON ne peut pas porter de nouvelles valeurs de chaîne sans changement de schéma côté client"
+    ],
+    "explain": "Additif pour le serveur ne veut pas dire inoffensif pour un client strict : un switch exhaustif ou un type enum généré fermé échoue sur une valeur qu’il ne connaît pas. Le contrat doit dire que les enums peuvent grandir, et les clients générés doivent conserver les valeurs inconnues. Sunset annonce une suppression ; rien n’a été supprimé ici."
+  },
+  "m05.q27": {
+    "q": "En octobre 2026, un script appelle l’API REST de GitHub sans en-tête <code>X-GitHub-Api-Version</code>. Quelle version obtient-il, d’après la doc de GitHub ?",
+    "options": [
+      "<code>2022-11-28</code>, la version par défaut des requêtes sans l’en-tête",
+      "<code>2026-03-10</code>, la dernière version",
+      "Une erreur, parce que l’en-tête est obligatoire",
+      "La version avec laquelle le token a été créé"
+    ],
+    "explain": "GitHub documente que les requêtes sans l’en-tête utilisent 2022-11-28, bien que 2026-03-10 soit la dernière version, et que les versions restent supportées 24 mois après la sortie de la suivante. Une version épinglée par défaut, c’est ainsi que le versioning daté par en-tête protège les vieux scripts."
+  },
+  "m05.q28": {
+    "q": "Une pull request renomme le champ de réponse <code>amount</code> en <code>amountCents</code>. Tous les tests serveur passent. Quelle étape de CI l’arrête avant qu’elle casse l’app mobile ?",
+    "options": [
+      "Un test unitaire qui compare la sortie du handler à un snapshot",
+      "Lancer le linter OpenAPI sur le nouveau document seulement",
+      "Régénérer le client TypeScript dans le dépôt du serveur",
+      "Un diff des changements cassants du document OpenAPI par rapport à main, comme <code>oasdiff breaking --fail-on ERR</code>"
+    ],
+    "explain": "Les tests serveur ont été mis à jour avec le renommage, donc ils passent ; seule une comparaison avec le contrat précédent voit qu’un champ dont dépendent les consommateurs a disparu. Un linter vérifie des règles de style dans un seul document, et un snapshot mis à jour dans la même pull request enregistre la nouvelle forme au lieu de protéger l’ancienne."
+  },
+  "m05.q29": {
+    "q": "Quelle association entre cas d’usage et style d’API est la plus défendable ?",
+    "options": [
+      "Une API publique pour des développeurs tiers dans de nombreux langages : tRPC",
+      "Des appels à fort volume entre services internes Go et Node, certains en streaming : gRPC",
+      "Une seule app React et son backend Node dans un monorepo TypeScript : gRPC",
+      "Une API partenaire qui doit marcher avec un simple curl et les caches HTTP : GraphQL"
+    ],
+    "explain": "gRPC convient aux appels internes, polyglottes, à fort volume et en streaming, avec des contrats Protocol Buffers. tRPC ne sert que des clients TypeScript partageant la base de code, donc il échoue pour une API publique ; un monorepo TypeScript est le terrain de tRPC plutôt que de gRPC. curl et le cache HTTP mènent à REST."
+  },
+  "m05.q30": {
+    "q": "Un récepteur de webhooks vérifie le HMAC comme ceci, et tous les webhooks valides sont rejetés. Pourquoi ?",
+    "options": [
+      "HMAC-SHA256 ne peut pas être vérifié dans Node sans module natif",
+      "Le secret doit être passé en chaîne, pas en Buffer",
+      "Re-sérialiser le JSON parsé change les octets, donc le HMAC est calculé sur un corps différent",
+      "Le récepteur doit répondre 200 avant de vérifier, sinon l’émetteur part en timeout"
+    ],
+    "explain": "La signature couvre les octets exacts envoyés. Mesuré : {\"a\": 1,  \"b\":2} parsé puis stringifié est revenu sous la forme {\"a\":1,\"b\":2}, donc le HMAC diffère. Vérifie sur le corps brut (mesuré : un parser de content-type JSON avec parseAs: 'string', enregistré dans un plugin Fastify encapsulé, donnait la chaîne brute à la route du webhook), puis parse-le. node:crypto calcule HMAC-SHA256 nativement."
+  }
+}

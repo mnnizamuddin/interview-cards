@@ -1,0 +1,1354 @@
+{
+  "react-server-components": {
+    "topic": "Server Components vs SSR",
+    "question": "Que sont les React Server Components, et en quoi diffèrent-ils du rendu côté serveur ?",
+    "answer": "Un Server Component est un composant qui ne s’exécute que sur le serveur, au build ou à chaque requête, et dont le code n’arrive jamais dans le navigateur. Sa sortie voyage sous forme de RSC Payload, un arbre sérialisé avec des trous pour les Client Components, ceux marqués par `'use client'`. Le SSR, c’est autre chose : un moment, la transformation des composants en HTML sur le serveur, mais chaque composant envoie quand même son JavaScript et s’hydrate. Next.js combine les deux : tout est prérendu en HTML, et seuls les Client Components s’hydratent. Je garde les pages côté serveur, j’y récupère les données avec `await`, et je mets `'use client'` sur de petites feuilles interactives.",
+    "keyPoints": [
+      "Les Server Components ne tournent que sur le serveur et n’envoient aucun JavaScript",
+      "Leur sortie est le RSC Payload, pas du HTML",
+      "Le SSR produit du HTML, mais chaque composant s’hydrate quand même",
+      "`'use client'` sur de petites feuilles interactives ; les props doivent être sérialisables"
+    ],
+    "explanation": "Beaucoup de candidats emploient « RSC » et « SSR » comme synonymes ; les recruteurs veulent la distinction en une phrase chacun. Un senior parle ensuite de la frontière : où mettre `'use client'`, ce qui peut la traverser, et ce que ça change au bundle.",
+    "example": "La page produit de la boutique était un gros Client Component qui récupérait le produit dans un effet et envoyait un moteur de rendu markdown à chaque visiteur. Passer la page en Server Component qui attend le produit, avec `'use client'` seulement sur le sélecteur de quantité et le bouton « Ajouter au panier », a retiré le moteur de rendu du bundle et le spinner de chargement du premier affichage.",
+    "mistakes": [
+      "Dire que les Server Components, c’est juste du SSR : le SSR hydrate quand même chaque composant, les Server Components n’envoient aucun code",
+      "Mettre `'use client'` en haut de la page, ce qui transforme tout l’arbre en code client",
+      "Passer un callback comme `onAddToCart` d’un Server Component à un Client Component : les fonctions ne se sérialisent pas"
+    ],
+    "followUps": [
+      {
+        "question": "Un Server Component peut-il importer un Client Component, et l’inverse ?",
+        "answer": "Un Server Component peut importer et rendre un Client Component. Un Client Component ne peut pas importer un Server Component : tout ce qu’il importe devient du code client. Il peut quand même en afficher un reçu en `children` ou dans une autre prop, rendu par un Server Component au-dessus de lui."
+      },
+      {
+        "question": "Qu’est-ce qui change pour le chargement des données par rapport à un fetch dans `useEffect` ?",
+        "answer": "Le composant est `async` et attend ses données sur le serveur, à côté de la base ou de l’API : pas d’état de chargement après l’hydratation, pas de requête client et pas de secrets dans le navigateur. Je lance les requêtes indépendantes ensemble avec `Promise.all` et je streame les parties lentes avec Suspense."
+      },
+      {
+        "question": "Pourquoi un Server Component ne peut-il pas utiliser `useState` ou `useEffect` ?",
+        "answer": "Il fait son rendu une fois sur le serveur et rien de lui ne reste vivant dans le navigateur : pas d’instance à re-render, pas de commit après lequel lancer un effet. Le build serveur de React n’exporte même pas `useState`. Tout ce qui a un state ou de l’interactivité va dans un Client Component."
+      },
+      {
+        "question": "Comment les Server et Client Components se passent-ils des données ?",
+        "answer": "Du serveur vers le client par les props, qui doivent être sérialisables : primitives, objets simples, tableaux, `Date`, `Map`, promesses, JSX, Server Functions. Du client vers le serveur en appelant une Server Function marquée `'use server'`, ou en changeant l’URL pour que le serveur refasse le rendu."
+      },
+      {
+        "question": "Quel framework a le support des Server Components le plus mûr ?",
+        "answer": "Next.js avec l’App Router, où les Server Components sont le défaut pour les pages et les layouts, et où le cache et le streaming sont construits autour d’eux. React Router documente ses API RSC comme instables, donc pour des RSC en production aujourd’hui je choisirais Next.js."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le code d’un Server Component est inclus dans le bundle navigateur pour qu’il puisse s’hydrater.",
+        "why": "Les Server Components ne s’hydratent jamais ; seuls les Client Components envoient leur code.",
+        "twin": {
+          "statement": "Le code d’un Server Component n’arrive jamais dans le bundle navigateur, car il ne s’hydrate pas.",
+          "why": "Seuls les Client Components envoient leur code et s’hydratent."
+        }
+      },
+      {
+        "statement": "Un Server Component peut être rendu dans un Client Component s’il lui est passé en `children`.",
+        "why": "Le serveur le rend d’abord et le client ne fait que placer le résultat.",
+        "twin": {
+          "statement": "Un Server Component ne peut jamais apparaître dans un Client Component.",
+          "why": "Passé en `children`, il est d’abord rendu sur le serveur et le client ne fait que placer le résultat."
+        }
+      },
+      {
+        "statement": "`'use server'` marque un composant comme Server Component.",
+        "why": "Les Server Components n’ont besoin d’aucune directive ; `'use server'` marque les Server Functions appelables depuis le client.",
+        "twin": {
+          "statement": "Les Server Components n’ont besoin d’aucune directive ; `'use server'` marque les Server Functions appelables depuis le client.",
+          "why": "La directive concerne les fonctions que le client peut appeler, pas l’endroit où un composant fait son rendu."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les Server Components et le SSR tournent tous deux sur le serveur mais résolvent des problèmes différents. Le SSR transforme les composants en HTML ; les Server Components n’envoient jamais leur code au navigateur.",
+      "points": [
+        "Le SSR (rendu côté serveur) produit du HTML sur le serveur pour une requête. Le navigateur télécharge ensuite le JavaScript de chaque composant et l’hydrate : il attache événements et state à ce HTML.",
+        "Un Server Component ne s’exécute que sur le serveur, au build ou à la requête. Son code n’arrive jamais dans le navigateur ; sa sortie voyage sous forme de RSC Payload, un arbre sérialisé.",
+        "Un Client Component se trouve dans un module qui commence par `'use client'`, ou importé par un tel module. On l’utilise pour le state, les effets, les event handlers et les API du navigateur.",
+        "Dans l’App Router de Next.js, les pages sont des Server Components par défaut. Les deux types sont prérendus en HTML ; seuls les Client Components s’hydratent.",
+        "Les props qui passent vers un Client Component doivent être sérialisables : ni fonctions simples ni instances de classe. Mets `'use client'` sur la plus petite feuille interactive."
+      ],
+      "takeaways": [
+        {
+          "term": "SSR",
+          "detail": "Produit du HTML par requête ; le navigateur télécharge ensuite le JavaScript de chaque composant et l’hydrate."
+        },
+        {
+          "term": "Hydratation",
+          "detail": "Attacher événements et state au HTML rendu sur le serveur."
+        },
+        {
+          "term": "Server Component",
+          "detail": "Ne s’exécute que sur le serveur, au build ou à la requête. Son code n’arrive jamais dans le navigateur."
+        },
+        {
+          "term": "RSC Payload",
+          "detail": "L’arbre sérialisé que produit un Server Component, avec des trous pour les Client Components."
+        },
+        {
+          "term": "`'use client'`",
+          "detail": "Marque un module de Client Component, pour le state, les effets, les handlers et les API du navigateur. À garder sur de petites feuilles."
+        },
+        {
+          "term": "Props sérialisables",
+          "detail": "Les props qui passent vers un Client Component ne peuvent être ni des fonctions simples ni des instances de classe."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La page produit de la boutique envoie au navigateur une grosse bibliothèque Markdown uniquement pour rendre la description du produit, et sa seule partie interactive est le bouton « Ajouter au panier ». Comment réduiriez-vous ce JavaScript ?",
+        "bridge": "Server Components : rends la description sur le serveur pour que son code ne parte jamais, et marque seulement le bouton avec `'use client'`."
+      },
+      {
+        "question": "Un collègue dit : « Les Server Components, c’est juste du SSR sous un nouveau nom ». Comment le corrigez-vous ?",
+        "bridge": "SSR contre Server Components : le SSR produit du HTML mais chaque composant s’hydrate quand même ; les Server Components n’envoient aucun code et produisent un RSC Payload."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux rendent la page produit en Server Component avec un bouton en Client Component. Lequel des deux s’affiche ?",
+        "why": "Les props qui passent dans un Client Component doivent être sérialisables : `productId` est une chaîne, et le bouton ajoute lui-même au panier. Une fonction simple ne peut pas voyager dans le RSC Payload, donc l’autre page échoue avec une erreur indiquant que les fonctions ne peuvent pas être passées aux Client Components sauf si elles sont marquées `'use server'`."
+      }
+    ]
+  },
+  "react-hoc": {
+    "topic": "HOC, render props et hooks",
+    "question": "Que sont les higher-order components et les render props, et pourquoi les custom hooks les ont-ils largement remplacés ?",
+    "answer": "Un higher-order component est une fonction qui prend un composant et en renvoie un nouveau avec des props ou un comportement en plus, comme `withAuth(OrdersPage)`. Les render props partagent la logique dans l’autre sens : un composant appelle une prop fonction, souvent `children`, avec ses données, et cette fonction renvoie l’UI. Les deux réutilisent de la logique à état, mais ajoutent des wrappers à l’arbre, cachent l’origine des props et peuvent créer des collisions de noms. Un custom hook partage la même logique par un simple appel, `useCurrentCustomer()`, sans composant en plus, avec des données explicites. J’écris donc des hooks par défaut, et je garde les HOC pour envelopper un composant de l’extérieur.",
+    "keyPoints": [
+      "HOC : une fonction qui transforme un composant en composant enrichi",
+      "Render props : une prop fonction qui reçoit des données et renvoie de l’UI",
+      "Les deux ajoutent des wrappers et cachent l’origine des props",
+      "Les custom hooks partagent la logique sans composant en plus"
+    ],
+    "explanation": "Ça vérifie que tu connais l’histoire derrière les hooks sans y vivre. Une réponse senior nomme les coûts concrets (wrapper hell, props implicites, collisions de noms) et les rares cas où HOC et render props ont encore leur place.",
+    "example": "Le back-office avait `withCustomer(withPermissions(withTheme(OrdersPage)))`, et personne ne savait quel wrapper injectait `canRefund`. On a remplacé les trois HOC par `useCurrentCustomer()` et `usePermissions()` appelés dans la page : l’arbre des DevTools a perdu trois niveaux et TypeScript montrait exactement d’où venait chaque valeur.",
+    "mistakes": [
+      "Appeler un HOC pendant le rendu, ce qui crée un nouveau type de composant à chaque fois et réinitialise son state",
+      "Oublier de transmettre les autres props, ou un `displayName`, dans un HOC",
+      "Dire que les hooks ont rendu les HOC interdits : ils restent valides, juste rarement le meilleur outil"
+    ],
+    "followUps": [
+      {
+        "question": "Y a-t-il des cas où un HOC reste meilleur qu’un hook ?",
+        "answer": "Quand le comportement enveloppe le composant de l’extérieur plutôt que de l’intérieur : `memo(Component)` a lui-même la forme d’un HOC, tout comme l’`observer` de MobX. Aussi pour ajouter un error boundary ou un provider autour d’un composant qu’on ne peut pas modifier, ou pour envelopper de la même façon de nombreux composants de route."
+      },
+      {
+        "question": "Comment typeriez-vous un HOC générique en TypeScript ?",
+        "answer": "Je le rends générique sur les props enveloppées : `function withCustomer<P extends { customer: Customer }>(Wrapped: ComponentType<P>)`, qui renvoie un composant prenant `Omit<P, 'customer'>` et rend `Wrapped` avec la prop injectée. Les appelants ne peuvent alors pas passer `customer`, et toutes les autres props restent vérifiées."
+      },
+      {
+        "question": "Comment refactoriseriez-vous un composant à render props en custom hook ?",
+        "answer": "Je déplace le state et les effets du composant dans `useX()`, je renvoie ce qu’il passait à la prop fonction, et j’appelle le hook là où était la fonction de rendu. `<OrderFetcher id={id}>{(order) => …}</OrderFetcher>` devient `const order = useOrder(id)`. L’ancien composant peut envelopper le hook pendant la migration."
+      },
+      {
+        "question": "Qu’est-ce que le wrapper hell, et comment les HOC et render props empilés l’ont-ils provoqué ?",
+        "answer": "Chaque HOC ou composant à render props ajoute un niveau à l’arbre, donc partager trois préoccupations voulait dire trois wrappers ou trois fonctions imbriquées. L’arbre devenait profond, le debug difficile, et des props arrivaient de wrappers invisibles. Les hooks ont réglé ça : plusieurs hooks dans un composant n’ajoutent aucun niveau."
+      },
+      {
+        "question": "Y a-t-il encore des cas où les render props valent mieux qu’un hook ?",
+        "answer": "Quand la partie partagée rend aussi quelque chose et que l’appelant décide de ce qui va dedans, à un endroit précis : une liste virtualisée qui appelle `renderRow`, ou un champ de formulaire qui passe son state à un markup sur mesure. Un hook ne peut pas rendre ; une prop fonction, si."
+      },
+      {
+        "question": "Comment refactoriseriez-vous un HOC `withAuth` en hook ?",
+        "answer": "J’écris `useAuth()`, qui lit la session dans le contexte et renvoie l’utilisateur ou `null`. La page l’appelle, et affiche soit l’invitation à se connecter, soit le contenu. Pour les routes, un composant de layout qui appelle `useAuth()` remplace l’enveloppe de chaque page."
+      },
+      {
+        "question": "Les bibliothèques modernes utilisent-elles encore des HOC ?",
+        "answer": "Quelques-unes : `memo` et l’`observer` de MobX enveloppent des composants, et react-redux fournit toujours `connect`, même si sa doc recommande l’API à base de hooks. La plupart des bibliothèques, comme TanStack Query et React Router, exposent maintenant des hooks."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un higher-order component est un composant qui rend d’autres composants.",
+        "why": "C’est une fonction qui prend un composant et renvoie un nouveau composant.",
+        "twin": {
+          "statement": "Un higher-order component est une fonction qui prend un composant et en renvoie un nouveau.",
+          "why": "Il enveloppe un composant de l’extérieur ; un composant qui rend d’autres composants n’est qu’un composant."
+        }
+      },
+      {
+        "statement": "Appeler trois custom hooks dans un composant n’ajoute aucun composant à l’arbre.",
+        "why": "Les hooks sont des appels de fonction dans le composant, pas des wrappers autour.",
+        "twin": {
+          "statement": "Chaque custom hook appelé par un composant ajoute un composant wrapper à l’arbre.",
+          "why": "Les hooks sont des appels de fonction dans le composant, pas des wrappers autour."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les higher-order components, les render props et les custom hooks sont trois façons de réutiliser de la logique à état. Les hooks sont le choix par défaut aujourd’hui parce qu’ils n’ajoutent aucun wrapper et rendent les données explicites.",
+      "points": [
+        "Un higher-order component (HOC) est une fonction qui prend un composant et en renvoie un nouveau, en ajoutant des props ou un comportement : `withAuth(OrdersPage)`.",
+        "Les render props partagent la logique via une prop fonction : le composant appelle `children(data)` et l’appelant renvoie l’UI à afficher.",
+        "Les deux ajoutent un wrapper par préoccupation. Empilés, ils donnent un arbre profond (« wrapper hell »), cachent l’origine des props et peuvent entrer en conflit sur les noms de props.",
+        "Un custom hook est une fonction qui commence par `use` et appelle d’autres hooks. Il partage de la logique à état sans composant en plus, et sa valeur de retour est explicite.",
+        "Les HOC restent adaptés pour envelopper de l’extérieur, comme `memo`. Les render props restent adaptées quand l’appelant choisit ce qui est rendu à l’intérieur, comme une prop `renderRow`."
+      ],
+      "takeaways": [
+        {
+          "term": "HOC",
+          "detail": "Une fonction qui prend un composant et en renvoie un enrichi : `withAuth(OrdersPage)`."
+        },
+        {
+          "term": "Render props",
+          "detail": "Le composant appelle une prop fonction, comme `children(data)`, et l’appelant renvoie l’UI."
+        },
+        {
+          "term": "Wrapper hell",
+          "detail": "Les wrappers empilés approfondissent l’arbre, cachent l’origine des props et peuvent entrer en conflit sur les noms de props."
+        },
+        {
+          "term": "Custom hook",
+          "detail": "`useCurrentCustomer()` partage la logique sans composant en plus, avec une valeur de retour explicite."
+        },
+        {
+          "term": "Les HOC aujourd’hui",
+          "detail": "Restent adaptés pour envelopper un composant de l’extérieur, comme `memo`."
+        },
+        {
+          "term": "Les render props aujourd’hui",
+          "detail": "Restent adaptées quand l’appelant choisit ce qui est rendu à l’intérieur, comme une prop `renderRow`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le back-office exporte `withAuth(withTheme(withOrders(OrdersPage)))`, les DevTools montrent une pile profonde de wrappers, et personne ne sait lequel passe `loading`. Comment refactoriseriez-vous ça ?",
+        "bridge": "Les HOC ajoutent des wrappers et cachent l’origine des props ; les custom hooks partagent la même logique par de simples appels de fonction, avec des données explicites."
+      },
+      {
+        "question": "Comparez un higher-order component et une render prop : comment chacun partage-t-il la logique, et quand écririez-vous encore un HOC aujourd’hui ?",
+        "bridge": "Les deux anciens patterns côte à côte, et la place qui leur reste : des hooks par défaut, un HOC pour envelopper un composant de l’extérieur."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux enveloppent la page des commandes avec `withCustomer`. Lequel des deux garde le state de la page quand le shell refait son rendu ?",
+        "why": "Appelé une seule fois au niveau du module, `withCustomer` renvoie un seul type de composant, donc React garde la page des commandes et son state. Appelé pendant le rendu, il renvoie un nouveau type à chaque rendu : ouvrir ou fermer la sidebar démonte la page et en monte une neuve, et les filtres de l’agent sont réinitialisés."
+      }
+    ]
+  },
+  "react-compiler": {
+    "topic": "Le React Compiler",
+    "question": "Qu’est-ce que le React Compiler, quel problème résout-il, et que change-t-il pour `useMemo`, `useCallback` et `memo` ?",
+    "answer": "Le React Compiler est un plugin Babel qui s’exécute au build, stable depuis la version 1.0 en octobre 2025. Il réécrit les composants et les hooks pour que valeurs, callbacks et JSX soient mis en cache et recalculés seulement quand leurs entrées changent : l’équivalent de `memo`, `useMemo` et `useCallback` partout, même après un return anticipé. Il résout la fragilité de la mémoïsation écrite à la main : un objet inline validé en review, et un tableau mémoïsé refait son rendu. Il s’appuie sur les règles de React et ignore le code qui les enfreint. Dans du nouveau code, je compte sur lui et je garde `useMemo` comme échappatoire ; il ne rend pas moins cher un calcul dont l’entrée a changé.",
+    "keyPoints": [
+      "Plugin de build, stable depuis la 1.0 en octobre 2025",
+      "Mémoïse automatiquement valeurs, callbacks et JSX",
+      "Ignore le code qui enfreint les règles de React",
+      "`useMemo`/`useCallback` manuels deviennent des échappatoires"
+    ],
+    "explanation": "En 2026, les recruteurs attendent que tu saches qu’il existe et ce qu’il ne fait pas. Une réponse senior couvre le déploiement dans une codebase existante, les règles de lint, et les limites : entrées qui changent, contexte qui se propage à tous ses lecteurs, longues listes.",
+    "example": "Dans le back-office, les lignes de commandes mémoïsées refaisaient leur rendu après de petits refactorings parce que quelqu’un passait un tableau `columns` inline. On a activé les règles ESLint, corrigé les violations, puis compilé d’abord le dossier de la fonctionnalité commandes. Le Profiler a montré qu’une frappe ne rendait plus que la barre d’outils et les lignes modifiées, au lieu des 5 000.",
+    "mistakes": [
+      "Croire que le compilateur rend rapide le filtrage de 5 000 commandes quand la recherche change à chaque frappe",
+      "Supprimer tous les `useMemo` existants d’un coup, ce qui peut changer le comportement compilé sans tests",
+      "L’activer partout sans d’abord corriger les erreurs de lint sur lesquelles il s’appuie"
+    ],
+    "followUps": [
+      {
+        "question": "Le React Compiler veut-il dire qu’on arrête d’écrire `useMemo` ?",
+        "answer": "Dans du nouveau code, en grande partie oui : react.dev conseille de compter sur le compilateur et de garder `useMemo` et `useCallback` comme échappatoires. Dans du code existant, je les laisse en place, ou je ne les retire qu’avec des tests, parce que les retirer peut changer la sortie compilée."
+      },
+      {
+        "question": "Comment vérifieriez-vous que le compilateur optimise un composant ?",
+        "answer": "React DevTools affiche un badge « Memo ✨ » à côté des composants compilés. Dans la sortie du build, le code compilé importe `c` depuis `react/compiler-runtime` et lit un tableau de cache. Le plugin ESLint signale aussi les composants qu’il a dû ignorer, et le Profiler confirme qu’il y a moins de rendus."
+      },
+      {
+        "question": "Quels patterns de code font que le compilateur ignore un composant ?",
+        "answer": "Le code qui enfreint les règles de React : muter des props ou du state, lire ou écrire `ref.current` pendant le rendu, des effets de bord dans le rendu, modifier le state pendant le rendu. Certaines bibliothèques sont ignorées exprès, comme le `useVirtualizer` de TanStack Virtual. Le composant ignoré tourne simplement sans être compilé."
+      },
+      {
+        "question": "Comment déploieriez-vous le compilateur dans une grosse codebase existante ?",
+        "answer": "D’abord la config `recommended` d’`eslint-plugin-react-hooks`, en corrigeant ses erreurs. Ensuite compiler une partie de l’app : mode annotation avec `'use memo'`, un dossier à la fois, ou derrière un feature flag avec l’option de gating. Figer la version exacte, surveiller les tests end-to-end, n’utiliser `'use no memo'` que comme exclusion temporaire."
+      },
+      {
+        "question": "Quand écririez-vous encore `useMemo` ou `useCallback` à la main ?",
+        "answer": "Quand j’ai besoin d’une référence stable garantie, typiquement une valeur ou une fonction utilisée comme dépendance d’un effet, pour que l’effet ne se relance pas. Aussi dans du code que le compilateur ignore, ou dans une app qui ne l’utilise pas encore."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le React Compiler s’exécute dans le navigateur et mémoïse les composants au runtime.",
+        "why": "Il s’exécute au build et réécrit le code ; le navigateur ne fait qu’exécuter le résultat.",
+        "twin": {
+          "statement": "Le React Compiler s’exécute au build et réécrit les composants ; le navigateur ne fait qu’exécuter le résultat.",
+          "why": "C’est un plugin de build, pas une bibliothèque runtime."
+        }
+      },
+      {
+        "statement": "Le compilateur ignore un composant qui mute ses props au lieu de faire échouer le build.",
+        "why": "Il ignore le code qui enfreint les règles de React et compile le reste.",
+        "twin": {
+          "statement": "Le compilateur fait échouer le build quand un composant mute ses props.",
+          "why": "Il ignore le code qui enfreint les règles de React et compile le reste."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le React Compiler est un plugin de build qui mémoïse les composants et les hooks à ta place. Il remplace les `useMemo` et `useCallback` fragiles écrits à la main, tant que le code respecte les règles de React.",
+      "points": [
+        "Le React Compiler est un plugin Babel qui s’exécute au build, `babel-plugin-react-compiler`. La version 1.0, sa première version stable, a été annoncée sur react.dev le 7 octobre 2025.",
+        "Il met en cache valeurs, callbacks et JSX dans les composants et les hooks, et ne les recalcule que quand les entrées changent : comme `memo`, `useMemo` et `useCallback` partout.",
+        "Il s’appuie sur les règles de React : rendu pur, pas de mutation des props ou du state, pas de lecture de ref pendant le rendu. Le code qui les enfreint est ignoré, pas corrigé.",
+        "Il évite le travail dont les entrées n’ont pas changé ; il n’accélère pas un travail dont l’entrée a changé, ne virtualise pas une liste et n’empêche pas un contexte qui change d’atteindre ses lecteurs.",
+        "Déploiement : le lint d’abord (`eslint-plugin-react-hooks`), puis compiler par dossier, par annotation ou par flag. Les composants compilés affichent un badge « Memo ✨ » dans les DevTools."
+      ],
+      "takeaways": [
+        {
+          "term": "`babel-plugin-react-compiler`",
+          "detail": "La version 1.0, sa première version stable, a été annoncée sur react.dev le 7 octobre 2025."
+        },
+        {
+          "term": "Ce qu’il met en cache",
+          "detail": "Valeurs, callbacks et JSX, recalculés seulement quand leurs entrées changent, même après un return anticipé."
+        },
+        {
+          "term": "Règles de React",
+          "detail": "Rendu pur, pas de mutation des props ou du state, pas de lecture de ref dans le rendu. Le code qui les enfreint est ignoré."
+        },
+        {
+          "term": "Limites",
+          "detail": "N’accélère pas un travail dont l’entrée a changé, ne virtualise pas une liste, n’empêche pas un contexte qui change d’atteindre ses lecteurs."
+        },
+        {
+          "term": "Déploiement",
+          "detail": "Le lint d’abord avec `eslint-plugin-react-hooks`, puis compiler par dossier, par annotation ou par flag."
+        },
+        {
+          "term": "Badge « Memo ✨ »",
+          "detail": "Signale les composants compilés dans React DevTools."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, un reviewer a validé une prop inline `columns={[...]}`, et le tableau des commandes mémoïsé refait maintenant son rendu à chaque frappe. Quel outil supprime ce genre de régression, et comment ?",
+        "bridge": "Le React Compiler : il met en cache valeurs, callbacks et JSX au build, donc un tableau inline ne casse plus la mémoïsation écrite à la main."
+      },
+      {
+        "question": "Un collègue pense qu’activer le React Compiler, c’est supprimer tous les `useMemo` et ne plus se soucier des règles de React. Que lui répondez-vous ?",
+        "bridge": "Les limites du compilateur : il s’appuie sur les règles de React et ignore le code qui les enfreint, et les hooks manuels restent des échappatoires."
+      }
+    ]
+  },
+  "react-layout-effect": {
+    "topic": "useEffect vs useLayoutEffect",
+    "question": "Quelle est la différence entre `useEffect` et `useLayoutEffect` ?",
+    "answer": "Les deux s’exécutent après que React a mis à jour le DOM. `useEffect` s’exécute en général après le paint du navigateur, donc il ne bloque pas l’écran ; ça convient au chargement de données, aux abonnements et à l’analytics. `useLayoutEffect` s’exécute après la mise à jour du DOM mais avant le paint, et une mise à jour de state faite dedans est aussi traitée avant le paint. Je ne l’utilise que quand je dois mesurer le layout et ajuster avant que l’utilisateur ne voie quoi que ce soit, comme retourner une infobulle ou un menu qui déborderait de la fenêtre. Il bloque le paint pendant qu’il tourne, donc `useEffect` reste le défaut, et `useLayoutEffect` ne s’exécute pas pendant le rendu serveur.",
+    "keyPoints": [
+      "`useEffect` tourne en général après le paint ; `useLayoutEffect` avant",
+      "Les mises à jour programmées dans `useLayoutEffect` sont rendues avant le paint",
+      "À utiliser pour mesurer le layout : infobulles, popovers, position de scroll",
+      "Il bloque le paint, donc `useEffect` est le défaut"
+    ],
+    "explanation": "Une question classique de timing. Les recruteurs attendent le paint, un cas d’usage concret (mesurer), et le coût : bloquer le paint. Mentionner le rendu serveur est un plus senior.",
+    "example": "Dans le back-office, le menu d’actions des commandes sur les dernières lignes du tableau débordait de la fenêtre, donc un effet le déplaçait au-dessus de la ligne, et les agents le voyaient sauter. Déplacer la mesure dans `useLayoutEffect` a fait que la première image peinte par le navigateur avait déjà le menu au bon endroit.",
+    "mistakes": [
+      "Utiliser `useLayoutEffect` pour charger des données ou s’abonner, ce qui ne fait que retarder le paint",
+      "Croire que `useEffect` s’exécute avant la mise à jour du DOM",
+      "S’attendre à ce que `useLayoutEffect` s’exécute pendant le rendu serveur"
+    ],
+    "followUps": [
+      {
+        "question": "Quel symptôme visuel vous dit de passer à `useLayoutEffect` ?",
+        "answer": "Un scintillement : l’élément apparaît à un endroit ou à une taille pendant une image, puis saute, parce qu’un effet l’a mesuré et déplacé après le paint. Les infobulles, les popovers et la restauration du scroll sont les cas habituels."
+      },
+      {
+        "question": "Pourquoi React recommande-t-il `useEffect` par défaut ?",
+        "answer": "`useLayoutEffect` s’exécute de façon synchrone avant le paint, donc du code lent dedans retarde chaque image que voit l’utilisateur. La plupart des effets, comme le chargement de données, les abonnements et les logs, n’ont pas besoin de passer avant le paint, donc `useEffect` garde l’écran réactif."
+      },
+      {
+        "question": "Comment cette différence se traduit-elle en rendu serveur, où rien n’est peint ?",
+        "answer": "Aucun des deux effets ne s’exécute sur le serveur : il n’y a ni DOM ni layout à mesurer. Le code de `useLayoutEffect` ne peut donc pas façonner le HTML serveur ; le premier paint montre la sortie du serveur, et l’ajustement se fait après l’hydratation. Pour une UI qui dépend du layout, rends d’abord un état neutre."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une mise à jour de state faite dans `useLayoutEffect` est rendue avant que le navigateur ne peigne.",
+        "why": "React la traite de façon synchrone, donc l’utilisateur ne voit jamais l’image intermédiaire.",
+        "twin": {
+          "statement": "Une mise à jour de state faite dans `useLayoutEffect` n’apparaît qu’après que le navigateur a peint une image intermédiaire.",
+          "why": "React la traite avant le paint, donc l’utilisateur ne voit jamais l’image intermédiaire."
+        }
+      },
+      {
+        "statement": "`useLayoutEffect` s’exécute avant que React ne mette à jour le DOM.",
+        "why": "Il s’exécute après la mise à jour du DOM, c’est pourquoi il peut mesurer les éléments, mais avant le paint.",
+        "twin": {
+          "statement": "`useLayoutEffect` s’exécute après que React a mis à jour le DOM, mais avant que le navigateur ne peigne.",
+          "why": "C’est pourquoi il peut mesurer les éléments et les ajuster avant que l’utilisateur ne voie quoi que ce soit."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "`useEffect` et `useLayoutEffect` s’exécutent tous deux après que React a mis à jour le DOM ; la différence, c’est si le navigateur a déjà peint ou non. C’est ce qui décide si l’utilisateur peut voir un layout intermédiaire.",
+      "points": [
+        "Après un rendu, React fait le commit : il met à jour le DOM. Ensuite le navigateur fait le paint, c’est-à-dire qu’il dessine le résultat à l’écran.",
+        "`useEffect` s’exécute après le commit et en général après le paint, donc il ne retarde jamais ce que voit l’utilisateur. C’est le défaut pour le chargement de données, les abonnements et les logs.",
+        "`useLayoutEffect` s’exécute après le commit mais avant le paint. Une mise à jour de state faite dedans est aussi rendue avant le paint, donc l’utilisateur ne voit que le résultat final.",
+        "Utilise-le pour mesurer et ajuster le layout, comme retourner un menu qui déborde. Il bloque le paint pendant qu’il tourne, et il ne s’exécute pas pendant le rendu serveur."
+      ],
+      "takeaways": [
+        {
+          "term": "Commit, puis paint",
+          "detail": "React met à jour le DOM, puis le navigateur dessine le résultat à l’écran."
+        },
+        {
+          "term": "`useEffect`",
+          "detail": "S’exécute après le commit et en général après le paint : le défaut pour le chargement de données, les abonnements et les logs."
+        },
+        {
+          "term": "`useLayoutEffect`",
+          "detail": "S’exécute après le commit mais avant le paint. Une mise à jour de state faite dedans est aussi rendue avant le paint."
+        },
+        {
+          "term": "Cas d’usage",
+          "detail": "Mesurer et ajuster le layout, comme retourner une infobulle ou un menu qui déborderait de la fenêtre."
+        },
+        {
+          "term": "Coût",
+          "detail": "Il bloque le paint pendant qu’il tourne, donc `useEffect` reste le défaut."
+        },
+        {
+          "term": "Rendu serveur",
+          "detail": "`useLayoutEffect` ne s’y exécute pas."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, un menu d’actions près du bas du tableau des commandes apparaît d’abord coupé, puis saute au-dessus de son bouton une image plus tard. Sa position est calculée dans un `useEffect`. Pourquoi, et comment le corriger ?",
+        "bridge": "`useLayoutEffect` s’exécute avant le paint et ses mises à jour de state sont aussi rendues avant, donc y faire la mesure évite le saut visible."
+      },
+      {
+        "question": "Pourquoi `useEffect` est-il le défaut et `useLayoutEffect` l’exception ? Que coûte ce dernier ?",
+        "bridge": "Le compromis : `useLayoutEffect` bloque le paint pendant qu’il tourne, donc il ne sert qu’à mesurer le layout avant que l’utilisateur ne voie l’image."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux déplacent le menu d’actions des commandes au-dessus de la ligne quand il déborderait de la fenêtre. Lequel des deux évite un saut visible ?",
+        "why": "`useLayoutEffect` s’exécute après la mise à jour du DOM mais avant le paint, et le `setPlacement` qu’il contient est aussi rendu avant le paint : la première image montre déjà le menu au-dessus de la ligne. `useEffect` s’exécute en général après le paint, donc l’agent voit le menu sous la ligne pendant une image, puis le voit sauter."
+      }
+    ]
+  },
+  "react-rerenders": {
+    "topic": "Re-renders inutiles",
+    "question": "Qu’est-ce qui provoque des re-renders inutiles dans React, et comment les trouvez-vous et les corrigez-vous ?",
+    "answer": "Un composant refait son rendu quand son state change, quand son parent fait son rendu, ou quand un contexte qu’il lit change. Les rendus inutiles viennent en général d’un state placé trop haut, si bien qu’une page entière se rend pour un petit changement, de nouveaux objets ou fonctions passés à des enfants mémoïsés, et d’un gros contexte que tous les composants lisent. Je les trouve avec le Profiler des React DevTools, avec « why did this render » activé. Puis je corrige la cause : descendre le state, passer les parties coûteuses en `children`, découper les contextes ou utiliser un store avec des sélecteurs, et mémoïser, ou laisser le compilateur le faire, seulement là où le profil montre un vrai coût.",
+    "keyPoints": [
+      "Trois causes : son propre state, le rendu du parent, un changement de contexte",
+      "Les trouver avec le Profiler et « why did this render »",
+      "Descendre le state ou passer les parties coûteuses en `children`",
+      "Découper les contextes ou utiliser des sélecteurs ; mémoïser là où ça coûte"
+    ],
+    "explanation": "Ça teste si tu sais déboguer la performance avec méthode plutôt que de saupoudrer des `memo`. Un senior part de la mesure, sait que le rendu d’un parent rend tous ses enfants par défaut, et préfère les corrections de structure à la mémoïsation.",
+    "example": "Dans le back-office, ouvrir le menu des colonnes rendait les 5 000 lignes de commandes parce que `isColumnMenuOpen` vivait dans la page des commandes. Le Profiler indiquait « The parent component rendered. » pour chaque ligne. Déplacer ce state dans le composant du menu a limité le rendu au menu, sans aucun `memo`.",
+    "mistakes": [
+      "Croire qu’un enfant ne refait son rendu que quand ses props changent : par défaut, il le refait à chaque rendu de son parent",
+      "Tout envelopper dans `memo` avant de mesurer",
+      "Mettre des valeurs qui changent souvent et des valeurs stables dans le même contexte"
+    ],
+    "followUps": [
+      {
+        "question": "Comment utilisez-vous le Profiler pour trouver quel composant refait son rendu, et pourquoi ?",
+        "answer": "Je coche « Record why each component rendered while profiling » dans les réglages des DevTools, j’enregistre l’interaction lente, et je sélectionne les composants dans le flame graph. Chacun montre combien de temps il a pris et une raison, comme « The parent component rendered. » ou « Props changed » avec les noms des props."
+      },
+      {
+        "question": "Comment découperiez-vous la valeur d’un Context pour éviter des re-renders ?",
+        "answer": "Un contexte par type de changement : la recherche du filtre dans l’un, la commande sélectionnée dans un autre, chaque valeur construite avec `useMemo` pour qu’elle ne change que quand son propre champ change. Quand chaque lecteur n’a besoin que d’une partie, je déplace la valeur dans un store lu via des sélecteurs, comme Zustand."
+      },
+      {
+        "question": "Quand un re-render est-il assez peu coûteux pour être laissé tel quel ?",
+        "answer": "Quand le profil montre qu’il tient largement dans une frame et que l’utilisateur ne ressent rien : un petit composant qui rend le même DOM coûte quelques microsecondes. J’agis quand une interaction prend un temps perceptible, typiquement une liste de milliers de lignes ou un calcul lourd dans le rendu."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Par défaut, quand un parent fait son rendu, React rend tous ses enfants, même si leurs props n’ont pas changé.",
+        "why": "Seul `memo` (ou le compilateur) permet à React de sauter un enfant dont les props sont égales.",
+        "twin": {
+          "statement": "Par défaut, quand un parent fait son rendu, React saute tout enfant dont les props n’ont pas changé.",
+          "why": "Seul `memo` ou le compilateur permet à React de sauter un enfant ; sinon chaque enfant refait son rendu."
+        }
+      },
+      {
+        "statement": "`memo` empêche un composant de refaire son rendu quand un contexte qu’il lit change.",
+        "why": "Chaque lecteur d’un contexte refait son rendu quand la valeur du provider change, mémoïsé ou non.",
+        "twin": {
+          "statement": "`memo` n’empêche pas un composant de refaire son rendu quand un contexte qu’il lit change.",
+          "why": "Chaque lecteur d’un contexte refait son rendu quand la valeur du provider change, mémoïsé ou non."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un composant refait son rendu quand son state change, quand son parent fait son rendu ou quand un contexte qu’il lit change. Les rendus inutiles viennent en général d’un state placé trop haut ou de valeurs instables, et la correction consiste à supprimer la cause avant de mémoïser.",
+      "points": [
+        "Un composant fait son rendu pour trois raisons : son propre state a changé, son parent a fait son rendu, ou un contexte qu’il lit a changé. Les props seules ne déclenchent jamais un rendu.",
+        "Quand un parent fait son rendu, React rend chaque enfant par défaut, même avec des props identiques. `memo` ne saute un enfant que si chaque prop est égale au sens de `Object.is`.",
+        "Chaque composant qui lit un contexte refait son rendu quand la `value` du provider change. Une valeur construite comme un littéral objet change à chaque rendu du provider.",
+        "Corrige d’abord la cause : garde le state dans le plus petit composant qui en a besoin, passe les sous-arbres coûteux en `children`, découpe les contextes selon leur fréquence de changement.",
+        "Mesure avec le Profiler des DevTools avant et après ; un rendu qui produit le même DOM est souvent assez peu coûteux pour être laissé tel quel."
+      ],
+      "takeaways": [
+        {
+          "term": "Trois déclencheurs",
+          "detail": "Son propre state a changé, le parent a fait son rendu, ou un contexte lu a changé. Les props seules ne déclenchent jamais un rendu."
+        },
+        {
+          "term": "Rendu du parent",
+          "detail": "Rend chaque enfant par défaut ; `memo` n’en saute un que si chaque prop est égale au sens de `Object.is`."
+        },
+        {
+          "term": "Valeur de contexte",
+          "detail": "Un littéral objet change à chaque rendu du provider, donc chaque lecteur refait son rendu. Découpe les contextes selon leur fréquence de changement."
+        },
+        {
+          "term": "Descendre le state",
+          "detail": "Garde le state dans le plus petit composant qui en a besoin."
+        },
+        {
+          "term": "`children`",
+          "detail": "Passe les sous-arbres coûteux en `children` au lieu de les rendre sous le state qui change."
+        },
+        {
+          "term": "Profiler",
+          "detail": "Trouve les rendus avec « why did this render », mesure avant et après ; un rendu qui donne le même DOM est souvent peu coûteux."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, taper dans la recherche de commandes fait refaire le rendu de toute la page, y compris un graphique lourd, à chaque frappe. Le texte de recherche vit dans le composant de page. Comment trouvez-vous et corrigez-vous le problème ?",
+        "bridge": "Des re-renders inutiles dus à un state placé trop haut : profile pour confirmer, puis descends le state ou passe la partie coûteuse en `children`."
+      },
+      {
+        "question": "Citez les raisons pour lesquelles un composant React fait son rendu, et dites lesquelles la mémoïsation peut ou ne peut pas empêcher.",
+        "bridge": "Les trois causes : son propre state, le rendu du parent et un changement de contexte ; `memo` saute un rendu causé par le parent avec des props égales, pas un changement de contexte."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux affichent le menu des colonnes au-dessus du tableau de 5 000 commandes. Lequel des deux garde l’ouverture du menu peu coûteuse ?",
+        "why": "Quand `ColumnMenu` possède son propre state d’ouverture, l’ouvrir ou le fermer ne rend que le menu. Avec le state dans la page, chaque bascule rend `OrdersPage`, et React rend ses enfants par défaut : `OrdersTable` et ses 5 000 lignes refont leur rendu avec les mêmes props."
+      }
+    ]
+  },
+  "react-profiling": {
+    "topic": "Profiler une app React",
+    "question": "Comment profileriez-vous une app React pour trouver un goulot d’étranglement de performance ?",
+    "answer": "Je pars d’un symptôme reproductible, comme « la saisie dans le filtre rame », et je le mesure avant de toucher au code. J’enregistre l’interaction avec le Profiler des React DevTools pour voir quels composants ont fait leur rendu, combien de temps chacun a pris et pourquoi. Puis je l’enregistre dans le panneau Performance du navigateur, qui depuis React 19.2 affiche des pistes React à côté du travail du navigateur : je distingue le rendu React du layout, d’une longue tâche JavaScript ou d’une requête lente. Je mesure sur un build de production ou de profilage avec throttling CPU, je corrige le coût le plus gros, puis j’enregistre à nouveau pour comparer.",
+    "keyPoints": [
+      "Reproduire un symptôme et mesurer avant de toucher au code",
+      "Profiler des DevTools : quels composants, combien de temps, pourquoi",
+      "Panneau Performance : pistes React à côté du travail du navigateur",
+      "Build de profilage ou de production, throttling CPU, nouvelle mesure"
+    ],
+    "explanation": "Les recruteurs veulent une méthode, pas une liste d’outils. Un senior sépare le travail de React de celui du navigateur, mesure sur des builds et des appareils réalistes, et boucle avec une seconde mesure.",
+    "example": "Les agents signalaient que le filtre du back-office ramait. Avec un throttling CPU 4x, une frappe prenait jusqu’à 430 ms ; le Profiler montrait 5 000 lignes de commandes qui refaisaient leur rendu à cause d’un callback inline. Après avoir stabilisé le callback et mémoïsé les lignes, le même enregistrement montrait le rendu d’une seule ligne et de la barre d’outils.",
+    "mistakes": [
+      "Ne profiler qu’un build de développement sur un laptop rapide",
+      "Optimiser le composant qui a l’air lent dans le code plutôt que celui que montre le profil",
+      "Ne pas réenregistrer après la correction pour prouver le gain"
+    ],
+    "followUps": [
+      {
+        "question": "Comment lisez-vous un flame graph du Profiler pour trouver le composant le plus lent ?",
+        "answer": "Chaque barre est un composant du commit ; sa largeur est le temps de rendu, colorée du froid au chaud selon le coût, et le gris veut dire qu’il n’a pas fait de rendu. Je choisis le commit le plus lent dans l’histogramme des commits en haut, je cherche les barres larges et chaudes, et je passe au ranked chart, qui trie les composants par leur propre temps de rendu."
+      },
+      {
+        "question": "Profiler en développement ou sur un build de production ?",
+        "answer": "Les builds de développement sont plus lents : vérifications en plus, warnings, et doubles rendus de StrictMode. Ils suffisent pour voir quels composants font leur rendu et pourquoi, mais les durées viennent d’un build de production, avec le build de profilage de `react-dom` quand j’y ai besoin du Profiler React."
+      },
+      {
+        "question": "Comment surveilleriez-vous la performance en production ?",
+        "answer": "Avec du real-user monitoring : collecter les Core Web Vitals comme INP et LCP depuis de vrais navigateurs, avec la bibliothèque `web-vitals` ou un service de RUM, ventilés par page et par appareil. Pour un écran critique, un `<Profiler>` avec un callback `onRender` peut remonter les commits lents. J’alerte sur le 75e percentile, pas sur la moyenne."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Les durées mesurées sur un build de développement React sont représentatives de la production.",
+        "why": "Les builds de développement font des vérifications en plus et sont plus lents ; mesure un build de production ou de profilage.",
+        "twin": {
+          "statement": "Les durées mesurées sur un build de développement React surestiment le coût, donc on mesure un build de production ou de profilage.",
+          "why": "Les builds de développement font des vérifications en plus et sont plus lents."
+        }
+      },
+      {
+        "statement": "Le composant `<Profiler>` appelle son callback `onRender` après chaque commit de son sous-arbre.",
+        "why": "Il remonte la phase et les durées de chaque commit qu’il contient.",
+        "twin": {
+          "statement": "Le composant `<Profiler>` n’appelle `onRender` qu’une fois, au premier montage de son sous-arbre.",
+          "why": "Il appelle `onRender` après chaque commit de son sous-arbre, avec la phase et les durées."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Profiler, c’est mesurer un ralentissement reproductible avant de toucher au code, puis mesurer à nouveau après la correction. Les React DevTools montrent quels composants ont fait leur rendu et pourquoi ; le panneau Performance du navigateur montre le reste.",
+      "points": [
+        "Le rendu, c’est React qui appelle tes composants ; le commit, c’est React qui applique les changements au DOM. Un écran lent passe du temps dans l’un des deux, ou dans le travail du navigateur ensuite.",
+        "Le Profiler des React DevTools enregistre chaque commit sous forme de flame graph : quels composants ont fait leur rendu, combien de temps chacun a pris et, si c’est activé, pourquoi.",
+        "Le panneau Performance du navigateur montre l’ensemble. Depuis React 19.2, il inclut des pistes React, donc le travail de React apparaît à côté du layout, du paint et du réseau.",
+        "Mesure un build de production ou de profilage avec throttling CPU ; les builds de développement sont plus lents et ton laptop est plus rapide que les appareils des utilisateurs.",
+        "En production, collecte les Core Web Vitals (INP, LCP) auprès des vrais utilisateurs, et éventuellement `<Profiler onRender>` pour un écran critique."
+      ],
+      "takeaways": [
+        {
+          "term": "Rendu vs commit",
+          "detail": "Le rendu, c’est React qui appelle tes composants ; le commit, c’est React qui applique les changements au DOM."
+        },
+        {
+          "term": "Profiler des React DevTools",
+          "detail": "Un flame graph par commit : quels composants ont fait leur rendu, combien de temps chacun, et pourquoi si c’est activé."
+        },
+        {
+          "term": "Panneau Performance",
+          "detail": "Depuis React 19.2, il affiche des pistes React à côté du layout, du paint et du réseau."
+        },
+        {
+          "term": "Build pour mesurer",
+          "detail": "Un build de production ou de profilage avec throttling CPU ; les builds de développement sont plus lents."
+        },
+        {
+          "term": "Core Web Vitals",
+          "detail": "En production, collecte INP et LCP auprès des vrais utilisateurs."
+        },
+        {
+          "term": "`<Profiler onRender>`",
+          "detail": "Optionnel en production, pour un écran critique."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Les agents signalent que la saisie dans le filtre des commandes rame sur leurs laptops de bureau, mais vous ne le voyez pas sur votre machine. Comment enquêtez-vous avant de toucher au code ?",
+        "bridge": "Profilage : reproduis avec throttling CPU sur un build de production ou de profilage, enregistre avec le Profiler React et le panneau Performance, puis mesure à nouveau."
+      },
+      {
+        "question": "Que vous apprend le Profiler des React DevTools que le panneau Performance du navigateur ne montre pas, et inversement ?",
+        "bridge": "Les deux outils : le Profiler montre quels composants ont fait leur rendu, combien de temps et pourquoi ; le panneau Performance place React à côté du layout, des longues tâches et des requêtes."
+      }
+    ]
+  },
+  "react-testing-hooks": {
+    "topic": "Tester des custom hooks",
+    "question": "Comment testeriez-vous un custom hook sans construire un composant complet ?",
+    "answer": "J’utilise `renderHook` de React Testing Library. Il rend un petit composant de test qui appelle le hook et expose la dernière valeur de retour dans `result.current` ; `rerender` le rappelle avec de nouveaux arguments, et l’option `wrapper` ajoute des providers. Tout ce qui met à jour le state du hook, comme appeler une fonction renvoyée ou avancer des fake timers, va dans `act`, et on attend les résultats async avec `waitFor`. Je ne teste un hook isolément que s’il est partagé et a son propre contrat, comme un debounce ou un hook de panier ; un hook utilisé par un seul composant se teste mieux à travers ce composant.",
+    "keyPoints": [
+      "`renderHook` expose le résultat dans `result.current`",
+      "`rerender` pour de nouveaux arguments, `wrapper` pour les providers",
+      "Mises à jour de state dans `act`, résultats async avec `waitFor`",
+      "Ne tester isolément que les hooks partagés qui ont leur propre contrat"
+    ],
+    "explanation": "Ça vérifie que tu connais l’outil et ses règles (act, async, providers) et aussi quand ne pas t’en servir. La doc de Testing Library préfère tester à travers les composants, et un senior le dit.",
+    "example": "Le `useDebouncedValue` de la boutique est utilisé par la recherche produits et le champ d’adresse. Ses tests utilisent `renderHook` avec des fake timers : après 299 ms l’ancienne valeur, après 300 ms la nouvelle. `useCheckoutForm`, utilisé seulement par le checkout, est plutôt testé à travers le formulaire.",
+    "mistakes": [
+      "Lire `result.current` une fois dans une variable et s’attendre à ce qu’elle se mette à jour",
+      "Avancer les timers ou appeler un setter de state hors de `act`, puis faire une assertion sur une valeur périmée",
+      "Tester unitairement chaque hook isolément, ce qui lie les tests à l’implémentation"
+    ],
+    "followUps": [
+      {
+        "question": "Comment testez-vous un custom hook qui a un effet de bord async ?",
+        "answer": "Je mocke le réseau, idéalement avec MSW, je rends le hook, et je fais `await waitFor(() => expect(result.current.status).toBe('done'))`. `waitFor` relance l’assertion jusqu’à ce qu’elle passe ou atteigne son timeout, et enveloppe les mises à jour dans `act` à ma place."
+      },
+      {
+        "question": "Pourquoi `act()` compte-t-il avec `renderHook` ?",
+        "answer": "`act` fait terminer à React les mises à jour de state et les effets déclenchés à l’intérieur avant que le test continue. Sans lui, `result.current` peut encore contenir l’ancienne valeur au moment de l’assertion, et React peut avertir qu’une mise à jour n’était pas enveloppée dans `act`."
+      },
+      {
+        "question": "Comment testez-vous un custom hook qui dépend d’un Context ?",
+        "answer": "Je passe à `renderHook` un `wrapper` qui rend le provider autour du hook avec une valeur de test, par exemple un provider de panier avec deux articles. Je teste aussi ce qui se passe sans le provider : un bon hook lève une erreur claire."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`result.current` contient toujours la dernière valeur de retour du hook.",
+        "why": "Il est mis à jour après chaque rendu du composant de test.",
+        "twin": {
+          "statement": "`result.current` garde la valeur du premier rendu du hook et ne se met jamais à jour.",
+          "why": "Il est mis à jour après chaque rendu du composant de test."
+        }
+      },
+      {
+        "statement": "Un custom hook peut être appelé directement dans un test comme une fonction normale, hors de tout composant.",
+        "why": "Les hooks ont besoin d’un composant en cours de rendu ; en appeler un hors d’un composant lève une erreur.",
+        "twin": {
+          "statement": "Un custom hook doit s’exécuter dans un composant en cours de rendu, c’est pourquoi un test l’appelle via `renderHook`.",
+          "why": "Appeler un hook hors d’un composant lève une erreur."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un hook ne s’exécute que dans un composant, donc `renderHook` rend pour lui un petit composant de test. Ne teste un hook isolément que s’il est partagé et a son propre contrat.",
+      "points": [
+        "Un hook ne peut s’exécuter que dans un composant. `renderHook` de React Testing Library rend un petit composant de test qui l’appelle.",
+        "`result.current` contient la dernière valeur de retour ; `rerender(newProps)` rappelle le hook ; l’option `wrapper` rend des providers autour.",
+        "Enveloppe dans `act` tout ce qui met à jour le state du hook, et attends les résultats async avec `await waitFor(...)`.",
+        "Teste un hook isolément quand il est partagé et a son propre contrat. Un hook utilisé par un seul composant se teste mieux à travers ce composant."
+      ],
+      "takeaways": [
+        {
+          "term": "`renderHook`",
+          "detail": "De React Testing Library : rend un composant de test qui appelle le hook."
+        },
+        {
+          "term": "`result.current`",
+          "detail": "La dernière valeur de retour du hook."
+        },
+        {
+          "term": "`rerender`",
+          "detail": "Rappelle le hook avec de nouveaux arguments."
+        },
+        {
+          "term": "`wrapper`",
+          "detail": "Option qui rend des providers autour du hook."
+        },
+        {
+          "term": "`act`",
+          "detail": "Enveloppe tout ce qui met à jour le state du hook, comme appeler une fonction renvoyée ou avancer des fake timers."
+        },
+        {
+          "term": "`waitFor`",
+          "detail": "Attends les résultats async avec `await waitFor(...)`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Vous avez écrit un hook partagé `useDebouncedValue` pour la recherche de la boutique et voulez tester son délai de 300 ms sans construire de page. Comment faites-vous ?",
+        "bridge": "Tester un hook isolément : `renderHook` expose `result.current`, `rerender` passe de nouveaux arguments, et les fake timers sont avancés dans `act`."
+      },
+      {
+        "question": "Quand est-ce une mauvaise idée de tester un custom hook isolément, et que testeriez-vous à la place ?",
+        "bridge": "Ne teste un hook isolément que s’il est partagé et a son propre contrat ; un hook utilisé par un seul composant se teste mieux à travers ce composant."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux vérifient qu’ajouter un produit avec le hook `useCart` de la boutique compte un article. Lequel des deux tests passe ?",
+        "why": "`result.current` est remplacé après chaque rendu, donc le lire après `act` donne la nouvelle valeur : count 1. Le copier dans `cart` garde l’objet du premier rendu : `cart.count` vaut toujours 0 et le test échoue, alors que le hook fonctionne."
+      }
+    ]
+  },
+  "react-mutation-bugs": {
+    "topic": "Un composant qui ne refait pas son rendu",
+    "question": "Comment débogueriez-vous un composant qui ne refait pas son rendu alors que vous vous y attendez ?",
+    "answer": "La cause habituelle, c’est la mutation : le code modifie un objet ou un tableau sur place et passe la même référence au setter, donc React compare avec `Object.is`, ne voit aucun changement et saute le rendu. Je vérifie dans les React DevTools si le state contient vraiment la nouvelle valeur et si le composant a fait son rendu. Si la donnée a changé mais pas la référence, je la remplace par une copie : spread pour l’objet, `map` ou `toSorted` pour les tableaux. Les autres causes que je vérifie : un enfant mémoïsé qui reçoit une prop mutée, une valeur stockée dans une ref au lieu du state, et un state copié depuis les props qui ne se resynchronise jamais.",
+    "keyPoints": [
+      "Cause habituelle : muter le state et passer la même référence",
+      "React compare avec `Object.is`, donc il saute le rendu",
+      "Correction : nouveaux objets et tableaux (spread, `map`, `toSorted`)",
+      "Vérifier aussi les refs, les enfants mémoïsés, le state copié depuis les props"
+    ],
+    "explanation": "Ça teste si tu comprends comment React détecte les changements. Un senior va droit à l’égalité de référence, montre les étapes de debug dans les DevTools, et cite les causes moins fréquentes.",
+    "example": "Dans le back-office, une mise à jour de statut en temps réel faisait `order.status = event.status` puis passait une copie du tableau. Les lignes étaient mémoïsées, recevaient les mêmes objets commande, et continuaient d’afficher « paid ». Remplacer uniquement la commande modifiée par `{ ...order, status }` a mis à jour exactement cette ligne.",
+    "mistakes": [
+      "Appeler `push` ou `sort` sur un tableau du state puis passer le même tableau au setter",
+      "Copier le tableau mais muter les objets qu’il contient, ce qui trompe encore les enfants mémoïsés",
+      "Stocker dans une ref une valeur qui pilote l’UI, alors que ses changements ne déclenchent jamais de rendu"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi React utilise-t-il l’égalité de référence plutôt qu’une égalité profonde pour le state ?",
+        "answer": "Elle est en temps constant, quelle que soit la taille du state, alors qu’une comparaison profonde d’une liste de 5 000 commandes à chaque mise à jour coûterait plus cher que le rendu qu’elle évite. Elle fait aussi de l’immutabilité le contrat : une nouvelle référence veut dire que quelque chose a changé."
+      },
+      {
+        "question": "Comment utiliseriez-vous les DevTools pour inspecter le state et les props ici ?",
+        "answer": "Dans l’onglet Components, je sélectionne le composant et je lis ses props et le state de ses hooks en direct pendant que je déclenche la mise à jour. Si le state contient la nouvelle valeur mais que rien n’a refait son rendu, je soupçonne une mutation ; le réglage « highlight updates when components render » et le Profiler montrent s’il y a eu un rendu ou non."
+      },
+      {
+        "question": "Comment `Object.freeze` aide-t-il à repérer une mutation accidentelle du state ?",
+        "answer": "Geler le state en développement transforme une mutation silencieuse en erreur : en mode strict, que les modules ES utilisent toujours, assigner à un objet gelé lève une `TypeError`. Le gel est superficiel, donc les objets imbriqués doivent être gelés aussi. Immer, utilisé par Redux Toolkit, gèle les arbres de state qu’il produit pour la même raison."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Si une fonction de mise à jour du state mute l’objet précédent et le renvoie, React saute le re-render.",
+        "why": "La valeur renvoyée est la même référence, et `Object.is` dit que rien n’a changé.",
+        "twin": {
+          "statement": "Si une fonction de mise à jour du state mute l’objet précédent et le renvoie, React refait le rendu avec le nouveau contenu.",
+          "why": "La valeur renvoyée est la même référence, donc `Object.is` dit que rien n’a changé et React saute le rendu."
+        }
+      },
+      {
+        "statement": "`Object.freeze` rend un objet et tous les objets imbriqués dedans en lecture seule.",
+        "why": "Il est superficiel : les objets imbriqués restent mutables s’ils ne sont pas gelés eux aussi.",
+        "twin": {
+          "statement": "`Object.freeze` est superficiel : les objets imbriqués dans un objet gelé restent mutables.",
+          "why": "Chaque objet imbriqué doit être gelé séparément."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Quand un composant ne refait pas son rendu après une mise à jour, la cause habituelle est la mutation : le state a changé sur place, donc React voit la même référence et saute le rendu.",
+      "points": [
+        "Quand tu appelles un setter de state, React compare la nouvelle valeur à l’ancienne avec `Object.is`. Même référence : React peut sauter le rendu.",
+        "Muter un objet ou un tableau sur place garde sa référence, donc `push`, `sort` ou `order.status = ...` suivis d’un set n’affichent souvent rien.",
+        "Mets à jour de façon immuable : copie ce qui a changé (`{ ...order, status }`, `map`, `toSorted`) et garde les objets inchangés tels quels, pour que les enfants mémoïsés sautent correctement leur rendu.",
+        "Débogue dans les React DevTools : vérifie si le state contient la nouvelle valeur, et si le composant a fait son rendu ou non.",
+        "`Object.freeze` en développement fait lever une erreur aux mutations dans du code en mode strict. Il est superficiel ; Immer, utilisé par Redux Toolkit, gèle le state qu’il produit."
+      ],
+      "takeaways": [
+        {
+          "term": "`Object.is`",
+          "detail": "Le setter compare la nouvelle valeur à l’ancienne. Même référence : React peut sauter le rendu."
+        },
+        {
+          "term": "Mutation sur place",
+          "detail": "`push`, `sort` ou `order.status = ...` gardent la référence, donc le set n’affiche souvent rien."
+        },
+        {
+          "term": "Mise à jour immuable",
+          "detail": "Copie ce qui a changé (`{ ...order, status }`, `map`, `toSorted`) et garde les objets inchangés tels quels."
+        },
+        {
+          "term": "React DevTools",
+          "detail": "Vérifie si le state contient la nouvelle valeur, et si le composant a fait son rendu ou non."
+        },
+        {
+          "term": "Autres causes",
+          "detail": "Une valeur gardée dans une ref, un enfant mémoïsé avec une prop mutée, ou un state copié depuis les props."
+        },
+        {
+          "term": "`Object.freeze`",
+          "detail": "En développement, fait lever une erreur aux mutations dans du code en mode strict. Il est superficiel ; Immer gèle ce qu’il produit."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, un agent trie le tableau des commandes par date et rien ne bouge. Le handler de clic appelle `orders.sort(byDate)` puis `setOrders(orders)`. Que se passe-t-il ?",
+        "bridge": "Un bug de mutation : le tableau est trié sur place et la même référence est passée, donc `Object.is` ne voit aucun changement et React saute le rendu."
+      },
+      {
+        "question": "Un collègue dit : « React refait le rendu chaque fois que j’appelle le setter ». Quand est-ce faux, et comment vérifieriez-vous ce qui s’est passé ?",
+        "bridge": "React compare le nouveau state avec `Object.is` et saute le rendu pour la même référence ; les DevTools montrent si le state a changé et si le rendu a eu lieu."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux marquent la commande comme expédiée quand la mise à jour en temps réel arrive. Lequel des deux fait refaire son rendu au détail de la commande ?",
+        "why": "Le spread crée un nouvel objet, donc React voit un changement et le détail affiche « shipped ». L’autre fonction de mise à jour mute l’ancien objet et le renvoie : `Object.is` dit que rien n’a changé, React saute le rendu, et le détail continue d’afficher « paid »."
+      }
+    ]
+  },
+  "react-error-boundaries": {
+    "topic": "Error boundaries en production",
+    "question": "Comment utiliseriez-vous les error boundaries dans une app React en production ?",
+    "answer": "Une error boundary est un composant qui attrape les erreurs levées pendant le rendu de ses enfants, ou dans leurs effets, et affiche un fallback à la place. Sans elle, une erreur de rendu démonte toute la racine et l’utilisateur voit une page blanche. Je les place selon le rayon d’impact : une à la racine en dernier recours, une par route, et une autour de chaque panneau indépendant, pour qu’un widget cassé ne fasse pas tomber la page. Chaque fallback propose de réessayer, et chaque erreur attrapée part dans l’outil de suivi d’erreurs avec sa pile de composants. C’est encore un composant classe, ou le package react-error-boundary ; les erreurs des event handlers et du code async se gèrent dans le code.",
+    "keyPoints": [
+      "Attrape les erreurs de rendu et d’effet en dessous, affiche un fallback",
+      "Sans elle, une erreur de rendu vide toute la racine",
+      "Placées selon le rayon d’impact : racine, route, panneaux indépendants",
+      "Remonter les erreurs avec la pile de composants ; proposer de réessayer"
+    ],
+    "explanation": "Elle montre si tu as fait tourner React en production. Les seniors savent ce que les boundaries n’attrapent pas, où les placer, comment les erreurs arrivent au monitoring et comment l’utilisateur s’en sort.",
+    "example": "Une commande est revenue de l’API sans son client, le panneau de détail a levé une erreur et tout le back-office est devenu blanc. On a entouré le panneau d’une boundary indexée par l’id de la commande : le tableau restait utilisable, le panneau affichait « Impossible d’afficher cette commande » avec un bouton pour réessayer, et l’erreur arrivait dans notre suivi avec sa pile de composants.",
+    "mistakes": [
+      "S’attendre à ce qu’une boundary attrape une erreur levée dans un handler de clic ou un callback de promesse",
+      "Une seule boundary à la racine, si bien que la moindre erreur remplace toute l’app",
+      "Oublier de réinitialiser la boundary, si bien que le fallback reste après que l’utilisateur passe à des données valides"
+    ],
+    "followUps": [
+      {
+        "question": "Quelles erreurs les error boundaries n’attrapent-elles pas ?",
+        "answer": "Les erreurs dans les event handlers, dans le code asynchrone comme `setTimeout` ou les callbacks de promesse, pendant le rendu serveur, et dans la boundary elle-même. Je les gère avec `try`/`catch` et du state, ou je relance une erreur async depuis un updater de state pour que la boundary la plus proche la reçoive."
+      },
+      {
+        "question": "Comment enverriez-vous les erreurs attrapées à un service de suivi d’erreurs ?",
+        "answer": "Dans `componentDidCatch`, ou le `onError` de react-error-boundary, je remonte l’erreur avec `info.componentStack` et du contexte comme la route et l’id de commande. React 19 permet aussi de passer `onCaughtError` et `onUncaughtError` à `createRoot`, un point central pour remonter toutes les erreurs."
+      },
+      {
+        "question": "Comment concevriez-vous un fallback qui permet à l’utilisateur de s’en sortir ou de réessayer ?",
+        "answer": "Le fallback dit simplement ce qui a échoué, laisse le reste de l’écran utilisable et a un bouton « Réessayer » qui réinitialise la boundary et refait la requête. Avec react-error-boundary, `resetErrorBoundary` avec `onReset`, et `resetKeys` ou une `key` la réinitialisent quand l’utilisateur ouvre une autre commande."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une error boundary attrape une erreur levée dans le handler `onClick` d’un de ses enfants.",
+        "why": "Les event handlers s’exécutent hors du rendu ; leurs erreurs n’atteignent pas les boundaries.",
+        "twin": {
+          "statement": "Une erreur levée dans le handler `onClick` d’un enfant n’atteint pas l’error boundary la plus proche.",
+          "why": "Les event handlers s’exécutent hors du rendu, donc leurs erreurs doivent être gérées dans le code."
+        }
+      },
+      {
+        "statement": "Sans aucune error boundary, une erreur levée pendant le rendu démonte toute la racine React.",
+        "why": "React n’a rien à afficher à la place, donc il retire tout l’arbre.",
+        "twin": {
+          "statement": "Sans aucune error boundary, une erreur levée pendant le rendu retire seulement le composant qui l’a levée.",
+          "why": "React n’a rien à afficher à la place, donc il démonte toute la racine."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une error boundary attrape les erreurs levées pendant le rendu de ses enfants et affiche un fallback au lieu d’une page blanche. Leur placement décide de la part de la page qu’un seul bug peut faire tomber.",
+      "points": [
+        "Une error boundary attrape les erreurs levées pendant le rendu de ses enfants ou dans leurs effets, et rend un fallback. Sans elle, React démonte toute la racine.",
+        "C’est un composant classe avec `getDerivedStateFromError` (afficher le fallback) et `componentDidCatch` (remonter l’erreur). Le package react-error-boundary l’encapsule pour toi.",
+        "Elle n’attrape pas les erreurs des event handlers, des callbacks async, du rendu serveur ni les siennes. Gère-les avec `try`/`catch` et du state.",
+        "Place les boundaries selon le rayon d’impact : racine, route, panneaux indépendants. Donne-leur une `key` pour qu’elles se réinitialisent quand leur contenu change.",
+        "Remonte chaque erreur avec sa pile de composants, depuis `componentDidCatch` ou les options `onCaughtError` et `onUncaughtError` de `createRoot` en React 19."
+      ],
+      "takeaways": [
+        {
+          "term": "Sans boundary",
+          "detail": "Une erreur de rendu fait démonter toute la racine par React : une page blanche."
+        },
+        {
+          "term": "`getDerivedStateFromError`",
+          "detail": "La méthode de classe qui bascule sur le fallback."
+        },
+        {
+          "term": "`componentDidCatch`",
+          "detail": "La méthode de classe qui remonte l’erreur. Le package react-error-boundary encapsule les deux."
+        },
+        {
+          "term": "Non attrapées",
+          "detail": "Les erreurs des event handlers, des callbacks async, du rendu serveur ou de la boundary elle-même : utilise `try`/`catch`."
+        },
+        {
+          "term": "Rayon d’impact",
+          "detail": "Place les boundaries à la racine, par route et autour des panneaux indépendants. Une `key` en réinitialise une."
+        },
+        {
+          "term": "`onCaughtError`",
+          "detail": "Avec `onUncaughtError`, une option de `createRoot` en React 19 pour remonter les erreurs avec leur pile de composants."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Après un déploiement, tous les agents voient un back-office tout blanc parce qu’un widget de la barre latérale lève une erreur sur un client `null` pendant le rendu. Comment l’app aurait-elle dû contenir ça ?",
+        "bridge": "Des error boundaries placées selon le rayon d’impact : une autour de chaque panneau indépendant, pour qu’un widget en échec affiche un fallback au lieu de démonter la racine."
+      },
+      {
+        "question": "Un collègue entoure le bouton de remboursement d’une error boundary pour attraper les appels API en échec de son `onClick`. Est-ce que ça marche, et qu’attrapent les boundaries ?",
+        "bridge": "La portée des error boundaries : les erreurs de rendu et d’effet en dessous d’elles ; les erreurs des event handlers et du code async se gèrent dans le code."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux entourent le panneau de détail de commande d’une error boundary. Laquelle se rétablit quand l’agent ouvre une autre commande ?",
+        "why": "Une `key` par commande fait monter par React une boundary neuve quand l’agent ouvre une autre commande, donc le détail se rend à nouveau. Sans elle, la même boundary garde son état d’erreur : après une commande cassée, chaque commande que l’agent ouvre affiche le fallback jusqu’au rechargement de la page."
+      }
+    ]
+  },
+  "react-router": {
+    "topic": "Routing avec React Router",
+    "question": "Comment mettriez-vous en place le routing côté client dans une app React avec React Router ?",
+    "answer": "Le routing côté client, c’est changer l’URL sans recharger toute la page : le router intercepte les clics sur les liens, met à jour l’historique et rend le composant correspondant. Avec React Router, je définis les routes comme un arbre avec `createBrowserRouter` et je rends `RouterProvider`. Les routes parentes rendent un layout avec un `<Outlet />` où apparaît la route enfant, les segments dynamiques comme `orders/:orderId` se lisent avec `useParams`, et les liens utilisent `<Link>`. En data mode, chaque route peut avoir un `loader` qui récupère ses données avant le rendu, et les modules de route sont chargés en lazy, donc le code de chaque page arrive à la demande. Les filtres vont dans les search params, pour qu’un rechargement les garde.",
+    "keyPoints": [
+      "L’URL change sans rechargement ; le router rend la route correspondante",
+      "Arbre de routes avec `createBrowserRouter` et `RouterProvider`",
+      "Les layouts rendent `<Outlet />` ; params via `useParams`",
+      "Les loaders chargent par route ; les routes lazy découpent le code"
+    ],
+    "explanation": "Elle vérifie le routing concret dans une single-page app. Les seniors parlent de layouts imbriqués, d’état dans l’URL, de chargement des données par route plutôt que dans des effets, de code splitting, et de l’endroit où vit la vraie autorisation.",
+    "example": "Le back-office a `/orders` avec le tableau et `/orders/:orderId` pour le détail, imbriqués sous un layout avec la barre latérale. Passer les filtres dans les search params a permis aux agents de partager un lien vers « commandes payées cette semaine », et le loader de la route de détail s’est mis à récupérer la commande avant le rendu de son composant.",
+    "mistakes": [
+      "Utiliser `<a href>` pour les liens internes, ce qui recharge toute l’app",
+      "Garder les filtres dans le state du composant, si bien qu’un rechargement ou un lien partagé les perd",
+      "Prendre une route protégée côté client pour de la sécurité : l’API doit aussi vérifier l’accès"
+    ],
+    "followUps": [
+      {
+        "question": "Comment lisez-vous un paramètre d’URL dans le composant routé ?",
+        "answer": "Avec `useParams()` : pour la route `orders/:orderId`, `const { orderId } = useParams()`. En data mode, la même valeur arrive en `params.orderId` dans le loader de la route. Les paramètres de recherche comme les filtres viennent de `useSearchParams()`."
+      },
+      {
+        "question": "Comment mettriez-vous en place une route protégée ?",
+        "answer": "En data mode, un middleware ou un loader sur la route parente vérifie la session et lance `redirect('/login')`, donc les données protégées ne sont jamais demandées. En mode déclaratif, une route de layout rend `<Navigate to=\"/login\" replace />` ou `<Outlet />`. Dans les deux cas, l’API vérifie quand même chaque requête."
+      },
+      {
+        "question": "Comment gérez-vous les routes imbriquées et les layouts ?",
+        "answer": "Les routes enfants vont dans les `children` du parent et se rendent là où le parent place `<Outlet />`, donc le layout avec la barre latérale reste monté pendant que les pages changent. Une route sans `path` est un pur layout, et une route `index` est l’enfant par défaut à l’URL du parent."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans React Router, une route sans `path` peut entourer ses enfants d’un layout sans ajouter de segment à l’URL.",
+        "why": "Les routes de layout sans path regroupent les enfants sous un layout commun.",
+        "twin": {
+          "statement": "Toute route React Router qui rend un layout doit ajouter un segment à l’URL.",
+          "why": "Une route de layout sans path regroupe ses enfants sous un layout commun sans segment d’URL."
+        }
+      },
+      {
+        "statement": "Une route protégée côté client suffit à garder privées les commandes d’un client.",
+        "why": "N’importe qui peut appeler l’API directement ; le serveur doit vérifier l’accès à chaque requête.",
+        "twin": {
+          "statement": "Une route protégée côté client ne fait que cacher la page ; le serveur doit quand même vérifier l’accès aux commandes d’un client à chaque requête.",
+          "why": "N’importe qui peut appeler l’API directement, en contournant le client."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le routing côté client change l’URL sans recharger toute la page, et le router rend le composant qui correspond. React Router ajoute les layouts imbriqués, les paramètres d’URL et le chargement des données par route.",
+      "points": [
+        "Le routing côté client change l’URL avec l’History API et rend le composant correspondant, sans recharger la page.",
+        "React Router construit un arbre de routes. Les routes enfants se rendent dans le `<Outlet />` du parent, donc les layouts partagés restent montés d’une page à l’autre.",
+        "Un segment qui commence par `:`, comme `orders/:orderId`, est dynamique : lis-le avec `useParams()`. Les search params (`?status=paid`) conviennent aux filtres.",
+        "En data mode (`createBrowserRouter`), une route peut avoir un `loader` qui charge avant le rendu, et un middleware qui peut lancer `redirect('/login')`.",
+        "Une route protégée améliore seulement l’expérience ; l’API doit quand même vérifier l’accès à chaque requête."
+      ],
+      "takeaways": [
+        {
+          "term": "History API",
+          "detail": "Change l’URL ; le router rend la route correspondante sans recharger la page."
+        },
+        {
+          "term": "`<Outlet />`",
+          "detail": "L’endroit où une route enfant se rend dans son parent, pour que les layouts partagés restent montés."
+        },
+        {
+          "term": "`useParams()`",
+          "detail": "Lit un segment dynamique comme `orders/:orderId`."
+        },
+        {
+          "term": "Search params",
+          "detail": "`?status=paid` convient aux filtres, pour qu’un rechargement les garde."
+        },
+        {
+          "term": "`loader`",
+          "detail": "En data mode (`createBrowserRouter`), récupère les données d’une route avant son rendu."
+        },
+        {
+          "term": "Route protégée",
+          "detail": "Améliore seulement l’expérience : l’API doit quand même vérifier l’accès à chaque requête."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, un agent filtre les commandes sur `shipped`, en ouvre une, fait Retour et tombe sur une liste non filtrée ; un rechargement perd aussi le filtre. Comment corrigeriez-vous ça avec React Router ?",
+        "bridge": "L’état du routing : les filtres vont dans les search params, pour que l’URL, l’historique et un rechargement les gardent."
+      },
+      {
+        "question": "Expliquez-moi comment vous mettriez en place `/orders` et `/orders/:orderId` avec un layout partagé dans React Router.",
+        "bridge": "L’arbre de routes : `createBrowserRouter` avec `RouterProvider`, un layout parent qui rend `<Outlet />`, et `useParams` pour lire `orderId`."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux relient une ligne du tableau des commandes du back-office au détail de la commande. Laquelle garde l’app chargée ?",
+        "why": "`<Link>` laisse React Router intercepter le clic, pousser l’URL et rendre la route de détail : le layout et le state en mémoire restent. Un simple `<a href>` fait charger un nouveau document au navigateur, donc toute l’app se télécharge et redémarre, et tout le state client est perdu."
+      }
+    ]
+  },
+  "react-compound-components": {
+    "topic": "Compound components",
+    "question": "Qu’est-ce que le pattern compound component, et quand l’utiliseriez-vous ?",
+    "answer": "Les compound components sont un ensemble de composants qui fonctionnent ensemble et partagent un state sans que l’appelant le câble, comme `<select>` et `<option>`. Un composant racine, disons `Tabs.Root`, détient le state et le fournit via un context ; ses parties, `Tabs.List`, `Tabs.Tab` et `Tabs.Panel`, le lisent. L’appelant dispose les parties en JSX, dans n’importe quel ordre et avec n’importe quel contenu entre elles, au lieu de remplir un tableau de configuration qui gagne un champ à chaque demande. Je l’utilise pour les composants de design system à plusieurs parties liées : onglets, menus, accordéons, selects. Le coût : une API plus large et des parties qui ne marchent que dans leur racine.",
+    "keyPoints": [
+      "Des parties qui partagent un state, comme `<select>` et `<option>`",
+      "La racine détient le state et le fournit via un context",
+      "L’appelant compose les parties en JSX, pas via un tableau de config",
+      "Convient aux onglets, menus, accordéons ; les parties ont besoin de leur racine"
+    ],
+    "explanation": "C’est une question de design system. Les recruteurs attendent le mécanisme du context, la comparaison avec une API à base de props, et l’accessibilité, dont les compound components rendent la bibliothèque responsable.",
+    "example": "Le `<OrderTabs tabs={[{ label, content, badge, icon }]} />` du back-office gagnait un champ à chaque demande. On l’a refait dans le package UI partagé en `Tabs.Root`, `Tabs.List`, `Tabs.Tab` et `Tabs.Panel` : le détail de commande et la page produit de la boutique disposent maintenant leur propre contenu, et les rôles ARIA et les flèches du clavier vivent à un seul endroit.",
+    "mistakes": [
+      "Partager le state en clonant les enfants avec `React.cloneElement`, ce qui casse dès qu’une partie est enveloppée dans un autre élément",
+      "Ne pas lever d’erreur claire quand une partie est utilisée hors de sa racine",
+      "Coder en dur les ids DOM, si bien que deux instances sur une même page entrent en collision ; utilise `useId`"
+    ],
+    "followUps": [
+      {
+        "question": "Comment les compound components partagent-ils leur state implicitement ?",
+        "answer": "La racine crée le state et rend un provider de context ; chaque partie lit le context. Le context démarre à `null`, et un petit hook dans chaque partie lève « must be rendered inside `<Tabs.Root>` » quand il manque."
+      },
+      {
+        "question": "Quels sont ses compromis face à une API à base de props ?",
+        "answer": "Les compound components donnent à l’appelant la liberté de mise en page et empêchent les props de gonfler, mais exposent plus de composants à apprendre et documenter, et rendent possible un mauvais usage des parties. Une API à base de props est plus simple et plus stricte quand la mise en page est fixe, comme un bouton ou un badge."
+      },
+      {
+        "question": "Quelles bibliothèques de composants connues utilisent ce pattern ?",
+        "answer": "Radix UI, React Aria Components et Base UI livrent la plupart de leurs composants ainsi, par exemple `Tabs.Root`, `Tabs.List`, `Tabs.Trigger` et `Tabs.Content` chez Radix."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans les compound components, les parties lisent en général le state partagé depuis un context React fourni par la racine.",
+        "why": "Le context permet aux parties d’être à n’importe quelle profondeur sous la racine sans câbler de props.",
+        "twin": {
+          "statement": "Dans les compound components, les parties reçoivent en général le state partagé sous forme de props que la racine clone dans chaque enfant direct.",
+          "why": "Elles le lisent en général depuis un context fourni par la racine, donc elles peuvent être à n’importe quelle profondeur."
+        }
+      },
+      {
+        "statement": "Les compound components ne marchent que si les parties sont des enfants directs de la racine.",
+        "why": "Avec un context, les parties peuvent être imbriquées à n’importe quelle profondeur ; seules les versions à base de `cloneElement` exigent des enfants directs.",
+        "twin": {
+          "statement": "Avec un context, les parties d’un compound component peuvent être imbriquées à n’importe quelle profondeur sous leur racine.",
+          "why": "Seules les versions à base de `cloneElement` exigent que les parties soient des enfants directs."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les compound components sont des parties qui partagent un state sans que l’appelant le câble, comme `<select>` et `<option>`. Ils remplacent un tableau de configuration qui grossit par une composition libre en JSX.",
+      "points": [
+        "Les compound components sont des parties qui fonctionnent ensemble, comme `<select>` et `<option>` : une racine et ses parties, comme `Tabs.Root`, `Tabs.Tab` et `Tabs.Panel`.",
+        "La racine détient le state et le fournit via un context ; chaque partie lit ce context, à n’importe quelle profondeur sous la racine.",
+        "L’appelant compose les parties en JSX au lieu de passer un tableau de configuration, donc une nouvelle mise en page ne demande aucune nouvelle prop.",
+        "Crée le context avec `null` et lève une erreur claire dans une partie utilisée hors de sa racine. Utilise `useId` pour les ids ARIA.",
+        "Radix UI, React Aria Components et Base UI utilisent ce pattern pour les onglets, menus, selects et dialogues."
+      ],
+      "takeaways": [
+        {
+          "term": "Racine",
+          "detail": "Détient le state et le fournit via un context, comme `Tabs.Root`."
+        },
+        {
+          "term": "Parties",
+          "detail": "`Tabs.Tab` ou `Tabs.Panel` lisent ce context à n’importe quelle profondeur sous la racine."
+        },
+        {
+          "term": "Composition plutôt que config",
+          "detail": "L’appelant dispose les parties en JSX, donc une nouvelle mise en page ne demande aucune nouvelle prop."
+        },
+        {
+          "term": "Partie hors de sa racine",
+          "detail": "Crée le context avec `null` et lève une erreur claire."
+        },
+        {
+          "term": "`useId`",
+          "detail": "À utiliser pour les ids ARIA qui relient les parties."
+        },
+        {
+          "term": "Bibliothèques",
+          "detail": "Radix UI, React Aria Components et Base UI l’utilisent pour les onglets, menus, selects et dialogues."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le composant `Tabs` du back-office prend un tableau de config `tabs` qui a gagné une douzaine d’options, comme `badgeCount` et `iconPosition`, une par demande. Vers quel pattern migreriez-vous ?",
+        "bridge": "Les compound components : une racine qui garde le state dans un context et des parties que l’appelant compose en JSX, au lieu d’un tableau de config qui gagne un champ par demande."
+      },
+      {
+        "question": "En quoi `<select>` et `<option>` illustrent-ils le pattern compound component, et que coûte ce pattern ?",
+        "bridge": "Le même pattern à partir d’un exemple natif : des parties qui partagent un state sans câblage, au prix d’une API plus large et de parties qui ont besoin de leur racine."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux permettent à `Tabs.Tab` de lire le state de son `Tabs.Root`. Laquelle aide un développeur qui rend un onglet hors de la racine ?",
+        "why": "Un context qui démarre à `null` permet au hook de détecter l’absence de racine et de lever un message qui indique la correction. Avec un objet vide par défaut, un onglet hors de sa racine se rend comme si de rien n’était, puis un clic échoue avec le vague « tabs.select is not a function »."
+      }
+    ]
+  },
+  "react-suspense": {
+    "topic": "Suspense : code et données",
+    "question": "En quoi Suspense pour le chargement de données diffère-t-il de Suspense pour le code splitting ?",
+    "answer": "Suspense est un seul mécanisme : une boundary `<Suspense>` affiche son fallback tant que quelque chose à l’intérieur n’est pas prêt. Pour le code splitting, c’est un composant chargé avec `lazy(() => import(...))` : il suspend jusqu’à l’arrivée de son module. Pour les données, c’est un composant qui lit une promesse en attente avec `use`, ou un Server Component qui attend ses données, ou une bibliothèque compatible Suspense comme `useSuspenseQuery` de TanStack Query. Charger dans un `useEffect` ne déclenche pas du tout Suspense. La boundary se moque de la source ; ce qui compte, c’est de placer les boundaries là où le design veut des états de chargement, et d’associer chacune à une error boundary pour les échecs.",
+    "keyPoints": [
+      "Un seul mécanisme : la boundary la plus proche affiche son fallback",
+      "Code : `lazy()` suspend jusqu’au chargement du module",
+      "Données : `use(promise)`, Server Components async, bibliothèques Suspense",
+      "Un fetch en effet ne suspend pas ; associer des error boundaries"
+    ],
+    "explanation": "Beaucoup de candidats connaissent `lazy` mais pensent que Suspense charge les données tout seul. Les seniors expliquent ce qui suspend, ce qui ne suspend pas, comment circulent les erreurs, et comment le streaming utilise les mêmes boundaries côté serveur.",
+    "example": "Sur la page produit de la boutique, le service d’avis met jusqu’à 600 ms. La page entoure `<Reviews>` d’une boundary Suspense avec un skeleton, donc le serveur streame d’abord le titre et la photo, puis les avis dans un chunk suivant. Dans le back-office, le code du formulaire de remboursement est chargé avec `lazy` derrière sa propre boundary.",
+    "mistakes": [
+      "Penser que Suspense se déclenche pour des données chargées dans un `useEffect`",
+      "Mettre une boundary autour de chaque composant, ce qui fait apparaître la page morceau par morceau",
+      "Oublier une error boundary, si bien qu’un fetch en échec n’a pas de fallback"
+    ],
+    "followUps": [
+      {
+        "question": "Techniquement, qu’est-ce que ça veut dire qu’un composant suspend ?",
+        "answer": "Pendant le rendu, il lit quelque chose qui n’est pas prêt, une promesse en attente passée à `use` ou un composant `lazy` dont le code charge. React arrête le rendu de ce sous-arbre, affiche le fallback Suspense le plus proche, et le rend à nouveau quand la promesse se règle. Ça fonctionne en levant une exception, donc `use` ne peut pas être dans un `try`/`catch`."
+      },
+      {
+        "question": "Comment Suspense fonctionne-t-il avec les error boundaries quand un fetch échoue ?",
+        "answer": "Si la promesse lue avec `use` est rejetée, l’erreur va à l’error boundary la plus proche, pas à Suspense. Donc j’imbrique la paire ainsi : error boundary à l’extérieur, Suspense à l’intérieur. Le chargement affiche le skeleton, l’échec affiche le fallback d’erreur avec un bouton pour réessayer."
+      },
+      {
+        "question": "En quoi le chargement de données avec Suspense diffère-t-il entre Server Components et app client ?",
+        "answer": "Un Server Component est `async` et attend simplement ses données ; la boundary au-dessus permet au serveur de streamer d’abord le reste de la page. Un Client Component ne peut pas attendre pendant le rendu, donc il lit une promesse avec `use`, idéalement une promesse créée par un Server Component ou mise en cache par une bibliothèque, pas créée pendant le rendu."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un composant qui charge des données dans `useEffect` fait afficher son fallback à la boundary Suspense la plus proche.",
+        "why": "Seule la lecture d’une valeur pas prête pendant le rendu suspend : `lazy`, `use`, ou une bibliothèque compatible Suspense.",
+        "twin": {
+          "statement": "Charger des données dans `useEffect` ne fait jamais afficher son fallback à la boundary Suspense la plus proche.",
+          "why": "Seule la lecture d’une valeur pas prête pendant le rendu suspend : `lazy`, `use`, ou une bibliothèque compatible Suspense."
+        }
+      },
+      {
+        "statement": "Une promesse rejetée lue avec `use` est gérée par l’error boundary la plus proche.",
+        "why": "Suspense ne gère que l’état en attente ; les erreurs vont aux error boundaries.",
+        "twin": {
+          "statement": "Une promesse rejetée lue avec `use` laisse la boundary Suspense la plus proche afficher son fallback.",
+          "why": "Suspense ne gère que l’état en attente ; l’erreur va à l’error boundary la plus proche."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Suspense est un seul mécanisme pour le code et les données : une boundary `<Suspense>` affiche son fallback tant que quelque chose à l’intérieur n’est pas prêt. On place les boundaries là où le design veut des états de chargement.",
+      "points": [
+        "Une boundary `<Suspense fallback={...}>` affiche son fallback tant qu’un composant à l’intérieur n’est pas prêt à se rendre, puis affiche le contenu.",
+        "Code splitting : `lazy(() => import('./RefundForm'))` suspend jusqu’au chargement du module.",
+        "Données : un composant suspend quand il lit une promesse en attente avec `use`, ou quand un Server Component async attend. Charger dans `useEffect` ne suspend jamais.",
+        "Une promesse rejetée va à l’error boundary la plus proche, donc mets une error boundary autour de chaque boundary Suspense qui charge des données.",
+        "Côté serveur, les mêmes boundaries permettent à Next.js de streamer : la page part d’abord avec le fallback, la partie lente suit dans un chunk suivant."
+      ],
+      "takeaways": [
+        {
+          "term": "Fallback",
+          "detail": "Le `<Suspense fallback>` le plus proche l’affiche jusqu’à ce que le contenu puisse se rendre."
+        },
+        {
+          "term": "`lazy()`",
+          "detail": "`lazy(() => import(...))` suspend jusqu’au chargement du module."
+        },
+        {
+          "term": "`use(promise)`",
+          "detail": "Suspend tant que la promesse est en attente. Un Server Component async qui attend suspend aussi."
+        },
+        {
+          "term": "Fetch dans `useEffect`",
+          "detail": "Ne suspend jamais."
+        },
+        {
+          "term": "Error boundary",
+          "detail": "Une promesse rejetée va à la plus proche : mets-en une autour de chaque boundary Suspense qui charge des données."
+        },
+        {
+          "term": "Streaming",
+          "detail": "Côté serveur, Next.js envoie d’abord la page avec le fallback, puis la partie lente dans un chunk suivant."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans la boutique, la page d’historique des commandes affiche son skeleton Suspense pendant que le code du graphique charge, mais jamais pendant que les commandes chargent. Les commandes sont récupérées dans un `useEffect`. Pourquoi ?",
+        "bridge": "Suspense ne réagit qu’à la lecture d’une valeur pas prête pendant le rendu : le code `lazy` suspend, un fetch en effet jamais."
+      },
+      {
+        "question": "Suspense pour le code splitting est-il une fonctionnalité différente de Suspense pour les données ? Comment l’expliqueriez-vous à un junior ?",
+        "bridge": "Un seul mécanisme pour les deux : la boundary la plus proche affiche son fallback tant qu’un module `lazy` ou une promesse en attente lue avec `use` n’est pas prêt."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux lisent les avis produit avec `use` dans un Client Component sous Suspense. Laquelle affiche les avis ?",
+        "why": "Une promesse créée une seule fois, par la page serveur ou un cache, se règle et `use` renvoie les avis. Appeler `fetchReviews` pendant le rendu crée une nouvelle promesse à chaque rendu, donc le composant suspend à nouveau à chaque fois : dans un test, 33 requêtes en 500 ms et le skeleton n’a jamais disparu."
+      }
+    ]
+  },
+  "react-19": {
+    "topic": "Nouveautés de React 19",
+    "question": "Quelles sont les nouveautés les plus importantes de React 19, et comment changent-elles la gestion des formulaires et des données ?",
+    "answer": "Le plus gros changement, ce sont les Actions : des fonctions async exécutées dans une transition, que je peux passer directement à la prop `action` d’un formulaire. `useActionState` me donne le résultat et un flag de chargement, `useFormStatus` permet à un bouton submit de lire l’état en attente de son formulaire, et `useOptimistic` affiche le résultat attendu pendant que l’action tourne. `use` lit une promesse ou un context pendant le rendu, avec Suspense. Les Server Components et les Server Functions sont stables. Des gains plus petits : `ref` est une prop normale, donc plus de `forwardRef`, et un context peut être rendu comme son propre provider. Les formulaires perdent l’essentiel de leur state de chargement et d’erreur écrit à la main.",
+    "keyPoints": [
+      "Actions : fonctions async dans une transition, passées à `<form action>`",
+      "Les hooks `useActionState`, `useFormStatus` et `useOptimistic`",
+      "`use` lit une promesse ou un context, avec Suspense",
+      "Server Components et Functions stables ; `ref` comme prop"
+    ],
+    "explanation": "Les recruteurs vérifient que tu es à jour. Les seniors expliquent comment les Actions remplacent le state manuel `isLoading` et les `try`/`catch` dans les formulaires, et les pièges : `useFormStatus` qui lit le formulaire parent, les mises à jour après un `await`.",
+    "example": "Le checkout de la boutique gérait `isSubmitting`, les erreurs et un bouton désactivé à la main, et un double clic créait deux commandes. Réécrit avec `useActionState` et un bouton submit qui utilise `useFormStatus`, le bouton se désactive tout seul pendant que `POST /orders` tourne, l’action renvoie les erreurs sous forme de state, et une clé d’idempotence couvre les retries.",
+    "mistakes": [
+      "Appeler `useFormStatus` dans le composant qui rend le formulaire : il ne lit qu’un formulaire parent",
+      "Lever une erreur dans une action au lieu de renvoyer un state d’erreur, ce qui part à l’error boundary",
+      "Oublier `startTransition` autour des mises à jour de state après un `await` dans une action"
+    ],
+    "followUps": [
+      {
+        "question": "Comment `useOptimistic` revient-il en arrière quand l’action échoue ?",
+        "answer": "Il n’y a rien à annuler. La valeur optimiste n’est affichée que pendant que l’action tourne ; quand elle se termine, React réaffiche le vrai state. Si l’enregistrement a échoué et que je n’ai pas mis à jour le vrai state, l’élément optimiste disparaît simplement, et j’affiche une erreur."
+      },
+      {
+        "question": "`use` ou `await` dans un Server Component ?",
+        "answer": "Dans un Server Component, j’utilise `await` : c’est une fonction async. `use` sert aux Client Components, qui ne peuvent pas attendre pendant le rendu, typiquement pour lire une promesse lancée par un Server Component et transmise en dessous. Contrairement aux hooks, `use` peut être appelé dans une condition, mais pas dans un `try`/`catch`."
+      },
+      {
+        "question": "Comment migreriez-vous pas à pas un chargement dans `useEffect` vers Suspense ?",
+        "answer": "Un écran à la fois : je déplace son fetch vers une source compatible Suspense, comme `useSuspenseQuery` de TanStack Query ou une promesse d’un Server Component lue avec `use`, puis j’ajoute au-dessus une paire Suspense et error boundary et je supprime le state de chargement et d’erreur. Les autres écrans continuent de marcher sans changement."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "En React 19, un composant fonction peut recevoir `ref` comme une prop normale sans `forwardRef`.",
+        "why": "React 19 passe `ref` comme prop aux composants fonctions.",
+        "twin": {
+          "statement": "En React 19, un composant fonction a encore besoin de `forwardRef` pour recevoir une `ref`.",
+          "why": "React 19 passe `ref` aux composants fonctions comme une prop normale."
+        }
+      },
+      {
+        "statement": "`useFormStatus` donne l’état en attente d’un formulaire rendu par le composant même qui l’appelle.",
+        "why": "Il ne lit qu’un `<form>` rendu par un parent ; appelle-le dans un enfant, comme le bouton submit.",
+        "twin": {
+          "statement": "`useFormStatus` ne lit qu’un `<form>` rendu par un parent, donc on l’appelle dans un enfant comme le bouton submit.",
+          "why": "Il ne voit pas un formulaire rendu par le composant même qui l’appelle."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "React 19 tourne autour des Actions : des fonctions async exécutées dans une transition qui gèrent les soumissions de formulaire avec états en attente, d’erreur et optimiste intégrés. Il stabilise aussi les Server Components et simplifie les refs et le context.",
+      "points": [
+        "Une Action est une fonction exécutée dans une transition. Passée à `<form action={fn}>`, React l’appelle avec le `FormData` à la soumission, sans `preventDefault`.",
+        "`useActionState(action, initial)` renvoie le dernier state, l’action à passer au formulaire, et `isPending`. Renvoie les erreurs sous forme de state plutôt que de les lever.",
+        "`useFormStatus()` donne `pending` pour le formulaire parent, donc appelle-le dans le bouton submit. `useOptimistic` affiche une valeur temporaire pendant qu’une action tourne.",
+        "`use(promise)` suspend jusqu’à ce que la promesse se règle ; `use(Context)` lit un context et, contrairement aux hooks, peut être appelé dans une condition.",
+        "Aussi dans React 19 : `ref` comme prop, `<Context value>` comme provider, et des Server Components et Server Functions stables."
+      ],
+      "takeaways": [
+        {
+          "term": "Action",
+          "detail": "Passée à `<form action={fn}>`, elle est appelée avec le `FormData` à la soumission, sans `preventDefault`."
+        },
+        {
+          "term": "`useActionState`",
+          "detail": "Renvoie le dernier state, l’action pour le formulaire et `isPending`. Renvoie les erreurs sous forme de state."
+        },
+        {
+          "term": "`useFormStatus`",
+          "detail": "Donne `pending` pour le formulaire parent, donc appelle-le dans le bouton submit."
+        },
+        {
+          "term": "`useOptimistic`",
+          "detail": "Affiche une valeur temporaire pendant qu’une action tourne."
+        },
+        {
+          "term": "`use`",
+          "detail": "`use(promise)` suspend jusqu’à ce qu’elle se règle ; `use(Context)` lit un context, même dans une condition."
+        },
+        {
+          "term": "`ref` comme prop",
+          "detail": "Plus de `forwardRef`. `<Context value>` fonctionne aussi comme provider."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le formulaire « modifier l’adresse » de la boutique a du state `isLoading`, `error` et `submitted` écrit à la main, un `try/catch` et un bouton submit désactivé par une prop. Comment React 19 réduirait-il ce code ?",
+        "bridge": "Les Actions de React 19 : `useActionState` donne le résultat et un flag de chargement, et `useFormStatus` permet au bouton submit de lire l’état en attente de son formulaire."
+      },
+      {
+        "question": "Au-delà des formulaires, quels changements de React 19 signaleriez-vous à une équipe qui migre depuis React 18 ?",
+        "bridge": "Le reste de React 19 : `use` pour les promesses et le context, des Server Components et Functions stables, `ref` comme prop et un context comme son propre provider."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux désactivent le bouton du checkout pendant que `placeOrder` tourne. Laquelle empêche un double clic de passer deux commandes ?",
+        "why": "`useFormStatus` lit le formulaire rendu par un parent, donc dans `PlaceOrderButton`, `pending` passe à true et le bouton se désactive tout seul. Appelé dans le composant qui rend le formulaire, il ne trouve aucun formulaire parent : `pending` reste à false, et un double clic a envoyé deux commandes dans un test."
+      }
+    ]
+  }
+}

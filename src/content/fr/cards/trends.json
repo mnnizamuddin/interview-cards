@@ -1,0 +1,937 @@
+{
+  "trend-ai-assistants": {
+    "topic": "Assistants de code IA",
+    "question": "Comment les assistants de code IA changent-ils la pratique du développement full-stack ?",
+    "answer": "On est passé de l’autocomplétion à des agents qui lisent le dépôt, modifient plusieurs fichiers et lancent les tests. Dans mon travail, ça déplace le temps : moins à taper du code, plus à cadrer la tâche, relire les diffs et écrire les tests qui prouvent le résultat. Je donne du contexte à l’agent, par exemple un `AGENTS.md` avec nos conventions et nos commandes, et je garde des changements petits pour que la review reste réelle. Les risques : du code qui a l’air juste mais est subtilement faux, des API obsolètes et des noms de packages inventés. Le type checker, les tests et la CI restent donc le garde-fou. Je reste responsable de chaque ligne que je merge.",
+    "keyPoints": [
+      "De l’autocomplétion à des agents qui modifient les fichiers et lancent les tests",
+      "Le temps passe au cadrage, à la review et aux tests",
+      "Donner du contexte : instructions du dépôt, petites tâches",
+      "Risques : code plausible mais faux, vieilles API, faux packages",
+      "Types, tests et CI restent le garde-fou ; on répond de ce qu’on merge"
+    ],
+    "explanation": "Les recruteurs veulent une vision réaliste : ni « l’IA écrit tout », ni le refus. Ils écoutent comment tu préserves la qualité et la sécurité quand le code est généré, et cherchent des habitudes concrètes plutôt que des noms d’outils.",
+    "example": "Sur l’API Orders, un agent a écrit en quelques minutes l’export CSV des commandes remboursées, mais il chargeait toutes les lignes en mémoire et utilisait une option dépréciée de la bibliothèque CSV. La review a repéré les deux ; le développeur a demandé une version en streaming, et un test avec 200 000 lignes surveille désormais la consommation mémoire.",
+    "mistakes": [
+      "Merger du code généré que tu ne saurais pas expliquer ligne par ligne",
+      "Installer un package suggéré par un assistant sans vérifier qu’il existe et qu’il est maintenu",
+      "Coller des secrets ou des données clients dans un outil que ton entreprise n’a pas validé"
+    ],
+    "followUps": [
+      {
+        "question": "Comment faites-vous la review d’une grosse pull request générée par IA ?",
+        "answer": "Je demande d’abord qu’elle soit découpée en petits changements ciblés. Ensuite je lis les tests avant le code, je l’exécute, et je vérifie les cas limites et les chemins d’erreur, que les assistants oublient souvent."
+      },
+      {
+        "question": "Est-ce que cela change ce que les juniors doivent apprendre ?",
+        "answer": "Ils ont toujours besoin des fondamentaux, parce que juger du code généré exige de savoir à quoi ressemble du code correct. Le debug, la lecture de code et les tests deviennent encore plus importants."
+      },
+      {
+        "question": "Comment vérifiez-vous que du code généré par IA est correct et sûr avant de le merger ?",
+        "answer": "Je le relis par rapport au besoin, pas par rapport à ses propres tests, et j’ajoute moi-même des tests pour les cas limites et les chemins d’erreur. La CI lance le type checker, le lint et l’audit des dépendances comme pour tout code, et je vérifie que chaque nouveau package existe et est maintenu, ainsi que la validation des entrées et les autorisations."
+      },
+      {
+        "question": "Quels sont les risques de trop s’appuyer sur les assistants IA, surtout pour les juniors ?",
+        "answer": "Merger du code que personne dans l’équipe ne comprend, ce qui ralentit chaque correction de bug ensuite, et des compétences qui ne se forment jamais : un junior qui ne debugge jamais seul ne peut pas juger la suggestion suivante. Je demande aux juniors d’expliquer chaque changement généré en review et de faire certaines tâches sans l’outil."
+      },
+      {
+        "question": "Comment les compétences attendues en full-stack vont-elles évoluer à mesure que ces outils mûrissent ?",
+        "answer": "Moins de poids sur la saisie de syntaxe, plus sur le cadrage des problèmes, le system design, la lecture et la review de code, les tests et la sécurité. Connaître toute la stack compte davantage, car c’est nécessaire pour juger un changement qui touche l’API, la base de données et l’UI."
+      },
+      {
+        "question": "Comment vérifiez-vous que du code front-end généré par IA n’a pas de problème de sécurité ou d’accessibilité ?",
+        "answer": "Sécurité : je cherche les points d’injection risqués comme `dangerouslySetInnerHTML`, des URL utilisateur dans `href` et des secrets dans le code client, et je laisse tourner la CSP, le lint et l’audit des dépendances. Accessibilité : eslint-plugin-jsx-a11y et axe dans les tests, puis un passage au clavier et au lecteur d’écran sur la nouvelle UI, car les outils ratent le focus et les labels."
+      },
+      {
+        "question": "Où placez-vous la limite entre ce que l’IA génère et ce que vous écrivez vous-même ?",
+        "answer": "Elle rédige les parties bien connues : des tests à partir de mes cas, du boilerplate, des migrations d’un pattern que j’ai déjà écrit une fois. J’écris ou je réécris les parties qui demandent du jugement : le modèle de données, les autorisations, les règles d’argent et de stock, et le contrat d’API. Quelle que soit la source, je ne merge que du code que je sais expliquer."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Du code qui compile et passe les tests générés est forcément correct.",
+        "why": "Les tests générés peuvent partager la même hypothèse fausse que le code ; ils doivent être relus par un humain par rapport au besoin.",
+        "twin": {
+          "statement": "Du code qui compile et passe les tests générés peut quand même être faux.",
+          "why": "Les tests générés peuvent partager l’hypothèse fausse du code, donc ils doivent être relus par un humain par rapport au besoin."
+        }
+      },
+      {
+        "statement": "Un assistant peut suggérer un nom de package qui n’existe pas sur npm.",
+        "why": "Les modèles peuvent inventer des noms plausibles, et des attaquants peuvent les enregistrer, donc chaque nouvelle dépendance est vérifiée.",
+        "twin": {
+          "statement": "Tout nom de package suggéré par un assistant existe sur npm.",
+          "why": "Les modèles peuvent inventer des noms plausibles, et des attaquants peuvent les enregistrer."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les outils de code IA sont passés de l’autocomplétion à des agents qui lisent le dépôt, modifient des fichiers et lancent les tests. Le travail du développeur se déplace vers le cadrage, le contexte et la review, et la responsabilité, elle, ne bouge pas.",
+      "points": [
+        "Les outils de code IA sont passés de l’autocomplétion aux agents : ils lisent le dépôt, modifient plusieurs fichiers, lancent des commandes et des tests, et proposent un changement que tu relis.",
+        "Le temps du développeur passe de la saisie au cadrage de la tâche, au contexte et à la review. Un fichier d’instructions du dépôt, comme `AGENTS.md`, donne aux agents tes conventions et tes commandes.",
+        "Échecs typiques : du code qui a l’air juste mais est subtilement faux, des API obsolètes, des chemins d’erreur oubliés et des noms de packages inventés que des attaquants peuvent enregistrer. Les tests générés peuvent partager l’hypothèse fausse du code.",
+        "Les garde-fous ne changent pas : types, tests, CI et review humaine de petits diffs. Tu réponds de chaque ligne que tu merges, donc ne merge que ce que tu sais expliquer.",
+        "N’utilise que les outils validés par ton entreprise, et ne colle jamais de secrets ni de données clients dans les autres."
+      ],
+      "takeaways": [
+        {
+          "term": "Agents",
+          "detail": "Lisent le dépôt, modifient plusieurs fichiers, lancent des commandes et des tests, et proposent un changement à relire."
+        },
+        {
+          "term": "Où va le temps",
+          "detail": "De la saisie du code au cadrage de la tâche, au contexte, à la review des diffs et aux tests qui prouvent le résultat."
+        },
+        {
+          "term": "`AGENTS.md`",
+          "detail": "Un fichier d’instructions du dépôt qui donne aux agents tes conventions et tes commandes."
+        },
+        {
+          "term": "Échecs typiques",
+          "detail": "Code plausible mais faux, API obsolètes, chemins d’erreur oubliés, packages inventés que des attaquants peuvent enregistrer."
+        },
+        {
+          "term": "Garde-fous",
+          "detail": "Types, tests, CI et review humaine de petits diffs. Tu réponds de chaque ligne que tu merges."
+        },
+        {
+          "term": "Outils validés uniquement",
+          "detail": "Ne colle jamais de secrets ni de données clients dans des outils que ton entreprise n’a pas validés."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La pull request d’un collègue, écrite surtout par un agent, ajoute une dépendance npm dont personne dans l’équipe n’a entendu parler. Les types et les tests passent. Que vérifiez-vous avant d’approuver ?",
+        "bridge": "Les assistants peuvent inventer des noms de packages plausibles que des attaquants enregistrent ensuite ; types, tests et CI sont le garde-fou, et chaque nouvelle dépendance est vérifiée."
+      },
+      {
+        "question": "Un junior dit que le code de l’agent a passé les tests qu’il a lui-même générés, donc qu’on peut le merger sans risque. Que lui répondez-vous ?",
+        "bridge": "Les tests générés peuvent partager l’hypothèse fausse du code ; on les relit par rapport au besoin et on reste responsable de ce qu’on merge."
+      }
+    ]
+  },
+  "trend-edge-functions": {
+    "topic": "Edge functions",
+    "question": "Quel rôle jouent l’edge computing et les edge functions dans une architecture full-stack moderne ?",
+    "answer": "Les edge functions exécutent de petits morceaux de code serveur dans de nombreux points proches des utilisateurs, souvent dans des runtimes légers avec les Web APIs au lieu de toute l’API Node. Elles brillent pour le travail qui n’a pas besoin de données centrales : redirections, affectation A/B, géolocalisation, vérification d’un cookie de session ou réécriture d’en-têtes devant un cache. Elles n’aident pas quand le code parle à une seule base de données dans une seule région, parce que chaque requête parcourt alors la distance de toute façon. Je garde donc le rendu gourmand en données près de la base et je cache au CDN. Next.js marque désormais son Edge Runtime comme déprécié et utilise Node.js par défaut.",
+    "keyPoints": [
+      "Le code tourne dans de nombreux points proches des utilisateurs",
+      "Runtimes légers avec les Web APIs, pas Node complet",
+      "Bien pour redirections, A/B, géolocalisation, contrôles d’auth, en-têtes",
+      "Aucun gain quand chaque requête interroge une base mono-région",
+      "Rendre près des données, cacher au CDN"
+    ],
+    "explanation": "Les recruteurs vérifient si tu vois l’edge comme un outil avec des contraintes plutôt qu’une accélération gratuite. Une réponse senior parle de localité des données, des limites du runtime et du fait que le cache apporte souvent l’essentiel du gain.",
+    "example": "La boutique rendait les pages produit dans une edge function, mais chaque page faisait trois requêtes à la base de l’API Orders à Paris : les clients loin de Paris attendaient trois longs allers-retours. Remettre le rendu dans la région de la base et cacher les pages au CDN a réduit le time to first byte, tandis qu’une petite règle edge continuait de gérer les redirections par pays.",
+    "mistakes": [
+      "Supposer que toute route va plus vite à l’edge, sans regarder où vivent les données",
+      "Attendre des API Node, des modules natifs ou du travail long dans un runtime edge",
+      "Oublier qu’une connexion à la base par invocation edge demande un pooler ou un driver HTTP"
+    ],
+    "followUps": [
+      {
+        "question": "Où s’exécute le `proxy.ts` de Next.js ?",
+        "answer": "Depuis Next.js 16, `middleware` est renommé `proxy`, et il tourne par défaut sur le runtime Node.js. Il sert à un traitement léger des requêtes, comme les redirections et les réécritures, pas à être le seul contrôle d’autorisation."
+      },
+      {
+        "question": "Comment serviriez-vous rapidement une page personnalisée à des utilisateurs du monde entier ?",
+        "answer": "Je cache la partie commune au CDN et je streame ou je récupère la partie personnelle, comme le nombre d’articles du panier, depuis une région proche des données. L’edge peut choisir la variante à partir d’un cookie sans toucher la base."
+      },
+      {
+        "question": "Quelles charges de travail conviennent aux edge functions, et lesquelles non ?",
+        "answer": "Adaptées : du travail court basé sur la seule requête, comme les redirections par pays, l’affectation A/B, la vérification d’un cookie de session ou la réécriture d’en-têtes. Pas adaptées : tout ce qui interroge plusieurs fois une base mono-région, les jobs longs ou gourmands en CPU, et le code qui a besoin des API Node ou de modules natifs."
+      },
+      {
+        "question": "Une edge function a besoin de la base de données centrale. Comment gérez-vous la latence ?",
+        "answer": "Je l’évite quand je peux : l’edge ne fait que router, et une fonction dans la région de la base fait les requêtes. Sinon je fais un seul appel au lieu de plusieurs, je cache près des utilisateurs les données surtout lues, j’utilise des réplicas en lecture dans d’autres régions, et je me connecte via un pooler ou un driver HTTP."
+      },
+      {
+        "question": "Avez-vous utilisé une plateforme edge, et qu’en avez-vous retenu ?",
+        "answer": "Sur la boutique, les redirections par pays et le cookie A/B tournent à l’edge et répondent en quelques millisecondes. On a aussi essayé d’y rendre les pages produit, mais chaque page interrogeait la base à Paris, donc c’était plus lent ; la leçon, c’est que la latence suit les données."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Déplacer le rendu serveur à l’edge réduit toujours la latence pour les utilisateurs éloignés du serveur.",
+        "why": "Si le rendu interroge une base dans une seule région, chaque requête parcourt cette distance, ce qui peut rendre la page plus lente.",
+        "twin": {
+          "statement": "Déplacer le rendu serveur à l’edge peut ralentir les pages quand chaque rendu interroge une base dans une seule région.",
+          "why": "Chaque requête parcourt alors la distance entre le point edge et la base de données."
+        }
+      },
+      {
+        "statement": "Dans Next.js 16, `proxy` tourne par défaut sur le runtime Node.js.",
+        "why": "La doc de Next.js indique que Proxy utilise par défaut le runtime Node.js depuis la version 16.",
+        "twin": {
+          "statement": "Dans Next.js 16, `proxy` tourne par défaut sur l’Edge Runtime.",
+          "why": "La doc de Next.js indique que Proxy utilise par défaut le runtime Node.js depuis la version 16."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les edge functions exécutent de petits morceaux de code serveur dans de nombreux points proches des utilisateurs. Elles aident quand le travail n’a pas besoin de données centrales, et pénalisent quand chaque requête interroge une base lointaine.",
+      "points": [
+        "Les edge functions exécutent de petits morceaux de code serveur dans de nombreux points proches des utilisateurs, en général dans un runtime léger avec des Web APIs comme `fetch`, `Request` et `Response` au lieu de toute l’API Node.js.",
+        "Le bon travail edge n’a pas besoin de données centrales : redirections, affectation de test A/B, géolocalisation, vérification d’un cookie de session ou réécriture d’en-têtes devant un cache.",
+        "La latence suit les données : un rendu à l’edge qui interroge une base dans une seule région paie cette distance à chaque requête, et peut donc être plus lent qu’un rendu à côté de la base.",
+        "Attends-toi à des limites : pas de système de fichiers ni de modules natifs, des limites de temps fixées par la plateforme, et une nouvelle connexion à la base par invocation sauf avec un pooler ou un driver HTTP.",
+        "Dans Next.js, le runtime Node.js est celui par défaut et l’option de runtime `edge` est marquée dépréciée. Depuis Next.js 16, `middleware` est renommé `proxy` et tourne sur Node.js."
+      ],
+      "takeaways": [
+        {
+          "term": "Runtime",
+          "detail": "Léger, avec des Web APIs comme `fetch`, `Request` et `Response` au lieu de toute l’API Node.js."
+        },
+        {
+          "term": "Bon travail edge",
+          "detail": "Redirections, affectation A/B, géolocalisation, vérification d’un cookie de session, réécriture d’en-têtes devant un cache."
+        },
+        {
+          "term": "La latence suit les données",
+          "detail": "Un rendu edge qui interroge une base mono-région paie cette distance à chaque requête."
+        },
+        {
+          "term": "Limites",
+          "detail": "Pas de système de fichiers ni de modules natifs, limites de temps de la plateforme, une connexion DB par invocation sans pooler."
+        },
+        {
+          "term": "Next.js",
+          "detail": "Node.js est le runtime par défaut et `edge` est marqué déprécié. Depuis Next.js 16, `middleware` devient `proxy`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’équipe a déplacé le rendu des pages produit dans des edge functions pour aider les clients en Asie. Les pages y sont devenues plus lentes, et chaque rendu interroge toujours PostgreSQL en Europe. Pourquoi ?",
+        "bridge": "Du code edge proche des utilisateurs ne gagne rien quand chaque requête parcourt la distance jusqu’à une base mono-région : rendre près des données, cacher au CDN."
+      },
+      {
+        "question": "Quelles tâches déplaceriez-vous dans des edge functions, et lesquelles garderiez-vous près de la base de données ?",
+        "bridge": "Les edge functions brillent pour le travail sans données centrales, comme les redirections, l’affectation A/B ou la vérification de session ; le rendu gourmand en données reste près de la base."
+      }
+    ]
+  },
+  "trend-meta-frameworks": {
+    "topic": "Méta-frameworks",
+    "question": "Comment les méta-frameworks comme Next.js, Remix ou Nuxt changent-ils le développement JavaScript full-stack ?",
+    "answer": "Un méta-framework ajoute le routing, le rendu serveur, le chargement de données et une config de build par-dessus une bibliothèque d’UI : Next.js et React Router pour React, Nuxt pour Vue. Remix a fusionné dans React Router v7 en novembre 2024. Le changement, c’est qu’une seule codebase contient à la fois le serveur et le client : avec les Server Components de Next.js, une page lit ses données côté serveur et envoie moins de JavaScript, et les Server Functions gèrent les mutations. react.dev recommande de démarrer une nouvelle app avec un framework. Le compromis, c’est le couplage aux conventions du framework, et une server function reste un endpoint public qui a besoin d’un contrôle d’autorisation.",
+    "keyPoints": [
+      "Ajoute routing, rendu serveur et chargement de données à la bibliothèque d’UI",
+      "Remix est devenu React Router v7 ; Nuxt fait la même chose pour Vue",
+      "Serveur et client dans une codebase : Server Components, Server Functions",
+      "Compromis : couplage, et les server functions sont des endpoints publics"
+    ],
+    "explanation": "Les recruteurs testent si tu suis l’écosystème et si tu comprends ce qui est passé côté serveur. Une réponse senior nomme les compromis : complexité du cache, choix d’hébergement et sécurité des points d’entrée côté serveur.",
+    "example": "La boutique a passé ses pages produit en Server Components : les données de l’API Orders sont lues côté serveur, et seul le bouton « Ajouter au panier » est envoyé comme Client Component. Le JavaScript de la page a nettement diminué et le LCP s’est amélioré sur mobile. Une revue de sécurité a ensuite trouvé une Server Function du panier qui faisait confiance au `customerId` envoyé par le client, corrigée en le lisant depuis la session.",
+    "mistakes": [
+      "Dire que Remix v2 survit comme framework React séparé : ses fonctionnalités sont passées dans React Router v7",
+      "Traiter une Server Function comme du code privé au lieu d’un endpoint POST public",
+      "Marquer toute une page `'use client'` et perdre le bénéfice des Server Components"
+    ],
+    "followUps": [
+      {
+        "question": "Quand n’utiliseriez-vous pas de méta-framework ?",
+        "answer": "Pour un back-office derrière un login où le SEO ne compte pas, une single-page app Vite avec un routeur côté client peut être plus simple à héberger et à comprendre. Notre back-office est construit comme ça."
+      },
+      {
+        "question": "Qu’est-ce qu’un Server Component change par rapport au SSR classique ?",
+        "answer": "Le SSR classique rend le HTML côté serveur mais envoie et hydrate quand même tout le code des composants. Un Server Component n’envoie jamais son code au navigateur ; seuls les Client Components sont hydratés."
+      },
+      {
+        "question": "Qu’apporte Next.js par rapport à une app React que vous assemblez vous-même ?",
+        "answer": "Le routing, le rendu serveur, la génération statique, le streaming, les Server Components et les Server Functions, l’optimisation des images et des polices, et un build réglé, le tout intégré. À la main, je devrais choisir, brancher et mettre à jour chaque brique moi-même, et le rendu serveur est la partie la plus difficile à bien faire."
+      },
+      {
+        "question": "Comment fonctionne le routing basé sur les fichiers dans un méta-framework ?",
+        "answer": "L’arborescence des dossiers est la carte des URL. Dans l’App Router de Next.js, `app/products/[id]/page.tsx` sert `/products/42`, avec `[id]` un segment dynamique passé dans `params` ; un `layout.tsx` enveloppe toutes les pages en dessous, et `route.ts` définit un endpoint d’API."
+      },
+      {
+        "question": "Avez-vous utilisé Next.js ou Remix en production, et comment ça s’est passé ?",
+        "answer": "La boutique tourne sur l’App Router de Next.js. Passer les pages produit en Server Components a réduit leur JavaScript et amélioré le LCP mobile. Les leçons : le cache demande un plan clair par route, et chaque Server Function vérifie elle-même la session, depuis qu’une review en a trouvé une qui faisait confiance au client."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Remix a fusionné dans React Router, qui est devenu son successeur avec la v7.",
+        "why": "L’équipe Remix l’a annoncé en mai 2024 et a publié React Router v7 en novembre 2024 comme chemin de migration.",
+        "twin": {
+          "statement": "Les apps Remix n’ont aucun chemin de migration vers React Router v7.",
+          "why": "L’équipe Remix a publié React Router v7 en novembre 2024 comme chemin de migration pour Remix."
+        }
+      },
+      {
+        "statement": "Une Server Function ne peut être appelée que par tes propres composants, donc elle n’a pas besoin de contrôle d’autorisation.",
+        "why": "Elle est exposée comme un endpoint HTTP que n’importe qui peut appeler, donc elle vérifie elle-même la session et les permissions.",
+        "twin": {
+          "statement": "Une Server Function doit vérifier elle-même les autorisations, car n’importe qui peut appeler son endpoint HTTP.",
+          "why": "N’être appelée que depuis tes propres composants n’empêche pas les appels directs à l’endpoint."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un méta-framework ajoute le routing, le rendu serveur, le chargement de données et une config de build par-dessus une bibliothèque d’UI : une seule codebase contient ainsi le serveur et le client.",
+      "points": [
+        "Un méta-framework ajoute routing, rendu serveur, chargement de données et config de build à une bibliothèque d’UI : Next.js et React Router pour React, Nuxt pour Vue. react.dev recommande un framework pour démarrer une nouvelle app React.",
+        "Remix a fusionné dans React Router : React Router v7, sorti en novembre 2024, est le chemin de migration des apps Remix.",
+        "Les Server Components ne tournent que sur le serveur et n’envoient aucun code au navigateur. Seuls les Client Components, marqués `'use client'`, sont hydratés, c’est-à-dire rendus interactifs dans le navigateur. Le SSR classique hydrate tout.",
+        "Les Server Functions, marquées `'use server'`, permettent au navigateur d’appeler du code serveur pour les mutations. Chacune est un endpoint HTTP que n’importe qui peut appeler : elle vérifie donc elle-même la session et les permissions.",
+        "Les compromis : couplage aux conventions et à l’hébergement du framework, cache plus complexe, et nouveaux points d’entrée serveur à sécuriser. Une single-page app Vite reste plus simple pour un back-office derrière un login."
+      ],
+      "takeaways": [
+        {
+          "term": "Exemples",
+          "detail": "Next.js et React Router pour React, Nuxt pour Vue. react.dev recommande un framework pour démarrer une nouvelle app React."
+        },
+        {
+          "term": "Remix",
+          "detail": "Fusionné dans React Router : la v7, sortie en novembre 2024, est le chemin de migration des apps Remix."
+        },
+        {
+          "term": "Server Components",
+          "detail": "Tournent uniquement sur le serveur et n’envoient aucun code au navigateur ; seuls les composants `'use client'` sont hydratés."
+        },
+        {
+          "term": "`'use server'`",
+          "detail": "Les Server Functions gèrent les mutations. Chacune est un endpoint HTTP que tout le monde peut appeler : vérifier session et permissions."
+        },
+        {
+          "term": "Compromis",
+          "detail": "Couplage aux conventions et à l’hébergement, cache plus complexe, nouveaux points d’entrée serveur à sécuriser."
+        },
+        {
+          "term": "Quand s’en passer",
+          "detail": "Une single-page app Vite reste plus simple pour un back-office derrière un login."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un collègue veut construire la nouvelle boutique en React pur avec un routeur câblé à la main, « pour éviter le lock-in ». Que mettez-vous dans la balance ?",
+        "bridge": "Un méta-framework ajoute routing, rendu serveur et chargement de données, et react.dev en recommande un pour une nouvelle app ; le coût, c’est le couplage à ses conventions."
+      },
+      {
+        "question": "Un audit montre que n’importe qui peut appeler la Server Function « ajouter à la wishlist » de la boutique avec l’id d’un autre client, alors que le bouton ne s’affiche qu’aux utilisateurs connectés. Qu’est-ce qui n’a pas marché ?",
+        "bridge": "Les méta-frameworks brouillent la frontière serveur-client : une Server Function reste un endpoint HTTP public qui doit vérifier elle-même la session et les permissions."
+      }
+    ]
+  },
+  "trend-web-components": {
+    "topic": "Web Components",
+    "question": "Que sont les Web Components, et en quoi diffèrent-ils des composants de framework comme ceux de React ?",
+    "answer": "Les Web Components sont des standards du navigateur pour des éléments réutilisables : les custom elements définissent une nouvelle balise avec une classe, le Shadow DOM encapsule son markup et ses styles, et les templates avec slots gèrent le contenu. Ils marchent avec n’importe quel framework, ou sans, ce qui les rend intéressants pour des design systems partagés entre stacks et pour des widgets embarquables. Contrairement aux composants React, ils n’ont pas de modèle de rendu ni de state intégré : on met à jour le DOM soi-même ou on utilise un helper comme Lit, les attributs sont des chaînes, et le rendu serveur demande le Shadow DOM déclaratif. React 19 les supporte complètement, en définissant les propriétés et en écoutant les événements custom.",
+    "keyPoints": [
+      "Custom elements, Shadow DOM, templates et slots : standards du navigateur",
+      "Agnostiques du framework : design systems partagés, widgets embarquables",
+      "Pas de modèle de rendu ni de state intégré ; Lit aide",
+      "Les attributs sont des chaînes ; les données riches passent par les propriétés",
+      "React 19 passe les propriétés et écoute les événements custom"
+    ],
+    "explanation": "Les recruteurs vérifient si tu sais choisir la bonne abstraction au lieu d’opposer les deux. Une réponse senior couvre l’interop, l’encapsulation des styles, le rendu serveur et l’accessibilité à travers la frontière du shadow.",
+    "example": "Le transporteur a fourni à la boutique une carte de suivi sous forme de custom element `<delivery-tracker>`. La boutique et le back-office l’intègrent tous les deux : en React 19, passer `shipment={shipment}` définit la propriété avec l’objet entier, et `ondelivered` écoute l’événement `delivered` de l’élément. Les polices et couleurs de la boutique l’atteignent via des CSS custom properties, les seuls points de theming exposés par le transporteur.",
+    "mistakes": [
+      "Penser que les Web Components remplacent React : ils traitent l’encapsulation et la réutilisation, pas le state et le rendu",
+      "Passer des objets en attributs, ce qui les transforme en chaînes",
+      "S’attendre à ce que des classes CSS globales stylent des éléments dans un shadow root"
+    ],
+    "followUps": [
+      {
+        "question": "Comment appliquez-vous un thème à un composant qui utilise le Shadow DOM ?",
+        "answer": "Via les CSS custom properties, qui héritent à travers la frontière du shadow, et via `::part()` pour les parties que le composant expose. Les sélecteurs normaux de la page n’atteignent pas l’intérieur."
+      },
+      {
+        "question": "Pourquoi une équipe design system choisirait-elle les Web Components ?",
+        "answer": "Quand les équipes utilisent des frameworks différents, une seule implémentation peut toutes les servir. Le coût : un rendu serveur moins bon et plus de travail pour les wrappers React et Vue typés ou pour l’interop."
+      },
+      {
+        "question": "Quels sont les compromis concrets entre un Web Component natif et un composant React ?",
+        "answer": "Un Web Component marche dans n’importe quelle stack et isole ses styles, mais on gère soi-même le rendu et le state, les attributs sont des chaînes, et le rendu serveur demande le Shadow DOM déclaratif. Un composant React profite du rendu, du state et de l’outillage de React, mais ne marche que dans des apps React."
+      },
+      {
+        "question": "Comment le Shadow DOM encapsule-t-il les styles d’un composant ?",
+        "answer": "Le shadow root est un arbre séparé : les sélecteurs de la page ne matchent pas à l’intérieur, et les styles de l’intérieur ne fuient pas. Les propriétés héritées comme `color` et `font` et les CSS custom properties traversent quand même la frontière, et `:host` style l’élément lui-même depuis l’intérieur."
+      },
+      {
+        "question": "Avez-vous travaillé avec des Web Components sur un vrai projet ?",
+        "answer": "Oui, le `<delivery-tracker>` du transporteur dans la boutique et le back-office. Avec React 19, on passe l’expédition en propriété et on écoute son événement `delivered`. J’ai appris à le thémer via ses CSS custom properties et à vérifier son accessibilité, puisqu’on ne peut pas modifier son markup."
+      },
+      {
+        "question": "Comment intégreriez-vous un Web Component dans une app React ?",
+        "answer": "Je charge une fois la définition de l’élément, puis je rends sa balise en JSX. Depuis React 19, une prop objet est définie comme propriété et les props `on` écoutent les événements custom, comme `ondelivered`. Je l’enveloppe dans un petit composant React typé pour que le reste de l’app ne touche jamais la balise, et je déclare ses props pour TypeScript."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Les CSS custom properties définies sur la page peuvent être utilisées dans un shadow root.",
+        "why": "Les custom properties héritent à travers la frontière du shadow, c’est pour ça qu’elles sont le point de theming habituel.",
+        "twin": {
+          "statement": "Les CSS custom properties définies sur la page ne peuvent pas atteindre les éléments dans un shadow root.",
+          "why": "Les custom properties héritent à travers la frontière du shadow, c’est pour ça qu’elles sont le point de theming habituel."
+        }
+      },
+      {
+        "statement": "Un sélecteur de classe dans la feuille de style globale de la page style les éléments correspondants dans un shadow root.",
+        "why": "Le Shadow DOM isole les styles : les sélecteurs extérieurs ne matchent pas les éléments à l’intérieur.",
+        "twin": {
+          "statement": "Les éléments dans un shadow root sont hors de portée des sélecteurs de classe de la feuille de style globale de la page.",
+          "why": "Le Shadow DOM isole les styles, donc les sélecteurs extérieurs ne matchent pas les éléments à l’intérieur."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les Web Components sont des standards du navigateur pour des éléments réutilisables qui marchent avec n’importe quel framework ou sans, ce qui convient aux design systems partagés entre stacks et aux widgets embarquables.",
+      "points": [
+        "Les Web Components sont des standards du navigateur : un custom element définit une nouvelle balise avec une classe, le Shadow DOM lui donne un arbre privé pour son markup et ses styles, et `<template>` avec `<slot>` place le contenu.",
+        "Ils marchent avec n’importe quel framework ou sans, ce qui convient à un design system partagé par des équipes sur des stacks différentes et aux widgets intégrés dans d’autres sites.",
+        "Ils n’ont pas de modèle de rendu ni de state comme React : on met à jour le DOM soi-même ou on utilise un helper comme Lit. Les attributs sont toujours des chaînes, donc les objets passent par des propriétés JavaScript.",
+        "Le Shadow DOM isole les styles : les sélecteurs de la page n’atteignent pas l’intérieur. Les CSS custom properties héritent à travers la frontière, et `::part()` style les parties exposées : ce sont les points de theming.",
+        "React 19 définit une propriété quand l’élément en a une de ce nom, sinon un attribut, et une prop comme `ondelivered` écoute l’événement `delivered`. Le rendu serveur demande le Shadow DOM déclaratif."
+      ],
+      "takeaways": [
+        {
+          "term": "Custom element",
+          "detail": "Définit une nouvelle balise avec une classe."
+        },
+        {
+          "term": "Shadow DOM",
+          "detail": "Un arbre privé pour le markup et les styles : les sélecteurs de la page n’atteignent pas l’intérieur."
+        },
+        {
+          "term": "`<template>` et `<slot>`",
+          "detail": "Placent le contenu dans le composant."
+        },
+        {
+          "term": "Pas de modèle de rendu",
+          "detail": "Pas de state ni de re-render intégrés comme React : mets à jour le DOM toi-même ou utilise un helper comme Lit."
+        },
+        {
+          "term": "Attributs vs propriétés",
+          "detail": "Les attributs sont toujours des chaînes ; les objets passent par des propriétés JavaScript."
+        },
+        {
+          "term": "Points de theming",
+          "detail": "Les CSS custom properties héritent à travers la frontière du shadow ; `::part()` style les parties exposées."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’équipe design livre un web component `<shop-button>`. La règle globale `.btn-primary` de la boutique n’a aucun effet à l’intérieur, mais modifier `--brand-color` sur la page fonctionne. Pourquoi ?",
+        "bridge": "Le Shadow DOM isole les styles, donc les sélecteurs extérieurs ne matchent pas, tandis que les CSS custom properties héritent à travers la frontière et servent de point de theming."
+      },
+      {
+        "question": "Quand construiriez-vous un widget comme Web Component plutôt que comme composant React ?",
+        "bridge": "Les Web Components sont des standards du navigateur agnostiques du framework, adaptés aux design systems partagés entre stacks et aux widgets embarquables, mais sans modèle de rendu."
+      }
+    ]
+  },
+  "trend-core-web-vitals": {
+    "topic": "Core Web Vitals",
+    "question": "Comment l’attention portée aux Core Web Vitals change-t-elle les priorités du développement full-stack ?",
+    "answer": "Les Core Web Vitals sont trois métriques terrain : le LCP pour le chargement, bon à 2,5 secondes ou moins ; l’INP pour la réactivité, bon à 200 millisecondes ou moins ; et le CLS pour la stabilité visuelle, bon à 0,1 ou moins, chacun jugé au 75e percentile des vraies visites. Comme Google Search les utilise et qu’elles suivent la conversion, la performance est devenue une exigence produit plutôt qu’une finition de dernière minute. Concrètement : rendu côté serveur et moins de JavaScript envoyé, des images servies vite, des long tasks découpées pour l’INP, de l’espace réservé pour le contenu, la mesure des vrais utilisateurs avec la bibliothèque `web-vitals`, et des budgets en CI.",
+    "keyPoints": [
+      "LCP ≤ 2,5 s, INP ≤ 200 ms, CLS ≤ 0,1",
+      "Jugées sur les données terrain au 75e percentile, mobile et desktop",
+      "La performance devient une exigence produit, pas une finition",
+      "Moins de JavaScript, rendu serveur, rendre la main pour l’INP",
+      "Mesurer les vrais utilisateurs et imposer des budgets en CI"
+    ],
+    "explanation": "Les recruteurs vérifient que tu connais les métriques actuelles, INP compris, et la différence entre données de labo et données terrain. Une réponse senior relie chaque métrique à une correction concrète et à la façon d’éviter qu’elle régresse.",
+    "example": "Search Console indiquait les pages produit de la boutique en « Médiocre » pour l’INP sur mobile. Les données utilisateurs réels de `web-vitals` désignaient le filtre de taille, dont le handler retriait toute la grille en une seule long task ; rendre la main au thread principal avant le travail lourd a fait passer l’INP au p75 sous 200 ms, et un budget CI sur la taille du JavaScript le protège désormais.",
+    "mistakes": [
+      "Citer encore le FID : l’INP l’a remplacé comme Core Web Vital en mars 2024",
+      "Juger sur un score Lighthouse obtenu sur un laptop rapide au lieu des données terrain au p75",
+      "Optimiser la médiane, alors que le seuil s’applique au 75e percentile"
+    ],
+    "followUps": [
+      {
+        "question": "Quelle est la différence entre données de labo et données terrain ?",
+        "answer": "Les données de labo viennent d’une exécution contrôlée comme Lighthouse et servent au debug. Les données terrain viennent des vrais utilisateurs, comme CrUX ou notre propre RUM, et c’est sur elles que les seuils sont jugés ; l’INP a besoin de vraies interactions."
+      },
+      {
+        "question": "Comment corrigez-vous un mauvais LCP sur une page produit ?",
+        "answer": "Je rends l’image principale découvrable dans le HTML, je lui donne une fetch priority haute et je ne la lazy-loade pas, je la sers dans un format moderne à la bonne taille, et je garde une réponse serveur rapide."
+      },
+      {
+        "question": "Comment mesurez-vous et surveillez-vous les Core Web Vitals d’une app en production dans le temps ?",
+        "answer": "La bibliothèque `web-vitals` envoie le LCP, l’INP et le CLS des vraies visites à notre outil d’analytics, où un dashboard montre le p75 par type de page et d’appareil et alerte sur les régressions. Search Console et CrUX confirment la vue publique, et Lighthouse tourne en CI pour attraper les régressions avant la release."
+      },
+      {
+        "question": "Qu’est-ce qui cause souvent du CLS, et comment l’évitez-vous pour les polices web ?",
+        "answer": "Les images sans espace réservé, les bannières injectées au-dessus du contenu, et les polices web qui s’affichent avec d’autres métriques que la police de secours. Pour les polices, je précharge le fichier et j’ajuste la police de secours avec `size-adjust` et des surcharges de métriques pour qu’elle occupe le même espace, comme `next/font` le fait par défaut, ou j’utilise `font-display: optional`."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une page passe un Core Web Vital quand sa visite médiane respecte le seuil.",
+        "why": "L’évaluation utilise le 75e percentile des visites, plus exigeant que la médiane.",
+        "twin": {
+          "statement": "Une page passe un Core Web Vital quand la visite au 75e percentile respecte le seuil.",
+          "why": "L’évaluation utilise le 75e percentile des visites, plus exigeant que la médiane."
+        }
+      },
+      {
+        "statement": "L’INP a remplacé le First Input Delay comme Core Web Vital.",
+        "why": "L’INP est devenu stable en mars 2024 et mesure chaque interaction jusqu’au paint suivant.",
+        "twin": {
+          "statement": "Le First Input Delay reste un Core Web Vital aux côtés de l’INP.",
+          "why": "L’INP a remplacé le FID comme Core Web Vital en devenant stable en mars 2024."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les Core Web Vitals sont trois métriques terrain pour le chargement, la réactivité et la stabilité visuelle. Comme Google Search les utilise et qu’elles suivent la conversion, la performance est devenue une exigence produit.",
+      "points": [
+        "Trois métriques : le LCP (Largest Contentful Paint, chargement) est bon à 2,5 s ou moins ; l’INP (Interaction to Next Paint, réactivité) à 200 ms ou moins ; le CLS (Cumulative Layout Shift, stabilité visuelle) à 0,1 ou moins.",
+        "Une page passe quand le 75e percentile des vraies visites respecte chaque seuil, sur mobile et sur desktop séparément. Une bonne médiane ne suffit pas.",
+        "Ce qui est jugé, ce sont les données terrain des vrais utilisateurs, issues de CrUX (le jeu de données public de Chrome) ou de ton propre monitoring avec `web-vitals`. Les outils de labo comme Lighthouse servent au debug, et l’INP a besoin de vraies interactions.",
+        "L’INP a remplacé le FID (First Input Delay) comme Core Web Vital en mars 2024. Il regarde les interactions de toute la visite, pas seulement la première.",
+        "Corrections typiques : pour le LCP, une image principale dans le HTML avec une fetch priority haute et sans lazy loading ; pour l’INP, moins de JavaScript et rendre la main dans les long tasks ; pour le CLS, de l’espace réservé aux images, pubs et polices."
+      ],
+      "takeaways": [
+        {
+          "term": "LCP",
+          "detail": "Largest Contentful Paint, chargement : bon à 2,5 s ou moins."
+        },
+        {
+          "term": "INP",
+          "detail": "Interaction to Next Paint, réactivité : bon à 200 ms ou moins. A remplacé le FID en mars 2024."
+        },
+        {
+          "term": "CLS",
+          "detail": "Cumulative Layout Shift, stabilité visuelle : bon à 0,1 ou moins."
+        },
+        {
+          "term": "75e percentile",
+          "detail": "Des vraies visites, sur mobile et desktop séparément. Une bonne médiane ne suffit pas."
+        },
+        {
+          "term": "Terrain vs labo",
+          "detail": "Les données terrain (CrUX ou `web-vitals`) sont jugées ; Lighthouse sert au debug, et l’INP a besoin de vraies interactions."
+        },
+        {
+          "term": "Corrections typiques",
+          "detail": "LCP : image principale dans le HTML, priorité haute, pas lazy. INP : moins de JS, rendre la main dans les long tasks. CLS : réserver l’espace."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Les tests de labo sur un laptop rapide montrent la page produit chargée en 1,8 s, pourtant Search Console signale son LCP comme pas bon sur mobile. Comment les deux peuvent-ils être vrais ?",
+        "bridge": "Les Core Web Vitals sont jugés sur les données terrain au 75e percentile des vraies visites, pas sur une exécution de labo."
+      },
+      {
+        "question": "Un product manager demande pourquoi le travail de performance devrait passer avant la prochaine fonctionnalité. Que lui répondez-vous ?",
+        "bridge": "Les Core Web Vitals ont fait de la performance une exigence produit plutôt qu’une finition : Google Search les utilise et elles suivent la conversion."
+      }
+    ]
+  },
+  "trend-staying-current": {
+    "topic": "Rester à jour",
+    "question": "Comment restez-vous à jour dans un paysage full-stack qui évolue vite ?",
+    "answer": "Je suis les sources primaires des outils que j’utilise tous les jours : les blogs de React et de Next.js, les release notes de Node.js, et Baseline sur web.dev pour savoir quand une fonctionnalité navigateur est utilisable sans risque. Une newsletter hebdo couvre le reste, et je survole plutôt que de courir après chaque lancement. J’apprends en pratiquant : j’essaie une nouvelle fonctionnalité dans un petit side project avant de la proposer au travail. Avant une montée de version, je lis le guide de migration en entier. Mon filtre pour adopter quelque chose est simple : ce doit être stable, résoudre un problème qu’on a vraiment, et valoir le coût de la migration.",
+    "keyPoints": [
+      "Sources primaires : blogs officiels, release notes, Baseline",
+      "Apprendre en construisant un petit projet, pas seulement en lisant",
+      "Lire les guides de migration avant de monter de version",
+      "N’adopter que ce qui est stable et résout un vrai problème"
+    ],
+    "explanation": "Les recruteurs veulent une vraie habitude et du discernement, pas une liste d’influenceurs. Ils écoutent comment tu filtres la hype et si tu peux donner un exemple récent de quelque chose que tu as appris et appliqué.",
+    "example": "Avant de passer la boutique à Next.js 16, un développeur a lu le guide de migration et vu que `middleware` était renommé `proxy` et tournait désormais par défaut sur Node.js. L’équipe a lancé le codemod dans une branche, vérifié que le matcher couvrait toujours les pages du compte, et livré la montée de version sans incident.",
+    "mistakes": [
+      "Citer beaucoup de sources sans montrer ce que tu en as vraiment fait",
+      "Adopter un outil parce qu’il est à la mode, sans problème qu’il résout"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’avez-vous appris récemment et utilisé au travail ?",
+        "answer": "Choisis un cas concret et raconte-le brièvement : ce qui a changé, comment tu l’as essayé et ce que ça a amélioré, par exemple passer une page en Server Components et mesurer le JavaScript économisé."
+      },
+      {
+        "question": "Comment décidez-vous si une nouvelle API CSS ou navigateur est utilisable sans risque ?",
+        "answer": "Je vérifie son statut Baseline sur web.dev ou MDN et notre politique de support navigateur. Les fonctionnalités nouvellement disponibles ont un fallback ; celles largement disponibles s’utilisent directement."
+      },
+      {
+        "question": "Quel outil avez-vous évalué récemment, et comment avez-vous décidé de l’adopter ou non ?",
+        "answer": "Le React Compiler pour le back-office. Je l’ai activé sur un dossier dans une branche, lancé les tests et comparé le tableau des commandes dans le Profiler : moins de rendus, aucune régression. C’était stable et ça résolvait un vrai problème, donc on l’a déployé dossier par dossier."
+      },
+      {
+        "question": "Quelles ressources suivez-vous régulièrement ?",
+        "answer": "D’abord les sources primaires : les blogs de react.dev et de Next.js, les release notes de Node.js, et web.dev avec Baseline pour les fonctionnalités navigateur. Ensuite une newsletter hebdo, comme JavaScript Weekly, et les changelogs des bibliothèques dont on dépend."
+      },
+      {
+        "question": "Comment distinguez-vous une tendance qui mérite d’être approfondie d’une hype passagère ?",
+        "answer": "Je cherche une version stable, une adoption par la doc officielle ou les outils qu’on utilise déjà, et un problème qu’on a vraiment. Les standards et les fonctionnalités de la plateforme, comme une nouvelle API navigateur, méritent d’être approfondis ; un nouveau framework a droit à une petite expérience tant qu’il n’a pas fait ses preuves."
+      },
+      {
+        "question": "Quel outil ou pattern récent avez-vous essayé puis décidé de ne pas adopter, et pourquoi ?",
+        "answer": "Une bibliothèque de state basée sur les signals pour le back-office. Dans une branche, elle réduisait les rendus du tableau des commandes, mais le React Compiler apportait l’essentiel de ce gain avec du React standard, et la bibliothèque aurait été un modèle de plus à apprendre pour chaque nouvel arrivant. On a gardé notre stack et documenté le résultat."
+      },
+      {
+        "question": "Comment décidez-vous si une tendance vaut la peine d’être adoptée dans une équipe en production ?",
+        "answer": "Elle doit résoudre un problème mesurable, être stable et maintenue, et être réversible. Je lance un pilote limité dans le temps sur une petite partie peu risquée, je compare les chiffres, et j’écris un court decision record avec le coût de migration et qui la maintient. L’équipe décide ensemble."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Baseline, affiché sur MDN et web.dev, indique si une fonctionnalité web marche dans les principaux navigateurs.",
+        "why": "Il marque les fonctionnalités comme nouvellement ou largement disponibles dans l’ensemble des navigateurs de référence.",
+        "twin": {
+          "statement": "Baseline ne couvre que Chrome, donc il ne dit rien des autres navigateurs.",
+          "why": "Il marque les fonctionnalités comme nouvellement ou largement disponibles dans l’ensemble des navigateurs de référence."
+        }
+      },
+      {
+        "statement": "Rester à jour, c’est monter chaque dépendance à sa dernière version majeure dès sa sortie.",
+        "why": "Les montées de version se planifient selon leur bénéfice et leur risque, en général après avoir lu le guide et attendu les premiers correctifs.",
+        "twin": {
+          "statement": "Rester à jour, c’est planifier chaque montée de version majeure selon son bénéfice et son risque.",
+          "why": "Lire le guide de migration et attendre les premiers correctifs vaut mieux que monter de version dès la sortie."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Cette question cherche une vraie habitude et du discernement : où tu apprends, comment tu filtres la hype, et une chose récente que tu as apprise et appliquée au travail.",
+      "points": [
+        "Le recruteur évalue une vraie habitude et du discernement : où tu apprends, comment tu filtres la hype, et un exemple récent de quelque chose que tu as appris et appliqué au travail.",
+        "Privilégie les sources primaires pour les outils que tu utilises tous les jours : blogs officiels, release notes et guides de migration, comme react.dev, nextjs.org et les releases de Node.js. Une newsletter hebdo couvre le reste.",
+        "Baseline, affiché sur MDN et web.dev, indique si une fonctionnalité web marche dans tous les navigateurs de référence : nouvellement disponible quand le dernier la livre, largement disponible 30 mois plus tard.",
+        "Apprends en construisant : essaie une fonctionnalité dans un petit projet avant de la proposer, et lis tout le guide de migration avant de monter de version, comme pour Next.js 16 qui renomme `middleware` en `proxy`.",
+        "N’adopte quelque chose que s’il est stable, résout un problème que tu as vraiment et vaut le coût de la migration. Planifie les versions majeures plutôt que de courir après chaque release."
+      ],
+      "takeaways": [
+        {
+          "term": "Sources primaires",
+          "detail": "Blogs officiels, release notes et guides de migration des outils que tu utilises tous les jours ; une newsletter hebdo pour le reste."
+        },
+        {
+          "term": "Baseline",
+          "detail": "Sur MDN et web.dev : nouvellement disponible quand tous les navigateurs de référence livrent une fonctionnalité, largement disponible 30 mois plus tard."
+        },
+        {
+          "term": "Apprendre en construisant",
+          "detail": "Essaie une fonctionnalité dans un petit side project avant de la proposer au travail."
+        },
+        {
+          "term": "Guides de migration",
+          "detail": "Lis tout le guide avant de monter de version, comme pour Next.js 16 qui renomme `middleware` en `proxy`."
+        },
+        {
+          "term": "Filtre d’adoption",
+          "detail": "Stable, résout un problème que tu as vraiment, et vaut le coût de la migration."
+        },
+        {
+          "term": "Exemple récent",
+          "detail": "Aie en tête une chose apprise récemment et appliquée au travail."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un collègue veut adopter dans le back-office une fonctionnalité de framework annoncée la semaine dernière. Comment décidez-vous si ça en vaut la peine ?",
+        "bridge": "Ton filtre pour adopter quelque chose de nouveau : stable, résout un problème que tu as vraiment, vaut le coût de la migration, et essayé d’abord dans un petit projet."
+      },
+      {
+        "question": "Où trouvez-vous votre veille technique, et comment évitez-vous de courir après chaque lancement ?",
+        "bridge": "Rester à jour via les sources primaires comme les blogs officiels, les release notes et Baseline, plus une newsletter que tu survoles plutôt que chaque lancement."
+      }
+    ]
+  },
+  "trend-serverless": {
+    "topic": "Serverless",
+    "question": "Quel rôle joue le serverless dans l’architecture backend, et quels sont ses compromis ?",
+    "answer": "Serverless veut dire que le fournisseur exécute et scale le calcul, et que je paie à la requête et à la durée : AWS Lambda, par exemple, descend à zéro. Ça convient au travail événementiel et en pics : un export nocturne, un consommateur de file, un webhook avec des rafales. Les compromis : les cold starts quand un nouvel environnement s’initialise, des limites comme 15 minutes par invocation Lambda standard, une requête par environnement, donc chacun ouvre ses propres connexions à la base, et une facture qui grimpe à chaque requête. Donc l’API Orders, avec un trafic régulier et PostgreSQL derrière, reste en conteneurs, tandis que les jobs planifiés et événementiels passent en fonctions, avec RDS Proxy devant la base.",
+    "keyPoints": [
+      "Le fournisseur exécute et scale ; paiement à la requête et à la durée",
+      "Adapté au travail en pics, planifié ou événementiel ; descend à zéro",
+      "Coûts : cold starts, limites de temps, connexions par environnement",
+      "Un trafic élevé et régulier favorise en général les conteneurs"
+    ],
+    "explanation": "Les recruteurs veulent que tu décides à partir de la charge de travail, pas de la mode. Les seniors connaissent le calcul de concurrence, le problème des connexions à la base, et le point où la facturation à la requête perd face à des conteneurs qui restent occupés.",
+    "example": "L’export CSV nocturne des commandes est passé d’un cron sur deux VM à une Lambda lancée par EventBridge Scheduler : dix minutes de travail par jour au lieu de machines payées toute la journée. Quand quelqu’un a proposé de déplacer aussi le webhook de paiement, l’équipe a calculé 300 appels par seconde à 0,2 s, soit 60 environnements concurrents et 60 connexions à la base, et a gardé le webhook dans l’API sur Kubernetes.",
+    "mistakes": [
+      "Ouvrir des connexions à la base depuis chaque environnement de fonction sans pooler comme RDS Proxy",
+      "Passer une API au trafic élevé et régulier en fonctions et être surpris par la facture",
+      "Oublier que les sources d’événements livrent au moins une fois, donc que les handlers doivent être idempotents"
+    ],
+    "followUps": [
+      {
+        "question": "Comment atténuez-vous les cold starts d’une fonction sensible à la latence ?",
+        "answer": "Je garde la phase d’init légère : un seul fichier bundlé, peu de dépendances, des clients créés une fois au niveau du module. Ensuite, la provisioned concurrency garde des environnements initialisés à l’avance, pour un coût fixe. Si les cold starts gênent encore après ça, la charge a probablement sa place dans un conteneur."
+      },
+      {
+        "question": "Quelles charges de travail conviennent au serverless, et lesquelles non ?",
+        "answer": "Adaptées : les jobs planifiés, les consommateurs de files et d’événements, les webhooks avec des rafales, la glue entre services managés, tout ce qui est inactif la majeure partie de la journée. Pas adaptées : les jobs plus longs que la limite de temps, un trafic élevé et régulier, le travail qui garde une connexion ouverte longtemps, et le code qui a besoin de nombreuses connexions à la base."
+      },
+      {
+        "question": "Comment se compare le prix du serverless à fort trafic soutenu ?",
+        "answer": "La facturation à la requête gagne quand il y a des temps morts. À trafic soutenu, une fonction facture chaque environnement pour toute sa durée, attentes de la base comprises, alors qu’un conteneur partage son CPU entre de nombreuses requêtes concurrentes. Je compare les coûts mensuels aux vrais débits et durées de requêtes avant de choisir."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le serverless est toujours moins cher que les conteneurs, puisqu’on ne paie que ce qu’on utilise.",
+        "why": "À trafic soutenu, la facturation à la requête peut coûter plus cher que des conteneurs qui restent occupés.",
+        "twin": {
+          "statement": "À trafic soutenu, le serverless peut coûter plus cher que des conteneurs qui restent occupés.",
+          "why": "La facturation à la requête grimpe à chaque requête, alors que des conteneurs occupés sont déjà payés."
+        }
+      },
+      {
+        "statement": "La concurrence d’une fonction vaut à peu près ses requêtes par seconde multipliées par sa durée en secondes.",
+        "why": "C’est la formule de la doc Lambda : 300 requêtes par seconde de 0,2 s demandent environ 60 environnements.",
+        "twin": {
+          "statement": "La concurrence d’une fonction vaut à peu près ses requêtes par seconde divisées par sa durée en secondes.",
+          "why": "La doc Lambda les multiplie : 300 requêtes par seconde de 0,2 s demandent environ 60 environnements."
+        }
+      },
+      {
+        "statement": "Une seule invocation d’une fonction AWS Lambda standard peut tourner une heure.",
+        "why": "Une invocation standard s’arrête à 15 minutes ; les jobs plus longs ont leur place dans une tâche en conteneur.",
+        "twin": {
+          "statement": "Une seule invocation d’une fonction AWS Lambda standard s’arrête au plus à 15 minutes.",
+          "why": "Les jobs plus longs ont leur place dans une tâche en conteneur."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Serverless veut dire que le fournisseur exécute et scale ton handler et que tu paies à la requête et à la durée. Ça convient au travail en pics et événementiel ; un trafic élevé et régulier favorise en général les conteneurs.",
+      "points": [
+        "Les fonctions serverless, comme AWS Lambda, exécutent ton handler pendant que le fournisseur gère les serveurs et le scaling. Tu paies à la requête et par unité de durée, et une fonction inactive ne coûte rien.",
+        "La première requête dans un nouvel environnement d’exécution lance la phase d’init, qui charge ton code et sa configuration de premier niveau : c’est le cold start. Les environnements chauds sont réutilisés ; la provisioned concurrency en garde certains prêts.",
+        "Concurrence = requêtes par seconde × durée. Un environnement Lambda classique sert une requête à la fois, donc 300 appels par seconde de 0,2 s demandent environ 60 environnements, chacun avec ses propres connexions.",
+        "Les limites façonnent le design : une invocation standard s’arrête à 15 minutes, et une requête synchrone ou une réponse bufferisée est plafonnée à 6 Mo. Mets RDS Proxy devant PostgreSQL et rends les handlers idempotents.",
+        "Choisis selon la charge : le travail planifié, en pics et événementiel convient aux fonctions ; un trafic élevé et régulier revient en général moins cher en conteneurs, qui servent de nombreuses requêtes à la fois."
+      ],
+      "takeaways": [
+        {
+          "term": "Tarification",
+          "detail": "À la requête et par unité de durée ; une fonction inactive ne coûte rien."
+        },
+        {
+          "term": "Cold start",
+          "detail": "La phase d’init d’un nouvel environnement d’exécution ; les chauds sont réutilisés, la provisioned concurrency en garde certains prêts."
+        },
+        {
+          "term": "Concurrence",
+          "detail": "Requêtes par seconde × durée : 300/s de 0,2 s demandent environ 60 environnements, chacun avec ses propres connexions."
+        },
+        {
+          "term": "Limites Lambda",
+          "detail": "Une invocation standard s’arrête à 15 minutes ; une requête synchrone ou une réponse bufferisée est plafonnée à 6 Mo."
+        },
+        {
+          "term": "Base de données",
+          "detail": "Mets RDS Proxy devant PostgreSQL et rends les handlers idempotents."
+        },
+        {
+          "term": "Choisir selon la charge",
+          "detail": "Planifié, en pics, événementiel : fonctions. Trafic élevé et régulier : conteneurs, qui servent de nombreuses requêtes à la fois."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’export CSV nocturne des commandes tourne en Lambda et, avec la hausse du volume de commandes, il échoue maintenant chaque nuit après exactement 15 minutes. Que se passe-t-il, et où devrait-il tourner ?",
+        "bridge": "Une invocation Lambda standard s’arrête à 15 minutes ; un job plus long a sa place dans une tâche en conteneur."
+      },
+      {
+        "question": "Un collègue affirme que passer l’API Orders sur Lambda réduira la facture, puisqu’on ne paie que ce qu’on utilise. Le trafic est régulier, avec PostgreSQL derrière. Que répondez-vous ?",
+        "bridge": "Compromis du serverless : facturation à la requête, cold starts et connexions par environnement favorisent en général les conteneurs pour un trafic régulier."
+      }
+    ]
+  },
+  "trend-event-driven": {
+    "topic": "Architecture événementielle",
+    "question": "Comment l’architecture événementielle et la modern data stack changent-elles la conception backend ?",
+    "answer": "Les services publient de plus en plus des faits, comme `order.paid`, au lieu de s’appeler entre eux : le stock, la fidélité et l’analytics réagissent chacun de leur côté, donc le producteur ne les connaît pas, et une panne retarde leur travail au lieu de faire échouer le paiement. Un log comme Kafka garde les événements pendant une période de rétention, donc un nouveau consommateur peut rejouer l’historique, et le change data capture envoie en streaming les changements de la base vers le data warehouse au lieu que les analystes interrogent la prod. Conséquences sur la conception : les événements deviennent des contrats publics versionnés, les consommateurs doivent être idempotents car la livraison est au moins une fois, un outbox publie de façon fiable après le commit, et le système est cohérent à terme.",
+    "keyPoints": [
+      "Les services publient des faits ; les consommateurs réagissent indépendamment",
+      "Un log retenu permet le rejeu ; le CDC alimente le data warehouse",
+      "Les événements sont des contrats versionnés ; consommateurs idempotents",
+      "Outbox pour une publication fiable ; cohérence à terme"
+    ],
+    "explanation": "Les recruteurs vérifient si tu vois les coûts autant que le découplage : doublons, ordre, évolution des schémas et debug plus difficile. Les seniors savent aussi quand un appel synchrone reste la bonne réponse.",
+    "example": "L’équipe analytics lançait de grosses requêtes sur le primaire de l’API Orders et ralentissait le pic du matin. L’équipe a publié `order.paid` dans Kafka via un outbox transactionnel, avec l’id de commande comme clé, et streamé la table des commandes vers le data warehouse avec Debezium. Les grosses requêtes ont quitté le primaire, et un service antifraude ajouté plus tard a rejoué les événements retenus pour construire son historique.",
+    "mistakes": [
+      "Publier l’événement dans le code applicatif après le commit, ce qui le perd en cas de crash, au lieu d’utiliser un outbox",
+      "Supposer une livraison exactly-once et écrire des consommateurs non idempotents",
+      "Transformer chaque appel en événement, même quand l’appelant a besoin de la réponse tout de suite"
+    ],
+    "followUps": [
+      {
+        "question": "Comment servez-vous des événements historiques à un consommateur qui n’existait pas quand ils ont été émis ?",
+        "answer": "Depuis un log comme Kafka, le nouveau consumer group démarre au plus ancien offset et rejoue ce qui est retenu, donc on règle la rétention, ou la compaction pour les topics d’état le plus récent, en pensant à ce besoin. Au-delà de la rétention, on archive les événements dans un stockage objet et on fait le backfill depuis là, ou on part d’un snapshot puis on suit le flux."
+      },
+      {
+        "question": "Quand choisissez-vous des événements plutôt que des appels synchrones entre services ?",
+        "answer": "Un appel synchrone convient quand l’appelant a besoin de la réponse pour continuer, comme vérifier le stock au checkout, et il est plus facile à tracer. Un événement convient quand les autres doivent seulement savoir qu’un fait a eu lieu : le producteur reste découplé de leurs pannes, au prix de la cohérence à terme, des doublons et d’un debug plus difficile."
+      },
+      {
+        "question": "Comment faites-vous évoluer les schémas d’événements sans casser les consommateurs ?",
+        "answer": "Uniquement des changements additifs sur place, comme un nouveau champ optionnel. Un changement cassant reçoit un nouveau type versionné, comme `order-placed.v2`, publié à côté de la v1 jusqu’à ce que les consommateurs migrent. Les consommateurs ignorent les champs inconnus, et un schema registry en compatibilité `BACKWARD` rejette les changements risqués."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Avec une file comme SQS, un consommateur ajouté aujourd’hui peut rejouer les messages de la semaine dernière.",
+        "why": "Une file supprime les messages traités ; le rejeu demande un log retenu comme Kafka.",
+        "twin": {
+          "statement": "Un consommateur ajouté aujourd’hui ne peut pas rejouer les messages de la semaine dernière depuis une file comme SQS.",
+          "why": "Une file supprime les messages traités ; le rejeu demande un log retenu comme Kafka."
+        }
+      },
+      {
+        "statement": "Kafka garantit l’ordre au sein d’une partition, pas sur tout un topic.",
+        "why": "C’est pour ça que les événements ont l’id de commande comme clé : les événements d’une commande arrivent dans une seule partition.",
+        "twin": {
+          "statement": "Kafka garantit l’ordre sur tout un topic.",
+          "why": "Il ne garantit l’ordre qu’au sein d’une partition, c’est pour ça que les événements ont l’id de commande comme clé."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "En conception événementielle, les services publient des faits et les autres réagissent de leur côté, donc le producteur ne connaît pas ses consommateurs. Ça découple les services au prix de la cohérence à terme.",
+      "points": [
+        "En conception événementielle, un service publie des faits, comme `order.paid`, et les autres services réagissent de leur côté. Le producteur ne connaît pas ses consommateurs, donc leur panne retarde leur travail au lieu de faire échouer le paiement.",
+        "Une file supprime un message une fois traité ; un log comme Kafka garde les événements pendant une période de rétention, donc un nouveau consumer group peut rejouer l’historique. Kafka ordonne au sein d’une partition : utilise l’id de commande comme clé.",
+        "La livraison est au moins une fois, donc les consommateurs doivent être idempotents. L’outbox transactionnel écrit l’événement dans la même transaction que le changement d’état, et un relais le publie après le commit.",
+        "La modern data stack sort l’analytics de la prod : le change data capture (CDC), comme Debezium qui lit le write-ahead log de PostgreSQL, envoie chaque changement en streaming vers un data warehouse.",
+        "Les événements sont des contrats publics : fais-les évoluer de façon additive, donne aux changements cassants un nouveau type versionné, et laisse les consommateurs ignorer les champs inconnus. Garde un appel synchrone quand l’appelant a besoin de la réponse tout de suite."
+      ],
+      "takeaways": [
+        {
+          "term": "Publier des faits",
+          "detail": "Comme `order.paid` ; la panne d’un consommateur retarde son travail au lieu de faire échouer le paiement."
+        },
+        {
+          "term": "File vs log",
+          "detail": "Une file supprime un message traité ; un log comme Kafka garde les événements pour qu’un nouveau consumer group puisse rejouer."
+        },
+        {
+          "term": "Ordre dans Kafka",
+          "detail": "Au sein d’une partition uniquement, donc l’id de commande sert de clé aux événements."
+        },
+        {
+          "term": "Consommateurs idempotents",
+          "detail": "La livraison est au moins une fois, donc traiter deux fois le même événement doit être sans effet."
+        },
+        {
+          "term": "Outbox transactionnel",
+          "detail": "Écrire l’événement dans la même transaction que le changement d’état ; un relais le publie après le commit."
+        },
+        {
+          "term": "CDC et contrats",
+          "detail": "Le CDC envoie les changements de la base vers le data warehouse. Les événements évoluent de façon additive ; un changement cassant a un nouveau type."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un service de fidélité ajouté en mars doit attribuer des points pour chaque `order.paid` depuis janvier, mais les événements sont passés par SQS. Quel est le problème, et qu’est-ce qui aurait aidé ?",
+        "bridge": "Une file supprime les messages traités ; un log retenu comme Kafka permet à un nouveau consommateur de rejouer l’historique."
+      },
+      {
+        "question": "Quand le paiement publie `order.paid` au lieu d’appeler directement le stock et la fidélité, qu’est-ce qui change dans la conception de ces consommateurs ?",
+        "bridge": "Conception événementielle : les événements deviennent des contrats versionnés, les consommateurs sont idempotents car la livraison est au moins une fois, et le système est cohérent à terme."
+      }
+    ]
+  },
+  "trend-platform-engineering": {
+    "topic": "Platform engineering",
+    "question": "Comment le platform engineering change-t-il la façon de travailler des équipes backend ?",
+    "answer": "Le platform engineering, c’est une équipe qui construit une plateforme interne pour les développeurs, gérée comme un produit, pour que les autres équipes livrent sans devenir expertes en Kubernetes, en CI ou en comptes cloud. Son cœur, ce sont les golden paths : un template qui crée un service avec son pipeline, son monitoring, ses secrets et ses dashboards déjà branchés, souvent derrière un portail comme Backstage. Pour les équipes backend, l’effort passe de l’assemblage d’infrastructure au travail produit, et les services sont construits, déployés et observés de la même façon. Le risque, c’est une plateforme dont personne ne veut, donc je traite les développeurs comme des clients, je mesure l’adoption et les métriques de livraison, et je garde une porte de sortie pour les équipes qui ont de vrais besoins.",
+    "keyPoints": [
+      "Une plateforme interne pour les développeurs, gérée comme un produit",
+      "Golden paths : templates avec CI, monitoring et secrets branchés",
+      "Moins d’infrastructure pour les équipes produit, plus de cohérence",
+      "Mesurer adoption et livraison ; garder des portes de sortie"
+    ],
+    "explanation": "Les recruteurs cherchent une vision au-delà du buzzword : ce que la plateforme apporte aux équipes produit et comment tu saurais qu’elle marche. Les seniors parlent de plateforme gérée comme un produit, d’adoption qui se mérite, et d’équilibre entre standards et autonomie.",
+    "example": "Créer un nouveau service dans la boutique prenait environ deux semaines de tickets pour obtenir un pipeline, un namespace et des dashboards. L’équipe plateforme a construit un template Backstage qui crée le dépôt, un workflow GitHub Actions qui déploie sur AWS via OIDC, les manifests Kubernetes et des alertes par défaut. Le service suivant, l’API de suivi des livraisons, est arrivé en production en deux jours.",
+    "mistakes": [
+      "Présenter ça comme du DevOps renommé, sans l’état d’esprit produit ni le self-service",
+      "Imposer une plateforme aux équipes sans mesurer si elle les aide",
+      "Construire un portail avant de rendre faciles les chemins qui sont derrière"
+    ],
+    "followUps": [
+      {
+        "question": "Comment mesureriez-vous le succès d’une plateforme interne pour les développeurs ?",
+        "answer": "D’abord l’adoption : la part des services sur le golden path et le temps pour qu’un nouveau service arrive en production. Ensuite les métriques DORA, comme la fréquence de déploiement, le lead time des changements, le taux d’échec des changements et le temps de rétablissement après un déploiement raté, avant et après. Et des sondages auprès des développeurs : une plateforme qu’on évite a échoué."
+      },
+      {
+        "question": "Quelle est la différence entre platform engineering et SRE ?",
+        "answer": "Le SRE est responsable de la fiabilité des services en production : SLO, error budgets, réponse aux incidents et suppression du toil. Le platform engineering construit les outils en self-service qui servent aux développeurs à construire, livrer et exploiter les services. Les deux se rejoignent dans le golden path, qui intègre des pratiques SRE comme des alertes par défaut et des déploiements sûrs."
+      },
+      {
+        "question": "Comment équilibrez-vous les standards de la plateforme et l’autonomie des équipes ?",
+        "answer": "Je fais du golden path le choix le plus facile, pas le seul. Quelques garde-fous sont obligatoires, comme le scan de sécurité, la gestion des secrets et l’observabilité. Au-delà, une équipe peut quitter le chemin avec une raison écrite, et l’équipe plateforme traite les sorties fréquentes comme un retour sur la plateforme."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une plateforme interne réussie est une plateforme que toutes les équipes sont obligées d’utiliser.",
+        "why": "Le platform engineering mérite l’adoption en faisant du golden path le chemin le plus facile ; une utilisation forcée cache si elle aide vraiment.",
+        "twin": {
+          "statement": "Une plateforme interne réussie mérite son adoption en faisant du golden path le chemin le plus facile.",
+          "why": "Une utilisation forcée cache si la plateforme aide vraiment."
+        }
+      },
+      {
+        "statement": "Le platform engineering traite la plateforme interne comme un produit, dont les développeurs sont les clients.",
+        "why": "Leurs besoins et leurs retours pilotent la roadmap, et l’adoption mesure le succès.",
+        "twin": {
+          "statement": "Le platform engineering traite la plateforme interne comme une infrastructure imposée aux équipes, pas comme un produit avec des clients.",
+          "why": "Elle est gérée comme un produit, dont les développeurs sont les clients et dont les besoins et retours pilotent la roadmap."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le platform engineering, c’est une équipe qui construit une plateforme interne pour les développeurs, gérée comme un produit, pour que les équipes produit construisent, livrent et fassent tourner leurs services sans être expertes en infrastructure.",
+      "points": [
+        "Platform engineering : une équipe plateforme construit une internal developer platform (IDP), des outils en self-service qui permettent aux équipes produit de construire, livrer et faire tourner des services sans être expertes en infrastructure.",
+        "Son cœur est le golden path : une façon supportée de faire une tâche courante, comme un template qui crée un service avec pipeline, déploiement, secrets, monitoring et alertes branchés. Backstage est un portail courant pour ça.",
+        "La plateforme est gérée comme un produit : les développeurs sont ses clients, l’adoption se mérite au lieu d’être imposée, et leurs retours pilotent la roadmap.",
+        "On la mesure par l’adoption, le temps pour qu’un nouveau service arrive en production, les métriques de livraison DORA (comme la fréquence de déploiement et le lead time des changements) et la satisfaction des développeurs.",
+        "Le SRE se concentre sur la fiabilité de la production ; le platform engineering sur le self-service des développeurs. Équilibre standards et autonomie : quelques garde-fous obligatoires, le reste optionnel avec une porte de sortie."
+      ],
+      "takeaways": [
+        {
+          "term": "IDP",
+          "detail": "Internal developer platform : des outils en self-service pour construire, livrer et faire tourner des services."
+        },
+        {
+          "term": "Golden path",
+          "detail": "Une façon supportée de faire une tâche courante, comme un template avec pipeline, secrets, monitoring et alertes branchés."
+        },
+        {
+          "term": "Backstage",
+          "detail": "Un portail courant pour les golden paths."
+        },
+        {
+          "term": "Géré comme un produit",
+          "detail": "Les développeurs sont des clients, l’adoption se mérite au lieu d’être imposée, les retours pilotent la roadmap."
+        },
+        {
+          "term": "Mesures",
+          "detail": "Adoption, temps pour qu’un nouveau service arrive en production, métriques DORA et satisfaction des développeurs."
+        },
+        {
+          "term": "Porte de sortie",
+          "detail": "Quelques garde-fous obligatoires, le reste optionnel. Le SRE porte la fiabilité de la prod ; la plateforme, le self-service."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Créer un nouveau service dans la boutique prend deux semaines : pipeline, secrets, dashboards et alertes, chacun configuré à la main avec une équipe différente. Que proposeriez-vous ?",
+        "bridge": "Le golden path du platform engineering : un template qui crée un service avec la CI, le monitoring et les secrets déjà branchés."
+      },
+      {
+        "question": "La direction veut imposer la nouvelle plateforme interne à toutes les équipes d’ici juin. Que conseillez-vous ?",
+        "bridge": "Une plateforme gérée comme un produit mérite son adoption en étant le chemin le plus facile ; mesurer l’adoption et garder des portes de sortie plutôt que l’imposer."
+      }
+    ]
+  }
+}

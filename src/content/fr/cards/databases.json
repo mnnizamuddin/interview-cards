@@ -1,0 +1,1889 @@
+{
+  "db-sql-nosql": {
+    "topic": "SQL ou NoSQL",
+    "question": "Quelle est la différence entre les bases SQL et NoSQL, et comment choisissez-vous ?",
+    "answer": "Une base relationnelle comme PostgreSQL stocke des lignes dans des tables au schéma fixe, les joint en SQL et impose des règles avec des contraintes et des transactions. NoSQL, c’est une famille : bases orientées documents comme MongoDB, clé-valeur comme Redis ou DynamoDB, orientées colonnes comme Cassandra, et bases de graphes. Chacune est pensée pour quelques access patterns et passe souvent plus facilement à l’échelle horizontalement, mais renonce aux jointures ou aux contraintes entre enregistrements. Par défaut je pars sur PostgreSQL, puisque `jsonb` couvre quelques champs flexibles, et je choisis une base NoSQL quand un access pattern précis l’exige : des documents entiers de forme variable, un cache, ou des écritures au-delà d’un seul primaire.",
+    "keyPoints": [
+      "Relationnel : tables, schéma, jointures, contraintes, transactions",
+      "NoSQL est une famille : document, clé-valeur, colonnes, graphe",
+      "Choisir selon les access patterns, pas selon la mode",
+      "PostgreSQL par défaut ; `jsonb` pour quelques champs flexibles"
+    ],
+    "explanation": "Les recruteurs attendent une décision guidée par les access patterns et les besoins de cohérence, pas « NoSQL passe à l’échelle, SQL non ». Un senior nomme ce à quoi chaque option renonce, comme les jointures, les clés étrangères ou les transactions multi-enregistrements, et sait que PostgreSQL couvre plus de cas qu’on ne le pense.",
+    "example": "L’API Orders garde les commandes, les paiements et le stock dans PostgreSQL parce qu’un checkout doit en modifier plusieurs de façon atomique. Le catalogue est passé sur MongoDB : une console, un T-shirt et un canapé ont des attributs différents, chaque page produit est une lecture par id, et l’équipe catalogue ajoute des attributs chaque semaine sans migration.",
+    "mistakes": [
+      "Dire que NoSQL signifie « pas de schéma » : le schéma passe dans l’application, qui doit quand même le valider",
+      "Choisir MongoDB pour des données relationnelles avec beaucoup de jointures et de règles entre enregistrements",
+      "Ignorer que le `jsonb` de PostgreSQL gère déjà quelques champs semi-structurés"
+    ],
+    "followUps": [
+      {
+        "question": "Une base NoSQL peut-elle exécuter des transactions ?",
+        "answer": "Beaucoup le peuvent aujourd’hui : MongoDB a des transactions multi-documents sur les replica sets et les clusters shardés. Mais son modèle de données est conçu pour que la plupart des écritures touchent un seul document, qui est atomique à lui seul."
+      },
+      {
+        "question": "Quand mettriez-vous Redis à côté de PostgreSQL ?",
+        "answer": "Pour des données qu’on peut perdre et reconstruire vite : un cache, des sessions, des compteurs de rate limiting ou une file de jobs. La source de vérité reste dans PostgreSQL."
+      },
+      {
+        "question": "Comment modélisez-vous une relation plusieurs-à-plusieurs dans une base orientée documents sans jointures ?",
+        "answer": "Je stocke un tableau de références du côté le plus lu, comme les ids de catégories dans chaque produit, et j’indexe ce tableau, donc « produits de la catégorie 7 » est une seule requête indexée. Si une page a aussi besoin des noms, je les copie dans le document et j’accepte de mettre à jour les copies quand un nom change."
+      },
+      {
+        "question": "Quand choisiriez-vous une base de graphes plutôt qu’une base relationnelle ?",
+        "answer": "Quand les requêtes principales suivent des relations sur une profondeur variable, comme des réseaux de fraude liés par des cartes et des adresses partagées, ou « les clients qui ont acheté ce que vous avez acheté ». Une base de graphes comme Neo4j parcourt ces liens directement ; pour deux ou trois niveaux, une CTE récursive dans PostgreSQL suffit en général."
+      },
+      {
+        "question": "Comment les bases relationnelles passent-elles aujourd’hui à l’échelle horizontalement, avec des réplicas en lecture et du sharding ?",
+        "answer": "Les lectures passent à l’échelle avec des réplicas en lecture alimentés par la réplication en streaming ; ils ont un léger retard, donc la commande qu’un client vient de passer se lit sur le primaire. Les écritures au-delà d’un primaire demandent du sharding : l’extension Citus ou un routage dans l’application pour PostgreSQL, ou une base SQL distribuée."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un seul document MongoDB peut grossir sans limite.",
+        "why": "Un document est plafonné à 16 Mio, c’est pourquoi un tableau d’avis non borné dans un produit finit par échouer.",
+        "twin": {
+          "statement": "Un seul document MongoDB est plafonné à 16 Mio.",
+          "why": "C’est cette limite qui fait qu’un tableau d’avis non borné dans un produit finit par échouer."
+        }
+      },
+      {
+        "statement": "PostgreSQL peut stocker et indexer des documents JSON.",
+        "why": "Une colonne `jsonb` stocke un document à côté de colonnes typées et peut être indexée, par exemple avec un index GIN.",
+        "twin": {
+          "statement": "PostgreSQL peut stocker des documents JSON mais ne peut pas indexer leur contenu.",
+          "why": "Une colonne `jsonb` peut être indexée, par exemple avec un index GIN, donc les requêtes peuvent chercher à l’intérieur des documents."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les bases relationnelles stockent des lignes dans des tables avec un schéma, des jointures et des transactions ; NoSQL est une famille de bases, chacune construite autour de quelques access patterns. On choisit selon les requêtes à servir et ce à quoi on peut renoncer.",
+      "points": [
+        "Une base relationnelle comme PostgreSQL stocke des lignes dans des tables au schéma déclaré. Des contraintes comme les clés étrangères rejettent les mauvaises données, et une transaction modifie plusieurs lignes de façon atomique.",
+        "« NoSQL » désigne plusieurs familles : bases orientées documents (MongoDB), clé-valeur (Redis, DynamoDB), orientées colonnes (Cassandra) et bases de graphes. Chacune est construite autour de quelques access patterns.",
+        "Un access pattern est une requête que l’app exécute souvent, comme « charger un produit par id avec tous ses attributs ». Choisis la base qui sert tes patterns principaux, et nomme ce que tu perds : jointures, clés étrangères, transactions.",
+        "« Sans schéma » déplace le schéma dans l’application, qui doit quand même le valider. Un document MongoDB est plafonné à 16 Mio, donc un tableau non borné dans un document finit par échouer.",
+        "PostgreSQL couvre quelques champs flexibles avec `jsonb`, une colonne JSON binaire. Un index GIN, qui indexe les clés et valeurs à l’intérieur des documents, sert les requêtes de contenance avec `@>`."
+      ],
+      "takeaways": [
+        {
+          "term": "Relationnel",
+          "detail": "Tables au schéma déclaré. Les clés étrangères rejettent les mauvaises données, et une transaction modifie plusieurs lignes de façon atomique."
+        },
+        {
+          "term": "Familles NoSQL",
+          "detail": "Documents (MongoDB), clé-valeur (Redis, DynamoDB), colonnes (Cassandra) et bases de graphes."
+        },
+        {
+          "term": "Access pattern",
+          "detail": "Une requête que l’app exécute souvent. Choisis la base qui sert les principales, et nomme ce que tu perds : jointures, clés étrangères, transactions."
+        },
+        {
+          "term": "« Sans schéma »",
+          "detail": "Déplace le schéma dans l’application, qui doit quand même le valider."
+        },
+        {
+          "term": "Taille d’un document MongoDB",
+          "detail": "Plafonnée à 16 Mio, donc un tableau non borné dans un document finit par échouer."
+        },
+        {
+          "term": "`jsonb` avec GIN",
+          "detail": "La réponse de PostgreSQL pour quelques champs flexibles ; un index GIN sert les requêtes de contenance avec `@>`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un collègue veut migrer les commandes, les clients et le stock de PostgreSQL vers MongoDB « pour passer à l’échelle », alors que l’API gère 200 commandes par minute sans difficulté. Que lui répondez-vous ?",
+        "bridge": "Choisir entre SQL et NoSQL part des access patterns : jointures, contraintes et transactions conviennent aux commandes et au stock, et une base NoSQL répond à un besoin précis."
+      },
+      {
+        "question": "Un junior dit que NoSQL veut simplement dire « une base sans schéma, comme MongoDB ». Comment le corrigez-vous ?",
+        "bridge": "NoSQL est une famille de bases pensées autour d’access patterns (document, clé-valeur, colonnes, graphe), chacune renonçant à une partie de ce qu’imposent les bases relationnelles."
+      }
+    ]
+  },
+  "db-normalization": {
+    "topic": "Normalisation et dénormalisation",
+    "question": "Qu’est-ce que la normalisation, et quels sont les compromis de la dénormalisation ?",
+    "answer": "Normaliser, c’est stocker chaque fait une seule fois et y faire référence par clé, donc une mise à jour se fait à un seul endroit et deux lignes ne peuvent jamais se contredire. En pratique, la troisième forme normale dit que chaque colonne décrit la clé, toute la clé et rien que la clé. Dénormaliser, c’est garder volontairement une copie ou une valeur dérivée pour rendre les lectures moins chères, comme un total de commande stocké. Le prix, c’est que la copie peut diverger, donc il lui faut un responsable : la même transaction, un trigger ou un consommateur d’événements, plus une requête qui détecte la divergence. Je normalise par défaut et je ne dénormalise que pour un problème de lecture mesuré.",
+    "keyPoints": [
+      "Chaque fait stocké une fois, référencé par clé",
+      "Les colonnes décrivent la clé, toute la clé et rien que la clé (3NF)",
+      "Dénormaliser accélère les lectures mais les copies peuvent diverger",
+      "Chaque copie a besoin d’un responsable désigné et d’un contrôle de divergence"
+    ],
+    "explanation": "La question vérifie que tu sais concevoir un schéma qui reste correct en évoluant. Un senior distingue une vraie copie, qui peut diverger, d’un instantané comme le prix payé sur une ligne de commande, qui est un fait différent et doit être stocké.",
+    "example": "Les lignes de commande de l’API Orders stockent le nom du produit et le prix unitaire tels qu’ils étaient au checkout, donc un changement de prix le mois suivant ne réécrit pas les anciennes factures. La table des commandes stocke aussi `total_cents`, la somme de ses lignes, parce que chaque page de liste et chaque export CSV la lit ; le checkout écrit les deux dans une seule transaction et une requête nocturne alerte sur tout total qui ne correspond plus à ses lignes.",
+    "mistakes": [
+      "Qualifier de duplication le prix sur une ligne de commande : c’est un instantané de ce que le client a payé",
+      "Dénormaliser « pour la performance » avant d’avoir mesuré la moindre requête lente",
+      "Ajouter une colonne dérivée sans dire ce qui la garde correcte"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qu’une vue matérialisée, et comment se compare-t-elle à une colonne dénormalisée ?",
+        "answer": "Elle stocke le résultat d’une requête, et PostgreSQL ne la recalcule que quand on lance `REFRESH MATERIALIZED VIEW`. Elle est donc périmée entre deux rafraîchissements, ce qui convient aux rapports, alors qu’une colonne mise à jour dans la même transaction est toujours à jour."
+      },
+      {
+        "question": "Où la dénormalisation devient-elle la conception normale ?",
+        "answer": "Dans les modèles de lecture construits pour un seul écran, comme une table de commandes du back-office alimentée par des événements, et dans les bases orientées documents, où ce qui se lit ensemble est stocké ensemble."
+      },
+      {
+        "question": "Qu’exige la troisième forme normale ? Donnez un exemple de violation.",
+        "answer": "Chaque colonne non clé doit dépendre de la clé et de rien d’autre, donc aucune colonne ne dépend d’une autre colonne non clé. L’e-mail d’un client stocké sur chaque commande la viole : l’e-mail dépend de `customer_id`, donc le changer oblige à mettre à jour chaque commande, et en rater une laisse deux e-mails."
+      },
+      {
+        "question": "Quand dénormaliseriez-vous un schéma en production, et comment gardez-vous les copies synchronisées ?",
+        "answer": "Seulement pour un problème de lecture mesuré, comme `orders.total_cents`, lu par chaque page de liste et chaque export CSV. La copie a un seul responsable : la même transaction que sa source, un trigger, ou un consommateur d’événements quand un court délai est acceptable, plus une requête planifiée qui alerte en cas de divergence."
+      },
+      {
+        "question": "En quoi un schéma OLTP normalisé diffère-t-il d’un schéma OLAP ou de data warehouse dénormalisé ?",
+        "answer": "L’OLTP sert beaucoup de petites lectures et écritures, donc il est normalisé pour que chaque écriture reste correcte. Un warehouse sert de gros parcours analytiques, donc il utilise un schéma en étoile : une table de faits comme les lignes de commande, jointe à quelques tables de dimensions larges comme produit, client et date, chargées depuis la base OLTP."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Stocker le prix unitaire sur chaque ligne de commande enfreint la normalisation.",
+        "why": "Le prix au moment de la commande est un fait à part entière ; une clé étrangère vers le prix actuel du catalogue réécrirait l’historique.",
+        "twin": {
+          "statement": "Stocker le prix unitaire sur chaque ligne de commande respecte la normalisation, parce que le prix au moment de la commande est un fait à part entière.",
+          "why": "Une clé étrangère vers le prix actuel du catalogue réécrirait l’historique à chaque changement de prix."
+        }
+      },
+      {
+        "statement": "Un total dénormalisé peut contredire les lignes qu’il résume si un chemin d’écriture oublie de le mettre à jour.",
+        "why": "Rien dans la base ne lie la copie à sa source sauf si tu ajoutes un trigger ou un contrôle, c’est pourquoi elle a besoin d’un responsable.",
+        "twin": {
+          "statement": "PostgreSQL garde automatiquement un total dénormalisé synchronisé avec les lignes qu’il résume.",
+          "why": "Rien ne lie la copie à sa source sauf si tu ajoutes un trigger ou un contrôle, c’est pourquoi elle a besoin d’un responsable."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "La normalisation stocke chaque fait une seule fois et y fait référence par clé, donc deux lignes ne peuvent jamais se contredire. Dénormaliser copie volontairement des données pour des lectures moins chères, au prix de garder les copies synchronisées.",
+      "points": [
+        "Normaliser, c’est stocker chaque fait une seule fois et y faire référence par clé, donc une mise à jour touche une seule ligne et deux copies ne peuvent jamais se contredire.",
+        "Troisième forme normale (3NF) : chaque colonne dépend de la clé, de toute la clé et de rien d’autre que la clé. L’e-mail d’un client répété sur chaque commande la viole, parce qu’il décrit le client, pas la commande.",
+        "Dénormaliser, c’est garder volontairement une copie ou une valeur dérivée, comme `orders.total_cents`, pour rendre les lectures fréquentes moins chères. Le risque est la divergence quand un chemin d’écriture l’oublie : il faut un responsable et un contrôle.",
+        "Un instantané n’est pas une copie. Le prix unitaire stocké sur une ligne de commande enregistre ce que le client a payé, un fait différent du prix catalogue du jour, donc le stocker est correct.",
+        "Une vue matérialisée stocke le résultat d’une requête et n’est recalculée que par `REFRESH MATERIALIZED VIEW`, donc elle est périmée entre deux rafraîchissements ; une colonne mise à jour dans la même transaction est toujours à jour."
+      ],
+      "takeaways": [
+        {
+          "term": "Normaliser",
+          "detail": "Chaque fait stocké une fois et référencé par clé, donc une mise à jour touche une seule ligne."
+        },
+        {
+          "term": "Troisième forme normale (3NF)",
+          "detail": "Chaque colonne dépend de la clé, de toute la clé et de rien d’autre que la clé."
+        },
+        {
+          "term": "Dénormaliser",
+          "detail": "Garder une copie ou une valeur dérivée, comme `orders.total_cents`, seulement pour un problème de lecture mesuré."
+        },
+        {
+          "term": "Divergence",
+          "detail": "Une copie diverge quand un chemin d’écriture l’oublie. Donne-lui un responsable (transaction, trigger, consommateur) et un contrôle."
+        },
+        {
+          "term": "Instantané",
+          "detail": "Le prix unitaire sur une ligne de commande enregistre ce qui a été payé : un fait différent du prix du jour, pas une copie."
+        },
+        {
+          "term": "Vue matérialisée",
+          "detail": "Périmée entre deux `REFRESH MATERIALIZED VIEW` ; une colonne mise à jour dans la même transaction est toujours à jour."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La liste des commandes affiche un total de 89 € pour une commande dont les lignes font 104 €. Le total est une colonne stockée sur `orders`. Que s’est-il probablement passé, et que mettriez-vous en place ?",
+        "bridge": "Une copie dénormalisée a divergé des lignes qu’elle résume parce qu’un chemin d’écriture l’a oubliée : chaque copie a besoin d’un responsable et d’un contrôle de divergence."
+      },
+      {
+        "question": "Un collègue veut remplacer `unit_price_cents` sur les lignes de commande par une clé étrangère vers le prix actuel du produit, « pour normaliser ». Que dites-vous ?",
+        "bridge": "La normalisation stocke chaque fait une seule fois ; le prix au moment de la commande est un fait à part entière, donc le garder sur la ligne n’est pas de la dénormalisation."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux affichent les lignes de la facture 101 un an plus tard, une fois le clavier devenu plus cher. Laquelle montre ce que le client a payé ?",
+        "why": "Le `unit_price_cents` de la ligne de commande est un instantané du prix payé, un fait à part entière, donc la facture affiche toujours 4000 pour le clavier. Lire le prix catalogue du jour réécrit l’historique : après la hausse à 4500, l’ancienne facture affiche 4500 et ne correspond plus à ce qui a été débité."
+      }
+    ]
+  },
+  "db-index": {
+    "topic": "Index de base de données",
+    "question": "Qu’est-ce qu’un index de base de données, et comment accélère-t-il les requêtes ?",
+    "answer": "Un index est une structure séparée qui garde une copie triée de certaines colonnes, chaque entrée pointant vers sa ligne, comme l’index à la fin d’un livre. Sans index, PostgreSQL lit chaque ligne de la table pour trouver les correspondances. L’index par défaut est un B-tree : un arbre peu profond dont les feuilles contiennent les entrées triées, donc la base saute à la première correspondance et lit les suivantes dans l’ordre. Ça sert aussi `ORDER BY` et permet à un `LIMIT` de s’arrêter tôt. Le coût est sur les écritures : chaque insertion ou mise à jour maintient chaque index, donc j’indexe ce sur quoi les requêtes filtrent, joignent et trient vraiment.",
+    "keyPoints": [
+      "Une copie triée de certaines colonnes qui pointe vers les lignes",
+      "Sans index, la base parcourt toute la table",
+      "Le B-tree est le défaut : égalité, intervalles, tri",
+      "Chaque index ralentit les écritures et prend de la place"
+    ],
+    "explanation": "C’est le point d’entrée de toute discussion sur la performance des bases. Les recruteurs écoutent le coût en écriture et les index composites : l’ordre des colonnes décide des requêtes qu’un index peut servir.",
+    "example": "La page « mes commandes » de la boutique exécutait `WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 20` sur 400 000 commandes et lisait toute la table à chaque fois. Un index sur `(customer_id, created_at)` a renvoyé les 20 lignes déjà triées, et la requête est passée de 4 765 pages lues à 23.",
+    "mistakes": [
+      "Croire qu’une clé étrangère est indexée automatiquement : dans PostgreSQL, seules les clés primaires et les contraintes d’unicité le sont",
+      "Ajouter un index sur chaque colonne, ce qui ralentit chaque écriture pour des index que personne n’utilise",
+      "Ignorer l’ordre des colonnes dans un index composite"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi PostgreSQL pourrait-il ignorer un index que vous avez créé ?",
+        "answer": "Le planificateur estime le coût de chaque plan à partir des statistiques de la table. Si la condition correspond à une grande part des lignes, comme un statut que la plupart des commandes ont, lire toute la table coûte moins cher que sauter d’un point à l’autre via l’index."
+      },
+      {
+        "question": "Qu’est-ce qu’un index couvrant ?",
+        "answer": "Un index qui contient toutes les colonnes dont la requête a besoin, par exemple avec `INCLUDE`, donc PostgreSQL peut répondre à partir de l’index seul avec un index-only scan."
+      },
+      {
+        "question": "Quelle est la différence entre un index clustered et un index non clustered, ou secondaire ?",
+        "answer": "Un index clustered stocke les lignes elles-mêmes dans l’ordre de l’index, donc une table n’en a qu’un : MySQL InnoDB clusterise par clé primaire. PostgreSQL n’en a pas : les lignes sont dans un heap non ordonné et chaque index est secondaire et pointe vers elles ; `CLUSTER` réordonne la table une fois, et les nouvelles lignes ne suivent pas cet ordre."
+      },
+      {
+        "question": "Comment décidez-vous quelles colonnes méritent un index dans une vraie application ?",
+        "answer": "À partir des requêtes, pas du schéma : je prends les instructions en tête de `pg_stat_statements` et j’indexe ce sur quoi elles filtrent, joignent et trient, les clés étrangères en premier. Je compare le plan avant et après, et je supprime les index que `pg_stat_user_indexes` montre jamais parcourus, puisque chacun ralentit chaque écriture."
+      },
+      {
+        "question": "Qu’est-ce qu’un index composite, et pourquoi l’ordre de ses colonnes compte-t-il ?",
+        "answer": "Il indexe plusieurs colonnes, triées par la première, puis par la deuxième au sein de chaque valeur, comme un annuaire. Il sert donc les conditions sur ses colonnes de tête : je mets les colonnes d’égalité d’abord et la colonne d’intervalle ou de tri en dernier, comme `(customer_id, created_at)` pour les dernières commandes d’un client."
+      },
+      {
+        "question": "Comment confirmez-vous avec `EXPLAIN` qu’un index est utilisé ?",
+        "answer": "Je lance `EXPLAIN (ANALYZE, BUFFERS)` sur la vraie requête avec des données réalistes et je cherche un Index Scan, Index Only Scan ou Bitmap Index Scan qui nomme mon index, au lieu d’un Seq Scan avec filtre. Puis je compare les lignes réelles et les buffers lus avant et après, et `pg_stat_user_indexes` montre son nombre de scans qui augmente."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "PostgreSQL crée automatiquement un index sur une colonne de clé étrangère.",
+        "why": "Il n’indexe que les clés primaires et les contraintes d’unicité ; les clés étrangères par lesquelles on joint ou supprime ont besoin d’un index que tu crées.",
+        "twin": {
+          "statement": "PostgreSQL n’indexe pas automatiquement une colonne de clé étrangère.",
+          "why": "Il n’indexe que les clés primaires et les contraintes d’unicité ; les clés étrangères par lesquelles on joint ou supprime ont besoin d’un index que tu crées."
+        }
+      },
+      {
+        "statement": "Un index sur `(customer_id, created_at)` peut servir une requête qui filtre sur `customer_id` seul.",
+        "why": "Un B-tree composite sert ses colonnes les plus à gauche, donc la première colonne seule suffit.",
+        "twin": {
+          "statement": "Un index sur `(customer_id, created_at)` ne peut pas servir une requête qui filtre sur `customer_id` seul.",
+          "why": "Un B-tree composite sert ses colonnes les plus à gauche, donc la première colonne seule suffit."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un index est une copie triée de certaines colonnes qui pointe vers les lignes, comme l’index d’un livre. Il transforme la lecture complète d’une table en un saut direct vers les correspondances, au prix d’un coût à chaque écriture.",
+      "points": [
+        "Un index est une structure séparée qui garde une copie triée de certaines colonnes, chaque entrée pointant vers sa ligne. Sans index utilisable, PostgreSQL lit toute la table : un parcours séquentiel.",
+        "Le type d’index par défaut est le B-tree, un arbre peu profond aux feuilles triées. Il sert l’égalité, les intervalles et `ORDER BY`, et permet à un `LIMIT` de s’arrêter après les premières entrées correspondantes.",
+        "Un index composite sur `(customer_id, created_at)` est trié par `customer_id`, puis par `created_at`. Il sert les filtres sur ses colonnes les plus à gauche ; sur `created_at` seul, il ne peut pas sauter aux correspondances.",
+        "PostgreSQL crée des index pour les clés primaires et les contraintes d’unicité seulement, pas pour les clés étrangères. Chaque index ralentit insertions et mises à jour et prend de la place : indexe ce sur quoi les requêtes filtrent, joignent et trient.",
+        "Le planificateur choisit le plan le moins cher d’après les statistiques, donc il ignore un index quand une condition correspond à une grande part des lignes. Un index couvrant ajoute des colonnes avec `INCLUDE` pour permettre un index-only scan."
+      ],
+      "takeaways": [
+        {
+          "term": "Parcours séquentiel",
+          "detail": "Sans index utilisable, PostgreSQL lit toute la table."
+        },
+        {
+          "term": "B-tree",
+          "detail": "Le type par défaut : sert l’égalité, les intervalles et `ORDER BY`, et permet à un `LIMIT` de s’arrêter après les premières entrées."
+        },
+        {
+          "term": "Index composite",
+          "detail": "`(customer_id, created_at)` sert les filtres sur ses colonnes les plus à gauche, pas sur `created_at` seul."
+        },
+        {
+          "term": "Index automatiques",
+          "detail": "PostgreSQL les crée seulement pour les clés primaires et les contraintes d’unicité, pas pour les clés étrangères."
+        },
+        {
+          "term": "Coût en écriture",
+          "detail": "Chaque index ralentit insertions et mises à jour et prend de la place : indexe ce sur quoi les requêtes filtrent, joignent et trient."
+        },
+        {
+          "term": "`INCLUDE`",
+          "detail": "Ajoute des colonnes à un index couvrant, ce qui permet un index-only scan."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "`GET /orders?customerId=42` prend 900 ms sur une table `orders` de 3 millions de lignes, et le plan montre un parcours séquentiel. Que manque-t-il, et que coûte son ajout ?",
+        "bridge": "Sans index sur `customer_id`, PostgreSQL lit chaque ligne ; un B-tree saute directement aux correspondances, au prix d’écritures plus lentes et d’espace en plus."
+      },
+      {
+        "question": "Un collègue propose d’indexer chaque colonne de `orders` « pour que chaque requête soit rapide ». Que répondez-vous ?",
+        "bridge": "Chaque index est maintenu à chaque insertion et mise à jour et prend de la place, donc on indexe ce sur quoi les requêtes filtrent, joignent et trient vraiment."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux index visent « mes commandes » : `WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 20`. Lequel la sert le mieux ?",
+        "why": "Avec la colonne d’égalité en premier, les entrées du client sont regroupées, déjà triées par date : PostgreSQL lit les 20 dernières et s’arrête, 23 pages sur 400 000 commandes. Avec `created_at` en premier, les entrées du client sont dispersées dans l’index, donc il le parcourt à l’envers en sautant celles de tous les autres : des centaines de pages, et plus encore pour un client peu actif."
+      }
+    ]
+  },
+  "db-slow-query": {
+    "topic": "Diagnostiquer une requête lente",
+    "question": "Comment diagnostiqueriez-vous et corrigeriez-vous une requête SQL lente en production ?",
+    "answer": "D’abord je trouve l’instruction qui coûte le plus, pas celle que quelqu’un a remarquée : `pg_stat_statements` trié par temps total, et les traces pour la relier à un endpoint. Ensuite je lis son plan avec `EXPLAIN (ANALYZE, BUFFERS)` sur une copie avec des données réalistes, en comparant lignes estimées et lignes réelles et en cherchant un gros « Rows Removed by Filter ». La correction dépend de la cause : un index manquant, des statistiques périmées, une requête qui ramène trop de données ou une boucle N+1. En production, je crée l’index avec `CONCURRENTLY` pour ne pas bloquer les écritures, puis je vérifie que le plan et la latence ont vraiment changé.",
+    "keyPoints": [
+      "La trouver avec `pg_stat_statements`, trié par temps total",
+      "Lire le plan avec `EXPLAIN ANALYZE` : estimations contre lignes réelles",
+      "Corriger la cause : index, statistiques, forme de la requête ou N+1",
+      "`CREATE INDEX CONCURRENTLY` en production, puis mesurer à nouveau"
+    ],
+    "explanation": "La question teste la méthode plus que les connaissances : mesurer, formuler une hypothèse, corriger une chose, mesurer à nouveau. Un senior sait que `EXPLAIN ANALYZE` exécute l’instruction, qu’une construction d’index concurrente a son propre mode d’échec, et qu’une requête rapide appelée 50 000 fois peut coûter plus qu’un rapport lent.",
+    "example": "La table des commandes du back-office mettait 3 secondes à charger. `pg_stat_statements` montrait sa requête de comptage en tête par temps total, et le plan lisait les 400 000 commandes pour en garder 900. Un index partiel sur les commandes en attente, construit avec `CREATE INDEX CONCURRENTLY`, a ramené la requête à quelques millisecondes, confirmé dans les traces après le déploiement.",
+    "mistakes": [
+      "Lancer `EXPLAIN ANALYZE` sur un `UPDATE` ou un `DELETE` en production sans transaction annulée : il exécute l’instruction",
+      "Ajouter des index au jugé sans lire le plan",
+      "Tester le plan sur une petite base locale, où un parcours complet est toujours le moins cher"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi `CREATE INDEX CONCURRENTLY` ne peut-il pas tourner dans une transaction de migration ?",
+        "answer": "PostgreSQL le refuse dans un bloc de transaction, donc les outils de migration doivent exécuter cette étape à part. Si la construction échoue, elle laisse un index invalide qu’il faut supprimer et reconstruire."
+      },
+      {
+        "question": "Comment capturez-vous le plan d’une requête qui n’est lente que de temps en temps ?",
+        "answer": "Le module `auto_explain` journalise le vrai plan de chaque instruction plus lente qu’un seuil, avec les données de production ; échantillonne-le ou désactive le timing par nœud pour en limiter le coût."
+      },
+      {
+        "question": "Comment savez-vous si une requête lente est limitée par le CPU ou par les I/O, et en quoi la correction diffère-t-elle ?",
+        "answer": "`EXPLAIN (ANALYZE, BUFFERS)` montre les pages trouvées en mémoire (`shared hit`) et lues sur disque (`read`), plus le temps de lecture avec `track_io_timing` activé. Beaucoup de lectures, c’est de l’I/O : indexer ou lire moins de lignes. Lente avec seulement des hits, c’est du CPU, comme trier ou filtrer beaucoup de lignes : changer la forme de la requête."
+      },
+      {
+        "question": "Qu’est-ce que le problème N+1, et comment le détectez-vous et le corrigez-vous dans une vraie application ?",
+        "answer": "Une requête charge une liste, puis une autre tourne par ligne : 50 commandes, puis 50 recherches de client. Les traces montrent une échelle de requêtes identiques sous une même requête HTTP, et `pg_stat_statements` une requête peu coûteuse avec un nombre d’appels énorme. La correction est une jointure, ou une seule requête `WHERE id = ANY($1)` pour toute la page."
+      },
+      {
+        "question": "Comment choisissez-vous entre ajouter un index et ajouter un cache applicatif pour une requête lente ?",
+        "answer": "D’abord je cherche pourquoi elle est lente. Si le plan lit beaucoup plus de lignes qu’il n’en renvoie, un index corrige la cause et les données restent fraîches. Un cache comme Redis convient à une requête déjà efficace mais très fréquente, comme une page produit, et apporte invalidation et données périmées que je dois accepter."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`EXPLAIN ANALYZE` ne fait qu’estimer le plan sans exécuter l’instruction.",
+        "why": "Il exécute l’instruction pour la mesurer ; c’est le simple `EXPLAIN` qui ne fait qu’estimer.",
+        "twin": {
+          "statement": "`EXPLAIN ANALYZE` exécute l’instruction pour la mesurer.",
+          "why": "C’est ainsi qu’il rapporte les lignes et les temps réels ; c’est le simple `EXPLAIN` qui ne fait qu’estimer."
+        }
+      },
+      {
+        "statement": "Un simple `CREATE INDEX` bloque les écritures sur la table pendant sa construction.",
+        "why": "Il bloque insertions, mises à jour et suppressions pendant toute la construction ; `CONCURRENTLY` l’évite au prix d’une construction plus lente.",
+        "twin": {
+          "statement": "Un simple `CREATE INDEX` laisse les insertions et mises à jour continuer pendant sa construction.",
+          "why": "Il bloque insertions, mises à jour et suppressions pendant toute la construction ; `CONCURRENTLY` l’évite au prix d’une construction plus lente."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Corriger une requête lente commence par trouver ce qui coûte vraiment le plus, puis par lire son plan pour comprendre pourquoi. La correction vise ensuite la cause, et on mesure à nouveau après.",
+      "points": [
+        "Commence par ce qui coûte le plus au total. L’extension `pg_stat_statements` enregistre appels, temps total et temps moyen par requête normalisée ; une requête de 2 ms exécutée 50 000 fois peut coûter plus qu’un rapport lent.",
+        "`EXPLAIN` montre le plan estimé par le planificateur. `EXPLAIN (ANALYZE, BUFFERS)` exécute vraiment l’instruction et ajoute lignes réelles, temps et pages lues, donc enveloppe un `UPDATE` dans une transaction que tu annules.",
+        "Dans le plan, des lignes estimées loin des lignes réelles signalent des statistiques périmées (lance `ANALYZE`) ; un parcours séquentiel avec un gros « Rows Removed by Filter » signale un index manquant ou inutilisable.",
+        "Un simple `CREATE INDEX` bloque les écritures sur la table pendant toute la construction. `CREATE INDEX CONCURRENTLY` ne les bloque pas, mais ne peut pas tourner dans un bloc de transaction et laisse un index invalide s’il échoue.",
+        "Teste les plans sur des volumes réalistes, puisqu’une petite table obtient toujours un parcours complet, et mesure à nouveau après la correction. Le module `auto_explain` journalise les plans des instructions plus lentes qu’un seuil."
+      ],
+      "takeaways": [
+        {
+          "term": "`pg_stat_statements`",
+          "detail": "Enregistre appels, temps total et temps moyen par requête normalisée. Trie par temps total : les requêtes rapides et fréquentes s’additionnent."
+        },
+        {
+          "term": "`EXPLAIN (ANALYZE, BUFFERS)`",
+          "detail": "Exécute vraiment l’instruction et ajoute lignes réelles, temps et pages lues ; enveloppe un `UPDATE` dans une transaction annulée."
+        },
+        {
+          "term": "Lignes estimées vs réelles",
+          "detail": "Très éloignées, elles signalent des statistiques périmées : lance `ANALYZE`."
+        },
+        {
+          "term": "Rows Removed by Filter",
+          "detail": "Élevé sur un parcours séquentiel, il signale un index manquant ou inutilisable."
+        },
+        {
+          "term": "`CREATE INDEX CONCURRENTLY`",
+          "detail": "Ne bloque pas les écritures, mais ne tourne pas dans un bloc de transaction et laisse un index invalide s’il échoue."
+        },
+        {
+          "term": "Données réalistes",
+          "detail": "Une petite table obtient toujours un parcours complet : teste les plans sur de vrais volumes, et mesure à nouveau après la correction."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Après le Black Friday, le CPU de la base reste à 90 % et chaque endpoint est plus lent, pourtant aucune requête ne ressort dans les logs. Comment trouvez-vous le coupable ?",
+        "bridge": "Le diagnostic part des instructions qui coûtent le plus au total, dans `pg_stat_statements`, pas de celle que quelqu’un a remarquée ; ensuite on lit son plan."
+      },
+      {
+        "question": "Que cherchez-vous dans une sortie `EXPLAIN (ANALYZE, BUFFERS)`, et comment livrez-vous la correction en production sans risque ?",
+        "bridge": "Lire le plan : lignes estimées contre lignes réelles et lignes écartées par le filtre ; puis corriger la cause et construire tout index en `CONCURRENTLY`."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux mesurent une mise à jour de statut lente sur la base de production. Laquelle laisse les données inchangées ?",
+        "why": "`EXPLAIN ANALYZE` exécute vraiment l’instruction pour la mesurer. Dans une transaction qui se termine par `ROLLBACK`, on obtient le vrai plan et les vrais temps et la commande reste telle quelle. Lancée seule, la mise à jour est commitée : la commande 7 est maintenant marquée expédiée alors que rien n’a quitté l’entrepôt."
+      }
+    ]
+  },
+  "db-transactions-acid": {
+    "topic": "Transactions et ACID",
+    "question": "Qu’est-ce qu’une transaction, et que signifient les propriétés ACID ?",
+    "answer": "Une transaction regroupe des instructions pour que la base les traite comme une seule unité : `BEGIN`, puis `COMMIT` pour tout garder ou `ROLLBACK` pour tout annuler. L’atomicité veut dire que tout est écrit ou rien. La cohérence veut dire que les règles déclarées, comme les contraintes et les clés étrangères, tiennent au commit. L’isolation veut dire que les autres ne voient pas mon travail à moitié fait, et le niveau d’isolation décide de ce que les transactions concurrentes voient les unes des autres. La durabilité veut dire qu’un changement commité survit à un crash, grâce au write-ahead log. En Node, une transaction doit tourner sur une seule connexion du pool, et une transaction seule n’empêche pas une mise à jour perdue.",
+    "keyPoints": [
+      "Une seule unité : `BEGIN`, puis `COMMIT` ou `ROLLBACK`",
+      "Atomicité, Cohérence, Isolation, Durabilité, chacune définie",
+      "Le niveau d’isolation décide de ce que voient les transactions concurrentes",
+      "Une connexion par transaction en Node"
+    ],
+    "explanation": "Tous les entretiens backend posent la question, donc réciter l’acronyme ne suffit pas. Un senior ajoute ce qu’ACID ne promet pas : au niveau par défaut de PostgreSQL, Read Committed, une lecture puis écriture en JavaScript peut encore perdre une mise à jour, et les niveaux plus stricts transforment les race conditions en erreurs qu’il faut retenter.",
+    "example": "Le checkout décrémentait `products.stock` et insérait la commande dans une seule transaction, pourtant deux clients ont acheté la dernière console : les deux ont lu un stock de 1 et les deux ont écrit 0. Remplacer la lecture puis écriture par un seul `UPDATE products SET stock = stock - 1 WHERE id = $1 AND stock >= 1` atomique a réglé le problème, et la commande n’est créée que si une ligne revient.",
+    "mistakes": [
+      "Croire qu’une transaction rend sûr un code concurrent lecture-calcul-écriture au niveau d’isolation par défaut",
+      "Exécuter les instructions d’une transaction via `pool.query`, qui peut utiliser une connexion différente pour chacune",
+      "Attraper une erreur dans une transaction puis commiter : PostgreSQL annule et n’enregistre rien"
+    ],
+    "followUps": [
+      {
+        "question": "Quels niveaux d’isolation PostgreSQL implémente-t-il ?",
+        "answer": "Read Committed, le défaut, prend un nouvel instantané par instruction. Repeatable Read garde un seul instantané et fait échouer les conflits sur une même ligne avec l’erreur 40001. Serializable détecte aussi le write skew, donc le code à ces niveaux doit retenter."
+      },
+      {
+        "question": "Pourquoi garder les transactions courtes ?",
+        "answer": "Elles tiennent des verrous de ligne et une connexion du pool, et les anciennes versions des lignes ne peuvent pas être nettoyées tant qu’elles tournent. Ne jamais faire d’appel HTTP dans une transaction."
+      },
+      {
+        "question": "Quels sont les niveaux d’isolation standard, et quelles anomalies chacun empêche-t-il ?",
+        "answer": "Read Uncommitted autorise les lectures sales ; Read Committed les empêche ; Repeatable Read empêche aussi les lectures non répétables ; Serializable empêche aussi les fantômes, avec le résultat d’un ordre en série. Dans PostgreSQL, Read Uncommitted se comporte comme Read Committed et Repeatable Read empêche aussi les fantômes."
+      },
+      {
+        "question": "Comment géreriez-vous une transaction qui couvre plusieurs bases ou microservices ?",
+        "answer": "J’évite la transaction distribuée : le commit en deux phases tient des verrous entre services, et des API HTTP comme le prestataire de paiement ne peuvent pas y participer. J’utilise une saga : chaque service commite localement et publie son événement via un outbox, et une étape ratée déclenche des compensations idempotentes, comme un remboursement."
+      },
+      {
+        "question": "Quelle est la différence entre verrouillage optimiste et pessimiste ?",
+        "answer": "Le verrouillage pessimiste prend le verrou d’abord, avec `SELECT ... FOR UPDATE`, donc les autres attendent. L’optimiste n’en prend aucun : chaque commande a une `version`, l’`UPDATE` la vérifie et l’incrémente en une instruction, et 0 ligne mise à jour veut dire que quelqu’un l’a modifiée avant. Je l’utilise pour les formulaires du back-office à faible contention."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Après une erreur dans une transaction PostgreSQL, un `COMMIT` enregistre quand même les instructions qui ont réussi avant.",
+        "why": "La transaction est avortée : chaque instruction suivante échoue, et `COMMIT` effectue un rollback.",
+        "twin": {
+          "statement": "Après une erreur dans une transaction PostgreSQL, un `COMMIT` annule les instructions qui ont réussi avant.",
+          "why": "La transaction est avortée : chaque instruction suivante échoue, et `COMMIT` effectue un rollback."
+        }
+      },
+      {
+        "statement": "Le niveau d’isolation par défaut de PostgreSQL est Read Committed.",
+        "why": "`SHOW transaction_isolation` renvoie `read committed` sur une installation par défaut.",
+        "twin": {
+          "statement": "Le niveau d’isolation par défaut de PostgreSQL est Serializable.",
+          "why": "C’est Read Committed : `SHOW transaction_isolation` renvoie `read committed` sur une installation par défaut."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une transaction regroupe des instructions en une seule unité, gardée avec `COMMIT` ou annulée avec `ROLLBACK`. ACID nomme ses quatre garanties, et leurs limites expliquent les mises à jour perdues et les transactions avortées.",
+      "points": [
+        "Une transaction regroupe des instructions en une seule unité : `BEGIN`, puis `COMMIT` pour tout garder ou `ROLLBACK` pour tout annuler.",
+        "Atomicité : tout ou rien. Cohérence : les contraintes tiennent au commit. Isolation : personne ne voit un travail à moitié fait. Durabilité : un commit survit à un crash, car il est dans le write-ahead log (WAL) sur disque.",
+        "Après toute erreur dans une transaction, PostgreSQL refuse chaque instruction suivante avec « current transaction is aborted », et `COMMIT` effectue alors un rollback : rien n’est enregistré.",
+        "Au niveau par défaut, Read Committed, chaque instruction voit un instantané neuf, donc deux checkouts qui lisent le stock puis l’écrivent peuvent perdre une mise à jour. Utilise un seul `UPDATE` atomique ou verrouille la ligne avec `SELECT ... FOR UPDATE`.",
+        "En Node avec node-postgres, exécute chaque instruction d’une transaction sur un seul client issu de `pool.connect()` et libère-le dans `finally` ; `pool.query` peut utiliser une connexion différente à chaque fois."
+      ],
+      "takeaways": [
+        {
+          "term": "Atomicité",
+          "detail": "Tout est écrit, ou rien."
+        },
+        {
+          "term": "Cohérence",
+          "detail": "Les règles déclarées, comme les contraintes et les clés étrangères, tiennent au commit."
+        },
+        {
+          "term": "Isolation",
+          "detail": "Personne ne voit un travail à moitié fait. En Read Committed, une lecture puis écriture peut encore perdre une mise à jour."
+        },
+        {
+          "term": "Durabilité",
+          "detail": "Un commit survit à un crash, parce qu’il est dans le write-ahead log (WAL) sur disque."
+        },
+        {
+          "term": "Après une erreur",
+          "detail": "PostgreSQL refuse chaque instruction suivante (« current transaction is aborted »), et `COMMIT` annule alors tout."
+        },
+        {
+          "term": "Un seul client en Node",
+          "detail": "Exécute chaque instruction sur un client issu de `pool.connect()` ; `pool.query` peut utiliser une autre connexion."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le checkout insère la commande, puis ses lignes, puis décrémente le stock, chacun dans une instruction séparée. Un crash au milieu a laissé une commande sans lignes. Qu’est-ce qui aurait dû l’empêcher ?",
+        "bridge": "L’atomicité : dans une seule transaction, les écritures sont toutes commitées ou aucune. C’est le A d’ACID."
+      },
+      {
+        "question": "Expliquez chaque lettre d’ACID à un junior, avec ce que PostgreSQL utilise pour la garantir.",
+        "bridge": "Chaque propriété tour à tour : tout ou rien, règles qui tiennent au commit, niveaux d’isolation, et durabilité grâce au write-ahead log."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux réservent une console et créent la commande, et l’insertion peut échouer. Laquelle ne perd jamais de stock ?",
+        "why": "Dans une seule transaction, une insertion ratée avorte toute l’unité, et le `COMMIT` effectue alors un rollback : le stock revient, tout ou rien. Sans `BEGIN`, chaque instruction est commitée seule, donc quand l’insertion échoue, par exemple sur une clé étrangère, la console a disparu du stock sans aucune commande derrière."
+      }
+    ]
+  },
+  "db-many-to-many": {
+    "topic": "Relations plusieurs-à-plusieurs",
+    "question": "Comment modélisez-vous une relation plusieurs-à-plusieurs dans une base relationnelle ?",
+    "answer": "Avec une table de liaison entre les deux tables. Pour les produits et les catégories, `product_categories` a un `product_id` et un `category_id`, chacun clé étrangère, et la paire est la clé primaire, donc le même lien ne peut pas être stocké deux fois. Pour lister les produits d’une catégorie, je fais la jointure à travers elle. L’index de clé primaire sert les recherches par produit, donc j’ajoute un index sur `(category_id, product_id)` pour l’autre sens. Quand le lien a ses propres données, comme une position ou sa date d’ajout, ces colonnes vont dans la table de liaison, qui devient souvent une entité avec son propre nom.",
+    "keyPoints": [
+      "Une table de liaison avec deux clés étrangères",
+      "La paire en clé primaire, donc pas de lien en double",
+      "Un index pour le sens inverse",
+      "Les données du lien vivent dans la table de liaison"
+    ],
+    "explanation": "La question vérifie les bases de la conception de schéma et des jointures. Une meilleure réponse couvre les détails qui causent des bugs en production : paires en double, index inverse manquant, et ce qui arrive aux liens quand un côté est supprimé.",
+    "example": "Dans l’API Orders, produits et catégories étaient d’abord liés par une colonne tableau `category_ids`, et supprimer une catégorie obligeait à réécrire des milliers de produits sans aucun contrôle d’intégrité. Une table `product_categories` avec clés étrangères et `ON DELETE CASCADE` a rendu le lien vérifiable, et la page catégorie fait maintenant la jointure sur un `category_id` indexé.",
+    "mistakes": [
+      "Stocker une liste séparée par des virgules ou un tableau d’ids, sans clé étrangère pour l’imposer",
+      "Oublier l’unicité de la paire, si bien que le même produit apparaît deux fois dans une catégorie",
+      "N’indexer qu’un seul sens de la table de liaison"
+    ],
+    "followUps": [
+      {
+        "question": "Le lien entre une commande et ses produits est-il un pur plusieurs-à-plusieurs ?",
+        "answer": "Non : la ligne de commande porte une quantité et le prix payé, donc c’est une entité à part entière, `order_lines`, avec des clés étrangères vers la commande et le produit."
+      },
+      {
+        "question": "Que doit-il arriver aux liens quand un produit est supprimé ?",
+        "answer": "On le choisit avec la clé étrangère : `ON DELETE CASCADE` supprime les liens, `RESTRICT` refuse la suppression tant que des liens existent. Pour des données avec historique, un soft delete est souvent préférable."
+      },
+      {
+        "question": "Comment empêchez-vous la même paire, comme un étudiant inscrit deux fois au même cours, d’être stockée deux fois ?",
+        "answer": "Dans la boutique, c’est un produit listé deux fois dans une catégorie. La clé primaire sur `(product_id, category_id)` fait rejeter le doublon par PostgreSQL avec l’erreur `23505`, et quand un retry peut renvoyer le même lien, `INSERT ... ON CONFLICT DO NOTHING` rend l’insertion idempotente."
+      },
+      {
+        "question": "Comment récupérez-vous efficacement tout ce qui est lié à un côté, comme tous les cours d’un étudiant ?",
+        "answer": "Dans la boutique, toutes les catégories d’un produit : je fais la jointure à travers `product_categories` avec `WHERE product_id = $1`, que la clé primaire sur `(product_id, category_id)` sert avec un index scan. L’autre sens, les produits d’une catégorie, utilise le second index sur `(category_id, product_id)`."
+      },
+      {
+        "question": "Comment la modélisation plusieurs-à-plusieurs change-t-elle dans une base orientée documents ?",
+        "answer": "Il n’y a pas de table de liaison : je garde un tableau d’ids d’un côté, comme les ids de catégories dans chaque produit, je l’indexe, et je copie les quelques champs dont les pages ont besoin. Rien n’impose ces références, donc l’application ou un contrôle périodique doit nettoyer les liens vers une catégorie supprimée."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une clé primaire sur `(product_id, category_id)` empêche le même produit d’être lié deux fois à la même catégorie.",
+        "why": "La clé primaire est unique sur la paire, donc une seconde insertion de la même paire échoue sur une violation d’unicité.",
+        "twin": {
+          "statement": "Une clé primaire sur `(product_id, category_id)` laisse quand même le même produit être lié deux fois à la même catégorie.",
+          "why": "La clé primaire est unique sur la paire, donc une seconde insertion de la même paire échoue sur une violation d’unicité."
+        }
+      },
+      {
+        "statement": "Une relation plusieurs-à-plusieurs peut se modéliser avec une seule colonne de clé étrangère sur l’une des tables.",
+        "why": "Une seule colonne de clé étrangère contient une valeur par ligne, ce qui modélise un un-à-plusieurs ; le plusieurs-à-plusieurs exige une table de liaison.",
+        "twin": {
+          "statement": "Une seule colonne de clé étrangère ne peut pas à elle seule modéliser une relation plusieurs-à-plusieurs.",
+          "why": "Elle contient une valeur par ligne, ce qui modélise un un-à-plusieurs ; le plusieurs-à-plusieurs exige une table de liaison."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une relation plusieurs-à-plusieurs, comme produits et catégories, demande une table de liaison entre les deux tables. Ses clés, ses index et ses règles de suppression décident si les liens restent corrects et rapides.",
+      "points": [
+        "Un un-à-plusieurs demande une colonne de clé étrangère du côté « plusieurs ». Un plusieurs-à-plusieurs demande une table de liaison, aussi appelée table de jointure, avec une clé étrangère vers chaque côté.",
+        "Fais de la paire la clé primaire, pour que le même lien ne puisse pas être stocké deux fois : une seconde insertion de la même paire échoue sur une violation d’unicité (erreur `23505`).",
+        "La clé primaire sur `(product_id, category_id)` sert les recherches par produit. Ajoute un index sur `(category_id, product_id)` pour que lister les produits d’une catégorie soit rapide aussi.",
+        "Chaque clé étrangère décide de l’effet d’une suppression : `ON DELETE CASCADE` supprime les liens avec le produit, `ON DELETE RESTRICT` refuse de supprimer une catégorie qui a encore des liens.",
+        "Quand le lien porte ses propres données, comme une quantité et le prix payé, il devient une entité avec son propre nom, comme `order_lines` entre commandes et produits."
+      ],
+      "takeaways": [
+        {
+          "term": "Table de liaison",
+          "detail": "Contient une clé étrangère vers chaque côté, comme `product_id` et `category_id`."
+        },
+        {
+          "term": "Paire en clé primaire",
+          "detail": "Le même lien ne peut pas être stocké deux fois : une seconde insertion échoue avec `23505`."
+        },
+        {
+          "term": "Index inverse",
+          "detail": "Ajoute `(category_id, product_id)` : la clé primaire ne sert que les recherches par produit."
+        },
+        {
+          "term": "`ON DELETE CASCADE`",
+          "detail": "Supprime les liens en même temps que le produit."
+        },
+        {
+          "term": "`ON DELETE RESTRICT`",
+          "detail": "Refuse de supprimer une catégorie qui a encore des liens."
+        },
+        {
+          "term": "Lien avec ses propres données",
+          "detail": "Une quantité ou un prix payé en fait une entité avec un nom, comme `order_lines`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, un produit apparaît deux fois dans la liste de la catégorie « Bureaux ». Produits et catégories sont liés par `product_categories`. Que manque-t-il à cette table ?",
+        "bridge": "Une table de liaison a besoin de la paire de clés étrangères comme clé primaire, pour que le même lien ne puisse pas être stocké deux fois."
+      },
+      {
+        "question": "Un collègue a ajouté une clé étrangère `category_id` à `products`, puis a appris qu’un produit peut être dans plusieurs catégories. Comment le modélisez-vous ?",
+        "bridge": "Une colonne de clé étrangère modélise un un-à-plusieurs ; le plusieurs-à-plusieurs exige une table de liaison avec deux clés étrangères."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux lient produits et catégories. Quelle table empêche un produit d’apparaître deux fois dans une catégorie ?",
+        "why": "Avec la paire en clé primaire, une seconde insertion du même produit et de la même catégorie échoue avec `23505`, et la clé indexe aussi les recherches par produit. Avec un `id` de substitution et rien d’unique sur la paire, le doublon est accepté, et la page catégorie liste le produit deux fois."
+      }
+    ]
+  },
+  "db-connection-pooling": {
+    "topic": "Pool de connexions",
+    "question": "Qu’est-ce que le pooling de connexions, et pourquoi un backend en a-t-il besoin ?",
+    "answer": "Ouvrir une connexion PostgreSQL coûte cher : le serveur démarre un processus pour chacune, et chaque connexion exécute une requête à la fois. Donc un service garde un pool de connexions ouvertes et les prête : une requête en emprunte une, exécute ses requêtes SQL et la libère, et quand toutes sont occupées, la requête suivante attend dans la file du pool. Je crée un pool par processus, je fixe un timeout pour obtenir une connexion, et je le dimensionne selon la limite de la base : taille du pool fois nombre maximal de pods doit rester sous `max_connections`. Au-delà, un pooler externe comme PgBouncer partage quelques connexions serveur.",
+    "keyPoints": [
+      "Les connexions coûtent cher : un processus serveur chacune",
+      "Emprunter, requêter, libérer ; les autres attendent en file",
+      "Taille du pool fois pods doit tenir dans `max_connections`",
+      "Un pooler externe comme PgBouncer quand les pods se multiplient"
+    ],
+    "explanation": "La question relie le code à une limite opérationnelle. Un senior parle de connexions qui fuient, du timeout d’attente, du dimensionnement à travers réplicas et déploiements, et des fonctionnalités de session qui cassent derrière un pooler en mode transaction.",
+    "example": "Pendant le Black Friday, l’autoscaler a fait passer l’API Orders de 4 à 16 pods avec un pool de 10 chacun : 160 connexions face aux 100 par défaut de PostgreSQL, donc les nouveaux pods échouaient avec `too_many_connections`. L’équipe a réduit chaque pool à 5 et a ensuite placé PgBouncer en mode transaction devant la base.",
+    "mistakes": [
+      "Créer un nouveau pool ou client par requête",
+      "Ne pas libérer une connexion empruntée quand une erreur est levée : libère-la dans un `finally`",
+      "Augmenter la taille du pool alors que le vrai problème vient de requêtes lentes ou de connexions tenues pendant des appels HTTP"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qui casse derrière PgBouncer en mode transaction ?",
+        "answer": "Tout ce qui est stocké dans la session, parce que la transaction suivante peut tourner sur une autre connexion serveur : `SET`, `LISTEN`, verrous consultatifs de session et `PREPARE` au niveau SQL. Utilise plutôt `SET LOCAL` et des verrous de niveau transaction."
+      },
+      {
+        "question": "Pourquoi les requêtes restent-elles bloquées sans erreur quand le pool est épuisé ?",
+        "answer": "Avec node-postgres, `connectionTimeoutMillis` vaut 0 par défaut, donc une requête attend une connexion libre indéfiniment. Fixe un timeout et exporte en métrique le nombre de requêtes en attente du pool."
+      },
+      {
+        "question": "Comment choisissez-vous une taille de pool à partir du trafic attendu et de la limite de connexions de la base ?",
+        "answer": "Loi de Little : les connexions occupées valent les requêtes par seconde multipliées par le temps pendant lequel chacune tient une connexion, donc 200 requêtes par seconde à 10 ms en demandent environ 2. Ensuite je plafonne : taille du pool fois pods maximum, plus migrations et outils d’admin, doit rester sous `max_connections`. Un test de charge le confirme."
+      },
+      {
+        "question": "Comment le pooling interagit-il avec une application qui tourne en de nombreuses instances séparées ?",
+        "answer": "Chaque pod a son propre pool, donc la base voit taille du pool fois pods, et l’autoscaling ou un déploiement progressif avec des pods en plus peut dépasser `max_connections`. Je dimensionne chaque pool pour le nombre maximal de réplicas, et quand les pods se multiplient je mets PgBouncer devant pour partager quelques connexions serveur."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le `max_connections` par défaut de PostgreSQL est de 100.",
+        "why": "C’est bien la valeur par défaut, et quelques-unes sont réservées aux superusers.",
+        "twin": {
+          "statement": "Le `max_connections` par défaut de PostgreSQL est de 1 000.",
+          "why": "La valeur par défaut est 100, et quelques-unes sont réservées aux superusers."
+        }
+      },
+      {
+        "statement": "Un pool plus grand rend toujours une API chargée plus rapide.",
+        "why": "Au-delà de ce que la base peut exécuter en parallèle, des connexions en plus ne font que déplacer la file dans PostgreSQL et consomment plus de mémoire.",
+        "twin": {
+          "statement": "Au-delà de ce que la base peut exécuter en parallèle, un pool plus grand ne rend pas une API chargée plus rapide.",
+          "why": "Des connexions en plus ne font que déplacer la file dans PostgreSQL et consomment plus de mémoire."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un pool garde des connexions à la base ouvertes et les prête aux requêtes, parce qu’en ouvrir une par requête est lent et atteint vite la limite du serveur. Sa taille et ses timeouts décident de sa tenue sous charge.",
+      "points": [
+        "PostgreSQL démarre un processus serveur séparé pour chaque connexion, et une connexion exécute une requête à la fois, donc ouvrir une connexion par requête est lent et atteint vite la limite.",
+        "Un pool garde des connexions ouvertes et les prête : une requête en emprunte une, exécute ses requêtes SQL et la libère. Quand toutes sont occupées, la requête suivante attend dans la file du pool.",
+        "Crée un pool par processus. Taille du pool fois nombre maximal de pods doit rester sous `max_connections`, qui vaut 100 par défaut, dont quelques-unes réservées aux superusers.",
+        "node-postgres attend par défaut indéfiniment une connexion libre (`connectionTimeoutMillis: 0`), donc fixe un timeout. Libère un client emprunté dans `finally`, sinon chaque erreur en fait fuir un jusqu’à vider le pool.",
+        "Un pooler externe comme PgBouncer en mode transaction partage quelques connexions serveur entre de nombreux clients, mais l’état de session casse : `SET`, `LISTEN`, verrous consultatifs de session et `PREPARE` SQL."
+      ],
+      "takeaways": [
+        {
+          "term": "Coût d’une connexion",
+          "detail": "PostgreSQL démarre un processus serveur par connexion, et chacune exécute une requête à la fois."
+        },
+        {
+          "term": "Emprunter, libérer",
+          "detail": "Une requête emprunte une connexion et la rend ; quand toutes sont occupées, la suivante attend dans la file."
+        },
+        {
+          "term": "Dimensionnement",
+          "detail": "Un pool par processus. Taille du pool fois pods maximum doit rester sous `max_connections`, 100 par défaut."
+        },
+        {
+          "term": "`connectionTimeoutMillis`",
+          "detail": "0 par défaut dans node-postgres, donc attente infinie d’une connexion libre. Fixe un timeout."
+        },
+        {
+          "term": "Libérer dans `finally`",
+          "detail": "Sinon chaque erreur fait fuir un client, jusqu’à vider le pool."
+        },
+        {
+          "term": "PgBouncer, mode transaction",
+          "detail": "Partage quelques connexions serveur, mais casse l’état de session : `SET`, `LISTEN`, verrous consultatifs de session, `PREPARE`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Après avoir fait passer l’API Orders de 4 à 12 pods, chacun avec un pool de 10, les logs se remplissent de « sorry, too many clients already ». Que s’est-il passé ?",
+        "bridge": "Taille du pool fois pods doit rester sous `max_connections`, 100 par défaut ; au-delà, un pooler externe comme PgBouncer partage les connexions serveur."
+      },
+      {
+        "question": "Pourquoi ne pas ouvrir une nouvelle connexion PostgreSQL pour chaque requête, et comment dimensionnez-vous le pool ?",
+        "bridge": "Les connexions sont des processus serveur coûteux qui exécutent une requête à la fois ; un pool partagé, dimensionné selon la limite de la base, évite ces deux coûts."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux empruntent un client du pool pour la requête « mes commandes », qui peut tomber en timeout. Laquelle garde le pool en vie ?",
+        "why": "Le `finally` rend le client même quand la requête lève une erreur. Dans l’autre version, une erreur saute le `release()`, donc chaque échec fait fuir une connexion ; après 10 erreurs, un pool de 10 est vide, et avec le `connectionTimeoutMillis` par défaut à 0, chaque requête suivante attend indéfiniment."
+      }
+    ]
+  },
+  "db-sharding": {
+    "topic": "Sharding",
+    "question": "Qu’est-ce que le sharding, et quelles stratégies de sharding existent ?",
+    "answer": "Le sharding découpe un jeu de données sur plusieurs serveurs selon une clé de sharding, donc chaque serveur ne contient et n’écrit qu’une partie des données. Le sharding par plages donne à chaque shard une plage de valeurs de clé : les requêtes par plage restent ciblées, mais une clé qui croît toujours, comme une date, envoie chaque insertion sur un seul shard chaud. Le sharding par hachage répartit les écritures uniformément mais disperse les requêtes par plage. Le sharding par annuaire garde une table de correspondance de la clé vers le shard, souple mais avec un composant de plus. Je choisis la clé d’après les requêtes principales, comme le tenant ou le client, et je ne sharde qu’une fois que les index, les réplicas en lecture, le partitionnement et l’archivage ne suffisent plus.",
+    "keyPoints": [
+      "Données découpées sur des serveurs selon une clé de sharding",
+      "Stratégies par plages, par hachage et par annuaire",
+      "Une clé monotone crée un shard chaud",
+      "Sharder en dernier : index, réplicas et partitionnement d’abord"
+    ],
+    "explanation": "Les recruteurs veulent les coûts, pas seulement la définition : jointures et transactions entre shards, resharding, et requêtes sans la clé diffusées à tous les shards. Un senior répond souvent « pas encore » et explique ce qu’il faut essayer avant de sharder.",
+    "example": "L’API Orders a grossi jusqu’à quelques centaines de millions de commandes sur un seul primaire PostgreSQL. Avant de sharder, l’équipe a archivé les commandes de plus de deux ans, déplacé les rapports sur un réplica en lecture et partitionné `orders` par mois, ce qui a gardé le working set en mémoire. Elle a noté que si les écritures dépassent un jour un seul primaire, `customer_id` sera la clé de sharding, parce que « mes commandes » et le checkout filtrent tous deux dessus.",
+    "mistakes": [
+      "Confondre le partitionnement, qui découpe une table sur un seul serveur, avec le sharding sur plusieurs serveurs",
+      "Choisir une clé de sharding absente des requêtes principales, si bien que chaque requête touche chaque shard",
+      "Sharder sur un id auto-incrémenté ou un horodatage, ce qui envoie toutes les nouvelles écritures sur un seul shard"
+    ],
+    "followUps": [
+      {
+        "question": "Comment shardez-vous PostgreSQL ?",
+        "answer": "PostgreSQL n’a pas de sharding intégré. L’option courante est l’extension Citus, qui distribue les tables selon une colonne de distribution ; sinon l’application route chaque requête vers la bonne base."
+      },
+      {
+        "question": "Que devient une requête qui n’inclut pas la clé de sharding ?",
+        "answer": "Elle est envoyée à chaque shard et les résultats sont fusionnés, un scatter-gather qui ralentit à mesure qu’on ajoute des shards."
+      },
+      {
+        "question": "Comment géreriez-vous une requête ou une transaction qui a besoin de données de plusieurs shards ?",
+        "answer": "Je choisis la clé de sharding pour que les cas courants restent sur un seul shard, comme `customer_id` pour les commandes d’un client. Une lecture multi-shards va sur chaque shard et fusionne, ou lit un modèle de lecture alimenté par des événements ; une écriture multi-shards devient une saga avec compensations plutôt qu’une transaction distribuée."
+      },
+      {
+        "question": "Comment ajouteriez-vous des shards et rééquilibreriez-vous les données existantes à mesure que le volume grossit ?",
+        "answer": "Je crée dès le départ beaucoup plus de shards logiques que de serveurs, donc grandir veut dire déplacer des shards entiers vers un nouveau serveur, pas re-hacher chaque ligne. Un déplacement copie le shard pendant qu’il reçoit encore des écritures, rattrape le retard, puis bascule son entrée de routage ; le hachage cohérent limite de même le nombre de clés déplacées."
+      },
+      {
+        "question": "Comment évitez-vous un shard chaud qui reçoit beaucoup plus de trafic que les autres ?",
+        "answer": "Je choisis une clé avec beaucoup de valeurs distinctes qui ne croît pas dans le temps, ou je la hache, pour que des dates ou des ids séquentiels n’envoient pas chaque insertion sur un seul shard. Pour un tenant énorme, je lui donne son propre shard ou je découpe sa clé avec un suffixe, et je surveille la charge par shard pour détecter tôt le déséquilibre."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le sharding par hachage sur un id monotone répartit les nouvelles écritures entre les shards.",
+        "why": "Le hachage casse l’ordre, donc des ids consécutifs atterrissent sur des shards différents.",
+        "twin": {
+          "statement": "Le sharding par hachage sur un id monotone envoie chaque nouvelle écriture sur le même shard.",
+          "why": "Le hachage casse l’ordre, donc des ids consécutifs atterrissent sur des shards différents ; c’est le sharding par plages qui crée un shard chaud."
+        }
+      },
+      {
+        "statement": "Le partitionnement déclaratif de PostgreSQL répartit une table sur plusieurs serveurs.",
+        "why": "Les partitions vivent sur le même serveur ; répartir les données sur plusieurs serveurs demande une extension comme Citus ou un routage dans l’application.",
+        "twin": {
+          "statement": "Le partitionnement déclaratif de PostgreSQL découpe une table à l’intérieur d’un seul serveur ; il ne la répartit pas à lui seul sur plusieurs serveurs.",
+          "why": "Répartir les données sur plusieurs serveurs demande une extension comme Citus ou un routage dans l’application."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le sharding découpe un jeu de données sur plusieurs serveurs de base selon une clé de sharding, pour que les écritures et le stockage dépassent ce qu’un seul primaire supporte. Il coûte cher à exploiter, donc il vient après des options plus simples.",
+      "points": [
+        "Le sharding découpe un jeu de données sur plusieurs serveurs de base, chacun contenant les lignes de certaines valeurs d’une clé de sharding, pour que les écritures et le stockage dépassent ce qu’un seul primaire gère.",
+        "Ne le confonds pas avec le partitionnement, qui découpe une table en partitions sur le même serveur, ni avec la réplication, qui copie tout le jeu de données vers des réplicas en lecture.",
+        "Le sharding par plages donne à chaque shard une plage de clés, mais une clé toujours croissante comme une date envoie chaque insertion sur un seul shard chaud. Le hachage répartit les écritures mais disperse les requêtes par plage. L’annuaire utilise une table de correspondance.",
+        "Choisis une clé sur laquelle filtrent les requêtes principales, comme `customer_id`. Une requête sans elle va sur chaque shard et fusionne les résultats (scatter-gather) ; jointures et transactions entre shards coûtent cher.",
+        "PostgreSQL n’a pas de sharding intégré : l’extension Citus distribue les tables selon une colonne, ou l’application route les requêtes. Index, réplicas en lecture, partitionnement et archivage passent avant."
+      ],
+      "takeaways": [
+        {
+          "term": "Clé de sharding",
+          "detail": "Décide quel serveur contient une ligne. Choisis-en une sur laquelle filtrent les requêtes principales, comme `customer_id`."
+        },
+        {
+          "term": "Sharding par plages",
+          "detail": "Garde les requêtes par plage ciblées, mais une clé toujours croissante comme une date crée un shard chaud."
+        },
+        {
+          "term": "Sharding par hachage",
+          "detail": "Répartit les écritures uniformément, mais disperse les requêtes par plage."
+        },
+        {
+          "term": "Sharding par annuaire",
+          "detail": "Une table de correspondance associe les clés aux shards : souple, mais un composant de plus."
+        },
+        {
+          "term": "Scatter-gather",
+          "detail": "Une requête sans la clé va sur chaque shard ; jointures et transactions entre shards coûtent cher."
+        },
+        {
+          "term": "Sharder en dernier",
+          "detail": "Partitionnement (un serveur) et réplication (copies complètes) sont différents. Index, réplicas, partitionnement et archivage passent avant."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le stockage des événements de commande est shardé par plages de `created_at`, et un shard tourne à 95 % de CPU pendant que les autres sont au repos. Pourquoi, et que changeriez-vous ?",
+        "bridge": "Une clé de sharding monotone envoie chaque nouvelle insertion sur le shard qui contient la plage la plus récente ; le hachage ou une autre clé répartit les écritures."
+      },
+      {
+        "question": "Un collègue veut sharder dès maintenant la base des commandes de 50 Go, « pour être prêt ». Qu’essaieriez-vous d’abord, et quelles stratégies compareriez-vous ensuite ?",
+        "bridge": "Le sharding vient en dernier, après index, réplicas, partitionnement et archivage ; ensuite plages, hachage ou annuaire, choisis d’après les requêtes principales."
+      }
+    ]
+  },
+  "db-orm": {
+    "topic": "ORM et query builders",
+    "question": "Qu’est-ce qu’un ORM, et quels sont ses avantages et ses inconvénients ?",
+    "answer": "Un ORM, un object-relational mapper, décrit les tables et les relations une seule fois et génère le SQL, en renvoyant des objets typés. En Node aujourd’hui, c’est Prisma, avec son fichier de schéma et son client généré, ou Drizzle, avec des tables déclarées en TypeScript. Kysely est un query builder : on écrit le SQL sous forme d’appels typés. Les avantages, ce sont des types qui suivent le schéma, moins de boilerplate et des migrations intégrées. Les inconvénients, c’est le SQL caché : des requêtes N+1 en chargeant des relations dans une boucle, des requêtes inefficaces pour les rapports complexes, et une abstraction à apprendre. J’en utilise un pour les requêtes courantes et je passe au SQL brut pour les quelques requêtes critiques ou complexes.",
+    "keyPoints": [
+      "Associe les tables à des objets typés et génère le SQL",
+      "Prisma et Drizzle sont des ORM ; Kysely est un query builder",
+      "Avantages : types, moins de boilerplate, migrations",
+      "Inconvénients : SQL caché, N+1, requêtes complexes"
+    ],
+    "explanation": "Les recruteurs veulent une vision équilibrée plutôt que « les ORM c’est mal » ou « toujours Prisma ». Un senior sait que tout ORM tourne quand même sur un driver et son pool, lit le SQL généré quand quelque chose est lent, et choisit selon la forme de ses requêtes.",
+    "example": "La liste des commandes du back-office chargeait 50 commandes, puis le client de chaque commande dans une boucle : 51 requêtes par page. Charger les clients en une seule requête avec l’API de relations de l’ORM l’a ramenée à deux requêtes, et le rapport de chiffre d’affaires mensuel, plein de fonctions de fenêtrage, est passé à une requête SQL écrite à la main.",
+    "mistakes": [
+      "Ne jamais regarder le SQL que l’ORM génère",
+      "Se servir de l’ORM comme excuse pour ne pas connaître le SQL, les index ou les transactions",
+      "Mélanger deux ORM dans un même service sans raison"
+    ],
+    "followUps": [
+      {
+        "question": "Comment évitez-vous l’injection SQL quand vous avez besoin de SQL brut à côté d’un ORM ?",
+        "answer": "Je passe les valeurs en paramètres, jamais en concaténant des chaînes ; les ORM proposent des helpers à template tagué qui transforment les valeurs interpolées en paramètres. Les noms de tables ou de colonnes ne peuvent pas être des paramètres, donc je les prends dans une liste autorisée."
+      },
+      {
+        "question": "Où se situent TypeORM et Sequelize ?",
+        "answer": "Ce sont des ORM plus anciens dont on hérite souvent, TypeORM dans les bases de code NestJS et Sequelize dans les services Express. Pour du nouveau code, les équipes préfèrent en général Prisma ou Drizzle, dont les types suivent le schéma."
+      },
+      {
+        "question": "Comment identifieriez-vous un problème de requêtes N+1 introduit par l’ORM ?",
+        "answer": "J’active le log de requêtes de l’ORM en développement, ou je lis les traces, et je compte les requêtes par requête HTTP : une page de 50 commandes qui lance 51 requêtes, c’est la signature. Un test peut vérifier le nombre de requêtes d’un endpoint, et la correction est le chargement anticipé de l’ORM, comme l’`include` de Prisma, ou une seule requête `IN`."
+      },
+      {
+        "question": "Quand passeriez-vous au SQL brut plutôt qu’au query builder de l’ORM ?",
+        "answer": "Quand l’ORM ne sait pas exprimer proprement une requête ou en génère une lente : fonctions de fenêtrage, CTE récursives, upsert conditionnel, ou une requête critique que j’ai optimisée avec `EXPLAIN`. Je la garde paramétrée, je type son résultat à la frontière et je la couvre par un test d’intégration sur un vrai PostgreSQL."
+      },
+      {
+        "question": "Comment un ORM protège-t-il de l’injection SQL dans les cas standard ?",
+        "answer": "Il envoie les valeurs en paramètres liés, séparés du texte SQL, donc une valeur n’est jamais interprétée comme du SQL. Ça couvre son API de requêtes et les templates tagués comme `$queryRaw` de Prisma ; ça ne couvre pas `$queryRawUnsafe` avec des chaînes concaténées, ni des noms de tables et de colonnes issus de la saisie utilisateur."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Kysely est un query builder typé plutôt qu’un ORM complet.",
+        "why": "Il type le SQL que tu écris mais ne possède pas ton schéma et ne gère pas les relations à ta place.",
+        "twin": {
+          "statement": "Kysely est un ORM complet qui gère ton schéma et tes relations.",
+          "why": "C’est un query builder typé : il type le SQL que tu écris mais ne possède pas ton schéma et ne gère pas les relations."
+        }
+      },
+      {
+        "statement": "Utiliser un ORM supprime le besoin d’un pool de connexions.",
+        "why": "Les ORM tournent sur un driver de base de données, et leurs connexions viennent du pool de ce driver.",
+        "twin": {
+          "statement": "Un ORM repose toujours sur un pool de connexions, via le driver sur lequel il tourne.",
+          "why": "Les ORM tournent sur un driver de base de données, et leurs connexions viennent du pool de ce driver."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un ORM associe les tables à des objets typés et génère le SQL pour toi. Il accélère les requêtes courantes mais cache le SQL, et c’est de là que viennent les boucles N+1 et les rapports lents.",
+      "points": [
+        "Un ORM (object-relational mapper) associe tables et relations à des objets typés et génère le SQL. Prisma utilise un fichier de schéma et un client généré ; Drizzle déclare les tables en TypeScript.",
+        "Un query builder comme Kysely type le SQL que tu composes appel par appel, mais il ne possède pas ton schéma et ne charge pas les relations à ta place.",
+        "Avantages : des types qui suivent le schéma, moins de boilerplate, des migrations intégrées. Coûts : le SQL est caché, les rapports complexes avec fonctions de fenêtrage sont pénibles, et l’abstraction s’apprend.",
+        "Le problème N+1 : charger 50 commandes, puis le client de chaque commande dans une boucle, lance 51 requêtes. Charge plutôt la relation en une requête, avec une jointure ou `WHERE id = ANY($1)`.",
+        "Un ORM tourne toujours sur un driver de base et son pool de connexions. En SQL brut, passe les valeurs en paramètres, jamais par concaténation ; les noms de tables et de colonnes viennent d’une liste autorisée."
+      ],
+      "takeaways": [
+        {
+          "term": "ORM",
+          "detail": "Prisma utilise un fichier de schéma et un client généré ; Drizzle déclare les tables en TypeScript."
+        },
+        {
+          "term": "Query builder",
+          "detail": "Kysely type le SQL que tu composes appel par appel, mais ne possède pas ton schéma et ne charge pas les relations."
+        },
+        {
+          "term": "Avantages",
+          "detail": "Des types qui suivent le schéma, moins de boilerplate, des migrations intégrées."
+        },
+        {
+          "term": "Coûts",
+          "detail": "SQL caché, rapports complexes pénibles comme les fonctions de fenêtrage, et une abstraction à apprendre."
+        },
+        {
+          "term": "N+1",
+          "detail": "50 commandes, puis chaque client dans une boucle : 51 requêtes. Charge la relation avec une jointure ou `WHERE id = ANY($1)`."
+        },
+        {
+          "term": "SQL brut",
+          "detail": "Valeurs passées en paramètres, jamais concaténées ; noms de tables et de colonnes issus d’une liste autorisée."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La page des commandes du back-office, construite avec Prisma, envoie 51 requêtes pour afficher 50 commandes, parce qu’elle charge le client de chaque commande dans une boucle. Personne n’a écrit de SQL à la main. Qu’est-ce que ça dit des ORM ?",
+        "bridge": "Les ORM cachent le SQL qu’ils génèrent, et charger une relation dans une boucle est le N+1 classique : l’un de leurs principaux inconvénients face à leurs avantages."
+      },
+      {
+        "question": "Quelle est la différence entre un ORM comme Prisma ou Drizzle et un query builder comme Kysely, et quand passeriez-vous au SQL brut ?",
+        "bridge": "Les ORM associent tables et relations et génèrent le SQL ; un query builder type le SQL que tu écris. Le SQL brut reste pour les quelques requêtes critiques ou complexes."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux lancent une requête brute à côté de Prisma avec un e-mail venant de la requête HTTP. Laquelle est à l’abri de l’injection SQL ?",
+        "why": "Le template tagué `$queryRaw` envoie `email` en paramètre lié, séparé du texte SQL, donc il n’est jamais interprété comme du SQL. `$queryRawUnsafe` avec une template string le concatène : un e-mail valant `' OR '1'='1` rend le filtre toujours vrai et renvoie les commandes de tous les clients."
+      }
+    ]
+  },
+  "db-activity-feed": {
+    "topic": "Schéma d’un fil d’activité",
+    "question": "Comment concevriez-vous le schéma d’un fil d’activité, comme un fil social d’événements ?",
+    "answer": "Je stocke chaque événement une seule fois : qui a fait quoi sur quel objet, quand, avec un petit payload. Le fil se construit ensuite de deux façons. Le fan-out à la lecture interroge au moment de la lecture les événements de tout ce que l’utilisateur suit : écritures bon marché, lectures plus lentes. Le fan-out à l’écriture insère une ligne par abonné dans une table `feed_items` quand l’événement se produit : lectures rapides, mais une source populaire multiplie les écritures. Les gros fils mélangent souvent les deux. Dans les deux cas, j’indexe `(user_id, created_at DESC, id DESC)` et je pagine avec un curseur keyset, pas `OFFSET`, et j’écris l’événement dans la même transaction que le changement.",
+    "keyPoints": [
+      "Une table d’événements : acteur, verbe, objet, date, payload",
+      "Fan-out à la lecture : écritures bon marché, lectures coûteuses",
+      "Fan-out à l’écriture : lectures rapides, amplification des écritures",
+      "Index par utilisateur et date ; pagination keyset"
+    ],
+    "explanation": "C’est à la fois une question de modélisation et de passage à l’échelle. Un senior part du ratio lectures/écritures et du nombre d’abonnés par source, explique pourquoi l’hybride existe, et couvre la pagination et la production des événements sans en perdre.",
+    "example": "Les agents du back-office voulaient un fil des commandes et des comptes clés qu’ils suivent. Les événements comme `order.paid` ou un remboursement sont écrits dans la même transaction que le changement, et un worker diffuse chacun dans `feed_items` pour ses observateurs. Avec au plus quelques dizaines d’observateurs par commande, le fan-out à l’écriture était bon marché, et la page du fil est devenue un seul parcours de plage d’index de 20 lignes.",
+    "mistakes": [
+      "Paginer le fil avec `OFFSET`, qui ralentit avec la profondeur et répète des lignes quand de nouveaux événements arrivent",
+      "Faire du fan-out à l’écriture pour une source avec des millions d’abonnés",
+      "Écrire l’événement hors de la transaction du changement, si bien qu’un crash le perd ou enregistre quelque chose qui n’a jamais eu lieu"
+    ],
+    "followUps": [
+      {
+        "question": "Comment fonctionne un fan-out hybride ?",
+        "answer": "Les événements des sources ordinaires sont poussés dans les fils des abonnés au moment de l’écriture, alors que ceux des sources très populaires sont récupérés et fusionnés au moment de la lecture, donc aucun événement ne déclenche à lui seul des millions d’écritures."
+      },
+      {
+        "question": "Comment produisez-vous les événements sans en perdre aucun ?",
+        "answer": "Je les insère dans une table outbox dans la même transaction que le changement d’état, et je laisse un relais ou un worker les publier ou les diffuser ; les consommateurs doivent être idempotents parce que la livraison peut se répéter."
+      },
+      {
+        "question": "Comment géreriez-vous un désabonnement et son effet sur le fil précalculé ?",
+        "answer": "Un job en arrière-plan supprime les éléments de cette source dans les `feed_items` de l’utilisateur, ce qui demande une colonne source et un index sur `(user_id, source_id)`. Tant qu’il n’a pas fini, la lecture filtre les sources que l’utilisateur ne suit plus, donc le changement se voit tout de suite."
+      },
+      {
+        "question": "Comment classeriez-vous le fil par pertinence plutôt que du plus récent au plus ancien ?",
+        "answer": "Je récupère un ensemble de candidats, disons les 500 éléments les plus récents, je note chacun avec des signaux comme l’affinité avec la source, l’engagement et l’ancienneté, et je renvoie les meilleurs. Le score est calculé à la lecture ou stocké avec l’élément, et la pagination utilise un curseur sur la liste classée, pas une date."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le fan-out à l’écriture rend la lecture d’un fil bon marché parce que les éléments de chaque utilisateur sont déjà stockés ensemble.",
+        "why": "Le travail est fait à l’écriture, donc une lecture est un seul parcours de plage indexé sur les lignes de l’utilisateur.",
+        "twin": {
+          "statement": "Le fan-out à l’écriture rend la lecture d’un fil coûteuse, parce que chaque lecture rassemble les événements de toutes les sources suivies.",
+          "why": "Ça décrit le fan-out à la lecture ; le fan-out à l’écriture stocke ensemble les éléments de chaque utilisateur, donc une lecture est un seul parcours de plage indexé."
+        }
+      },
+      {
+        "statement": "La pagination par `OFFSET` reste rapide à n’importe quelle profondeur si la table est indexée.",
+        "why": "La base lit et jette quand même chaque ligne sautée ; une condition keyset sur `(created_at, id)` saute directement à la page.",
+        "twin": {
+          "statement": "La pagination par `OFFSET` ralentit avec la profondeur, même sur une table indexée.",
+          "why": "La base lit et jette quand même chaque ligne sautée ; une condition keyset sur `(created_at, id)` saute directement à la page."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un fil d’activité stocke chaque événement une seule fois et construit le fil de chaque utilisateur à partir de ces événements. La décision centrale : assembler le fil à la lecture, ou copier les événements vers les abonnés quand ils se produisent.",
+      "points": [
+        "Stocke chaque événement une seule fois : l’acteur, le verbe, l’objet, la date et un petit payload, comme « l’agent 12 a remboursé la commande 981 ».",
+        "Le fan-out à la lecture construit le fil au moment de la lecture, à partir des événements de tout ce que l’utilisateur suit : les écritures sont bon marché, et les lectures coûtent plus cher à chaque source suivie.",
+        "Le fan-out à l’écriture insère une ligne `feed_items` par abonné quand l’événement se produit : une lecture est un seul parcours de plage d’index, mais une source à millions d’abonnés multiplie les écritures. Les hybrides récupèrent celles-ci à la lecture.",
+        "Pagine avec un curseur keyset : garde le dernier `(created_at, id)` et demande les lignes avant lui. `OFFSET` lit et jette chaque ligne sautée, et répète des lignes quand de nouveaux événements arrivent.",
+        "Écris l’événement dans la même transaction que le changement, dans une table outbox qu’un worker publie ou diffuse ensuite. La livraison peut se répéter, donc les consommateurs doivent être idempotents : sans risque à exécuter deux fois."
+      ],
+      "takeaways": [
+        {
+          "term": "Table d’événements",
+          "detail": "L’acteur, le verbe, l’objet, la date et un petit payload, stockés une seule fois."
+        },
+        {
+          "term": "Fan-out à la lecture",
+          "detail": "Construit à la lecture depuis les sources suivies : écritures bon marché, lectures plus chères à chaque source."
+        },
+        {
+          "term": "Fan-out à l’écriture",
+          "detail": "Une ligne `feed_items` par abonné : une lecture est un parcours de plage, mais les sources populaires multiplient les écritures."
+        },
+        {
+          "term": "Hybride",
+          "detail": "Fan-out à l’écriture pour la plupart des sources, et récupération à la lecture pour celles à millions d’abonnés."
+        },
+        {
+          "term": "Pagination keyset",
+          "detail": "Indexer `(user_id, created_at DESC, id DESC)` et demander les lignes avant le dernier `(created_at, id)`, pas `OFFSET`."
+        },
+        {
+          "term": "Outbox",
+          "detail": "Écrire l’événement dans la transaction du changement ; un worker le publie, donc les consommateurs doivent être idempotents."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La boutique veut un fil des réassorts et baisses de prix des marques que chaque client suit, et une marque a 400 000 abonnés. Comment stockeriez-vous et construiriez-vous ce fil ?",
+        "bridge": "Conception d’un fil d’activité : une table d’événements, puis fan-out à la lecture ou à l’écriture ; une source avec beaucoup d’abonnés rend le fan-out à l’écriture coûteux."
+      },
+      {
+        "question": "Comparez le fan-out à la lecture et le fan-out à l’écriture pour un fil : que coûte chacun, et comment le paginez-vous ?",
+        "bridge": "Les deux façons de construire un fil arbitrent entre coût d’écriture et coût de lecture ; dans les deux cas, un index par utilisateur et date avec pagination keyset."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux chargent la page suivante du fil d’un agent pendant que de nouveaux événements arrivent. Laquelle ne répète pas de lignes et ne ralentit pas ?",
+        "why": "La version keyset démarre juste après le dernier élément vu, `($2, $3)`, donc elle y saute via l’index et un nouvel événement ne peut pas décaler la page. `OFFSET` lit et jette chaque ligne sautée, plus lent à chaque page, et un événement arrivé entre deux pages fait descendre un élément, que la page suivante répète."
+      }
+    ]
+  },
+  "db-race-conditions": {
+    "topic": "Race conditions",
+    "question": "Qu’est-ce qu’une race condition, et comment l’empêchez-vous dans un backend ?",
+    "answer": "Une race condition est un bug dont le résultat dépend du timing d’opérations concurrentes. Le cas classique, c’est lire, calculer, écrire : deux checkouts lisent un stock de 1, décident tous deux qu’il y en a assez, écrivent tous deux 0, et deux clients obtiennent la dernière console. Avec plusieurs réplicas de l’API, un verrou dans la mémoire de Node n’aide pas, donc je mets la règle dans la base : un seul `UPDATE ... WHERE stock >= 1` atomique, un verrou de ligne avec `SELECT ... FOR UPDATE`, une colonne de version, ou une contrainte d’unicité qui rejette la seconde insertion. Pour les requêtes qui peuvent arriver deux fois, une clé d’idempotence rend le doublon inoffensif.",
+    "keyPoints": [
+      "Le résultat dépend du timing d’opérations concurrentes",
+      "Lire-calculer-écrire perd une mise à jour",
+      "Un verrou dans la mémoire de Node ne couvre pas plusieurs réplicas",
+      "Corriger dans la base : instruction atomique, verrou, version, contrainte"
+    ],
+    "explanation": "Tout backend à plus d’un réplica a des race conditions, donc les recruteurs veulent entendre où tu places la garantie. Un senior nomme l’outil adapté à chaque forme de race condition, sait qu’une transaction en Read Committed n’empêche pas une mise à jour perdue, et mentionne les doublons dus aux retries.",
+    "example": "Le prestataire de paiement a livré deux fois le même événement `POST /webhooks/payments`, à quelques millisecondes d’écart. Les deux handlers ont lu la commande 1042 comme `pending_payment` et ont tous deux inséré une ligne de paiement. Une contrainte `UNIQUE` sur `payments.provider_event_id` avec `INSERT ... ON CONFLICT DO NOTHING` a fait que la seconde livraison n’insère rien, et le handler n’agit désormais que si une ligne revient.",
+    "mistakes": [
+      "Corriger avec un mutex JavaScript ou une `Map` de verrous, qui ne protège qu’un seul processus",
+      "Supposer qu’une transaction au niveau par défaut Read Committed empêche une mise à jour perdue",
+      "Vérifier un doublon avec un `SELECT` avant l’`INSERT` au lieu d’utiliser une contrainte d’unicité"
+    ],
+    "followUps": [
+      {
+        "question": "Verrouillage optimiste ou pessimiste : quelle est la différence, et quand utilisez-vous chacun ?",
+        "answer": "Le verrouillage pessimiste prend le verrou avant de décider, avec `SELECT ... FOR UPDATE`, donc le second écrivain attend : bien pour des sections critiques courtes et très sollicitées. L’optimiste n’en prend aucun : l’`UPDATE` vérifie et incrémente une colonne `version`, et 0 ligne signifie un conflit : bien pour de longues éditions qui entrent rarement en collision."
+      },
+      {
+        "question": "Comment rendriez-vous une décrémentation de stock atomique dans la base ?",
+        "answer": "Une seule instruction vérifie et écrit : `UPDATE products SET stock = stock - $2 WHERE id = $1 AND stock >= $2 RETURNING stock`. Une mise à jour concurrente de la ligne attend le verrou, puis revérifie la condition sur la nouvelle valeur, donc aucune ligne renvoyée signifie rupture de stock. Une contrainte `CHECK (stock >= 0)` sert de filet de sécurité."
+      },
+      {
+        "question": "Comment le problème change-t-il quand les données vivent dans plusieurs bases ?",
+        "answer": "Aucun verrou ni aucune transaction ne couvre les deux, donc je conçois autour : chaque service modifie ses propres données de façon atomique, publie ses événements via un outbox, et les consommateurs sont idempotents. Une règle entre services devient une saga avec compensations, ou une réservation qui expire, comme bloquer le stock 15 minutes pendant le paiement."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un mutex dans le processus Node empêche les race conditions entre deux réplicas de l’API.",
+        "why": "Chaque réplica est un processus séparé avec sa propre mémoire, donc la garantie doit vivre dans la base ou un autre système partagé.",
+        "twin": {
+          "statement": "Un mutex dans un processus Node ne peut pas empêcher les race conditions entre deux réplicas de l’API.",
+          "why": "Chaque réplica est un processus séparé avec sa propre mémoire, donc la garantie doit vivre dans la base ou un autre système partagé."
+        }
+      },
+      {
+        "statement": "`UPDATE products SET stock = stock - 1 WHERE id = 7 AND stock >= 1` ne peut pas faire passer le stock sous zéro, même avec des checkouts concurrents.",
+        "why": "Le verrou de ligne fait passer les mises à jour concurrentes à tour de rôle, et en Read Committed une mise à jour en attente revérifie sa condition sur la nouvelle version de la ligne.",
+        "twin": {
+          "statement": "`UPDATE products SET stock = stock - 1 WHERE id = 7 AND stock >= 1` peut faire passer le stock sous zéro avec des checkouts concurrents.",
+          "why": "Le verrou de ligne fait passer les mises à jour concurrentes à tour de rôle, et en Read Committed une mise à jour en attente revérifie sa condition sur la nouvelle version de la ligne."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une race condition est un bug dont le résultat dépend du timing d’opérations concurrentes. Avec plusieurs réplicas de l’API, la correction a sa place dans la base, pas dans la mémoire de Node.",
+      "points": [
+        "Une race condition est un bug dont le résultat dépend du timing d’opérations concurrentes : deux requêtes, deux réplicas ou deux workers qui touchent les mêmes données en même temps.",
+        "Le cas classique est lire-calculer-écrire : les deux checkouts lisent un stock de 1, écrivent tous deux 0, et une mise à jour est perdue. Une transaction au niveau par défaut Read Committed ne l’empêche pas.",
+        "Un verrou dans la mémoire de Node ne couvre qu’un processus. Avec plusieurs réplicas, mets la règle dans la base : un seul `UPDATE` atomique, un verrou de ligne (`FOR UPDATE`), une colonne de version ou une contrainte d’unicité.",
+        "Vérifier-puis-insérer pose aussi problème : deux requêtes voient « pas encore de paiement » et insèrent toutes les deux. Une contrainte `UNIQUE` plus `INSERT ... ON CONFLICT DO NOTHING` rend la seconde inoffensive."
+      ],
+      "takeaways": [
+        {
+          "term": "Lire-calculer-écrire",
+          "detail": "Deux checkouts lisent un stock de 1 et écrivent tous deux 0 : une mise à jour est perdue, même dans une transaction Read Committed."
+        },
+        {
+          "term": "Verrou en mémoire Node",
+          "detail": "Ne couvre qu’un processus, pas plusieurs réplicas."
+        },
+        {
+          "term": "`UPDATE` atomique",
+          "detail": "`UPDATE ... WHERE stock >= 1` vérifie et écrit en une seule instruction."
+        },
+        {
+          "term": "`SELECT ... FOR UPDATE`",
+          "detail": "Verrouille la ligne jusqu’au commit, donc une seconde lecture avec verrou l’attend."
+        },
+        {
+          "term": "Colonne de version",
+          "detail": "L’écriture ne réussit que si la version est toujours celle que tu as lue."
+        },
+        {
+          "term": "Contrainte `UNIQUE`",
+          "detail": "Bloque les race conditions vérifier-puis-insérer : avec `ON CONFLICT DO NOTHING`, la seconde insertion est inoffensive."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Deux clients ont tous deux reçu une confirmation pour la dernière console en stock, et le stock affiche 0. Le checkout lit le stock, le vérifie dans Node, puis écrit la nouvelle valeur. Que s’est-il passé ?",
+        "bridge": "Une race condition lire-calculer-écrire : les deux requêtes ont lu 1 avant que l’une ou l’autre n’écrive. La correction déplace la vérification dans la base, par exemple un seul `UPDATE` conditionnel."
+      },
+      {
+        "question": "Un collègue propose un mutex dans Node autour du checkout pour arrêter la survente. Pourquoi ça ne suffit pas avec plusieurs réplicas, et qu’utiliseriez-vous ?",
+        "bridge": "Chaque réplica a sa propre mémoire, donc la garantie doit vivre dans la base : une instruction atomique, un verrou de ligne, une version ou une contrainte."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux réservent la dernière console pendant un checkout, avec plusieurs réplicas de l’API. Laquelle ne peut pas la vendre deux fois ?",
+        "why": "L’`UPDATE` gardé vérifie et décrémente en une seule instruction : un checkout concurrent attend le verrou de ligne, revérifie `stock >= 1`, met à jour 0 ligne et lève une erreur. Avec lecture puis écriture, les deux checkouts lisent un stock de 1, passent tous deux la vérification et écrivent tous deux 0 : deux clients obtiennent la dernière console."
+      }
+    ]
+  },
+  "db-replication": {
+    "topic": "Réplication",
+    "question": "Qu’est-ce que la réplication de base de données, et en quoi la réplication synchrone et asynchrone diffèrent-elles ?",
+    "answer": "La réplication garde des copies de la base sur d’autres serveurs, appelés réplicas ou standbys, en leur envoyant les changements du primaire ; dans PostgreSQL, c’est la réplication en streaming du write-ahead log. En asynchrone, le défaut, le primaire commite sans attendre, donc les écritures restent rapides, mais les réplicas ont un léger retard et un crash du primaire peut perdre les derniers commits. En synchrone, chaque commit attend qu’un standby le confirme, donc aucun commit acquitté n’est perdu, au prix de la latence et d’écritures qui attendent si aucun standby ne répond. J’utilise les réplicas pour le failover et pour faire passer les lectures à l’échelle, et je lis sur le primaire juste après une écriture.",
+    "keyPoints": [
+      "Copies alimentées par le journal des changements du primaire (le WAL)",
+      "Asynchrone : commits rapides, retard, peut perdre les derniers commits",
+      "Synchrone : le commit attend un standby ; plus lent, sans perte",
+      "Pour le failover et les lectures ; attention au read-your-writes"
+    ],
+    "explanation": "La question vérifie si tu comprends le compromis entre latence et perte de données, et les bugs qu’apportent les réplicas. Un senior parle du retard et du read-your-writes, sait que PostgreSQL ne fait pas de failover tout seul, et connaît le risque de split brain.",
+    "example": "L’API Orders a déplacé les rapports du back-office et les exports CSV sur un réplica en lecture pour soulager le primaire. Peu après, des clients voyaient « mes commandes » sans la commande qu’ils venaient de passer, parce que cette page lisait aussi le réplica, qui avait quelques centaines de millisecondes de retard sous charge. L’équipe a routé les lectures de chaque client vers le primaire pendant quelques secondes après une écriture et a ajouté une alerte sur `replay_lag`.",
+    "mistakes": [
+      "Supposer qu’un réplica renvoie toujours les dernières données commitées",
+      "Appeler la réplication une sauvegarde : un `DELETE` par erreur est répliqué aussi",
+      "S’attendre à ce que PostgreSQL promeuve un standby tout seul quand le primaire tombe"
+    ],
+    "followUps": [
+      {
+        "question": "Comment fonctionne le failover quand le primaire tombe ?",
+        "answer": "PostgreSQL ne détecte pas lui-même un primaire en panne : un outil comme Patroni, ou le service managé, s’en aperçoit, promeut le standby le plus à jour, comme le fait `pg_ctl promote`, et déplace l’adresse qu’utilisent les clients. L’ancien primaire doit être isolé pour ne plus jamais accepter d’écritures, sinon deux primaires divisent les données."
+      },
+      {
+        "question": "Qu’est-ce que le retard de réplication, et comment peut-il causer des bugs ?",
+        "answer": "Le retard, c’est l’écart entre un réplica et le primaire, en général moins d’une seconde mais plus sous charge. Le bug classique casse le read-your-writes : un client passe une commande, la page suivante lit un réplica et la commande manque. Je lis sur le primaire après une écriture et je surveille `replay_lag` dans `pg_stat_replication`."
+      },
+      {
+        "question": "Quels conflits apparaissent avec la réplication multi-primaire ?",
+        "answer": "Deux primaires peuvent modifier la même ligne en même temps, et à la synchronisation un changement doit gagner : le last-writer-wins perd silencieusement une mise à jour. Deux insertions peuvent prendre la même valeur unique, comme un e-mail ou un numéro de commande, et une règle portant sur plusieurs lignes peut casser. Donc je l’évite, ou je donne à chaque primaire ses propres clés et données."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "La réplication en streaming de PostgreSQL est asynchrone par défaut.",
+        "why": "Les commits n’attendent pas les standbys sauf si `synchronous_standby_names` est défini.",
+        "twin": {
+          "statement": "La réplication en streaming de PostgreSQL est synchrone par défaut.",
+          "why": "Les commits n’attendent pas les standbys sauf si `synchronous_standby_names` est défini, donc le défaut est asynchrone."
+        }
+      },
+      {
+        "statement": "PostgreSQL promeut automatiquement un standby quand le primaire tombe.",
+        "why": "Sa documentation indique qu’il ne fournit pas le logiciel pour détecter un primaire en panne ; des outils comme Patroni ou un service managé s’en chargent.",
+        "twin": {
+          "statement": "PostgreSQL lui-même ne promeut pas automatiquement un standby quand le primaire tombe.",
+          "why": "Sa documentation indique qu’il ne fournit pas le logiciel pour détecter un primaire en panne ; des outils comme Patroni ou un service managé s’en chargent."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "La réplication garde des copies d’une base sur d’autres serveurs en leur envoyant le journal des changements du primaire. Elle sert au failover et à la montée en charge des lectures, et son mode arbitre entre vitesse de commit et perte de données.",
+      "points": [
+        "La réplication garde des copies d’une base sur d’autres serveurs. Dans PostgreSQL, le primaire envoie en streaming son write-ahead log (WAL), le journal de chaque changement, à des standbys qui le rejouent.",
+        "Asynchrone, le défaut : le primaire commite sans attendre. Les écritures restent rapides, mais les réplicas ont du retard, en général moins d’une seconde, et un crash du primaire peut perdre ses derniers commits.",
+        "Synchrone : avec `synchronous_standby_names` défini, un commit attend qu’un standby le confirme. Aucun commit acquitté n’est perdu, mais chaque commit paie un aller-retour.",
+        "Les réplicas servent les lectures, mais un réplica en retard casse le read-your-writes : lis sur le primaire juste après une écriture, et surveille le retard.",
+        "PostgreSQL ne détecte pas un primaire en panne. Un outil comme Patroni promeut un standby et doit isoler l’ancien primaire, sinon les deux acceptent des écritures : un split brain."
+      ],
+      "takeaways": [
+        {
+          "term": "Streaming du WAL",
+          "detail": "Le primaire envoie son write-ahead log, le journal de chaque changement, à des standbys qui le rejouent."
+        },
+        {
+          "term": "Asynchrone (défaut)",
+          "detail": "Les commits n’attendent pas : écritures rapides, réplicas en retard, et un crash du primaire peut perdre les derniers commits."
+        },
+        {
+          "term": "Synchrone",
+          "detail": "Avec `synchronous_standby_names`, un commit attend un standby : aucun commit acquitté perdu, un aller-retour de plus."
+        },
+        {
+          "term": "Read-your-writes",
+          "detail": "Un réplica en retard peut ne pas voir ton écriture : lis sur le primaire juste après, et surveille le retard."
+        },
+        {
+          "term": "Failover",
+          "detail": "PostgreSQL ne détecte pas un primaire en panne ; un outil comme Patroni promeut un standby."
+        },
+        {
+          "term": "Split brain",
+          "detail": "Deux primaires qui acceptent des écritures, quand l’ancien primaire n’est pas isolé."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Une cliente modifie son adresse de livraison, arrive sur son profil et voit l’ancienne ; un rafraîchissement une seconde plus tard montre la nouvelle. Les lectures du profil vont sur un réplica. Que se passe-t-il ?",
+        "bridge": "Les réplicas asynchrones ont un léger retard sur le primaire, donc relire sa propre écriture juste après demande le primaire."
+      },
+      {
+        "question": "Quand choisiriez-vous la réplication synchrone plutôt qu’asynchrone, et que coûte-t-elle ?",
+        "bridge": "En synchrone, chaque commit attend un standby, donc aucun commit acquitté n’est perdu, au prix de la latence et d’écritures qui attendent."
+      }
+    ]
+  },
+  "db-n-plus-one": {
+    "topic": "Le problème des requêtes N+1",
+    "question": "Qu’est-ce que le problème des requêtes N+1, et comment le corrigez-vous ?",
+    "answer": "Le N+1, c’est une requête pour charger une liste, puis une requête de plus par ligne pour charger une donnée liée : 20 commandes, puis 20 requêtes pour leurs articles. Chaque requête est un aller-retour réseau payé l’un après l’autre, donc la page ralentit à mesure que les données grossissent, et elle garde une connexion du pool tout du long. Les ORM le masquent, via des relations lazy, une recherche dans une boucle ou un resolver GraphQL. Je le corrige en chargeant la relation dans la requête, avec une jointure ou l’eager loading de l’ORM, ou en regroupant les ids dans une seule requête `WHERE id = ANY($1)`. En GraphQL, un DataLoader par requête fait ce regroupement.",
+    "keyPoints": [
+      "Une requête pour la liste, puis une par ligne",
+      "Les allers-retours s’additionnent et gardent une connexion du pool",
+      "Correctif : une jointure, l’eager loading ou une requête `= ANY($1)`",
+      "GraphQL : un DataLoader par requête regroupe les ids"
+    ],
+    "explanation": "C’est le bug de performance le plus courant dans du code ORM, donc les recruteurs attendent à la fois le correctif et la façon de le repérer. Les seniors expliquent pourquoi c’est lent, des allers-retours en séquence, et comment l’attraper avant la production en comptant les requêtes par requête HTTP.",
+    "example": "L’historique de commandes de la boutique mettait 400 ms pour les clients fidèles. La trace montrait 201 requêtes SQL pour un client avec 200 commandes : une pour les commandes, puis une pour les articles de chacune. Charger les articles avec `with: { items: true }` de Drizzle a envoyé une seule instruction, et la page est descendue à environ 30 ms.",
+    "mistakes": [
+      "Tester en local avec 3 lignes, où 4 requêtes paraissent inoffensives",
+      "Le corriger avec `Promise.all` sur la boucle : les N requêtes tournent toujours, juste en parallèle, et chacune prend une connexion du pool",
+      "Partager un DataLoader entre requêtes, ce qui fait fuiter des données en cache d’un utilisateur à l’autre"
+    ],
+    "followUps": [
+      {
+        "question": "Comment détecteriez-vous un N+1 en production ?",
+        "answer": "Les traces le montrent comme une échelle de requêtes courtes identiques sous une même requête HTTP. `pg_stat_statements` montre une requête peu coûteuse dont le nombre d’appels dépasse de loin le nombre de requêtes HTTP. J’exporte aussi le nombre de requêtes par requête HTTP et j’alerte quand il grandit avec la taille de la page."
+      },
+      {
+        "question": "Comment DataLoader résout-il le N+1 au niveau des resolvers ?",
+        "answer": "Un resolver voit un parent à la fois, donc `customer` tourne une fois par commande. DataLoader collecte chaque `load(id)` fait dans le même tick et appelle ma fonction de batch une seule fois avec tous les ids : une requête `= ANY($1)`. Je crée les loaders par requête, parce que chacun met en cache ce qu’il a chargé."
+      },
+      {
+        "question": "Quelle est la différence entre eager loading et lazy loading dans un ORM ?",
+        "answer": "L’eager loading récupère la relation avec le parent, par une jointure ou une requête groupée, comme `include` dans Prisma ou `with` dans Drizzle. Le lazy loading la récupère au premier accès : pratique, mais ça lance une requête par ligne dans une boucle. Je charge en eager ce dont la page a besoin et j’évite les relations lazy sur les chemins critiques."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le N+1 est sans conséquence quand chaque requête en plus ne prend que 1 ms.",
+        "why": "Les requêtes s’exécutent l’une après l’autre, donc 200 lignes ajoutent 200 ms d’attente, et la requête garde une connexion du pool tout du long.",
+        "twin": {
+          "statement": "Même à 1 ms par requête, le N+1 ajoute 200 ms à une page de 200 lignes.",
+          "why": "Les requêtes s’exécutent l’une après l’autre, et la requête garde une connexion du pool tout du long."
+        }
+      },
+      {
+        "statement": "Charger les articles avec une seule requête `WHERE order_id = ANY($1)` pour toute la page supprime le N+1.",
+        "why": "Le nombre de requêtes ne grandit plus avec le nombre de commandes : deux requêtes au total, quelle que soit la taille de la page.",
+        "twin": {
+          "statement": "Charger les articles avec une seule requête `WHERE order_id = ANY($1)` lance toujours une requête par commande.",
+          "why": "`ANY($1)` prend d’un coup les ids de toute la page : deux requêtes au total, quelle que soit la taille de la page."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le N+1, c’est une requête pour une liste, puis une requête de plus par ligne pour les données liées. Chaque requête est un aller-retour payé à son tour, donc la page ralentit à mesure que les données grossissent.",
+      "points": [
+        "N+1 : une requête charge une liste (le 1), puis une boucle lance une requête de plus par ligne (le N). 20 commandes deviennent 21 requêtes.",
+        "Chaque requête est un aller-retour réseau, payé l’un après l’autre. À 1 ms chacune, 200 lignes coûtent 200 ms d’attente, et la requête garde une connexion du pool tout du long.",
+        "Les ORM le masquent : relations lazy chargées au premier accès, un helper appelé dans un `map`, ou un resolver GraphQL exécuté une fois par parent.",
+        "On le corrige dans la requête : une jointure, l’eager loading de l’ORM (`include` dans Prisma, `with` dans Drizzle), ou une requête groupée `WHERE id = ANY($1)` pour tous les ids.",
+        "En GraphQL, un DataLoader créé par requête collecte les ids demandés dans un même tick et lance une seule requête groupée."
+      ],
+      "takeaways": [
+        {
+          "term": "N+1",
+          "detail": "1 requête charge la liste, puis N autres, une par ligne : 20 commandes deviennent 21 requêtes."
+        },
+        {
+          "term": "Coût",
+          "detail": "À 1 ms chacune, 200 lignes coûtent 200 ms d’attente, avec une connexion du pool prise tout du long."
+        },
+        {
+          "term": "Causes cachées",
+          "detail": "Relations lazy, un helper appelé dans un `map`, un resolver GraphQL exécuté une fois par parent."
+        },
+        {
+          "term": "Eager loading",
+          "detail": "Charger la relation dans la requête : une jointure, `include` dans Prisma, `with` dans Drizzle."
+        },
+        {
+          "term": "`WHERE id = ANY($1)`",
+          "detail": "Une seule requête groupée pour tous les ids."
+        },
+        {
+          "term": "DataLoader",
+          "detail": "Créé par requête, il collecte les ids demandés dans un même tick et lance une seule requête groupée."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "`GET /orders` prend 40 ms avec 5 commandes en staging et 800 ms avec 200 en production, alors que chaque requête SQL de la trace prend environ 2 ms. Que cherchez-vous ?",
+        "bridge": "Beaucoup de requêtes courtes l’une après l’autre, une pour la liste puis une par ligne : le schéma N+1, qui grandit avec la taille de la page."
+      },
+      {
+        "question": "Dans une API GraphQL, le resolver `order.customer` interroge la base pour chaque commande. Pourquoi est-ce un problème, et qu’est-ce qui le corrige ?",
+        "bridge": "Un resolver par champ lance une requête par ligne parente, un N+1 ; un DataLoader par requête regroupe les ids en une seule requête."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux chargent les articles d’une page de 200 commandes. Lequel corrige le N+1 ?",
+        "why": "Une seule requête `= ANY($1)` charge les articles de toutes les commandes de la page : un aller-retour, quelle que soit la taille de la page. `Promise.all` envoie toujours 200 requêtes, juste en parallèle : chacune prend une connexion du pool, donc une page peut accaparer tout le pool pendant que les autres requêtes attendent."
+      }
+    ]
+  },
+  "db-isolation-levels": {
+    "topic": "Niveaux d’isolation",
+    "question": "Que sont les niveaux d’isolation des transactions, et quelles anomalies chacun empêche-t-il ?",
+    "answer": "Le niveau d’isolation décide de ce qu’une transaction voit des autres qui tournent en même temps. Le standard SQL définit quatre niveaux par les anomalies qu’ils interdisent : Read Uncommitted autorise les lectures sales, Read Committed les interdit, Repeatable Read interdit aussi les lectures non répétables, et Serializable aussi les fantômes, donc le résultat correspond à un ordre où elles passent une par une. PostgreSQL les construit sur des snapshots : Read Committed, le défaut, en prend un par instruction, Repeatable Read un par transaction, ce qui arrête aussi les fantômes, et Serializable ajoute des contrôles contre le write skew. Les niveaux plus stricts font échouer les conflits avec l’erreur `40001`, donc le code doit rejouer toute la transaction.",
+    "keyPoints": [
+      "Le niveau décide de ce que voient les transactions concurrentes",
+      "Lecture sale, lecture non répétable, fantôme : un niveau chacune",
+      "PostgreSQL : un snapshot par instruction ou par transaction",
+      "Les niveaux stricts échouent avec `40001` : rejouer la transaction"
+    ],
+    "explanation": "Réciter le tableau du standard, c’est la réponse junior. Les seniors savent comment leur base l’implémente vraiment, que Repeatable Read n’arrête pas le write skew, et qu’un niveau plus strict transforme les race conditions en erreurs que l’application doit rejouer.",
+    "example": "La vente flash limitait chaque client à 2 consoles, vérifié en comptant ses commandes avant d’en insérer une nouvelle. Un client qui en avait 1 a acheté dans deux onglets à la fois : chaque transaction a compté 1 et inséré 1, et Repeatable Read a laissé les deux committer. Passer ce checkout en Serializable dans un wrapper de retry a fait échouer la seconde avec `40001`, et son retry a vu la limite.",
+    "mistakes": [
+      "Dire que Read Uncommitted donne des lectures sales dans PostgreSQL : il se comporte comme Read Committed",
+      "Monter le niveau sans ajouter de retry pour l’erreur `40001`",
+      "Croire que Repeatable Read arrête le write skew : seul Serializable le fait"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qu’une lecture fantôme, et quel niveau l’empêche ?",
+        "answer": "Un fantôme, c’est une ligne qui apparaît ou disparaît entre deux exécutions de la même requête filtrée, parce qu’une autre transaction a inséré ou supprimé une ligne correspondante et a commité. Le standard n’exige que Serializable pour l’empêcher ; le Repeatable Read de PostgreSQL le fait déjà, puisque toute la transaction lit un seul snapshot."
+      },
+      {
+        "question": "Quel est le lien entre MVCC et les niveaux d’isolation ?",
+        "answer": "MVCC garde plusieurs versions d’une ligne : une mise à jour écrit une nouvelle version au lieu d’écraser l’ancienne. Un snapshot décide des versions qu’une transaction voit, donc les niveaux diffèrent par le moment où il est pris, par instruction ou par transaction. C’est aussi pour ça que les lecteurs ne bloquent jamais les écrivains dans PostgreSQL."
+      },
+      {
+        "question": "Quel niveau d’isolation convient à une grosse requête analytique, et pourquoi ?",
+        "answer": "Repeatable Read, en lecture seule : chaque requête du rapport voit un seul snapshot, donc les totaux concordent pendant que les commandes continuent d’arriver. `SERIALIZABLE READ ONLY DEFERRABLE` peut attendre au début, puis tourne sans risque d’échec de sérialisation. Les longs rapports vont sur un réplica, car une longue transaction retient le vacuum."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans PostgreSQL, Repeatable Read empêche les lectures fantômes.",
+        "why": "Toute la transaction lit un seul snapshot ; la documentation précise que cela va au-delà de ce qu’exige le standard.",
+        "twin": {
+          "statement": "Dans PostgreSQL, Repeatable Read autorise encore les lectures fantômes, comme le permet le standard SQL.",
+          "why": "Toute la transaction lit un seul snapshot, donc de nouvelles lignes n’apparaissent jamais ; la documentation précise que cela va au-delà de ce qu’exige le standard."
+        }
+      },
+      {
+        "statement": "Au niveau Serializable de PostgreSQL, les transactions en conflit s’attendent au lieu d’échouer.",
+        "why": "Ses verrous de prédicat ne bloquent jamais ; quand un conflit pourrait casser l’ordre sériel, une transaction échoue avec `40001` et doit être rejouée.",
+        "twin": {
+          "statement": "Au niveau Serializable de PostgreSQL, une transaction en conflit échoue avec `40001` et doit être rejouée.",
+          "why": "Ses verrous de prédicat ne bloquent jamais ; quand un conflit pourrait casser l’ordre sériel, une transaction échoue au lieu d’attendre."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le niveau d’isolation décide de ce qu’une transaction voit des autres qui tournent en même temps. Les niveaux stricts empêchent plus d’anomalies, mais les transactions en conflit échouent alors et doivent être rejouées.",
+      "points": [
+        "Le niveau d’isolation décide de ce qu’une transaction voit des autres qui tournent en même temps. Une anomalie est un résultat qu’aucun ordre des transactions passées une par une ne pourrait produire.",
+        "Lecture sale : voir des données non commitées. Lecture non répétable : une ligne lue deux fois donne deux valeurs. Fantôme : la même requête filtrée renvoie un autre ensemble de lignes.",
+        "Niveaux du standard : Read Uncommitted autorise les trois ; Read Committed arrête les lectures sales ; Repeatable Read aussi les lectures non répétables ; Serializable aussi les fantômes.",
+        "PostgreSQL utilise des snapshots (MVCC) : Read Committed, le défaut, en prend un par instruction ; Repeatable Read un par transaction, ce qui arrête aussi les fantômes. Read Uncommitted agit comme Read Committed.",
+        "Write skew : deux transactions lisent les mêmes lignes et en écrivent des différentes. Seul Serializable l’arrête. Repeatable Read et Serializable font échouer les conflits avec `40001` : on rejoue toute la transaction."
+      ],
+      "takeaways": [
+        {
+          "term": "Lecture sale",
+          "detail": "Voir les données non commitées d’une autre transaction. Read Committed l’interdit."
+        },
+        {
+          "term": "Lecture non répétable",
+          "detail": "Une ligne lue deux fois donne deux valeurs. Repeatable Read l’interdit."
+        },
+        {
+          "term": "Fantôme",
+          "detail": "La même requête filtrée renvoie un autre ensemble de lignes. Standard : Serializable l’interdit ; le Repeatable Read de PostgreSQL aussi."
+        },
+        {
+          "term": "Snapshots PostgreSQL",
+          "detail": "Read Committed, le défaut, en prend un par instruction ; Repeatable Read un par transaction."
+        },
+        {
+          "term": "Write skew",
+          "detail": "Deux transactions lisent les mêmes lignes et en écrivent des différentes. Seul Serializable l’arrête."
+        },
+        {
+          "term": "`40001`",
+          "detail": "Échec de sérialisation aux niveaux stricts : on rejoue toute la transaction."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Deux agents du support remboursent la même commande au même moment. Chaque transaction a vérifié que les remboursements restent sous le total de la commande, inséré sa propre ligne de remboursement et commité ; ensemble, ils le dépassent. Quel niveau d’isolation attrape ça ?",
+        "bridge": "Chaque transaction a lu un état valide et écrit une ligne différente : du write skew. Le niveau Serializable de PostgreSQL le détecte et en fait échouer une avec `40001`."
+      },
+      {
+        "question": "Un collègue met Serializable sur toutes les transactions « par sécurité ». Qu’est-ce qui change pour le code applicatif ?",
+        "bridge": "Les niveaux stricts font échouer les transactions en conflit avec `40001` au lieu de laisser passer l’anomalie, donc le code doit rejouer toute la transaction."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux lisent le nombre et le total des commandes payées pour un rapport pendant que les commandes arrivent. Lequel donne des chiffres cohérents ?",
+        "why": "En Repeatable Read, toute la transaction lit un seul snapshot, donc le nombre et la somme décrivent les mêmes commandes. Au Read Committed par défaut, chaque instruction prend un nouveau snapshot : une commande payée entre les deux requêtes est dans la somme mais pas dans le nombre, et le panier moyen sort faux."
+      }
+    ]
+  },
+  "db-zero-downtime-migrations": {
+    "topic": "Migrations sans interruption",
+    "question": "Comment migreriez-vous un schéma de base de données en production sans interruption de service ?",
+    "answer": "Deux choses causent une interruption : une instruction qui garde longtemps un verrou fort, et l’ancien code qui casse sur le nouveau schéma pendant un déploiement progressif. Donc j’évite les réécritures de table et les scans complets sous verrou exclusif, je règle `lock_timeout` pour qu’un `ALTER` en attente ne mette pas toutes les requêtes en file derrière lui, et je construis les index en `CONCURRENTLY`. Pour les changements cassants, j’utilise expand and contract : ajouter la nouvelle colonne à côté de l’ancienne, écrire les deux, faire le backfill par lots, basculer les lectures, arrêter d’écrire l’ancienne, puis la supprimer, chaque étape dans son propre déploiement. Chaque schéma intermédiaire fonctionne avec l’ancien et le nouveau code.",
+    "keyPoints": [
+      "Éviter les longs verrous exclusifs : réécritures et scans complets",
+      "`lock_timeout` pour qu’un `ALTER` en attente ne bloque personne",
+      "Expand and contract sur plusieurs déploiements",
+      "Backfill par petits lots ; index en `CONCURRENTLY`"
+    ],
+    "explanation": "Toute équipe en déploiement continu y est confrontée, et un mauvais `ALTER` est une panne classique. Les seniors savent quelles instructions réécrivent ou scannent la table, pourquoi un verrou en attente est aussi dangereux qu’un verrou détenu, et que l’ancien et le nouveau code tournent côte à côte pendant un déploiement.",
+    "example": "La finance voulait remplacer `orders.total` en euros, en `double precision`, par `total_cents bigint` sur une table de 50 millions de lignes. L’équipe a ajouté un `total_cents` nullable, l’a synchronisé avec un trigger, a fait le backfill la nuit par lots de 5 000, a basculé les lectures, puis les écritures, et a supprimé `total` deux semaines plus tard. Aucun déploiement n’a causé d’erreur, et chaque étape restait réversible jusqu’à la suppression.",
+    "mistakes": [
+      "Renommer ou supprimer une colonne dans le même déploiement que le changement de code, si bien que les anciens pods échouent pendant le rollout",
+      "Faire le backfill avec un seul `UPDATE` sur toute la table : longs verrous de ligne, bloat, et tout ou rien",
+      "Lancer les migrations sans `lock_timeout`, si bien qu’un seul `ALTER` en attente bloque toutes les requêtes sur la table"
+    ],
+    "followUps": [
+      {
+        "question": "Comment feriez-vous le backfill d’une très grosse table sans longs verrous ?",
+        "answer": "Un job met à jour quelques milliers de lignes par instruction, choisies par clé (`id > $cursor ORDER BY id LIMIT 5000`), donc chaque lot est une transaction courte qui tient peu de verrous de ligne. Il sauvegarde le curseur pour reprendre après un crash, saute les lignes déjà remplies pour pouvoir être relancé, et fait une pause quand les réplicas prennent du retard."
+      },
+      {
+        "question": "Comment feriez-vous un rollback au milieu d’une migration expand and contract ?",
+        "answer": "Jusqu’à l’étape contract, revenir en arrière consiste à redéployer le code précédent, qui trouve encore l’ancienne colonne complète, tant que le nouveau code l’écrit toujours. C’est pour ça que je ne supprime rien avant que le nouveau chemin ait tourné un moment en production. Après la suppression, revenir en arrière demande une nouvelle migration vers l’avant."
+      },
+      {
+        "question": "Qu’est-ce qui change pour un changement de type cassant ?",
+        "answer": "`ALTER COLUMN TYPE` de `int` vers `bigint` réécrit toute la table sous verrou exclusif, donc je ne le lance jamais sur place sur une grosse table. J’ajoute une colonne du nouveau type, je la synchronise avec un trigger, je fais le backfill, je bascule lectures et écritures, puis je supprime l’ancienne ; pour une clé primaire, les index et les clés étrangères suivent aussi."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Ajouter une colonne avec une valeur par défaut constante, comme `DEFAULT 'EUR'`, réécrit toute la table dans les versions actuelles de PostgreSQL.",
+        "why": "Depuis PostgreSQL 11, la valeur par défaut est stockée dans le catalogue, donc le changement ne prend qu’un bref verrou.",
+        "twin": {
+          "statement": "Depuis PostgreSQL 11, ajouter une colonne avec une valeur par défaut constante, comme `DEFAULT 'EUR'`, ne réécrit pas la table.",
+          "why": "La valeur par défaut est stockée dans le catalogue, donc le changement ne prend qu’un bref verrou."
+        }
+      },
+      {
+        "statement": "Un `ALTER TABLE` qui attend son verrou bloque aussi les requêtes qui arrivent après lui sur cette table.",
+        "why": "Les demandes en conflit arrivées ensuite font la queue derrière celle qui attend, c’est pourquoi les migrations règlent `lock_timeout`.",
+        "twin": {
+          "statement": "Les requêtes qui arrivent après un `ALTER TABLE` en attente s’exécutent normalement sur cette table jusqu’à ce que l’`ALTER` obtienne son verrou.",
+          "why": "Les demandes en conflit arrivées ensuite font la queue derrière celle qui attend, c’est pourquoi les migrations règlent `lock_timeout`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’interruption pendant une migration vient des verrous forts et longs, et de l’ancien code qui rencontre un nouveau schéma en plein déploiement. Des instructions sûres et des changements répartis sur plusieurs déploiements évitent les deux.",
+      "points": [
+        "La plupart des formes d’`ALTER TABLE` prennent un verrou ACCESS EXCLUSIVE, qui bloque même les lectures. Tenu brièvement, personne ne le remarque ; tenu pendant une réécriture ou un scan complet, c’est une panne.",
+        "Réécritures : une valeur par défaut volatile comme `uuidv7()`, la plupart des changements de type comme `int` vers `bigint`. Une valeur par défaut constante ne touche que le catalogue depuis PostgreSQL 11. `SET NOT NULL` scanne chaque ligne.",
+        "Règle `lock_timeout` (défaut 0 : attente infinie). Un `ALTER` qui attend derrière une longue transaction bloque toutes les requêtes suivantes sur la table.",
+        "Les déploiements progressifs font tourner ancien et nouveau code ensemble, donc on utilise expand and contract : ajouter, synchroniser et backfill, basculer les lectures puis les écritures, et seulement ensuite supprimer l’ancienne colonne.",
+        "Backfill par petits lots choisis par clé, chacun dans sa propre transaction courte, avec un curseur sauvegardé. Construis les index avec `CREATE INDEX CONCURRENTLY`, hors transaction."
+      ],
+      "takeaways": [
+        {
+          "term": "ACCESS EXCLUSIVE",
+          "detail": "La plupart des formes d’`ALTER TABLE` le prennent, bloquant même les lectures. Tenu pendant une réécriture ou un scan complet, c’est une panne."
+        },
+        {
+          "term": "Réécritures de table",
+          "detail": "Une valeur par défaut volatile comme `uuidv7()`, la plupart des changements de type. Un défaut constant ne touche que le catalogue depuis PostgreSQL 11."
+        },
+        {
+          "term": "`SET NOT NULL`",
+          "detail": "Scanne chaque ligne de la table."
+        },
+        {
+          "term": "`lock_timeout`",
+          "detail": "Défaut 0, attente infinie. Un `ALTER` qui attend derrière une longue transaction bloque toutes les requêtes suivantes."
+        },
+        {
+          "term": "Expand and contract",
+          "detail": "Ajouter, synchroniser et backfill, basculer les lectures puis les écritures, supprimer l’ancienne colonne en dernier, chaque étape dans son déploiement."
+        },
+        {
+          "term": "Backfill",
+          "detail": "Petits lots choisis par clé, chacun dans une transaction courte, avec un curseur sauvegardé."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Une migration a lancé `ALTER TABLE orders ADD COLUMN ...` à midi et toute l’API Orders s’est figée 40 secondes, alors que le changement lui-même est instantané. Que s’est-il passé ?",
+        "bridge": "L’`ALTER` a attendu son verrou derrière une longue requête, et chaque requête suivante a fait la queue derrière l’`ALTER` ; `lock_timeout` l’évite."
+      },
+      {
+        "question": "Comment renommeriez-vous `orders.total` en `total_cents` sans casser les pods qui font encore tourner l’ancien code pendant un déploiement progressif ?",
+        "bridge": "Expand and contract : ajouter la nouvelle colonne, écrire les deux, backfill, basculer les lectures, arrêter d’écrire l’ancienne, puis la supprimer, un déploiement par étape."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux ajoutent une colonne à la table des commandes, très sollicitée, pendant un déploiement. Lequel ne peut pas figer l’API ?",
+        "why": "L’`ALTER` a besoin d’un verrou ACCESS EXCLUSIVE, ne serait-ce qu’un instant. Tant qu’une longue transaction tient la table, l’`ALTER` en attente bloque chaque requête qui arrive après lui ; `lock_timeout` le fait abandonner au bout de 3 secondes, pour réessayer plus tard. Sans lui, le défaut 0 attend indéfiniment et la table des commandes ne répond plus."
+      }
+    ]
+  },
+  "db-deadlocks": {
+    "topic": "Deadlocks",
+    "question": "Qu’est-ce qu’un deadlock, et comment le diagnostiquez-vous et le prévenez-vous ?",
+    "answer": "Un deadlock, ce sont deux transactions qui attendent chacune un verrou que l’autre détient, donc aucune ne peut avancer. Dans la boutique, ça arrive quand deux checkouts de packs verrouillent les deux mêmes lignes produits dans l’ordre inverse. PostgreSQL cherche un tel cycle dès qu’une attente de verrou dure `deadlock_timeout`, une seconde par défaut, et annule une transaction avec l’erreur `40P01`. Pour diagnostiquer, je lis le détail de l’erreur et le log serveur, qui nomment les processus et les verrous qu’ils attendent, et je les relie aux chemins de code. Pour prévenir, je prends les verrous dans un ordre constant, je garde des transactions courtes, et je rejoue quand même toute la transaction sur `40P01`.",
+    "keyPoints": [
+      "Deux transactions attendent chacune le verrou de l’autre",
+      "PostgreSQL le détecte et en annule une avec `40P01`",
+      "Prévenir : un seul ordre de verrouillage, transactions courtes",
+      "Rejouer toute la transaction sur `40P01`"
+    ],
+    "explanation": "La question vérifie que tu comprends les verrous comme un comportement à l’exécution, pas seulement comme du SQL. Les seniors donnent la cause en une phrase, la préviennent en ordonnant les verrous, et la gèrent quand même dans le code, car un deadlock peut venir d’un chemin que personne n’avait prévu.",
+    "example": "Pendant une vente de packs console et manette, quelques checkouts par minute échouaient avec `40P01` : un panier réservait les produits 7 puis 9, un autre 9 puis 7. Le checkout commence maintenant par verrouiller tous ses produits triés par id, et le wrapper de retry existant relance les rares deadlocks restants. Le nombre de `40P01` dans les logs est tombé à zéro.",
+    "mistakes": [
+      "Rejouer seulement l’instruction en échec : toute la transaction est annulée et doit être relancée",
+      "Confondre un deadlock avec une attente de verrou lente, qui se termine d’elle-même",
+      "Monter `deadlock_timeout` pour éviter les deadlocks : ça ne fait que retarder leur détection"
+    ],
+    "followUps": [
+      {
+        "question": "Comment imposeriez-vous un ordre de verrouillage constant ?",
+        "answer": "Je trie les clés avant de verrouiller : la première instruction de chaque checkout de pack verrouille tous ses produits avec `WHERE id = ANY($1) ORDER BY id FOR NO KEY UPDATE`. Entre tables, je fixe aussi un ordre, par exemple client, puis commande, puis produits, et je prends d’abord le verrou le plus fort dont j’aurai besoin."
+      },
+      {
+        "question": "Comment l’application sait-elle qu’un échec était un deadlock ?",
+        "answer": "Par le SQLSTATE, jamais par le message : node-postgres le met dans `error.code`, et `40P01` veut dire deadlock. Comme `40001`, ça signifie que le timing n’a pas eu de chance, donc un wrapper relance toute la transaction avec un backoff avec jitter et un nombre de tentatives plafonné, et logue chaque retry."
+      },
+      {
+        "question": "Quelle est la différence entre un deadlock et une contention de verrous ordinaire ?",
+        "answer": "La contention, c’est une file : une transaction attend un verrou que son détenteur libère au commit, donc ça se termine tout seul, juste lentement. Un deadlock est un cycle qui ne se termine jamais, donc PostgreSQL doit annuler une transaction. La contention apparaît comme des sessions en attente dans `pg_stat_activity` ; un deadlock comme une erreur `40P01`."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "PostgreSQL résout un deadlock en annulant l’une des transactions impliquées.",
+        "why": "Il détecte le cycle et fait échouer une transaction avec `40P01` ; la documentation dit que laquelle est difficile à prévoir.",
+        "twin": {
+          "statement": "PostgreSQL laisse les transactions en deadlock attendre jusqu’à ce qu’un opérateur en tue une.",
+          "why": "Il détecte le cycle et fait échouer une transaction avec `40P01` ; la documentation dit que laquelle est difficile à prévoir."
+        }
+      },
+      {
+        "statement": "Un deadlock nécessite au moins deux tables.",
+        "why": "Deux lignes d’une même table verrouillées dans l’ordre inverse par deux transactions suffisent.",
+        "twin": {
+          "statement": "Deux lignes d’une seule table suffisent à provoquer un deadlock.",
+          "why": "Deux transactions qui verrouillent les deux mêmes lignes dans l’ordre inverse s’attendent l’une l’autre, quel que soit le nombre de tables."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un deadlock, ce sont deux transactions qui attendent chacune un verrou que l’autre détient, donc aucune ne peut jamais avancer. PostgreSQL le casse en en annulant une, donc le code doit à la fois le prévenir et y survivre.",
+      "points": [
+        "Un deadlock est un cycle d’attentes : la transaction A tient la ligne 7 et veut la 9, pendant que B tient la 9 et veut la 7. Aucune ne peut jamais avancer.",
+        "PostgreSQL cherche un cycle dès qu’une attente de verrou dure `deadlock_timeout` (1 s par défaut) et annule une transaction avec `40P01 deadlock detected`. Laquelle est imprévisible.",
+        "On le prévient avec un seul ordre de verrouillage partout, par exemple le plus petit id d’abord, et des transactions courtes. Prends d’abord le verrou le plus fort dont tu auras besoin, plutôt que de le renforcer plus tard.",
+        "Gère-le quand même : sur `40P01` (ou `40001`), relance toute la transaction, pas l’instruction en échec, avec un backoff avec jitter et un nombre de tentatives plafonné.",
+        "Un deadlock n’est pas de la contention : une simple attente de verrou se termine quand le détenteur commit ; un deadlock ne se termine jamais tout seul."
+      ],
+      "takeaways": [
+        {
+          "term": "Cycle d’attentes",
+          "detail": "A tient la ligne 7 et veut la 9 ; B tient la 9 et veut la 7."
+        },
+        {
+          "term": "`deadlock_timeout`",
+          "detail": "1 s par défaut : dès qu’une attente de verrou dure aussi longtemps, PostgreSQL cherche un cycle."
+        },
+        {
+          "term": "`40P01`",
+          "detail": "« deadlock detected » : PostgreSQL annule une transaction, et laquelle est imprévisible."
+        },
+        {
+          "term": "Un seul ordre de verrouillage",
+          "detail": "Verrouiller les lignes dans un seul ordre partout, par exemple le plus petit id d’abord, et prendre d’abord le verrou le plus fort."
+        },
+        {
+          "term": "Retry",
+          "detail": "Relancer toute la transaction, pas l’instruction en échec, avec un backoff avec jitter et des tentatives plafonnées."
+        },
+        {
+          "term": "Deadlock ou contention",
+          "detail": "Une simple attente de verrou se termine quand le détenteur commit ; un deadlock ne se termine jamais tout seul."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Au pic, quelques checkouts de packs échouent avec l’erreur `40P01` au bout d’environ une seconde. Chacun verrouille deux lignes produits pour réserver le stock. Que se passe-t-il, et comment l’arrêtez-vous ?",
+        "bridge": "Deux transactions ont verrouillé les mêmes lignes dans l’ordre inverse et se sont attendues : un deadlock, trouvé après `deadlock_timeout`. Un seul ordre de verrouillage le corrige."
+      },
+      {
+        "question": "Comment diagnostiquez-vous un deadlock dans PostgreSQL après coup, et pourquoi garder un retry même après avoir corrigé l’ordre de verrouillage ?",
+        "bridge": "Le détail de l’erreur et le log serveur nomment les processus et les verrous ; la prévention réduit les risques, et rejouer toute la transaction gère le reste."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux verrouillent les produits d’un checkout de pack, et les paniers les listent dans n’importe quel ordre. Lequel ne peut pas faire de deadlock ?",
+        "why": "Trier les ids fait verrouiller les paniers [7, 9] et [9, 7] dans le même ordre, donc le second checkout attend simplement le premier. Dans l’ordre du panier, l’un tient 7 et veut 9 pendant que l’autre tient 9 et veut 7 : PostgreSQL détecte le cycle après `deadlock_timeout` et en annule un avec `40P01`."
+      }
+    ]
+  },
+  "db-clustered-index": {
+    "topic": "Index clustered et index secondaires",
+    "question": "Quelle est la différence entre un index clustered et un index non clustered ?",
+    "answer": "Un index clustered stocke les lignes de la table elles-mêmes dans l’ordre de l’index, donc les feuilles du B-tree sont les lignes. Un index non clustered, ou secondaire, est une structure à part dont les entrées pointent vers les lignes. Dans MySQL InnoDB, la clé primaire est l’index clustered, et les index secondaires stockent la clé primaire, donc une recherche par eux cherche deux fois. SQL Server laisse choisir l’index clustered. PostgreSQL n’en a pas : les lignes sont dans un heap non ordonné et tout index est secondaire ; `CLUSTER` réordonne la table une fois, mais les nouvelles lignes ne suivent pas. Donc en InnoDB, je garde une clé primaire courte et croissante.",
+    "keyPoints": [
+      "Clustered : lignes stockées dans l’ordre de l’index, un par table",
+      "Secondaire : une structure à part qui pointe vers les lignes",
+      "InnoDB regroupe par clé primaire ; PostgreSQL utilise un heap",
+      "`CLUSTER` dans PostgreSQL est un réordonnancement ponctuel"
+    ],
+    "explanation": "La question vérifie que tu sais comment les données sont stockées, et que la réponse dépend du moteur. Les seniors disent que PostgreSQL n’a pas d’index clustered, expliquent pourquoi une clé de clustering doit être courte et croissante, et font le lien avec les index couvrants.",
+    "example": "Un développeur venu de MySQL proposait des clés primaires UUIDv4 aléatoires pour les commandes exposées dans les URL. Mesuré sur PostgreSQL avec 1 million de lignes, l’index de clé primaire en UUIDv4 faisait 38 Mo, contre 30 Mo avec des UUIDv7 ordonnés dans le temps et 21 Mo avec un bigint. L’équipe a gardé une clé primaire bigint et ajouté une colonne `public_id` en UUIDv7 avec un index unique pour les URL.",
+    "mistakes": [
+      "Dire que PostgreSQL garde une table triée après `CLUSTER` : les lignes nouvelles et modifiées vont là où il y a de la place",
+      "Utiliser une clé de clustering longue ou aléatoire dans InnoDB, que chaque index secondaire stocke aussi",
+      "Supposer que toutes les bases regroupent les tables par leur clé primaire"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi une table ne peut-elle avoir qu’un seul index clustered ?",
+        "answer": "Parce que les lignes elles-mêmes ne peuvent être stockées que dans un seul ordre : l’index clustered, c’est la table. Tout autre index doit être une structure à part qui pointe vers ces lignes, et c’est exactement ce qu’est un index secondaire."
+      },
+      {
+        "question": "Quel effet a une clé de clustering UUID aléatoire sur les insertions ?",
+        "answer": "Les nouvelles clés aléatoires tombent n’importe où dans le B-tree au lieu de la fin, donc les insertions touchent des pages au hasard et coupent les pages pleines, en les laissant à moitié vides : MySQL documente des insertions en ordre aléatoire qui remplissent les pages de 1/2 à 15/16. Un UUIDv7 ordonné dans le temps ou un bigint ajoute à la fin."
+      },
+      {
+        "question": "Qu’est-ce qu’un index couvrant, et comment évite-t-il les recherches ?",
+        "answer": "Il contient toutes les colonnes dont une requête a besoin, donc la base répond depuis l’index sans visiter la table. Dans PostgreSQL, j’ajoute des colonnes avec `INCLUDE` et j’obtiens un Index Only Scan ; dans InnoDB, un index secondaire porte déjà la clé primaire, donc une requête qui n’a besoin que de ces colonnes saute la recherche dans l’index clustered."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Quand une table MySQL InnoDB a une clé primaire, cette clé est son index clustered.",
+        "why": "InnoDB stocke les lignes dans le B-tree de la clé primaire ; sans clé primaire, il utilise le premier index unique NOT NULL, ou un id de ligne caché.",
+        "twin": {
+          "statement": "Une table MySQL InnoDB avec une clé primaire stocke ses lignes dans un heap, à part de l’index de clé primaire.",
+          "why": "InnoDB stocke les lignes dans le B-tree de la clé primaire : la clé primaire est l’index clustered."
+        }
+      },
+      {
+        "statement": "Après `CLUSTER orders USING orders_customer_idx`, PostgreSQL stocke les nouvelles lignes dans l’ordre de cet index.",
+        "why": "La documentation décrit le clustering comme une opération ponctuelle : les insertions et mises à jour suivantes ne sont pas stockées dans l’ordre de l’index.",
+        "twin": {
+          "statement": "Après `CLUSTER orders USING orders_customer_idx`, les nouvelles lignes ne sont pas stockées dans l’ordre de cet index.",
+          "why": "La documentation décrit le clustering comme une opération ponctuelle : les insertions et mises à jour suivantes ne suivent pas l’ordre de l’index."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un index clustered stocke les lignes de la table dans l’ordre de l’index, alors qu’un index secondaire pointe vers des lignes stockées ailleurs. Les bases diffèrent : InnoDB regroupe par clé primaire, PostgreSQL utilise un heap.",
+      "points": [
+        "Un index clustered stocke les lignes de la table dans l’ordre de l’index : ses pages feuilles sont les lignes. Une table en a au plus un, car les lignes ne peuvent être stockées que dans un seul ordre.",
+        "Un index non clustered, ou secondaire, est une structure à part dont les entrées pointent vers les lignes. Une recherche trouve l’entrée, puis va chercher la ligne.",
+        "MySQL InnoDB regroupe chaque table par sa clé primaire, et chaque entrée d’index secondaire stocke cette clé, donc une clé primaire courte et croissante garde tous les index petits.",
+        "PostgreSQL stocke les lignes dans un heap non ordonné et tout index est secondaire. `CLUSTER` réordonne la table une fois ; les insertions et mises à jour suivantes ne suivent pas cet ordre.",
+        "Un index couvrant contient toutes les colonnes dont une requête a besoin, donc la table n’est pas lue du tout : `INCLUDE` dans PostgreSQL donne un Index Only Scan."
+      ],
+      "takeaways": [
+        {
+          "term": "Index clustered",
+          "detail": "Ses pages feuilles sont les lignes. Au plus un par table, puisque les lignes ont un seul ordre de stockage."
+        },
+        {
+          "term": "Index secondaire",
+          "detail": "Une structure à part dont les entrées pointent vers les lignes : trouver l’entrée, puis aller chercher la ligne."
+        },
+        {
+          "term": "MySQL InnoDB",
+          "detail": "Regroupe par clé primaire, et les entrées secondaires stockent cette clé : garde-la courte et croissante."
+        },
+        {
+          "term": "SQL Server",
+          "detail": "Laisse choisir quel index est l’index clustered."
+        },
+        {
+          "term": "Heap PostgreSQL",
+          "detail": "Lignes non ordonnées, tout index secondaire. `CLUSTER` réordonne une fois ; les écritures suivantes ne suivent pas."
+        },
+        {
+          "term": "Index couvrant",
+          "detail": "Contient toutes les colonnes dont la requête a besoin ; `INCLUDE` donne un Index Only Scan dans PostgreSQL."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Une équipe venue de MySQL a lancé `CLUSTER orders USING orders_customer_idx` une fois ; des mois plus tard, les recherches par client lisent de nouveau beaucoup plus de pages. Pourquoi ?",
+        "bridge": "PostgreSQL n’a pas d’index clustered : `CLUSTER` réordonne le heap une fois, et les nouvelles lignes ne suivent pas l’ordre de l’index."
+      },
+      {
+        "question": "Pourquoi une clé primaire longue et aléatoire compte-t-elle plus pour l’ordre des lignes dans MySQL InnoDB que dans PostgreSQL ?",
+        "bridge": "InnoDB stocke les lignes dans le B-tree de la clé primaire et les index secondaires stockent cette clé ; PostgreSQL garde les lignes dans un heap et tout index est secondaire."
+      }
+    ]
+  },
+  "db-key-value": {
+    "topic": "Base relationnelle ou clé-valeur",
+    "question": "Comment choisissez-vous entre une base relationnelle et un store clé-valeur comme Redis ?",
+    "answer": "Une base relationnelle stocke des lignes typées, les joint, impose des contraintes et exécute des transactions sur plusieurs lignes, et chaque commit est durable. Un store clé-valeur comme Redis associe une clé à une valeur, comme une chaîne, un hash, une liste ou un sorted set, et répond très vite parce qu’il garde les données en mémoire, mais il ne trouve les données que par clé, sans jointures ni clés étrangères, et sa persistance peut perdre les écritures récentes. Donc je garde la source de vérité dans PostgreSQL et j’utilise Redis pour des données lues par clé que je peux reconstruire ou me permettre de perdre : un cache, des sessions, des compteurs de rate limiting, des files et des classements.",
+    "keyPoints": [
+      "Relationnel : jointures, contraintes, transactions, commits durables",
+      "Clé-valeur : accès par clé uniquement, en mémoire, très rapide",
+      "PostgreSQL comme source de vérité, Redis à côté",
+      "Redis pour caches, sessions, compteurs, files"
+    ],
+    "explanation": "La question vérifie que tu choisis un store selon ses garanties et ses schémas d’accès. Les seniors présentent honnêtement la persistance de Redis, et décrivent comment un cache reste cohérent avec la base au lieu de juste « ajouter Redis ».",
+    "example": "Pendant la vente, les pages produits sollicitaient PostgreSQL des milliers de fois par seconde pour les mêmes quelques produits. L’API Orders a mis une couche cache-aside dans Redis avec un TTL de 5 minutes et supprimait la clé d’un produit après chaque changement de prix, et les lectures PostgreSQL sur les produits ont perdu l’essentiel de leur volume. Le rate limiting du login est passé sur des compteurs Redis avec `INCR` et `EXPIRE`.",
+    "mistakes": [
+      "Traiter Redis comme aussi durable que PostgreSQL par défaut",
+      "Stocker des données relationnelles dans Redis et reconstruire jointures et contraintes dans le code",
+      "Ajouter un cache sans TTL ni plan d’invalidation"
+    ],
+    "followUps": [
+      {
+        "question": "Comment garderiez-vous un cache cohérent avec la base ?",
+        "answer": "Cache-aside : je lis Redis, et sur un miss je lis PostgreSQL et je stocke la valeur avec un TTL. Sur une écriture, je commite d’abord, puis je supprime la clé plutôt que de l’écraser, pour que deux écrivains en concurrence ne puissent pas laisser l’ancienne valeur. Le TTL borne tout ce qu’une invalidation rate."
+      },
+      {
+        "question": "Comment la durabilité de Redis se compare-t-elle à celle d’une base relationnelle ?",
+        "answer": "Redis garde les données en mémoire et les persiste avec des snapshots RDB, qui peuvent perdre des minutes d’écritures, ou avec l’append-only file, fsyncé chaque seconde par défaut, qui peut perdre environ une seconde. PostgreSQL écrit chaque commit dans son WAL avant de l’acquitter. La réplication Redis est en plus asynchrone."
+      },
+      {
+        "question": "Quand Redis serait-il le store principal plutôt qu’un cache ?",
+        "answer": "Quand les données tiennent en mémoire, sont lues par clé, et que perdre une seconde d’écritures est acceptable : sessions, rate limiting, un classement sur un sorted set, une file de jobs. J’active l’append-only file et un réplica, et je garde tout ce qui a une valeur financière ou légale dans PostgreSQL."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Avec l’append-only file activé et sa politique de fsync par défaut, un crash de Redis peut perdre environ une seconde d’écritures.",
+        "why": "Le défaut `appendfsync everysec` écrit le fichier sur disque une fois par seconde.",
+        "twin": {
+          "statement": "Avec l’append-only file et sa politique de fsync par défaut, un crash de Redis ne perd aucune écriture acquittée.",
+          "why": "Le défaut `appendfsync everysec` écrit le fichier sur disque une fois par seconde, donc environ une seconde d’écritures peut être perdue."
+        }
+      },
+      {
+        "statement": "Redis peut imposer une clé étrangère entre deux clés.",
+        "why": "Redis n’a aucune contrainte entre clés ; c’est l’application qui garde correctes les références entre clés.",
+        "twin": {
+          "statement": "Redis ne peut pas imposer de clé étrangère entre deux clés.",
+          "why": "Redis n’a aucune contrainte entre clés ; c’est l’application qui garde correctes les références entre clés."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une base relationnelle offre jointures, contraintes et transactions durables ; un store clé-valeur comme Redis offre des accès très rapides par clé depuis la mémoire. La plupart des backends utilisent les deux, chacun pour ce qu’il fait de mieux.",
+      "points": [
+        "Une base relationnelle stocke des lignes typées, les joint, impose des contraintes et exécute des transactions sur plusieurs lignes ; chaque commit est écrit dans le write-ahead log avant d’être acquitté.",
+        "Un store clé-valeur associe une clé à une valeur. Redis garde tout en mémoire et propose des types : strings, hashes, lists, sets, sorted sets. On ne trouve les données que par clé : pas de jointures, pas de clés étrangères.",
+        "Persistance Redis : les snapshots RDB à intervalles peuvent perdre des minutes d’écritures ; l’append-only file (AOF), fsyncé chaque seconde par défaut, peut perdre environ une seconde.",
+        "Donc PostgreSQL tient la source de vérité, et Redis tient ce qui est lu par clé et peut être reconstruit : un cache, des sessions, des compteurs de rate limiting, des files, des classements.",
+        "Cache-aside : lire Redis ; sur un miss, lire PostgreSQL et stocker avec un TTL. Sur une écriture, commiter, puis supprimer la clé."
+      ],
+      "takeaways": [
+        {
+          "term": "Relationnel",
+          "detail": "Lignes typées, jointures, contraintes, transactions multi-lignes ; chaque commit passe par le WAL avant d’être acquitté."
+        },
+        {
+          "term": "Clé-valeur",
+          "detail": "On ne trouve les données que par clé : pas de jointures, pas de clés étrangères."
+        },
+        {
+          "term": "Types Redis",
+          "detail": "Strings, hashes, lists, sets et sorted sets, tous gardés en mémoire."
+        },
+        {
+          "term": "Persistance Redis",
+          "detail": "Les snapshots RDB peuvent perdre des minutes d’écritures ; l’AOF, fsyncé chaque seconde par défaut, environ une seconde."
+        },
+        {
+          "term": "Qui tient quoi",
+          "detail": "PostgreSQL est la source de vérité ; Redis tient les données reconstructibles : cache, sessions, compteurs, files."
+        },
+        {
+          "term": "Cache-aside",
+          "detail": "Lire Redis ; sur un miss, lire PostgreSQL et stocker avec un TTL. Sur une écriture, commiter, puis supprimer la clé."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le rate limiter du login garde les compteurs de tentatives dans une table PostgreSQL qui encaisse 3 000 mises à jour par seconde au pic. Un collègue propose Redis. Est-ce un bon choix ?",
+        "bridge": "Les compteurs de rate limiting sont lus par clé et peuvent être perdus sans dommage : le terrain idéal d’un store clé-valeur, tandis que les commandes restent dans PostgreSQL."
+      },
+      {
+        "question": "Un collègue veut déplacer les commandes de PostgreSQL vers Redis « parce que c’est plus rapide ». Que lui répondez-vous ?",
+        "bridge": "Redis ne trouve les données que par clé, n’a aucune contrainte entre clés et sa persistance peut perdre les écritures récentes, donc la source de vérité reste relationnelle."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux mettent à jour le prix d’un produit et son entrée cache-aside dans Redis. Lequel ne peut pas laisser un ancien prix en cache ?",
+        "why": "Supprimer la clé après le commit fait que la lecture suivante rate le cache et charge la ligne actuelle depuis PostgreSQL. L’écraser laisse deux changements de prix concurrents finir dans le mauvais ordre : un écrivain qui a chargé le produit avant l’autre mise à jour le stocke en dernier, et les clients voient l’ancien prix jusqu’à l’expiration du TTL."
+      }
+    ]
+  }
+}

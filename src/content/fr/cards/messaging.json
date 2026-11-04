@@ -1,0 +1,918 @@
+{
+  "msg-queues": {
+    "topic": "Files de messages",
+    "question": "Qu’est-ce qu’une file de messages, et pourquoi l’utiliser plutôt qu’un appel synchrone direct ?",
+    "answer": "Une file de messages, c’est un broker qui stocke les messages d’un producteur jusqu’à ce qu’un consommateur les traite et les acquitte. Au lieu d’appeler le service d’e-mail ou de stock dans la requête, je commite l’état essentiel, je pose un message dans la file et je réponds. Ça découple les services : une panne d’e-mail retarde les e-mails au lieu de faire échouer les paiements. Ça lisse la charge, parce que les consommateurs absorbent un pic à leur rythme, et les messages en échec sont rejoués automatiquement. Le prix : la cohérence à terme, les livraisons en double, donc des consommateurs idempotents, et un système de plus à faire tourner et à surveiller. Je garde l’appel synchrone quand l’appelant a besoin de la réponse tout de suite.",
+    "keyPoints": [
+      "Le broker stocke les messages jusqu’au traitement et à l’ack",
+      "Découplage : un consommateur lent ou en panne ne fait pas échouer la requête",
+      "Lissage de la charge et retries automatiques",
+      "Coûts : cohérence à terme, doublons, un broker à exploiter"
+    ],
+    "explanation": "Les recruteurs vérifient que tu sais quand la messagerie asynchrone aide et ce qu’elle coûte. Une réponse senior nomme le compromis (cohérence à terme, livraison at-least-once, consommateurs idempotents) et dit quand un simple appel synchrone reste le bon choix.",
+    "example": "Le webhook de paiement de l’API Orders envoyait l’e-mail de confirmation, mettait à jour le stock et ajoutait les points de fidélité avant de répondre : 1,5 seconde, et un échec dès que le fournisseur d’e-mail tombait. L’équipe n’a gardé que le statut payé dans la requête et a déplacé le reste vers une file et un événement `order.paid`. Le webhook répond maintenant en 80 ms environ, et une panne d’e-mail ne fait que retarder les e-mails.",
+    "mistakes": [
+      "Présenter une file comme gratuite : oublier les doublons, la cohérence à terme et le broker à surveiller",
+      "Mettre en file un travail dont l’utilisateur a besoin dans la même réponse, comme l’autorisation de paiement elle-même",
+      "Écrire des consommateurs non idempotents, si bien qu’une relivraison crédite les points ou envoie un e-mail deux fois"
+    ],
+    "followUps": [
+      {
+        "question": "File de messages ou publish/subscribe : quelle est la différence ?",
+        "answer": "Dans une file, les consommateurs sont en concurrence : chaque message va à un seul d’entre eux, ce qui convient aux commandes comme « envoie cet e-mail ». En pub/sub, chaque abonné reçoit sa propre copie, ce qui convient aux événements comme `order.paid`, auquel le stock, la fidélité et l’analytics réagissent tous. SNS qui diffuse vers des files SQS, ou les consumer groups Kafka, font du pub/sub."
+      },
+      {
+        "question": "Comment gérez-vous un message qui échoue en boucle ?",
+        "answer": "Je le rejoue un nombre limité de fois avec backoff, puis je le déplace dans une dead letter queue pour qu’il arrête de bloquer ou de consommer des ressources. La DLQ déclenche une alerte, quelqu’un cherche la cause, déploie un correctif et rejoue les messages. Les erreurs qu’aucun retry ne corrige, comme un payload invalide, vont tout de suite en DLQ."
+      },
+      {
+        "question": "Comment une file lisse-t-elle la charge pendant un pic de trafic ?",
+        "answer": "Les producteurs écrivent au rythme du trafic, et la file absorbe le pic. Les consommateurs lisent au rythme que leurs propres dépendances supportent, donc la base voit une charge stable au lieu du pic. Je surveille la profondeur de la file et l’âge du plus vieux message, et j’ajoute des consommateurs quand le retard ne cesse de grossir."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Avec une file de messages standard, un consommateur peut recevoir le même message plusieurs fois.",
+        "why": "La livraison est at-least-once : un consommateur qui plante après le travail mais avant l’acquittement reçoit à nouveau le message.",
+        "twin": {
+          "statement": "Avec une file de messages standard, chaque message est livré à un consommateur exactement une fois.",
+          "why": "La livraison est at-least-once : un consommateur qui plante après le travail mais avant l’acquittement reçoit à nouveau le message."
+        }
+      },
+      {
+        "statement": "Déplacer du travail vers une file rend le système fortement cohérent, parce que chaque message finit par être traité.",
+        "why": "Finir par être traité, c’est être cohérent à terme : pendant un moment, les autres services et les utilisateurs voient l’état d’avant le traitement du message.",
+        "twin": {
+          "statement": "Déplacer du travail vers une file rend le système cohérent à terme : pendant un moment, les autres voient l’état d’avant le traitement du message.",
+          "why": "Les messages sont traités plus tard, donc les autres services et les utilisateurs peuvent lire l’ancien état d’ici là."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une file de messages est un broker qui stocke les messages d’un producteur jusqu’à ce qu’un consommateur les traite et les acquitte. Elle permet à une requête de commiter l’essentiel et de confier le reste à un traitement en arrière-plan : les services lents ne font plus échouer les requêtes.",
+      "points": [
+        "Une file de messages est un broker qui stocke les messages d’un producteur jusqu’à ce qu’un consommateur les traite. Le consommateur acquitte chaque message une fois le travail fait, et le broker le supprime alors.",
+        "Elle découple les services : la requête commite l’état essentiel, met le reste en file et répond. Un consommateur lent ou en échec retarde son travail au lieu de faire échouer la requête.",
+        "Elle lisse la charge : un pic remplit la file, et les consommateurs la vident à rythme constant. Un message dont le traitement échoue est relivré plus tard, sans que personne ne clique sur « réessayer ».",
+        "Dans une file, les consommateurs sont en concurrence et chaque message va à un seul d’entre eux. En publish/subscribe, chaque abonné reçoit sa propre copie de chaque événement.",
+        "Les coûts : la cohérence à terme, les livraisons en double (les consommateurs doivent donc être idempotents) et un broker à exploiter. Garde un appel synchrone quand l’appelant a besoin de la réponse tout de suite."
+      ],
+      "takeaways": [
+        {
+          "term": "Acquittement",
+          "detail": "Le consommateur acquitte chaque message une fois le travail fait, et le broker le supprime alors."
+        },
+        {
+          "term": "Découplage",
+          "detail": "Un consommateur lent ou en échec retarde son travail au lieu de faire échouer la requête."
+        },
+        {
+          "term": "Lissage de la charge",
+          "detail": "Un pic remplit la file, et les consommateurs la vident à rythme constant."
+        },
+        {
+          "term": "Retries automatiques",
+          "detail": "Un message dont le traitement échoue est relivré plus tard."
+        },
+        {
+          "term": "File ou pub/sub",
+          "detail": "Dans une file, chaque message va à un seul consommateur en concurrence ; en pub/sub, chaque abonné reçoit une copie."
+        },
+        {
+          "term": "Coûts",
+          "detail": "Cohérence à terme, doublons (consommateurs idempotents), un broker à faire tourner. Reste synchrone quand la réponse est nécessaire tout de suite."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Quand le fournisseur d’e-mail est en panne, `POST /webhooks/payments` échoue et le prestataire de paiement réessaie pendant des heures. Le webhook envoie l’e-mail de confirmation en ligne. Comment le modifieriez-vous ?",
+        "bridge": "Commiter le paiement, mettre l’e-mail dans une file de messages et répondre : une panne d’e-mail retarde alors les e-mails au lieu de faire échouer les paiements."
+      },
+      {
+        "question": "Quand ne mettriez-vous pas de file de messages entre deux services, et que vous coûte-t-elle quand vous le faites ?",
+        "bridge": "Une file convient au travail dont l’appelant n’a pas besoin tout de suite ; elle apporte la cohérence à terme, les livraisons en double et un broker à faire tourner."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux consomment des messages `order.paid` depuis SQS pour envoyer le reçu par e-mail. Laquelle ne perd jamais un reçu quand le worker plante ?",
+        "why": "Supprimer le message, c’est l’acquitter, donc ça vient après le travail : si le pod meurt pendant l’envoi, le message redevient visible et un autre worker envoie le reçu. Supprimer d’abord rend la file at-most-once : un crash entre les deux appels perd ce reçu pour de bon. Le prix de l’ordre sûr, c’est un doublon possible, donc `sendReceipt` doit être idempotent."
+      }
+    ]
+  },
+  "msg-rabbitmq-kafka": {
+    "topic": "RabbitMQ ou Kafka",
+    "question": "En quoi RabbitMQ et Kafka diffèrent-ils, et quand le log distribué de Kafka est-il le meilleur choix ?",
+    "answer": "RabbitMQ est un broker : des exchanges routent chaque message vers des files, les consommateurs l’acquittent, puis il est supprimé. Kafka est un log répliqué et partitionné : les événements sont ajoutés à la fin et conservés pendant une durée de rétention, et chaque consumer group lit à son propre offset. Kafka permet donc à plusieurs équipes de lire le même flux indépendamment et de rejouer le passé, avec un très haut débit et un ordre par partition. RabbitMQ excelle pour les files de tâches, le routage flexible et l’acquittement message par message, et il est plus léger à exploiter. Je prends Kafka pour les flux d’événements partagés entre équipes, l’audit ou le change data capture, et RabbitMQ ou une file managée pour les jobs et les commandes.",
+    "keyPoints": [
+      "RabbitMQ : les exchanges routent vers des files, message supprimé après l’ack",
+      "Kafka : log partitionné conservé pendant la rétention, lu par offset",
+      "Kafka : rejeu et plusieurs consumer groups ; ordre par partition",
+      "Choisir selon le besoin : jobs et routage, ou flux partagés et rejouables"
+    ],
+    "explanation": "La question teste ta compréhension des modèles file et log, pas des noms de marques. Un senior relie le choix au rejeu, aux consumer groups, à l’ordre et au coût d’exploitation, et ne prend pas Kafka pour les jobs en arrière-plan d’un seul service.",
+    "example": "L’API Orders envoyait ses e-mails de confirmation via une file de jobs, et `order.paid` partait dans une file par service consommateur. Quand l’équipe analytics a demandé à relire les événements du mois dernier pour reconstruire un rapport, les files ne pouvaient rien : les messages avaient disparu. L’équipe a déplacé `order.paid` vers un topic Kafka avec l’id de commande comme clé et une rétention de 30 jours, et l’analytics l’a rejoué en réinitialisant les offsets de son groupe.",
+    "mistakes": [
+      "Présenter Kafka comme « un RabbitMQ plus rapide » sans parler de rétention, d’offsets et de rejeu",
+      "Choisir Kafka pour les jobs en arrière-plan d’un seul service, alors qu’une file est plus simple",
+      "Affirmer que l’un ou l’autre donne d’office un traitement exactly-once jusque dans ta base"
+    ],
+    "followUps": [
+      {
+        "question": "Comment le partitionnement de Kafka influe-t-il sur l’ordre ?",
+        "answer": "Kafka ne garantit l’ordre qu’au sein d’une partition, et les événements de même clé vont dans la même partition. Je donne donc l’id de commande comme clé à `order.paid` et aux autres événements de commande : les événements d’une commande restent dans l’ordre, et des commandes différentes sont traitées en parallèle. Il n’y a pas d’ordre global entre partitions."
+      },
+      {
+        "question": "Quand choisiriez-vous RabbitMQ plutôt que Kafka ?",
+        "answer": "Pour les files de tâches et les commandes : e-mails, génération de PDF, appels à un partenaire, où chaque message est traité une fois puis supprimé. Aussi quand j’ai besoin d’un routage flexible avec des exchanges et d’acquittements message par message, à volume modéré, avec moins à exploiter qu’un cluster Kafka."
+      },
+      {
+        "question": "En quoi la sémantique exactly-once diffère-t-elle entre les deux ?",
+        "answer": "Kafka offre l’exactly-once pour le read-process-write entre topics Kafka, avec le producteur idempotent, les transactions et des consommateurs `read_committed` ; vers d’autres systèmes, il faut leur coopération. RabbitMQ donne de l’at-least-once avec les publisher confirms et les acks consommateur. Dans les deux cas, je rends les consommateurs qui écrivent en base idempotents."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans Kafka, un message est supprimé dès qu’un consumer group l’a lu.",
+        "why": "Kafka conserve les messages pendant la durée de rétention du topic, quoi que fassent les consommateurs ; chaque groupe ne fait qu’avancer son propre offset.",
+        "twin": {
+          "statement": "Dans Kafka, un message reste pendant la durée de rétention du topic, même après que tous les consumer groups l’ont lu.",
+          "why": "Chaque groupe ne fait qu’avancer son propre offset ; une lecture ne supprime jamais de message."
+        }
+      },
+      {
+        "statement": "Kafka ne garantit l’ordre qu’au sein d’une partition, pas sur tout un topic.",
+        "why": "Chaque partition est un log ordonné ; des événements de partitions différentes n’ont aucun ordre les uns par rapport aux autres.",
+        "twin": {
+          "statement": "Kafka garantit l’ordre des messages sur toutes les partitions d’un topic.",
+          "why": "Chaque partition est un log ordonné ; des événements de partitions différentes n’ont aucun ordre les uns par rapport aux autres."
+        }
+      },
+      {
+        "statement": "Les publisher confirms et les acquittements consommateur de RabbitMQ garantissent une livraison exactly-once.",
+        "why": "La doc de RabbitMQ dit que les acquittements donnent une livraison at-least-once et que les consommateurs doivent dédupliquer ou être idempotents.",
+        "twin": {
+          "statement": "Les acquittements de RabbitMQ donnent une livraison at-least-once, donc les consommateurs doivent dédupliquer ou être idempotents.",
+          "why": "C’est ce que dit la doc de RabbitMQ : confirms et acquittements ne donnent pas de livraison exactly-once."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "RabbitMQ est un broker qui route les messages vers des files et les supprime une fois acquittés ; Kafka est un log répliqué qui conserve les événements pendant une durée de rétention. Le choix suit le besoin : jobs et routage, ou flux partagés et rejouables.",
+      "points": [
+        "RabbitMQ est un broker : les producteurs publient vers un exchange, qui route chaque message vers des files selon des règles. Un consommateur acquitte le message après traitement, et la file le supprime.",
+        "Kafka est un log répliqué : un topic est découpé en partitions, les événements sont ajoutés à la fin et conservés pendant une durée de rétention. Chaque consumer group lit à sa propre position, l’offset.",
+        "Comme Kafka conserve les événements, plusieurs équipes lisent le même flux indépendamment et peuvent le rejouer. Kafka garde l’ordre au sein d’une partition, et les événements de même clé atterrissent dans la même partition.",
+        "L’exactly-once de Kafka couvre le read-process-write entre topics Kafka (transactions). Les acks de RabbitMQ donnent de l’at-least-once. Les effets dans ta base exigent toujours des consommateurs idempotents.",
+        "Prends une file (RabbitMQ, SQS) pour les jobs, les commandes et le routage ; prends Kafka pour les flux d’événements partagés entre équipes, l’audit, le rejeu et le change data capture."
+      ],
+      "takeaways": [
+        {
+          "term": "Exchange RabbitMQ",
+          "detail": "Route chaque message publié vers des files selon des règles ; la file le supprime après l’ack du consommateur."
+        },
+        {
+          "term": "Partition Kafka",
+          "detail": "Un topic est découpé en partitions ; les événements sont ajoutés à la fin et conservés pendant la rétention."
+        },
+        {
+          "term": "Offset du consumer group",
+          "detail": "Chaque groupe lit à sa propre position : les équipes lisent le même flux indépendamment et peuvent le rejouer."
+        },
+        {
+          "term": "Ordre dans Kafka",
+          "detail": "Garanti au sein d’une partition ; les événements de même clé atterrissent dans la même partition."
+        },
+        {
+          "term": "Exactly-once",
+          "detail": "Les transactions Kafka couvrent le read-process-write entre topics ; les effets en base exigent toujours des consommateurs idempotents."
+        },
+        {
+          "term": "Lequel choisir",
+          "detail": "RabbitMQ ou SQS pour les jobs, les commandes et le routage ; Kafka pour les flux partagés, l’audit, le rejeu et le CDC."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’analytics, l’antifraude et le data warehouse veulent chacun tous les événements `order.paid`, et l’analytics veut rejouer le mois dernier après un correctif. Votre broker supprime les messages après l’ack. Que choisiriez-vous ?",
+        "bridge": "Un log répliqué comme Kafka conserve les événements pendant une durée de rétention, et chaque consumer group lit et rejoue à son propre offset."
+      },
+      {
+        "question": "Un collègue dit que Kafka n’est qu’un RabbitMQ plus rapide. En quoi les deux modèles diffèrent-ils vraiment, et quand RabbitMQ est-il le meilleur choix ?",
+        "bridge": "Un broker qui route vers des files et supprime après l’ack, face à un log partitionné lu par offset : RabbitMQ pour les jobs et le routage, Kafka pour les flux partagés et rejouables."
+      }
+    ]
+  },
+  "msg-dead-letter": {
+    "topic": "Dead letter queues",
+    "question": "Qu’est-ce qu’une dead letter queue, et pourquoi est-ce important ?",
+    "answer": "Une dead letter queue, c’est l’endroit où le broker déplace un message qui a échoué trop de fois, un message empoisonné, au lieu de le rejouer indéfiniment. Dans SQS, une redrive policy fixe `maxReceiveCount`, le nombre de réceptions avant le déplacement ; les quorum queues de RabbitMQ font du dead-lettering après une limite de livraisons. C’est important parce qu’un message empoisonné, sinon, bloque ou ralentit la file et consomme des ressources à chaque retry, pendant que les messages sains attendent. Mais une DLQ n’aide que si elle déclenche une alerte et que quelqu’un porte un runbook : trouver la cause, déployer un correctif, puis rejouer les messages dans la file principale.",
+    "keyPoints": [
+      "Garde les messages qui ont échoué plus de N fois (messages empoisonnés)",
+      "Empêche les retries sans fin de bloquer les messages sains",
+      "Se configure par un nombre de réceptions ou une limite de livraisons",
+      "Exige une alerte, un responsable et un runbook de rejeu"
+    ],
+    "explanation": "Les recruteurs veulent entendre que la gestion des échecs est conçue, pas laissée au broker. Une réponse senior couvre l’alerte, la limite de retries, la différence entre erreurs transitoires et permanentes, et la façon de rejouer les messages sans risque.",
+    "example": "Après un déploiement, le service de fidélité plantait sur des événements `order.paid` sans champ devise et les rejouait en boucle, pendant que 40 000 événements sains s’empilaient derrière. L’équipe a réglé `maxReceiveCount` à 5 avec une DLQ et une alarme ; l’événement défectueux suivant est parti en DLQ après cinq essais et le flux a continué. Une fois le parseur corrigé, les 120 événements en DLQ ont été rejoués en quelques minutes.",
+    "mistakes": [
+      "Ajouter une DLQ que personne ne surveille, si bien que des commandes en échec y dorment en silence jusqu’à ce que la rétention les supprime",
+      "Rejouer les erreurs permanentes, comme un payload invalide, autant de fois que les erreurs transitoires",
+      "Rejouer les messages de la DLQ vers un consommateur qui n’est pas idempotent"
+    ],
+    "followUps": [
+      {
+        "question": "Comment alerteriez-vous quand des messages arrivent dans la DLQ ?",
+        "answer": "Une alarme dès qu’un message y est présent. Sur SQS, AWS recommande une alarme CloudWatch sur `ApproximateNumberOfMessagesVisible` de la DLQ ; je la déclenche au-dessus de zéro et j’alerte l’équipe responsable avec un lien vers le runbook. Je logge aussi la raison de l’échec avec l’id du message, pour que l’alerte dise pourquoi."
+      },
+      {
+        "question": "Comment choisiriez-vous la limite de retries avant la DLQ ?",
+        "answer": "D’après la durée des échecs transitoires : les retries, espacés avec backoff, doivent couvrir un raté typique de la dépendance, disons une minute. Trop bas, une courte panne inonde la DLQ ; trop haut, un message empoisonné gaspille du travail longtemps. Les erreurs permanentes sautent les retries et vont tout de suite en DLQ."
+      },
+      {
+        "question": "Comment retraiteriez-vous sans risque les messages de la DLQ après un correctif ?",
+        "answer": "Je déploie le correctif, je le teste sur quelques messages, puis je rejoue le reste vers la file principale à débit limité. Les consommateurs doivent être idempotents, car certains messages ont pu être appliqués en partie. Je vérifie que les vieux messages sont encore valides, par exemple une commande remboursée depuis, et je garde la DLQ jusqu’à ce que le retard soit résorbé."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Sur SQS, un `maxReceiveCount` de 1 envoie un message dans la dead letter queue après une seule réception en échec.",
+        "why": "AWS donne cet exemple précis et conseille une valeur assez haute pour permettre suffisamment de retries.",
+        "twin": {
+          "statement": "Sur SQS, un `maxReceiveCount` de 1 laisse quand même un message être rejoué plusieurs fois avant d’atteindre la dead letter queue.",
+          "why": "Avec 1, une seule réception en échec le déplace ; AWS conseille une valeur assez haute pour permettre suffisamment de retries."
+        }
+      },
+      {
+        "statement": "Un message dans une dead letter queue est conservé pour toujours, donc rien ne presse pour le traiter.",
+        "why": "Une DLQ a une durée de rétention comme toute file ; sur les files SQS standard, elle court même depuis la mise en file d’origine, donc règle-la plus longue que celle de la file source.",
+        "twin": {
+          "statement": "Une dead letter queue a une durée de rétention, donc ses messages finissent par être supprimés si personne ne s’en occupe.",
+          "why": "Sur les files SQS standard, elle court même depuis la mise en file d’origine, donc règle-la plus longue que celle de la file source."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une dead letter queue reçoit les messages qui ont échoué trop de fois, pour qu’un message empoisonné arrête de bloquer les messages sains. Elle n’aide que si quelqu’un est alerté et sait corriger et rejouer ce qui y arrive.",
+      "points": [
+        "Un message empoisonné échoue à chaque fois, par exemple un événement avec un champ que le consommateur ne sait pas parser. Rejoué indéfiniment, il gaspille du travail et peut retenir les messages sains.",
+        "Une dead letter queue (DLQ) reçoit les messages qui ont échoué trop de fois. Sur SQS, une redrive policy fixe `maxReceiveCount`, le nombre de réceptions avant le déplacement.",
+        "Rejoue les erreurs transitoires (timeouts, 503) avec backoff ; envoie les erreurs permanentes (payload invalide) en DLQ tout de suite, puisqu’aucun retry ne peut les corriger.",
+        "Une DLQ n’est utile qu’avec une alerte sur sa taille, un responsable et un runbook : trouver la cause, déployer un correctif, puis rejouer (redrive) les messages dans la file principale.",
+        "Les messages rejoués arrivent à nouveau, donc les consommateurs doivent être idempotents. Sur SQS, règle la rétention de la DLQ plus longue que celle de la file source, sinon les messages expirent avant le rejeu."
+      ],
+      "takeaways": [
+        {
+          "term": "Message empoisonné",
+          "detail": "Échoue à chaque fois, comme un événement avec un champ que le consommateur ne sait pas parser."
+        },
+        {
+          "term": "`maxReceiveCount`",
+          "detail": "Dans une redrive policy SQS, le nombre de réceptions avant que le message parte en DLQ."
+        },
+        {
+          "term": "Transitoire ou permanente",
+          "detail": "Rejouer les timeouts et les 503 avec backoff ; envoyer les payloads invalides en DLQ tout de suite."
+        },
+        {
+          "term": "Runbook",
+          "detail": "Alerte sur la taille de la DLQ, un responsable, puis trouver la cause, déployer un correctif et rejouer vers la file principale."
+        },
+        {
+          "term": "Consommateurs idempotents",
+          "detail": "Les messages rejoués arrivent à nouveau, donc traiter deux fois doit être sans effet."
+        },
+        {
+          "term": "Rétention de la DLQ sur SQS",
+          "detail": "Plus longue que celle de la file source, sinon les messages expirent avant le rejeu."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un message `order.paid` mal formé est rejoué toutes les quelques secondes depuis hier soir, et les mises à jour de stock en file derrière lui ont des heures de retard. Que manquait-il à la file ?",
+        "bridge": "Une dead letter queue : après un nombre de réceptions ou une limite de livraisons, le message empoisonné est mis de côté et les messages sains circulent à nouveau."
+      },
+      {
+        "question": "Un collègue dit : « On a une DLQ, donc les échecs sont gérés. » Que manque-t-il à ce raisonnement ?",
+        "bridge": "Une DLQ ne fait que garer les messages empoisonnés ; il lui faut une alerte, un responsable et un runbook pour corriger la cause et rejouer les messages."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux traitent un message `order.paid` dans le consommateur fidélité ; une erreur levée fait relivrer SQS. Laquelle arrête de rejouer un payload qui ne peut jamais passer ?",
+        "why": "Un payload invalide échoue de la même façon à chaque tentative, donc il part tout de suite en dead letter queue avec son erreur, tandis que les timeouts et les 503 lèvent toujours une erreur et sont rejoués. Dans l’autre version, un message mal formé est reçu encore et encore, à un visibility timeout d’intervalle, jusqu’à `maxReceiveCount` : du travail gaspillé, et une alerte tardive pour un problème qu’aucun retry ne pouvait corriger."
+      }
+    ]
+  },
+  "msg-circuit-breaker": {
+    "topic": "Circuit breakers",
+    "question": "Qu’est-ce qu’un circuit breaker, et quand l’utiliseriez-vous ?",
+    "answer": "Un circuit breaker enveloppe les appels à une dépendance et arrête de l’appeler quand elle échoue en continu. Fermé, les appels passent et les échecs sont comptés. Quand les échecs dépassent un seuil, il s’ouvre : chaque appel échoue immédiatement pendant un moment, sans toucher le réseau. Après ce timeout, il passe en semi-ouvert et laisse passer quelques appels d’essai ; s’ils réussissent il se ferme, si l’un échoue il se rouvre. Je l’utilise sur une dépendance distante appelée à chaque requête, comme le prestataire de paiement ou le transporteur, pour qu’une panne donne des erreurs rapides ou un fallback au lieu de requêtes bloquées sur des timeouts, et que la dépendance ait de la marge pour se rétablir.",
+    "keyPoints": [
+      "Fermé : les appels passent, les échecs sont comptés",
+      "Ouvert : les appels échouent immédiatement pendant un timeout",
+      "Semi-ouvert : quelques appels d’essai décident de fermer ou de rouvrir",
+      "Échoue vite, protège nos ressources et laisse la dépendance se rétablir"
+    ],
+    "explanation": "C’est une question classique de résilience. Une réponse senior explique les trois états, dit pourquoi échouer vite protège les propres ressources de l’appelant, et situe le breaker par rapport aux retries et aux timeouts plutôt que comme leur remplaçant.",
+    "example": "Quand l’API du transporteur est tombée dix minutes pendant des soldes, chaque checkout attendait un timeout de 3 secondes et l’API Orders a manqué de connexions. L’équipe a enveloppé les appels au transporteur dans un breaker qui s’ouvre après 5 échecs consécutifs et réessaie après 10 secondes, avec un fallback qui affiche « date de livraison confirmée par e-mail ». À la panne suivante, les checkouts répondaient toujours en moins de 200 ms.",
+    "mistakes": [
+      "Utiliser un breaker sans timeout par appel, si bien que les appels lents s’accumulent encore avant qu’il ne se déclenche",
+      "Partager un seul breaker entre des endpoints ou des shards indépendants, si bien qu’une partie en échec bloque les parties saines",
+      "Compter toute erreur comme un échec, y compris un `404` ou un `422` qui ne dit rien de la santé de la dépendance"
+    ],
+    "followUps": [
+      {
+        "question": "Comment s’enchaînent les états fermé, ouvert et semi-ouvert ?",
+        "answer": "Fermé compte les échecs récents ; au-delà du seuil, il s’ouvre et lance un timer. Ouvert fait échouer chaque appel tout de suite. Quand le timer expire, il passe en semi-ouvert et laisse passer un nombre limité d’appels : assez de succès le ferment et remettent le compteur à zéro, un échec le rouvre et relance le timer."
+      },
+      {
+        "question": "Comment choisissez-vous le seuil d’échec et le timeout ?",
+        "answer": "D’après le comportement normal de la dépendance : un taux d’échec bien au-dessus de ses erreurs habituelles, sur une fenêtre de temps avec un nombre minimal d’appels, pour que deux échecs sur trois ne le déclenchent pas. Le timeout d’ouverture suit son temps de rétablissement habituel, souvent quelques secondes, plus long si les échecs persistent ; le timeout d’appel vient de sa latence p99."
+      },
+      {
+        "question": "En quoi un circuit breaker complète-t-il les retries ?",
+        "answer": "Les retries gèrent les ratés courts, le breaker les pannes qui durent. Je place le retry à l’extérieur du breaker : chaque tentative passe par lui, et quand le circuit est ouvert le retry s’arrête tout de suite au lieu de marteler une dépendance morte. Sans breaker, les retries multiplient la charge précisément quand la dépendance est la plus fragile."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "En état semi-ouvert, un circuit breaker laisse passer un nombre limité d’appels d’essai.",
+        "why": "Le semi-ouvert teste si la dépendance s’est rétablie sans l’inonder ; un succès ferme le circuit, un échec le rouvre.",
+        "twin": {
+          "statement": "En état semi-ouvert, un circuit breaker laisse passer tous les appels pour tester la dépendance.",
+          "why": "Seul un nombre limité d’appels d’essai passe, pour ne pas inonder une dépendance qui se rétablit."
+        }
+      },
+      {
+        "statement": "Tant que le circuit est ouvert, le breaker continue d’appeler la dépendance mais ignore ses erreurs.",
+        "why": "Un circuit ouvert fait échouer les appels immédiatement sans invoquer la dépendance ; c’est comme ça qu’il économise des ressources et laisse la dépendance se rétablir.",
+        "twin": {
+          "statement": "Tant que le circuit est ouvert, le breaker fait échouer les appels immédiatement sans appeler la dépendance.",
+          "why": "C’est comme ça qu’il économise des ressources et laisse à la dépendance de la marge pour se rétablir."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un circuit breaker se place entre ton code et une dépendance distante et arrête de l’appeler quand elle échoue en continu. Pendant une panne, tu obtiens des erreurs rapides ou un fallback au lieu de requêtes bloquées sur des timeouts, et la dépendance a de la marge pour se rétablir.",
+      "points": [
+        "Un circuit breaker se place entre ton code et une dépendance distante. Il compte les échecs récents et décide s’il appelle la dépendance ou échoue tout de suite.",
+        "Fermé est l’état normal : les appels passent. Quand les échecs dépassent un seuil dans une fenêtre de temps, le breaker s’ouvre et lance un timer.",
+        "Ouvert : chaque appel échoue immédiatement, ou renvoie un fallback, sans toucher le réseau. Quand le timer expire, le breaker passe en semi-ouvert.",
+        "Semi-ouvert laisse passer un nombre limité d’appels d’essai. S’ils réussissent, il se ferme et remet le compteur à zéro ; si l’un échoue, il se rouvre et relance le timer.",
+        "Il complète les retries et les timeouts : les retries couvrent les ratés courts, le timeout borne chaque appel, le breaker coupe les appels pendant une panne qui dure."
+      ],
+      "takeaways": [
+        {
+          "term": "Fermé",
+          "detail": "L’état normal : les appels passent et les échecs récents sont comptés."
+        },
+        {
+          "term": "Seuil",
+          "detail": "Quand les échecs le dépassent dans une fenêtre de temps, le breaker s’ouvre et lance un timer."
+        },
+        {
+          "term": "Ouvert",
+          "detail": "Chaque appel échoue immédiatement, ou renvoie un fallback, sans toucher le réseau."
+        },
+        {
+          "term": "Semi-ouvert",
+          "detail": "Après le timer, quelques appels d’essai passent : un succès ferme le breaker, un échec le rouvre."
+        },
+        {
+          "term": "Avec retries et timeouts",
+          "detail": "Les retries couvrent les ratés courts, le timeout borne chaque appel, le breaker coupe les appels pendant une panne qui dure."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Pendant une panne, l’API du transporteur bloque 30 secondes par appel, et bientôt chaque requête de checkout est coincée pendant que l’API Orders manque de connexions. Quel pattern aurait aidé ?",
+        "bridge": "Un circuit breaker s’ouvre après des échecs répétés et fait échouer les appels immédiatement : le checkout obtient une erreur rapide ou un fallback, et le transporteur peut se rétablir."
+      },
+      {
+        "question": "Un collègue dit que des retries avec backoff suffisent et qu’un circuit breaker n’apporte rien. Quand n’êtes-vous pas d’accord ?",
+        "bridge": "Les retries continuent d’appeler une dépendance en échec ; un breaker arrête de l’appeler, échoue vite tant qu’il est ouvert et teste le rétablissement en semi-ouvert."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux récupèrent le suivi d’un colis via `breaker.fire(...)`, qui s’ouvre après 5 échecs. Laquelle ne s’ouvre que si le transporteur est en mauvaise santé ?",
+        "why": "Un breaker doit compter ce qui dit que la dépendance va mal : les timeouts et les réponses 5xx. Un 404 pour un numéro de suivi inconnu est une réponse normale, donc la meilleure version renvoie `null` sans lever d’erreur. Dans l’autre version, cinq clients qui se trompent de numéro de suivi ouvrent le breaker, et chaque recherche échoue alors tout de suite alors que le transporteur fonctionne."
+      }
+    ]
+  },
+  "msg-batch-processing": {
+    "topic": "Gros traitements par lots asynchrones",
+    "question": "Comment traiteriez-vous un gros lot de façon asynchrone sans bloquer l’utilisateur ?",
+    "answer": "Je sors le travail de la requête. L’endpoint valide l’entrée, la stocke, crée une ligne de job et répond `202 Accepted` avec l’id du job. Un worker prend le job dans une file et traite les lignes par paquets, chaque paquet dans sa propre transaction, en enregistrant le résultat de chaque ligne et un curseur de ce qui est fait. Le client suit la progression en interrogeant `GET /jobs/:id` ou via des server-sent events. Les lignes en échec sont enregistrées avec leur erreur au lieu de faire échouer tout le lot, et un worker qui plante redémarre depuis le curseur. Chaque ligne est idempotente, donc retraiter un paquet est sans danger.",
+    "keyPoints": [
+      "Répondre `202 Accepted` avec un id de job ; un worker fait le travail",
+      "Traiter par paquets, chacun commité séparément",
+      "Enregistrer le résultat par ligne ; une ligne en échec ne fait pas échouer le lot",
+      "Sauvegarder un curseur et garder les lignes idempotentes pour reprendre"
+    ],
+    "explanation": "C’est une question de conception sur les traitements longs. Les recruteurs attendent qu’on sorte le travail du chemin de la requête, qu’on gère les échecs partiels, qu’on remonte la progression et qu’on puisse reprendre, plutôt qu’un timeout HTTP plus long.",
+    "example": "Dans le back-office, les agents du support importent un CSV de 20 000 numéros de suivi venant du transporteur. La requête partait en timeout au bout de 60 secondes et laissait la moitié des commandes `shipped`. Désormais, l’import crée un job et répond tout de suite ; un worker met à jour 500 commandes par transaction, enregistre les 14 lignes aux id de commande inconnus, et l’écran affiche « 18 400 sur 20 000, 14 erreurs » avec un téléchargement des lignes en échec.",
+    "mistakes": [
+      "Augmenter le timeout HTTP au lieu de déplacer le travail dans un job en arrière-plan",
+      "Envelopper tout le lot dans une seule transaction : une ligne invalide annule tout et verrouille des lignes pendant des minutes",
+      "Relancer un job en échec depuis le début avec des lignes non idempotentes, si bien que les premières lignes sont appliquées deux fois"
+    ],
+    "followUps": [
+      {
+        "question": "Comment géreriez-vous un échec partiel où certaines lignes échouent ?",
+        "answer": "Chaque ligne a un statut. Une ligne qui échoue à la validation ou à une règle métier est enregistrée avec son erreur et le job continue ; les erreurs transitoires sont rejouées quelques fois. À la fin, le job est « terminé avec erreurs », et l’utilisateur télécharge les lignes en échec, les corrige et ne réimporte que celles-là."
+      },
+      {
+        "question": "Comment remonteriez-vous une progression détaillée au client ?",
+        "answer": "Le worker met à jour des compteurs sur la ligne du job après chaque paquet : traitées, en échec, total. Le client interroge `GET /jobs/:id` toutes les quelques secondes, ou s’abonne à des server-sent events, et affiche une barre de progression avec le nombre d’erreurs. Mettre à jour par paquet, pas par ligne, limite la charge d’écriture."
+      },
+      {
+        "question": "Comment rendriez-vous le lot reprenable après une interruption ?",
+        "answer": "Le worker sauvegarde un curseur, le numéro ou l’id de la dernière ligne traitée, dans la même transaction que chaque paquet. Si le pod est tué, le job est relancé et repart après le curseur. Comme un paquet est commité entièrement avec son curseur ou pas du tout, et que chaque ligne est idempotente, aucune ligne n’est perdue ni appliquée deux fois."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Exécuter tout le lot dans une seule transaction de base est la façon la plus sûre de gérer les échecs partiels.",
+        "why": "Une seule ligne invalide annule toutes les autres et la transaction garde ses verrous pendant toute l’exécution ; ce sont les paquets avec résultat par ligne qui gèrent l’échec partiel.",
+        "twin": {
+          "statement": "Exécuter un gros lot dans une seule transaction de base permet à une seule ligne invalide d’annuler toutes les autres.",
+          "why": "Elle garde aussi ses verrous pendant toute l’exécution ; ce sont les paquets avec résultat par ligne qui gèrent l’échec partiel."
+        }
+      },
+      {
+        "statement": "Sauvegarder le curseur dans la même transaction que le paquet qu’il décrit permet à un job de reprendre sans sauter ni répéter ce paquet.",
+        "why": "Le paquet et son curseur sont commités ensemble ou pas du tout, donc le point de reprise correspond toujours au travail fait.",
+        "twin": {
+          "statement": "Sauvegarder le curseur dans une transaction séparée, après le commit du paquet, garantit qu’un job repris ne répète jamais ce paquet.",
+          "why": "Un crash entre les deux commits laisse le curseur en retard, donc le paquet est rejoué ; seul un curseur sauvegardé dans la même transaction correspond toujours au travail fait."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un long traitement par lots n’a pas sa place dans une requête : les proxies coupent sur timeout, les déploiements redémarrent les pods et les utilisateurs ferment l’onglet. L’endpoint crée un job et répond tout de suite, et un worker le traite par paquets reprenables.",
+      "points": [
+        "Un long traitement n’a pas sa place dans une requête : les proxies coupent sur timeout, les déploiements redémarrent les pods et les utilisateurs ferment l’onglet. Stocke l’entrée, crée un job et réponds `202 Accepted` avec l’id du job.",
+        "Un worker prend le job dans une file et le traite par paquets de quelques centaines de lignes. Chaque paquet est commité séparément, donc un échec n’annule jamais tout le lot.",
+        "Enregistre un statut par ligne. Les lignes en échec sont gardées avec leur erreur, et le job se termine « terminé avec erreurs » : l’utilisateur peut corriger et renvoyer seulement ces lignes.",
+        "Sauvegarde un curseur (la dernière ligne traitée) dans la même transaction que chaque paquet, et rends chaque ligne idempotente. Un job relancé reprend après le curseur.",
+        "Remonte la progression via des compteurs sur la ligne du job : le client interroge `GET /jobs/:id` ou écoute des server-sent events."
+      ],
+      "takeaways": [
+        {
+          "term": "`202 Accepted`",
+          "detail": "L’endpoint valide et stocke l’entrée, crée une ligne de job et répond avec l’id du job."
+        },
+        {
+          "term": "Paquets",
+          "detail": "Un worker traite quelques centaines de lignes à la fois, chaque paquet commité séparément."
+        },
+        {
+          "term": "Statut par ligne",
+          "detail": "Les lignes en échec gardent leur erreur ; le job se termine « terminé avec erreurs » et seules ces lignes sont renvoyées."
+        },
+        {
+          "term": "Curseur",
+          "detail": "La dernière ligne traitée, sauvegardée dans la même transaction que chaque paquet : un job relancé reprend après elle."
+        },
+        {
+          "term": "Lignes idempotentes",
+          "detail": "Retraiter un paquet après un crash est sans danger."
+        },
+        {
+          "term": "Progression",
+          "detail": "Des compteurs sur la ligne du job, lus en interrogeant `GET /jobs/:id` ou via des server-sent events."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le support importe un CSV de 50 000 changements de prix ; la requête part en timeout au bout de 60 secondes avec une partie des lignes appliquées, sans moyen de savoir lesquelles. Comment le repenseriez-vous ?",
+        "bridge": "Un lot asynchrone : 202 avec un id de job, un worker qui traite par paquets avec résultat par ligne et curseur sauvegardé, et la progression par polling ou par événements."
+      },
+      {
+        "question": "Un collègue veut exécuter tout l’import dans une seule transaction, « pour que ce soit tout ou rien ». Que répondez-vous, et comment gérez-vous les lignes qui échouent ?",
+        "bridge": "Des paquets commités séparément, un résultat par ligne pour que les lignes invalides ne fassent pas échouer le lot, et des lignes idempotentes pour qu’une reprise depuis le curseur soit sûre."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux importent 20 000 numéros de suivi dans un job en arrière-plan qui reprend après son curseur sauvegardé. Laquelle garde sa progression quand un déploiement tue le worker ?",
+        "why": "Chaque paquet de 500 lignes est commité avec le curseur, donc un job relancé reprend après le dernier paquet commité, et les lignes ne restent verrouillées que le temps d’un paquet. L’autre version garde une seule transaction pour les 20 000 lignes : elles restent verrouillées pendant des minutes, et un déploiement à la ligne 19 000 annule tout, donc le job repart de zéro."
+      }
+    ]
+  },
+  "msg-event-sourcing": {
+    "topic": "Event sourcing",
+    "question": "Qu’est-ce que l’event sourcing, et quel problème résout-il ?",
+    "answer": "L’event sourcing stocke chaque changement comme un événement immuable, et l’état courant se calcule en rejouant, en « foldant », les événements d’un stream. Un remboursement, c’est un nouvel événement `PaymentRefunded`, jamais la mise à jour d’une ligne. Ça corrige les tables qui ne gardent que les dernières valeurs : on a une piste d’audit complète, l’état à n’importe quel moment passé, et de nouveaux read models construits en rejouant l’historique. Les écrivains ajoutent avec une version attendue, donc deux décisions concurrentes sur le même stream entrent en conflit au lieu de passer toutes les deux. Les coûts : des projections pour chaque requête, des snapshots, des événements versionnés pour toujours. Je l’utilise pour les registres comptables et les cœurs métier très audités, pas pour tout un système.",
+    "keyPoints": [
+      "Les événements sont la source de vérité ; l’état est un fold du stream",
+      "Historique complet : audit, états passés, nouvelles projections par rejeu",
+      "Ajout avec une version attendue pour gérer la concurrence",
+      "Coûts : projections, snapshots, versionnage des événements ; à utiliser au cas par cas"
+    ],
+    "explanation": "Les recruteurs vérifient que tu connais à la fois le bénéfice et le coût. Un senior dit où ça vaut le coup, comment les lectures passent par des projections, et comment on corrige sans modifier l’historique.",
+    "example": "La finance demandait chaque changement de chaque paiement : autorisations, captures, remboursements partiels, avec les motifs. La table `payments` ne gardait que les montants courants, donc l’équipe Payments a passé le registre en event sourcing dans une table PostgreSQL indexée par id de stream et version, avec une projection pour le solde courant. Un remboursement contesté s’est alors réglé en rejouant le stream jusqu’à la date en question.",
+    "mistakes": [
+      "Confondre event sourcing et publication d’événements : en event sourcing, les événements sont l’état stocké",
+      "Passer tout un système en event sourcing, y compris les parties CRUD simples qui ne gagnent rien à l’historique",
+      "Modifier ou supprimer un événement passé pour corriger une erreur, au lieu d’ajouter un événement correctif"
+    ],
+    "followUps": [
+      {
+        "question": "Comment interrogez-vous l’état courant sans rejouer tous les événements à chaque fois ?",
+        "answer": "Avec des projections : des consommateurs qui appliquent chaque nouvel événement à une table taillée pour une requête, comme le solde courant par paiement, donc les lectures sont de simples selects. Pour les décisions sur des streams longs, un snapshot stocke l’état à une version donnée, et on ne rejoue que les événements suivants."
+      },
+      {
+        "question": "Comment l’event sourcing s’associe-t-il avec CQRS ?",
+        "answer": "CQRS sépare le modèle par lequel on écrit des modèles qu’on lit. Avec l’event sourcing, le côté écriture est le stream d’événements avec ses décisions, et le côté lecture, ce sont des projections construites à partir de ces événements, une par écran. Ils vont naturellement ensemble, mais CQRS marche aussi sans event sourcing."
+      },
+      {
+        "question": "Comment corrigez-vous un événement passé quand les événements sont immuables ?",
+        "answer": "J’ajoute un événement correctif, comme un comptable passe une écriture d’extourne : un montant de capture erroné se corrige par un événement `CaptureCorrected`, que les projections appliquent. L’historique montre alors l’erreur et la correction. Pour un changement de schéma, les anciens événements sont convertis à la nouvelle forme à la lecture (upcasting)."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "En event sourcing, l’état courant d’une entité peut être reconstruit en rejouant ses événements dans l’ordre.",
+        "why": "L’état est un fold du stream : appliquer chaque événement dans l’ordre à l’état initial donne l’état courant.",
+        "twin": {
+          "statement": "En event sourcing, l’état courant d’une entité ne peut pas être reconstruit à partir de ses événements et doit être stocké à part.",
+          "why": "L’état est un fold du stream : appliquer chaque événement dans l’ordre à l’état initial donne l’état courant."
+        }
+      },
+      {
+        "statement": "L’event sourcing impose CQRS.",
+        "why": "Ils vont bien ensemble, mais chacun s’utilise sans l’autre ; CQRS s’emploie souvent avec un modèle d’écriture relationnel ordinaire.",
+        "twin": {
+          "statement": "L’event sourcing peut s’utiliser sans CQRS.",
+          "why": "Ils vont bien ensemble, mais chacun marche sans l’autre ; CQRS s’emploie souvent avec un modèle d’écriture relationnel ordinaire."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’event sourcing stocke chaque changement comme un événement immuable et calcule l’état courant en les rejouant. Il donne un historique complet, au prix de projections et d’événements à versionner pour toujours : il convient aux registres comptables et aux cœurs métier très audités.",
+      "points": [
+        "L’event sourcing stocke chaque changement comme un événement immuable dans un stream, par exemple un stream par paiement. Rien n’est mis à jour ni supprimé ; un remboursement est un nouvel événement.",
+        "L’état courant est un fold : on part d’un état initial et on applique chaque événement dans l’ordre. Rejouer seulement les premiers événements donne l’état à un moment passé.",
+        "Les écrivains ajoutent avec la version qu’ils ont lue (la version attendue). Un second écrivain qui a lu la même version obtient un conflit au lieu que les deux passent.",
+        "Les lectures passent par des projections, des tables mises à jour à partir des événements ; les streams longs utilisent des snapshots. Cette séparation lecture/écriture, c’est CQRS.",
+        "Les erreurs se corrigent en ajoutant un événement correctif. Utilise-le là où l’historique est l’exigence, comme un registre comptable ; ailleurs, les coûts l’emportent."
+      ],
+      "takeaways": [
+        {
+          "term": "Stream d’événements",
+          "detail": "Des événements immuables, par exemple un stream par paiement. Un remboursement est un nouvel événement, jamais une mise à jour."
+        },
+        {
+          "term": "Fold",
+          "detail": "Partir d’un état initial et appliquer chaque événement dans l’ordre ; rejouer les premiers événements donne un état passé."
+        },
+        {
+          "term": "Version attendue",
+          "detail": "Les écrivains ajoutent avec la version lue ; un second écrivain sur la même version obtient un conflit."
+        },
+        {
+          "term": "Projections",
+          "detail": "Des tables de lecture mises à jour à partir des événements ; cette séparation lecture/écriture, c’est CQRS."
+        },
+        {
+          "term": "Snapshots",
+          "detail": "Sauvegarder un état calculé pour que les streams longs ne soient pas rejoués depuis le début."
+        },
+        {
+          "term": "Événement correctif",
+          "detail": "Les erreurs se corrigent en ajoutant un nouvel événement, jamais en modifiant l’historique."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La finance demande quel était l’avoir d’un client le 3 mars et pourquoi il a changé, mais la table `customers` ne contient que la valeur courante. Quel modèle de stockage répondrait à ça ?",
+        "bridge": "L’event sourcing stocke chaque changement comme un événement immuable : les états passés et une piste d’audit complète s’obtiennent en rejouant le stream."
+      },
+      {
+        "question": "Un collègue veut passer toute la boutique en event sourcing, catalogue produits compris. Quand utiliseriez-vous l’event sourcing, et quand non ?",
+        "bridge": "Il vaut le coup pour les registres comptables et les cœurs métier très audités ; ailleurs, ses coûts (projections, snapshots, événements versionnés) l’emportent sur l’historique."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux ajoutent un remboursement au stream de la commande 981 après que leur écrivain a lu le stream en version 2. Laquelle détecte un écrivain concurrent ?",
+        "why": "L’écrivain ajoute avec la version lue plus un, et la clé primaire `(stream_id, version)` rejette un second écrivain qui a lu la même version : il recharge et décide à nouveau. Calculer `max(version) + 1` à l’insertion prend le numéro libre au moment de l’exécution, donc un écrivain qui a décidé sur un état périmé, comme rembourser une commande déjà remboursée, ajoute quand même."
+      }
+    ]
+  },
+  "msg-cache-patterns": {
+    "topic": "Cache-aside et write-through",
+    "question": "Cache-aside ou write-through : en quoi diffèrent-ils, et lequel choisiriez-vous ?",
+    "answer": "Avec le cache-aside, l’application lit d’abord le cache ; en cas de miss, elle charge depuis la base, stocke le résultat avec un TTL et le renvoie. À l’écriture, elle commite puis supprime la clé. Seules les données lues sont mises en cache, et on peut vider le cache à tout moment. Avec le write-through, chaque écriture va dans le cache et la base ensemble, donc le cache est toujours chaud et les lectures après une écriture le trouvent, au prix d’écritures plus lentes et de données en cache que personne ne lit. Par défaut je prends le cache-aside avec un TTL à jitter, et le write-through pour les données que le même utilisateur relit juste après les avoir écrites.",
+    "keyPoints": [
+      "Cache-aside : lire le cache, charger et stocker sur miss, TTL",
+      "Écritures en cache-aside : commiter, puis supprimer la clé",
+      "Write-through : écrire cache et base ensemble, le cache reste chaud",
+      "Compromis : coût d’écriture et données non lues, ou misses et données périmées"
+    ],
+    "explanation": "La question vérifie que tu vois un cache comme un compromis de cohérence. Un senior explique l’invalidation (supprimer après le commit, le TTL comme filet de sécurité), les stampedes sur les clés chaudes, et choisit le pattern selon le profil de lecture et d’écriture des données.",
+    "example": "Les pages produit de la boutique lisaient les produits via Redis en cache-aside, avec un TTL de 5 minutes plus du jitter. Pendant des soldes, un changement de prix est resté invisible plusieurs minutes parce que l’outil d’admin écrasait la clé avant le commit. L’équipe est passée à « commiter, puis supprimer la clé », et les changements de prix apparaissaient au chargement de page suivant.",
+    "mistakes": [
+      "Mettre à jour le cache avant le commit en base : une écriture échouée ou concurrente laisse une valeur fausse en cache",
+      "Mettre en cache sans TTL, en comptant sur le code d’invalidation pour attraper chaque écriture",
+      "Stocker des données par utilisateur sous une clé partagée, ce qui expose les données d’un client à un autre"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce que le write-behind, et quel risque ajoute-t-il ?",
+        "answer": "Le write-behind, ou write-back, écrit dans le cache et acquitte tout de suite, puis persiste en base plus tard, souvent par lots. Les écritures sont rapides, mais si le nœud de cache meurt avant le flush, des écritures acquittées sont perdues, et la base est en retard sur le cache. Je l’évite pour les commandes ou les paiements."
+      },
+      {
+        "question": "Comment gérez-vous une avalanche de misses quand une clé populaire expire ?",
+        "answer": "Dans un même process, le single flight : les misses concurrents partagent un seul chargement. Entre réplicas, servir la valeur périmée pendant qu’un appelant rafraîchit, rafraîchir de façon probabiliste avant l’expiration, ou prendre un court verrou Redis avec `SET NX PX`. Le jitter sur les TTL évite que des clés chargées ensemble expirent ensemble."
+      },
+      {
+        "question": "Quel pattern de cache utiliseriez-vous pour un service de panier, et pourquoi ?",
+        "answer": "Un panier est propre à chaque client, souvent écrit et relu juste après chaque changement. Je garde PostgreSQL comme source de vérité et j’utilise le write-through avec l’id du panier comme clé, pour que la page panier tombe toujours sur une entrée chaude. Pas de write-behind : perdre un article du panier coûte des ventes. Les clés sont par panier, jamais partagées."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Avec le cache-aside, on peut vider le cache à tout moment sans perdre de données.",
+        "why": "La base reste la source de vérité ; un cache vidé signifie seulement plus de misses jusqu’à ce qu’il se réchauffe.",
+        "twin": {
+          "statement": "Avec le cache-aside, vider le cache perd les données qui n’ont pas encore été écrites en base.",
+          "why": "La base reste la source de vérité ; un cache vidé signifie seulement plus de misses jusqu’à ce qu’il se réchauffe."
+        }
+      },
+      {
+        "statement": "Le write-behind est plus sûr que le write-through parce que la base est écrite par lots.",
+        "why": "Le write-behind acquitte avant l’écriture en base, donc une panne du cache avant le flush perd des données acquittées.",
+        "twin": {
+          "statement": "Le write-behind est plus risqué que le write-through, parce qu’il acquitte une écriture avant que la base l’ait reçue.",
+          "why": "Une panne du cache avant le flush par lots perd des données dont l’appelant a appris qu’elles étaient enregistrées."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le cache-aside et le write-through sont deux façons de placer un cache devant une base. Ils arbitrent entre coût d’écriture et mise en cache de données non lues d’un côté, misses et données périmées de l’autre.",
+      "points": [
+        "Cache-aside (lazy loading) : lire le cache ; en cas de miss, charger depuis la base, stocker avec un TTL et renvoyer. Seules les données lues sont mises en cache.",
+        "À l’écriture en cache-aside, commiter en base, puis supprimer la clé. Supprimer évite les races entre deux écrivains ; le TTL borne tout ce que l’invalidation rate.",
+        "Le write-through écrit le cache et la base dans la même opération, donc les lectures après une écriture tombent sur une entrée chaude ; les écritures ralentissent, et les données non lues sont aussi mises en cache.",
+        "Le write-behind écrit le cache et persiste en base plus tard. C’est rapide, mais une panne du cache avant le flush perd des écritures déjà acquittées.",
+        "Un stampede, c’est beaucoup de misses en même temps sur une clé chaude. Partage un seul chargement par clé (single flight), sers la valeur périmée pendant le rafraîchissement et ajoute du jitter aux TTL."
+      ],
+      "takeaways": [
+        {
+          "term": "Lecture en cache-aside",
+          "detail": "Lire le cache ; sur miss, charger depuis la base, stocker avec un TTL et renvoyer. Seules les données lues sont en cache."
+        },
+        {
+          "term": "Écriture en cache-aside",
+          "detail": "Commiter en base, puis supprimer la clé ; le TTL borne tout ce que l’invalidation rate."
+        },
+        {
+          "term": "Write-through",
+          "detail": "Écrit le cache et la base ensemble : les lectures après une écriture font mouche, mais les écritures sont plus lentes."
+        },
+        {
+          "term": "Write-behind",
+          "detail": "Écrit le cache, persiste plus tard : rapide, mais une panne du cache avant le flush perd des écritures acquittées."
+        },
+        {
+          "term": "Stampede",
+          "detail": "Beaucoup de misses sur une clé chaude : single flight par clé, valeur périmée servie pendant le rafraîchissement, jitter sur les TTL."
+        },
+        {
+          "term": "Choix par défaut",
+          "detail": "Cache-aside avec un TTL à jitter ; write-through pour les données qu’un utilisateur relit juste après les avoir écrites."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un client change son adresse de livraison, recharge « mes commandes » et voit l’ancienne pendant cinq minutes. Le cache est rempli à la lecture avec un TTL de 5 minutes et jamais vidé à l’écriture. Que changeriez-vous ?",
+        "bridge": "En cache-aside, une écriture doit commiter puis supprimer la clé ; le write-through est l’option pour les données que le même utilisateur relit juste après les avoir écrites."
+      },
+      {
+        "question": "Un collègue propose le write-through pour tout le catalogue produits, pour que le cache ne soit jamais froid. Quel est le compromis, et que prendriez-vous par défaut ?",
+        "bridge": "Le write-through garde le cache chaud au prix d’écritures plus lentes et de données non lues en cache ; le cache-aside ne met en cache que ce qui est lu."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux changent le prix d’un produit dans une API Orders qui met les produits en cache dans Redis en cache-aside. Laquelle ne laisse jamais un prix faux en cache ?",
+        "why": "Commiter d’abord, puis supprimer la clé : la lecture suivante charge la ligne commitée. L’autre version écrit le cache avant l’`UPDATE` : si la mise à jour échoue, par exemple sur une contrainte check, les clients voient un prix jamais enregistré, et deux modifications concurrentes peuvent laisser la plus ancienne en cache. Son `set` n’a pas de TTL, donc le prix faux reste jusqu’à ce que quelqu’un s’en aperçoive."
+      }
+    ]
+  },
+  "msg-ordering": {
+    "topic": "Ordre des messages",
+    "question": "Comment garantiriez-vous l’ordre des messages avec plusieurs consommateurs en parallèle ?",
+    "answer": "Ordre global et parallélisme ne vont pas ensemble, donc je demande ce qui a vraiment besoin d’être ordonné, en général les événements d’une même entité. Ensuite je partitionne par cette clé : dans Kafka, les événements de même clé vont dans la même partition, et chaque partition est lue par un seul consommateur du groupe à la fois, donc les événements d’une commande sont traités dans l’ordre pendant que les commandes différentes avancent en parallèle. SQS FIFO fait pareil avec un message group id. Dans un consommateur, je traite les messages d’une partition séquentiellement. Et comme les retries et les relivraisons arrivent quand même, les consommateurs vérifient une version ou un numéro de séquence et ignorent les événements plus anciens que l’état qu’ils détiennent.",
+    "keyPoints": [
+      "N’ordonner que ce qui en a besoin, en général par entité",
+      "Partitionner par clé : même clé, même partition, un consommateur",
+      "Traiter chaque partition séquentiellement dans le consommateur",
+      "Utiliser des versions pour ignorer les événements périmés ou en double"
+    ],
+    "explanation": "La question teste si tu sais que l’ordre est une garantie par clé, et ce qui la casse. Un senior parle du choix de la clé, de la concurrence côté consommateur, des rebalances et de l’idempotence, et ne promet pas d’ordre global avec des consommateurs en parallèle.",
+    "example": "Le back-office affichait parfois des commandes expédiées comme `paid` : `order.shipped` et `order.paid` d’une même commande étaient traités par deux consommateurs en parallèle, et l’événement le plus ancien gagnait. L’équipe a pris l’id de commande comme clé du topic Kafka et ajouté une version à chaque événement, ignoré s’il n’est pas plus récent. Les statuts faux ont disparu, sans perte de débit entre commandes.",
+    "mistakes": [
+      "Promettre un ordre global sur un topic tout en multipliant les consommateurs",
+      "Prendre l’id de commande comme clé, puis traiter les messages d’une partition en concurrence avec `Promise.all`, ce qui les remélange",
+      "Prendre comme clé une valeur avec peu de valeurs distinctes, comme le statut, ce qui met l’essentiel du trafic sur une partition"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’advient-il de l’ordre quand le consommateur d’une partition plante et qu’un autre prend le relais ?",
+        "answer": "Le groupe fait un rebalance, et le nouveau propriétaire repart du dernier offset commité. L’ordre dans la partition est conservé, mais les événements traités depuis le dernier commit sont relivrés. Les consommateurs doivent donc être idempotents, et ne commiter les offsets qu’une fois le travail fait."
+      },
+      {
+        "question": "Comment choisissez-vous une clé de partitionnement ?",
+        "answer": "La clé, c’est l’entité dont les événements doivent rester dans l’ordre, en général l’id de l’agrégat, comme l’id de commande. Elle doit aussi avoir beaucoup de valeurs distinctes bien réparties, pour qu’aucune partition ne reçoive l’essentiel du trafic. Une clé comme le statut ou l’id d’un gros marchand crée des partitions chaudes."
+      },
+      {
+        "question": "Quel est le compromis entre nombre de partitions et parallélisme ?",
+        "answer": "Un groupe n’a jamais plus de consommateurs actifs que de partitions, donc le nombre de partitions plafonne le parallélisme. Plus de partitions coûte des ressources au broker, et Kafka ne sait pas les réduire ; ajouter des partitions change la partition associée à une clé, ce qui casse l’ordre par clé pendant le changement. Je dimensionne donc pour le pic attendu dès le départ."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans un consumer group Kafka, chaque partition est consommée par exactement un consommateur du groupe à la fois.",
+        "why": "La doc de conception de Kafka le dit ; c’est ce qui préserve l’ordre au sein d’une partition.",
+        "twin": {
+          "statement": "Dans un consumer group Kafka, deux consommateurs du groupe peuvent lire la même partition en même temps.",
+          "why": "Chaque partition va à exactement un consommateur du groupe à la fois, ce qui préserve son ordre."
+        }
+      },
+      {
+        "statement": "Ajouter des partitions à un topic Kafka laisse chaque clé sur la partition qu’elle utilisait avant.",
+        "why": "La doc de Kafka prévient que l’association du partitionneur par défaut change avec le nombre de partitions, donc une clé peut passer sur une autre partition.",
+        "twin": {
+          "statement": "Ajouter des partitions à un topic Kafka peut faire passer une clé sur une autre partition.",
+          "why": "La doc de Kafka prévient que l’association du partitionneur par défaut change avec le nombre de partitions."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Ordre global et consommateurs en parallèle ne vont pas ensemble, donc on n’ordonne que ce qui en a besoin, en général les événements d’une même entité. Partitionner par cette clé garde chaque entité dans l’ordre pendant que les entités différentes avancent en parallèle.",
+      "points": [
+        "Ordre global et consommateurs en parallèle ne vont pas ensemble. Ce qui a besoin d’être ordonné, c’est en général les événements d’une même entité, comme une commande.",
+        "Dans Kafka, les événements de même clé vont dans la même partition, et chaque partition est lue par un seul consommateur d’un groupe à la fois. Prends l’id de commande comme clé pour garder chaque commande dans l’ordre.",
+        "Les files SQS FIFO ordonnent les messages par message group id, même idée. Le single active consumer de RabbitMQ ne laisse qu’un consommateur lire une file à la fois.",
+        "L’ordre casse aussi dans un consommateur qui traite les messages d’une partition en concurrence, et à la relivraison après un crash. Traite séquentiellement par clé et utilise des versions.",
+        "Un groupe n’a jamais plus de consommateurs actifs que de partitions. Kafka ne sait pas réduire les partitions, et en ajouter change la partition associée à une clé."
+      ],
+      "takeaways": [
+        {
+          "term": "Clé Kafka",
+          "detail": "Les événements de même clé vont dans la même partition, lue par un seul consommateur d’un groupe à la fois."
+        },
+        {
+          "term": "Message group id SQS FIFO",
+          "detail": "Ordonne les messages par groupe, même idée qu’une clé Kafka."
+        },
+        {
+          "term": "Single active consumer RabbitMQ",
+          "detail": "Un seul consommateur lit la file à la fois."
+        },
+        {
+          "term": "Dans le consommateur",
+          "detail": "Traiter les messages d’une clé séquentiellement ; un traitement concurrent casse à nouveau l’ordre."
+        },
+        {
+          "term": "Versions",
+          "detail": "Vérifier une version ou un numéro de séquence pour ignorer les événements périmés ou relivrés."
+        },
+        {
+          "term": "Nombre de partitions",
+          "detail": "Pas plus de consommateurs actifs que de partitions ; Kafka ne sait pas les réduire, et en ajouter réassocie les clés."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le back-office affiche parfois une commande `paid` après qu’elle a été `shipped`. Les événements `order.paid` et `order.shipped` passent par Kafka vers six consommateurs. Que vérifieriez-vous ?",
+        "bridge": "Les événements d’une commande doivent partager une clé de partition et être traités dans l’ordre ; une vérification de version écarte un événement périmé qui arrive quand même en retard."
+      },
+      {
+        "question": "Un collègue demande un ordre global sur tous les événements de commande pour que rien ne soit jamais traité dans le désordre. Que répondez-vous ?",
+        "bridge": "Ordre global et parallélisme s’opposent : ordre par entité avec une clé de partition ou un message group id, et des versions pour ignorer les événements périmés."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux traitent un lot venant d’une partition Kafka, avec l’id de commande comme clé, via KafkaJS. Laquelle garde les événements de chaque commande dans l’ordre ?",
+        "why": "La partition livre `order.placed`, `order.paid` et `order.shipped` dans l’ordre, et la boucle les traite un par un. `Promise.all` lance tous les handlers en même temps, donc celui qui finit en dernier gagne : si le handler de `order.paid` est plus lent que celui de `order.shipped`, la commande finit `paid` alors que le colis est parti."
+      }
+    ]
+  },
+  "msg-outbox": {
+    "topic": "Outbox transactionnel",
+    "question": "Qu’est-ce que le pattern outbox, et quel problème résout-il ?",
+    "answer": "Il résout le problème de la double écriture : la base et le broker sont deux systèmes, et aucune transaction ne couvre les deux. Commiter puis publier, et un crash entre les deux perd l’événement ; publier puis commiter, et un commit raté annonce quelque chose qui n’a jamais eu lieu. Avec l’outbox, j’écris l’événement comme une ligne d’une table `outbox` dans la même transaction que le changement d’état, donc les deux sont commités ou aucun. Un relais séparé lit les lignes non publiées, les publie et les marque comme publiées. La livraison est at-least-once, donc les consommateurs dédupliquent sur l’id de la ligne d’outbox. Le relais peut interroger la table en polling ou utiliser le change data capture.",
+    "keyPoints": [
+      "Double écriture : aucune transaction ne couvre la base et le broker",
+      "Ligne d’événement insérée dans la même transaction que le changement d’état",
+      "Un relais publie les lignes et les marque comme publiées",
+      "At-least-once : les consommateurs dédupliquent sur l’id de l’événement"
+    ],
+    "explanation": "C’est la réponse standard à « comment publier un événement de façon fiable ». Un senior explique les fenêtres d’échec des approches naïves, le comportement at-least-once du relais, et le polling face au CDC.",
+    "example": "Pendant un déploiement, un réplica a été tué entre le passage de la commande 981 en payée et la publication de `order.paid` : le client avait payé, mais le stock et la fidélité n’en ont jamais rien su. L’équipe a ajouté une ligne d’outbox dans la même transaction et un relais qui interroge la table toutes les 200 ms. Depuis, les déploiements ne perdent plus d’événements, et les doublons dus aux redémarrages du relais sont absorbés par la table des messages traités côté consommateurs.",
+    "mistakes": [
+      "Publier vers le broker à l’intérieur de la transaction de base, ce qui échoue encore quand le commit rate après la publication",
+      "Attendre du relais qu’il publie exactement une fois, et écrire des consommateurs incapables de gérer un doublon",
+      "Laisser la table d’outbox grossir indéfiniment au lieu de supprimer les lignes publiées au bout d’un moment"
+    ],
+    "followUps": [
+      {
+        "question": "Comment le relais lit-il et vide-t-il l’outbox sans publier deux fois ?",
+        "answer": "Il ne peut pas l’éviter complètement. Il réserve un lot avec `FOR UPDATE SKIP LOCKED` pour que plusieurs relais ne prennent jamais les mêmes lignes, les publie, puis renseigne `published_at`. Un crash entre la publication et cette mise à jour republie la ligne, donc les consommateurs dédupliquent sur son id. Les lignes publiées sont supprimées plus tard."
+      },
+      {
+        "question": "Quel est le lien entre le change data capture et l’outbox ?",
+        "answer": "Le CDC est l’alternative au polling : Debezium lit le write-ahead log de PostgreSQL via un slot de réplication et transforme chaque nouvelle ligne d’outbox en message, au plus près du commit et sans requêtes de polling. Le coût : un connecteur à faire tourner et un slot à surveiller, car un connecteur arrêté oblige la base à conserver le WAL."
+      },
+      {
+        "question": "Que se passe-t-il si le process de publication plante en cours de route ?",
+        "answer": "Avant le commit, rien ne s’est passé : ni le changement d’état ni l’événement n’existent. Après le commit, la ligne attend dans l’outbox qu’un relais la publie. Si le relais plante au milieu d’un lot, les lignes pas encore marquées sont republiées au redémarrage : des doublons, jamais de perte."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Avec le pattern outbox, un événement est publié si et seulement si sa transaction de base a été commitée.",
+        "why": "La ligne d’événement fait partie de la même transaction : un rollback la supprime, un commit la garde pour que le relais la publie.",
+        "twin": {
+          "statement": "Avec le pattern outbox, un événement peut être publié alors que sa transaction de base a fait un rollback.",
+          "why": "La ligne d’événement fait partie de la même transaction : un rollback la supprime, donc le relais ne la voit jamais."
+        }
+      },
+      {
+        "statement": "Le pattern outbox garantit que chaque événement atteint le broker exactement une fois.",
+        "why": "Un relais qui plante après la publication mais avant de marquer la ligne la republie ; la livraison est at-least-once.",
+        "twin": {
+          "statement": "Avec le pattern outbox, un événement peut atteindre le broker plusieurs fois.",
+          "why": "Un relais qui plante après la publication mais avant de marquer la ligne la republie, donc les consommateurs dédupliquent."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’outbox transactionnel résout le problème de la double écriture : une base et un broker ne peuvent pas partager une transaction. L’événement est enregistré comme une ligne dans la même transaction que le changement, puis un relais le publie.",
+      "points": [
+        "Le problème de la double écriture : une base et un broker ne peuvent pas partager une transaction. Commiter puis publier perd des événements sur un crash ; publier puis commiter annonce des changements ratés.",
+        "L’outbox transactionnel écrit l’événement comme une ligne d’une table `outbox` dans la même transaction que le changement d’état : les deux sont commités ou aucun.",
+        "Un relais lit les lignes non publiées, les publie et les marque comme publiées. Plusieurs relais réservent les lignes avec `FOR UPDATE SKIP LOCKED` pour ne pas prendre les mêmes.",
+        "Un crash après la publication mais avant le marquage republie la ligne : la livraison est at-least-once, donc les consommateurs dédupliquent sur l’id de l’événement.",
+        "Le change data capture, par exemple Debezium qui lit le write-ahead log de PostgreSQL, remplace le polling ; surveille son slot de réplication."
+      ],
+      "takeaways": [
+        {
+          "term": "Double écriture",
+          "detail": "Commiter puis publier perd des événements sur un crash ; publier puis commiter annonce des changements qui ont échoué."
+        },
+        {
+          "term": "Table `outbox`",
+          "detail": "La ligne d’événement est insérée dans la même transaction que le changement d’état : les deux sont commités ou aucun."
+        },
+        {
+          "term": "Relais",
+          "detail": "Lit les lignes non publiées, les publie et les marque comme publiées."
+        },
+        {
+          "term": "`FOR UPDATE SKIP LOCKED`",
+          "detail": "Permet à plusieurs relais de réserver des lignes sans prendre les mêmes."
+        },
+        {
+          "term": "At-least-once",
+          "detail": "Un crash entre la publication et le marquage republie la ligne : les consommateurs dédupliquent sur l’id de l’événement."
+        },
+        {
+          "term": "Change data capture",
+          "detail": "Debezium, qui lit le write-ahead log de PostgreSQL, remplace le polling ; surveille son slot de réplication."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Environ une fois par semaine, une commande est `paid` dans PostgreSQL mais l’entrepôt ne reçoit jamais `order.paid`. Le handler commite, puis publie vers le broker. Que se passe-t-il, et que changeriez-vous ?",
+        "bridge": "Un crash entre le commit et la publication perd l’événement : c’est le problème de la double écriture. Une ligne d’outbox dans la même transaction, publiée par un relais, le corrige."
+      },
+      {
+        "question": "Un collègue propose de publier l’événement d’abord et de commiter ensuite, pour ne jamais le perdre. Pourquoi ça ne marche pas non plus ?",
+        "bridge": "Dans les deux ordres, c’est une double écriture : publier puis commiter peut annoncer un changement qui n’a jamais eu lieu. L’outbox commite l’événement avec l’état."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux marquent une commande comme payée et annoncent `order.paid` ; `recordPayment` peut encore échouer ensuite. Laquelle n’annonce jamais un changement annulé par un rollback ?",
+        "why": "L’événement est une ligne écrite dans la même transaction que le statut, donc les deux sont commités ou aucun, et un relais le publie ensuite. Publier à l’intérieur de la transaction ne rend pas la publication transactionnelle : quand `recordPayment` échoue, la commande revient à `pending_payment`, mais l’entrepôt a déjà reçu `order.paid` et expédie une commande non payée."
+      }
+    ]
+  }
+}

@@ -1,0 +1,302 @@
+{
+  "m30.q1": {
+    "q": "Le tableau des commandes affiche les commandes du statut sélectionné. Où faut-il calculer la liste filtrée ?",
+    "options": [
+      "Dans un <code>useEffect</code> qui la stocke dans le state quand <code>orders</code> ou <code>status</code> changent.",
+      "Pendant le rendu, comme une constante calculée à partir des props et du state.",
+      "Dans un <code>useLayoutEffect</code>, pour que la liste soit prête avant que le navigateur ne peigne.",
+      "Dans une ref, mise à jour par le handler qui change le filtre de statut."
+    ],
+    "explain": "Les données dérivées se calculent pendant le rendu : elles sont toujours synchronisées et coûtent un seul rendu. La version avec effet est tentante, mais elle rend une fois avec la liste périmée, puis à nouveau après avoir stocké la nouvelle, et <code>react-hooks/set-state-in-effect</code> la signale."
+  },
+  "m30.q2": {
+    "q": "Le formulaire de remboursement garde le montant saisi pour la commande précédente quand l’agent en ouvre une autre. Quelle correction est la plus idiomatique ?",
+    "options": [
+      "Un effet qui appelle <code>setAmount('')</code> à chaque changement de <code>orderId</code>.",
+      "Garder le montant dans une ref pour qu’il ne soit pas conservé entre les rendus.",
+      "Envelopper <code>RefundForm</code> dans <code>memo</code> pour qu’il ne se re-rende que quand la commande change.",
+      "Le rendre sous la forme <code>&lt;RefundForm key={order.id} order={order} /&gt;</code>."
+    ],
+    "explain": "Une nouvelle key fait traiter le formulaire par React comme un nouveau composant avec un state neuf ; mesuré, le montant saisi a été vidé au changement de key. L’effet fonctionne aussi, mais il rend d’abord l’ancien montant et ajoute un effet sans système externe."
+  },
+  "m30.q3": {
+    "q": "En développement, dans <code>&lt;StrictMode&gt;</code>, <code>LiveStatusFeed</code> est monté avec <code>status=\"paid\"</code>. Son effet logue « connect » au setup et « disconnect » au cleanup. Qu’est-ce qui est logué ?",
+    "options": [
+      "connect paid, disconnect paid, connect paid",
+      "connect paid, connect paid",
+      "connect paid",
+      "connect paid, disconnect paid"
+    ],
+    "explain": "StrictMode exécute un setup et un cleanup supplémentaires juste après le premier montage, en développement uniquement ; mesuré avec React 19.3.1. « connect paid » seul, c’est ce que logue le build de production."
+  },
+  "m30.q4": {
+    "q": "Pourquoi un effet dont le tableau de dépendances est <code>[params]</code>, où <code>const params = { status, limit: 50 }</code> est déclaré dans le corps du composant, s’exécute-t-il après chaque rendu ?",
+    "options": [
+      "Parce que <code>fetchOrders</code> renvoie une nouvelle promesse à chaque appel.",
+      "Parce qu’un effet avec des dépendances s’exécute quand même après chaque rendu en développement.",
+      "Parce que <code>params</code> est un nouvel objet à chaque rendu, et <code>Object.is</code> compare les références.",
+      "Parce que <code>setOrders</code> est une nouvelle fonction à chaque rendu."
+    ],
+    "explain": "Les dépendances sont comparées avec <code>Object.is</code>, donc un nouvel objet est toujours « différent » ; mesuré, environ 45 requêtes en 500 ms. Les setters de state sont stables d’un rendu à l’autre, ils ne provoquent donc jamais de réexécution."
+  },
+  "m30.q5": {
+    "q": "Le badge appelle <code>setNewCount(newCount + 1)</code> depuis un listener de stream créé dans un effet avec <code>[status]</code>. Après trois événements, il affiche 1. Pourquoi ?",
+    "options": [
+      "React regroupe les trois mises à jour en une seule, donc seule la dernière est appliquée.",
+      "Le listener a capturé <code>newCount</code> au premier rendu, donc chaque appel calcule 0 + 1.",
+      "Le stream envoie les événements plus vite que React ne peut re-rendre le badge.",
+      "Les mises à jour faites hors d’un handler d’événement React attendent la prochaine interaction utilisateur."
+    ],
+    "explain": "Le listener est une closure sur le <code>newCount</code> du premier rendu, qui vaut 0 pour toujours : une closure périmée. Le batching existe bien mais n’est pas la cause : chaque événement est appliqué, il calcule simplement la même valeur ; la forme avec fonction de mise à jour corrige le problème."
+  },
+  "m30.q6": {
+    "q": "Le listener doit lire <code>soundEnabled</code>, mais activer ou couper le son ne doit pas reconnecter le stream. Qu’utilises-tu ?",
+    "options": [
+      "Ajouter <code>soundEnabled</code> au tableau de dépendances de l’effet du stream.",
+      "Envelopper le listener dans <code>useCallback</code> avec <code>[soundEnabled]</code> comme liste de dépendances.",
+      "Désactiver la règle exhaustive-deps sur la ligne du tableau de dépendances.",
+      "Déplacer la logique du carillon dans une fonction créée avec <code>useEffectEvent</code>."
+    ],
+    "explain": "Un effect event voit toujours les props les plus récentes et n’est pas une dépendance, donc le stream reste ouvert ; mesuré, aucune reconnexion. <code>useCallback</code> avec <code>[soundEnabled]</code> change d’identité quand le son bascule, donc l’effet qui l’utilise se reconnecte quand même."
+  },
+  "m30.q7": {
+    "q": "Le panneau fait un fetch dans un effet sans cleanup. L’agent clique sur la commande A, puis sur la commande B ; la réponse de B arrive en premier. Qu’affiche le panneau à la fin ?",
+    "options": [
+      "La commande A, car sa réponse est arrivée en dernier et son <code>setOrder</code> s’est exécuté en dernier.",
+      "La commande B, car React ignore les mises à jour d’un effet dont les dépendances ont changé.",
+      "La commande B, car le second <code>fetch</code> annule automatiquement le premier.",
+      "Rien : React lève une erreur car deux effets ont mis à jour le même state."
+    ],
+    "explain": "Sans cleanup, les deux réponses appellent <code>setOrder</code> et la dernière l’emporte ; mesuré, le panneau naïf a fini sur A. React n’ignore pas ces mises à jour de lui-même : c’est le rôle du flag ignore ou de l’<code>AbortController</code> dans le cleanup."
+  },
+  "m30.q8": {
+    "q": "La page écrit l’id du dernier événement du stream dans <code>lastEventIdRef.current</code> à chaque événement. Que se passe-t-il à l’écran quand il change ?",
+    "options": [
+      "La page se re-rend, comme après un <code>setState</code>.",
+      "La page ne se re-rend que si la ref figure dans les dépendances d’un effet.",
+      "Rien : écrire dans une ref ne déclenche jamais de rendu.",
+      "React logue un avertissement, car les refs sont en lecture seule après le montage."
+    ],
+    "explain": "Une ref est une boîte mutable que React ne surveille pas ; mesuré, les mutations ont laissé le nombre de rendus inchangé. Mettre une ref dans les dépendances n’aide pas non plus : l’objet ref lui-même ne change jamais d’identité."
+  },
+  "m30.q9": {
+    "q": "Le menu d’actions se mesure et s’affiche au-dessus quand il déborde. Pourquoi utiliser <code>useLayoutEffect</code> plutôt que <code>useEffect</code> ?",
+    "options": [
+      "Il s’exécute avant la mise à jour du DOM, donc la mesure utilise le layout précédent.",
+      "Son code, et la mise à jour de state qu’il planifie, sont traités avant que le navigateur ne repeigne.",
+      "Il s’exécute aussi pendant le rendu serveur, donc le premier HTML a déjà la bonne position.",
+      "Il s’exécute sur un thread séparé, donc mesurer le menu ne bloque pas le thread principal."
+    ],
+    "explain": "React garantit qu’un layout effect et ses mises à jour sont traités avant le repaint ; mesuré dans Chromium, le navigateur n’a jamais vu le menu non retourné. Il s’exécute après la mise à jour du DOM, pas avant, sinon il n’y aurait rien à mesurer."
+  },
+  "m30.q10": {
+    "q": "De quoi <code>useSyncExternalStore</code> a-t-il besoin au minimum ?",
+    "options": [
+      "Un <code>subscribe(callback)</code> qui renvoie une fonction de désabonnement, et un <code>getSnapshot()</code>.",
+      "Une fonction de setup qui renvoie une fonction de cleanup, plus un tableau de dépendances.",
+      "Un <code>getSnapshot()</code> et un <code>getServerSnapshot()</code> ; l’abonnement se fait dans un effet.",
+      "Une fonction reducer et un state initial, comme <code>useReducer</code>."
+    ],
+    "explain": "Le hook s’abonne pour toi et lit la valeur courante avec <code>getSnapshot</code> ; le snapshot serveur est un troisième argument, optionnel, requis seulement pour le rendu serveur. Setup plus dépendances, c’est la forme de <code>useEffect</code>, pas celle de ce hook."
+  },
+  "m30.q11": {
+    "q": "Deux composants appellent chacun <code>useDebouncedValue(query, 300)</code>. Que partagent-ils ?",
+    "options": [
+      "La valeur debouncée : le second appel lit le state du premier.",
+      "Le timer : une frappe dans un composant annule la mise à jour de l’autre.",
+      "Rien du tout tant que les deux ne sont pas enveloppés dans le même provider de contexte.",
+      "Seulement le code : chaque appel a son propre state et son propre timer."
+    ],
+    "explain": "Un hook personnalisé partage de la logique, jamais du state ; mesuré, deux composants utilisant le même hook ont gardé des valeurs séparées. Partager du state demande un store, un contexte ou un state remonté, pas un hook."
+  },
+  "m30.q12": {
+    "q": "Le panneau de détail lève une erreur pendant le rendu et aucune error boundary ne l’entoure. Que voit l’agent avec React 19 ?",
+    "options": [
+      "Seul le panneau disparaît ; le tableau et la barre d’outils restent à l’écran.",
+      "Le dernier rendu réussi reste figé à l’écran jusqu’à un rechargement.",
+      "Toute la racine est démontée : une page vide jusqu’à un rechargement.",
+      "React retente le rendu trois fois, puis affiche un fallback par défaut."
+    ],
+    "explain": "Sans boundary, React démonte toute la racine ; mesuré, le conteneur était vide et <code>onUncaughtError</code> a été appelé. Garder le reste de l’écran en vie, c’est exactement ce que fait une boundary autour du panneau."
+  },
+  "m30.q13": {
+    "q": "Que logue ce code quand <code>Parent</code> est monté (sans StrictMode) ?",
+    "options": [
+      "child layout, parent layout, child effect, parent effect",
+      "parent layout, child layout, parent effect, child effect",
+      "parent effect, parent layout, child effect, child layout",
+      "child layout, child effect, parent layout, parent effect"
+    ],
+    "explain": "Tous les layout effects du commit s’exécutent avant tout effet passif, et dans chaque phase les enfants passent avant leur parent ; mesuré sur React 19.3.1. Le rendu commence par le parent, ce qui rend la deuxième option tentante, mais les effets s’exécutent de bas en haut pour qu’un parent puisse compter sur des enfants déjà initialisés."
+  },
+  "m30.q14": {
+    "q": "Le compteur « temps depuis la commande » a été écrit ainsi. Qu’affiche-t-il au bout de dix secondes ?",
+    "options": [
+      "10 s, car l’intervalle s’est déclenché dix fois et chaque tick a ajouté un.",
+      "0 s, car le state mis à jour depuis un intervalle est ignoré.",
+      "1 s, car chaque tick calcule 0 + 1 à partir du premier rendu.",
+      "Un nombre croissant, deux fois plus vite sous StrictMode."
+    ],
+    "explain": "Le callback de l’intervalle capture <code>seconds = 0</code> pour toujours, donc chaque tick met 1 ; mesuré, il est resté à 1. exhaustive-deps signale le <code>seconds</code> manquant et suggère la fonction de mise à jour <code>setSeconds((s) =&gt; s + 1)</code>, qui compte correctement."
+  },
+  "m30.q15": {
+    "q": "Qu’affiche l’écran après le montage de ce composant ?",
+    "options": [
+      "2",
+      "1",
+      "0, car les mises à jour faites dans un effet sont ignorées",
+      "Rien : il boucle, car l’effet met à jour le state"
+    ],
+    "explain": "Les deux appels lisent le même <code>count</code> à 0 et mettent 1 ; mesuré, les rendus ont vu 0, puis 1. Deux appels avec fonction de mise à jour, <code>setCount((c) =&gt; c + 1)</code>, donneraient 2 ; le tableau de dépendances vide empêche toute boucle."
+  },
+  "m30.q16": {
+    "q": "Un collègue voit « connect paid » deux fois en développement et ajoute un <code>hasConnectedRef</code> pour que le second setup sorte immédiatement. Quel changement mets-tu en production à la place ?",
+    "options": [
+      "Le flag dans une ref tel quel, puisque le build de production n’exécute de toute façon l’effet qu’une fois.",
+      "Retirer <code>&lt;StrictMode&gt;</code>, puisque la double exécution n’est qu’un artefact du développement.",
+      "Ouvrir le stream dans le corps du composant, protégé par une variable au niveau du module.",
+      "Un cleanup qui ferme le stream, pour que setup, cleanup, setup laisse un seul stream ouvert."
+    ],
+    "explain": "La double exécution révèle un cleanup manquant, et react.dev cite le flag dans une ref comme un piège : en production, il y aurait toujours une fuite à chaque changement de filtre et à chaque démontage. Retirer StrictMode masque le symptôme et garde la fuite."
+  },
+  "m30.q17": {
+    "q": "Le tableau des commandes boucle sur <code>[params]</code>, un objet construit dans le corps du composant à partir de <code>status</code>. Quelle correction mets-tu en production ?",
+    "options": [
+      "Construire l’objet dans l’effet et dépendre de <code>status</code>.",
+      "Retirer <code>params</code> du tableau et désactiver exhaustive-deps sur cette ligne.",
+      "Utiliser <code>JSON.stringify(params)</code> comme dépendance à la place de l’objet.",
+      "Passer à <code>useLayoutEffect</code> pour que la requête parte avant le rendu suivant."
+    ],
+    "explain": "Dépendre de la valeur primitive à partir de laquelle l’objet est construit, c’est ce que suggère la règle de lint ; mesuré, 1 requête au lieu d’environ 45 en une demi-seconde. Sérialiser fonctionne, mais cela sérialise à chaque rendu et masque ce dont l’effet dépend vraiment."
+  },
+  "m30.q18": {
+    "q": "Que se passe-t-il en développement avec React 19.3 quand ce composant est monté ?",
+    "options": [
+      "React lève « Too many re-renders » et la racine est démontée.",
+      "L’effet s’exécute deux fois, puis React abandonne car le compteur est le même.",
+      "React logue « Maximum update depth exceeded » et la boucle continue.",
+      "Rien de visible : React saute l’effet car le résumé est égal en valeur."
+    ],
+    "explain": "Chaque mise à jour stocke un nouvel objet, donc <code>summary</code> change et l’effet se réexécute ; mesuré, environ 1 640 exécutions en une seconde, avec une erreur console et aucune exception levée. React compare avec <code>Object.is</code>, pas en valeur, donc il n’abandonne jamais ; la correction consiste à calculer le résumé pendant le rendu."
+  },
+  "m30.q19": {
+    "q": "Ce panneau annule la requête précédente. L’agent clique sur la commande A, puis sur la commande B. Que voit-il ?",
+    "options": [
+      "La commande B, car la requête annulée pour A ne se termine jamais.",
+      "Un message d’erreur d’annulation à la place de la commande B.",
+      "La commande A, car annuler n’arrête pas la première réponse.",
+      "La commande B brièvement, puis la commande A quand sa réponse arrive."
+    ],
+    "explain": "Un fetch annulé est rejeté avec une <code>AbortError</code>, et ce catch la stocke comme une erreur ; mesuré, le panneau affichait « AbortError: This operation was aborted » alors que B était chargée. La correction vérifie <code>controller.signal.aborted</code> avant <code>setError</code> ; un fetch annulé se termine bel et bien, en étant rejeté."
+  },
+  "m30.q20": {
+    "q": "Le panneau fonctionne maintenant avec un <code>AbortController</code>. En code review, quelle est la meilleure raison de remplacer l’effet par <code>useQuery</code> ?",
+    "options": [
+      "Les effets n’ont aucun moyen d’annuler une requête, et <code>useQuery</code> peut l’annuler.",
+      "<code>useQuery</code> fait le fetch pendant le rendu, donc il n’y a pas de rendu en plus.",
+      "React 19 a déprécié les fetchs depuis <code>useEffect</code>.",
+      "Il ajoute le cache, les retries et la déduplication qui manquent à l’effet."
+    ],
+    "explain": "L’effet annule déjà correctement ; ce qui lui manque, c’est tout ce qui entoure la requête (cache, retries, déduplication, rechargement), que fournit TanStack Query. Les effets peuvent annuler avec un <code>AbortController</code>, comme le fait le code relu, donc la première option est fausse."
+  },
+  "m30.q21": {
+    "q": "Quelle utilisation de <code>useEffectEvent</code> est un bug ?",
+    "options": [
+      "Passer <code>onStatusEvent</code> en prop à un enfant qui l’appelle au clic.",
+      "Appeler <code>onStatusEvent</code> depuis le listener du stream mis en place dans un effet.",
+      "Lire <code>soundEnabled</code> dans <code>onStatusEvent</code> sans le lister.",
+      "Laisser <code>onStatusEvent</code> hors du tableau de dépendances de l’effet."
+    ],
+    "explain": "react.dev dit que les effect events ne doivent être appelés que depuis des effets ou d’autres effect events, jamais passés à d’autres composants ou hooks ; utilise une fonction classique ou <code>useCallback</code> pour le handler d’un enfant. Le laisser hors des dépendances est l’usage prévu : les effect events ne sont pas des dépendances."
+  },
+  "m30.q22": {
+    "q": "Après cinq événements du stream, qu’y a-t-il à l’écran ?",
+    "options": [
+      "5 received",
+      "0 received",
+      "1 received",
+      "Une erreur : les refs ne peuvent pas être lues pendant le rendu"
+    ],
+    "explain": "La ref est incrémentée, mais rien ne se re-rend, donc l’écran garde le 0 du premier rendu ; mesuré. React ne lève pas d’erreur, mais la règle de lint <code>react-hooks/refs</code> signale comme une erreur la lecture de <code>current</code> pendant le rendu : un compteur affiché à l’écran a sa place dans le state."
+  },
+  "m30.q23": {
+    "q": "Dans une codebase React 19, le parent de <code>SearchInput</code> a besoin de son élément input. Qu’écris-tu ?",
+    "options": [
+      "Envelopper <code>SearchInput</code> dans <code>forwardRef</code>, seul moyen pour un composant fonction de recevoir une ref.",
+      "Accepter une prop nommée <code>inputRef</code>, car <code>ref</code> n’atteint jamais un composant fonction.",
+      "Accepter <code>ref</code> comme une prop ordinaire et la passer à l’<code>&lt;input&gt;</code>.",
+      "Renvoyer le nœud input depuis <code>useImperativeHandle</code> dans <code>SearchInput</code>."
+    ],
+    "explain": "Depuis React 19, <code>ref</code> est une prop normale pour les composants fonction, et react.dev dit que <code>forwardRef</code> n’est plus nécessaire et sera déprécié. <code>forwardRef</code> fonctionne toujours, mais ce n’est plus le seul moyen, ni celui recommandé."
+  },
+  "m30.q24": {
+    "q": "La boutique Next.js, rendue côté serveur, réutilise le menu d’actions et son <code>useLayoutEffect</code>. À quoi faut-il s’attendre ?",
+    "options": [
+      "L’effet s’exécute sur le serveur avec un viewport par défaut de 1280 sur 720 pixels.",
+      "Next.js le transforme en <code>useEffect</code> pendant le build.",
+      "Le rendu serveur échoue et la page répond par une 500.",
+      "Il ne s’exécute pas sur le serveur ; le menu est mesuré dans le navigateur."
+    ],
+    "explain": "Les effets ne s’exécutent que côté client ; mesuré avec react-dom/server, le layout effect ne s’est pas exécuté et n’a levé aucune erreur. Il n’y a pas de layout sur le serveur, donc pas de viewport à mesurer."
+  },
+  "m30.q25": {
+    "q": "Que se passe-t-il quand un composant appelle ce hook ?",
+    "options": [
+      "Un avertissement indiquant que getSnapshot devrait être mis en cache, puis « Maximum update depth exceeded ».",
+      "Cela fonctionne, car React compare l’ancien et le nouveau snapshot en valeur, champ par champ.",
+      "Cela fonctionne, mais il se re-rend à chaque événement du store, même sans rapport.",
+      "TypeScript le refuse, car getSnapshot doit renvoyer une primitive."
+    ],
+    "explain": "Chaque appel renvoie un nouvel objet, donc React voit un changement à chaque vérification ; mesuré, l’avertissement puis l’erreur de profondeur de mise à jour. Renvoyer le nombre lui-même, ou un objet mis en cache, corrige le problème ; React compare les snapshots avec <code>Object.is</code>, jamais en valeur."
+  },
+  "m30.q26": {
+    "q": "La boutique réutilise <code>useOnlineStatus</code>, mais quelqu’un a retiré son troisième argument. Que se passe-t-il quand la page est rendue côté serveur ?",
+    "options": [
+      "Le hook renvoie <code>undefined</code> sur le serveur, donc la bannière est masquée.",
+      "React signale « Missing getServerSnapshot » et se rabat sur le rendu client.",
+      "Le serveur lit <code>navigator.onLine</code> depuis Node, qui vaut toujours true.",
+      "Rien ne change : le troisième argument ne compte que pour React Native."
+    ],
+    "explain": "react.dev dit qu’omettre <code>getServerSnapshot</code> fait lever une erreur au rendu serveur ; mesuré avec react-dom/server : « Missing getServerSnapshot, which is required for server-rendered content. Will revert to client rendering. » Le hook ne renvoie jamais undefined en silence."
+  },
+  "m30.q27": {
+    "q": "Le tableau et la barre de stats appellent tous deux <code>useLiveOrders('paid')</code>, et le BFF voit désormais deux streams par agent. Quelle correction garde le hook correct ?",
+    "options": [
+      "Ajouter un flag au niveau du module pour que le second appel du hook saute son propre effet.",
+      "Fusionner le tableau et la barre de stats en un seul composant plus gros qui appelle le hook.",
+      "L’appeler une fois dans la page et transmettre les données, ou compter les abonnés dans le store.",
+      "Envelopper l’effet du hook dans <code>useMemo</code> pour qu’il s’exécute une fois par statut."
+    ],
+    "explain": "Un seul appelant par écran, ou un store qui ouvre le stream pour son premier abonné et le ferme après le dernier, donne un seul stream avec un cleanup correct. Un flag au niveau du module casse dès que le premier appelant est démonté : le second se retrouve sans stream."
+  },
+  "m30.q28": {
+    "q": "La commande affichée passe de <code>paid</code> à <code>refunded</code>. Que se passe-t-il ?",
+    "options": [
+      "Aucun problème : les return anticipés placés avant un hook sont autorisés depuis React 19.",
+      "Le brouillon est conservé et revient quand la commande repasse à <code>paid</code>.",
+      "Seul un avertissement de lint apparaît ; à l’exécution, React saute le hook manquant.",
+      "React lève une erreur, car ce rendu a appelé moins de hooks que le précédent."
+    ],
+    "explain": "Mesuré : « Rendered fewer hooks than expected. This may be caused by an accidental early return statement. » La règle de lint le signale aussi comme une erreur (<code>rules-of-hooks</code>), donc la correction consiste à appeler tous les hooks avant le return anticipé."
+  },
+  "m30.q29": {
+    "q": "Le handler de clic du bouton de remboursement lève une erreur quand l’API répond 409. Le panneau est dans <code>PanelErrorBoundary</code>. Que se passe-t-il, et que mets-tu en production ?",
+    "options": [
+      "La boundary l’intercepte et affiche son fallback, donc il n’y a rien à changer.",
+      "La boundary ne l’intercepte pas ; l’intercepter dans le handler et l’afficher depuis le state.",
+      "Toute la racine est démontée, donc tu ajoutes une seconde boundary autour du bouton de remboursement.",
+      "React l’avale en silence ; ajoute <code>onUncaughtError</code> pour la voir."
+    ],
+    "explain": "Les boundaries n’interceptent pas les erreurs des handlers d’événements ; mesuré, la boundary est restée intacte et l’erreur a atteint l’événement error de window. Un 409 est un résultat attendu, donc le handler l’intercepte et met à jour un state d’erreur que le panneau affiche."
+  },
+  "m30.q30": {
+    "q": "La modale de remboursement est rendue par la ligne de commande avec <code>createPortal(…, document.body)</code>. Cliquer sur « Confirmer le remboursement » ouvre aussi le panneau de détail de la ligne. Pourquoi ?",
+    "options": [
+      "Les événements d’un portal remontent à travers l’arbre React, donc le clic atteint le <code>onClick</code> de la ligne.",
+      "La modale se trouve dans la ligne dans le DOM, donc l’événement de clic natif remonte jusqu’à la ligne.",
+      "<code>document.body</code> transmet chaque clic à l’élément qui a rendu le portal.",
+      "React envoie le clic à chaque composant qui partage la <code>key</code> de la modale."
+    ],
+    "explain": "Un portal déplace le nœud DOM, pas la position dans React, et react.dev dit que les événements d’un portal se propagent à travers l’arbre React ; mesuré, le handler React de la ligne s’est déclenché alors qu’un listener natif sur la ligne ne l’a pas été. L’explication par le DOM est fausse : la modale est sous <code>body</code>, en dehors de la ligne."
+  }
+}

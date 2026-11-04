@@ -1,0 +1,302 @@
+{
+  "m18.q1": {
+    "q": "Qu’est-ce qu’un bounded context ?",
+    "options": [
+      "Un microservice avec sa propre base de données, déployé et scalé indépendamment des autres",
+      "La frontière à l’intérieur de laquelle un modèle du domaine et son langage restent cohérents",
+      "Un groupe de tables souvent jointes entre elles et qui vivent dans le même schéma",
+      "Un module NestJS avec ses propres providers, exporté uniquement via sa façade publique"
+    ],
+    "explain": "Evans et Fowler le définissent comme la portée d’un modèle cohérent et de son langage : un même mot, comme commande, peut donc signifier autre chose dans un autre contexte. Un bounded context devient souvent un module ou un service plus tard, mais c’est d’abord une frontière de modélisation : un seul déployable peut en contenir plusieurs, comme le montre la section 3."
+  },
+  "m18.q2": {
+    "q": "Payments reçoit les webhooks du prestataire, remplis de « charges », de <code>metadata.order_ref</code> et de codes d’échec du prestataire, et les transforme en ses propres résultats <code>captured</code> et <code>declined</code> dans un seul fichier. De quel pattern de context map s’agit-il ?",
+    "options": [
+      "Conformist",
+      "Shared kernel",
+      "Open-host service avec un published language",
+      "Anticorruption layer"
+    ],
+    "explain": "Une anticorruption layer est une couche de traduction qui garde un modèle étranger hors du tien : un changement chez le prestataire ne touche qu’un fichier. Conformist est le choix inverse, utiliser le modèle amont tel quel, ce qui répandrait le vocabulaire du prestataire dans Payments. Un open-host service décrit le côté amont qui propose un protocole, pas la traduction côté aval."
+  },
+  "m18.q3": {
+    "q": "Chaque module se connecte avec son propre rôle PostgreSQL, et <code>ordering_module</code> n’a reçu de droits que sur le schéma <code>ordering</code>. Que se passe-t-il quand le code d’Ordering exécute <code>SELECT * FROM payments.payments</code> ?",
+    "options": [
+      "Ça échoue avec <code>42501 permission denied for schema payments</code>",
+      "Ça marche, parce que les deux schémas sont dans la même base et le même cluster",
+      "Ça renvoie un résultat vide",
+      "Ça marche pour SELECT et n’échoue que pour INSERT"
+    ],
+    "explain": "Sans USAGE sur le schéma, le rôle ne peut même pas atteindre les objets qu’il contient : mesuré sur PostgreSQL 18.6 (PGlite), le select comme une jointure ont échoué avec 42501. Être dans la même base n’accorde rien en soi ; les privilèges sont par schéma et par table, ce qui transforme la frontière du module en règle appliquée à l’exécution."
+  },
+  "m18.q4": {
+    "q": "Pourquoi l’agrégat <code>Order</code> contient-il <code>customerId</code> plutôt qu’un objet <code>Customer</code> ?",
+    "options": [
+      "Parce que la colonne JSON qui stocke les commandes ne peut pas contenir d’objet client imbriqué",
+      "Pour économiser de la mémoire, car charger un client avec chaque commande coûterait trop cher en pic",
+      "Les agrégats en référencent d’autres par id, pour qu’une transaction ne modifie jamais les deux",
+      "Parce qu’un champ typé avec une autre classe casse le type stripping de Node à l’exécution"
+    ],
+    "explain": "La règle de Vernon, « référencer les autres agrégats par identité », fait de chaque agrégat sa propre frontière de cohérence, et un bounded context devrait modifier une seule instance d’agrégat par transaction. La mémoire est un bénéfice secondaire, pas la raison : détenir l’objet inciterait le code à modifier le client à travers la commande."
+  },
+  "m18.q5": {
+    "q": "Quelle affirmation sur la classe <code>Money</code> de la leçon est vraie ?",
+    "options": [
+      "Une entité, parce que chaque montant reçoit un id quand il est enregistré avec la commande",
+      "Un value object : immuable, et égal à un autre quand les centimes et la devise correspondent",
+      "Deux appels <code>Money.of(1999)</code> renvoient le même objet en cache, donc <code>===</code> les compare",
+      "Il peut être modifié sur place, ce qui évite d’allouer un nouvel objet à chaque addition"
+    ],
+    "explain": "Money n’a pas d’identité et est gelé : c’est un value object comparé par valeur. Mesuré sur Node 24 : deux Money.of(1999) étaient des objets différents (=== valait false) alors qu’equals renvoyait true, et affecter cents levait une TypeError. Utilise equals, jamais ===."
+  },
+  "m18.q6": {
+    "q": "Dans la leçon, où vont les événements enregistrés par <code>Order.place()</code> ?",
+    "options": [
+      "Le repository les écrit dans l’outbox, dans la même transaction que la commande",
+      "L’agrégat les publie lui-même vers le broker, avant que <code>place()</code> ne rende la main",
+      "Le controller les publie après avoir envoyé la réponse HTTP au client",
+      "Ils restent en mémoire dans l’agrégat jusqu’au prochain déploiement"
+    ],
+    "explain": "L’agrégat se contente d’enregistrer les événements ; le repository les récupère et les insère dans l’outbox dans la même transaction que la commande, donc les deux sont commités ou aucun (mesuré : une insertion en échec dans l’outbox a annulé la commande). Publier depuis l’agrégat ferait dépendre le domaine de l’infrastructure et ramènerait la double écriture de M13."
+  },
+  "m18.q7": {
+    "q": "Que dit la règle de dépendance dans une architecture hexagonale ou clean ?",
+    "options": [
+      "Chaque couche ne peut appeler que la couche juste en dessous, jamais une plus bas",
+      "Les adapters ne doivent jamais importer le domaine ; ils n’échangent avec lui que du JSON brut",
+      "Le domaine dépend d’interfaces publiées par le driver de base de données, comme pg",
+      "Les dépendances du code source pointent vers l’intérieur : les adapters dépendent du cœur"
+    ],
+    "explain": "Robert C. Martin la formule ainsi : « les dépendances du code source ne peuvent pointer que vers l’intérieur » : le domaine n’importe rien, l’application importe le domaine, et les adapters importent les deux. « Seulement la couche du dessous » décrit l’architecture en couches classique, où le domaine finit par dépendre de la couche d’accès aux données, exactement ce que les ports inversent."
+  },
+  "m18.q8": {
+    "q": "Qu’est-ce qui distingue l’événement d’intégration <code>shop.ordering.order-placed.v1</code> de l’événement de domaine <code>OrderPlaced</code> ?",
+    "options": [
+      "Rien : ce sont deux noms pour le même objet, utilisés dans des dossiers différents",
+      "Il est émis avant le commit, alors que l’événement de domaine est émis après",
+      "C’est un contrat public versionné en données brutes, livré après le commit",
+      "Il ne peut être consommé que par des handlers qui tournent dans le même processus Node.js"
+    ],
+    "explain": "Les événements de domaine sont internes à un module et évoluent avec son modèle ; les événements d’intégration sont un contrat publié, du JSON brut avec une version, et d’après le guide de Microsoft ne doivent se produire que si le changement a été persisté. La deuxième option inverse le moment, et la consommation dans le processus décrit les événements de domaine."
+  },
+  "m18.q9": {
+    "q": "Plusieurs consommateurs lisent <code>order-placed.v1</code>. Quel changement peut partir sans nouveau type d’événement ?",
+    "options": [
+      "Renommer <code>totalCents</code> en <code>amountMinor</code>",
+      "Ajouter un champ optionnel <code>couponCode</code>",
+      "Envoyer <code>totalCents</code> en euros au lieu de centimes",
+      "Supprimer le champ <code>lines</code> que lit Invoicing"
+    ],
+    "explain": "Ajouter un champ optionnel est additif : les tolerant readers l’ignorent (mesuré avec Zod 4.6.7, un champ en trop était simplement retiré). Renommer, supprimer un champ que quelqu’un lit ou changer d’unité sont des changements cassants ; le changement d’unité est le plus dangereux, car le type reste un nombre et rien n’échoue bruyamment."
+  },
+  "m18.q10": {
+    "q": "Que signifie CQRS dans l’exemple du back-office ?",
+    "options": [
+      "Les écritures passent par les agrégats ; la recherche lit un modèle séparé construit à partir des événements",
+      "Chaque requête passe par un CommandBus ou un QueryBus, comme dans @nestjs/cqrs",
+      "Les commandes utilisent POST et PUT, les requêtes GET, sur des controllers séparés par écran",
+      "Les lectures vont vers un réplica PostgreSQL des mêmes tables, les écritures vers le primaire"
+    ],
+    "explain": "CQRS utilise un modèle différent pour mettre à jour l’information et pour la lire (Fowler) : ici une table order_summaries dénormalisée alimentée par des événements. Les bus sont un mécanisme de dispatch et ne donnent pas à eux seuls de modèle séparé, et un réplica de lecture sert le même modèle depuis un autre serveur."
+  },
+  "m18.q11": {
+    "q": "Avec l’event sourcing, que stocke le registre des paiements ?",
+    "options": [
+      "Les montants actuels de chaque paiement, plus une colonne <code>updated_at</code> par ligne",
+      "Les montants actuels, plus une copie complète de la ligne dans une table d’audit après chaque changement",
+      "Chaque événement de chaque paiement, dans l’ordre ; l’état se calcule en les rejouant",
+      "Uniquement l’événement le plus récent de chaque paiement"
+    ],
+    "explain": "L’event sourcing capture tous les changements sous forme de suite d’événements, et l’état est un fold du flux (evolve dans la section 10). Des copies de la ligne après chaque changement forment une table d’audit : elles montrent ce que la ligne est devenue, pas ce qui s’est passé, comme un remboursement par opposition à une correction."
+  },
+  "m18.q12": {
+    "q": "L’ADR-006 disait « garder Payments dans le monolithe ». Un an plus tard, l’équipe décide de l’extraire. Que devient l’ADR-006 ?",
+    "options": [
+      "Il est supprimé, pour que personne ne suive par erreur une décision dépassée",
+      "Il est modifié sur place pour décrire la nouvelle décision",
+      "Il reste inchangé, et la nouvelle décision est écrite dans le wiki",
+      "Il est conservé tel quel, marqué remplacé par un nouvel ADR numéroté qui pointe vers lui"
+    ],
+    "explain": "Le format de Nygard numérote les ADR à la suite et conserve les décisions annulées, marquées remplacées, pour que l’historique du pourquoi reste lisible. Modifier ou supprimer l’ancien enregistrement fait perdre le contexte dans lequel c’était le bon choix, ce qui est la principale raison de tenir des ADR."
+  },
+  "m18.q13": {
+    "q": "Le recruteur demande : « Une table orders géante et un god-service utilisé par cinq équipes. Que séparez-vous en premier ? » Quelle réponse est la plus solide ?",
+    "options": [
+      "La découper en cinq microservices, un par équipe, chacun partant d’une copie de la table, et laisser les équipes diverger ensuite",
+      "Réorganiser d’abord le code par couche technique, controllers, services et repositories, pour que chaque équipe retrouve son code",
+      "Cartographier le langage et la propriété des champs, puis déplacer un contexte douloureux dans son propre module et ses tables au sein du monolithe",
+      "Extraire une bibliothèque Order partagée que les cinq équipes importent, pour que le modèle reste cohérent pendant que chaque équipe travaille dans son service"
+    ],
+    "explain": "On part du langage et de la propriété des données, puis on sépare un contexte là où ça fait mal, sans réseau entre les deux, pour que les erreurs restent peu coûteuses à corriger. Commencer par des services déplace le nœud sur le réseau, les couches techniques laissent chaque concept réparti dans toutes, et une bibliothèque partagée conserve le modèle partagé unique qui est justement le problème."
+  },
+  "m18.q14": {
+    "q": "Avec cette règle dependency-cruiser, quel import fait échouer le job de CI ?",
+    "options": [
+      "<code>src/modules/ordering/application/place-order.ts</code> importe <code>src/modules/ordering/domain/order.ts</code>",
+      "<code>src/modules/ordering/index.ts</code> importe <code>src/modules/payments/domain/payment.ts</code>",
+      "<code>src/modules/ordering/http/orders.ts</code> importe <code>src/modules/payments/index.ts</code>",
+      "<code>src/main.ts</code> importe <code>src/modules/payments/infrastructure/pg-payments.ts</code>"
+    ],
+    "explain": "Même l’index.ts du module correspond au chemin from, donc $1 vaut ordering ; la cible est dans un autre module et n’est ni sous src/modules/ordering/ ni un index.ts, donc la règle se déclenche (vérifié en évaluant les expressions régulières de la règle sur ces quatre chemins). Les imports internes au module et vers l’index.ts d’un autre module sont exclus par pathNot, et src/main.ts, la composition root, ne correspond pas du tout au chemin from."
+  },
+  "m18.q15": {
+    "q": "En code review, quel est le problème de cet agrégat ?",
+    "options": [
+      "Le getter expose le tableau interne, donc un cast permet aux appelants de contourner <code>addLine</code>",
+      "<code>#lines</code> est un champ privé, que le type stripping de Node rejette au démarrage",
+      "<code>readonly</code> gèle le tableau à l’exécution, donc le <code>push</code> de <code>addLine</code> lève une exception",
+      "La vérification des 50 lignes a sa place dans le repository, qui voit chaque commande avant qu’elle soit enregistrée"
+    ],
+    "explain": "readonly n’est qu’une promesse à la compilation : mesuré sur Node 24, un appelant qui castait le tableau a poussé une ligne qu’addLine n’a jamais vue. Renvoie une copie (ou un tableau gelé) pour que la racine reste le seul point d’entrée. Les champs #private fonctionnent bien avec le type stripping, et les invariants ont leur place dans l’agrégat, pas dans le repository."
+  },
+  "m18.q16": {
+    "q": "Le produit demande une nouvelle règle : « un client ne peut pas avoir plus de trois commandes impayées ». Chaque commande est son propre agrégat. Que proposes-tu ?",
+    "options": [
+      "Faire de Customer un agrégat qui contient toutes ses commandes, pour qu’une transaction puisse vérifier la règle",
+      "Verrouiller la ligne du client dans chaque transaction qui touche une commande, dans chaque module concerné",
+      "Laisser l’agrégat Order charger les autres commandes du client depuis le repository et les compter",
+      "Demander à quel point elle doit être stricte ; en général, la vérifier dans le use case et accepter ou détecter la race rare"
+    ],
+    "explain": "Les règles de Vernon privilégient de petits agrégats et la cohérence à terme hors de la frontière, et une règle qui traverse plusieurs agrégats se discute d’abord avec le métier. Un Customer qui contient toutes les commandes devient un énorme agrégat que chaque passage de commande doit charger et verrouiller, et un agrégat qui charge d’autres agrégats enfreint la règle d’un agrégat par transaction."
+  },
+  "m18.q17": {
+    "q": "Deux requêtes chargent chacune la commande <code>ord_42</code> en version 1, la modifient et l’enregistrent avec le repository de la section 5. Que se passe-t-il au deuxième enregistrement ?",
+    "options": [
+      "Les deux réussissent, et le second écrase en silence les changements du premier",
+      "Le deuxième UPDATE ne correspond à aucune ligne, donc <code>ConcurrentUpdateError</code> est levée",
+      "PostgreSQL détecte un deadlock entre les deux transactions et les annule toutes les deux",
+      "Le second attend un verrou de ligne jusqu’au rollback de la première transaction"
+    ],
+    "explain": "Le premier enregistrement a fait passer la ligne en version 2, donc le deuxième UPDATE ne correspond à aucune ligne et le repository lève une exception (mesuré sur PGlite : ConcurrentUpdateError, version finale 2). Sans la condition sur la version, les deux réussiraient et la dernière écriture gagnerait en silence. Aucun verrou n’est tenu entre les deux requêtes, il n’y a donc rien sur quoi faire un deadlock."
+  },
+  "m18.q18": {
+    "q": "Un recruteur demande : « Hexagonale contre architecture en couches classique : qu’est-ce qui change vraiment ? »",
+    "options": [
+      "L’hexagonale a six couches au lieu de trois, une par type d’adapter qu’elle supporte",
+      "L’hexagonale interdit les frameworks comme NestJS, puisqu’ils se retrouveraient dans le cœur",
+      "Le sens des dépendances : le cœur déclare des ports, et les adapters dépendent de lui",
+      "L’hexagonale met chaque use case et son SQL dans un seul fichier, donc les couches disparaissent"
+    ],
+    "explain": "Dans l’architecture en couches classique, le domaine importe et appelle la couche d’accès aux données ; avec ports et adapters, le cœur possède les interfaces et les adapters les implémentent ou les appellent, donc un test peut piloter le cœur aussi facilement que HTTP (l’intention de Cockburn). Cockburn dit que le chiffre six n’a pas d’importance, et les frameworks conviennent très bien comme adapters autour du cœur."
+  },
+  "m18.q19": {
+    "q": "Payments publie <code>payment-captured</code> ; Ordering envoie « émets la facture pour ord_42 » à Invoicing. Comment les classes-tu ?",
+    "options": [
+      "Un événement, puis une commande ; tous deux circulent comme messages via des canaux",
+      "Tous deux sont des événements, parce qu’ils sont publiés via le même topic du broker",
+      "Tous deux sont des commandes, parce qu’ils font travailler un autre contexte",
+      "Une commande, puis un événement, parce que la facture est le fait enregistré"
+    ],
+    "explain": "Un événement énonce quelque chose qui s’est produit et n’attend pas de réponse ; une commande demande à un destinataire d’agir (Fowler, et les messages commande et événement d’Enterprise Integration Patterns). Le message est l’enveloppe, pas un troisième type d’intention, et passer par le même broker ne dit rien de l’intention."
+  },
+  "m18.q20": {
+    "q": "Après <code>payment-captured</code>, Invoicing émet une facture et Loyalty ajoute des points, indépendamment. Au checkout, un paiement en échec doit libérer le stock réservé et annuler la commande. Quelle coordination convient à chaque cas ?",
+    "options": [
+      "De l’orchestration pour les deux, pour qu’un composant voie et contrôle chaque étape de chaque flux",
+      "De la chorégraphie pour les deux, avec des événements de compensation publiés par chaque service en cas d’échec",
+      "De l’orchestration pour la facturation et la fidélité, de la chorégraphie avec compensations pour le checkout",
+      "De la chorégraphie pour les réactions indépendantes, une saga orchestrée pour le checkout"
+    ],
+    "explain": "Des réactions indépendantes à un fait se prêtent à la chorégraphie : chaque consommateur s’abonne et le producteur ne les connaît pas. Un flux en plusieurs étapes avec de l’argent et des compensations est plus facile à suivre, à borner par un timeout et à supporter avec un orchestrateur, comme le montre la saga de M13. Chorégraphier le checkout répartit le flux sur plusieurs services, et plus personne ne le voit en entier."
+  },
+  "m18.q21": {
+    "q": "À chaque événement <code>order-placed</code>, Invoicing appelle l’API d’Ordering pour récupérer les lignes. Pendant les soldes, Ordering ralentit et la facturation prend des heures de retard. Quel changement traite la cause ?",
+    "options": [
+      "Donner plus de réplicas à Invoicing pour qu’il traite l’arriéré d’événements en parallèle",
+      "Transporter les lignes dans l’événement lui-même, pour qu’Invoicing arrête de rappeler Ordering",
+      "Mettre en cache les réponses de l’API d’Ordering dans Invoicing pendant 24 heures pour absorber le pic",
+      "Faire plutôt appeler Invoicing par Ordering de façon synchrone, pour que les factures ne prennent jamais de retard"
+    ],
+    "explain": "Une notification suivie d’un rappel lie le consommateur à la charge et à la disponibilité du producteur ; transporter les données nécessaires supprime l’appel, et les consommateurs n’ont plus besoin de contacter la source (Fowler). Le coût : des copies de données et un contrat plus large à versionner. Plus de réplicas d’Invoicing ne feraient qu’ajouter de la charge au module Ordering déjà en difficulté."
+  },
+  "m18.q22": {
+    "q": "Avec <code>readOrderPlaced</code> de la section 8, qu’affiche ce code ?",
+    "options": [
+      "Une ZodError, parce que <code>couponCode</code> n’est pas dans le schéma v1",
+      "<code>{\"orderId\":\"ord_981\",\"totalCents\":1999,\"currency\":\"EUR\",\"couponCode\":\"BF26\"}</code>",
+      "<code>{\"orderId\":\"ord_981\",\"total\":{\"amountMinor\":1999,\"currency\":\"EUR\"}}</code>",
+      "Une UnknownEventTypeError, parce que v1 n’est plus la version actuelle"
+    ],
+    "explain": "z.object retire les clés inconnues, donc le champ en trop est ignoré (un tolerant reader), et la branche v1 upcaste l’événement vers la forme v2. Mesuré avec Zod 4.6.7 : exactement cette sortie. z.strictObject aurait rejeté la clé en trop, ce qui est le mauvais choix pour un consommateur d’événements."
+  },
+  "m18.q23": {
+    "q": "Ton topic Kafka utilise Confluent Schema Registry avec sa compatibilité par défaut, <code>BACKWARD</code>. Tu ajoutes un champ optionnel au schéma. Dans quel ordre déploies-tu ?",
+    "options": [
+      "Les consommateurs d’abord, puis les producteurs",
+      "Les producteurs d’abord, puis les consommateurs",
+      "Les deux en même temps, dans une seule release",
+      "L’ordre n’a pas d’importance avec BACKWARD"
+    ],
+    "explain": "Confluent documente qu’avec BACKWARD, les consommateurs qui utilisent le nouveau schéma peuvent lire les données produites avec le dernier schéma : on met donc à jour tous les consommateurs avant de commencer à produire de nouveaux événements. Les producteurs d’abord, c’est l’ordre FORWARD, et « dans n’importe quel ordre », c’est la compatibilité FULL."
+  },
+  "m18.q24": {
+    "q": "« Comment testez-vous des services event-driven ? » Quelle réponse donnerais-tu ?",
+    "options": [
+      "Uniquement des tests end-to-end avec tous les services et un vrai broker, puisque les tests unitaires ne voient pas les messages",
+      "Mocker le client du broker dans chaque test et vérifier que publish a été appelé avec le bon topic",
+      "Surtout des tests manuels en préproduction, parce que le timing des messages est imprévisible dans les tests automatisés",
+      "Des handlers testés avec des événements de fixture, des contrats avec Pact, quelques tests end-to-end"
+    ],
+    "explain": "Séparer le handler du payload du transport rend la plupart des tests rapides et précis, et Pact vérifie que le consommateur sait traiter un message et que le provider le produit. Une fine couche de tests end-to-end avec Testcontainers couvre le câblage. Mocker le client du broker prouve qu’une méthode a été appelée, pas que le message est correct."
+  },
+  "m18.q25": {
+    "q": "L’événement de paiement arrive avant l’événement de commande, et l’événement de commande est livré deux fois. Avec le projector de la section 9, que contient <code>order_summaries</code> ensuite ?",
+    "options": [
+      "Deux lignes pour ord_42, une par producteur",
+      "Une ligne complète : client cus_7, total 49 998, paiement pay_7",
+      "Une erreur au premier appel, parce que la ligne de la commande n’existe pas encore",
+      "Une ligne avec le client et le total, mais sans id de paiement, parce que le paiement est arrivé trop tôt"
+    ],
+    "explain": "Chaque événement fait un upsert de ses propres colonnes uniquement : le paiement arrivé tôt a créé une ligne partielle et l’événement de commande l’a complétée, tandis que le doublon a été ignoré grâce à processed_events. Mesuré sur PGlite : une ligne avec les trois valeurs et deux ids d’événements enregistrés. Un projector qui ne ferait que des UPDATE aurait perdu le paiement arrivé tôt."
+  },
+  "m18.q26": {
+    "q": "Un collègue dit : « On utilise <code>@nestjs/cqrs</code>, donc on fait du CQRS. » Que vérifies-tu ?",
+    "options": [
+      "Que chaque classe handler est décorée avec <code>@CommandHandler</code> ou <code>@QueryHandler</code>",
+      "Que le QueryBus est plus rapide que l’appel direct au service, puisque c’est l’intérêt de CQRS",
+      "S’il existe un modèle de lecture séparé ; les bus seuls ne font que router des appels en mémoire",
+      "Que la version du package correspond à la version majeure de NestJS utilisée par le reste de l’app"
+    ],
+    "explain": "CQRS, ce sont des modèles séparés pour l’écriture et la lecture ; CommandBus et QueryBus ne font que dispatcher dans le processus. La documentation de Nest prévient aussi que les event handlers tournent en mémoire et que les exception filters ne peuvent pas attraper leurs erreurs : tout ce qui doit survivre à un crash passe donc par une outbox. @nestjs/cqrs est en 12.1.2 en octobre 2026, aux côtés de Nest 12."
+  },
+  "m18.q27": {
+    "q": "Deux agents du support remboursent 300 EUR sur le même paiement capturé de 499,98 EUR au même moment. Avec le code de la section 10, que se passe-t-il ?",
+    "options": [
+      "L’un est ajouté ; l’autre échoue avec <code>WrongExpectedVersionError</code> et doit réessayer",
+      "Les deux sont ajoutés, ce qui rembourse 600 EUR sur un paiement de 499,98 EUR",
+      "Les deux échouent, parce que chaque transaction voit la ligne non commitée de l’autre",
+      "Le second écrase le premier en version 3, donc seul le remboursement tardif reste"
+    ],
+    "explain": "Les deux lisent la version 2, donc tous deux tentent d’écrire la version 3, et la clé primaire (stream_id, version) n’en accepte qu’une (mesuré sur PGlite). Rechargé en version 3, decideRefund voit 19 998 centimes remboursables et lève une exception. Sans la version attendue, les deux décisions seraient passées sur le même état périmé."
+  },
+  "m18.q28": {
+    "q": "Un architecte propose de passer toute l’API Orders en event sourcing « pour avoir l’historique complet partout ». Quelle réponse montre le mieux le compromis ?",
+    "options": [
+      "Oui : l’event sourcing simplifie toutes les requêtes, parce que chaque fait est stocké sous forme d’événement",
+      "Oui : il supprime le besoin de migrations de schéma, parce que les événements ne sont jamais modifiés",
+      "Non : l’event sourcing exige un event store dédié et ne peut pas du tout tourner sur PostgreSQL",
+      "Seulement là où l’historique est l’exigence, comme le registre des paiements : les coûts sont permanents"
+    ],
+    "explain": "L’event sourcing est rentable là où l’historique lui-même est nécessaire, et ses coûts sont permanents : chaque version d’événement doit rester lisible, les requêtes ont besoin de projections, les longs flux de snapshots, et les rejeux ne doivent pas renvoyer les effets de bord. Il rend les requêtes plus difficiles, pas plus simples, et une table PostgreSQL en ajout seul fonctionne, comme le montre la section 10."
+  },
+  "m18.q29": {
+    "q": "L’équipe extrait Payments dans un service. Quel plan évite un monolithe distribué ?",
+    "options": [
+      "Déployer le nouveau service et le laisser continuer à lire et écrire les tables payments dans la base partagée, pour éviter une migration de données",
+      "Une façade le route étape par étape ; son schéma passe dans sa propre base via CDC ; les autres utilisent son API et ses événements",
+      "Réécrire Payments de zéro avec la nouvelle équipe, puis basculer tout le trafic dessus en une nuit",
+      "Extraire les cinq contextes d’un coup, pour que les frontières et les contrats restent cohérents"
+    ],
+    "explain": "Le strangler fig déplace une pièce à la fois derrière une façade, et la propriété des données fait que les données du nouveau service ne sont accessibles que via son API. Partager les anciennes tables garde le couplage et ajoute le réseau : aucun des deux côtés ne peut changer le schéma ni déployer seul. Une réécriture big bang renonce au rollback étape par étape qui rend une extraction sûre."
+  },
+  "m18.q30": {
+    "q": "« Quand n’utiliseriez-vous pas de microservices ? » Quelle réponse est la plus senior ?",
+    "options": [
+      "Quand la latence compte, parce qu’un appel réseau est toujours plus lent qu’un appel de fonction dans le processus",
+      "Quand l’équipe manque d’expérience Kubernetes ; sinon, c’est le choix par défaut pour tout nouveau produit",
+      "Une petite équipe, des frontières qui bougent encore, et rien qui doive scaler, se déployer ou appartenir à quelqu’un séparément",
+      "Quand le domaine est simple ; pour un domaine complexe, commencer par des microservices pour que chaque équipe possède un service"
+    ],
+    "explain": "Les microservices achètent un déploiement, un scaling et une propriété indépendants au prix de l’exploitation d’une suite de services, un surcoût qui ralentit les équipes, prévient Fowler, et les frontières sont plus difficiles à bien tracer au début. Commencer par des services pour un domaine complexe va à l’inverse de son constat que les réussites ont démarré en monolithe ; la latence et les compétences Kubernetes sont des facteurs, pas la raison."
+  }
+}

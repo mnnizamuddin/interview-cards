@@ -1,0 +1,302 @@
+{
+  "m03.q1": {
+    "q": "Lequel de ces endpoints de l’API Orders gagne le plus à streamer sa réponse ?",
+    "options": [
+      "<code>GET /orders?page=3</code>, qui renvoie 50 commandes en JSON",
+      "<code>POST /webhooks/payments</code>, qui valide un corps JSON de 2 Ko avec Zod",
+      "<code>GET /exports/orders.csv</code>, qui exporte toutes les commandes de la boutique, des millions de lignes",
+      "<code>GET /me</code>, qui renvoie le profil de l’utilisateur courant"
+    ],
+    "explain": "L’export est le seul payload dont la taille grandit avec les données sans limite haute, donc le mettre en buffer peut épuiser la mémoire. Les trois autres sont petits et bornés par conception ; les streamer ajoute du code et complique le signalement des erreurs pour aucun gain."
+  },
+  "m03.q2": {
+    "q": "Dans un stream créé en object mode, qu’est-ce qu’un chunk ?",
+    "options": [
+      "N’importe quelle valeur JavaScript, comme une ligne de la base, et <code>highWaterMark</code> compte ces valeurs",
+      "Un <code>Buffer</code> d’au plus 16 Kio",
+      "Une chaîne déjà décodée en UTF-8",
+      "Une ligne de texte JSON terminée par un saut de ligne"
+    ],
+    "explain": "L’object mode permet à chaque chunk d’être n’importe quelle valeur, ce qu’on veut entre ses propres étapes (lignes, événements). <code>highWaterMark</code> compte alors des objets, 16 par défaut (mesuré), quelle que soit leur taille. Les Buffers sont les chunks des streams d’octets, pas des streams en object mode."
+  },
+  "m03.q3": {
+    "q": "Un export planifié écrit son CSV gzippé dans un fichier local avec <code>await pipeline(rows, toCsvLines, createGzip(), createWriteStream(path))</code>. L’écriture du fichier échoue avec « disk full ». Que se passe-t-il ?",
+    "options": [
+      "La promesse rejette, mais la source reste ouverte pour que tu puisses retenter l’écriture",
+      "Chaque stream de la chaîne est détruit, le nettoyage de la source s’exécute, et la promesse rejette une fois avec l’erreur « disk full »",
+      "Seule la destination émet <code>'error'</code> ; la promesse se résout quand la source se termine",
+      "<code>pipeline</code> retente l’écriture en échec jusqu’à ce que le disque ait de la place"
+    ],
+    "explain": "Mesuré : avec une destination qui échoue à sa troisième écriture, <code>pipeline</code> a rejeté avec cette erreur et le <code>finally</code> du générateur source s’est exécuté. Laisser la source ouverte, c’est ce que fait <code>.pipe()</code>, et c’est pourquoi il fait fuir des handles de fichiers et des curseurs."
+  },
+  "m03.q4": {
+    "q": "Tu trouves <code>source.pipe(destination)</code> dans l’ancien code d’export. Que ne fait pas <code>.pipe()</code> ?",
+    "options": [
+      "Il n’applique pas de backpressure entre les deux streams",
+      "Il ne marche pas avec les streams en object mode",
+      "Il ne transmet aucune donnée tant que la source n’est pas terminée",
+      "Il ne détruit pas l’autre stream et ne signale pas l’erreur quand un côté échoue"
+    ],
+    "explain": "<code>.pipe()</code> respecte bien la backpressure et transmet les chunks au fil de l’eau. Ce qui lui manque, c’est la gestion des échecs : mesuré, une source en échec a laissé la destination ouverte, et une destination en échec a laissé la source en pause mais pas détruite. <code>pipeline</code> corrige les deux."
+  },
+  "m03.q5": {
+    "q": "<code>writable.write(chunk)</code> renvoie <code>false</code>. Qu’est-ce que ça signifie ?",
+    "options": [
+      "Le chunk a été abandonné et doit être réécrit",
+      "Le stream est fermé et refusera les écritures suivantes",
+      "Le buffer a atteint son <code>highWaterMark</code> : le chunk est mis en file, et tu dois arrêter d’écrire jusqu’à <code>'drain'</code>",
+      "Une erreur s’est produite et un événement <code>'error'</code> va suivre"
+    ],
+    "explain": "Le chunk est accepté et mis en buffer ; <code>false</code> est une demande de pause. Mesuré avec une limite de 10 octets : des écritures de 5, 5 et 1 octets ont renvoyé <code>true, false, false</code>, et <code>'drain'</code> s’est déclenché une fois le buffer vide. Rien n’est abandonné, et c’est justement pour ça qu’ignorer le signal remplit la mémoire."
+  },
+  "m03.q6": {
+    "q": "Sur Node 24.11, quel est le <code>highWaterMark</code> par défaut de <code>fs.createReadStream(path)</code> ?",
+    "options": [
+      "16 Kio",
+      "64 Kio",
+      "1 Mio",
+      "16 objets"
+    ],
+    "explain": "Mesuré : <code>readableHighWaterMark</code> vaut 65 536 pour les streams de lecture de fichiers. La valeur par défaut générale des streams d’octets (y compris <code>fs.createWriteStream</code>) est 16 Kio, et 16 objets est celle de l’object mode, d’où la tentation de répondre 16 Kio."
+  },
+  "m03.q7": {
+    "q": "Que valent <code>'é'.length</code> et <code>Buffer.byteLength('é')</code> ?",
+    "options": [
+      "2 et 1",
+      "1 et 1",
+      "2 et 2",
+      "1 et 2"
+    ],
+    "explain": "La longueur d’une chaîne compte les unités de code UTF-16, et <code>é</code> en est une ; UTF-8 l’encode sur deux octets (mesuré). Donc un en-tête <code>Content-Length</code> ou une limite d’upload calculés avec <code>.length</code> sont faux dès que le texte n’est pas en ASCII."
+  },
+  "m03.q8": {
+    "q": "Quelle façon de transformer le stream d’octets UTF-8 du catalogue en texte est sûre quand un caractère est coupé entre deux chunks ?",
+    "options": [
+      "<code>chunk.toString('utf8')</code> sur chaque chunk",
+      "<code>new TextDecoder().decode(chunk)</code> sur chaque chunk",
+      "Un seul <code>TextDecoder</code> appelé avec <code>{ stream: true }</code> sur chaque chunk, puis <code>decode()</code> une fois à la fin",
+      "<code>chunk.toString('latin1')</code> sur chaque chunk, puis réencoder le résultat"
+    ],
+    "explain": "Avec <code>{ stream: true }</code>, le décodeur garde les octets incomplets jusqu’au chunk suivant, et le <code>decode()</code> final les vide. Mesuré : un décodeur sans cette option a produit <code>caf��</code>, le même charabia que <code>toString()</code>, car chaque appel repart de zéro."
+  },
+  "m03.q9": {
+    "q": "Dans Node 24, le job du catalogue appelle <code>fetch(url)</code>. Qu’est-ce que <code>response.body</code> ?",
+    "options": [
+      "Un <code>ReadableStream</code> Web : itère dessus avec <code>for await</code>, ou convertis-le avec <code>Readable.fromWeb</code> pour utiliser les API de streams Node",
+      "Un <code>Readable</code> Node que tu peux <code>.pipe()</code> directement dans un fichier",
+      "Un <code>Buffer</code> contenant toute la réponse",
+      "Une chaîne décodée avec le charset des en-têtes"
+    ],
+    "explain": "Mesuré : <code>response.body instanceof ReadableStream</code> vaut <code>true</code> et ce n’est pas un <code>Readable</code> Node, donc il n’a pas de <code>.pipe()</code>. <code>Readable.fromWeb(response.body)</code> a donné un stream Node de chunks <code>Buffer</code> que <code>pipeline</code> a écrits sur disque."
+  },
+  "m03.q10": {
+    "q": "Que te donne <code>client.query(new QueryStream(sql, params, { batchSize: 500 }))</code> de <code>pg-query-stream</code> ?",
+    "options": [
+      "Un Readable en object mode adossé à un curseur côté serveur : les lignes arrivent 500 par 500 au rythme de lecture du consommateur",
+      "Une promesse qui se résout avec toutes les lignes une fois la requête terminée",
+      "Un stream d’octets CSV produit par la commande <code>COPY</code> de PostgreSQL",
+      "Un itérateur qui lance une requête <code>LIMIT 500 OFFSET n</code> par lot"
+    ],
+    "explain": "La librairie enveloppe un curseur dans un Readable en object mode dont le <code>highWaterMark</code> est la taille de lot (100 par défaut, d’après son code source). Mesuré : il a streamé 200 000 lignes dans l’ordre, et le détruire a fermé le curseur. C’est une seule requête, pas une série de requêtes OFFSET, donc elle lit un seul snapshot cohérent."
+  },
+  "m03.q11": {
+    "q": "Comment le nom de client <code>Martin \"Max\" Dupont, Jr.</code> doit-il être écrit dans l’export CSV ?",
+    "options": [
+      "<code>Martin \"Max\" Dupont, Jr.</code>",
+      "<code>\"Martin \"\"Max\"\" Dupont, Jr.\"</code>",
+      "<code>\"Martin \\\"Max\\\" Dupont, Jr.\"</code>",
+      "<code>Martin \"\"Max\"\" Dupont\\, Jr.</code>"
+    ],
+    "explain": "La RFC 4180 entoure de guillemets doubles un champ qui contient une virgule, un guillemet ou un saut de ligne, et double chaque guillemet à l’intérieur ; la fonction <code>csvField</code> a produit exactement ça (mesuré). CSV n’a pas d’échappement par antislash, donc les options avec antislash produisent des colonnes cassées."
+  },
+  "m03.q12": {
+    "q": "Avec ses valeurs par défaut, que fait <code>new Upload({ client, params: { Bucket, Key, Body: stream } }).done()</code> avec un stream de catalogue de 22 Mio ?",
+    "options": [
+      "Il lit tout le stream en mémoire, puis envoie un seul PutObject",
+      "Il démarre un upload multipart, envoie des parts de 5 Mio avec jusqu’à 4 en vol, puis termine l’upload",
+      "Il envoie 22 parts de 1 Mio, l’une après l’autre",
+      "Il écrit le stream dans un fichier temporaire, puis uploade le fichier"
+    ],
+    "explain": "Mesuré contre un faux S3 : CreateMultipartUpload, des parts de 5, 5, 5, 5 et 2 Mio, puis CompleteMultipartUpload. <code>partSize</code> vaut 5 Mio par défaut (le minimum S3) et <code>queueSize</code> 4, donc la mémoire reste autour de 20 Mio par upload. Seul un corps plus petit qu’une part est devenu un unique PutObject."
+  },
+  "m03.q13": {
+    "q": "Un coéquipier propose de streamer le corps de requête de <code>POST /webhooks/payments</code> (un objet JSON de 3 Ko validé avec Zod) « pour la performance ». Que réponds-tu en review ?",
+    "options": [
+      "D’accord : streamer est toujours plus rapide que lire tout le corps",
+      "Pas d’accord : le corps est petit et borné par une limite de taille, et il doit être complet pour être validé, donc le lire en entier est plus simple et correct",
+      "D’accord, à condition de lire le corps comme un stream Web plutôt qu’un stream Node",
+      "Pas d’accord, car les streams sont dépréciés dans les versions récentes de Node"
+    ],
+    "explain": "Les streams sont rentables quand la taille grandit avec les données ; un webhook de paiement de 3 Ko est borné et doit de toute façon être complet avant validation. Le streamer ajouterait du code et des chemins d’erreur sans gain mémoire. Les streams ne sont pas dépréciés ; ce n’est simplement pas le bon outil ici."
+  },
+  "m03.q14": {
+    "q": "Qu’affiche ce code ?",
+    "options": [
+      "<code>undefined</code>, car <code>pipeline</code> se résout sans valeur",
+      "Il lève une exception, car la dernière étape d’un pipeline doit être un Writable",
+      "<code>3</code>",
+      "<code>['a', 'b', 'c']</code>"
+    ],
+    "explain": "Quand la dernière étape est une fonction async, <code>pipeline</code> se résout avec ce qu’elle renvoie ; mesuré, il a affiché 3 (trois chunks d’un caractère). C’est une façon propre d’écrire des étapes « consommer et résumer » sans classe Writable."
+  },
+  "m03.q15": {
+    "q": "Un ancien import de catalogue copie un fichier local vers un stream d’upload comme ceci. Le stream d’upload échoue à mi-chemin. Qu’arrive-t-il à <code>file</code> ?",
+    "options": [
+      "Il est détruit avec la même erreur et son descripteur de fichier est fermé",
+      "Il continue de lire tout le fichier en mémoire",
+      "Il reste ouvert et en pause : rien ne le détruit, donc son descripteur de fichier reste ouvert",
+      "Son événement <code>'error'</code> se déclenche avec l’erreur d’upload"
+    ],
+    "explain": "Mesuré : après l’échec de la destination, la source du <code>.pipe()</code> était en pause (<code>readableFlowing</code> à false) et pas détruite. Sous charge, ça fait fuir des descripteurs de fichiers. <code>await pipeline(file, uploadStream)</code> détruit les deux et te donne une seule erreur à gérer."
+  },
+  "m03.q16": {
+    "q": "Un export planifié pour l’équipe finance doit abandonner après 10 minutes et libérer son curseur et son handle de fichier. Quelle implémentation livrerais-tu ?",
+    "options": [
+      "<code>await pipeline(rows, toCsvLines, createGzip(), createWriteStream(path), { signal: AbortSignal.timeout(600_000) })</code>",
+      "<code>setTimeout(() =&gt; process.exit(1), 600_000)</code> à côté du pipeline",
+      "<code>Promise.race([pipeline(…), sleep(600_000)])</code>",
+      "Appeler <code>destination.end()</code> depuis un timer au bout de 10 minutes"
+    ],
+    "explain": "Annuler le signal détruit chaque stream de la chaîne ; mesuré, la promesse a rejeté avec <code>AbortError</code> et le <code>finally</code> du générateur source s’est exécuté. <code>Promise.race</code> arrête seulement d’attendre : les streams continuent de tourner et de garder leurs ressources. Quitter le processus saute tout le nettoyage."
+  },
+  "m03.q17": {
+    "q": "L’API Orders permet au cabinet comptable de télécharger des archives mensuelles de factures jusqu’à 2 Go, souvent sur des connexions lentes. Que se passe-t-il avec cette route ?",
+    "options": [
+      "Le fichier est lu à la vitesse du client",
+      "<code>res.write</code> lève une exception dès que le client prend du retard",
+      "Des chunks sont abandonnés quand le client ne suit pas",
+      "La valeur de retour de <code>write</code> est ignorée, donc les données non envoyées s’accumulent dans le buffer de la réponse, jusqu’au fichier entier"
+    ],
+    "explain": "Mesuré avec une source de 31 Mio et une destination lente : la destination a mis en buffer 31,3 Mio, toute l’entrée, contre 16 Kio avec <code>pipeline</code>. Rien n’est abandonné et rien ne lève d’exception, c’est ce qui rend le bug invisible jusqu’à l’épuisement de la mémoire. Correctif : <code>await pipeline(file, res)</code>."
+  },
+  "m03.q18": {
+    "q": "Quel appel à <code>write</code> est le premier à renvoyer <code>false</code> ?",
+    "options": [
+      "Le 1er, car 1 Mo dépasse déjà 16 Kio",
+      "Le 16e, car en object mode la limite compte des objets (16 par défaut), donc environ 16 Mo sont en buffer à ce moment-là",
+      "Aucun : les streams en object mode n’ont pas de backpressure",
+      "Le 17e, car la limite n’est dépassée qu’après 16 objets"
+    ],
+    "explain": "Mesuré : l’appel à l’index 15, le 16e, a renvoyé <code>false</code>. En object mode, <code>highWaterMark</code> compte des objets quelle que soit leur taille, donc de grosses lignes peuvent occuper bien plus de mémoire que le nombre le laisse penser ; baisse la limite ou fais des lots plus petits."
+  },
+  "m03.q19": {
+    "q": "Un job antifraude parcourt <code>for await (const row of Readable.from(readOrders()))</code> et fait <code>break</code> à la première commande suspecte. <code>readOrders</code> est un générateur asynchrone qui ferme un curseur dans son <code>finally</code>. Que se passe-t-il au <code>break</code> ?",
+    "options": [
+      "Le stream est détruit et le <code>finally</code> du générateur s’exécute, donc le curseur est fermé",
+      "Le générateur continue de tourner en arrière-plan jusqu’à la fin de la requête",
+      "Le stream est mis en pause et le curseur reste ouvert jusqu’au passage du garbage collector",
+      "Une erreur <code>ERR_STREAM_PREMATURE_CLOSE</code> est levée hors de la boucle"
+    ],
+    "explain": "Mesuré : après le <code>break</code>, <code>stream.destroyed</code> valait <code>true</code> et le <code>finally</code> du générateur s’était exécuté. Sortir tôt d’une boucle <code>for await</code> appelle <code>return()</code> sur l’itérateur, ce qui détruit le stream ; aucune erreur n’est levée vers l’appelant."
+  },
+  "m03.q20": {
+    "q": "L’import du catalogue fait <code>text += chunk.toString()</code> pour chaque chunk d’un fichier UTF-8. Des fournisseurs avec des noms de produits accentués signalent des caractères corrompus, mais seulement sur certaines lignes. Quelle est la cause ?",
+    "options": [
+      "Les fichiers ne sont pas vraiment en UTF-8",
+      "<code>toString()</code> utilise Latin-1 par défaut",
+      "Un caractère multi-octets est parfois coupé entre deux chunks, et chaque moitié est décodée séparément",
+      "Les chunks sont livrés dans le désordre sous charge"
+    ],
+    "explain": "Mesuré : <code>café</code> coupé entre les deux octets de <code>é</code> a été décodé en <code>caf��</code>. Ça n’arrive que lorsqu’une frontière de chunk tombe au milieu d’un caractère, d’où « seulement certaines lignes ». <code>toString()</code> utilise UTF-8 par défaut ; le correctif est un décodeur avec état (<code>setEncoding</code>, <code>TextDecoder</code> avec <code>stream: true</code>, <code>readline</code>)."
+  },
+  "m03.q21": {
+    "q": "Une version Hono de l’export streame depuis un générateur qui produit des chaînes. Que se passe-t-il quand le corps est lu ?",
+    "options": [
+      "Ça marche : <code>Response</code> encode automatiquement les chaînes en UTF-8",
+      "Ça marche, mais chaque ligne arrive dans une réponse HTTP séparée",
+      "Hono refuse la route au démarrage car le corps n’est pas un stream Node",
+      "La lecture échoue avec <code>TypeError: Received non-Uint8Array chunk</code>, car le corps d’une <code>Response</code> doit transporter des octets"
+    ],
+    "explain": "Mesuré : lire une <code>Response</code> construite sur des chunks de chaînes a échoué avec exactement cette <code>TypeError</code>. Encode au passage : <code>ReadableStream.from(csvLines()).pipeThrough(new TextEncoderStream())</code>, ou produis des <code>Buffer</code>. Seule une chaîne passée comme corps entier est encodée pour toi."
+  },
+  "m03.q22": {
+    "q": "L’équipe écrit une librairie partagée qui streame la liste de prix complète des produits. Elle est utilisée par l’API Orders (Fastify) et par le route handler Next.js du dashboard du back-office. Quel type de stream son API publique doit-elle renvoyer ?",
+    "options": [
+      "Un <code>Readable</code> Node, car l’API Orders est le plus gros consommateur",
+      "Un tableau complet de lignes, car les streams ne traversent pas les frontières entre frameworks",
+      "Un <code>EventEmitter</code> qui émet un événement par ligne",
+      "Un <code>ReadableStream</code> Web, que le route handler renvoie tel quel et que le service Fastify convertit avec <code>Readable.fromWeb</code>"
+    ],
+    "explain": "Les Web Streams sont le standard qu’attendent les frameworks de style Fetch, et Node les convertit en un seul appel à la frontière du service Fastify. Renvoyer un <code>Readable</code> Node forcerait plutôt le côté Next.js à convertir et lierait la librairie aux API Node ; un tableau annule l’intérêt du streaming."
+  },
+  "m03.q23": {
+    "q": "L’export des commandes exécute son pipeline avec <code>rows</code> issu de <code>pg-query-stream</code>, et libère le client dans <code>finally</code>. Quelqu’un de la finance ferme l’onglet à mi-chemin. Que se passe-t-il ?",
+    "options": [
+      "<code>pipeline</code> rejette avec <code>ERR_STREAM_PREMATURE_CLOSE</code>, détruit le stream de la requête (ce qui ferme le curseur), et <code>finally</code> libère la connexion",
+      "La requête continue de lire toutes les lignes jusqu’au bout, puis le client est libéré",
+      "La réponse met en buffer les lignes restantes en mémoire jusqu’au redémarrage du processus",
+      "Node plante avec une erreur de stream non gérée"
+    ],
+    "explain": "Mesuré contre PostgreSQL via le protocole réseau : le serveur a loggé <code>ERR_STREAM_PREMATURE_CLOSE</code>, le nettoyage du générateur s’est exécuté, la connexion a été libérée, et la requête suivante sur la même connexion du pool a réussi. C’est exactement pour ça que l’export passe par <code>pipeline</code>."
+  },
+  "m03.q24": {
+    "q": "Un export CSV a envoyé 3 millions de lignes quand la connexion à la base tombe. Que devrait vivre l’équipe finance ?",
+    "options": [
+      "Un statut 500 avec un corps d’erreur JSON",
+      "Un téléchargement en échec : la réponse est détruite, donc le client voit un transfert cassé au lieu d’un fichier qui semble complet",
+      "Une fin de fichier normale, pour que la finance garde les lignes déjà exportées",
+      "Le message d’erreur écrit comme dernière ligne du CSV"
+    ],
+    "explain": "Le statut 200 et les en-têtes sont déjà envoyés et ne peuvent plus changer. <code>pipeline</code> détruit la réponse ; mesuré, un client <code>fetch</code> a reçu 200 puis <code>response.text()</code> a rejeté avec <code>TypeError: terminated</code>. Terminer normalement livrerait un fichier tronqué en silence, ce qui est pire qu’un échec visible."
+  },
+  "m03.q25": {
+    "q": "Ce code d’export suit un vieux README. Après quelques dizaines de téléchargements annulés, toutes les requêtes du service restent bloquées. Pourquoi ?",
+    "options": [
+      "<code>pipeline</code> ne marche pas avec <code>pg-query-stream</code>, donc la requête ne démarre jamais",
+      "Les téléchargements annulés laissent un verrou sur la table <code>orders</code>",
+      "Un stream détruit émet <code>'close'</code> mais jamais <code>'end'</code>, donc les exports annulés ne libèrent jamais leur connexion et le pool s’épuise",
+      "Le listener <code>'end'</code> libère le client deux fois, ce qui corrompt le pool"
+    ],
+    "explain": "Mesuré : un Readable détruit avant sa fin n’a émis que <code>'close'</code>. Chaque téléchargement annulé garde donc sa connexion du pool, et une fois le pool épuisé, chaque <code>pool.connect()</code> attend. Libère dans un <code>finally</code> autour du pipeline, qui s’exécute aussi bien en cas de succès, d’erreur que de déconnexion."
+  },
+  "m03.q26": {
+    "q": "Un client s’inscrit avec le nom <code>=HYPERLINK(\"https://evil.example\",\"Invoice\")</code>. Ton équipe finance ouvre l’export des commandes dans un tableur. Que doit faire <code>csvField</code> ?",
+    "options": [
+      "Rien : le quoting RFC 4180 rend déjà la cellule sûre",
+      "Rejeter l’export avec une erreur 400",
+      "Retirer tous les caractères <code>=</code> de tous les champs",
+      "Préfixer d’une apostrophe les cellules texte qui commencent par <code>=</code>, <code>+</code>, <code>-</code>, <code>@</code>, une tabulation ou un saut de ligne, pour que le tableur les affiche comme du texte"
+    ],
+    "explain": "Le quoting ne protège que la structure du CSV ; le tableur évalue toujours une cellule qui commence par <code>=</code>. L’OWASP recommande le préfixe apostrophe, et il ne s’applique qu’au texte pour que <code>-3</code> reste un nombre (mesuré : <code>=SUM(A1:A9)</code> est devenu <code>'=SUM(A1:A9)</code>, <code>-3</code> est resté <code>-3</code>)."
+  },
+  "m03.q27": {
+    "q": "Cette route Fastify limite les fichiers de catalogue à 20 Mio. Un fournisseur uploade un fichier de 25 Mio. Que se passe-t-il ?",
+    "options": [
+      "Fastify répond 413 avant le début de l’upload",
+      "La route répond 201 et stocke un objet tronqué à 20 Mio ; seul <code>part.file.truncated</code> le signale",
+      "<code>request.file()</code> lève <code>RequestFileTooLargeError</code> et rien n’est uploadé",
+      "<code>upload.done()</code> rejette et l’upload multipart est annulé"
+    ],
+    "explain": "Mesuré avec @fastify/multipart 10.1.6 : 201, un objet de 20 Mio complété dans le bucket, et <code>truncated</code> à <code>true</code>, sans erreur. Quand tu streames le fichier toi-même, le README de la librairie dit d’écouter <code>'limit'</code> ou de vérifier <code>truncated</code> ; détruire le stream sur <code>'limit'</code> a fait rejeter <code>upload.done()</code> et annulé l’upload multipart (mesuré)."
+  },
+  "m03.q28": {
+    "q": "Le portail fournisseurs, une app navigateur, va permettre aux fournisseurs d’uploader des vidéos produit jusqu’à 2 Go. Le backend a seulement besoin de savoir où chaque vidéo est stockée. Quelle conception proposes-tu ?",
+    "options": [
+      "L’API renvoie une URL <code>PUT</code> présignée ; le navigateur uploade directement vers S3, et l’API enregistre la clé ensuite",
+      "L’API streame le corps multipart dans <code>Upload</code> de <code>@aws-sdk/lib-storage</code>",
+      "L’API lit chaque vidéo avec <code>toBuffer()</code> et envoie un seul PutObject",
+      "Le navigateur envoie des morceaux en base64 dans des requêtes JSON que l’API réassemble"
+    ],
+    "explain": "Quand le serveur ne fait rien des octets, ils ne devraient pas passer par lui : ni mémoire, ni bande passante, ni timeout de requête dépensés sur des corps de 2 Go. Streamer dans <code>Upload</code> n’est le bon choix que si le serveur doit scanner, transformer ou chiffrer le contenu, ou si le client ne peut pas parler à S3. Le buffering et le base64 multiplient la mémoire utilisée."
+  },
+  "m03.q29": {
+    "q": "La finance veut un bouton « télécharger toutes les commandes depuis 2019 ». Un essai prend 25 minutes. Que construis-tu ?",
+    "options": [
+      "Un job en arrière-plan qui streame les lignes vers S3 avec <code>Upload</code>, puis notifie l’utilisateur avec un lien GET présigné qui expire",
+      "Une réponse HTTP streamée, avec l’idle timeout du load balancer monté à une heure",
+      "Un endpoint qui construit le fichier en mémoire, puis l’envoie avec <code>Content-Length</code>",
+      "Une réponse streamée que le client reprend avec des en-têtes <code>Range</code> quand elle casse"
+    ],
+    "explain": "Vingt-cinq minutes sur le chemin de la requête doivent survivre aux timeouts des proxys, aux déploiements progressifs et au réseau de l’utilisateur, et monopolisent une connexion à la base tout du long. Un job peut retenter et tourner sur ses propres workers, et le lien survit à un onglet fermé. Un CSV streamé généré à la volée ne peut pas être repris avec <code>Range</code>, puisqu’il n’y a pas de fichier stocké à adresser."
+  },
+  "m03.q30": {
+    "q": "Un pod avec une limite mémoire de 512 Mio est OOM-killed pendant un pic d’uploads de catalogue, alors que les dashboards montrent un <code>heapUsed</code> stable à 80 Mio. Quelle est l’explication la plus probable ?",
+    "options": [
+      "La limite du heap est trop basse : monte <code>--max-old-space-size</code> à 1024",
+      "Une fuite mémoire dans le heap JavaScript que les dashboards échantillonnent trop lentement pour la voir",
+      "Les Buffers vivent hors du heap JavaScript : chaque upload concurrent garde jusqu’à <code>queueSize × partSize</code> de buffers de parts, que seul le RSS montre",
+      "Kubernetes compte la taille des fichiers sur disque dans la mémoire du pod"
+    ],
+    "explain": "Mesuré : 200 Mio de Buffers ont laissé <code>heapUsed</code> inchangé et ajouté 200 Mio à <code>arrayBuffers</code> et au RSS, qui est ce que la limite du conteneur fait respecter. Avec les 4 × 5 Mio par défaut par upload, 25 uploads concurrents demandent déjà environ 500 Mio. Monter la limite du heap ne fait rien pour les Buffers ; plafonne la concurrence ou le buffering des parts, ou utilise des uploads présignés."
+  }
+}

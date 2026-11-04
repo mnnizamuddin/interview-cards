@@ -1,0 +1,302 @@
+{
+  "m23.q1": {
+    "q": "Dans un module ES, qu’affiche cette fonction quand on l’appelle ?",
+    "options": [
+      "5000, puis EUR, car les deux déclarations sont hoistées avec leur valeur",
+      "undefined, puis une ReferenceError",
+      "Une ReferenceError dès la première ligne, avant tout affichage",
+      "undefined, puis undefined, puisque les deux sont hoistées"
+    ],
+    "explain": "Le var est hoisté et initialisé à undefined, donc le premier log affiche undefined. Le const est hoisté mais non initialisé : le lire dans sa temporal dead zone lève « Cannot access 'currency' before initialization » (mesuré sur Node 24). Deux undefined, ce serait le comportement si les deux étaient des var."
+  },
+  "m23.q2": {
+    "q": "Une fonction créée dans une autre fonction lit une de ses variables. Que conserve la fonction interne ?",
+    "options": [
+      "Une copie de la valeur de la variable au moment où la fonction a été créée",
+      "Rien : la variable est libérée quand la fonction externe retourne",
+      "L’accès à la variable elle-même, donc elle voit les changements ultérieurs",
+      "Une copie rafraîchie seulement quand la fonction externe est rappelée"
+    ],
+    "explain": "Une closure garde le binding de la variable, pas un instantané, et le maintient en vie tant que la fonction interne est atteignable. C’est pourquoi des listeners créés dans une boucle avec var lisent tous l’index final. L’idée de « copie à la création » est justement l’idée reçue que teste la question de la boucle."
+  },
+  "m23.q3": {
+    "q": "Dans un module ES, <code>[1250, 399].map(priceFormatter.format)</code> lève « Cannot read properties of undefined (reading 'locale') », alors que <code>priceFormatter.format(1250)</code> fonctionne. Pourquoi ?",
+    "options": [
+      "map l’appelle comme une simple fonction, donc this vaut undefined en mode strict",
+      "map l’appelle avec this égal au tableau, qui n’a pas de propriété locale",
+      "Intl.NumberFormat ne peut pas être créé dans un callback de tableau",
+      "Les méthodes écrites en syntaxe raccourcie perdent leur corps quand on les passe en valeur"
+    ],
+    "explain": "Passer priceFormatter.format transmet la fonction sans son objet, et map l’appelle comme une simple fonction ; les modules ES sont en mode strict, donc this vaut undefined (mesuré). map n’utilise comme this que son second argument optionnel, et aucun n’a été passé, donc le tableau n’est pas this."
+  },
+  "m23.q4": {
+    "q": "Quelle affirmation sur les fonctions fléchées et <code>this</code> est vraie ?",
+    "options": [
+      "call et bind fixent son this, exactement comme pour les fonctions classiques",
+      "Son this est toujours l’objet global, même dans une méthode",
+      "Son this est l’objet sur lequel elle est stockée, comme une méthode raccourcie",
+      "Elle prend le this du code qui l’entoure ; call et bind ne peuvent pas le changer"
+    ],
+    "explain": "Les fonctions fléchées n’ont pas de this propre : elles lisent le this de la portée où elles sont écrites. Mesuré : appeler un champ de classe fléché avec .call({ count: 99 }) utilisait toujours le count de l’instance. Stocker une fonction fléchée sur un objet ne fait pas de cet objet son this."
+  },
+  "m23.q5": {
+    "q": "Pour <code>const cart = new Cart()</code>, où vit la méthode <code>addLine</code> définie dans le corps de la classe ?",
+    "options": [
+      "Sur cart lui-même, copiée par le constructeur à chaque new",
+      "Sur Cart.prototype, partagée par toutes les instances via la chaîne de prototypes",
+      "Sur la fonction Cart elle-même, comme propriété statique partagée par les instances",
+      "Dans une table de méthodes cachée, par instance, créée par le moteur"
+    ],
+    "explain": "Les méthodes de classe sont installées une seule fois sur Cart.prototype ; chaque instance y est liée. Mesuré : Object.hasOwn(cart, 'addLine') vaut false et Object.hasOwn(Cart.prototype, 'addLine') vaut true. Seuls les champs, comme #lines ou un champ fonction fléchée, sont créés sur chaque instance."
+  },
+  "m23.q6": {
+    "q": "Une classe TypeScript déclare <code>private lines</code> ; une autre déclare <code>#lines</code>. Qu’est-ce qui diffère à l’exécution ?",
+    "options": [
+      "Rien : les deux sont effacés par le compilateur et deviennent des propriétés ordinaires",
+      "Les deux sont appliqués à l’exécution, mais #lines est plus rapide car il évite le prototype",
+      "private est effacé à la compilation ; #lines est inaccessible hors de la classe",
+      "private cache la propriété de JSON.stringify et Object.keys ; #lines non"
+    ],
+    "explain": "Le private de TypeScript n’est qu’une vérification à la compilation : l’accès par crochets ou du JavaScript pur atteignent toujours la propriété. Un champ # est privé pour le moteur : mesuré, il n’apparaît ni dans Object.keys ni dans JSON.stringify, et cart['#lines'] vaut undefined."
+  },
+  "m23.q7": {
+    "q": "Un champ de quantité est vidé, sa valeur est donc <code>''</code>. Que vaut <code>'' == 0</code>, et pourquoi ?",
+    "options": [
+      "false, car une chaîne n’est jamais égale à un nombre sans conversion explicite",
+      "true, car == convertit la chaîne vide en nombre 0",
+      "false, car la chaîne vide est convertie en NaN, et NaN n’est égal à rien",
+      "Elle lève une TypeError, car == refuse de comparer des types différents"
+    ],
+    "explain": "Quand == compare une chaîne et un nombre, il convertit la chaîne en nombre, et Number('') vaut 0 (mesuré). C’est ainsi que removeEmptyLines a supprimé la ligne. NaN, c’est ce que donne Number('abc'), pas la chaîne vide."
+  },
+  "m23.q8": {
+    "q": "Pourquoi un bundler peut-il supprimer un export inutilisé d’un module ES mais pas d’un module CommonJS ?",
+    "options": [
+      "Les modules ES sont toujours plus petits après minification, donc le code inutilisé ressort",
+      "Les modules CommonJS sont évalués deux fois, une par bundle, donc le code ne peut pas être retiré",
+      "Seuls les modules ES tournent dans un navigateur, donc le code CommonJS n’est jamais bundlé",
+      "import et export statiques révèlent le graphe avant l’exécution ; require() est un appel à l’exécution"
+    ],
+    "explain": "Les déclarations statiques permettent au bundler de voir quels exports sont importés sans rien exécuter ; mesuré avec Vite 8.3.4, un export inutilisé a disparu du bundle. require() peut prendre un chemin calculé et s’exécuter n’importe où, donc le bundler ne peut pas savoir ce qui est utilisé."
+  },
+  "m23.q9": {
+    "q": "Qu’est-ce qui rend un objet utilisable dans <code>for...of</code> et avec le spread ?",
+    "options": [
+      "Une méthode Symbol.iterator qui renvoie un objet doté de next()",
+      "Une propriété length et des clés numériques, comme un tableau",
+      "Être créé par une classe, dont les instances sont itérables par défaut",
+      "Une méthode forEach, que for...of appelle pour chaque valeur"
+    ],
+    "explain": "C’est le protocole d’itération : un itérable renvoie un itérateur, dont next() donne { value, done }. Un objet simple avec length et des clés numériques est array-like, pas itérable, et for...of sur un objet simple lève « is not iterable » (mesuré)."
+  },
+  "m23.q10": {
+    "q": "Tu appelles <code>structuredClone(new Money(1250))</code>, où <code>Money</code> est une classe avec un champ <code>#cents</code> et une méthode <code>format()</code>. Qu’obtiens-tu ?",
+    "options": [
+      "Une instance de Money avec le même #cents et les mêmes méthodes",
+      "Une DataCloneError, car les instances de classe ne peuvent pas être clonées",
+      "Un objet simple avec seulement les champs publics : ni méthodes, ni #cents",
+      "Une instance de Money dont #cents est remis à undefined"
+    ],
+    "explain": "L’algorithme de clonage structuré copie des données simples, sans parcourir la chaîne de prototypes ni dupliquer les éléments privés ; mesuré dans Node 24 et Chromium, la copie valait { currency: 'EUR' } et instanceof Money valait false. DataCloneError est levée pour les fonctions, pas pour les instances de classe."
+  },
+  "m23.q11": {
+    "q": "Les termes de recherche sont comptés avec <code>counts[term] = (counts[term] || 0) + 1</code> dans un objet simple. Un client cherche « constructor ». Que se passe-t-il ?",
+    "options": [
+      "counts.constructor passe à 1, comme pour tout nouveau terme",
+      "counts.constructor devient le code source de la fonction héritée suivi de 1",
+      "Une TypeError est levée, car constructor est en lecture seule sur les objets",
+      "Le terme est ignoré, car constructor est un mot réservé en JavaScript"
+    ],
+    "explain": "Un objet simple hérite de constructor depuis Object.prototype, donc counts['constructor'] est une fonction, || la garde, et fonction + 1 concatène (mesuré : 'function Object() { [native code] }1'). Une Map n’a pas de clés héritées, c’est pourquoi c’est le bon dictionnaire."
+  },
+  "m23.q12": {
+    "q": "Qu’est-ce qui distingue une <code>WeakMap</code> d’une <code>Map</code> ?",
+    "options": [
+      "Ses clés ne maintiennent pas leurs objets en vie ; elle n’est pas itérable et n’a pas de size",
+      "Elle libère ses entrées après un délai fixe, comme un cache avec une durée limite",
+      "Elle accepte tout type de clé, chaînes comprises, mais tient ses valeurs faiblement",
+      "Elle est plus rapide que Map, donc adaptée aux gros caches indexés par id produit"
+    ],
+    "explain": "Une entrée de WeakMap disparaît quand son objet clé n’est plus atteignable ailleurs ; les clés doivent être des objets ou des symboles non enregistrés, et une clé chaîne lève une erreur (mesuré). Un cache indexé par des id en chaîne ne peut donc pas être une WeakMap : il lui faut une Map bornée, comme un LRU."
+  },
+  "m23.q13": {
+    "q": "Que se passe-t-il quand ce code s’exécute ?",
+    "options": [
+      "Il affiche 10, depuis la variable externe",
+      "Il affiche undefined, comme le ferait un var",
+      "Il affiche 20, la valeur hoistée",
+      "Il lève une ReferenceError"
+    ],
+    "explain": "Le let total interne masque l’externe dans tout le corps de la fonction, et le log le lit dans sa temporal dead zone : « Cannot access 'total' before initialization » (mesuré sur Node 24). Afficher 10 supposerait que la variable externe soit visible, mais la déclaration interne la masque dès le début du bloc."
+  },
+  "m23.q14": {
+    "q": "Qu’est-ce que ce code affiche ?",
+    "options": [
+      "[0, 1, 2]",
+      "[3, 3, 3]",
+      "[undefined, undefined, undefined]",
+      "[2, 2, 2]"
+    ],
+    "explain": "Le binding par itération ne s’applique qu’à un let déclaré dans l’en-tête du for. Ici, i est déclaré une seule fois hors de la boucle, donc chaque fonction fléchée capture la même variable, qui vaut 3 quand elles s’exécutent (mesuré). Écrire let dans l’en-tête afficherait [0, 1, 2]."
+  },
+  "m23.q15": {
+    "q": "Qu’est-ce que ce code affiche ?",
+    "options": [
+      "cart-1 cart-2 cart-3",
+      "cart-1 cart-1 cart-1",
+      "cart-1 cart-2 cart-1",
+      "cart-2 cart-3 cart-2"
+    ],
+    "explain": "Chaque appel à createIdGenerator crée une nouvelle portée avec son propre next, et chaque fonction fléchée renvoyée garde le sien. next++ renvoie l’ancienne valeur, donc le premier appel donne cart-1 (mesuré). Un compteur partagé, l’option cart-3, exigerait que next vive hors de la factory."
+  },
+  "m23.q16": {
+    "q": "Dans un module ES, que se passe-t-il quand on appelle <code>cart.labels()</code> ?",
+    "options": [
+      "Elle lève une TypeError : le this de la fonction interne vaut undefined",
+      "Elle renvoie ['1250 EUR', '399 EUR'] : la fonction interne hérite de this",
+      "Elle renvoie ['1250 undefined', '399 undefined'] depuis l’objet global",
+      "Elle lève une ReferenceError : currency n’est pas défini dans cette portée"
+    ],
+    "explain": "labels est appelée comme méthode, donc son propre this est cart, mais la fonction interne est appelée par map comme une simple fonction et reçoit son propre this : undefined en mode strict, donc this.currency lève une erreur (mesuré). Un callback fléché lirait le this de la méthode et renverrait les libellés EUR. Les libellés undefined n’apparaissent que dans les vieux scripts non modules, où this est l’objet global."
+  },
+  "m23.q17": {
+    "q": "Qu’affiche la dernière ligne ?",
+    "options": [
+      "admin",
+      "back office",
+      "undefined",
+      "storefront"
+    ],
+    "explain": "bind renvoie une fonction dont le this est fixé définitivement : la lier à nouveau ou l’appeler avec call ne peut pas le changer, donc le premier bind l’emporte (mesuré : storefront). L’option back office suppose que le dernier bind écrase le précédent, ce qui est l’idée reçue habituelle."
+  },
+  "m23.q18": {
+    "q": "Avec la classe <code>Cart</code>, qui a un champ <code>#lines</code> et une méthode <code>static isCart(value)</code> renvoyant <code>#lines in value</code>, qu’est-ce que ce code affiche ?",
+    "options": [
+      "false false",
+      "true false",
+      "true true",
+      "Il lève une TypeError, car fake n’a pas de #lines"
+    ],
+    "explain": "instanceof vérifie seulement si Cart.prototype est dans la chaîne, et Object.create l’y a mis, donc c’est true. Aucun constructeur n’a tourné, donc l’objet n’a pas de #lines, et la vérification #lines in renvoie false sans lever d’erreur (mesuré). C’est pourquoi une brand check est plus fiable qu’instanceof."
+  },
+  "m23.q19": {
+    "q": "Qu’est-ce que ce code affiche ?",
+    "options": [
+      "Product Mug",
+      "Il lève une erreur, car label a été remplacée après la création de mug",
+      "New Mug",
+      "undefined"
+    ],
+    "explain": "mug ne copie pas les méthodes : il est lié à Product.prototype et y cherche label au moment de l’appel, donc il voit le remplacement (mesuré : New Mug). Product Mug exigerait que l’instance détienne sa propre copie de la méthode."
+  },
+  "m23.q20": {
+    "q": "Qu’est-ce que ce code affiche ?",
+    "options": [
+      "6 6 3",
+      "33 123 3",
+      "123 123 52",
+      "33 15 3"
+    ],
+    "explain": "+ est évalué de gauche à droite : 1 + 2 vaut 3, puis 3 + '3' concatène en '33' ; '1' + 2 démarre une chaîne, donc le résultat est '123' ; - convertit toujours en nombres, donc '5' - 2 vaut 3 (mesuré). L’option '15' suppose que 2 + 3 est calculé en premier."
+  },
+  "m23.q21": {
+    "q": "Une fiche produit affiche <code>line.quantity || 1</code> comme quantité par défaut. Un client met la quantité à 0 pour garder la ligne sans l’acheter, et la fiche affiche 1. Quel correctif livrerais-tu ?",
+    "options": [
+      "line.quantity ?? 1, qui ne se rabat sur la valeur par défaut que pour null et undefined",
+      "Number(line.quantity) || 1, pour convertir les quantités en chaîne",
+      "line.quantity == 0 ? 1 : line.quantity, pour traiter zéro explicitement",
+      "Math.max(line.quantity, 1), pour que la quantité ne soit jamais sous 1"
+    ],
+    "explain": "|| se rabat sur la valeur par défaut pour toute valeur falsy, et 0 est falsy, donc 0 || 1 vaut 1 ; ?? ne le fait que pour null et undefined, donc 0 ?? 1 vaut 0 (mesuré). Convertir avec Number garde le problème de ||, et la version == 0 impose volontairement le même mauvais défaut."
+  },
+  "m23.q22": {
+    "q": "<code>cart-store</code> exporte <code>let itemCount = 0</code> et <code>function addItem() { itemCount += 1; }</code>. Qu’affichent les deux importeurs ?",
+    "options": [
+      "1 et 1",
+      "0 et 0",
+      "0 et 1",
+      "1 et 0"
+    ],
+    "explain": "Un import ES est un binding vivant vers la variable de l’exportateur, donc il lit la valeur incrémentée. La déstructuration CommonJS copie la valeur présente dans module.exports au moment du require, et addItem ne change que la variable locale du module (mesuré sur Node 24 : 1, puis 0)."
+  },
+  "m23.q23": {
+    "q": "Un échec du checkout est loggé avec <code>logger.info(JSON.stringify(error))</code>, où <code>error</code> est une <code>CheckoutError</code> (une sous-classe qui déclare <code>name</code> comme champ de classe) enveloppant une erreur réseau en <code>cause</code>. Qu’est-ce qui arrive dans le log ?",
+    "options": [
+      "Le name, le message, la stack et la cause",
+      "Le name et le message, sans la stack",
+      "{\"name\":\"CheckoutError\"}",
+      "{}"
+    ],
+    "explain": "JSON.stringify garde les propriétés propres énumérables. Le champ de classe name en est une ; message, stack et cause sont définis comme propriétés non énumérables, donc seul le name survit (mesuré). Une Error sans le champ name donnerait {}. Passe l’erreur au logger ou à l’outil de suivi d’erreurs, qui sérialise les erreurs explicitement."
+  },
+  "m23.q24": {
+    "q": "Qu’est-ce que ce code affiche ?",
+    "options": [
+      "start, created, address",
+      "created, start, address",
+      "created, address",
+      "start, after address, created, address"
+    ],
+    "explain": "Appeler une fonction génératrice n’exécute rien de son corps ; elle renvoie un générateur en pause. Le premier next() s’exécute jusqu’au premier yield, affiche start, puis renvoie address (mesuré). Le corps n’atteint jamais after address, car next() n’est pas rappelé."
+  },
+  "m23.q25": {
+    "q": "Qu’est-ce que ce code affiche ?",
+    "options": [
+      "2 2",
+      "2 0",
+      "0 0",
+      "Il lève une erreur, car un générateur ne peut pas être étalé deux fois"
+    ],
+    "explain": "Un objet générateur est un itérateur, et un itérateur ne se consomme qu’une fois : le second spread le trouve terminé et produit un tableau vide (mesuré). Rappeler promoCodes(), ou rendre une classe itérable avec une méthode génératrice, donne un nouvel itérateur à chaque fois."
+  },
+  "m23.q26": {
+    "q": "L’instantané d’annulation est fait avec <code>JSON.parse(JSON.stringify(cart))</code>. Que donnent <code>typeof snapshot.updatedAt</code> et <code>snapshot.lines</code>, si <code>updatedAt</code> est une <code>Date</code> et <code>lines</code> une <code>Map</code> avec une entrée ?",
+    "options": [
+      "'object' (une Date) et une Map égale",
+      "'string' et une Map égale",
+      "'object' et un objet vide",
+      "'string' et un objet vide"
+    ],
+    "explain": "JSON.stringify appelle le toJSON de Date, donc la date revient en chaîne ISO, et une Map n’a pas de propriétés propres énumérables, donc elle devient {} (mesuré). structuredClone garderait la Date et la Map, c’est pourquoi il convient à un instantané en mémoire."
+  },
+  "m23.q27": {
+    "q": "Le tiroir du panier trie des prix en centimes avec <code>prices.sort()</code>, où <code>prices</code> vaut <code>[1250, 399, 10000, 900]</code>. Quel est le résultat, et que se passe-t-il d’autre ?",
+    "options": [
+      "[399, 900, 1250, 10000], et prices est inchangé",
+      "[399, 900, 1250, 10000], et prices est trié sur place",
+      "[10000, 1250, 399, 900], et prices est trié sur place",
+      "[10000, 1250, 399, 900], et prices est inchangé"
+    ],
+    "explain": "Sans comparateur, sort convertit les valeurs en chaînes et les compare, donc '10000' passe avant '1250' (mesuré), et sort modifie le tableau sur lequel il est appelé. prices.toSorted((a, b) =&gt; a - b) renvoie un nouveau tableau trié numériquement et laisse prices intact."
+  },
+  "m23.q28": {
+    "q": "Dans du code serveur Next.js, un collègue stocke le panier du client courant dans une variable au niveau du module « pour éviter de le récupérer deux fois par requête ». Quel est le risque principal ?",
+    "options": [
+      "Une seule instance du module sert toutes les requêtes : les clients voient les paniers des autres",
+      "Elle est réinitialisée au début de chaque requête, donc le cache n’évite jamais un fetch",
+      "Les variables au niveau du module sont interdites côté serveur, donc le build échoue",
+      "La variable est sérialisée dans le HTML, donc le panier fuit vers le navigateur"
+    ],
+    "explain": "Un module est évalué une fois et partagé par tous ses importeurs pendant toute la vie du processus, donc l’état d’un module côté serveur est partagé entre requêtes et utilisateurs : fuite de données entre clients et fuite mémoire. Les données par requête doivent vivre dans la portée de la requête ; l’option « réinitialisée à chaque requête » décrit ce que le collègue suppose à tort."
+  },
+  "m23.q29": {
+    "q": "Un cache serveur de libellés de prix grossit sans limite. C’est une <code>Map</code> au niveau du module, indexée par id produit, et les produits changent rarement. Quel correctif livrerais-tu ?",
+    "options": [
+      "La remplacer par une WeakMap indexée par id produit, pour que le GC libère les entrées",
+      "Vider toute la Map chaque heure avec setInterval pour limiter sa croissance",
+      "Appeler le garbage collector à la fin de chaque requête pour la récupérer",
+      "La borner : un LRU avec une taille maximale, plus une durée limite si les prix changent"
+    ],
+    "explain": "Un LRU borné garde la mémoire stable et conserve les entrées utiles ; l’ordre d’insertion d’une Map en donne un en quelques lignes. Une WeakMap ne peut pas prendre un id en chaîne comme clé (elle lève « Invalid value used as weak map key », mesuré), et tout vider chaque heure jette les entrées chaudes tout en continuant de grossir entre deux purges."
+  },
+  "m23.q30": {
+    "q": "La boutique utilise Next.js avec ses navigateurs cibles par défaut. Un collègue veut utiliser <code>cartIds.intersection(outOfStockIds)</code> dans un composant client. Que lui réponds-tu ?",
+    "options": [
+      "Aucun souci : Next.js transpile toutes les fonctionnalités ES2025, méthodes comprises, vers ses cibles",
+      "Aucun souci : Next.js détecte les méthodes natives manquantes et injecte un polyfill pour chacune",
+      "Safari 16.4 n’a pas les méthodes de Set et Next.js ne les polyfille pas : polyfill ou filter",
+      "Les méthodes de Set sont encore une proposition, donc aucun navigateur ne les livre"
+    ],
+    "explain": "Next.js cible Safari 16.4 par défaut et n’injecte que quelques polyfills (fetch, URL, Object.assign) ; sa doc dit d’ajouter soi-même les autres. Les données MDN donnent Set.prototype.intersection dans Safari 17, Chrome 122 et Firefox 127. La transpilation réécrit la syntaxe, mais ne peut pas créer une méthode manquante ; ces méthodes sont standard depuis ES2025."
+  }
+}

@@ -1,0 +1,1124 @@
+{
+  "api-conditional-requests": {
+    "topic": "ETags et requêtes conditionnelles",
+    "question": "Deux personnes modifient la même commande en même temps. Comment empêchez-vous l’une d’écraser silencieusement l’autre en HTTP ?",
+    "answer": "C’est le problème de la mise à jour perdue, et HTTP le résout avec les requêtes conditionnelles. Le serveur envoie un `ETag` qui identifie la version de la ressource, idéalement dérivé d’une colonne de version. À l’écriture, le client le renvoie dans `If-Match` : si la commande a changé entre-temps, le serveur répond 412 Precondition Failed et ne modifie rien, donc le client recharge et fusionne. Pour les ressources que plusieurs personnes modifient, je l’exige et je réponds 428 Precondition Required s’il manque. Je vérifie la version dans la clause `WHERE` de l’`UPDATE`, jamais dans une lecture séparée. En lecture, `If-None-Match` donne un 304 sans corps quand rien n’a changé.",
+    "keyPoints": [
+      "L’ETag identifie une version ; `If-Match` à l’écriture, 412 si périmé",
+      "428 quand une écriture qui doit être conditionnelle n’a pas de `If-Match`",
+      "Vérification de version dans l’`UPDATE`, pas dans une lecture avant",
+      "`If-None-Match` en lecture : 304 Not Modified, sans corps"
+    ],
+    "explanation": "Les modifications concurrentes sont un bug classique de back-office, et les recruteurs veulent entendre la concurrence optimiste transposée en HTTP. Le signal senior, c’est la race condition du « vérifier puis écrire » : la base doit trancher de façon atomique, et l’ETag doit venir d’une colonne de version, pas seulement d’un hash du corps.",
+    "example": "Dans le back-office, un agent du support avec un écran de commande périmé a enregistré une note de livraison et effacé l’adresse de livraison que le client venait de corriger. L’équipe a ajouté une colonne `version`, l’a envoyée comme `ETag` sur `GET /orders/:id`, et a exigé `If-Match` sur `PATCH /orders/:id`. L’enregistrement périmé suivant de l’agent a reçu un 412, l’écran s’est rechargé avec la nouvelle adresse, et les signalements d’écrasement ont cessé.",
+    "mistakes": [
+      "Lire la version, la comparer dans le code, puis mettre à jour : une autre requête peut se glisser entre les deux ; la vérification va dans la clause `WHERE`",
+      "Confondre les en-têtes : `If-None-Match` sert aux lectures conditionnelles, `If-Match` aux écritures conditionnelles",
+      "Relancer automatiquement un 412 avec le nouvel ETag, ce qui écrase quand même l’autre modification ; le client doit recharger et fusionner"
+    ],
+    "followUps": [
+      {
+        "question": "L’ETag doit-il être un hash du corps ou un numéro de version ?",
+        "answer": "Un hash du corps convient pour les lectures conditionnelles : un plugin comme `@fastify/etag` hashe les réponses et répond 304. Pour `If-Match` à l’écriture, je le dérive d’une colonne de version, pour que la vérification se fasse dans l’`UPDATE` lui-même : `WHERE id = $1 AND version = $2`."
+      },
+      {
+        "question": "Comment la route transforme-t-elle le résultat de la base en code de statut ?",
+        "answer": "L’`UPDATE ... WHERE id = $1 AND version = $2 RETURNING version` renvoie soit la nouvelle version, que j’envoie comme nouvel `ETag` avec un 200, soit aucune ligne. Aucune ligne veut dire que la commande a changé ou n’existe pas, donc je réponds 412, ou 404 après avoir vérifié qu’elle existe."
+      },
+      {
+        "question": "Que doit faire le client quand il reçoit un 412 ?",
+        "answer": "Recharger la ressource, montrer à l’utilisateur ce qui a changé, le laisser réappliquer ou fusionner sa modification, et la renvoyer avec le nouvel ETag. Un retry automatique et silencieux recréerait la mise à jour perdue que le 412 vient d’empêcher."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une réponse 304 Not Modified contient le corps complet pour que le client puisse comparer les versions.",
+        "why": "Un 304 n’a pas de corps : le client réutilise la copie qu’il a déjà.",
+        "twin": {
+          "statement": "Une réponse 304 Not Modified n’a pas de corps : le client réutilise la copie qu’il a déjà.",
+          "why": "Le serveur confirme seulement que la version du client est à jour, donc rien n’est renvoyé."
+        }
+      },
+      {
+        "statement": "Un serveur peut répondre 428 Precondition Required à une écriture qui arrive sans `If-Match`.",
+        "why": "La RFC 6585 définit 428 pour les requêtes qui doivent être conditionnelles, donc un client ne peut pas sauter la vérification.",
+        "twin": {
+          "statement": "Un serveur doit accepter une écriture qui arrive sans `If-Match`, car les requêtes conditionnelles sont toujours facultatives.",
+          "why": "La RFC 6585 définit 428 Precondition Required pour qu’un serveur puisse exiger une écriture conditionnelle."
+        }
+      },
+      {
+        "statement": "`If-Match` sur un `GET` est la façon dont un client demande un 304 quand rien n’a changé.",
+        "why": "Ça, c’est `If-None-Match` ; `If-Match` protège les écritures et mène à un 412 quand la version diffère.",
+        "twin": {
+          "statement": "`If-None-Match` sur un `GET` est la façon dont un client demande un 304 quand rien n’a changé.",
+          "why": "`If-None-Match` sert aux lectures ; `If-Match` protège les écritures et mène à un 412 quand la version diffère."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les requêtes conditionnelles empêchent la mise à jour perdue : deux clients modifient la même version et le second enregistrement efface silencieusement le premier. Le serveur marque chaque version d’un `ETag`, et le client le renvoie pour que les écritures périmées soient refusées.",
+      "points": [
+        "Une mise à jour perdue arrive quand deux clients lisent la même version, la modifient tous les deux, et que le second enregistrement efface silencieusement le premier. HTTP l’empêche avec les requêtes conditionnelles.",
+        "Un `ETag` (entity tag) est un en-tête de réponse qui identifie une version d’une ressource, comme `ETag: \"7\"`. Le serveur peut le dériver d’une colonne de version ou d’un hash du corps.",
+        "En lecture, `If-None-Match: \"7\"` reçoit 304 Not Modified sans corps si rien n’a changé. En écriture, `If-Match: \"7\"` reçoit 412 Precondition Failed si quelqu’un d’autre a modifié la ressource avant.",
+        "Le serveur peut exiger la précondition : 428 Precondition Required répond à une écriture envoyée sans `If-Match`. Sur un 412, le client recharge, fusionne et réessaie.",
+        "On vérifie la version dans l’écriture, `UPDATE ... WHERE id = $1 AND version = $2`, jamais dans une lecture séparée avant, sinon une autre requête peut se glisser entre les deux."
+      ],
+      "takeaways": [
+        {
+          "term": "`ETag`",
+          "detail": "Un en-tête de réponse qui nomme une version d’une ressource, comme `\"7\"`, dérivé d’une colonne de version ou d’un hash du corps."
+        },
+        {
+          "term": "`If-Match` à l’écriture",
+          "detail": "Renvoie l’ETag. Si la ressource a changé entre-temps, le serveur répond 412 Precondition Failed et ne modifie rien."
+        },
+        {
+          "term": "412 Precondition Failed",
+          "detail": "Le client recharge la ressource, fusionne sa modification et réessaie."
+        },
+        {
+          "term": "428 Precondition Required",
+          "detail": "Répond à une écriture envoyée sans `If-Match` quand le serveur exige des écritures conditionnelles."
+        },
+        {
+          "term": "Vérification dans l’`UPDATE`",
+          "detail": "`UPDATE ... WHERE id = $1 AND version = $2`, jamais une lecture séparée avant, sinon une autre requête se glisse entre les deux."
+        },
+        {
+          "term": "`If-None-Match` en lecture",
+          "detail": "Reçoit 304 Not Modified sans corps quand rien n’a changé."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La note de remboursement d’un agent du support sur une commande a disparu après qu’un collègue a modifié la même commande une minute plus tard. Les deux enregistrements ont renvoyé 200. Que manque-t-il dans l’API ?",
+        "bridge": "Deux enregistrements faits à partir de la même ancienne version : une mise à jour perdue. Une version dans un `ETag`, renvoyée dans `If-Match` et vérifiée dans l’`UPDATE`, transforme le second enregistrement en 412."
+      },
+      {
+        "question": "Un collègue dit que le verrouillage optimiste est un sujet de base de données et que HTTP n’a rien à offrir. Comment HTTP lui-même gère-t-il les modifications concurrentes et les relectures bon marché ?",
+        "bridge": "Les requêtes conditionnelles de HTTP : `ETag` avec `If-Match` protège les écritures, et `If-None-Match` économise le corps en lecture."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux gèrent `PATCH /orders/:id` avec la version issue de `If-Match`. Lequel empêche une mise à jour perdue quand deux enregistrements se font la course ?",
+        "why": "La vérification de version est dans l’`UPDATE`, donc la base tranche de façon atomique : de deux enregistrements envoyés avec `If-Match: \"1\"`, l’un met à jour et l’autre touche 0 ligne et reçoit un 412. Dans l’autre version, les deux requêtes lisent la version 1 avant que l’une n’écrive, les deux passent la vérification, et le second enregistrement efface silencieusement le premier."
+      }
+    ]
+  },
+  "sec-property-authz": {
+    "topic": "Autorisation au niveau des propriétés",
+    "question": "Qu’est-ce que la broken object property level authorization, et comment empêchez-vous le mass assignment et l’exposition excessive de données ?",
+    "answer": "C’est API3 dans l’OWASP API Security Top 10, et elle regroupe deux risques. Le mass assignment, c’est accepter des propriétés que l’appelant ne devrait pas définir, comme `role` dans une mise à jour de profil. L’exposition excessive de données, c’est renvoyer des propriétés que l’appelant ne devrait pas voir, comme un hash de mot de passe. La cause racine est la même : personne n’a décidé, propriété par propriété, qui peut l’écrire ou la lire. Donc je décide par endpoint : en entrée, un schéma en bordure qui n’autorise que les champs modifiables ; en sortie, un schéma de réponse en liste blanche, jamais la suppression des champs auxquels je pense. Quand les rôles voient des champs différents, j’utilise un schéma de sortie par rôle.",
+    "keyPoints": [
+      "API3 = mass assignment en entrée + exposition excessive de données en sortie",
+      "Valider les corps avec un schéma en liste blanche en bordure",
+      "Faire passer les réponses par un schéma en liste blanche, pas par suppression de champs",
+      "Un schéma de sortie par rôle quand la visibilité diffère"
+    ],
+    "explanation": "Les recruteurs la posent parce que l’OWASP la juge courante et facile à exploiter, et que les ORM la facilitent avec `update(request.body)`. Une réponse senior nomme les deux sens, explique pourquoi les listes blanches battent les listes noires, et étend la validation aux données venant des partenaires.",
+    "example": "Un audit de sécurité de l’API Orders a trouvé que `PATCH /me` passait le corps de la requête directement à la mise à jour, si bien qu’un client pouvait envoyer `\"role\": \"admin\"`, et que `GET /me` renvoyait toute la ligne client avec `passwordHash`. L’équipe a ajouté un schéma Zod strict pour le corps et un schéma client public pour les réponses. Le re-test de l’audit n’a trouvé aucun des deux problèmes, et un client qui sonde reçoit maintenant un 400 qui nomme la clé inconnue.",
+    "mistakes": [
+      "Passer le corps de la requête directement à l’update de l’ORM, si bien que n’importe quelle colonne devient modifiable",
+      "Retirer les champs sensibles un par un avant de répondre : la prochaine nouvelle colonne fuit ; il faut une liste blanche",
+      "Faire confiance au payload d’un partenaire, comme un webhook de paiement, sans le valider comme une entrée utilisateur"
+    ],
+    "followUps": [
+      {
+        "question": "Avec Zod, quelle est la différence entre `z.object` et `z.strictObject` pour un corps de requête ?",
+        "answer": "Un `z.object` simple retire les clés inconnues sans erreur, ce qui bloque déjà le mass assignment. `z.strictObject` les rejette avec une issue `unrecognized_keys`, ce qui fait remonter les bugs clients et les tentatives de sondage. J’utilise strict pour les corps d’écriture."
+      },
+      {
+        "question": "Un agent du support peut voir l’e-mail d’un client sur une commande, un autre client non. Comment modélisez-vous ça ?",
+        "answer": "Deux schémas de sortie choisis selon le rôle, comme `OrderForAgent` et `OrderForCustomer`, plutôt qu’un seul schéma avec des conditions dedans. Chacun est une liste blanche, donc un champ ajouté à la table reste invisible pour tout le monde jusqu’à ce que quelqu’un l’ajoute volontairement."
+      },
+      {
+        "question": "La validation des entrées s’applique-t-elle aussi aux données que votre service reçoit d’autres API ?",
+        "answer": "Oui, l’OWASP le classe en API10, la consommation non sécurisée d’API. Le webhook de paiement sur `POST /webhooks/payments` et les réponses du transporteur passent par un schéma avant que mon code ne fasse confiance au moindre champ."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "En Zod 4, un schéma `z.object` simple retire par défaut les clés inconnues du résultat parsé.",
+        "why": "Les clés inconnues sont abandonnées silencieusement ; `z.strictObject` les signale plutôt comme une erreur.",
+        "twin": {
+          "statement": "En Zod 4, un schéma `z.object` simple rejette un corps qui contient des clés inconnues.",
+          "why": "Il abandonne silencieusement les clés inconnues ; les signaler comme une erreur, c’est ce que fait `z.strictObject`."
+        }
+      },
+      {
+        "statement": "Supprimer `passwordHash` de l’objet utilisateur avant de l’envoyer est aussi sûr qu’une liste blanche de réponse.",
+        "why": "Une liste noire rate chaque colonne sensible ajoutée plus tard ; une liste blanche n’envoie que ce qui a été choisi.",
+        "twin": {
+          "statement": "Une liste blanche de réponse est plus sûre que supprimer `passwordHash` de l’objet utilisateur avant de l’envoyer.",
+          "why": "Une liste blanche n’envoie que ce qui a été choisi ; une liste noire rate chaque colonne sensible ajoutée plus tard."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "La broken object property level authorization porte sur les champs individuels d’un objet : qui peut écrire chacun et qui peut lire chacun. Sauter cette décision permet aux appelants de définir des champs comme `role` ou de lire des champs comme un hash de mot de passe.",
+      "points": [
+        "OWASP API3, broken object property level authorization, porte sur les propriétés individuelles d’un objet : qui peut écrire chacune, et qui peut lire chacune.",
+        "Le mass assignment, c’est accepter des propriétés que l’appelant ne devrait pas définir, comme `role` dans `PATCH /me`. L’exposition excessive de données, c’est renvoyer des propriétés qu’il ne devrait pas voir, comme `passwordHash`.",
+        "En entrée, on valide le corps avec un schéma en bordure de l’API, avant que le code métier ne s’exécute. Seuls les champs modifiables listés passent.",
+        "En sortie, on fait passer la réponse par un schéma en liste blanche, souvent appelé DTO (data transfer object), au lieu de supprimer les champs auxquels on pense. Un schéma par rôle quand la visibilité diffère."
+      ],
+      "takeaways": [
+        {
+          "term": "OWASP API3",
+          "detail": "Broken object property level authorization : mass assignment en entrée, exposition excessive de données en sortie."
+        },
+        {
+          "term": "Mass assignment",
+          "detail": "Accepter une propriété que l’appelant ne devrait pas définir, comme `role` dans `PATCH /me`."
+        },
+        {
+          "term": "Exposition excessive de données",
+          "detail": "Renvoyer une propriété que l’appelant ne devrait pas voir, comme `passwordHash`."
+        },
+        {
+          "term": "Schéma d’entrée en bordure",
+          "detail": "Valider le corps avant que le code métier ne s’exécute ; seuls les champs modifiables listés passent."
+        },
+        {
+          "term": "DTO de réponse",
+          "detail": "Faire passer la sortie par un schéma en liste blanche au lieu de supprimer les champs auxquels on pense."
+        },
+        {
+          "term": "Un schéma par rôle",
+          "detail": "Quand les rôles voient des champs différents, chaque rôle a son propre schéma de sortie."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un client envoie `{\"displayName\":\"Ana\",\"role\":\"admin\"}` à `PATCH /customers/me` et devient admin. Un autre endpoint renvoie `passwordHash`. Quelle faiblesse unique relie les deux ?",
+        "bridge": "Les deux relèvent de l’autorisation au niveau des propriétés (OWASP API3) : mass assignment en entrée, exposition excessive de données en sortie. Des schémas en liste blanche corrigent les deux."
+      },
+      {
+        "question": "Un coéquipier dit : « On supprime juste les champs sensibles avant `res.json`. » Pourquoi ça ne suffit pas, et comment décidez-vous qui peut lire et écrire chaque propriété ?",
+        "bridge": "Une liste noire rate les champs ajoutés plus tard. L’autorisation au niveau des propriétés, ce sont des schémas en liste blanche en entrée et en sortie, avec un schéma de sortie par rôle."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux valident le corps de `PATCH /me` avec le même schéma Zod. Lequel empêche un client d’envoyer `\"role\": \"admin\"` ?",
+        "why": "`z.object` retire les clés que le schéma ne liste pas, donc écrire le résultat parsé n’enregistre que `displayName` et `locale`. L’autre version valide le corps, puis écrit le `req.body` brut : la vérification passe, le `role` non listé va droit dans la mise à jour, et n’importe quel client peut se faire admin. C’est du mass assignment."
+      }
+    ]
+  },
+  "api-graphql-schema": {
+    "topic": "Concevoir un schéma GraphQL",
+    "question": "Comment concevriez-vous un schéma GraphQL pour le back-office, et comment le faites-vous évoluer sans versionner l’endpoint ?",
+    "answer": "Je modélise les types dont les écrans ont besoin, comme `Order`, `Customer` et `OrderItem`, et je réfléchis à la nullabilité champ par champ. Les champs sont nullables par défaut, et quand un champ non null échoue, GraphQL met son parent à null à la place. Donc je ne rends un champ non null que s’il vient toujours avec son parent, comme un id ou un statut, et je garde nullables les champs qui appellent une autre table ou un autre service. Les listes sont des connections avec un `first` obligatoire et des curseurs. Pour le faire évoluer, j’ajoute des champs, je marque les anciens `@deprecated` avec une raison, je surveille qui les demande encore, et je les retire à zéro usage, avec une vérification des ruptures en CI.",
+    "keyPoints": [
+      "Nullable par défaut ; un champ non null en échec met son parent à null",
+      "Non null pour les champs de la même ligne, nullable entre tables ou services",
+      "Listes en connections : edges, cursor, pageInfo, `first` obligatoire",
+      "Évoluer de façon additive : ajouter, déprécier, mesurer, retirer ; vérifier en CI"
+    ],
+    "explanation": "Les recruteurs s’en servent pour voir si tu as fait tourner GraphQL en production. La nullabilité et la pagination décident du comportement face aux échecs et aux grandes listes, et « pas de versions » ne marche qu’avec la dépréciation, des données d’usage et une vérification automatique des ruptures.",
+    "example": "L’écran de commande du back-office faisait six appels REST, donc l’équipe a ajouté un endpoint GraphQL. Son premier schéma avait `customer: Customer!` dans `[Order!]!`, et un seul client manquant transformait toute la liste des commandes en `data: null`. Rendre `customer` nullable a coûté à l’agent un champ vide au lieu de l’écran ; plus tard, `totalCents` a été déprécié au profit de `total: Money!` et retiré une fois l’usage tombé à zéro.",
+    "mistakes": [
+      "Tout rendre non null parce que ça paraît rigoureux, si bien qu’une seule lecture en échec efface toute la réponse",
+      "Renvoyer des listes simples non bornées au lieu de connections paginées avec une taille de page obligatoire",
+      "Versionner l’endpoint comme en REST au lieu de déprécier les champs et de mesurer leur usage"
+    ],
+    "followUps": [
+      {
+        "question": "Schema-first ou code-first : lequel choisiriez-vous ?",
+        "answer": "Le schema-first garde un fichier SDL comme source et génère les types des resolvers avec GraphQL Code Generator. Le code-first, par exemple avec Pothos, construit le schéma en TypeScript et imprime le SDL, avec des types de resolvers inférés. Pour une équipe TypeScript, je penche pour le code-first et je relis le SDL imprimé dans les pull requests."
+      },
+      {
+        "question": "Quels changements de schéma cassent les clients ?",
+        "answer": "Supprimer un champ, passer un champ de sortie de non null à nullable, et ajouter un argument obligatoire. Resserrer une sortie de nullable à non null est sûr. Ajouter une valeur d’enum ou un argument optionnel est dangereux plutôt que cassant : les anciennes apps peuvent ne pas gérer la nouvelle valeur."
+      },
+      {
+        "question": "Comment savez-vous quand un champ déprécié peut être retiré ?",
+        "answer": "Grâce aux données d’usage : un schema registry ou la gateway collecte les opérations envoyées par les clients, par client et par version. Quand aucune opération n’a demandé le champ sur une fenêtre assez longue, anciennes versions mobiles comprises, je le retire, et la vérification en CI confirme que rien de collecté ne l’utilise encore."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Les champs GraphQL sont non null par défaut, sauf si on les marque nullables.",
+        "why": "Les champs sont nullables par défaut ; `!` marque un champ comme non null.",
+        "twin": {
+          "statement": "Les champs GraphQL sont nullables par défaut ; `!` marque un champ comme non null.",
+          "why": "Sans `!`, un champ peut renvoyer null, c’est le comportement par défaut."
+        }
+      },
+      {
+        "statement": "Passer un champ de sortie de `String` à `String!` ne casse pas les clients existants.",
+        "why": "La promesse ne fait que se renforcer : les clients qui géraient null fonctionnent toujours.",
+        "twin": {
+          "statement": "Passer un champ de sortie de `String` à `String!` casse les clients existants.",
+          "why": "La promesse ne fait que se renforcer : les clients qui géraient null fonctionnent toujours."
+        }
+      },
+      {
+        "statement": "Ajouter une nouvelle valeur à un enum ne peut jamais poser de problème aux clients existants.",
+        "why": "C’est classé comme dangereux : une ancienne app mobile peut ne pas gérer un statut qu’elle n’a jamais vu.",
+        "twin": {
+          "statement": "Ajouter une nouvelle valeur à un enum peut poser problème aux clients existants.",
+          "why": "C’est classé comme dangereux : une ancienne app mobile peut ne pas gérer un statut qu’elle n’a jamais vu."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un schéma GraphQL est la liste typée de tous les types et champs qu’offre un endpoint. Ses choix de nullabilité décident jusqu’où un seul échec se propage, et les changements additifs le font évoluer sans endpoint versionné.",
+      "points": [
+        "Un schéma GraphQL est une description typée de tous les types et champs que le serveur offre sur un endpoint. Les clients nomment les champs qu’ils veulent, et une fonction resolver s’exécute par champ.",
+        "Les champs sont nullables par défaut ; `!` marque un champ non null. Si un champ non null échoue, GraphQL met son parent à null, jusqu’à la position nullable la plus proche, donc un seul échec peut effacer toute une liste.",
+        "On rend non null les champs qui viennent de la même ligne que leur parent, comme `id` ou `status`. On garde nullables les champs qui appellent une autre table ou un autre service.",
+        "On pagine les listes en connections : des `edges` avec un `cursor` et un `node`, plus `pageInfo`, et un argument `first` obligatoire qui borne chaque page.",
+        "Évoluer sans versions : ajouter des champs, marquer les anciens `@deprecated(reason: ...)`, surveiller l’usage, retirer à zéro. Une vérification en CI signale les champs retirés, les sorties devenues nullables et les nouveaux arguments obligatoires."
+      ],
+      "takeaways": [
+        {
+          "term": "Nullable par défaut",
+          "detail": "`!` marque un champ non null. Un champ non null en échec met son parent à null, jusqu’à la position nullable la plus proche."
+        },
+        {
+          "term": "Champs non null",
+          "detail": "Les champs de la même ligne que leur parent, comme `id` ou `status`."
+        },
+        {
+          "term": "Champs nullables",
+          "detail": "Les champs qui appellent une autre table ou un autre service, pour qu’un échec n’efface pas toute une liste."
+        },
+        {
+          "term": "Connections",
+          "detail": "Des listes en `edges` avec un `cursor` et un `node`, plus `pageInfo`, et un `first` obligatoire qui borne chaque page."
+        },
+        {
+          "term": "`@deprecated(reason: ...)`",
+          "detail": "Marque un ancien champ. Surveiller son usage et le retirer à zéro."
+        },
+        {
+          "term": "Vérification des ruptures en CI",
+          "detail": "Signale les champs retirés, les sorties devenues nullables et les nouveaux arguments obligatoires."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Sur l’écran des commandes du back-office, un seul appel en échec au transporteur a transformé toute une commande en `null` dans la réponse GraphQL. Comment le schéma a-t-il causé ça ?",
+        "bridge": "Un champ non null qui échoue met son parent à null. Les champs qui appellent un autre service doivent rester nullables : c’est le volet nullabilité de la conception de schéma."
+      },
+      {
+        "question": "L’équipe mobile demande un endpoint `/graphql/v2` parce que vous voulez renommer un champ. Comment modifiez-vous le schéma sans versionner l’endpoint ?",
+        "bridge": "Les schémas GraphQL évoluent de façon additive : ajouter le nouveau champ, marquer l’ancien `@deprecated`, mesurer son usage, le retirer à zéro, avec une vérification des ruptures en CI."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux décrivent les commandes dans le schéma du back-office ; `customer` est chargé depuis un autre service. Lequel survit à l’échec d’une lecture de client ?",
+        "why": "Un champ qui appelle un autre service reste nullable : une lecture en échec donne `customer: null` plus une erreur pour cette seule commande. Avec `Customer!`, GraphQL met plutôt le parent à null, jusqu’à la position nullable la plus proche : ici l’`Order`, puis au-delà de `node: Order!`, donc une seule lecture en échec efface bien plus qu’un client, peut-être toute la page."
+      }
+    ]
+  },
+  "api-graphql-authz": {
+    "topic": "Autorisation en GraphQL",
+    "question": "Comment gérez-vous l’autorisation dans une API GraphQL, par objet et par champ ?",
+    "answer": "En REST, la vérification se trouve dans un route handler, mais en GraphQL la même `Order` est accessible depuis `order(id:)`, depuis `orders`, depuis `node(id:)` et depuis n’importe quel champ qui en renvoie une. Une vérification dans un resolver protège un seul chemin. Donc je garde les règles dans la couche métier, une politique que GraphQL, REST et les jobs appellent tous, et je lui passe un utilisateur entièrement chargé. Un resolver interroge la politique, et renvoie `null` pour un objet interdit pour que le client ne puisse pas distinguer « pas à vous » de « absent ». Les listes sont filtrées en SQL, et les champs sensibles comme un numéro de téléphone ont leur propre vérification au niveau du champ.",
+    "keyPoints": [
+      "Un type est accessible depuis de nombreux champs : pas de route unique à protéger",
+      "Les règles vivent dans une politique de la couche métier que tous les chemins appellent",
+      "Objet interdit : renvoyer `null` ; listes filtrées en SQL",
+      "Champs sensibles vérifiés un par un dans leur resolver"
+    ],
+    "explanation": "Cette question vérifie si tu comprends que GraphQL multiplie les chemins vers les mêmes données. Un senior place l’autorisation sous la couche API, cite `node(id:)` comme le chemin que tout le monde oublie, et sait qu’un DataLoader partagé entre utilisateurs contournerait toutes les vérifications.",
+    "example": "Un pentest de l’endpoint GraphQL du back-office a montré qu’un client connecté pouvait lire la commande d’un autre client via `order(id:)`, et que des prestataires voyaient les numéros de téléphone des clients. L’équipe a déplacé les règles dans `orderPolicy`, appelée par chaque resolver et chaque route REST, et a ajouté une vérification de champ sur `Customer.phone`. Le re-test n’a trouvé aucun moyen d’atteindre une commande ou un numéro de téléphone en dehors de la politique.",
+    "mistakes": [
+      "Vérifier l’accès seulement dans `order(id:)` alors que `orders`, `node(id:)` ou un champ imbriqué atteignent le même objet",
+      "Charger une page de commandes puis filtrer les interdites, ce qui casse la taille des pages et les curseurs",
+      "Partager le cache d’un DataLoader entre requêtes ou utilisateurs, si bien que les objets en cache échappent aux vérifications"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi renvoyer `null` plutôt qu’une erreur « interdit » pour la commande d’un autre client ?",
+        "answer": "Parce qu’un « interdit » explicite confirme que l’id existe, ce qui permet à un attaquant d’énumérer les commandes. Renvoyer `null` rend « pas à vous » et « n’existe pas » identiques, comme le ferait un 404 en REST."
+      },
+      {
+        "question": "Et les directives de schéma comme `@auth` ?",
+        "answer": "Elles permettent de déclarer les règles à côté des champs, ce qui aide les relecteurs. Mais la règle elle-même doit quand même appeler la politique de la couche métier, pour que GraphQL, REST et les jobs en arrière-plan partagent une seule source de vérité."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Si le resolver `order(id:)` vérifie la propriété, tous les chemins vers une commande dans le schéma sont protégés.",
+        "why": "D’autres champs comme `orders` ou `node(id:)` atteignent le même objet sans passer par ce resolver.",
+        "twin": {
+          "statement": "Une vérification dans le resolver `order(id:)` laisse sans protection les commandes accessibles via `orders` ou `node(id:)`.",
+          "why": "Ces champs atteignent le même objet sans passer par ce resolver."
+        }
+      },
+      {
+        "statement": "Un DataLoader partagé entre utilisateurs peut servir à l’un les objets en cache d’un autre.",
+        "why": "Son cache est indexé par id, pas par utilisateur, donc il doit être créé par requête.",
+        "twin": {
+          "statement": "Un DataLoader peut être partagé sans risque entre utilisateurs, car son cache est indexé par id d’objet.",
+          "why": "Indexé par id et non par utilisateur, il peut servir à l’un les objets en cache d’un autre, donc il doit être créé par requête."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "En GraphQL, le même objet est accessible depuis de nombreux champs, donc une vérification dans un resolver ne protège qu’un chemin. L’autorisation a sa place dans une politique de la couche métier que tous les chemins appellent.",
+      "points": [
+        "En GraphQL, il n’y a pas de route par objet : la même `Order` est atteinte depuis `order(id:)`, depuis `orders`, depuis `node(id:)` et depuis tout champ qui renvoie une commande. Une vérification dans un resolver protège un seul chemin.",
+        "Donc on met les règles dans la couche métier : une seule politique, comme `orderPolicy.canView(viewer, order)`, que GraphQL, REST et les jobs appellent tous avec un utilisateur entièrement chargé.",
+        "On renvoie `null` pour un objet interdit, pour que le client ne puisse pas savoir qu’il existe. On filtre les listes en SQL, comme `WHERE customer_id = $1`, pour que les pages restent pleines et les curseurs corrects.",
+        "On vérifie les champs sensibles un par un dans leur resolver, comme un numéro de téléphone que seuls les agents salariés peuvent voir. On crée les DataLoaders par requête, jamais partagés entre utilisateurs."
+      ],
+      "takeaways": [
+        {
+          "term": "Plusieurs chemins vers un type",
+          "detail": "Une `Order` est atteinte depuis `order(id:)`, `orders`, `node(id:)` et tout champ qui en renvoie une."
+        },
+        {
+          "term": "Politique de la couche métier",
+          "detail": "Une seule politique, comme `orderPolicy.canView(viewer, order)`, appelée par GraphQL, REST et les jobs avec un utilisateur entièrement chargé."
+        },
+        {
+          "term": "Objet interdit",
+          "detail": "Renvoyer `null`, pour que le client ne puisse pas distinguer « pas à vous » de « absent »."
+        },
+        {
+          "term": "Listes",
+          "detail": "Filtrer en SQL, comme `WHERE customer_id = $1`, pour que les pages restent pleines et les curseurs corrects."
+        },
+        {
+          "term": "Champs sensibles",
+          "detail": "Vérifiés un par un dans leur propre resolver, comme un numéro de téléphone que seuls les agents peuvent voir."
+        },
+        {
+          "term": "DataLoaders",
+          "detail": "Créés par requête, jamais partagés entre utilisateurs."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un pentest montre qu’un client lit la commande d’un autre client via `node(id:)`, alors que le resolver `order(id:)` vérifie la propriété. Où la vérification aurait-elle dû se trouver ?",
+        "bridge": "En GraphQL, le même objet est accessible depuis de nombreux champs, donc la règle a sa place dans une politique de la couche métier que chaque resolver appelle."
+      },
+      {
+        "question": "Un développeur REST qui rejoint l’équipe demande pourquoi la vérification de permission ne peut pas simplement se trouver à un seul endroit par endpoint, comme avant. Comment expliquez-vous l’autorisation en GraphQL ?",
+        "bridge": "GraphQL offre de nombreux chemins vers chaque type, donc les vérifications passent dans une politique partagée par objet, plus des vérifications au niveau du champ pour les champs sensibles."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux résolvent `orders(first: 20)` pour un client connecté de la boutique. Lequel renvoie des pages pleines de ses propres commandes ?",
+        "why": "Filtrer en SQL renvoie jusqu’à 20 commandes du client lui-même. Charger les 20 premières commandes de toute la boutique puis retirer les interdites laisse des pages incomplètes ou vides : avec 1 000 commandes dont 5 au client, la première page n’en montre aucune, alors que le client a des commandes."
+      }
+    ]
+  },
+  "api-graphql-limits": {
+    "topic": "Limites de coût des requêtes GraphQL",
+    "question": "Une seule requête GraphQL peut coûter très cher. Comment protégez-vous le serveur ?",
+    "answer": "Le coût d’une requête dépend de son contenu, donc un rate limiter qui compte les requêtes ne voit qu’un appel bon marché. J’estime le coût avant l’exécution, sous forme de règles de validation : une limite de profondeur, plus petite pour les listes imbriquées ; des plafonds sur les alias et les champs de premier niveau, puisque 100 alias de `order` exécutent son resolver 100 fois ; une analyse de coût qui multiplie les champs de liste par leur taille de page et rejette tout ce qui dépasse un maximum ; et un plafond sur les opérations groupées. Je configure tout ça avec une librairie comme GraphQL Armor plutôt que de l’écrire. Pour nos propres clients, la protection la plus forte, ce sont les trusted documents : seules les opérations enregistrées au build s’exécutent.",
+    "keyPoints": [
+      "Le coût dépend de la requête, pas du nombre de requêtes",
+      "Limites de profondeur, d’alias et de batch en validation, avant les resolvers",
+      "Analyse de coût : les listes multiplient par la taille de page ; rejet au-delà d’un max",
+      "Trusted documents pour nos propres clients ; les APQ ne bloquent rien"
+    ],
+    "explanation": "Cette question distingue ceux qui ont exposé du GraphQL de ceux qui l’ont lu. Une réponse senior empile des protections qui s’exécutent avant tout resolver, et sait que les trusted documents ne marchent que pour ses propres clients et que les automatic persisted queries sont une fonctionnalité de bande passante.",
+    "example": "Une semaine après le lancement de l’endpoint GraphQL du back-office, une requête qui imbriquait commandes, clients et leurs commandes sur trois niveaux, 50 par niveau, a tenu le CPU d’un réplica à 100 % pendant 20 secondes. L’équipe a ajouté des limites de profondeur, d’alias et de coût en validation, puis a passé le back-office aux trusted documents. La même requête est maintenant rejetée avant d’atteindre PostgreSQL.",
+    "mistakes": [
+      "Compter sur un rate limiter au nombre de requêtes, qui voit une requête quel que soit son coût",
+      "Croire que désactiver l’introspection protège ; ça ne fait que cacher le schéma",
+      "Confondre automatic persisted queries et trusted documents : les APQ laissent n’importe quel client enregistrer n’importe quelle requête"
+    ],
+    "followUps": [
+      {
+        "question": "Quelle est la différence entre les trusted documents et les automatic persisted queries ?",
+        "answer": "Avec les trusted documents, les opérations des clients sont enregistrées au build et le serveur n’exécute que des ids connus, donc aucune requête arbitraire ne tourne. Avec les APQ, n’importe quel client envoie un hash, puis le texte complet s’il est inconnu, et le serveur le stocke : ça économise de la bande passante mais ne bloque rien."
+      },
+      {
+        "question": "Une API GraphQL publique peut-elle utiliser des trusted documents ?",
+        "answer": "Non, parce que ses clients écrivent leurs propres requêtes, qu’on ne peut pas enregistrer à l’avance. Une API publique s’appuie sur des limites de profondeur, d’alias et de coût, et peut imputer le coût estimé de chaque opération au budget du client au lieu de compter les requêtes."
+      },
+      {
+        "question": "Comment une analyse de coût estime-t-elle une requête ?",
+        "answer": "Elle parcourt l’opération parsée avant l’exécution : chaque champ coûte un par ligne parente, et un champ de liste multiplie ses enfants par son argument `first`. Avec 50 commandes, chacune avec un client et les 50 commandes de ce client, l’estimation atteint les milliers, et un niveau de plus dépasse tout maximum raisonnable."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Les limites de profondeur et de coût s’exécutent comme règles de validation, avant tout resolver.",
+        "why": "Elles analysent l’opération parsée, donc une requête coûteuse est rejetée sans toucher à la base.",
+        "twin": {
+          "statement": "Les limites de profondeur et de coût s’exécutent dans les resolvers, donc la base a déjà été interrogée quand une requête est rejetée.",
+          "why": "Ce sont des règles de validation sur l’opération parsée, donc une requête coûteuse est rejetée avant qu’un resolver ne s’exécute."
+        }
+      },
+      {
+        "statement": "Les automatic persisted queries empêchent les clients d’exécuter des requêtes arbitraires.",
+        "why": "N’importe quel client peut enregistrer n’importe quelle requête via les APQ ; seuls les trusted documents enregistrés au build servent de liste blanche.",
+        "twin": {
+          "statement": "Les automatic persisted queries laissent n’importe quel client enregistrer n’importe quelle requête, donc elles ne limitent pas les requêtes exécutées.",
+          "why": "Les APQ ne font que mettre en cache le texte des requêtes ; ce sont les trusted documents enregistrés au build qui servent de liste blanche."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une seule requête GraphQL peut demander des millions de lignes, donc son coût dépend de son contenu, pas du nombre de requêtes. Le serveur estime le coût et rejette les opérations coûteuses avant qu’un resolver ne s’exécute.",
+      "points": [
+        "Le coût d’une requête GraphQL dépend de ce qu’elle demande : l’imbrication et les tailles de page multiplient les lignes. Un rate limiter qui compte les requêtes en voit une seule dans tous les cas.",
+        "Les limites de profondeur rejettent les opérations trop imbriquées, avec une limite plus petite pour les listes imbriquées. Les limites d’alias et de largeur empêchent une requête d’appeler 100 fois le même champ sous des noms différents.",
+        "L’analyse de coût donne un poids à chaque champ, multiplie les champs de liste par leur taille de page, et rejette une opération au-delà d’un maximum, ou l’impute au budget du client. Les limites de batch plafonnent les opérations par requête HTTP.",
+        "Elles s’exécutent comme règles de validation, avant tout resolver. Des librairies comme GraphQL Armor les regroupent pour Yoga, Apollo Server et Envelop.",
+        "Les trusted documents, ou persisted operations, enregistrent les opérations de tes clients au build ; le serveur n’exécute que des ids connus. Les automatic persisted queries (APQ) économisent de la bande passante mais ne bloquent rien."
+      ],
+      "takeaways": [
+        {
+          "term": "Limite de profondeur",
+          "detail": "Rejette les opérations trop imbriquées, avec une limite plus petite pour les listes imbriquées."
+        },
+        {
+          "term": "Limites d’alias et de largeur",
+          "detail": "Empêchent une requête d’appeler 100 fois le même champ sous des noms différents."
+        },
+        {
+          "term": "Analyse de coût",
+          "detail": "Pondère chaque champ, multiplie les listes par leur taille de page, et rejette une opération au-delà d’un maximum."
+        },
+        {
+          "term": "Limite de batch",
+          "detail": "Plafonne le nombre d’opérations dans une requête HTTP."
+        },
+        {
+          "term": "GraphQL Armor",
+          "detail": "Une librairie qui regroupe ces règles de validation pour Yoga, Apollo Server et Envelop."
+        },
+        {
+          "term": "Trusted documents",
+          "detail": "Seules les opérations enregistrées au build s’exécutent. Les APQ économisent de la bande passante mais ne bloquent rien."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le rate limiter voit une requête par seconde d’un client, et pourtant `/graphql` sature la base. La requête imbrique `orders { items { product { orders } } }`. Quelle protection manque-t-il ?",
+        "bridge": "Le coût dépend de la requête, pas du nombre de requêtes : des limites de profondeur, d’alias et de coût en validation la rejettent avant qu’un resolver ne s’exécute."
+      },
+      {
+        "question": "Un collègue dit que les persisted queries protègent déjà l’API contre les requêtes coûteuses. Quand est-ce vrai, et que mettez-vous en place en plus ?",
+        "bridge": "Seuls les trusted documents enregistrés au build servent de liste blanche ; les APQ ne bloquent rien, donc les limites de profondeur, d’alias et de coût restent nécessaires."
+      }
+    ]
+  },
+  "api-websocket-server": {
+    "topic": "Faire tourner un serveur WebSocket",
+    "question": "Vous ajoutez un endpoint WebSocket à une API Node. Comment authentifiez-vous les connexions et les gardez-vous en bonne santé ?",
+    "answer": "J’authentifie une seule fois, à l’upgrade HTTP. Le `WebSocket` du navigateur ne peut pas envoyer d’en-tête Authorization, mais il envoie les cookies, donc je vérifie l’`Origin` contre une liste blanche pour bloquer le cross-site WebSocket hijacking, puis la session, et je réponds 403 ou 401 avant qu’aucun socket n’existe. Les tokens ne vont jamais dans l’URL, parce que les logs l’enregistrent. Je plafonne la taille des messages avec `maxPayload`, et je ferme les sockets quand la session se termine. Pour la santé, le serveur envoie un ping toutes les 30 secondes et termine les sockets sans pong. Un client qui arrête de lire est coupé quand `bufferedAmount` dépasse un plafond. Les clients se reconnectent avec backoff et jitter, et reprennent à partir de leur dernier id d’événement.",
+    "keyPoints": [
+      "Authentifier à l’upgrade : liste blanche d’Origin, puis session",
+      "Pas de token dans l’URL ; plafonner `maxPayload` ; fermer au logout",
+      "Ping toutes les 30 s, terminer les sockets qui ont manqué un pong",
+      "Couper les lecteurs lents via `bufferedAmount` ; reconnexion client avec jitter"
+    ],
+    "explanation": "Ouvrir un socket, c’est facile ; les recruteurs veulent savoir ce qui se passe sur des heures avec des milliers d’agents. Les seniors parlent du cross-site WebSocket hijacking, des proxys qui ferment les connexions inactives, du backpressure des clients lents, et du fait qu’avec l’API WebSocket, la reconnexion est le travail du client.",
+    "example": "Le socket `/live` du back-office, construit avec ws, a eu trois problèmes la première semaine : des sockets silencieux coupés après 60 secondes par le proxy, des sockets morts à cause d’un Wi-Fi instable gardés pendant des heures, et un portable en veille qui faisait monter la mémoire d’un réplica. Un ping toutes les 30 secondes avec `terminate()` sur un pong manqué a réglé les deux premiers, et un plafond `bufferedAmount` de 1 Mo le troisième.",
+    "mistakes": [
+      "Mettre l’access token dans l’URL WebSocket, où les logs d’accès l’enregistrent",
+      "Sauter la vérification de l’`Origin`, si bien qu’une page malveillante peut ouvrir un socket avec les cookies de l’agent",
+      "Appeler `send()` sans regarder le client : les messages non lus s’empilent dans la mémoire du serveur"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi utiliser `ws` plutôt que Socket.io, ou l’inverse ?",
+        "answer": "`ws` fournit le protocole WebSocket et pas grand-chose d’autre, donc les clients utilisent le `WebSocket` standard du navigateur, et les rooms, les acks et la reconnexion sont à ma charge. Socket.io ajoute reconnexion, acquittements, rooms et adaptateurs multi-serveurs, mais demande son propre client : un WebSocket simple ne peut pas s’y connecter."
+      },
+      {
+        "question": "Quels codes de fermeture utilisez-vous, et que signifient-ils ?",
+        "answer": "1008, violation de politique, quand un agent est déconnecté ou perd un rôle. 1001, going away, quand un réplica s’arrête sur `SIGTERM`. Un client voit 1006 quand la connexion s’est terminée anormalement, et 1009 quand un message a dépassé `maxPayload`."
+      },
+      {
+        "question": "Comment un client rattrape-t-il son retard après s’être reconnecté ?",
+        "answer": "Il envoie l’id du dernier événement qu’il a appliqué, comme le fait `Last-Event-ID` pour SSE, et le serveur rejoue l’écart depuis la base. Le backoff avec jitter étale les reconnexions, pour que les agents coupés par un déploiement ne reviennent pas tous dans la même seconde."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le constructeur `WebSocket` du navigateur permet de définir un en-tête `Authorization` sur le handshake.",
+        "why": "Il ne prend qu’une URL et des sous-protocoles ; les cookies partent avec le handshake, ou un token va dans le premier message.",
+        "twin": {
+          "statement": "Le constructeur `WebSocket` du navigateur ne peut pas définir d’en-tête `Authorization` sur le handshake.",
+          "why": "Il ne prend qu’une URL et des sous-protocoles ; les cookies partent avec le handshake, ou un token va dans le premier message."
+        }
+      },
+      {
+        "statement": "Les navigateurs répondent automatiquement par un pong à une trame ping WebSocket du serveur.",
+        "why": "Le protocole exige un pong, donc le serveur peut détecter les connexions mortes sans code client.",
+        "twin": {
+          "statement": "Les navigateurs ignorent une trame ping WebSocket du serveur, sauf si du code client y répond.",
+          "why": "Le protocole exige un pong, et les navigateurs l’envoient automatiquement, sans code client."
+        }
+      },
+      {
+        "statement": "L’API `WebSocket` du navigateur se reconnecte toute seule après une coupure de connexion.",
+        "why": "Contrairement à `EventSource` et à Socket.io, elle ne le fait pas : le code client doit se reconnecter.",
+        "twin": {
+          "statement": "L’API `WebSocket` du navigateur ne se reconnecte pas toute seule après une coupure de connexion.",
+          "why": "Contrairement à `EventSource` et à Socket.io, elle laisse la reconnexion au code client."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un WebSocket est une connexion longue qui commence par un upgrade HTTP. On authentifie une fois à cet upgrade, puis on garde soi-même les connexions en bonne santé, car elles meurent silencieusement et les messages non lus s’empilent dans la mémoire du serveur.",
+      "points": [
+        "On authentifie une fois, à l’upgrade HTTP. Les navigateurs envoient les cookies avec le handshake, donc on vérifie l’`Origin` contre une liste blanche (pour bloquer le cross-site WebSocket hijacking), puis la session.",
+        "Le `WebSocket` du navigateur ne peut pas définir d’en-têtes. Jamais de token dans l’URL, que les logs enregistrent ; on l’envoie dans le premier message s’il n’y a pas de cookie. On ferme les sockets quand la session se termine.",
+        "Les connexions meurent silencieusement et les proxys ferment celles qui sont inactives. On envoie un ping toutes les 30 secondes, on marque le socket comme non vivant, et on termine tout socket qui n’a pas répondu par un pong au tour suivant.",
+        "`send()` ne bloque jamais : les messages non lus attendent dans la mémoire du serveur. On coupe un client dont le `bufferedAmount` dépasse un plafond ; il se resynchronise en se reconnectant.",
+        "La reconnexion est le travail du client : retry avec backoff exponentiel et jitter, en envoyant le dernier id d’événement pour que le serveur rejoue ce qui a été manqué."
+      ],
+      "takeaways": [
+        {
+          "term": "Authentifier à l’upgrade",
+          "detail": "Vérifier l’`Origin` contre une liste blanche (cross-site WebSocket hijacking), puis la session, avant qu’aucun socket n’existe."
+        },
+        {
+          "term": "Pas de token dans l’URL",
+          "detail": "Les logs enregistrent les URL. Sans cookie, envoyer le token dans le premier message."
+        },
+        {
+          "term": "`maxPayload`",
+          "detail": "Plafonne la taille d’un message entrant. Fermer aussi les sockets quand la session se termine."
+        },
+        {
+          "term": "Ping toutes les 30 s",
+          "detail": "Terminer tout socket qui n’a pas répondu par un pong au tour suivant."
+        },
+        {
+          "term": "`bufferedAmount`",
+          "detail": "`send()` ne bloque jamais : couper un client dont le buffer dépasse un plafond ; il se resynchronise en se reconnectant."
+        },
+        {
+          "term": "Reconnexion client",
+          "detail": "Backoff exponentiel avec jitter, en envoyant le dernier id d’événement pour que le serveur rejoue ce qui a été manqué."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Une semaine après le lancement, le serveur de statut des commandes en direct tient 40 000 connexions WebSocket pour 9 000 utilisateurs actifs, et sa mémoire ne cesse de grossir. Que ne fait pas le serveur ?",
+        "bridge": "Les connexions mortes ne sont jamais détectées : ping toutes les 30 secondes, terminer les sockets qui manquent un pong, et couper les lecteurs lents via `bufferedAmount`."
+      },
+      {
+        "question": "Un junior propose de passer l’access token en `?token=` dans l’URL WebSocket, puisque le navigateur ne peut pas définir d’en-têtes. Que suggérez-vous, et que vérifiez-vous d’autre ?",
+        "bridge": "L’authentification se fait à l’upgrade HTTP : les cookies partent avec le handshake, l’`Origin` est vérifiée contre une liste blanche, et les tokens restent hors des URL que les logs enregistrent."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux poussent une mise à jour de statut de commande à chaque socket connecté du back-office. Lequel protège le serveur d’un client qui arrête de lire ?",
+        "why": "`send()` ne bloque jamais : les octets qu’un client n’a pas reçus attendent dans la mémoire du serveur, comptés par `bufferedAmount`. La meilleure version coupe un client qui prend trop de retard ; il se reconnecte et rejoue à partir de son dernier id d’événement. Sans cette vérification, une seule connexion bloquée fait grossir le buffer à chaque mise à jour jusqu’à ce que le pod manque de mémoire."
+      }
+    ]
+  },
+  "msg-sagas": {
+    "topic": "Sagas et compensations",
+    "question": "Un checkout traverse les services commandes, stock et paiement. Une étape échoue après le paiement. Comment gardez-vous les données cohérentes ?",
+    "answer": "J’utilise une saga, pas une transaction distribuée : le commit à deux phases exige que chaque participant y prenne part, et les brokers ou l’API du prestataire de paiement ne le peuvent pas. Une saga est une suite de transactions locales, une par service, chacune publiant son événement via un outbox. Quand une étape ultérieure échoue pour une raison métier, des actions de compensation défont les étapes précédentes en termes métier, la plus récente d’abord : rembourser le paiement, libérer le stock, annuler la commande. Les compensations doivent être idempotentes et relancées jusqu’à ce qu’elles réussissent. Je place en dernier les étapes qu’on ne peut pas défaire, et j’orchestre tout ce qui touche à l’argent, souvent avec un moteur de workflow durable comme Temporal.",
+    "keyPoints": [
+      "Des transactions locales par service au lieu du 2PC",
+      "Les compensations défont les étapes terminées, la plus récente d’abord",
+      "Les compensations sont des actions métier idempotentes, relancées",
+      "Orchestration pour l’argent et les longs flux ; chorégraphie pour les courts"
+    ],
+    "explanation": "Cette question vérifie si tu sais raisonner sur la cohérence entre services sans transaction partagée. Les seniors disent qu’une saga n’a pas d’isolation, donc les états intermédiaires sont visibles et doivent être modélisés, et ils choisissent orchestration ou chorégraphie selon la longueur du flux et ce que le support doit pouvoir expliquer.",
+    "example": "Le premier soir des soldes, le service de stock a reçu `order.paid` pour une console épuisée une seconde plus tôt, et le client avait payé un article que personne ne pouvait expédier. L’équipe a réordonné la saga pour réserver le stock avant de débiter, et l’a écrite comme un workflow Temporal où chaque étape enregistre sa compensation. Un article épuisé arrête maintenant le checkout avant que l’argent ne bouge.",
+    "mistakes": [
+      "Proposer un commit à deux phases entre des services et un prestataire de paiement qui ne peut pas y participer",
+      "Traiter les compensations comme des rollbacks : un remboursement est une nouvelle action métier, visible par le client",
+      "Cacher les états intermédiaires, alors que d’autres requêtes les voient ; il faut les modéliser, comme `stock_reserved`"
+    ],
+    "followUps": [
+      {
+        "question": "Orchestration ou chorégraphie : comment choisissez-vous ?",
+        "answer": "En chorégraphie, chaque service réagit à l’événement précédent : pas de composant central, bien pour deux ou trois étapes, mais personne ne voit le flux entier. En orchestration, un composant pilote les étapes et enregistre l’état de la saga. Je choisis l’orchestration dès qu’il y a de l’argent en jeu ou plus de trois étapes."
+      },
+      {
+        "question": "Qu’apporte un moteur de workflow durable comme Temporal ?",
+        "answer": "Il enregistre chaque étape dans un historique d’événements, donc après un crash il rejoue l’historique au lieu de réexécuter les étapes terminées. Les effets de bord vont dans des activities, qu’il relance par défaut. Le code du workflow doit être déterministe, sans I/O directe ; le SDK TypeScript rend `Date.now()` et `Math.random()` sûrs au rejeu."
+      },
+      {
+        "question": "Quelles étapes vont en dernier dans une saga ?",
+        "answer": "Celles qu’on ne peut pas compenser, comme expédier un colis ou envoyer un courrier physique. Si elles viennent en dernier, toutes les étapes d’avant peuvent encore être défaites en cas d’échec, et l’étape irréversible ne s’exécute qu’une fois que tout le reste a réussi."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une saga donne la même isolation qu’une transaction de base de données, donc les autres requêtes ne voient jamais les états intermédiaires.",
+        "why": "Chaque étape commite de son côté, donc les états intermédiaires comme `stock_reserved` sont visibles et doivent être modélisés.",
+        "twin": {
+          "statement": "Dans une saga, d’autres requêtes peuvent voir des états intermédiaires comme `stock_reserved`.",
+          "why": "Chaque étape commite de son côté, donc les états intermédiaires sont visibles et doivent être modélisés."
+        }
+      },
+      {
+        "statement": "Les compensations s’exécutent dans l’ordre inverse des étapes terminées.",
+        "why": "L’étape terminée la plus récente est défaite en premier, car le code empile chaque compensation et les exécute à l’envers.",
+        "twin": {
+          "statement": "Les compensations s’exécutent dans le même ordre que les étapes terminées, la plus ancienne d’abord.",
+          "why": "L’étape terminée la plus récente est défaite en premier : les compensations s’exécutent dans l’ordre inverse."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une saga garde une opération métier cohérente entre des services qui possèdent chacun leur base, là où aucune transaction unique ne peut la couvrir. Chaque étape commite localement, et des actions de compensation défont les étapes terminées quand une étape ultérieure échoue.",
+      "points": [
+        "Quand une opération métier traverse des services qui ont leurs propres bases, aucune transaction unique ne la couvre. Le commit à deux phases (2PC) exige que chaque participant y prenne part, et les API HTTP et les brokers ne le peuvent pas.",
+        "Une saga est une suite de transactions locales, une par service. Chaque étape commite de son côté et publie son événement via un outbox.",
+        "Quand une étape ultérieure échoue, des actions de compensation défont les étapes terminées en termes métier, la plus récente d’abord : rembourser le paiement, libérer le stock, annuler la commande. Elles doivent être idempotentes et relancées.",
+        "Chorégraphie : chaque service réagit à l’événement précédent. Orchestration : un composant pilote les étapes et enregistre l’état. On orchestre l’argent et les longs flux, souvent avec Temporal.",
+        "Une saga n’a pas d’isolation : d’autres requêtes voient les états intermédiaires, donc on les modélise. Les étapes irréversibles, comme l’expédition, vont en dernier."
+      ],
+      "takeaways": [
+        {
+          "term": "Pourquoi pas le 2PC",
+          "detail": "Le commit à deux phases exige que chaque participant y prenne part ; les API HTTP et les brokers ne le peuvent pas."
+        },
+        {
+          "term": "Transactions locales",
+          "detail": "Une par service, chacune publiant son événement via un outbox."
+        },
+        {
+          "term": "Compensations",
+          "detail": "Défont les étapes terminées en termes métier, la plus récente d’abord : rembourser, libérer le stock, annuler la commande."
+        },
+        {
+          "term": "Idempotentes et relancées",
+          "detail": "Une compensation doit pouvoir être répétée sans risque et est relancée jusqu’à ce qu’elle réussisse."
+        },
+        {
+          "term": "Chorégraphie vs orchestration",
+          "detail": "Les services réagissent aux événements, ou un composant pilote les étapes. On orchestre l’argent et les longs flux, souvent avec Temporal."
+        },
+        {
+          "term": "Pas d’isolation",
+          "detail": "Les autres voient les états intermédiaires, donc on les modélise. Les étapes irréversibles, comme l’expédition, vont en dernier."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le checkout a débité le client, puis le service de stock a trouvé l’article épuisé. La commande reste en `pending_payment` et l’argent est parti. Comment ce flux devrait-il fonctionner entre les trois services ?",
+        "bridge": "Une saga : une transaction locale par service, et des compensations qui défont les étapes terminées, la plus récente d’abord, comme un remboursement, quand une étape ultérieure échoue."
+      },
+      {
+        "question": "Un architecte propose un commit à deux phases entre commandes, stock et le prestataire de paiement. Pourquoi vous y opposeriez-vous, et qu’utilisez-vous à la place ?",
+        "bridge": "Le commit à deux phases exige que chaque participant y prenne part, et l’API du prestataire ne le peut pas. Une saga utilise à la place des transactions locales et des compensations."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux exécutent la saga de checkout et défont les étapes terminées, la plus récente d’abord, quand une étape échoue. Lequel ne défait jamais une étape qui n’a pas eu lieu ?",
+        "why": "Une compensation n’est enregistrée qu’une fois son étape réussie. Dans l’autre version, quand `reserveStock` lève une erreur parce que le mug est épuisé, la saga exécute quand même `releaseStock(order.lines)`, qui rajoute des unités jamais prises : chaque checkout en échec gonfle le stock, et la boutique survend."
+      }
+    ]
+  },
+  "design-order-numbers": {
+    "topic": "Numéros de commande et ids",
+    "question": "Votre e-mail de confirmation indique la commande 1043 et le client suivant reçoit la 1044. Qu’est-ce qui ne va pas, et comment générez-vous les numéros de commande sur plusieurs réplicas ?",
+    "answer": "Les numéros séquentiels se devinent : n’importe qui peut les parcourir sur une page de suivi, et deux commandes à quelques minutes d’écart donnent votre volume à un concurrent. Donc une commande reçoit deux identifiants. La clé primaire est un UUIDv7 : 128 bits qui commencent par un timestamp en millisecondes, générés n’importe où sans coordination, et ordonnés dans le temps, ce qui ménage l’index. Le numéro de commande public est court, écrit en base 62, donc sept caractères contiennent environ 3 500 milliards de valeurs. Il vient soit d’une séquence passée dans un mélange réversible, donc sans collision et qui cache l’ordre, soit de codes aléatoires insérés avec une contrainte d’unicité et un retry, parce que les collisions arrivent plus tôt qu’on ne le croit.",
+    "keyPoints": [
+      "Les ids séquentiels se devinent et révèlent le volume",
+      "Deux ids : clé primaire UUIDv7, numéro de commande public court",
+      "Base 62 : sept caractères contiennent environ 3 500 milliards de codes",
+      "Les codes aléatoires exigent une contrainte d’unicité et un retry (paradoxe des anniversaires)"
+    ],
+    "explanation": "C’est une relance classique en entretien de conception parce qu’elle mêle sécurité, échelle et modélisation des données. Un senior sépare la clé de base de données du numéro destiné aux humains, et connaît les maths des collisions des codes aléatoires au lieu de supposer qu’un grand espace suffit.",
+    "example": "La boutique imprimait des numéros de commande séquentiels, et un agent du support a remarqué qu’on pouvait parcourir les liens de suivi en changeant un chiffre. L’équipe a gardé des clés primaires UUIDv7 dans `orders` et ajouté une colonne `order_number` avec une contrainte d’unicité, remplie d’un code aléatoire de sept caractères en base 62 avec un retry en cas de conflit. Les liens de suivi utilisent maintenant des codes que personne ne peut deviner.",
+    "mistakes": [
+      "Exposer la clé primaire auto-incrémentée dans les URL et les e-mails",
+      "Supposer que des codes aléatoires ne se percutent jamais dans un grand espace ; avec 62^7 codes, une collision est probable après environ 2,2 millions",
+      "Utiliser un UUID complet comme numéro que les clients lisent au téléphone : 128 bits, c’est 22 caractères en base 62"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi UUIDv7 plutôt que UUIDv4 pour la clé primaire ?",
+        "answer": "UUIDv7 commence par un timestamp en millisecondes sur 48 bits, donc les nouveaux ids se trient après les anciens, et les insertions dans l’index de clé primaire restent dans l’ordre chronologique au lieu d’atterrir n’importe où. PostgreSQL 18 le génère avec `uuidv7()`, et les réplicas n’ont besoin d’aucune coordination."
+      },
+      {
+        "question": "Comment fonctionne un id de type Snowflake, et quand l’utiliseriez-vous ?",
+        "answer": "Il regroupe un timestamp en millisecondes sur 41 bits, un id de machine sur 10 bits et une séquence sur 12 bits dans 64 bits : ordonné dans le temps, unique sans séquence centrale, jusqu’à 11 caractères en base 62. Il convient à de nombreux écrivains, mais chaque machine a besoin d’un worker id unique."
+      },
+      {
+        "question": "En entretien de conception, que notez-vous pour l’API de checkout et le modèle de données ?",
+        "answer": "D’abord les endpoints avec leurs codes d’erreur, comme 409 pour un article épuisé et 429 avec `Retry-After`, une `Idempotency-Key` sur chaque POST, et le client tiré de la session, pas du corps. Ensuite des tables dont les contraintes imposent les règles, comme `UNIQUE (sale_id, customer_id)`, pour que des réplicas en concurrence ne puissent pas les enfreindre."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Sept caractères en base 62 donnent environ 3 500 milliards de codes distincts.",
+        "why": "62 puissance 7 vaut 3 521 614 606 208.",
+        "twin": {
+          "statement": "Sept caractères en base 62 donnent environ 3,5 milliards de codes distincts.",
+          "why": "62 puissance 7 vaut 3 521 614 606 208, soit environ 3 500 milliards."
+        }
+      },
+      {
+        "statement": "Avec 3 500 milliards de codes possibles, des numéros de commande aléatoires n’ont pas besoin de contrainte d’unicité.",
+        "why": "D’après le paradoxe des anniversaires, la probabilité d’une collision atteint 50 % après environ 2,2 millions de codes.",
+        "twin": {
+          "statement": "Même avec 3 500 milliards de codes possibles, des numéros de commande aléatoires ont besoin d’une contrainte d’unicité et d’un retry.",
+          "why": "D’après le paradoxe des anniversaires, la probabilité d’une collision atteint 50 % après environ 2,2 millions de codes."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les numéros de commande séquentiels se devinent et révèlent ton volume de ventes. Une commande reçoit deux identifiants : une clé primaire UUIDv7 générée n’importe où, et un numéro de commande public court qui cache la séquence.",
+      "points": [
+        "Un numéro de commande séquentiel se devine : on peut parcourir les numéros sur une page de suivi, et deux commandes révèlent combien tu as vendu entre les deux. Donc une commande reçoit deux identifiants.",
+        "La clé primaire est un UUIDv7 (RFC 9562) : 128 bits qui commencent par un timestamp en millisecondes sur 48 bits. N’importe quel réplica le génère, et les nouveaux ids se trient après les anciens. PostgreSQL 18 a `uuidv7()`.",
+        "Le numéro de commande public est court. La base 62 écrit un nombre avec 0-9, a-z et A-Z, donc sept caractères contiennent 62^7, environ 3 500 milliards de valeurs.",
+        "Une séquence est courte mais devinable, sauf si on la mélange de façon réversible. Les codes aléatoires se percutent plus tôt qu’on ne croit (paradoxe des anniversaires) : environ 50 % après 2,2 millions de codes, donc on insère avec une contrainte d’unicité et un retry."
+      ],
+      "takeaways": [
+        {
+          "term": "Ids séquentiels",
+          "detail": "N’importe qui peut les parcourir sur une page de suivi, et deux commandes montrent combien tu as vendu entre les deux."
+        },
+        {
+          "term": "UUIDv7 (RFC 9562)",
+          "detail": "128 bits qui commencent par un timestamp en millisecondes sur 48 bits : n’importe quel réplica le génère, et les nouveaux ids se trient après les anciens."
+        },
+        {
+          "term": "`uuidv7()`",
+          "detail": "Intégré à PostgreSQL 18."
+        },
+        {
+          "term": "Base 62",
+          "detail": "Chiffres 0-9, a-z et A-Z : sept caractères contiennent 62^7, environ 3 500 milliards de valeurs."
+        },
+        {
+          "term": "Séquence mélangée",
+          "detail": "Une séquence passée dans un mélange réversible : pas de collision, et l’ordre est caché."
+        },
+        {
+          "term": "Codes aléatoires",
+          "detail": "Se percutent plus tôt qu’on ne croit (environ 50 % après 2,2 millions) : insérer avec une contrainte d’unicité et un retry."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un concurrent a passé deux commandes à une semaine d’écart et en a déduit votre volume hebdomadaire grâce aux numéros des e-mails de confirmation. Que changeriez-vous ?",
+        "bridge": "Les numéros publics séquentiels révèlent le volume et se devinent : garder une clé UUIDv7 et donner aux clients un numéro de commande court, non séquentiel, en base 62."
+      },
+      {
+        "question": "Un collègue veut des ids auto-incrémentés pour les commandes parce que les UUID aléatoires nuisent à l’index. Que répondez-vous pour une API qui tourne sur plusieurs réplicas ?",
+        "bridge": "UUIDv7 est ordonné dans le temps, donc favorable à l’index, et généré n’importe où sans coordination ; le numéro de commande public est un code court séparé."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux enregistrent une nouvelle commande avec un numéro public aléatoire de 7 caractères ; la colonne a une contrainte d’unicité. Lequel gère une collision ?",
+        "why": "Les codes aléatoires se percutent plus tôt que l’intuition ne le dit : avec 62^7 codes, un doublon a environ 50 % de chances d’arriver après 2,2 millions de commandes. La contrainte d’unicité l’intercepte avec l’erreur `23505`, et la boucle tire un nouveau code. L’autre version fait remonter cette erreur, donc le checkout d’un client malchanceux échoue avec un 500."
+      }
+    ]
+  },
+  "arch-bounded-contexts": {
+    "topic": "Bounded contexts et context maps",
+    "question": "Qu’est-ce qu’un bounded context, comment les repérez-vous dans un système existant, et comment sont-ils liés entre eux ?",
+    "answer": "Un bounded context, c’est la frontière à l’intérieur de laquelle un modèle et son vocabulaire restent cohérents ; le même mot peut vouloir dire autre chose juste à côté. « Order » dans Ordering, c’est ce que le client a demandé ; dans Invoicing, c’est un document légal qu’on ne modifie jamais. Je trouve les frontières à partir du langage et de la propriété : un atelier EventStorming avec les experts métier, des groupes de champs optionnels détenus par des équipes différentes, des fichiers qui changent ensemble. Ensuite une context map dit, pour chaque paire, qui est en amont et quelle est la relation : customer-supplier, conformist, ou une anticorruption layer qui traduit un modèle étranger, comme celui du prestataire de paiement, à un seul endroit.",
+    "keyPoints": [
+      "Un modèle et un langage cohérents à l’intérieur de chaque frontière",
+      "Trouvés via le langage et la propriété : EventStorming, groupes de champs",
+      "Context map : amont, aval et la relation pour chaque paire",
+      "Anticorruption layer devant les modèles qu’on ne contrôle pas"
+    ],
+    "explanation": "Les recruteurs la posent quand on parle de découper un monolithe ou un god-model. Un senior explique pourquoi un modèle unifié échoue dans un grand système, trouve les frontières à partir du métier plutôt que des tables, et utilise la context map pour parler des dépendances entre équipes.",
+    "example": "Dans l’API Orders, une interface `Order` avait accumulé une cinquantaine de champs optionnels détenus par cinq équipes, et chaque équipe lisait `status` à sa façon. Une session d’EventStorming a séparé Ordering, Payments, Inventory, Invoicing et Loyalty ; Payments a ensuite reçu une anticorruption layer, si bien que le vocabulaire « charge » du prestataire s’arrête à un seul fichier. Quand la boutique a plus tard évalué un second prestataire de paiement, seuls ce fichier et le schéma du webhook ont dû changer.",
+    "mistakes": [
+      "Dessiner les contextes à partir des tables de la base plutôt que du langage métier et de la propriété",
+      "Imposer un modèle partagé de « commande » à toutes les équipes, ce qui les couple toutes à chaque changement",
+      "Laisser le vocabulaire d’un prestataire se répandre dans le code au lieu de le traduire à un seul endroit"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qu’une anticorruption layer, concrètement ?",
+        "answer": "Un morceau de code en bordure d’un contexte qui traduit un modèle étranger dans les mots du contexte. Dans Payments, un fichier transforme les événements du prestataire comme `charge.succeeded` en un `PaymentOutcome` comme `captured` ou `declined`, et rien après lui ne connaît le mot « charge »."
+      },
+      {
+        "question": "Que sont les sous-domaines core, supporting et generic ?",
+        "answer": "Les sous-domaines core donnent son avantage à l’entreprise et reçoivent la meilleure modélisation, comme les règles de checkout et de prix d’Ordering. Les supporting sont nécessaires mais ne différencient pas, comme Invoicing. Les generic sont des problèmes résolus qu’on achète ou réutilise ; le contexte Loyalty de la boutique pourrait devenir un produit acheté."
+      },
+      {
+        "question": "Une table géante et un god-service : que séparez-vous en premier ?",
+        "answer": "Je cartographie le langage et qui détient quels champs, à partir d’un atelier et des fichiers qui changent ensemble dans git. Je choisis un contexte avec une frontière claire et une vraie douleur au changement, et je déplace ses champs et ses règles dans son propre module et ses propres tables à l’intérieur du monolithe, avant tout appel réseau."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "En DDD, le même mot, comme « commande », peut signifier des choses différentes dans deux bounded contexts.",
+        "why": "Chaque contexte a son propre modèle et son propre langage ; la cohérence n’est exigée qu’à l’intérieur d’une frontière.",
+        "twin": {
+          "statement": "En DDD, un mot comme « commande » doit signifier la même chose dans tous les bounded contexts.",
+          "why": "Chaque contexte a son propre modèle et son propre langage ; la cohérence n’est exigée qu’à l’intérieur d’une frontière."
+        }
+      },
+      {
+        "statement": "Un shared kernel est la relation recommandée par défaut entre deux contextes.",
+        "why": "On l’utilise rarement, car chaque modification de la partie partagée exige l’accord des deux équipes.",
+        "twin": {
+          "statement": "On utilise rarement un shared kernel, car chaque modification de la partie partagée exige l’accord des deux équipes.",
+          "why": "Ce coût de coordination explique qu’il ne soit pas la relation par défaut entre deux contextes."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un bounded context est la frontière à l’intérieur de laquelle un modèle et son vocabulaire restent cohérents ; le même mot peut vouloir dire autre chose juste à côté. Trouver ces frontières et cartographier leurs relations évite que les équipes et les modèles s’emmêlent.",
+      "points": [
+        "Un bounded context est la frontière à l’intérieur de laquelle un modèle et son ubiquitous language, le vocabulaire partagé par les développeurs et les experts métier, restent cohérents.",
+        "Avoir plusieurs contextes est normal : « commande » désigne ce que le client a demandé dans Ordering, un montant à capturer dans Payments, et un document légal dans Invoicing.",
+        "On trouve les frontières via le langage et la propriété : un atelier EventStorming d’événements métier au passé, des groupes de champs optionnels détenus par des équipes différentes, des fichiers qui changent ensemble.",
+        "Une context map nomme, pour chaque paire, qui est en amont et la relation : customer-supplier, conformist, anticorruption layer, open-host service avec un published language, shared kernel, separate ways.",
+        "Une anticorruption layer (ACL) traduit un modèle qu’on ne contrôle pas, comme celui d’un prestataire de paiement, dans nos propres mots à un seul endroit, donc un changement de prestataire touche un seul fichier."
+      ],
+      "takeaways": [
+        {
+          "term": "Ubiquitous language",
+          "detail": "Le vocabulaire partagé par les développeurs et les experts métier, cohérent à l’intérieur d’un contexte."
+        },
+        {
+          "term": "Même mot, plusieurs contextes",
+          "detail": "« Commande » est une demande dans Ordering, un montant à capturer dans Payments, un document légal dans Invoicing."
+        },
+        {
+          "term": "EventStorming",
+          "detail": "Un atelier d’événements métier au passé avec les experts métier, pour trouver les frontières."
+        },
+        {
+          "term": "Autres indices",
+          "detail": "Des groupes de champs optionnels détenus par des équipes différentes, et des fichiers qui changent ensemble."
+        },
+        {
+          "term": "Context map",
+          "detail": "Nomme, pour chaque paire, qui est en amont et la relation : customer-supplier, conformist, shared kernel, etc."
+        },
+        {
+          "term": "Anticorruption layer",
+          "detail": "Traduit à un seul endroit un modèle qu’on ne contrôle pas, comme celui d’un prestataire de paiement : un changement touche un fichier."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La table `orders` a 60 colonnes, dont la moitié nullables, et le changement de `status` fait par l’équipe facturation a cassé la préparation de commandes de l’entrepôt. Comment trouveriez-vous les frontières dans ce modèle ?",
+        "bridge": "Chaque équipe entend autre chose par « commande » : des bounded contexts, trouvés via le langage et la propriété et reliés par une context map."
+      },
+      {
+        "question": "Un collègue veut un modèle `Customer` unique et partagé pour toute l’entreprise, pour que tout le monde parle le même langage. Pourquoi est-ce peut-être une erreur ?",
+        "bridge": "La cohérence n’est nécessaire qu’à l’intérieur d’un bounded context ; chaque contexte garde son propre modèle, et une context map définit comment ils se connectent."
+      }
+    ]
+  },
+  "arch-aggregates": {
+    "topic": "Agrégats, entités et value objects",
+    "question": "Que sont les entités, les value objects et les agrégats en DDD, et comment les domain events et les repositories s’y rattachent-ils ?",
+    "answer": "Une entité a une identité qui reste pendant que ses données changent, comme la commande `ord_42`. Un value object n’a pas d’identité : il est immuable et comparé par valeur, comme `Money`, qui peut refuser d’additionner deux devises. Un agrégat est un groupe d’objets modifié uniquement via sa racine, qui protège les invariants, comme « les lignes ne changent que tant que la commande est un brouillon ». Je garde les agrégats petits, je référence les autres par id, et j’en modifie un seul par transaction. L’agrégat enregistre des domain events comme `OrderPlaced` au lieu d’appeler d’autres modules, et son repository le sauvegarde et écrit ces événements dans un outbox dans la même transaction, avec une vérification de version.",
+    "keyPoints": [
+      "Entité : identité ; value object : immuable, comparé par valeur",
+      "La racine de l’agrégat est le seul point d’entrée ; elle protège les invariants",
+      "Petits agrégats, référencés par id, un seul par transaction",
+      "Domain events enregistrés, sauvegardés dans l’outbox avec l’agrégat"
+    ],
+    "explanation": "Cette question vérifie si tu sais transformer des règles métier en code qu’on ne peut pas contourner. Les seniors dimensionnent les agrégats selon les vrais invariants plutôt que selon les graphes d’objets, et disent où le DDD tactique est excessif : de simples écrans CRUD n’en ont pas besoin.",
+    "example": "Un script du support a ajouté une ligne à une commande déjà passée, et la facture ne correspondait plus au paiement. L’équipe a fait de `Order` une racine d’agrégat avec des champs privés et une méthode `addLine` qui refuse les modifications une fois la commande passée, et `place()` enregistre un événement `OrderPlaced` sauvegardé avec la commande. Le contournement n’est plus possible.",
+    "mistakes": [
+      "Concevoir un énorme agrégat, comme un client avec toutes ses commandes, ce qui sérialise toutes les écritures",
+      "Comparer des value objects avec `===` au lieu d’une méthode `equals`",
+      "Faire appeler directement d’autres modules par l’agrégat au lieu d’enregistrer un domain event"
+    ],
+    "followUps": [
+      {
+        "question": "Comment faites-vous respecter une règle qui couvre plusieurs agrégats, comme trois commandes impayées au maximum par client ?",
+        "answer": "Pas avec un agrégat géant. Un contexte bien conçu modifie un agrégat par transaction, donc je vérifie cette règle dans le cas d’usage, ou je réagis aux événements en acceptant que les autres agrégats se mettent à jour un instant plus tard, c’est la cohérence à terme."
+      },
+      {
+        "question": "Pourquoi le repository écrit-il les événements dans un outbox dans la même transaction ?",
+        "answer": "Pour que la commande et son événement `OrderPlaced` soient commités ou annulés ensemble : il n’y a jamais de commande passée sans son événement, ni d’événement pour une commande non sauvegardée. Un relais publie ensuite les lignes de l’outbox."
+      },
+      {
+        "question": "Quand le DDD tactique est-il excessif ?",
+        "answer": "Là où il n’y a pas de vraies règles. Les écrans du back-office qui modifient des zones de livraison ou des réglages de fidélité, c’est du CRUD simple, et un controller léger avec un repository suffit. Agrégats et value objects sont rentables dans le contexte core, où les règles changent souvent et où les bugs coûtent de l’argent."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le code extérieur ne doit modifier un agrégat que via sa racine.",
+        "why": "C’est dans la racine que les invariants sont vérifiés ; tout autre chemin peut les casser.",
+        "twin": {
+          "statement": "Le code extérieur peut modifier directement les objets internes d’un agrégat, tant qu’il sauvegarde l’agrégat entier ensuite.",
+          "why": "C’est dans la racine que les invariants sont vérifiés ; tout autre chemin peut les casser."
+        }
+      },
+      {
+        "statement": "En DDD, un repository correspond en général à une seule table de la base.",
+        "why": "Il y a un repository par agrégat, qui peut couvrir plusieurs tables.",
+        "twin": {
+          "statement": "En DDD, il y a un repository par agrégat, et il peut couvrir plusieurs tables.",
+          "why": "Un repository charge et sauvegarde un agrégat entier, pas une seule table."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Entités, value objects et agrégats sont les briques du DDD qui gardent les règles métier à un seul endroit. La racine de l’agrégat garde les invariants, et les domain events disent au reste du système ce qui s’est passé.",
+      "points": [
+        "Une entité a une identité qui reste la même pendant que ses données changent. Un value object n’a pas d’identité : il est immuable, et deux valeurs égales sont interchangeables, comme `Money`.",
+        "Un agrégat est un groupe d’objets avec une entité racine. Le code extérieur ne tient que la racine et modifie le groupe via ses méthodes, qui protègent les invariants, les règles qui doivent toujours être vraies.",
+        "On garde les agrégats petits, on référence les autres agrégats par id, et on modifie un agrégat par transaction ; les autres agrégats se mettent à jour via des événements.",
+        "Un domain event est un fait au passé, comme `OrderPlaced`, que l’agrégat enregistre au lieu d’appeler d’autres modules.",
+        "Un repository charge et sauvegarde un agrégat comme s’il était en mémoire. Son `save` écrit les événements dans un outbox dans la même transaction, avec une vérification de version pour les modifications concurrentes."
+      ],
+      "takeaways": [
+        {
+          "term": "Entité",
+          "detail": "A une identité qui reste la même pendant que ses données changent, comme la commande `ord_42`."
+        },
+        {
+          "term": "Value object",
+          "detail": "Pas d’identité, immuable, comparé par valeur, comme `Money`, qui peut refuser d’additionner deux devises."
+        },
+        {
+          "term": "Racine d’agrégat",
+          "detail": "Le seul point d’entrée du groupe ; ses méthodes protègent les invariants, les règles qui doivent toujours être vraies."
+        },
+        {
+          "term": "Taille d’un agrégat",
+          "detail": "Les garder petits, référencer les autres par id, et modifier un agrégat par transaction."
+        },
+        {
+          "term": "Domain event",
+          "detail": "Un fait au passé, comme `OrderPlaced`, enregistré par l’agrégat au lieu d’appeler d’autres modules."
+        },
+        {
+          "term": "Repository",
+          "detail": "Charge et sauvegarde un agrégat ; `save` écrit ses événements dans un outbox dans la même transaction, avec une vérification de version."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un job ajoute une ligne à une commande déjà payée, parce qu’il insère directement dans `order_lines`. La règle « les lignes ne changent que sur les brouillons » vit dans la classe `Order`. Qu’est-ce qui a mal tourné ?",
+        "bridge": "Le job a contourné la racine de l’agrégat, le seul point d’entrée qui protège les invariants de la commande et de ses lignes."
+      },
+      {
+        "question": "Expliquez à un junior pourquoi `Money` doit être un value object et `Order` une entité, et où un événement `OrderPlaced` est enregistré et sauvegardé.",
+        "bridge": "Les entités gardent une identité, les value objects sont immuables et comparés par valeur ; l’agrégat enregistre les domain events et son repository les sauvegarde dans l’outbox."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux vérifient si un remboursement couvre le total de la commande, tous deux des value objects `Money`. Quelle comparaison fonctionne ?",
+        "why": "Un value object n’a pas d’identité : deux valeurs `Money` avec les mêmes centimes et la même devise sont interchangeables, donc on les compare par valeur. `===` compare des références d’objets : le remboursement construit à partir de la requête n’est jamais le même objet que le total de la commande, donc un remboursement complet de 49,99 EUR n’est jamais reconnu."
+      }
+    ]
+  },
+  "arch-hexagonal": {
+    "topic": "Architecture hexagonale",
+    "question": "Qu’est-ce que l’architecture hexagonale, et qu’est-ce que la règle de dépendance ?",
+    "answer": "L’architecture hexagonale, ou ports and adapters, met le cœur applicatif au centre et laisse tout le reste lui parler via des ports, des interfaces que le cœur déclare. Les ports driving, c’est ce que l’extérieur peut demander, comme un cas d’usage `PlaceOrder` appelé par un controller, un consumer de file ou un test. Les ports driven, c’est ce dont le cœur a besoin, comme un repository de commandes ou une liste de prix. Les adapters les implémentent à l’extérieur. La règle de dépendance dit que les dépendances du code source pointent uniquement vers l’intérieur : le domaine n’importe rien, les adapters importent le cœur, et l’inversion de dépendance rend ça possible. Le bénéfice, c’est de tester le cœur avec des adapters en mémoire et une horloge figée, en quelques millisecondes.",
+    "keyPoints": [
+      "Le cœur au centre ; les ports sont des interfaces déclarées par le cœur",
+      "Ports driving : cas d’usage ; ports driven : ce dont le cœur a besoin",
+      "Les dépendances pointent vers l’intérieur : le domaine n’importe rien",
+      "Cœur testé avec des adapters en mémoire et une horloge figée"
+    ],
+    "explanation": "Les recruteurs la posent pour voir si tu sais pourquoi ce découpage existe, pas seulement les noms de dossiers. Un senior nomme les deux types de ports, relie la règle à l’inversion de dépendance, et dit que l’architecture hexagonale, l’onion architecture et la clean architecture sont des variantes d’une même idée.",
+    "example": "Les règles d’Ordering n’étaient testées que via HTTP et une vraie base, donc une exécution prenait des minutes et personne n’écrivait de cas limites. L’équipe a découpé le module en `domain/`, `application/` avec ses ports, et des adapters, avec l’horloge passée en dépendance. Les tests des cas d’usage tournent maintenant avec un repository en mémoire en quelques millisecondes chacun, et l’adapter Postgres est testé à part avec Testcontainers.",
+    "mistakes": [
+      "Laisser le domaine importer l’ORM ou le framework HTTP, ce qui fait pointer une dépendance vers l’extérieur",
+      "Définir les interfaces à côté des adapters au lieu de les mettre dans le cœur qui les utilise",
+      "L’appliquer à de simples écrans CRUD, où elle ajoute des couches sans protéger aucune règle"
+    ],
+    "followUps": [
+      {
+        "question": "Comment empêchez-vous la règle de dépendance de s’éroder à mesure que le module grossit ?",
+        "answer": "Je l’impose avec un outil plutôt qu’avec des code reviews : une règle de lint ou un vérificateur de dépendances en CI qui échoue quand `domain/` importe quoi que ce soit hors de lui, ou quand `application/` importe un adapter. Les noms de dossiers seuls ne tiennent pas longtemps."
+      },
+      {
+        "question": "Quel lien entre l’architecture hexagonale, la clean architecture et l’onion architecture ?",
+        "answer": "Ce sont des variantes de la même idée : un cœur de règles métier au centre, et des dépendances du code source qui ne pointent que vers l’intérieur. Elles diffèrent surtout par la façon de nommer et de découper les couches autour du cœur."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "En architecture hexagonale, le cœur déclare l’interface du repository et l’adapter de base de données l’implémente.",
+        "why": "C’est l’inversion de dépendance : le cœur possède le port, donc la dépendance pointe vers l’intérieur.",
+        "twin": {
+          "statement": "En architecture hexagonale, l’adapter de base de données déclare l’interface du repository et le cœur l’importe.",
+          "why": "Le cœur possède le port et l’adapter l’implémente, donc la dépendance pointe vers l’intérieur."
+        }
+      },
+      {
+        "statement": "L’architecture hexagonale exige exactement six ports, un par côté de l’hexagone.",
+        "why": "Cockburn a dit que le nombre six n’a pas d’importance : la forme laisse juste de la place pour de nombreux ports.",
+        "twin": {
+          "statement": "L’architecture hexagonale autorise n’importe quel nombre de ports ; six n’est pas une règle.",
+          "why": "Cockburn a dit que le nombre six n’a pas d’importance : la forme laisse juste de la place pour de nombreux ports."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’architecture hexagonale, ou ports and adapters, met le cœur applicatif au centre et laisse tout le reste lui parler via des interfaces que le cœur déclare. Elle garde les règles métier testables sans base de données, sans serveur et sans temps réel.",
+      "points": [
+        "L’architecture hexagonale, ou ports and adapters, met le cœur applicatif au centre. Tout le reste lui parle via des ports, des interfaces que le cœur déclare lui-même.",
+        "Les ports driving (primaires) sont ce que l’extérieur peut demander au cœur : des cas d’usage appelés par un controller, un consumer ou un test. Les ports driven (secondaires) sont ce dont le cœur a besoin : un repository, une liste de prix.",
+        "La règle de dépendance : les dépendances du code source pointent uniquement vers l’intérieur. `domain/` n’importe rien hors de lui, les cas d’usage importent le domaine, les adapters importent le cœur. L’inversion de dépendance rend ça possible.",
+        "Le bénéfice, ce sont les tests : on branche un repository en mémoire et une horloge figée dans le cas d’usage, et on teste les règles sans base, sans serveur HTTP et sans temps réel."
+      ],
+      "takeaways": [
+        {
+          "term": "Port",
+          "detail": "Une interface que le cœur déclare lui-même."
+        },
+        {
+          "term": "Port driving (primaire)",
+          "detail": "Ce que l’extérieur peut demander : un cas d’usage comme `PlaceOrder`, appelé par un controller, un consumer ou un test."
+        },
+        {
+          "term": "Port driven (secondaire)",
+          "detail": "Ce dont le cœur a besoin : un repository de commandes, une liste de prix."
+        },
+        {
+          "term": "Adapter",
+          "detail": "Implémente un port hors du cœur, comme un repository de commandes SQL. Les adapters importent le cœur, jamais l’inverse."
+        },
+        {
+          "term": "Règle de dépendance",
+          "detail": "Les dépendances du code pointent uniquement vers l’intérieur : `domain/` n’importe rien ; l’inversion de dépendance rend ça possible."
+        },
+        {
+          "term": "Tester le cœur",
+          "detail": "Brancher un repository en mémoire et une horloge figée : les tests tournent en quelques millisecondes."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Les tests de `placeOrder` ont besoin d’un PostgreSQL lancé et d’un faux serveur de paiement, et prennent quatre minutes. Les règles métier importent directement le client `pg`. Quelle structure corrigerait ça ?",
+        "bridge": "Ports and adapters : le cœur déclare l’interface du repository et les adapters l’implémentent, donc le cœur tourne avec des adapters en mémoire en quelques millisecondes."
+      },
+      {
+        "question": "Un collègue dit que l’architecture hexagonale, ce n’est que des couches avec un nouveau nom. Qu’est-ce qui la distingue, et dans quel sens pointent les dépendances ?",
+        "bridge": "Le cœur déclare ses ports, driving et driven, et les adapters dépendent du cœur : les dépendances du code source pointent uniquement vers l’intérieur."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux sont le cas d’usage de passage de commande dans le dossier `application/` de l’API Orders. Lequel respecte la règle de dépendance ?",
+        "why": "Le cœur déclare le port `OrderRepository` et reçoit un adapter et une horloge, donc un test passe un repository en mémoire et une heure figée et tourne sans base. L’autre version importe le pool PostgreSQL et lit la vraie horloge : le cœur dépend de l’infrastructure, et tester la moindre règle de commande exige désormais une base lancée."
+      }
+    ]
+  }
+}

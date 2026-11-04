@@ -1,0 +1,1087 @@
+{
+  "node-fan-out": {
+    "topic": "Fan-out côté serveur",
+    "question": "Le checkout a besoin d’une vérification de stock, d’un devis de livraison et d’une remise fidélité. Comment les appelez-vous, et quel combinateur de promesses choisissez-vous ?",
+    "answer": "Je lance les trois appels en même temps, pour que le checkout coûte l’appel le plus lent et pas la somme ; les attendre un par un dans une boucle additionnerait les latences. Ensuite je choisis le combinateur selon ce que signifie un échec. Le stock et le devis de livraison sont obligatoires, donc ils passent par `Promise.all`, qui échoue vite. La remise est optionnelle, donc sa promesse reçoit son propre `.catch` qui logge et renvoie zéro avant de rejoindre le `Promise.all`. `allSettled` convient à un job best-effort qui remonte chaque échec, et `any` à des sources redondantes. Aucun d’eux n’annule les appels encore en cours.",
+    "keyPoints": [
+      "Lancer ensemble les appels indépendants : le plus lent, pas la somme",
+      "Les appels obligatoires passent par `Promise.all`, qui échoue vite",
+      "Un appel optionnel reçoit d’abord son propre fallback `.catch`",
+      "Les combinateurs n’annulent jamais les appels encore en cours"
+    ],
+    "explanation": "La version navigateur de cette question teste les combinateurs ; la version serveur teste le jugement : quelle dépendance est obligatoire et laquelle peut se dégrader. Un senior dit aussi qu’un combinateur n’arrête jamais le travail qu’il attend, ce qui mène tout droit aux deadlines et à l’annulation.",
+    "example": "Le checkout de l’API Orders attendait la vérification de stock, le devis de livraison et la remise fidélité l’un après l’autre, environ 340 ms au total. Les lancer ensemble a ramené ce temps à celui de l’appel le plus lent, environ 120 ms. Quand le service fidélité est tombé un mois plus tard, le fallback `.catch` a permis aux clients de payer sans remise au lieu de voir le checkout échouer.",
+    "mistakes": [
+      "Attendre des appels indépendants un par un dans une boucle `for`, si bien que leurs latences s’additionnent ; ne garder la boucle que si un appel a besoin du résultat précédent",
+      "Utiliser `allSettled` pour des appels obligatoires et oublier de vérifier chaque statut, si bien que le checkout continue sans devis de livraison",
+      "Croire que `Promise.all` arrête les autres appels quand l’un rejette : ils continuent et leurs effets de bord ont quand même lieu"
+    ],
+    "followUps": [
+      {
+        "question": "Que font `Promise.all([])`, `Promise.any([])` et `Promise.race([])` ?",
+        "answer": "`Promise.all([])` se résout tout de suite avec un tableau vide. `Promise.any([])` rejette avec une `AggregateError`, puisque aucune entrée ne peut réussir. `Promise.race([])` ne se règle jamais, donc le code qui l’attend reste bloqué."
+      },
+      {
+        "question": "Quand utiliseriez-vous `Promise.any` côté serveur ?",
+        "answer": "Pour des sources redondantes, comme deux régions capables de fournir le même devis de livraison. Le premier succès gagne ; si tout échoue, elle rejette avec une `AggregateError` qui contient toutes les raisons. Dès que l’une répond, j’annule un controller partagé pour que les autres s’arrêtent."
+      },
+      {
+        "question": "Pourquoi ne pas utiliser `Promise.race` avec un timer comme timeout ?",
+        "answer": "La course choisit seulement le résultat que je vois. La requête perdante continue de tourner, garde son socket, et son body est téléchargé pour personne. Une vraie deadline, c’est un `AbortSignal` passé à l’appel lui-même, comme `AbortSignal.timeout(ms)` donné à `fetch`."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Quand une entrée de `Promise.all` rejette, les autres entrées sont annulées.",
+        "why": "Un combinateur reçoit des promesses déjà en cours ; elles continuent, et seul un `AbortSignal` passé au travail peut l’arrêter.",
+        "twin": {
+          "statement": "Quand une entrée de `Promise.all` rejette, les autres entrées continuent de tourner.",
+          "why": "Un combinateur reçoit des promesses déjà en cours ; seul un `AbortSignal` passé au travail peut l’arrêter."
+        }
+      },
+      {
+        "statement": "Une promesse dotée de son propre `.catch` qui renvoie une valeur de repli ne peut plus faire rejeter `Promise.all`.",
+        "why": "Le `.catch` transforme le rejet en valeur tenue, donc seules les autres entrées peuvent faire échouer l’ensemble.",
+        "twin": {
+          "statement": "Une promesse dotée de son propre `.catch` qui renvoie une valeur de repli peut encore faire rejeter `Promise.all`.",
+          "why": "Le `.catch` transforme le rejet en valeur tenue, donc seules les autres entrées peuvent faire échouer l’ensemble."
+        }
+      },
+      {
+        "statement": "`Promise.allSettled` rejette dès qu’une de ses entrées rejette.",
+        "why": "Elle ne rejette jamais : elle attend toutes les entrées et indique pour chacune si elle a été tenue ou rejetée.",
+        "twin": {
+          "statement": "`Promise.allSettled` attend toutes ses entrées, même après qu’une d’elles a rejeté.",
+          "why": "Elle ne rejette jamais : elle indique pour chaque entrée si elle a été tenue ou rejetée, une fois toutes réglées."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un fan-out lance plusieurs appels indépendants en même temps et les attend ensemble : la requête coûte l’appel le plus lent au lieu de la somme. Le combinateur choisi décide de ce qu’un échec fait à l’ensemble.",
+      "points": [
+        "Un fan-out lance plusieurs appels indépendants en même temps et les attend ensemble, donc le temps total est celui de l’appel le plus lent, pas la somme. Un `await` par appel dans une boucle les exécute l’un après l’autre.",
+        "`Promise.all` échoue vite dès qu’une entrée rejette ; `allSettled` attend tout et rapporte chaque résultat ; `any` prend le premier succès ; `race` prend le premier à se régler, succès ou échec.",
+        "Choisis selon ce que signifie un échec. Les appels obligatoires passent par `all`. Un appel optionnel reçoit son propre `.catch` qui renvoie un repli, pour ne plus pouvoir faire échouer toute l’opération.",
+        "Un combinateur reçoit des promesses déjà en cours, donc il n’annule jamais rien. Les autres appels continuent ; les arrêter demande un `AbortSignal` passé au travail."
+      ],
+      "takeaways": [
+        {
+          "term": "`Promise.all`",
+          "detail": "Échoue vite dès qu’une entrée rejette. À utiliser pour les appels dont l’opération a besoin."
+        },
+        {
+          "term": "`Promise.allSettled`",
+          "detail": "Attend tout et rapporte chaque résultat. Convient à un job best-effort qui remonte chaque échec."
+        },
+        {
+          "term": "`Promise.any`",
+          "detail": "Prend le premier succès. Convient aux sources redondantes."
+        },
+        {
+          "term": "`Promise.race`",
+          "detail": "Prend le premier à se régler, succès ou échec."
+        },
+        {
+          "term": "Appel optionnel",
+          "detail": "Lui donner son propre `.catch` qui renvoie un repli avant qu’il rejoigne `Promise.all`, pour qu’il ne puisse pas tout faire échouer."
+        },
+        {
+          "term": "Pas d’annulation",
+          "detail": "Les combinateurs reçoivent des promesses déjà en cours ; arrêter les autres demande un `AbortSignal` passé au travail."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "`POST /orders` attend la vérification de stock (80 ms), le devis de livraison (250 ms) et la remise fidélité (120 ms) l’un après l’autre, et une panne du service fidélité fait échouer le checkout. Que changez-vous ?",
+        "bridge": "Les appels indépendants partent ensemble pour que le checkout coûte le plus lent ; les appels obligatoires échouent vite dans `Promise.all`, l’optionnel reçoit son propre repli."
+      },
+      {
+        "question": "Quand utiliseriez-vous `Promise.allSettled` ou `Promise.any` plutôt que `Promise.all` côté serveur ?",
+        "bridge": "Le combinateur suit ce que signifie un échec : `all` pour les appels obligatoires, `allSettled` pour un reporting best-effort, `any` pour des sources redondantes."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux récupèrent en parallèle le devis de livraison obligatoire et la remise fidélité optionnelle. Laquelle survit à une panne du service fidélité ?",
+        "why": "La remise est optionnelle, donc `better` donne à sa promesse son propre `.catch` qui renvoie 0 avant qu’elle rejoigne `Promise.all` : une panne fidélité signifie seulement pas de remise. Dans `worse`, `Promise.all` échoue vite au premier rejet, donc un service fidélité en panne fait échouer chaque checkout alors que le devis est arrivé."
+      }
+    ]
+  },
+  "node-deadlines": {
+    "topic": "Deadlines et annulation en Node",
+    "question": "Comment mettez-vous une deadline sur les appels sortants d’un service Node, et comment arrêtez-vous le travail quand le client s’en va ?",
+    "answer": "Chaque appel sortant a une deadline fixée d’après la latence normale de la dépendance, par exemple `AbortSignal.timeout(3000)` passé à `fetch` en `{ signal }` ; quand elle expire, `fetch` rejette avec une `TimeoutError`. Pour la requête entière, je transforme la déconnexion du client en signal : la réponse se ferme avant d’avoir été entièrement écrite. `AbortSignal.any` combine les deux, et je fais descendre ce signal dans chaque fonction, qui le transmet et le vérifie entre les étapes, parce que l’annulation est coopérative. Et annuler ne défait rien : un paiement parti en timeout est peut-être passé, donc son issue est inconnue.",
+    "keyPoints": [
+      "Une deadline par appel, d’après sa latence normale : `AbortSignal.timeout`",
+      "Déconnexion et deadline combinées avec `AbortSignal.any`",
+      "Coopérative : chaque couche transmet le signal et le vérifie",
+      "Annuler une écriture ne la défait pas : l’issue est inconnue"
+    ],
+    "explanation": "Une dépendance lente sans deadline fait s’empiler les requêtes jusqu’à ce que le service tombe, donc les recruteurs veulent un budget de temps sur chaque appel. Le signal senior : savoir que l’annulation doit être câblée à travers chaque couche, et qu’une écriture annulée a peut-être quand même eu lieu de l’autre côté.",
+    "example": "Un vendredi soir, le prestataire de paiement est passé de 300 ms à 30 secondes, et des milliers de checkouts l’attendaient en gardant sockets et mémoire. L’équipe a donné à l’appel de paiement une deadline de 3 secondes et combiné, dans le handler de checkout, un signal de déconnexion client avec une deadline de requête de 10 secondes. Les checkouts ont alors échoué vite avec un 503, et ceux abandonnés par les clients s’arrêtaient avant d’appeler le prestataire.",
+    "mistakes": [
+      "Utiliser `Promise.race` avec un timer comme deadline : la requête continue de tourner et son body est téléchargé pour personne",
+      "Fixer une deadline en haut sans transmettre le signal, si bien que les appels internes et les attentes de backoff l’ignorent",
+      "Traiter un paiement parti en timeout comme échoué et débiter à nouveau sans clé d’idempotence"
+    ],
+    "followUps": [
+      {
+        "question": "Comment distinguez-vous un timeout d’une annulation ?",
+        "answer": "Par le nom de l’erreur. Avec `AbortSignal.timeout`, `fetch` rejette avec une `DOMException` nommée `TimeoutError` ; un simple `controller.abort()` donne une `AbortError` ; et `abort(reason)` le fait rejeter avec exactement cette raison, par exemple une erreur qui dit que le client s’est déconnecté."
+      },
+      {
+        "question": "Où vérifiez-vous le signal dans votre propre code ?",
+        "answer": "Entre les étapes, avec `signal.throwIfAborted()`, et surtout avant un effet de bord : dans le checkout, juste avant l’appel de paiement. Une fois la carte autorisée, je termine la commande plutôt que de m’arrêter à mi-chemin."
+      },
+      {
+        "question": "Annuler la requête arrête-t-il sa requête PostgreSQL ?",
+        "answer": "Pas avec node-postgres : `query()` n’a pas d’option `signal`, donc la requête continue de tourner sur le serveur. Je borne plutôt le travail en base avec le `statement_timeout` de PostgreSQL."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`AbortSignal.any([a, b])` s’annule dès que l’une des entrées s’annule.",
+        "why": "Il renvoie un signal qui s’annule avec la raison de la première entrée annulée.",
+        "twin": {
+          "statement": "`AbortSignal.any([a, b])` ne s’annule qu’une fois les deux entrées annulées.",
+          "why": "Il s’annule dès que l’une des entrées s’annule, avec la raison de cette première entrée."
+        }
+      },
+      {
+        "statement": "Annuler un `fetch` garantit que le serveur n’a pas traité la requête.",
+        "why": "Annuler arrête seulement l’attente et la lecture de ton côté ; le serveur a pu exécuter son handler jusqu’au bout.",
+        "twin": {
+          "statement": "Après l’annulation d’un `fetch`, le serveur a peut-être quand même traité la requête.",
+          "why": "Annuler arrête seulement l’attente et la lecture de ton côté ; le serveur a pu exécuter son handler jusqu’au bout."
+        }
+      },
+      {
+        "statement": "Dans un serveur `node:http`, l’événement `close` de la réponse ne se déclenche que quand le client se déconnecte.",
+        "why": "Il se déclenche aussi après une réponse normale, donc vérifie `writableEnded` pour distinguer une déconnexion d’un succès.",
+        "twin": {
+          "statement": "Dans un serveur `node:http`, l’événement `close` de la réponse se déclenche aussi après une réponse normale et complète.",
+          "why": "Il se déclenche dans les deux cas, donc vérifie `writableEnded` pour distinguer une déconnexion d’un succès."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une deadline est un budget de temps au-delà duquel un appel abandonne, et l’annulation arrête un travail que plus personne n’attend. En Node, les deux voyagent sous forme d’un `AbortSignal` transmis à travers chaque fonction.",
+      "points": [
+        "Une deadline est un budget de temps au-delà duquel un appel abandonne. `AbortSignal.timeout(ms)` renvoie un signal qui s’annule tout seul ; passe-le en `{ signal }` à `fetch`, `pipeline` ou `node:timers/promises`.",
+        "Fixe-la par appel d’après la latence normale de la dépendance, au-dessus de son p99. Quand elle expire, `fetch` rejette avec une `TimeoutError` ; un `abort()` manuel donne une `AbortError`.",
+        "Un client qui part se traduit par la fermeture de la réponse avant `writableEnded`. Transforme ça en signal et combine-le avec la deadline de la requête via `AbortSignal.any`.",
+        "L’annulation est coopérative : chaque fonction prend le signal, le transmet à chaque appel et le vérifie avec `signal.throwIfAborted()` avant les effets de bord.",
+        "Annuler arrête l’attente de ton côté ; ça ne défait pas le travail de l’autre côté. Un paiement parti en timeout est peut-être autorisé : son issue est inconnue, donc un retry demande une clé d’idempotence."
+      ],
+      "takeaways": [
+        {
+          "term": "`AbortSignal.timeout(ms)`",
+          "detail": "Un signal qui s’annule tout seul. À passer en `{ signal }` à `fetch`, `pipeline` ou `node:timers/promises`."
+        },
+        {
+          "term": "Valeur de la deadline",
+          "detail": "Par appel, d’après la latence normale de la dépendance, au-dessus de son p99."
+        },
+        {
+          "term": "`TimeoutError` ou `AbortError`",
+          "detail": "`fetch` rejette avec `TimeoutError` quand un signal de timeout expire, avec `AbortError` après un `abort()` manuel."
+        },
+        {
+          "term": "`AbortSignal.any`",
+          "detail": "Combine la déconnexion du client (réponse fermée avant `writableEnded`) avec la deadline de la requête."
+        },
+        {
+          "term": "`signal.throwIfAborted()`",
+          "detail": "L’annulation est coopérative : transmettre le signal à chaque appel et le vérifier avant les effets de bord."
+        },
+        {
+          "term": "Annuler une écriture",
+          "detail": "Ne défait rien : un paiement parti en timeout est peut-être autorisé, donc un retry demande une clé d’idempotence."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’API du transporteur bloque parfois 2 minutes, et les requêtes `GET /orders/:id/delivery` s’empilent jusqu’à ce que les pods manquent de mémoire, même après que les clients ont fermé la page. Comment corrigez-vous ça ?",
+        "bridge": "Chaque appel sortant a besoin d’une deadline, et la requête d’un signal pour les déconnexions client, combinés et transmis vers le bas pour que le travail s’arrête."
+      },
+      {
+        "question": "Un collègue dit qu’annuler l’appel de paiement au bout de 3 secondes veut dire que le paiement n’a pas eu lieu. Que répondez-vous ?",
+        "bridge": "L’annulation arrête seulement l’attente de ton côté ; le prestataire a peut-être terminé, donc l’issue d’une écriture annulée est inconnue."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux donnent une deadline de 3 secondes à l’appel du devis de livraison. Laquelle arrête la requête quand la deadline est dépassée ?",
+        "why": "Le signal atteint `fetch` lui-même : quand il expire, la requête est annulée et `fetch` rejette avec une `TimeoutError`. `Promise.race` arrête seulement d’attendre. Mesuré sur Node 24 avec un serveur qui répond en 1,5 s et une limite de 300 ms : la course a rejeté à temps, mais la requête a continué et le serveur a envoyé toute sa réponse pour personne."
+      }
+    ]
+  },
+  "node-retries": {
+    "topic": "Rejouer des appels sans risque",
+    "question": "Le prestataire de paiement échoue par intermittence. Comment rejouez-vous l’appel de paiement sans débiter une carte deux fois ?",
+    "answer": "Je ne rejoue que si deux conditions sont réunies. L’échec est transitoire, c’est-à-dire que la même requête peut réussir un instant plus tard : une erreur réseau, un timeout, 408, 429, 502, 503 ou 504 ; un 400 ou un 422 échouerait à l’identique. Et l’opération est idempotente : le `POST` de paiement porte une clé d’idempotence, l’id de commande, identique à chaque tentative, donc le prestataire déduplique. J’espace les tentatives avec un backoff exponentiel et du full jitter, pour que les clients ne rejouent pas en vagues synchronisées, et la deadline interrompt aussi les attentes. Je ne rejoue qu’à une seule couche, et je plafonne les retries avec un budget.",
+    "keyPoints": [
+      "Seulement les échecs transitoires : réseau, timeout, 408, 429, 502 à 504",
+      "Seulement les appels idempotents : un `POST` a besoin d’une clé d’idempotence",
+      "Backoff exponentiel avec full jitter, interrompu par la deadline",
+      "Une seule couche qui rejoue et un budget de retries, sinon ils se multiplient"
+    ],
+    "explanation": "Les retries, c’est là où les bonnes intentions causent des pannes et des doubles débits. Les recruteurs attendent les deux conditions, transitoire et idempotent, le jitter, et le point senior : les retries se multiplient d’une couche à l’autre et demandent un budget.",
+    "example": "Pendant un incident chez le prestataire de paiement, les checkouts recevaient des 503 et des timeouts de 3 secondes, et un retry naïf aurait risqué des doubles débits. L’équipe a envoyé l’id de commande dans l’en-tête `idempotency-key`, rejoué jusqu’à trois fois avec du full jitter dans la deadline du checkout, et supprimé les retries propres à la gateway. Les échecs transitoires ont pour la plupart réussi à une tentative suivante, sans autorisation en double.",
+    "mistakes": [
+      "Rejouer toutes les erreurs, y compris un 400 ou un 422 qui échouera à l’identique et ne fait qu’ajouter de la charge",
+      "Rejouer un `POST` de paiement sans clé d’idempotence, si bien qu’un appel parti en timeout mais arrivé chez le prestataire débite deux fois",
+      "Utiliser un délai fixe ou un backoff sans jitter, si bien que tous les clients qui ont échoué ensemble rejouent ensemble"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qu’un budget de retries ?",
+        "answer": "Un plafond sur les retries en proportion du trafic. Le livre SRE de Google suggère au plus 3 tentatives par requête, et de ne rejouer que tant que les retries restent sous 10 % des requêtes d’un client. Ça garde la charge supplémentaire autour de 1,1× quand une dépendance est en panne, au lieu de près de 3×."
+      },
+      {
+        "question": "Pourquoi ne rejouer qu’à une seule couche ?",
+        "answer": "Les retries se multiplient : si la gateway, l’API Orders et son client HTTP font chacun jusqu’à 4 tentatives, une requête client peut devenir 64 appels sur la dépendance en échec. Je rejoue au plus près de la dépendance et je laisse les autres couches faire remonter l’échec."
+      },
+      {
+        "question": "Écririez-vous la boucle de retry vous-même ?",
+        "answer": "Rarement. `p-retry` couvre quelques appels ; `cockatiel` combine retry, circuit breaker et timeout dans une seule politique. Je vérifie les défauts : `p-retry` ne randomise rien sauf si `randomize` est activé. Aucune bibliothèque ne sait lesquels de mes statuts HTTP sont transitoires ni n’ajoute la clé d’idempotence à ma place."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le full jitter consiste à attendre un temps aléatoire entre zéro et le plafond de backoff courant.",
+        "why": "Ça étale les retries : des clients qui ont échoué dans la même seconde ne rejouent pas dans la même seconde.",
+        "twin": {
+          "statement": "Avec le full jitter, chaque client attend le plafond de backoff complet avant de rejouer.",
+          "why": "Le full jitter attend un temps aléatoire entre zéro et le plafond, ce qui étale les clients qui ont échoué ensemble."
+        }
+      },
+      {
+        "statement": "Rejouer quelques fois une réponse `422` est un bon défaut.",
+        "why": "Un 422 dit que la requête elle-même est invalide ; elle échoue à l’identique à chaque tentative, donc rejouer ne fait qu’ajouter de la charge.",
+        "twin": {
+          "statement": "Une réponse `422` ne doit pas être rejouée, car elle échoue à l’identique à chaque tentative.",
+          "why": "Un 422 dit que la requête elle-même est invalide, donc rejouer ne fait qu’ajouter de la charge."
+        }
+      },
+      {
+        "statement": "`p-retry` randomise ses délais par défaut.",
+        "why": "Son option `randomize` vaut `false` par défaut, donc il n’y a pas de jitter tant que tu ne l’actives pas.",
+        "twin": {
+          "statement": "`p-retry` n’ajoute aucun jitter à ses délais sauf si tu règles son option `randomize`.",
+          "why": "`randomize` vaut `false` par défaut, donc les délais sont déterministes tant que tu ne l’actives pas."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Rejouer transforme un échec bref en succès, mais un retry imprudent débite une carte deux fois ou inonde une dépendance en difficulté. Ne rejoue que ce qui est transitoire et idempotent, de façon espacée et bornée.",
+      "points": [
+        "Ne rejoue que si l’échec est transitoire (erreur réseau, timeout, 408, 429, 502, 503, 504) et l’opération idempotente : l’exécuter deux fois a le même effet que l’exécuter une fois.",
+        "Un `POST` devient sûr à rejouer avec une clé d’idempotence : une valeur unique par opération, la même à chaque tentative, que le serveur utilise pour dédupliquer. Pour un paiement, l’id de commande.",
+        "Le backoff exponentiel attend plus longtemps après chaque échec (100, 200, 400 ms…) jusqu’à un plafond. Le full jitter attend un temps aléatoire entre zéro et cette valeur, pour que les clients ne rejouent pas en vagues.",
+        "La deadline doit aussi interrompre l’attente : passe le signal à `setTimeout` de `node:timers/promises`.",
+        "Les retries se multiplient d’une couche à l’autre, donc ne rejoue qu’à une seule couche et plafonne-les avec un budget, par exemple des retries sous 10 % des requêtes."
+      ],
+      "takeaways": [
+        {
+          "term": "Échecs transitoires",
+          "detail": "Erreur réseau, timeout, 408, 429, 502, 503, 504. Un 400 ou un 422 échouerait de la même façon."
+        },
+        {
+          "term": "Clé d’idempotence",
+          "detail": "La même valeur à chaque tentative, comme l’id de commande, pour que le serveur déduplique un `POST` rejoué."
+        },
+        {
+          "term": "Backoff exponentiel",
+          "detail": "Attend plus longtemps après chaque échec (100, 200, 400 ms…) jusqu’à un plafond."
+        },
+        {
+          "term": "Full jitter",
+          "detail": "Attend un temps aléatoire entre zéro et la valeur de backoff, pour que les clients ne rejouent pas en vagues."
+        },
+        {
+          "term": "Deadline pendant les attentes",
+          "detail": "Passe le signal à `setTimeout` de `node:timers/promises`, pour que la deadline écourte l’attente."
+        },
+        {
+          "term": "Une couche, un budget",
+          "detail": "Les retries se multiplient d’une couche à l’autre : rejoue à une seule couche, avec un plafond, par exemple sous 10 % des requêtes."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Après l’ajout de retries automatiques sur l’appel de paiement de la boutique, quelques clients ont été débités deux fois pendant un incident chez le prestataire. Qu’est-ce qui n’a pas marché, et qu’est-ce qui rend un retry sûr ?",
+        "bridge": "Un `POST` rejoué débite à nouveau s’il n’est pas idempotent : la même clé d’idempotence à chaque tentative permet au prestataire de dédupliquer."
+      },
+      {
+        "question": "Trois couches de la stack rejouent chacune 3 fois, et une panne de 5 minutes chez le prestataire s’est transformée en pic de trafic. Quelles règles de retry fixeriez-vous pour tout le système ?",
+        "bridge": "Les retries se multiplient d’une couche à l’autre : rejouer à une seule couche, seulement les échecs transitoires, avec backoff, full jitter et un budget de retries."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux rejouent l’autorisation de paiement jusqu’à trois fois. Laquelle ne peut pas débiter la carte deux fois ?",
+        "why": "Une clé d’idempotence ne protège que si chaque tentative envoie la même : le prestataire voit alors les retries comme une seule opération. `worse` tire une nouvelle clé à chaque tentative, donc quand le premier appel a atteint le prestataire mais que sa réponse s’est perdue, le retry ressemble à une nouvelle opération. Dans une simulation de ce cas, `better` a fait 1 débit et `worse` 2."
+      }
+    ]
+  },
+  "node-bounded-concurrency": {
+    "topic": "Concurrence bornée",
+    "question": "Un job nocturne envoie 50 000 e-mails de commande avec `Promise.all(orders.map(send))`. Qu’est-ce qui ne va pas, et comment le corrigez-vous ?",
+    "answer": "Il lance 50 000 appels au même moment, et chaque ressource en aval a une limite : les sockets, le pool de la base, le rate limiting du fournisseur d’e-mail. Donc la plupart des appels échouent avec des erreurs de connexion ou des 429 au lieu d’aller plus vite. Je borne la concurrence avec un pool : au plus N appels en vol, et le suivant démarre dès que l’un se termine. Je dimensionne N d’après la vraie limite en aval, disons les 20 requêtes simultanées du fournisseur, puis je mesure. Les lots avec `Promise.all` gaspillent de la capacité, parce que chacun attend son appel le plus lent. J’utilise `p-map` et j’attrape les erreurs élément par élément.",
+    "keyPoints": [
+      "Un fan-out non borné bute sur les sockets, les pools et les rate limits",
+      "Un pool : au plus N en vol, le suivant démarre quand un se termine",
+      "Dimensionner N d’après la vraie limite en aval, puis mesurer",
+      "Les lots attendent leur appel le plus lent ; attraper les erreurs par élément"
+    ],
+    "explanation": "La question vérifie si tu vois le système derrière un one-liner. Un senior nomme la limite atteinte, explique pourquoi un pool bat les lots, et doit souvent écrire un petit limiteur, où libérer le slot dans `finally` est le détail qui compte.",
+    "example": "Le job de confirmation de commande lançait `Promise.all` sur les commandes du jour et a échoué à mi-parcours une nuit, avec des erreurs de connexion et des 429 du fournisseur d’e-mail. L’équipe est passée à `p-map` avec une concurrence de 20, la limite documentée du fournisseur, et un `try`/`catch` par commande qui enregistre les id en échec. Depuis, le job se termine chaque nuit, et les quelques adresses invalides apparaissent dans un rapport.",
+    "mistakes": [
+      "Découper la liste en lots avec `Promise.all`, si bien que chaque lot attend son appel le plus lent pendant que les autres slots restent inactifs",
+      "Choisir N au hasard au lieu de partir de la limite du fournisseur ou de la taille du pool",
+      "Écrire un limiteur qui ne libère son slot qu’en cas de succès, si bien que les tâches en échec font fuir des slots jusqu’à ce que plus rien ne tourne"
+    ],
+    "followUps": [
+      {
+        "question": "Écrivez le cœur d’un limiteur de concurrence.",
+        "answer": "Je garde un compteur `active` et une file de resolvers en attente. `run(task)` attend dans la file quand `active` a atteint la limite, sinon prend un slot. Il attend la tâche et, dans `finally`, passe le slot au suivant en attente ou le libère. Sans `finally`, chaque échec fait fuir un slot."
+      },
+      {
+        "question": "Comment arrêtez-vous le job à mi-parcours ?",
+        "answer": "Je passe le signal à `pMap`, qui rejette alors et ne démarre plus de nouvel élément, et aussi à chaque appel, parce que `pMap` n’annule pas les mappers déjà en cours."
+      },
+      {
+        "question": "Et si la liste elle-même est trop grosse pour être chargée ?",
+        "answer": "Je lis les commandes paresseusement avec un générateur asynchrone, page par page, et je le donne à `pMapIterable` de `p-map`, qui accepte un itérable asynchrone et une option `concurrency`. La mémoire ne grossit plus avec les commandes du jour."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un limiteur écrit à la main doit libérer son slot dans `finally`, sinon les tâches en échec font fuir des slots.",
+        "why": "Un slot libéré seulement en cas de succès est perdu à chaque échec, et après N échecs plus rien ne redémarre.",
+        "twin": {
+          "statement": "Un limiteur écrit à la main qui ne libère son slot qu’après une tâche réussie continue de fonctionner après des échecs.",
+          "why": "Chaque échec garde son slot pour toujours, et après N échecs plus rien ne redémarre ; libère dans `finally`."
+        }
+      },
+      {
+        "statement": "Des lots de 10 avec `Promise.all` donnent le même débit qu’un pool de 10.",
+        "why": "Chaque lot attend son appel le plus lent ; sur une charge hétérogène, un pool de 10 a été mesuré plus de quatre fois plus rapide.",
+        "twin": {
+          "statement": "Sur une charge hétérogène, un pool de 10 obtient plus de débit que des lots de 10 avec `Promise.all`.",
+          "why": "Chaque lot attend son appel le plus lent ; un pool de 10 a été mesuré plus de quatre fois plus rapide."
+        }
+      },
+      {
+        "statement": "L’option `signal` de `pMap` annule les mappers déjà en cours.",
+        "why": "Elle fait rejeter `pMap` et empêche de démarrer un nouvel élément, mais les appels en cours se terminent sauf s’ils ont aussi reçu le signal.",
+        "twin": {
+          "statement": "L’option `signal` de `pMap` empêche de nouveaux éléments de démarrer, mais les mappers déjà en cours se terminent sauf s’ils ont aussi reçu le signal.",
+          "why": "Elle fait rejeter `pMap` et ne démarre plus de nouvel élément ; les appels en cours ne s’arrêtent que s’ils ont reçu le signal."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "La concurrence bornée garde au plus N appels en vol pendant le traitement d’une longue liste. Elle protège les sockets, les pools et les rate limits qu’un `Promise.all` non borné sur des milliers d’éléments épuiserait.",
+      "points": [
+        "Un `Promise.all` non borné sur une longue liste lance tous les appels d’un coup et bute sur de vraies limites : les sockets, le pool de la base (10 connexions par défaut dans node-postgres), le rate limiting d’un partenaire.",
+        "La concurrence bornée garde au plus N appels en vol, et le suivant démarre dès que l’un se termine. Ce mécanisme s’appelle un pool.",
+        "Des lots de N avec `Promise.all` gaspillent de la capacité : chaque lot attend son appel le plus lent pendant que les autres slots restent inactifs.",
+        "Dimensionne N d’après la limite en aval (concurrence documentée, taille du pool, rate limit), puis mesure. Utilise `p-map` ou `p-limit`, et attrape les erreurs par élément pour qu’un échec n’arrête pas le job.",
+        "Un limiteur écrit à la main doit libérer son slot dans `finally` ; sinon chaque tâche en échec fait fuir un slot et le limiteur finit par ne plus rien démarrer."
+      ],
+      "takeaways": [
+        {
+          "term": "`Promise.all` non borné",
+          "detail": "Lance tous les appels d’un coup : des erreurs de connexion et des 429 au lieu de la vitesse."
+        },
+        {
+          "term": "Pool",
+          "detail": "Au plus N appels en vol ; le suivant démarre dès que l’un se termine."
+        },
+        {
+          "term": "Lots de N",
+          "detail": "Chaque lot attend son appel le plus lent pendant que les autres slots restent inactifs."
+        },
+        {
+          "term": "Dimensionner N",
+          "detail": "D’après la limite en aval (concurrence documentée, taille du pool, rate limit), puis mesurer."
+        },
+        {
+          "term": "`p-map` ou `p-limit`",
+          "detail": "Des limiteurs tout faits. Attrape les erreurs par élément pour qu’un échec n’arrête pas le job."
+        },
+        {
+          "term": "Libérer dans `finally`",
+          "detail": "Un limiteur écrit à la main qui l’oublie fait fuir un slot par échec, jusqu’à ne plus rien démarrer."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le job nocturne de factures envoie les 30 000 PDF d’un coup au transporteur, et la plupart des appels échouent avec 429 et `ECONNRESET`. Comment le rendez-vous fiable sans le ralentir ?",
+        "bridge": "Un fan-out non borné bute sur les rate limits et les limites de sockets ; un pool garde au plus N appels en vol, dimensionné d’après la vraie limite du partenaire."
+      },
+      {
+        "question": "Un collègue découpe le travail en lots de 20 et exécute chacun avec `Promise.all`. Pourquoi un pool de 20 est-il meilleur ?",
+        "bridge": "Un lot attend son appel le plus lent avant que le suivant démarre, alors qu’un pool lance un nouvel appel dès que l’un se termine."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux sont la fonction `run` d’un limiteur qui garde au plus `limit` envois d’e-mail en vol. Laquelle continue de fonctionner après des échecs ?",
+        "why": "Dans `better`, `finally` passe le slot au suivant que l’envoi réussisse ou lève une erreur. Dans `worse`, une tâche rejetée saute la libération, donc chaque échec fait fuir un slot. Lancé avec une limite de 2 et deux adresses invalides en premier : `worse` a envoyé 0 des 4 bons e-mails et le job est resté bloqué ; `better` les a envoyés tous les 4."
+      }
+    ]
+  },
+  "node-async-iteration": {
+    "topic": "Itérateurs async et nettoyage",
+    "question": "Comment liriez-vous des millions de commandes en mode paresseux dans Node, en vous assurant que la connexion à la base est libérée même si la boucle s’arrête avant la fin ?",
+    "answer": "J’écris un générateur async, une `async function*`, qui récupère une page de commandes à la fois par id et fait un `yield` de chaque ligne. Le consommateur le lit avec `for await`, et le générateur n’avance jusqu’au `yield` suivant que quand la boucle le demande : la mémoire reste à une page. J’acquiers la connexion dans le générateur et je la libère dans `finally`, ou avec `await using` sur un emprunt disposable. Un `break` appelle le `return()` du générateur, qui exécute ce nettoyage : la connexion revient au pool en fin normale, sur break et sur erreur. `for await` est séquentiel, donc des éléments lents demandent une limite de concurrence.",
+    "keyPoints": [
+      "`async function*` lu avec `for await` : en pull, une page à la fois",
+      "`break` appelle `return()`, qui exécute `finally` et les libérations",
+      "Libérer la connexion dans `finally` ou avec `await using`",
+      "`for await` et `Array.fromAsync` sont séquentiels"
+    ],
+    "explanation": "Les recruteurs s’en servent pour vérifier que tu comprends le modèle pull et le nettoyage en cas de sortie anticipée, pas seulement la syntaxe. Un senior mentionne la gestion explicite des ressources et sait que les bibliothèques commencent à peine à la prendre en charge : `try`/`finally` reste donc la forme courante.",
+    "example": "Le job nocturne d’e-mails chargeait toutes les commandes du jour dans un seul tableau, et le jour du Black Friday il y en avait dix fois plus. L’équipe a réécrit la lecture en générateur async qui récupère 500 commandes par page par id, avec la connexion du pool libérée via `await using`. La mémoire est restée stable quel que soit le volume, et un job arrêté à mi-chemin ne retenait plus de connexion hors du pool.",
+    "mistakes": [
+      "Libérer la connexion après la boucle plutôt que dans `finally` : un `break` ou une exception la fait fuir",
+      "Appeler `Array.fromAsync` sur une source énorme, ce qui charge tout en mémoire",
+      "Croire que `for await` traite les éléments en parallèle : il les traite un par un"
+    ],
+    "followUps": [
+      {
+        "question": "Que fait `await using` ?",
+        "answer": "Il déclare une ressource dont la méthode `[Symbol.asyncDispose]()` s’exécute à la sortie du bloc, par return, throw ou `break`, dans l’ordre inverse de déclaration. Node 24 le gère nativement ; en TypeScript, les types viennent de la lib `esnext.disposable` ou de `@types/node`."
+      },
+      {
+        "question": "Comment combinez-vous lecture paresseuse et concurrence ?",
+        "answer": "Je lis en pull et je traite avec une limite : `pMapIterable` de `p-map` prend l’itérable async et une option `concurrency`, donc le générateur récupère les pages au rythme des workers au lieu de toutes d’un coup."
+      },
+      {
+        "question": "Pourquoi récupérer chaque page par id plutôt qu’avec `OFFSET` ?",
+        "answer": "La pagination par clé, `where id > $1 order by id limit 500`, lit l’index là où la page précédente s’est arrêtée, donc chaque page coûte pareil. Avec `OFFSET`, la base calcule et saute quand même toutes les lignes précédentes : chaque page est plus lente que la précédente."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Sortir d’une boucle `for await` avec `break` exécute le bloc `finally` du générateur.",
+        "why": "La boucle appelle le `return()` du générateur, qui exécute ses blocs `finally` et libère ses déclarations `using`.",
+        "twin": {
+          "statement": "Sortir d’une boucle `for await` avec `break` saute le bloc `finally` du générateur.",
+          "why": "La boucle appelle le `return()` du générateur, qui exécute ses blocs `finally` et libère ses déclarations `using`."
+        }
+      },
+      {
+        "statement": "`Array.fromAsync` avec une fonction de mapping async traite les éléments en parallèle.",
+        "why": "Il est séquentiel : trois éléments de 50 ms chacun prennent plus de 150 ms, pas 50.",
+        "twin": {
+          "statement": "`Array.fromAsync` avec une fonction de mapping async traite les éléments l’un après l’autre.",
+          "why": "Il est séquentiel : trois éléments de 50 ms chacun prennent plus de 150 ms, pas 50."
+        }
+      },
+      {
+        "statement": "Un générateur async récupère toutes les pages à l’avance, avant que la boucle ne les lise.",
+        "why": "Il ne s’exécute que jusqu’à son prochain `yield`, chaque fois que le consommateur demande une valeur.",
+        "twin": {
+          "statement": "Un générateur async ne s’exécute que jusqu’à son prochain `yield`, chaque fois que la boucle demande une valeur.",
+          "why": "Il fonctionne en pull : il ne récupère jamais de pages en avance sur le consommateur."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un générateur async produit des valeurs au fil du temps, et une boucle `for await` les tire une par une. Il lit des millions de lignes avec une seule page en mémoire, et son nettoyage s’exécute même si la boucle s’arrête avant la fin.",
+      "points": [
+        "Un générateur async (`async function*`) produit des valeurs au fil du temps avec `yield` et peut faire des `await` entre elles. Une boucle `for await` le lit une valeur à la fois.",
+        "Il fonctionne en pull : le générateur n’avance jusqu’à son prochain `yield` que quand la boucle le demande. Récupérer une page par demande garde une seule page en mémoire.",
+        "Un `break` ou une exception dans la boucle appelle le `return()` du générateur, qui exécute ses blocs `finally`. C’est là que la connexion à la base revient au pool.",
+        "`await using` déclare une ressource dont `[Symbol.asyncDispose]()` s’exécute sur chaque chemin de sortie, dans l’ordre inverse. Node 24 le gère, mais beaucoup de bibliothèques ne l’implémentent pas encore.",
+        "`for await` et `Array.fromAsync` sont séquentiels. Pour des éléments lents et indépendants, ajoute une limite de concurrence."
+      ],
+      "takeaways": [
+        {
+          "term": "`async function*`",
+          "detail": "Produit des valeurs avec `yield` et peut faire des `await` entre elles."
+        },
+        {
+          "term": "Pull",
+          "detail": "Le générateur n’avance jusqu’au `yield` suivant que quand la boucle le demande : une page par lecture, une page en mémoire."
+        },
+        {
+          "term": "`break` ou exception",
+          "detail": "Appelle le `return()` du générateur, qui exécute ses blocs `finally`."
+        },
+        {
+          "term": "`finally`",
+          "detail": "Là où la connexion revient au pool, en fin normale, sur `break` et sur erreur."
+        },
+        {
+          "term": "`await using`",
+          "detail": "Exécute `[Symbol.asyncDispose]()` sur chaque chemin de sortie, dans l’ordre inverse. Node 24 le gère ; beaucoup de bibliothèques pas encore."
+        },
+        {
+          "term": "Séquentiel par conception",
+          "detail": "`for await` et `Array.fromAsync` traitent un élément à la fois ; des éléments lents et indépendants demandent une limite de concurrence."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un script qui réindexe 3 millions de commandes s’arrête avec `break` dès qu’il trouve une ligne invalide, et après quelques exécutions le pool signale « too many clients ». Qu’est-ce qui fuit, et comment l’écririez-vous ?",
+        "bridge": "Un générateur async qui libère sa connexion dans `finally` nettoie aussi sur `break`, car `break` appelle son `return()`."
+      },
+      {
+        "question": "Pourquoi lire les commandes avec un générateur async garde-t-il la mémoire stable, comparé au chargement préalable d’un tableau ?",
+        "bridge": "Un générateur async fonctionne en pull : il n’avance jusqu’au `yield` suivant que quand `for await` le demande, donc une seule page est en mémoire."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux lisent les commandes expédiées page par page via une connexion du pool. Lequel des deux rend la connexion quand la boucle s’arrête avant la fin ?",
+        "why": "Un `break` dans le `for await` du consommateur appelle le `return()` du générateur, qui n’exécute que ses blocs `finally` : `better` libère la connexion en fin normale, sur break et sur erreur. `worse` ne la libère que si toutes les pages ont été lues, donc un job qui s’arrête à la première correspondance la garde : mesuré, 1 connexion encore empruntée après le break."
+      }
+    ]
+  },
+  "node-async-context": {
+    "topic": "Cause d’erreur et contexte de requête",
+    "question": "Vos logs affichent `connect ECONNREFUSED` sans id de commande ni id de requête. Comment conservez-vous le contexte sur les erreurs et les lignes de log à travers les `await` ?",
+    "answer": "Deux corrections. Quand j’attrape une erreur bas niveau pour la relancer, je l’enveloppe : `new Error('Could not load order 42', { cause: error })`, pour que le message dise ce qui a échoué et que l’originale garde sa stack et son code. Dans un `try`, j’écris `return await`, sinon le `catch` ne voit jamais le rejet. Pour l’id de requête, j’utilise `AsyncLocalStorage` : un middleware appelle `storage.run({ requestId }, next)`, et tout ce qui démarre dedans, à travers chaque `await`, le lit avec `getStore()`. Le logger l’ajoute à chaque ligne. Une variable au niveau du module serait écrasée par les requêtes concurrentes.",
+    "keyPoints": [
+      "Envelopper avec `new Error(message, { cause })`, en gardant l’originale",
+      "`return await` dans `try`, sinon le `catch` rate le rejet",
+      "`AsyncLocalStorage.run` porte l’id de requête à travers les await",
+      "Une variable de module est partagée par les requêtes concurrentes"
+    ],
+    "explanation": "Ça vérifie si tu as déjà débogué des incidents de production à partir des logs. Un senior explique pourquoi une variable globale casse sous concurrence, pose le contexte une seule fois dans un middleware, et garde le store petit et limité à la requête.",
+    "example": "Après un incident de paiement, le post-mortem n’arrivait pas à dire quelles commandes avaient échoué : les logs ne contenaient que des erreurs brutes du driver, sans id. L’équipe a enveloppé les erreurs du repository avec une `cause` qui nomme la commande, et ouvert par requête un store `AsyncLocalStorage` que pino ajoute à chaque ligne via un `mixin`. L’incident suivant a été remonté en quelques minutes, de l’id de requête d’un client jusqu’à la requête SQL fautive.",
+    "mistakes": [
+      "Relancer une nouvelle erreur sans `cause`, ce qui perd la stack et le code d’erreur d’origine",
+      "Écrire `return promise` dans un `try` en comptant sur le `catch` pour gérer son rejet",
+      "Stocker des données métier dans `AsyncLocalStorage` ; s’en tenir aux id, au client authentifié et à un signal d’échéance"
+    ],
+    "followUps": [
+      {
+        "question": "Comment le branchez-vous dans NestJS ?",
+        "answer": "Avec nestjs-cls : `ClsModule.forRoot`, avec son middleware monté, ouvre un contexte par requête, et n’importe quel singleton injecte `ClsService` pour lire l’id. Ça évite les providers à portée requête, qui reconstruisent leurs consommateurs à chaque requête, et ça marche aussi dans les consommateurs de file et les jobs cron."
+      },
+      {
+        "question": "Que renvoie `getStore()` en dehors de tout `run` ?",
+        "answer": "`undefined`. Le code qui s’exécute hors requête, comme une tâche de démarrage, doit le gérer, par exemple en loguant un id de remplacement."
+      },
+      {
+        "question": "Comment remontez-vous plusieurs échecs à la fois ?",
+        "answer": "Avec une `AggregateError` : `new AggregateError(errors, '3 of 50 emails failed')` porte chaque erreur dans son tableau `errors`, comme celle que lève `Promise.any` quand toutes ses entrées sont rejetées."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans un `try`, `return promise` sans `await` laisse le `catch` gérer le rejet de cette promesse.",
+        "why": "La promesse quitte le bloc `try` avant d’être réglée, donc l’appelant reçoit le rejet brut.",
+        "twin": {
+          "statement": "Dans un `try`, `return promise` sans `await` laisse le rejet de cette promesse échapper au `catch`.",
+          "why": "La promesse quitte le bloc `try` avant d’être réglée, donc l’appelant reçoit le rejet brut."
+        }
+      },
+      {
+        "statement": "Un store posé avec `storage.run(store, fn)` est encore visible après un `await` dans `fn`.",
+        "why": "Le store suit tout le travail async démarré dans `fn`, à travers chaque `await`.",
+        "twin": {
+          "statement": "Un store posé avec `storage.run(store, fn)` est perdu après le premier `await` dans `fn`.",
+          "why": "Le store suit tout le travail async démarré dans `fn`, à travers chaque `await`."
+        }
+      },
+      {
+        "statement": "Une variable `currentRequestId` au niveau du module est sûre, car Node exécute le JavaScript sur un seul thread.",
+        "why": "Les requêtes s’entrelacent à chaque `await`, donc une autre requête écrase la variable entre-temps.",
+        "twin": {
+          "statement": "Une variable `currentRequestId` au niveau du module peut être écrasée par une autre requête entre deux `await`.",
+          "why": "Node tourne sur un seul thread, mais les requêtes s’entrelacent à chaque `await`, donc elles partagent la variable."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une erreur relancée, ou une ligne de log écrite au fond d’une chaîne d’appels, perd souvent l’id de commande et l’id de requête. La cause d’erreur conserve l’erreur d’origine, et `AsyncLocalStorage` porte le contexte de requête à travers les await.",
+      "points": [
+        "Quand tu attrapes une erreur pour en relancer une plus claire, passe l’originale en `cause` : `new Error('Could not load order 42', { cause: error })`. Node affiche la chaîne avec une ligne `[cause]`.",
+        "Dans un `try`, écris `return await promise`. Sans `await`, la promesse quitte le `try` avant d’être réglée et le `catch` ne voit jamais son rejet.",
+        "Une variable au niveau du module ne peut pas contenir l’id de requête : les requêtes concurrentes s’entrelacent à chaque `await` et l’écrasent.",
+        "`AsyncLocalStorage` de `node:async_hooks` règle le problème : `storage.run(store, fn)` rend `store` visible via `getStore()` à tout ce que `fn` démarre, à travers les await, et à rien d’autre."
+      ],
+      "takeaways": [
+        {
+          "term": "`new Error(msg, { cause })`",
+          "detail": "Enveloppe l’erreur d’origine avec un message plus clair. Node affiche la chaîne avec une ligne `[cause]`."
+        },
+        {
+          "term": "`return await` dans `try`",
+          "detail": "Sans `await`, la promesse quitte le `try` avant d’être réglée et le `catch` ne voit jamais le rejet."
+        },
+        {
+          "term": "Variable de module",
+          "detail": "Ne peut pas contenir l’id de requête : les requêtes concurrentes s’entrelacent à chaque `await` et l’écrasent."
+        },
+        {
+          "term": "`AsyncLocalStorage`",
+          "detail": "Vient de `node:async_hooks`. `storage.run(store, fn)` rend `store` visible à tout ce que `fn` démarre, et à rien d’autre."
+        },
+        {
+          "term": "`getStore()`",
+          "detail": "Lit le store courant à travers chaque `await` ; le logger s’en sert pour ajouter l’id de requête à chaque ligne."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Sous charge, certaines lignes de log de `POST /orders` portent l’id d’une autre requête. L’id est stocké dans une variable de module posée par un middleware. Pourquoi, et qu’utilisez-vous à la place ?",
+        "bridge": "Les requêtes s’entrelacent à chaque `await`, donc une variable partagée est écrasée ; `AsyncLocalStorage` garde un store par requête à travers les await."
+      },
+      {
+        "question": "Un `try`/`catch` autour de `return loadOrder(id)` n’attrape jamais l’erreur de la base, qui arrive au client sans être enveloppée. Qu’est-ce qui ne va pas, et comment faudrait-il relancer l’erreur ?",
+        "bridge": "Sans `await`, la promesse quitte le `try` avant d’être rejetée ; avec `return await`, le `catch` peut l’envelopper avec `{ cause }`."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux enveloppent l’échec d’une recherche de commande dans une erreur plus claire. Lequel des deux attrape vraiment le rejet de la base ?",
+        "why": "Avec `return await`, le rejet se produit dans le `try`, donc le `catch` l’enveloppe : le log dit quelle commande a échoué et garde l’erreur du driver en `cause`. Sans `await`, la promesse quitte le `try` avant d’être réglée, et sur Node 24 l’appelant a reçu le `connect ECONNREFUSED` brut, sans id de commande."
+      }
+    ]
+  },
+  "node-stream-pipeline": {
+    "topic": "Streamer un gros export",
+    "question": "L’endpoint « exporter toutes les commandes » fait tuer le pod pour OOM. Comment le reconstruiriez-vous avec des streams, et que se passe-t-il quand le téléchargement casse à mi-chemin ?",
+    "answer": "La première version garde toutes les lignes, puis tout le CSV, en mémoire : elle grossit avec les données jusqu’à ce que Kubernetes tue le pod. Je la reconstruis en un seul `pipeline` de `node:stream/promises` : un curseur de base de données, un générateur async qui formate les lignes CSV, `createGzip()`, puis la réponse. `pipeline` propage la backpressure, donc la mémoire reste à quelques chunks même pour un client lent, et à la première erreur il détruit tous les streams et rejette une seule fois ; je libère la connexion dans `finally`. Si la base échoue après le premier octet, le 200 est déjà envoyé : la réponse est détruite et le téléchargement échoue de façon visible.",
+    "keyPoints": [
+      "Bufferiser fait grossir la mémoire avec les données, jusqu’au OOM kill",
+      "`pipeline` : curseur, générateur CSV, gzip, réponse",
+      "Il propage la backpressure et détruit tous les streams en cas d’erreur",
+      "Après le premier octet, le statut est figé : valider d’abord"
+    ],
+    "explanation": "Les streams arrivent dans des questions du type « tout exporter » ou « pourquoi le pod a redémarré ». Le recruteur attend la vision opérationnelle : mémoire par requête, nettoyage en cas d’échec, pourquoi `.pipe()` ne suffit pas, et quand le travail doit plutôt partir dans un job en arrière-plan.",
+    "example": "Avec 5 millions de commandes, l’export CSV de la finance atteignait plusieurs gigaoctets et le pod redémarrait à chaque clic sur « Exporter ». L’équipe l’a streamé avec `pipeline` depuis un curseur `pg-query-stream`, à travers un générateur CSV et gzip, jusqu’à la réponse, en libérant la connexion dans `finally`. La mémoire est restée stable, la finance recevait les premiers octets en quelques millisecondes, et un onglet fermé ne faisait plus fuir de connexion.",
+    "mistakes": [
+      "Utiliser `.pipe()`, qui ne détruit pas les autres streams quand l’un échoue : des handles de fichier ou des requêtes restent ouverts",
+      "Libérer la connexion sur l’événement `end`, qui ne se déclenche jamais quand le stream est détruit avant la fin",
+      "Vérifier l’autorisation ou valider la plage de dates après le début du streaming, quand un 400 ou un 403 n’est plus possible"
+    ],
+    "followUps": [
+      {
+        "question": "Que voit le client si la base échoue à la 3 millionième ligne ?",
+        "answer": "Le statut 200 et les en-têtes sont déjà partis. `pipeline` détruit la réponse, donc le téléchargement échoue : un client `fetch` reçoit `TypeError: terminated`. Terminer la réponse normalement donnerait à la finance un fichier tronqué qui a l’air complet."
+      },
+      {
+        "question": "Et si le client ferme l’onglet ?",
+        "answer": "`pipeline` rejette avec `ERR_STREAM_PREMATURE_CLOSE` et détruit le stream de la requête, ce qui ferme le curseur ; le `finally` qui l’entoure rend la connexion au pool."
+      },
+      {
+        "question": "Quand ne streameriez-vous pas du tout en HTTP ?",
+        "answer": "Quand l’export prend plusieurs minutes. Une réponse longue doit survivre aux timeouts des proxys, aux déploiements et au réseau de l’utilisateur, et elle occupe une connexion tout du long. Un job en arrière-plan streame les lignes vers S3 et envoie un lien présigné qui expire ; il peut faire des retry, et le fichier survit à un onglet fermé."
+      },
+      {
+        "question": "Le pod est tué pour OOM mais `heapUsed` reste stable. Pourquoi ?",
+        "answer": "Les Buffers vivent hors du heap JavaScript : ils apparaissent dans `arrayBuffers` et dans le RSS, que la limite du conteneur fait respecter. Augmenter `--max-old-space-size` n’y change rien ; je limite la concurrence ou le buffering par requête."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`pipeline` détruit tous les streams de la chaîne quand l’un d’eux échoue.",
+        "why": "Il détruit tous les streams et rejette une seule fois avec la première erreur, ce qui libère handles de fichier et requêtes.",
+        "twin": {
+          "statement": "Quand un stream d’un `pipeline` échoue, les autres restent ouverts jusqu’à ce que tu les détruises toi-même.",
+          "why": "`pipeline` détruit tous les streams de la chaîne et rejette une seule fois avec la première erreur."
+        }
+      },
+      {
+        "statement": "`source.pipe(destination)` détruit la source quand la destination échoue.",
+        "why": "La source est seulement mise en pause, donc son handle de fichier ou sa requête reste ouvert ; `pipeline` la détruit.",
+        "twin": {
+          "statement": "`source.pipe(destination)` laisse la source ouverte quand la destination échoue.",
+          "why": "La source n’est pas détruite, donc son handle de fichier ou sa requête reste ouvert ; `pipeline` la détruit."
+        }
+      },
+      {
+        "statement": "Après l’envoi du premier octet, la route peut encore répondre 500 si la base échoue.",
+        "why": "Le statut et les en-têtes sont déjà sur le réseau ; le seul signal restant est un téléchargement cassé.",
+        "twin": {
+          "statement": "Après l’envoi du premier octet, un échec de la base ne peut se manifester que par un téléchargement cassé, pas par un 500.",
+          "why": "Le statut et les en-têtes sont déjà sur le réseau, donc la route ne peut que détruire la réponse."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Bufferiser tout un export fait grossir la mémoire avec les données jusqu’à ce que Kubernetes tue le pod. Un pipeline de streams déplace les données par chunks : la mémoire dépend de la taille des chunks, pas de celle de l’export.",
+      "points": [
+        "Bufferiser tout un export fait grossir la mémoire avec les données ; au-delà de la limite du conteneur, Kubernetes tue le pod (un OOM kill). Un stream déplace les données par chunks : la mémoire dépend de la taille des chunks.",
+        "`pipeline(source, ...transforms, destination)` de `node:stream/promises` propage la backpressure de chaque étape vers la précédente, et se résout quand la destination a terminé.",
+        "À la première erreur, `pipeline` détruit tous les streams et rejette une seule fois. `.pipe()` transmet les données mais laisse les streams ouverts quand l’un échoue.",
+        "Un générateur async est le transform le plus simple : il reçoit l’étape précédente comme itérable async et émet ce qu’il produit.",
+        "Après le premier octet, le statut ne peut plus changer. Valide et autorise d’abord ; en cas d’échec plus tard, la réponse est détruite pour que le téléchargement échoue de façon visible."
+      ],
+      "takeaways": [
+        {
+          "term": "OOM kill",
+          "detail": "Au-delà de la limite mémoire du conteneur, Kubernetes tue le pod."
+        },
+        {
+          "term": "`pipeline()`",
+          "detail": "De `node:stream/promises` : source, transforms, destination. Se résout quand la destination a terminé."
+        },
+        {
+          "term": "Backpressure",
+          "detail": "`pipeline` la propage de chaque étape vers la précédente : la mémoire reste à quelques chunks, même pour un client lent."
+        },
+        {
+          "term": "Gestion des erreurs",
+          "detail": "À la première erreur, `pipeline` détruit tous les streams et rejette une seule fois. `.pipe()` laisse les streams ouverts."
+        },
+        {
+          "term": "Transform en générateur async",
+          "detail": "Reçoit l’étape précédente comme itérable async et émet ce qu’il produit."
+        },
+        {
+          "term": "Après le premier octet",
+          "detail": "Le statut ne peut plus changer. Valide et autorise d’abord ; un échec ultérieur détruit la réponse."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le bouton « exporter les commandes » du back-office marche en staging, mais en production le pod redémarre avec la raison OOMKilled au bout de quelques secondes. Que se passe-t-il, et comment réécririez-vous la route ?",
+        "bridge": "Bufferiser toutes les lignes fait grossir la mémoire avec les données ; un `pipeline` du curseur à la réponse la garde à quelques chunks."
+      },
+      {
+        "question": "Un collègue utilise `source.pipe(gzip).pipe(res)` pour l’export. Qu’est-ce qui se passe mal quand le client se déconnecte à mi-chemin, et qu’utilisez-vous à la place ?",
+        "bridge": "`.pipe()` ne détruit pas les autres streams en cas d’erreur, donc la requête reste ouverte ; `pipeline` détruit tous les streams et rejette une seule fois."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux streament l’export des commandes en CSV gzippé vers la réponse. Lequel des deux fait le ménage quand le client ferme l’onglet ?",
+        "why": "Si le client part, `pipeline` détruit tous les streams, ce qui ferme le curseur, puis rejette, et `finally` rend la connexion. `.pipe()` ne fait qu’un unpipe : la source reste ouverte et en pause, `end` ne se déclenche jamais, et chaque onglet fermé fait fuir une connexion du pool. Vérifié sur Node 24 avec une source fichier : après l’échec de la destination, `.pipe()` l’a laissée ouverte."
+      }
+    ]
+  },
+  "node-csv-export": {
+    "topic": "Exports CSV : curseurs et échappement",
+    "question": "Comment liriez-vous des millions de lignes pour un export CSV sans tout charger, et comment écririez-vous un CSV qui s’ouvre sans risque dans un tableur ?",
+    "answer": "Pour lire, j’utilise un curseur de base de données : une seule requête dont le client récupère les lignes par lots. Avec node-postgres, c’est `pg-query-stream`, un Readable en mode objet ; postgres.js a `.cursor(500)`. Une requête lit un snapshot cohérent, mais occupe une connexion du pool pendant tout le téléchargement, donc je la libère dans `finally`. Pour écrire, je suis la RFC 4180 : je mets entre guillemets un champ avec une virgule, un guillemet double ou un saut de ligne, et je double les guillemets à l’intérieur. Puis je neutralise les formules, comme le conseille l’OWASP : un texte qui commence par `=`, `+`, `-`, `@`, une tabulation ou un saut de ligne reçoit une apostrophe en tête.",
+    "keyPoints": [
+      "Un curseur : une requête, des lignes lues par lots, un seul snapshot",
+      "Il occupe une connexion du pool : la libérer dans `finally`",
+      "RFC 4180 : guillemets autour des champs avec virgule, guillemet ou saut de ligne",
+      "Préfixer d’une apostrophe les textes qui ressemblent à une formule (OWASP)"
+    ],
+    "explanation": "Ça ressemble à de la plomberie, mais ça vérifie deux réflexes de senior : ne jamais charger un résultat non borné, et traiter les données exportées comme une entrée non fiable pour un autre programme. L’injection CSV, en particulier, échappe souvent aux candidats qui connaissent bien l’injection SQL.",
+    "example": "La finance a ouvert le nouvel export et vu `Dupont, Marie` coupé sur deux colonnes, et un client enregistré sous `=HYPERLINK(…)` affiché comme un lien cliquable. L’équipe a remplacé `join(',')` par un formateur qui met les guillemets selon la RFC 4180 et préfixe d’une apostrophe les textes qui ressemblent à une formule, en laissant les montants négatifs en nombres. Le fichier s’ouvre maintenant proprement, et le nom injecté s’affiche en texte brut.",
+    "mistakes": [
+      "Paginer avec `LIMIT` et `OFFSET` dans une boucle et appeler ça un curseur : chaque page est une requête distincte avec son propre snapshot",
+      "Échapper avec des antislashs : le CSV n’en a pas, un guillemet dans un champ entre guillemets est doublé",
+      "Préfixer toute valeur qui commence par `-`, ce qui transforme les montants négatifs en texte ; n’appliquer la règle qu’au texte"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi Excel abîme-t-il les accents de votre export UTF-8 ?",
+        "answer": "La doc Microsoft indique qu’Excel ouvre normalement un CSV UTF-8 enregistré avec un BOM (byte order mark) ; sans BOM, l’utilisateur doit l’importer via Données, À partir d’un fichier texte/CSV. L’export écrit donc `\\uFEFF` en premier, les octets `EF BB BF`."
+      },
+      {
+        "question": "Pourquoi un seul curseur plutôt qu’une boucle de pages ?",
+        "answer": "Une requête via un curseur voit un seul snapshot cohérent, même pendant que de nouvelles commandes arrivent. Chaque page `LIMIT`/`OFFSET` est une requête distincte avec son propre snapshot au niveau d’isolation par défaut, donc des lignes peuvent se décaler entre les pages et apparaître deux fois ou pas du tout."
+      },
+      {
+        "question": "Combien `pg-query-stream` garde-t-il en mémoire ?",
+        "answer": "C’est un Readable en mode objet dont le `highWaterMark` est son `batchSize`, 100 lignes sauf si on le change. Il ne récupère le lot suivant que quand son buffer en a besoin, donc un consommateur lent ralentit les lectures."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "La RFC 4180 échappe un guillemet double dans un champ avec un antislash.",
+        "why": "Le CSV n’a pas d’échappement par antislash : le champ est entouré de guillemets doubles et chaque guillemet intérieur est doublé.",
+        "twin": {
+          "statement": "La RFC 4180 échappe un guillemet double dans un champ en le doublant.",
+          "why": "Le champ est entouré de guillemets doubles et chaque guillemet intérieur est écrit deux fois ; il n’y a pas d’échappement par antislash."
+        }
+      },
+      {
+        "statement": "Une cellule texte qui commence par `@` peut être lue comme une formule par un tableur.",
+        "why": "L’OWASP liste `=`, `+`, `-`, `@`, la tabulation et le saut de ligne comme débuts de formule à neutraliser.",
+        "twin": {
+          "statement": "Une cellule texte qui commence par `@` est toujours affichée en texte brut par les tableurs, donc elle n’a pas besoin d’être neutralisée.",
+          "why": "L’OWASP liste `@` avec `=`, `+`, `-`, la tabulation et le saut de ligne comme débuts de formule à neutraliser."
+        }
+      },
+      {
+        "statement": "Paginer avec `LIMIT 500 OFFSET n` dans une boucle lit un seul snapshot cohérent des commandes.",
+        "why": "Chaque page est une requête distincte avec son propre snapshot, donc des insertions concurrentes peuvent décaler des lignes entre les pages.",
+        "twin": {
+          "statement": "Paginer avec des requêtes `LIMIT 500 OFFSET n` distinctes peut répéter ou sauter des commandes insérées pendant l’export.",
+          "why": "Chaque page est sa propre requête avec son propre snapshot, donc les insertions concurrentes décalent des lignes entre les pages."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un gros export CSV demande deux choses : lire les lignes par lots sans tout charger, et écrire des champs que les tableurs analysent correctement et n’exécutent jamais comme des formules.",
+      "points": [
+        "Un curseur exécute une requête une fois et laisse le client récupérer ses lignes par lots. `pg-query-stream` l’enveloppe dans un Readable en mode objet ; postgres.js propose `.cursor(500)`.",
+        "Une requête via un curseur lit un seul snapshot cohérent, mais occupe une connexion du pool pendant tout le téléchargement : libère-la dans `finally`.",
+        "RFC 4180 : entoure un champ de guillemets doubles quand il contient une virgule, un guillemet double ou un saut de ligne, et double les guillemets intérieurs. Le CSV n’a pas d’échappement par antislash.",
+        "Injection CSV : une cellule qui commence par `=`, `+`, `-`, `@`, une tabulation ou un saut de ligne peut s’exécuter comme une formule. L’OWASP conseille une apostrophe en tête, sur le texte seulement, pour que les nombres restent des nombres.",
+        "Selon la doc Microsoft, Excel ouvre normalement un CSV UTF-8 qui commence par un BOM (byte order mark), donc les exports écrivent souvent `\\uFEFF` en premier."
+      ],
+      "takeaways": [
+        {
+          "term": "Curseur",
+          "detail": "Exécute une requête une fois ; le client récupère ses lignes par lots, depuis un seul snapshot cohérent."
+        },
+        {
+          "term": "`pg-query-stream`",
+          "detail": "Enveloppe un curseur node-postgres dans un Readable en mode objet. postgres.js propose `.cursor(500)`."
+        },
+        {
+          "term": "Connexion du pool",
+          "detail": "Le curseur l’occupe pendant tout le téléchargement : libère-la dans `finally`."
+        },
+        {
+          "term": "Guillemets RFC 4180",
+          "detail": "Entoure de guillemets un champ avec virgule, guillemet double ou saut de ligne, et double les guillemets intérieurs. Pas d’échappement par antislash."
+        },
+        {
+          "term": "Injection CSV",
+          "detail": "Un texte qui commence par `=`, `+`, `-`, `@`, une tabulation ou un saut de ligne reçoit une apostrophe en tête (OWASP)."
+        },
+        {
+          "term": "BOM UTF-8",
+          "detail": "Selon la doc Microsoft, Excel ouvre normalement un CSV UTF-8 qui commence par un BOM : écris `\\uFEFF` en premier."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un agent du support ouvre le CSV des commandes dans un tableur, et une note client qui commence par `=HYPERLINK(` devient un lien cliquable. Qu’est-ce qui a mal tourné dans l’export, et comment faudrait-il écrire les champs ?",
+        "bridge": "Les cellules CSV qui commencent par `=`, `+`, `-` ou `@` peuvent s’exécuter comme des formules : neutralise-les, et mets les champs entre guillemets selon la RFC 4180."
+      },
+      {
+        "question": "Pourquoi liriez-vous un export avec un curseur de base de données plutôt qu’avec une boucle de requêtes `LIMIT`/`OFFSET` ?",
+        "bridge": "Un curseur, c’est une requête et un snapshot, lus par lots ; des pages par offset distinctes peuvent décaler des lignes, et un curseur occupe une connexion à libérer."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux formatent un champ CSV de l’export finance. Lequel des deux garde `Le \"Gourmet\", Lyon` dans une seule colonne ?",
+        "why": "La RFC 4180 n’a pas d’échappement par antislash : un guillemet dans un champ entre guillemets est doublé. Avec `\\\"`, un parseur standard ferme le champ au premier guillemet intérieur : le module `csv` de Python a lu la ligne `worse` comme quatre colonnes au lieu de trois, en coupant le nom du client et en décalant toutes les colonnes suivantes."
+      }
+    ]
+  },
+  "node-text-decoding": {
+    "topic": "Octets, texte et frontières de chunks",
+    "question": "Un fichier fournisseur est en UTF-8 valide, et pourtant « Crème brûlée » ressort parfois illisible après votre import en streaming. Pourquoi, et comment le corrigez-vous ?",
+    "answer": "Un `Buffer` contient des octets et une chaîne contient du texte, et UTF-8 encode les caractères hors ASCII sur deux à quatre octets. Un stream découpe le fichier en chunks n’importe où, donc parfois un caractère de deux octets est coupé entre deux chunks. Appeler `chunk.toString()` sur chaque chunk décode chaque moitié seule, et chaque moitié devient le caractère de remplacement. La solution, c’est un décodeur qui garde un état entre les chunks : `setEncoding('utf8')` sur un stream Node, `TextDecoder` avec `{ stream: true }`, ou `readline` pour les lignes. Les lignes demandent le même soin. Et je compte les tailles en octets, avec `Buffer.byteLength`.",
+    "keyPoints": [
+      "UTF-8 utilise deux à quatre octets pour les caractères non ASCII",
+      "Un chunk peut couper un caractère ; `toString()` par chunk le casse",
+      "Décodage avec état : `setEncoding`, `TextDecoder` en mode stream",
+      "Compter les tailles en octets avec `Buffer.byteLength`, pas `.length`"
+    ],
+    "explanation": "Le bug est intermittent et passe tous les tests avec de petits fichiers, donc les recruteurs s’en servent pour voir si tu raisonnes en octets. Un senior mentionne aussi que les tailles sur le réseau, comme `Content-Length` ou les limites d’upload, se comptent en octets.",
+    "example": "L’import du catalogue transformait « Crème brûlée » en charabia sur deux lignes sur 40 000, uniquement là où le fichier se trouvait coupé en chunks. L’import décodait chaque chunk avec `toString()`. Un générateur utilisant un seul `TextDecoder` en mode stream, avec une ligne partielle en attente reportée au chunk suivant, a corrigé le problème.",
+    "mistakes": [
+      "Appeler `toString()` sur chaque chunk, ce qui casse les caractères coupés entre deux chunks",
+      "Appeler `TextDecoder.decode()` sans `{ stream: true }` dans la boucle, qui a le même bug",
+      "Oublier de vider le décodeur et d’émettre le texte en attente après la boucle : la dernière ligne est perdue quand le fichier ne finit pas par un saut de ligne"
+    ],
+    "followUps": [
+      {
+        "question": "Que renvoient `'é'.length` et `Buffer.byteLength('é')` ?",
+        "answer": "1 et 2. La longueur d’une chaîne compte des unités de code UTF-16, pas des octets, donc un en-tête `Content-Length`, une limite d’upload ou une taille de colonne en octets doit utiliser `Buffer.byteLength`."
+      },
+      {
+        "question": "Comment découpez-vous un flux d’octets en lignes ?",
+        "answer": "`readline.createInterface` sur le stream, avec `crlfDelay: Infinity` pour que `\\r\\n` compte comme un seul saut. Ou un générateur qui décode avec `TextDecoder` en mode stream, découpe sur les sauts de ligne, garde la dernière ligne partielle pour le chunk suivant, et la vide à la fin."
+      },
+      {
+        "question": "Quel décodeur utilisez-vous sur un Web stream, comme le body d’un `fetch` ?",
+        "answer": "`TextDecoderStream`, avec `pipeThrough` sur le `ReadableStream`. C’est la forme stream de `TextDecoder`, et il garde les octets incomplets entre les chunks de la même façon."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Appeler `new TextDecoder().decode(chunk)` sur chaque chunk, sans options, gère les caractères coupés entre deux chunks.",
+        "why": "Sans `{ stream: true }`, chaque appel décode ses octets seul et un caractère coupé devient deux caractères de remplacement.",
+        "twin": {
+          "statement": "Appeler `new TextDecoder().decode(chunk)` sur chaque chunk, sans options, transforme un caractère coupé entre deux chunks en caractères de remplacement.",
+          "why": "Chaque appel décode ses octets seul ; `{ stream: true }` garde le caractère partiel pour l’appel suivant."
+        }
+      },
+      {
+        "statement": "`Buffer.byteLength('é')` vaut 2.",
+        "why": "UTF-8 encode `é` sur deux octets, alors que le `.length` de la chaîne vaut 1.",
+        "twin": {
+          "statement": "`Buffer.byteLength('é')` vaut 1, comme le `.length` de la chaîne.",
+          "why": "UTF-8 encode `é` sur deux octets, donc la longueur en octets vaut 2 alors que `.length` vaut 1."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un `Buffer` contient des octets et une chaîne contient du texte, et UTF-8 a besoin de plusieurs octets pour les caractères non ASCII. Les streams découpent les données n’importe où, donc décoder chunk par chunk peut couper un caractère en deux.",
+      "points": [
+        "Un `Buffer` contient des octets ; une chaîne contient du texte. UTF-8 encode l’ASCII sur un octet et les autres caractères sur deux à quatre, donc `'é'.length` vaut 1 mais `Buffer.byteLength('é')` vaut 2.",
+        "Un stream découpe les données en chunks n’importe où, y compris au milieu d’un caractère. Décoder chaque chunk seul transforme chaque moitié en caractère de remplacement `�`.",
+        "Utilise un décodeur qui garde les octets incomplets pour le chunk suivant : `readable.setEncoding('utf8')`, `TextDecoder` avec `{ stream: true }`, `TextDecoderStream`, ou `readline` pour les lignes.",
+        "Les lignes aussi peuvent chevaucher plusieurs chunks : garde la dernière ligne inachevée pour le chunk suivant, et vide le décodeur et cette ligne à la fin."
+      ],
+      "takeaways": [
+        {
+          "term": "Largeur UTF-8",
+          "detail": "L’ASCII prend un octet ; les autres caractères en prennent deux à quatre."
+        },
+        {
+          "term": "`Buffer.byteLength`",
+          "detail": "Compte les octets : `'é'.length` vaut 1 mais `Buffer.byteLength('é')` vaut 2. À utiliser pour les tailles."
+        },
+        {
+          "term": "`toString()` par chunk",
+          "detail": "Décode chaque moitié d’un caractère coupé seule, et chaque moitié devient le caractère de remplacement `�`."
+        },
+        {
+          "term": "`setEncoding('utf8')`",
+          "detail": "Fait garder à un readable Node les octets incomplets pour le chunk suivant."
+        },
+        {
+          "term": "`TextDecoder` en mode stream",
+          "detail": "Avec `{ stream: true }`, il garde les octets incomplets entre les appels ; `TextDecoderStream` fait de même sous forme de stream."
+        },
+        {
+          "term": "Lignes entre chunks",
+          "detail": "Garde la dernière ligne inachevée pour le chunk suivant et vide-la à la fin, ou utilise `readline`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’import produits lit un fichier UTF-8 de 200 Mo par chunks, et quelques noms de produits ressortent en « Cr�me », toujours à des endroits différents. Quelle en est la cause ?",
+        "bridge": "Une frontière de chunk peut couper un caractère UTF-8 multi-octets ; décoder chaque chunk seul le casse, donc le décodeur doit garder un état."
+      },
+      {
+        "question": "Un collègue limite les descriptions produits à 2 000 octets avec `description.length <= 2000`. Pourquoi est-ce faux pour « Crème brûlée » ?",
+        "bridge": "`.length` compte des unités de code UTF-16, alors qu’UTF-8 utilise deux à quatre octets pour les caractères non ASCII ; `Buffer.byteLength` compte les octets."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux décodent en UTF-8 un fichier fournisseur streamé. Lequel des deux garde « Crème brûlée » intact quand une frontière de chunk coupe le « è » ?",
+        "why": "Avec `{ stream: true }`, le décodeur garde le premier octet d’un caractère coupé et le joint au chunk suivant ; le `decode()` final vide ce qui reste. Sans cette option, chaque chunk est décodé seul : avec le fichier coupé après le premier octet du « è », `worse` a renvoyé « Cr��me brûlée », deux caractères de remplacement."
+      }
+    ]
+  },
+  "node-web-streams": {
+    "topic": "Web Streams dans Node",
+    "question": "Dans Node, pourquoi le `response.body` d’un `fetch` n’a-t-il pas de `.pipe()`, et comment enregistrez-vous un gros téléchargement sur disque ?",
+    "answer": "Node a deux API de streams. Les streams Node, de `node:stream`, sont ceux qu’utilisent `fs`, `http`, `zlib` et les drivers de base de données. Les Web Streams, `ReadableStream`, `WritableStream` et `TransformStream`, sont le standard WHATWG partagé avec les navigateurs, Deno, Bun et les runtimes edge, et `fetch` les utilise : `response.body` est donc un `ReadableStream`. Je convertis à la frontière : après avoir vérifié `response.ok`, `Readable.fromWeb(response.body)` donne un Readable Node que je passe à `pipeline` avec `createWriteStream`, avec un seul signal pour la requête et l’écriture. Dans l’autre sens, `Readable.toWeb` transforme un stream Node en `ReadableStream`.",
+    "keyPoints": [
+      "Deux API : streams Node et Web Streams (WHATWG)",
+      "Les bodies de `fetch` sont des `ReadableStream`, pas des Readables Node",
+      "Convertir avec `Readable.fromWeb` et `Readable.toWeb`",
+      "Vérifier `response.ok` avant de streamer le body où que ce soit"
+    ],
+    "explanation": "Les frameworks basés sur Fetch et les runtimes edge ont rendu les Web Streams courants dans le code Node, donc les recruteurs vérifient que tu sais quelle API tu manipules et comment passer la frontière. Un senior vérifie aussi le statut d’abord et fait passer un seul signal dans toute la chaîne.",
+    "example": "Deux fournisseurs publient leur catalogue à une URL, et un job nocturne le télécharge avec `fetch`. La première version a enregistré comme catalogue la page d’erreur HTML d’un fournisseur, parce qu’elle streamait le body sans vérifier le statut. Le job corrigé vérifie `response.ok`, puis lance `pipeline(Readable.fromWeb(response.body), createWriteStream(path), { signal })`, et le même signal annule à la fois le téléchargement et l’écriture.",
+    "mistakes": [
+      "Appeler `.pipe()` ou d’autres méthodes de stream Node sur le body d’un `fetch`, qui est un `ReadableStream` Web",
+      "Streamer le body avant de vérifier `response.ok` : une page d’erreur est enregistrée comme donnée",
+      "Renvoyer des chunks de chaînes comme body de `Response` : il doit porter des octets, donc ajoute un `TextEncoderStream`"
+    ],
+    "followUps": [
+      {
+        "question": "Comment streamez-vous un CSV depuis un route handler Hono ou Next.js ?",
+        "answer": "Je transforme un générateur async en stream avec `ReadableStream.from`, je le fais passer dans un `TextEncoderStream` pour que les chunks soient des octets, et je renvoie `new Response(body, { headers })`. Le stream est paresseux, et annuler le body exécute le `finally` du générateur."
+      },
+      {
+        "question": "Quand choisissez-vous les streams Node plutôt que les Web Streams ?",
+        "answer": "Les streams Node quand je travaille avec `fs`, `node:http`, Express, Fastify, `zlib` ou un driver de base de données, avec `pipeline` pour les erreurs et le nettoyage. Les Web Streams pour les bodies de `fetch`, les frameworks de style Fetch, et le code qui doit aussi tourner sur des runtimes edge ou dans le navigateur."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans Node, le `response.body` d’un `fetch` est un `Readable` Node.",
+        "why": "C’est un `ReadableStream` Web ; convertis-le avec `Readable.fromWeb` pour utiliser les outils de stream Node.",
+        "twin": {
+          "statement": "Dans Node, le `response.body` d’un `fetch` est un `ReadableStream` Web.",
+          "why": "Il suit le standard WHATWG ; convertis-le avec `Readable.fromWeb` pour utiliser les outils de stream Node."
+        }
+      },
+      {
+        "statement": "`Readable.fromWeb(response.body)` renvoie un stream qu’on peut passer à `pipeline`.",
+        "why": "Il renvoie un Readable Node dont les chunks sont des `Buffer`, que `pipeline` gère comme n’importe quel stream Node.",
+        "twin": {
+          "statement": "`Readable.fromWeb(response.body)` renvoie un Web stream qu’il faut encore convertir avant que `pipeline` puisse l’utiliser.",
+          "why": "Il renvoie un Readable Node avec des chunks `Buffer`, que `pipeline` accepte directement."
+        }
+      },
+      {
+        "statement": "Un body de `Response` composé de chunks de chaînes peut être lu comme du texte sans encodage.",
+        "why": "Un body doit porter des chunks `Uint8Array` ; lire des chunks de chaînes échoue avec une `TypeError`.",
+        "twin": {
+          "statement": "Lire avec `.text()` un body de `Response` composé de chunks de chaînes échoue avec une `TypeError`.",
+          "why": "Un body doit porter des chunks `Uint8Array`, donc les chunks de chaînes sont rejetés."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Node a deux API de streams : ses propres streams, utilisés par `fs`, `http` et les drivers, et les Web Streams WHATWG partagés avec les navigateurs et les runtimes edge. `fetch` utilise les Web Streams, donc on convertit à la frontière.",
+      "points": [
+        "Node a deux API de streams. Les streams Node (`node:stream`) sont utilisés par `fs`, `http`, `zlib` et les drivers de base de données. Les Web Streams (`ReadableStream` et compagnie) sont le standard WHATWG, partagé avec les navigateurs et les runtimes edge.",
+        "`fetch` et `Response` utilisent les Web Streams : `response.body` est un `ReadableStream`, sans méthode `.pipe()`.",
+        "`Readable.fromWeb(webStream)` renvoie un Readable Node ; `Readable.toWeb(nodeReadable)` renvoie un `ReadableStream`. Convertis à la frontière et reste dans une seule API à l’intérieur.",
+        "Vérifie `response.ok` avant de streamer un body où que ce soit : une page d’erreur est aussi un stream.",
+        "Un body de `Response` porte des octets. Transforme un générateur async en stream avec `ReadableStream.from`, et les chunks de chaînes en octets avec `TextEncoderStream`."
+      ],
+      "takeaways": [
+        {
+          "term": "`response.body`",
+          "detail": "Un `ReadableStream`, sans méthode `.pipe()`."
+        },
+        {
+          "term": "`Readable.fromWeb()`",
+          "detail": "Transforme un `ReadableStream` en Readable Node, par exemple pour l’envoyer par `pipeline` dans `createWriteStream`."
+        },
+        {
+          "term": "`Readable.toWeb()`",
+          "detail": "Transforme un Readable Node en `ReadableStream`."
+        },
+        {
+          "term": "`response.ok`",
+          "detail": "À vérifier avant de streamer un body où que ce soit : une page d’erreur est aussi un stream."
+        },
+        {
+          "term": "`ReadableStream.from`",
+          "detail": "Transforme un générateur async en stream ; `TextEncoderStream` transforme les chunks de chaînes en octets, comme l’exige une `Response`."
+        },
+        {
+          "term": "Une seule API à l’intérieur",
+          "detail": "Convertis une fois là où les deux API se rencontrent, et reste dans une seule API dans ton code."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un job télécharge avec `fetch` le CSV quotidien de 300 Mo du transporteur et plante sur `response.body.pipe is not a function`. Pourquoi, et comment enregistrez-vous le fichier sur disque ?",
+        "bridge": "Les bodies de `fetch` sont des `ReadableStream` Web, pas des streams Node : vérifie `response.ok`, convertis avec `Readable.fromWeb`, puis utilise `pipeline`."
+      },
+      {
+        "question": "Quelle est la différence entre les streams Node et les Web Streams, et quand rencontrez-vous chacun dans un service Node ?",
+        "bridge": "Deux API de streams coexistent : `fs`, `http` et les drivers utilisent les streams Node, `fetch` et les runtimes edge les Web Streams WHATWG, convertis à la frontière."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux enregistrent sur disque le catalogue d’un fournisseur depuis une URL. Lequel des deux n’enregistre jamais une page d’erreur comme catalogue ?",
+        "why": "`fetch` ne rejette pas sur un 4xx ou un 5xx, et une page d’erreur est aussi un stream. `better` vérifie d’abord `response.ok` et fait échouer le job bruyamment. `worse` streame ce qui revient : face à un serveur qui répondait 503, il a enregistré `<html>Service Unavailable</html>` comme catalogue et le job a signalé un succès."
+      }
+    ]
+  }
+}

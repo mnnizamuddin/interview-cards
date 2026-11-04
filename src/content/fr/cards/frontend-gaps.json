@@ -1,0 +1,1607 @@
+{
+  "js-collections": {
+    "topic": "Map, Set et regroupement",
+    "question": "Quand utilisez-vous une `Map` ou un `Set` plutôt qu’un objet simple ou un tableau, et comment regroupez-vous des données en JavaScript moderne ?",
+    "answer": "Un objet simple convient à un enregistrement aux champs connus, mais comme dictionnaire construit à partir de données, il hérite de clés comme `constructor` et transforme chaque clé en chaîne. Une `Map` n’a pas de clés héritées, accepte n’importe quelle valeur comme clé, garde l’ordre d’insertion et donne sa `size`. Un `Set` contient des valeurs uniques et répond à `has` sans parcours, et depuis ES2025 il a `union`, `intersection` et `difference`. Pour regrouper, j’utilise `Object.groupBy`, qui renvoie un objet sans prototype, ou `Map.groupBy` quand les clés de groupe sont des objets. Une `WeakMap` sert aux données liées à la durée de vie d’un objet.",
+    "keyPoints": [
+      "Les objets héritent de clés comme `constructor` et convertissent chaque clé en chaîne",
+      "`Map` : tout type de clé, ordre d’insertion, `size`, pas de clés héritées",
+      "`Set` pour l’unicité et un `has` rapide ; opérations ensemblistes ES2025",
+      "`Object.groupBy` et `Map.groupBy` remplacent un `reduce` écrit à la main"
+    ],
+    "explanation": "Les recruteurs la posent pour voir si tu choisis une structure de données exprès au lieu de prendre `{}` par habitude. Une réponse senior nomme le bug concret que cause un objet simple, connaît les ajouts d’ES2024 et ES2025, et vérifie que les navigateurs cibles les supportent avant de les utiliser côté client.",
+    "example": "La boutique comptait les termes de recherche populaires dans un objet simple, et un client qui cherchait « constructor » recevait la suggestion `function Object() { [native code] }1`. Une `Map` a corrigé le problème, et « mes commandes » a remplacé un `reduce` de 15 lignes par `Object.groupBy(orders, (order) => order.status)`. Les articles du panier en rupture de stock sont devenus `cartIds.intersection(outOfStockIds)`, avec un polyfill, car les cibles par défaut de Next.js incluent Safari 16.4.",
+    "mistakes": [
+      "Utiliser un objet simple comme dictionnaire de saisies utilisateur, si bien que des clés comme `constructor` ou `__proto__` se comportent mal ; utilise une `Map`.",
+      "Passer un tableau à `Set.prototype.intersection` : l’argument doit ressembler à un Set, donc ça lève une TypeError.",
+      "Appeler `hasOwnProperty` sur le résultat de `Object.groupBy` : il n’a pas de prototype, utilise `Object.hasOwn`."
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi ne pas utiliser `Object.create(null)` comme dictionnaire ?",
+        "answer": "Ça supprime les clés héritées, donc ça corrige le bug de `constructor`, mais les clés restent des chaînes, il n’y a pas de `size`, et compter passe par `Object.keys`. Une `Map` accepte aussi des objets ou des nombres comme clés et est faite pour des ajouts et suppressions fréquents : je garde les objets sans prototype pour les tables de correspondance statiques."
+      },
+      {
+        "question": "Quelle est la différence entre `Object.groupBy` et `Map.groupBy` ?",
+        "answer": "`Object.groupBy` renvoie un objet sans prototype aux clés de type chaîne, idéal pour regrouper des commandes par statut. `Map.groupBy` renvoie une `Map`, donc les clés peuvent être des objets, comme l’objet client lui-même, comparés par référence. Les deux prennent un itérable et un callback qui renvoie la clé de groupe."
+      },
+      {
+        "question": "Quand une `WeakMap` est-elle le bon choix ?",
+        "answer": "Quand des données appartiennent à la durée de vie d’un objet, comme des métadonnées sur un nœud du DOM : l’entrée disparaît dès que l’objet clé n’est plus accessible ailleurs. Les clés doivent être des objets ou des symboles non enregistrés, et elle n’est pas itérable et n’a pas de `size`. Un cache indexé par des ids en chaîne ne peut pas en être une ; il lui faut une `Map` bornée."
+      },
+      {
+        "question": "Pouvez-vous utiliser les nouvelles méthodes de `Set` dans le code client de la boutique ?",
+        "answer": "Seulement après avoir vérifié les cibles. Next.js cible Safari 16.4 par défaut, les méthodes de `Set` demandent Safari 17, et Next.js n’injecte que quelques polyfills. La transpilation réécrit la syntaxe mais ne peut pas ajouter une méthode manquante : j’ajoute un polyfill ou je me rabats sur `filter` avec `has`."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`new Set([{}, {}]).size` vaut 2.",
+        "why": "Les objets sont comparés par référence, et les deux littéraux sont deux objets différents.",
+        "twin": {
+          "statement": "`new Set([{}, {}]).size` vaut 1, car les deux objets ont le même contenu.",
+          "why": "Les objets sont comparés par référence, et les deux littéraux sont deux objets différents, donc la taille vaut 2."
+        }
+      },
+      {
+        "statement": "L’objet renvoyé par `Object.groupBy` a une méthode `hasOwnProperty`.",
+        "why": "Il n’a pas de prototype, donc il n’hérite de rien ; utilise `Object.hasOwn(groups, key)`.",
+        "twin": {
+          "statement": "L’objet renvoyé par `Object.groupBy` n’a pas de méthode `hasOwnProperty`.",
+          "why": "Il n’a pas de prototype, donc il n’hérite de rien ; utilise `Object.hasOwn(groups, key)`."
+        }
+      },
+      {
+        "statement": "`cartIds.intersection([\"p2\"])` fonctionne avec un tableau en argument.",
+        "why": "L’argument doit ressembler à un Set, avec `size`, `has` et `keys` ; un tableau lève une TypeError.",
+        "twin": {
+          "statement": "`cartIds.intersection([\"p2\"])` lève une TypeError, car l’argument est un tableau.",
+          "why": "L’argument doit ressembler à un Set, avec `size`, `has` et `keys` ; un tableau n’a pas de `size`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un objet simple fait un mauvais dictionnaire construit à partir de données. `Map`, `Set`, les helpers de regroupement et `WeakMap` couvrent chacun un besoin que les objets gèrent mal : tout type de clé, unicité, regroupement, données liées à un objet.",
+      "points": [
+        "Un objet simple utilisé comme dictionnaire hérite de clés de `Object.prototype`, donc `counts[\"constructor\"]` est déjà une fonction, et chaque clé devient une chaîne : une clé objet devient « [object Object] ».",
+        "Une `Map` accepte n’importe quelle valeur comme clé, même `NaN` ou un objet, garde l’ordre d’insertion, n’a pas de clés héritées et donne sa `size`. Utilise-la pour les dictionnaires construits à partir de données : compteurs, correspondances, caches.",
+        "Un `Set` contient des valeurs uniques et répond à `has` sans parcours. ES2025 a ajouté `union`, `intersection`, `difference` et d’autres ; leur argument doit ressembler à un Set, donc un tableau lève une TypeError.",
+        "`Object.groupBy(items, fn)` (ES2024) regroupe dans un objet sans prototype : utilise `Object.hasOwn`, pas `hasOwnProperty`. `Map.groupBy` renvoie une `Map`, pour des clés de groupe qui sont des objets.",
+        "Une `WeakMap` tient ses clés objets de façon faible : l’entrée disparaît quand l’objet clé n’est plus accessible. Elle n’est pas itérable et n’a pas de `size`."
+      ],
+      "takeaways": [
+        {
+          "term": "Objet comme dictionnaire",
+          "detail": "Hérite de clés comme `constructor` et convertit chaque clé en chaîne : une clé objet devient « [object Object] »."
+        },
+        {
+          "term": "`Map`",
+          "detail": "N’importe quelle valeur comme clé, même `NaN` ou un objet ; ordre d’insertion, `size`, pas de clés héritées."
+        },
+        {
+          "term": "`Set`",
+          "detail": "Valeurs uniques et `has` sans parcours."
+        },
+        {
+          "term": "Méthodes de Set ES2025",
+          "detail": "`union`, `intersection`, `difference` ; l’argument doit ressembler à un Set, un tableau lève une TypeError."
+        },
+        {
+          "term": "`Object.groupBy` / `Map.groupBy`",
+          "detail": "ES2024. Le premier renvoie un objet sans prototype (utilise `Object.hasOwn`) ; le second une `Map`, pour des clés objets."
+        },
+        {
+          "term": "`WeakMap`",
+          "detail": "Clés objets tenues de façon faible : l’entrée part avec l’objet clé. Pas itérable, pas de `size`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La boutique compte les mots recherchés dans un objet simple, et le compteur de « constructor » sort comme une longue chaîne finissant par « 1 » au lieu d’un nombre. Que s’est-il passé, et qu’utiliseriez-vous à la place ?",
+        "bridge": "Un objet simple hérite de clés comme `constructor` via son prototype ; une `Map` n’a pas de clés héritées et accepte tout type de clé."
+      },
+      {
+        "question": "Regroupez les commandes du back-office par statut sans `reduce` écrit à la main. Quelles fonctions natives utilisez-vous, et quand une `Map` vaut-elle mieux qu’un objet simple ?",
+        "bridge": "`Object.groupBy` renvoie un objet sans prototype et `Map.groupBy` convient aux clés objets ; une `Map` donne aussi `size`, l’ordre et tout type de clé."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux comptent les termes de recherche tapés par les clients, pour l’autocomplétion. Lequel compte correctement chaque terme ?",
+        "why": "Une `Map` n’a pas de clés héritées, donc chaque terme part de zéro. L’objet simple hérite de `Object.prototype` : `counts[\"constructor\"]` est déjà une fonction, si bien qu’un client qui cherche « constructor » obtient le compteur `function Object() { [native code] }1` au lieu de 1."
+      }
+    ]
+  },
+  "js-error-cause": {
+    "topic": "Error cause et erreurs personnalisées",
+    "question": "Comment concevez-vous les erreurs en JavaScript pour ne jamais perdre la cause d’origine ? Parlez des classes d’erreur personnalisées, de `cause` et d’`AggregateError`.",
+    "answer": "Je lance toujours des objets `Error`, jamais des chaînes, parce que seul un `Error` enregistre une stack trace. Je sous-classe `Error` pour donner à une famille d’échecs un `name` que le code peut tester, comme `CheckoutError`. Quand j’attrape une erreur bas niveau et que je relance avec du contexte, je passe l’originale en `cause` : `new CheckoutError(message, { cause: error })`, pour que les logs montrent le contexte et la cause racine, et Node affiche la chaîne. Quand plusieurs choses échouent à la fois, comme chaque ligne invalide du panier, je lance une `AggregateError` avec la liste. Et je ne logue jamais avec `JSON.stringify(error)` : `message` et `stack` ne sont pas énumérables, donc ils disparaissent.",
+    "keyPoints": [
+      "Lancer des objets `Error` : une chaîne lancée n’a pas de stack trace",
+      "Les sous-classes donnent aux échecs un `name` testable par le code",
+      "Envelopper avec `{ cause }` pour garder l’erreur d’origine attachée",
+      "`AggregateError` signale plusieurs échecs à la fois",
+      "`JSON.stringify(error)` perd `message` et `stack`"
+    ],
+    "explanation": "Les questions sur la gestion des erreurs révèlent si tu as débogué des incidents en production. Une réponse senior garde la cause racine à travers chaque couche, laisse le logger sérialiser les erreurs, et connaît le cas cross-realm où `instanceof Error` échoue.",
+    "example": "Pendant des tests de charge, les échecs du checkout de la boutique ne loguaient que « Could not create the order », parfois `{\"name\":\"CheckoutError\"}`, jamais la raison. `submitOrder` attrapait l’erreur réseau et en lançait une nouvelle sans elle, et le logger utilisait `JSON.stringify`. Envelopper avec `{ cause: error }` et passer l’objet erreur au logger a montré tout de suite la cause racine : une `TypeError` réseau venant de `fetch`.",
+    "mistakes": [
+      "Lancer une chaîne ou un objet simple, qui ne porte aucune stack trace.",
+      "Relancer une nouvelle erreur sans `cause`, si bien que la cause racine disparaît des logs.",
+      "Loguer les erreurs avec `JSON.stringify`, qui ne garde que les propriétés propres énumérables ; passe l’objet erreur au logger."
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi `JSON.stringify(error)` affiche-t-il `{}` ou seulement le nom ?",
+        "answer": "Il ne garde que les propriétés propres énumérables. `message`, `stack` et `cause` ne sont pas énumérables, donc un `Error` simple donne `{}`. Une sous-classe qui déclare `name` comme champ de classe crée une propriété propre énumérable, c’est pour ça que le log montrait seulement `{\"name\":\"CheckoutError\"}`."
+      },
+      {
+        "question": "Quand `instanceof Error` ment-il, et qu’est-ce qui le remplace ?",
+        "answer": "Il vaut false pour une erreur créée dans un autre realm, comme une iframe ou un contexte `vm` de Node, parce que chaque realm a son propre `Error`. `Error.isError(value)`, standard dans ES2026, répond true dans ce cas. Node 24 l’a ; les navigateurs demandent Chrome 134, Firefox 138 ou Safari 18.4."
+      },
+      {
+        "question": "Où d’autre croisez-vous `AggregateError` ?",
+        "answer": "`Promise.any` rejette avec une AggregateError quand toutes les promesses échouent, avec chaque raison dans son tableau `errors`. J’en lance aussi moi-même pour une validation qui doit signaler tous les problèmes d’un coup, comme toutes les lignes invalides d’un panier avant le checkout."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une chaîne lancée te donne une stack trace dans le bloc `catch`.",
+        "why": "Seuls les objets `Error` enregistrent une stack ; une chaîne n’a pas de propriété `stack`, donc tu perds son origine.",
+        "twin": {
+          "statement": "Une chaîne lancée ne te donne aucune stack trace dans le bloc `catch`.",
+          "why": "Seuls les objets `Error` enregistrent une stack ; une chaîne n’a pas de propriété `stack`, donc tu perds son origine."
+        }
+      },
+      {
+        "statement": "`new CheckoutError(message, { cause: error })` garde l’erreur d’origine dans la propriété `cause`.",
+        "why": "L’option `cause` (ES2022) est stockée sur la nouvelle erreur, et Node l’affiche sur une ligne `[cause]`.",
+        "twin": {
+          "statement": "`new CheckoutError(message, { cause: error })` perd l’erreur d’origine sauf si tu la copies toi-même sur la nouvelle.",
+          "why": "L’option `cause` (ES2022) est stockée dans la propriété `cause` de la nouvelle erreur, et Node l’affiche sur une ligne `[cause]`."
+        }
+      },
+      {
+        "statement": "`instanceof Error` vaut true pour toute erreur, quelle que soit l’iframe qui l’a créée.",
+        "why": "Chaque realm a son propre constructeur `Error`, donc une erreur venant d’une iframe échoue au test ; `Error.isError` fonctionne entre realms.",
+        "twin": {
+          "statement": "`instanceof Error` peut valoir false pour une erreur créée dans une autre iframe.",
+          "why": "Chaque realm a son propre constructeur `Error`, donc le test échoue entre realms ; `Error.isError` fonctionne entre realms."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une bonne gestion des erreurs garde à la fois le contexte d’un échec et sa cause racine. Lancer de vrais objets `Error`, les nommer et les chaîner avec `cause` permet aux logs et aux dashboards de dire ce qui s’est vraiment passé.",
+      "points": [
+        "Lance des objets `Error`, jamais des chaînes : un `Error` enregistre une stack trace, la liste des appels qui y ont mené. Une chaîne lancée n’en a pas.",
+        "Sous-classe `Error`, comme avec `class CheckoutError extends Error`, pour donner à une famille d’échecs un `name` que le code et les dashboards peuvent tester.",
+        "Quand tu attrapes et relances avec du contexte, passe l’originale en `cause` (ES2022) : `new CheckoutError(msg, { cause: error })`. Node affiche la chaîne avec une ligne `[cause]`.",
+        "`AggregateError` porte plusieurs erreurs dans son tableau `errors`, pour une validation qui signale tous les problèmes ; `Promise.any` rejette avec une AggregateError quand toutes les promesses échouent.",
+        "`JSON.stringify(error)` ne garde que les propriétés propres énumérables, donc `message` et `stack` disparaissent. Laisse le logger ou l’outil de suivi d’erreurs sérialiser les erreurs."
+      ],
+      "takeaways": [
+        {
+          "term": "Lancer des objets `Error`",
+          "detail": "Un `Error` enregistre une stack trace ; une chaîne lancée n’en a pas."
+        },
+        {
+          "term": "`class CheckoutError extends Error`",
+          "detail": "Une sous-classe donne à une famille d’échecs un `name` que le code et les dashboards peuvent tester."
+        },
+        {
+          "term": "`{ cause }`",
+          "detail": "ES2022 : `new CheckoutError(msg, { cause: error })` garde l’originale ; Node l’affiche sur une ligne `[cause]`."
+        },
+        {
+          "term": "`AggregateError`",
+          "detail": "Porte plusieurs erreurs dans `errors` ; `Promise.any` rejette avec une AggregateError quand toutes les promesses échouent."
+        },
+        {
+          "term": "`JSON.stringify(error)`",
+          "detail": "Ne garde que les propriétés propres énumérables : `message` et `stack` disparaissent. Laisse le logger sérialiser les erreurs."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un log de l’API Orders affiche seulement « Payment failed », sans trace du timeout du prestataire derrière, et une autre ligne affiche `{}` pour une erreur. Comment concevez-vous les erreurs pour que ça cesse ?",
+        "bridge": "Envelopper avec `{ cause }` garde l’erreur d’origine attachée, et `JSON.stringify` perd le `message` et la `stack` d’une erreur, qui ne sont pas énumérables."
+      },
+      {
+        "question": "Un collègue écrit `throw 'invalid cart'` dans le code du panier parce que c’est plus court. Que perdez-vous, et comment signaleriez-vous toutes les lignes invalides du panier d’un coup ?",
+        "bridge": "Une chaîne lancée n’a pas de stack trace ; une sous-classe d’`Error` donne un `name` testable par le code, et `AggregateError` porte plusieurs échecs."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux enveloppent un échec réseau du checkout dans une `CheckoutError`. Lequel garde la cause racine dans les logs ?",
+        "why": "Avec `{ cause: error }`, la `TypeError` d’origine venant de `fetch` reste sur la nouvelle erreur, et Node l’affiche sur une ligne `[cause]` sous la stack. Sans elle, le catch jette l’originale : les logs disent « Could not create the order » sans rien sur la raison, donc tous les échecs réseau se ressemblent."
+      }
+    ]
+  },
+  "perf-bfcache": {
+    "topic": "bfcache et speculation rules",
+    "question": "Comment rendre Précédent, Suivant et la page suivante instantanés, et qu’est-ce qui peut mal tourner ?",
+    "answer": "Pour Précédent et Suivant, le back/forward cache du navigateur, le bfcache, garde toute la page en mémoire, DOM et état JavaScript, et la restaure au lieu de la recharger. Le piège : la page restaurée est l’ancienne page, le code de chargement ne se relance pas, donc je rafraîchis les données périmées, comme le badge du panier, dans un listener `pageshow` quand `event.persisted` vaut true. Je garde les pages éligibles en n’utilisant jamais `unload` et en fermant les connexions IndexedDB. Pour la page suivante, les speculation rules demandent à Chromium de faire un prefetch ou un prerender des liens probables, par exemple au survol. Le prerender exécute le code de la page, donc j’exclus les URL à effets de bord.",
+    "keyPoints": [
+      "Le bfcache restaure toute la page, état JavaScript compris",
+      "Rafraîchir les données périmées dans `pageshow` quand `event.persisted` vaut true",
+      "Éviter `unload` ; `notRestoredReasons` explique un échec",
+      "Les speculation rules font un prefetch ou un prerender des pages suivantes probables",
+      "Le prerender exécute du code : pas d’URL à effets de bord, analytics différés"
+    ],
+    "explanation": "Les navigations instantanées sont des gains faciles pour l’expérience utilisateur, donc les recruteurs vérifient que tu sais qu’elles existent et ce qu’elles cassent. Un senior nomme l’état périmé à la restauration et le risque d’effets de bord du prerender, pas seulement la fonctionnalité.",
+    "example": "Sur la boutique, une cliente retirait une chaussure du panier, appuyait sur Précédent, et la page produit affichait encore « 1 article » dans le badge, parce que le bfcache restaurait l’ancienne page. Un handler `pageshow` recharge maintenant le panier quand `event.persisted` vaut true. Les liens produits de la grille ont reçu des speculation rules avec `\"eagerness\": \"moderate\"`, en excluant les liens marqués `data-no-prerender`, et les analytics attendent `prerenderingchange`.",
+    "mistakes": [
+      "Rafraîchir l’état dans un handler `load`, qui ne s’exécute pas quand le bfcache restaure la page ; utilise `pageshow`.",
+      "Envoyer les analytics depuis un listener `unload`, qui ne se déclenche plus dans Chrome et exclut les pages du bfcache dans Firefox ; utilise `pagehide`.",
+      "Faire un prerender d’URL à effets de bord, comme les liens de déconnexion ou d’ajout au panier, qui s’exécutent alors avant le clic du client."
+    ],
+    "followUps": [
+      {
+        "question": "Comment savez-vous pourquoi une page n’a pas été restaurée depuis le bfcache ?",
+        "answer": "En production, l’entrée de navigation expose `notRestoredReasons` dans Chrome, que j’envoie avec le RUM. En local, les Chrome DevTools ont un panneau Back/forward cache sous Application qui quitte la page, revient et liste les blocages."
+      },
+      {
+        "question": "Quelle est la différence entre prefetch et prerender dans les speculation rules ?",
+        "answer": "Le prefetch ne télécharge que le document HTML, donc le clic évite l’attente réseau. Le prerender charge et rend toute la page dans un onglet caché, en exécutant son JavaScript : l’activation est quasi instantanée, mais ça coûte plus de mémoire et de bande passante, et ça exécute du code en avance."
+      },
+      {
+        "question": "Comment gardez-vous des analytics justes sur une page en prerender ?",
+        "answer": "Je vérifie `document.prerendering` et j’attends l’événement `prerenderingchange` avant d’envoyer la page vue. Sinon, des pages que le client n’a jamais ouvertes comptent comme des visites."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Quand une page est restaurée depuis le bfcache, son événement `load` se déclenche à nouveau.",
+        "why": "La page n’est pas rechargée ; `pageshow` se déclenche avec `event.persisted` à true.",
+        "twin": {
+          "statement": "Quand une page est restaurée depuis le bfcache, son événement `load` ne se déclenche pas à nouveau.",
+          "why": "La page n’est pas rechargée ; `pageshow` se déclenche avec `event.persisted` à true."
+        }
+      },
+      {
+        "statement": "Une page en prerender via les speculation rules exécute son JavaScript avant le clic du client.",
+        "why": "Le prerender charge et rend toute la page dans un onglet caché, scripts compris.",
+        "twin": {
+          "statement": "Une page en prerender via les speculation rules n’exécute aucun JavaScript avant le clic du client.",
+          "why": "Le prerender charge et rend toute la page dans un onglet caché, scripts compris."
+        }
+      },
+      {
+        "statement": "Un listener `unload` est un endroit fiable pour envoyer les analytics.",
+        "why": "Chrome ne le déclenche plus et il peut exclure les pages du bfcache ; utilise `pagehide` ou `visibilitychange`.",
+        "twin": {
+          "statement": "Un listener `unload` est un endroit peu fiable pour envoyer les analytics.",
+          "why": "Il peut ne pas se déclencher et peut exclure les pages du bfcache ; utilise `pagehide` ou `visibilitychange`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le back/forward cache restaure toute une page depuis la mémoire sur Précédent et Suivant, et les speculation rules préparent la page suivante probable. Les deux rendent les navigations instantanées, mais chacun change le moment où ton code s’exécute.",
+      "points": [
+        "Le back/forward cache (bfcache) garde une page en mémoire, DOM et état JavaScript compris, quand tu la quittes, et la restaure sur Précédent ou Suivant au lieu de la recharger.",
+        "Une page restaurée est l’ancienne page, et son code de chargement ne se relance pas. `pageshow` se déclenche avec `event.persisted` à true : rafraîchis-y les données périmées, comme un badge de panier.",
+        "Certaines choses excluent une page : les listeners `unload`, les connexions IndexedDB ouvertes, `Cache-Control: no-store` sur le HTML. `notRestoredReasons` sur l’entrée de navigation dit pourquoi.",
+        "Les speculation rules, un script JSON supporté par Chromium, demandent au navigateur un prefetch (télécharger le HTML) ou un prerender (charger, exécuter et rendre dans un onglet caché) des pages suivantes probables.",
+        "Le prerender exécute le code de la page avant le clic : exclus les URL à effets de bord, et diffère les analytics avec `document.prerendering` et l’événement `prerenderingchange`."
+      ],
+      "takeaways": [
+        {
+          "term": "bfcache",
+          "detail": "Garde la page en mémoire, DOM et état JavaScript compris, et la restaure au lieu de la recharger."
+        },
+        {
+          "term": "`pageshow` + `event.persisted`",
+          "detail": "Le code de chargement ne se relance pas à la restauration : rafraîchis ici les données périmées, comme un badge de panier."
+        },
+        {
+          "term": "Blocages",
+          "detail": "Listeners `unload`, connexions IndexedDB ouvertes, `Cache-Control: no-store` sur le HTML."
+        },
+        {
+          "term": "`notRestoredReasons`",
+          "detail": "Sur l’entrée de navigation : dit pourquoi une page n’a pas été restaurée."
+        },
+        {
+          "term": "Speculation rules",
+          "detail": "Un script JSON, supporté par Chromium, pour faire un prefetch (HTML seul) ou un prerender (exécuté et rendu en caché) des pages suivantes."
+        },
+        {
+          "term": "`document.prerendering`",
+          "detail": "Le prerender exécute du code avant le clic : différer les analytics jusqu’à `prerenderingchange`, exclure les URL à effets de bord."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Une cliente ajoute un produit au panier, ouvre le panier, puis appuie sur Précédent : la page produit affiche encore le badge du panier à 0 jusqu’au rechargement. Que se passe-t-il, et comment corrigez-vous ?",
+        "bridge": "Le bfcache a restauré l’ancienne page avec son état JavaScript, donc le code de chargement ne s’est pas exécuté ; rafraîchir le badge dans `pageshow` quand `event.persisted` vaut true."
+      },
+      {
+        "question": "Comment la boutique peut-elle afficher la page produit suivante presque instantanément quand un client survole son lien, et à quoi devez-vous faire attention ?",
+        "bridge": "Les speculation rules demandent à Chromium un prefetch ou un prerender des pages suivantes probables ; le prerender exécute le code de la page, donc exclure les URL à effets de bord."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux rafraîchissent le badge du panier quand un client revient sur une page produit avec Précédent. Lequel fonctionne quand le bfcache restaure la page ?",
+        "why": "Une page restaurée depuis le bfcache n’est pas rechargée : `load` ne se déclenche pas, mais `pageshow` si, avec `event.persisted` à true. Avec le listener `load`, une cliente qui a retiré une chaussure du panier et appuyé sur Précédent voit encore « 1 article » dans le badge."
+      }
+    ]
+  },
+  "perf-rum": {
+    "topic": "Real user monitoring avec web-vitals",
+    "question": "Comment mesureriez-vous les Core Web Vitals sur vos propres utilisateurs, et en quoi est-ce différent de Lighthouse ou de CrUX ?",
+    "answer": "Lighthouse, ce sont des données de labo : un chargement sur une machine, utile pour expliquer et reproduire. CrUX, ce sont des données terrain de vrais utilisateurs Chrome, mais sur 28 jours et sans dire quel élément ou quelle release est en cause. J’ajoute donc du real user monitoring avec la bibliothèque `web-vitals` de Google : `onLCP`, `onINP` et `onCLS` remontent chaque métrique depuis le navigateur du visiteur. J’importe le build d’attribution, qui nomme le coupable, comme l’élément LCP ou l’élément touché. J’envoie les rapports avec `sendBeacon` quand la page devient masquée, parce que CLS et INP ne sont définitifs qu’à ce moment, je les tague avec le template de route et la release, et je lis le p75 par type de page et d’appareil.",
+    "keyPoints": [
+      "Le labo explique et reproduit ; le terrain, c’est ce que vivent les utilisateurs",
+      "CrUX couvre 28 jours d’utilisateurs Chrome, sans attribution",
+      "`web-vitals/attribution` nomme l’élément en cause",
+      "Envoyer avec `sendBeacon` quand la page devient masquée",
+      "Taguer par template de route et release ; lire le p75"
+    ],
+    "explanation": "La question sépare ceux qui ont lancé Lighthouse une fois de ceux qui ont porté une métrique de performance en production. Les recruteurs attendent terrain contre labo, le 75e percentile, l’attribution, et les détails pratiques : quand envoyer, comment regrouper, et les trous, comme l’INP absent quand personne n’interagit.",
+    "example": "CrUX disait que les pages produits de la boutique étaient mauvaises, mais pas pourquoi. L’équipe a ajouté un reporter avec `web-vitals/attribution` qui envoie LCP, INP et CLS avec la route `/products/[slug]` et le sélecteur CSS en cause. En une journée, le p75 par type de page a montré que l’INP était mauvais sur les pages produits et que les taps lents étaient sur `button.size-chip`, qui est devenu le ticket suivant.",
+    "mistakes": [
+      "Prendre un bon score Lighthouse pour la preuve que les utilisateurs vont bien : c’est un chargement de labo sur une machine.",
+      "Envoyer les métriques sur `load` : CLS et INP ne sont définitifs que quand la page est masquée.",
+      "Regrouper par URL complète au lieu du template de route, ce qui éparpille les données sur des milliers d’URL produits."
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi envoyer sur `visibilitychange` plutôt que sur `unload` ?",
+        "answer": "CLS et INP continuent de changer jusqu’à ce que l’utilisateur parte, et `hidden` est le dernier moment où la page peut agir de façon fiable, changements d’app sur mobile compris. `sendBeacon` met la requête en file pour qu’elle survive à la fermeture de la page. `unload` ne se déclenche plus dans Chrome et nuit au bfcache."
+      },
+      {
+        "question": "Comment mesurez-vous une single-page app dont les routes changent côté client ?",
+        "answer": "Les changements de route côté client sont des soft navigations. Chrome les mesure par défaut depuis Chrome 151, et web-vitals 6 remonte les métriques par soft navigation avec `{ reportSoftNavs: true }`, avec `navigationType` à « soft-navigation » et la bonne URL."
+      },
+      {
+        "question": "Quels trous faut-il attendre dans les données RUM ?",
+        "answer": "L’INP n’est pas remonté quand le visiteur n’interagit jamais, et le README de web-vitals indique CLS comme réservé à Chromium, donc les visites Safari n’ont pas de CLS. Je lis le p75 par type de page et d’appareil, jamais une moyenne globale, et je compare les releases."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le statut Core Web Vitals de la Search Console vient de données terrain, pas de Lighthouse.",
+        "why": "Il utilise CrUX, de vrais utilisateurs Chrome sur 28 jours ; Lighthouse est un outil de labo.",
+        "twin": {
+          "statement": "Le statut Core Web Vitals de la Search Console vient d’exécutions de Lighthouse.",
+          "why": "Il utilise CrUX, des données terrain de vrais utilisateurs Chrome sur 28 jours ; Lighthouse est un outil de labo."
+        }
+      },
+      {
+        "statement": "La bibliothèque `web-vitals` remonte un INP pour chaque page vue.",
+        "why": "L’INP demande une interaction ; une visite sans tap, clic ni touche n’en remonte aucun.",
+        "twin": {
+          "statement": "La bibliothèque `web-vitals` ne remonte aucun INP pour une visite sans interaction.",
+          "why": "L’INP demande une interaction ; une visite sans tap, clic ni touche n’en remonte aucun."
+        }
+      },
+      {
+        "statement": "Lighthouse mesure directement l’INP pendant son chargement de labo.",
+        "why": "Un chargement de labo n’a pas de vraies interactions utilisateur, donc Lighthouse utilise le Total Blocking Time comme approximation.",
+        "twin": {
+          "statement": "Pendant son chargement de labo, Lighthouse utilise le Total Blocking Time au lieu de mesurer l’INP.",
+          "why": "Un chargement de labo n’a pas de vraies interactions utilisateur, donc le Total Blocking Time sert d’approximation."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le real user monitoring mesure les Core Web Vitals dans les navigateurs de tes visiteurs à chaque visite, avec l’attribution que les outils de labo et CrUX ne donnent pas : quel élément, quelle page, quelle release.",
+      "points": [
+        "Les données de labo viennent d’un outil comme Lighthouse qui charge la page une fois sur une machine : elles expliquent et reproduisent. Les données terrain viennent de vraies visites : c’est ce que vivent les utilisateurs.",
+        "CrUX, les données terrain publiques de Chrome, couvre 28 jours et ne dit pas quel élément ou quelle release est en cause. Le real user monitoring (RUM) collecte toi-même les métriques à chaque visite.",
+        "La bibliothèque `web-vitals` de Google exporte `onLCP`, `onINP` et `onCLS`. Le build `web-vitals/attribution` ajoute le coupable : l’élément LCP, l’élément touché, l’élément qui s’est le plus décalé.",
+        "CLS et INP ne sont définitifs que quand l’utilisateur part : regroupe les rapports et envoie-les avec `navigator.sendBeacon` quand `visibilityState` passe à `hidden`.",
+        "Tague chaque rapport avec le template de route et la release, puis lis le 75e percentile par type de page et d’appareil. L’INP manque quand personne n’interagit."
+      ],
+      "takeaways": [
+        {
+          "term": "Données de labo",
+          "detail": "Un chargement sur une machine, comme Lighthouse : explique et reproduit."
+        },
+        {
+          "term": "Données terrain",
+          "detail": "De vraies visites : ce que vivent réellement les utilisateurs."
+        },
+        {
+          "term": "CrUX",
+          "detail": "Données terrain publiques de Chrome sur 28 jours, sans élément ni release en cause."
+        },
+        {
+          "term": "`web-vitals/attribution`",
+          "detail": "`onLCP`, `onINP`, `onCLS` plus le coupable : élément LCP, élément touché, plus gros décalage."
+        },
+        {
+          "term": "`navigator.sendBeacon`",
+          "detail": "Envoyer les rapports regroupés quand `visibilityState` passe à `hidden` : CLS et INP ne sont définitifs qu’alors."
+        },
+        {
+          "term": "Lire les données",
+          "detail": "Taguer par template de route et release ; lire le p75 par type de page et d’appareil."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Lighthouse donne 98 à la page produit, pourtant la Search Console signale son LCP comme mauvais. Quel chiffre reflète les clients, et comment trouveriez-vous l’élément et la release en cause ?",
+        "bridge": "Lighthouse, c’est un chargement de labo et la Search Console utilise les données terrain de CrUX ; ton propre RUM avec `web-vitals/attribution`, tagué par route et release, nomme le coupable."
+      },
+      {
+        "question": "Votre dashboard RUM n’a pas d’INP pour une grande part des visites de pages produits. Un collègue soupçonne un script de tracking cassé. Que lui expliquez-vous ?",
+        "bridge": "L’INP demande une interaction, donc une visite sans tap, clic ni touche n’en remonte aucun ; les rapports sont envoyés quand la page devient masquée."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux envoient les rapports web-vitals de la boutique à `/api/vitals`. Lequel envoie les valeurs définitives de CLS et d’INP ?",
+        "why": "CLS et INP continuent de changer jusqu’au départ du visiteur, et `hidden` est le dernier moment où la page peut envoyer de façon fiable, changements d’app sur mobile compris. Sur `load`, le visiteur n’a pas encore interagi et la bibliothèque n’a pas remonté de valeurs définitives : le beacon ne porte rien d’utile, et les décalages et taps lents suivants ne sont jamais envoyés."
+      }
+    ]
+  },
+  "perf-inp-diagnosis": {
+    "topic": "Diagnostiquer un INP lent",
+    "question": "L’INP est mauvais sur le terrain, mais chaque tap paraît instantané sur votre portable. Comment trouvez-vous et corrigez-vous la cause ?",
+    "answer": "Mon portable n’est pas le téléphone de l’utilisateur, donc je pars de l’attribution terrain. La latence d’une interaction a trois phases : l’input delay, pendant que le thread principal est occupé ailleurs ; la durée de traitement, mes handlers ; et le délai de présentation, le rendu de la mise à jour. Le build d’attribution de `web-vitals` remonte, pour la pire interaction, les trois phases, l’élément touché, l’état de chargement à ce moment et le script le plus long exécuté, qui vient des Long Animation Frames. Je regroupe par élément et par phase, je reproduis le pire cas dans les DevTools avec du throttling CPU, je corrige la plus grosse phase, et je vérifie le p75 du RUM après la release.",
+    "keyPoints": [
+      "Partir de l’attribution terrain, pas d’un portable rapide",
+      "Trois phases : input delay, traitement, délai de présentation",
+      "Les Long Animation Frames nomment le script derrière le délai",
+      "Reproduire avec throttling CPU, corriger la plus grosse phase, revérifier le p75"
+    ],
+    "explanation": "C’est une question de débogage déguisée en question de performance : les recruteurs veulent une méthode, pas une liste d’astuces. Un senior découpe la métrique en phases, parce que chaque phase mène à une correction différente, et utilise les données terrain pour choisir le cas à reproduire.",
+    "example": "L’INP au p75 était de 380 ms sur les pages produits mobiles. L’attribution regroupée par élément et par phase a montré deux motifs : des taps sur `button.size-chip` avec environ 300 ms de traitement, et des taps pendant le chargement avec plus de 300 ms d’input delay, où le script le plus long était le tag manager. Le premier a eu un handler qui met à jour le chip et cède la main avant le reste ; le second est parti dans le nettoyage des scripts tiers.",
+    "mistakes": [
+      "Profiler sur un portable rapide sans throttling CPU et conclure qu’il n’y a pas de problème.",
+      "Optimiser le handler de clic alors que le temps passe dans l’input delay causé par un autre script.",
+      "Regarder une moyenne au lieu du p75 par type de page et d’appareil."
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qui corrige chaque phase ?",
+        "answer": "Input delay : moins de JavaScript pendant le chargement et moins de tâches tierces, puisque quelque chose d’autre bloque le thread. Traitement : afficher d’abord le changement visible et céder la main avec `scheduler.yield()` avant le reste. Délai de présentation : une mise à jour du DOM plus petite et moins de travail de layout."
+      },
+      {
+        "question": "Que sont les Long Animation Frames ?",
+        "answer": "Une API du navigateur qui enregistre chaque frame de plus de 50 ms et liste les scripts exécutés dedans, avec leur URL source et leur nom de fonction. Contrairement à l’ancienne Long Tasks API, elle dit à qui appartient le code qui a ralenti la frame."
+      },
+      {
+        "question": "Pourquoi enregistrer l’état de chargement au moment de l’interaction ?",
+        "answer": "Les taps pendant le chargement sont en concurrence avec le parsing, l’hydratation et les scripts tiers, donc l’input delay est souvent le problème. Les taps après le chargement avec un long traitement désignent mon propre handler. L’état de chargement me dit quel cas reproduire."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "L’INP mesure seulement le délai avant le démarrage du premier handler d’événement.",
+        "why": "C’était le FID. L’INP couvre l’input delay, le traitement et la présentation, jusqu’au prochain affichage.",
+        "twin": {
+          "statement": "L’INP mesure de l’entrée jusqu’au prochain affichage, pas seulement le délai avant le démarrage du premier handler d’événement.",
+          "why": "Mesurer seulement le délai avant le handler, c’était le FID ; l’INP couvre l’input delay, le traitement et la présentation."
+        }
+      },
+      {
+        "statement": "L’input delay peut venir d’un script qui n’a rien à voir avec l’élément touché.",
+        "why": "N’importe quelle tâche sur le thread principal, comme un tag manager, retarde les handlers jusqu’à sa fin.",
+        "twin": {
+          "statement": "L’input delay ne peut venir que de scripts attachés à l’élément touché.",
+          "why": "N’importe quelle tâche sur le thread principal, comme un tag manager, retarde les handlers jusqu’à sa fin."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’Interaction to Next Paint mesure le temps que met la page à afficher une réponse à un tap, un clic ou une touche. Le diagnostic part de l’attribution terrain, parce que le portable d’un développeur n’est pas le téléphone de l’utilisateur.",
+      "points": [
+        "L’Interaction to Next Paint (INP) mesure la latence entre un tap, un clic ou une touche et l’affichage de la frame suivante, et remonte à peu près la pire interaction de la visite.",
+        "Chaque interaction a trois phases : input delay (le thread principal est occupé ailleurs), durée de traitement (tes handlers s’exécutent), délai de présentation (style, layout et paint de la mise à jour).",
+        "Event Timing donne ces phases sur le terrain. Les Long Animation Frames (LoAF) enregistrent les frames de plus de 50 ms et nomment les scripts exécutés dedans, avec URL et fonction.",
+        "Le build `web-vitals/attribution` de `onINP` remonte les phases, l’élément cible, l’état de chargement et le script le plus long. Envoie-le pour les interactions moins bien notées que « bonnes ».",
+        "Regroupe par élément et par phase, reproduis le pire cas dans les DevTools avec du throttling CPU à ce moment du chargement, corrige la plus grosse phase, et surveille le p75 à la release suivante."
+      ],
+      "takeaways": [
+        {
+          "term": "INP",
+          "detail": "Latence entre une interaction et la frame affichée suivante, remontée à peu près pour la pire interaction de la visite."
+        },
+        {
+          "term": "Input delay",
+          "detail": "Le thread principal est occupé ailleurs quand l’utilisateur interagit."
+        },
+        {
+          "term": "Durée de traitement",
+          "detail": "Tes handlers d’événement s’exécutent."
+        },
+        {
+          "term": "Délai de présentation",
+          "detail": "Style, layout et paint de la mise à jour."
+        },
+        {
+          "term": "Long Animation Frames",
+          "detail": "Enregistre les frames de plus de 50 ms et nomme les scripts exécutés dedans, avec URL et fonction."
+        },
+        {
+          "term": "Méthode",
+          "detail": "Regrouper par élément et par phase, reproduire avec throttling CPU, corriger la plus grosse phase, revérifier le p75."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le RUM montre un INP p75 de 450 ms sur les téléphones Android pour le bouton « Ajouter au panier », alors que son handler de clic prend 20 ms dans un profil desktop. Où regardez-vous ?",
+        "bridge": "Une interaction a trois phases ; l’attribution terrain peut montrer que le temps est dans l’input delay ou la présentation, pas dans le handler, et les Long Animation Frames nomment le script."
+      },
+      {
+        "question": "Un collègue dit que l’INP, c’est juste le FID renommé. Comment le corrigez-vous, et quelles phases composent la latence d’une interaction ?",
+        "bridge": "Le FID ne mesurait que l’input delay ; l’INP couvre l’input delay, le traitement et le délai de présentation, jusqu’au prochain affichage."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux gèrent un tap sur un chip de taille de la page produit. Lequel garde l’INP bas sur un téléphone milieu de gamme ?",
+        "why": "L’INP court du tap jusqu’au prochain affichage. Céder la main après le changement visible laisse le navigateur afficher le chip sélectionné, et le travail lourd s’exécute dans une tâche ultérieure. Sans ce yield, les 300 ms de travail restent dans la phase de traitement de l’interaction : le chip n’apparaît qu’après, et l’INP dépasse 300 ms."
+      }
+    ]
+  },
+  "perf-third-party": {
+    "topic": "Gouverner les scripts tiers",
+    "question": "Votre page produit charge 14 scripts tiers et l’INP en souffre. Comment les reprenez-vous en main ?",
+    "answer": "Un script tiers exécute le code d’une autre entreprise sur mon thread principal, avec le temps et les données de mes utilisateurs, et je ne peux pas l’optimiser : mes leviers sont quels scripts se chargent, quand et comment. Je commence par un inventaire : chaque script a un responsable, un objectif et une place dans un budget, sinon il part. Ensuite, des règles de chargement : dans Next.js, `next/script` avec `beforeInteractive` seulement pour ce qui doit s’exécuter en premier, `afterInteractive` pour les analytics une fois le consentement donné, `lazyOnload` pour les widgets, et une façade pour les embeds lourds comme le chat. L’attribution des Long Animation Frames me dit quel fournisseur cause l’input delay, et une CSP restreint la provenance des scripts.",
+    "keyPoints": [
+      "Inventaire : un responsable, un objectif et un budget par script",
+      "Charger selon le besoin : `beforeInteractive` rarement, `lazyOnload` pour les widgets",
+      "Une façade pour les embeds lourds comme un widget de chat",
+      "Attribuer le coût avec les Long Animation Frames ; restreindre avec une CSP"
+    ],
+    "explanation": "Les scripts tiers sont souvent le plus gros risque de performance et de sécurité d’un site commercial, et la correction relève autant du process que du code. Les recruteurs attendent de la gouvernance, un responsable et une revue, et que chaque tag soit traité comme une décision produit avec un coût et une valeur.",
+    "example": "La page produit de la boutique chargeait un tag manager, deux outils d’analytics, un outil d’A/B testing, un widget de chat, un widget d’avis et des pixels de retargeting, et un tag causait environ 345 ms d’input delay. L’équipe a listé chaque script avec un responsable, conditionné les analytics et le pixel au consentement, passé les avis en `lazyOnload` et remplacé le widget de chat par une façade qui le charge au clic.",
+    "mistakes": [
+      "Charger chaque fournisseur tôt, dans le head ou avec `beforeInteractive`, si bien que tous sont en concurrence avec les premières interactions.",
+      "Oublier le tag manager : des gens hors de l’équipe tech livrent du JavaScript par ce biais, donc ses tags doivent compter dans le budget.",
+      "Charger analytics et publicités avant que l’utilisateur ait donné son consentement."
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qu’une façade ?",
+        "answer": "Une imitation statique d’un widget lourd, comme un bouton de chat, rendue par mon propre code. Elle peut faire un preconnect vers le fournisseur au survol et ne charge le vrai widget qu’au clic : les visiteurs qui n’ouvrent jamais le chat ne le paient jamais."
+      },
+      {
+        "question": "Pourquoi ne pas déplacer les scripts tiers dans un web worker ?",
+        "answer": "Next.js a une stratégie `worker` pour ça, mais sa doc dit qu’elle n’est pas stable et ne fonctionne pas avec l’App Router, et un worker n’a pas de DOM, dont beaucoup de tags ont besoin. Je préfère supprimer, différer ou remplacer les scripts par des façades."
+      },
+      {
+        "question": "Comment les scripts tiers affectent-ils la sécurité ?",
+        "answer": "Chacun s’exécute avec les mêmes droits que mon code : il peut lire le DOM et tout ce qui est dans `localStorage`. Une CSP limite les origines qui peuvent servir des scripts, la Subresource Integrity fige le hash d’un fichier fixe, et moins de fournisseurs veut dire une surface d’attaque plus petite."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`strategy=\"lazyOnload\"` dans `next/script` charge le script pendant les temps d’inactivité du navigateur.",
+        "why": "Elle est faite pour les scripts inutiles aux premières interactions, comme les widgets d’avis.",
+        "twin": {
+          "statement": "`strategy=\"lazyOnload\"` dans `next/script` charge le script avant que la page devienne interactive.",
+          "why": "Elle charge pendant les temps d’inactivité du navigateur, pour les scripts inutiles aux premières interactions, comme les widgets d’avis."
+        }
+      },
+      {
+        "statement": "Comme un script tiers vient d’une autre origine, il ne peut pas lire le DOM de ta page.",
+        "why": "Un script inclus avec une balise `script` s’exécute dans ta page avec un accès complet ; seules les iframes sont isolées par origine.",
+        "twin": {
+          "statement": "Un script tiers inclus avec une balise `script` peut lire le DOM de ta page.",
+          "why": "Il s’exécute dans ta page avec un accès complet ; seules les iframes sont isolées par origine."
+        }
+      },
+      {
+        "statement": "`afterInteractive` est la stratégie par défaut de `next/script`.",
+        "why": "Sans prop `strategy`, le script se charge tôt, mais après une partie de l’hydratation.",
+        "twin": {
+          "statement": "`beforeInteractive` est la stratégie par défaut de `next/script`.",
+          "why": "Sans prop `strategy`, la valeur par défaut est `afterInteractive` : le script se charge tôt, mais après une partie de l’hydratation."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un script tiers exécute le code d’une autre entreprise sur ton thread principal avec les droits de ta page. Tu ne peux pas l’optimiser, donc tu gouvernes quels scripts se chargent, quand et comment.",
+      "points": [
+        "Un script tiers, c’est le code d’une autre entreprise qui s’exécute sur ton thread principal avec les droits de ta page. Tu ne peux pas l’optimiser : les leviers sont quels scripts se chargent, quand et comment.",
+        "La gouvernance en fait un process : un inventaire avec un responsable et un objectif par script, un budget sur le nombre et le poids, une revue avant tout ajout, et des règles de chargement.",
+        "Dans Next.js, `next/script` règle le moment : `beforeInteractive` seulement pour ce qui doit s’exécuter en premier, `afterInteractive` (par défaut) pour les analytics après consentement, `lazyOnload` pour les widgets.",
+        "Une façade est une imitation statique, comme un bouton de chat, qui charge le vrai widget au clic : les visiteurs qui ne l’utilisent jamais ne le paient jamais.",
+        "Un tag manager permet à des non-développeurs de livrer du JavaScript : compte ses tags dans le budget, attribue leur coût avec les Long Animation Frames, et restreins les origines des scripts avec une CSP."
+      ],
+      "takeaways": [
+        {
+          "term": "Inventaire",
+          "detail": "Chaque script a un responsable, un objectif et une place dans un budget, sinon il part."
+        },
+        {
+          "term": "`beforeInteractive`",
+          "detail": "Stratégie de `next/script` réservée à ce qui doit s’exécuter en premier."
+        },
+        {
+          "term": "`afterInteractive`",
+          "detail": "La stratégie par défaut, pour les analytics après consentement."
+        },
+        {
+          "term": "`lazyOnload`",
+          "detail": "Pour les widgets qui peuvent attendre."
+        },
+        {
+          "term": "Façade",
+          "detail": "Une imitation statique qui charge le vrai widget au clic : ceux qui ne s’en servent pas ne le paient jamais."
+        },
+        {
+          "term": "Tag manager",
+          "detail": "Compter ses tags dans le budget, attribuer le coût avec les Long Animation Frames, restreindre les origines avec une CSP."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le marketing veut un widget de chat, un outil de heatmap et un second tag d’analytics sur la page produit, dont l’INP est déjà limite. Comment répondez-vous, et comment chargeriez-vous ce qui est accepté ?",
+        "bridge": "Chaque script a besoin d’un responsable, d’un objectif et d’un budget ; ensuite on charge selon le besoin : analytics en `afterInteractive` après consentement, widgets en `lazyOnload` ou derrière une façade."
+      },
+      {
+        "question": "Un collègue dit que les scripts tiers sont inoffensifs parce qu’ils viennent d’une autre origine. Comment le corrigez-vous, et comment limitez-vous leur coût ?",
+        "bridge": "Une balise `script` s’exécute dans ta page avec un accès complet au DOM ; seules les iframes sont isolées. La CSP restreint les origines et les Long Animation Frames attribuent le coût."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux chargent le widget d’avis, affiché tout en bas de la page produit. Lequel garde les premiers taps réactifs ?",
+        "why": "`lazyOnload` charge le widget pendant les temps d’inactivité du navigateur, une fois la page chargée, ce qui convient aux avis tout en bas de page. `beforeInteractive` sert au code qui doit s’exécuter avant l’hydratation : le widget est téléchargé et exécuté tôt, en concurrence avec l’hydratation et les premiers taps pour le thread principal."
+      }
+    ]
+  },
+  "sec-trusted-types": {
+    "topic": "Trusted Types",
+    "question": "Que sont les Trusted Types, et comment aident-ils à stopper le DOM XSS ?",
+    "answer": "Les Trusted Types sont une API du navigateur qui fait refuser les chaînes simples aux sinks dangereux du DOM. Avec `require-trusted-types-for 'script'` dans la Content Security Policy, des sinks comme `innerHTML`, `insertAdjacentHTML`, `eval` et `script.src` lèvent une erreur sur une chaîne et n’acceptent que des objets typés, comme `TrustedHTML`, créés par une policy nommée. La policy est une fonction que j’écris, en général autour de DOMPurify, et la directive `trusted-types` liste les noms de policies autorisés. Au lieu d’espérer que chaque développeur pense à assainir, c’est le navigateur qui l’impose. Je le déploie d’abord en mode report-only pour trouver chaque sink, y compris dans les bibliothèques. Les sinks sûrs comme `textContent` prennent toujours des chaînes.",
+    "keyPoints": [
+      "La CSP `require-trusted-types-for 'script'` fait refuser les chaînes aux sinks",
+      "Les sinks n’acceptent que des objets typés créés par des policies nommées",
+      "La policy enveloppe un sanitizer ; `trusted-types` liste les noms",
+      "Déployer en mode report-only pour trouver chaque sink"
+    ],
+    "explanation": "Ça déplace la défense contre le XSS de la code review vers le navigateur, ce dont une grande équipe a besoin. Les recruteurs attendent que la policy soit vue comme la nouvelle frontière de confiance : une policy qui renvoie son entrée inchangée rend le tout inutile.",
+    "example": "Dans le back-office, les avis produits arrivent en HTML et étaient rendus avec `dangerouslySetInnerHTML` après DOMPurify, mais rien n’empêchait le développeur suivant de sauter cette étape. L’équipe a ajouté une policy unique `review-html` autour de DOMPurify, activé `require-trusted-types-for 'script'` en mode report-only pour lister les sinks restants qui recevaient des chaînes, les a corrigés, puis l’a imposé. Une chaîne simple dans `innerHTML` lève maintenant une TypeError en développement au lieu de partir en production.",
+    "mistakes": [
+      "Écrire une policy dont `createHTML` renvoie son entrée inchangée, ce qui rend l’application de la règle inutile.",
+      "Garder une policy `default` pour de bon ; MDN la décrit uniquement comme une aide à la migration.",
+      "Imposer sans phase report-only, ce qui casse les bibliothèques qui passent encore des chaînes aux sinks."
+    ],
+    "followUps": [
+      {
+        "question": "Est-ce que ça fonctionne avec le `dangerouslySetInnerHTML` de React ?",
+        "answer": "Oui, depuis React 19.3. Avant, React convertissait les valeurs en chaînes avant d’appeler les API du DOM, donc un `TrustedHTML` redevenait une chaîne refusée. React 19.3 le transmet tel quel : une policy qui assainit plus `dangerouslySetInnerHTML` fonctionne sous enforcement."
+      },
+      {
+        "question": "Quels navigateurs supportent les Trusted Types ?",
+        "answer": "MDN les marque Baseline 2026 : dans tous les grands navigateurs depuis février 2026. La bibliothèque DOM de TypeScript 6.0 n’inclut pas leurs types, qui viennent de `@types/trusted-types`, et je garde un fallback qui assainit quand `window.trustedTypes` est absent."
+      },
+      {
+        "question": "En quoi est-ce différent d’une CSP qui bloque les scripts inline ?",
+        "answer": "Une CSP de scripts empêche les scripts injectés et les handlers inline de s’exécuter. Les Trusted Types agissent plus tôt, au niveau du sink : la chaîne ne devient jamais du HTML ou du script. Les deux se complètent : la CSP limite ce qui s’exécute, les Trusted Types limitent ce qui atteint les API dangereuses."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Sous enforcement des Trusted Types, `el.textContent = userInput` accepte toujours une chaîne simple.",
+        "why": "`textContent` ne parse jamais de HTML, c’est donc un sink sûr et il n’est pas restreint.",
+        "twin": {
+          "statement": "Sous enforcement des Trusted Types, `el.textContent = userInput` lève une erreur parce qu’il reçoit une chaîne simple.",
+          "why": "`textContent` ne parse jamais de HTML, c’est donc un sink sûr et il n’est pas restreint."
+        }
+      },
+      {
+        "statement": "Les Trusted Types assainissent eux-mêmes le HTML, donc aucune bibliothèque de sanitization n’est nécessaire.",
+        "why": "Le navigateur impose seulement qu’une policy a été utilisée ; l’assainissement, c’est ce que fait ta policy, en général DOMPurify.",
+        "twin": {
+          "statement": "Les Trusted Types n’assainissent pas eux-mêmes le HTML : ta policy doit appeler un sanitizer comme DOMPurify.",
+          "why": "Le navigateur impose seulement qu’une policy a été utilisée ; l’assainissement, c’est ce que fait ta policy."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les Trusted Types font imposer l’assainissement par le navigateur : les sinks dangereux du DOM refusent les chaînes simples et n’acceptent que des objets créés par une policy relue, ce qui bloque le DOM XSS par construction.",
+      "points": [
+        "Un sink est une API du DOM qui transforme une chaîne en HTML ou en code : `innerHTML`, `insertAdjacentHTML`, `eval`, `script.src`. Des données d’attaquant qui en atteignent un, c’est du DOM XSS.",
+        "Avec la directive CSP `require-trusted-types-for 'script'`, ces sinks lèvent une TypeError sur les chaînes simples et n’acceptent que des objets `TrustedHTML`, `TrustedScript` ou `TrustedScriptURL`.",
+        "Ces objets viennent d’une policy, une fonction nommée que tu crées avec `trustedTypes.createPolicy`, en général autour de DOMPurify. La directive `trusted-types` liste les noms autorisés.",
+        "Les sinks sûrs comme `textContent` acceptent toujours des chaînes. React 19.3 transmet `TrustedHTML` tel quel via `dangerouslySetInnerHTML`.",
+        "Déploie avec `Content-Security-Policy-Report-Only` pour trouver d’abord chaque sink qui reçoit une chaîne. La policy est la nouvelle frontière de confiance : garde peu de policies, toutes relues."
+      ],
+      "takeaways": [
+        {
+          "term": "Sink",
+          "detail": "Une API du DOM qui transforme une chaîne en HTML ou en code : `innerHTML`, `insertAdjacentHTML`, `eval`, `script.src`."
+        },
+        {
+          "term": "`require-trusted-types-for 'script'`",
+          "detail": "Directive CSP : les sinks lèvent une TypeError sur les chaînes, n’acceptent que `TrustedHTML`, `TrustedScript`, `TrustedScriptURL`."
+        },
+        {
+          "term": "`trustedTypes.createPolicy`",
+          "detail": "Crée une policy nommée, en général autour de DOMPurify, qui produit les objets typés."
+        },
+        {
+          "term": "`trusted-types`",
+          "detail": "Directive CSP qui liste les noms de policies autorisés. Garder peu de policies, toutes relues."
+        },
+        {
+          "term": "Sinks sûrs",
+          "detail": "`textContent` et équivalents acceptent toujours des chaînes."
+        },
+        {
+          "term": "Déploiement en report-only",
+          "detail": "`Content-Security-Policy-Report-Only` trouve chaque sink qui reçoit une chaîne, bibliothèques comprises, avant d’imposer."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un audit trouve un DOM XSS dans le back-office : une note de ticket atteignait `innerHTML` au fond d’une bibliothèque de texte riche. Comment le navigateur lui-même peut-il bloquer le prochain ?",
+        "bridge": "Les Trusted Types, activés via la CSP, font refuser les chaînes à des sinks comme `innerHTML`, sauf si la valeur vient d’une policy nommée, en général autour d’un sanitizer."
+      },
+      {
+        "question": "Un collègue craint qu’activer les Trusted Types casse la boutique du jour au lendemain. Comment le déployez-vous, et quelles affectations continuent de fonctionner avec des chaînes simples ?",
+        "bridge": "Le mode report-only trouve d’abord chaque sink, bibliothèques comprises ; les sinks sûrs comme `textContent` prennent toujours des chaînes."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux créent la policy Trusted Types `review-html` pour les avis produits. Laquelle stoppe vraiment le DOM XSS ?",
+        "why": "Le navigateur vérifie seulement qu’un `TrustedHTML` vient d’une policy autorisée ; ce que fait la policy est la vraie défense. Celle-ci assainit avec DOMPurify. L’autre renvoie son entrée inchangée, donc `<img src=x onerror=…>` passe comme HTML de confiance : l’enforcement est actif et le XSS s’exécute quand même."
+      }
+    ]
+  },
+  "sec-postmessage": {
+    "topic": "postMessage et contrôle d’origine",
+    "question": "Le checkout intègre un widget de paiement dans une iframe qui communique avec la page via `postMessage`. Comment sécurisez-vous ce canal ?",
+    "answer": "N’importe quelle fenêtre peut poster un message à n’importe quelle autre dans la hiérarchie de frames, donc le destinataire doit vérifier l’expéditeur. Dans le listener `message`, je compare `event.origin` exactement à l’origine du prestataire de paiement, avec `!==`, jamais `includes` ni `startsWith`. Je vérifie aussi que `event.source` est le `contentWindow` de l’iframe de paiement, et je valide `event.data` avec un schéma, sans jamais le passer à `innerHTML` ou `eval`. À l’envoi, je donne l’origine cible exacte, jamais `\"*\"`. Et le message n’est qu’un indice pour l’interface : la commande devient payée quand l’API reçoit le webhook signé du prestataire.",
+    "keyPoints": [
+      "Vérifier `event.origin` par égalité exacte",
+      "Vérifier que `event.source` est la fenêtre de l’iframe attendue",
+      "Valider `event.data` avec un schéma ; le traiter comme des données",
+      "Envoyer avec une origine cible exacte, jamais `\"*\"`",
+      "Le serveur décide du paiement, jamais un message du navigateur"
+    ],
+    "explanation": "La question vérifie si tu penses aux frontières de confiance dans le navigateur, pas seulement sur le serveur. Une réponse senior ajoute la règle métier : un message venant d’un widget n’est jamais une preuve de paiement, donc la page de confirmation interroge l’API.",
+    "example": "Le listener du checkout de la boutique acceptait `payment.succeeded` depuis n’importe quelle fenêtre et affichait la page de confirmation, donc une frame d’une autre origine pouvait le simuler. Le hook corrigé vérifie l’origine exacte `https://pay.example`, la fenêtre de l’iframe et un schéma Zod, et la page de confirmation lit `GET /orders/:id` avant d’afficher « payé », car seul le webhook sur `POST /webhooks/payments` marque la commande `paid`.",
+    "mistakes": [
+      "Vérifier l’origine avec `includes` ou `startsWith`, ce qui accepte `https://pay.example.evil.example`.",
+      "Envoyer avec l’origine cible `\"*\"`, ce qui donne les données à la page que cette fenêtre affiche désormais, quelle qu’elle soit.",
+      "Traiter un message `payment.succeeded` comme une preuve de paiement au lieu d’attendre le serveur."
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi vérifier `event.source` quand l’origine est déjà bonne ?",
+        "answer": "Le prestataire peut faire tourner d’autres frames sur la même origine, comme un second widget, et un bug là-bas pourrait aussi envoyer des messages. Vérifier que `event.source` est le `contentWindow` de l’iframe de paiement n’accepte les messages que de la fenêtre que j’ai intégrée."
+      },
+      {
+        "question": "Que se passe-t-il si vous envoyez avec une origine cible qui ne correspond pas ?",
+        "answer": "Le navigateur jette le message, avec juste un message dans la console, sans exception. C’est ça la protection : si l’iframe a été redirigée vers un autre site, mes données ne l’atteignent pas. Avec `\"*\"`, elles l’atteindraient."
+      },
+      {
+        "question": "Comment vous abonnez-vous aux messages dans un composant React ?",
+        "answer": "J’ajoute le listener dans un `useEffect` et je le retire dans la fonction de cleanup. Je lis le dernier callback via `useEffectEvent`, pour que l’effet ne se réabonne pas à chaque rendu tout en appelant le handler courant."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un listener `message` ne reçoit que des messages de fenêtres de même origine.",
+        "why": "N’importe quelle fenêtre peut lui poster un message ; seul le contrôle de `event.origin` distingue les expéditeurs.",
+        "twin": {
+          "statement": "Un listener `message` peut recevoir des messages de fenêtres de n’importe quelle origine.",
+          "why": "N’importe quelle fenêtre peut lui poster un message ; seul le contrôle de `event.origin` distingue les expéditeurs."
+        }
+      },
+      {
+        "statement": "Un message envoyé avec une origine cible qui ne correspond pas à la fenêtre destinataire est jeté par le navigateur.",
+        "why": "L’origine cible est vérifiée à la livraison, ce qui protège les données si la frame a navigué ailleurs.",
+        "twin": {
+          "statement": "Un message envoyé avec une origine cible qui ne correspond pas à la fenêtre destinataire est quand même livré.",
+          "why": "Le navigateur vérifie l’origine cible à la livraison et jette le message, ce qui protège les données si la frame a navigué ailleurs."
+        }
+      },
+      {
+        "statement": "`event.origin.startsWith(\"https://pay.example\")` est un contrôle d’origine sûr.",
+        "why": "Il accepte `https://pay.example.evil.example` ; compare l’origine entière avec `===`.",
+        "twin": {
+          "statement": "`event.origin.startsWith(\"https://pay.example\")` accepte aussi `https://pay.example.evil.example`.",
+          "why": "Un contrôle de préfixe laisse passer un domaine hostile ; compare l’origine entière avec `===`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "`postMessage` permet à des fenêtres d’origines différentes de communiquer, comme une page et une iframe de paiement. N’importe quelle fenêtre de la hiérarchie de frames peut envoyer, donc le destinataire doit vérifier l’expéditeur et traiter le message comme des données non fiables.",
+      "points": [
+        "`postMessage` permet à des fenêtres d’origines différentes de communiquer, comme une page et une iframe intégrée. N’importe quelle fenêtre de la hiérarchie de frames peut envoyer à n’importe quelle autre, donc le destinataire doit vérifier l’expéditeur.",
+        "Dans le listener `message`, compare `event.origin` à l’origine exacte attendue avec `!==`. `includes` ou `startsWith` accepteraient `https://pay.example.evil.example`.",
+        "Vérifie aussi que `event.source` est le `contentWindow` de l’iframe, et valide `event.data` avec un schéma. Ne le passe jamais à `innerHTML` ou `eval`.",
+        "À l’envoi, donne l’origine cible exacte en second argument, jamais `\"*\"` : le navigateur jette le message si la fenêtre affiche désormais une autre origine.",
+        "Un message venant d’un widget de paiement est un indice pour l’interface. C’est le serveur qui marque la commande payée, à partir du webhook signé du prestataire."
+      ],
+      "takeaways": [
+        {
+          "term": "`event.origin`",
+          "detail": "Comparer à l’origine exacte attendue avec `!==` ; `includes` ou `startsWith` acceptent des domaines ressemblants."
+        },
+        {
+          "term": "`event.source`",
+          "detail": "Vérifier que c’est le `contentWindow` de l’iframe attendue."
+        },
+        {
+          "term": "`event.data`",
+          "detail": "Valider avec un schéma ; ne jamais le passer à `innerHTML` ou `eval`."
+        },
+        {
+          "term": "Origine cible",
+          "detail": "Envoyer avec l’origine exacte, jamais `\"*\"` : le navigateur jette le message si la fenêtre affiche une autre origine."
+        },
+        {
+          "term": "Statut de paiement",
+          "detail": "Un message est un indice pour l’UI ; le serveur marque la commande payée à partir du webhook signé du prestataire."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un pentest montre qu’une page hostile qui ouvre le checkout dans une popup peut lui faire afficher « Paiement réussi » en postant un message. Le listener ne vérifie que `event.data.type`. Que manque-t-il ?",
+        "bridge": "N’importe quelle fenêtre peut poster un message ; le destinataire doit vérifier exactement `event.origin` ainsi que `event.source`, et seul le webhook signé marque une commande payée."
+      },
+      {
+        "question": "En revue, vous voyez `iframe.contentWindow.postMessage({ amount }, \"*\")` et un listener qui accepte toute origine contenant « pay ». Que signalez-vous ?",
+        "bridge": "Envoyer avec une origine cible exacte, jamais `\"*\"`, et comparer l’origine reçue par égalité stricte, jamais par sous-chaîne."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux reçoivent les messages du widget de paiement dans le checkout. Quel contrôle d’origine stoppe un faux `payment.succeeded` ?",
+        "why": "L’égalité exacte n’accepte que `https://pay.example`. `startsWith` accepte aussi `https://pay.example.evil.example`, un domaine que n’importe quel attaquant peut enregistrer : une page sur ce domaine qui intègre ou ouvre le checkout peut poster un faux `payment.succeeded`, et le contrôle le laisse passer."
+      }
+    ]
+  },
+  "web-dialog": {
+    "topic": "Modales accessibles",
+    "question": "Comment construiriez-vous une modale accessible, comme une confirmation de remboursement, dans une app React ?",
+    "answer": "Une modale doit déplacer le focus à l’intérieur à l’ouverture, garder Tab à l’intérieur, se fermer sur Échap, rendre le reste de la page inaccessible au clavier, à la souris et aux lecteurs d’écran, et rendre le focus à l’élément qui l’a ouverte ; elle a aussi besoin d’un nom, en général son titre via `aria-labelledby`. Aujourd’hui j’utilise l’élément natif `<dialog>` ouvert avec `showModal()`, qui fait tout ça. En React, le parent possède un state `open` et un effet appelle `showModal()` ou `close()` ; j’écoute `onClose`, qui se déclenche sur chaque chemin de fermeture, Échap compris. Pour un overlay maison comme un tiroir, je mets `inert` sur ce qui est derrière, pas seulement `aria-hidden`.",
+    "keyPoints": [
+      "Focus à l’intérieur, Tab gardé dedans, Échap ferme, le focus revient",
+      "Le `<dialog>` natif avec `showModal()` fait tout ça",
+      "Piloter depuis une prop `open` dans un effet ; gérer `onClose`",
+      "`inert` retire focus et clics ; `aria-hidden` ne fait que masquer"
+    ],
+    "explanation": "La modale est l’exercice d’accessibilité classique, parce qu’un `div` stylé l’échoue de cinq façons à la fois. Un senior sait que la plateforme fait maintenant l’essentiel du travail, et connaît la différence entre `inert` et `aria-hidden` pour les overlays maison.",
+    "example": "La confirmation de remboursement du back-office était un `div` au-dessus de la page : Tab partait dans le tableau des commandes derrière, Échap ne faisait rien et le focus était perdu à la fermeture. Reconstruite en `<dialog>` ouvert avec `showModal()`, avec les boutons dans un `form method=\"dialog\"` dont la valeur devient `returnValue`, elle a passé l’audit clavier, et Annuler vient en premier pour que le focus initial tombe sur l’action sûre.",
+    "mistakes": [
+      "Masquer l’arrière-plan avec `aria-hidden=\"true\"` seul : les utilisateurs clavier peuvent toujours y entrer avec Tab.",
+      "Ouvrir la modale avec `show()` au lieu de `showModal()`, qui ne rend pas inerte la page derrière.",
+      "S’attendre à ce qu’un clic sur le backdrop ferme la modale : ce n’est pas le cas par défaut, et `closedby` n’est pas encore Baseline."
+    ],
+    "followUps": [
+      {
+        "question": "Quelle est la différence entre `inert` et `aria-hidden` ?",
+        "answer": "`aria-hidden=\"true\"` retire le contenu de l’arbre d’accessibilité seulement : un bouton à l’intérieur peut encore recevoir le focus avec Tab, un contrôle focalisé sans nom. `inert` le retire aussi de l’ordre de tabulation et des clics, et `focus()` ne fait rien. Derrière un overlay maison, j’utilise `inert`."
+      },
+      {
+        "question": "Comment savez-vous quel bouton a fermé la modale ?",
+        "answer": "Je mets les boutons dans un `form method=\"dialog\"` : le soumettre ferme la modale et met dans `returnValue` la valeur du bouton cliqué. Dans `onClose`, je vérifie `returnValue === 'confirm'` pour rembourser ; tout autre chemin de fermeture veut dire annuler."
+      },
+      {
+        "question": "Pourquoi le focus initial compte-t-il pour une action destructive ?",
+        "answer": "`showModal()` met le focus sur le premier élément focalisable, ou sur celui qui a `autofocus`. Pour « Rembourser la commande ? », mettre Annuler en premier évite qu’un Entrée malencontreux rembourse le client."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`showModal()` rend inerte le contenu en dehors de la modale.",
+        "why": "La page derrière sort de l’ordre de tabulation et de l’arbre d’accessibilité, et les clics touchent le backdrop.",
+        "twin": {
+          "statement": "Après `showModal()`, les utilisateurs clavier peuvent encore atteindre avec Tab les liens de la page derrière la modale.",
+          "why": "`showModal()` rend inerte le contenu en dehors de la modale : il sort de l’ordre de tabulation et de l’arbre d’accessibilité."
+        }
+      },
+      {
+        "statement": "Un clic sur le backdrop ferme par défaut un `<dialog>` modal.",
+        "why": "Non ; l’attribut `closedby` change ça mais sa disponibilité est limitée.",
+        "twin": {
+          "statement": "Un clic sur le backdrop ne ferme pas par défaut un `<dialog>` modal.",
+          "why": "Il reste ouvert par défaut ; l’attribut `closedby` change ça mais sa disponibilité est limitée."
+        }
+      },
+      {
+        "statement": "`aria-hidden=\"true\"` sur la page derrière un overlay maison empêche les utilisateurs clavier d’y entrer avec Tab.",
+        "why": "Il ne fait que masquer le contenu aux technologies d’assistance ; `inert` retire aussi focus et clics.",
+        "twin": {
+          "statement": "`aria-hidden=\"true\"` sur la page derrière un overlay maison laisse ses liens accessibles avec la touche Tab.",
+          "why": "Il ne fait que masquer le contenu aux technologies d’assistance ; `inert` retire aussi focus et clics."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une modale doit gérer le focus et masquer la page derrière elle à tous les types d’utilisateurs. L’élément natif `<dialog>` ouvert avec `showModal()` fait ce travail : React n’a plus qu’à le garder synchronisé.",
+      "points": [
+        "Une modale doit déplacer le focus à l’intérieur à l’ouverture, garder Tab dedans, se fermer sur Échap, rendre la page derrière inaccessible et rendre le focus à l’élément d’origine. Son titre la nomme via `aria-labelledby`.",
+        "Le `<dialog>` natif ouvert avec `showModal()` fait tout ça : la page derrière devient inerte, et Échap déclenche `cancel` puis `close`. `show()` l’ouvre sans la rendre modale.",
+        "En React, garde `open` dans le parent, appelle `showModal()` ou `close()` dans un effet sur `open`, et gère `onClose`, qui se déclenche sur chaque chemin de fermeture.",
+        "Un `form method=\"dialog\"` ferme la modale et met dans `returnValue` la `value` du bouton cliqué. Un clic sur le backdrop ne la ferme pas par défaut.",
+        "Pour un overlay maison, mets `inert` sur le contenu derrière : il sort de l’ordre de tabulation, des clics et de l’arbre d’accessibilité. `aria-hidden` ne fait que le dernier."
+      ],
+      "takeaways": [
+        {
+          "term": "Exigences d’une modale",
+          "detail": "Le focus entre, Tab reste dedans, Échap ferme, la page derrière est inaccessible, le focus revient à l’élément d’origine."
+        },
+        {
+          "term": "`showModal()`",
+          "detail": "Ouvre `<dialog>` en modal : la page derrière devient inerte ; Échap déclenche `cancel` puis `close`. `show()` n’est pas modal."
+        },
+        {
+          "term": "Pattern React",
+          "detail": "Le parent possède `open` ; un effet appelle `showModal()` ou `close()` ; `onClose` se déclenche sur chaque chemin de fermeture."
+        },
+        {
+          "term": "`form method=\"dialog\"`",
+          "detail": "Ferme la modale et met dans `returnValue` la `value` du bouton cliqué."
+        },
+        {
+          "term": "Clic sur le backdrop",
+          "detail": "Ne ferme pas la modale par défaut."
+        },
+        {
+          "term": "`inert` vs `aria-hidden`",
+          "detail": "`inert` retire l’ordre de tabulation, les clics et l’arbre d’accessibilité ; `aria-hidden` seulement le dernier."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Des utilisateurs de lecteurs d’écran disent qu’après avoir fermé la confirmation de remboursement, ils se retrouvent perdus en haut de la page, et les utilisateurs clavier peuvent entrer avec Tab dans le tableau des commandes derrière. Comment corrigez-vous la modale ?",
+        "bridge": "Une modale doit garder le focus à l’intérieur, rendre la page derrière inaccessible et rendre le focus ; le `<dialog>` natif avec `showModal()` fait tout ça."
+      },
+      {
+        "question": "Un collègue a construit un tiroir latéral maison et mis `aria-hidden=\"true\"` sur la page derrière. Est-ce suffisant ?",
+        "bridge": "`aria-hidden` ne fait que masquer le contenu aux technologies d’assistance ; `inert` retire aussi focus et clics."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux ouvrent le `<dialog>` de confirmation de remboursement quand `open` passe à true. Lequel est une vraie modale pour les utilisateurs clavier ?",
+        "why": "`showModal()` rend inerte la page derrière et ferme la modale sur Échap. `show()` ouvre une boîte de dialogue non modale : le tableau des commandes derrière reste accessible avec Tab et les clics, donc un agent peut quitter « Rembourser la commande ? » avec Tab, et Échap ne fait rien par défaut."
+      }
+    ]
+  },
+  "web-perceivable": {
+    "topic": "Contraste, animations et focus masqué",
+    "question": "Au-delà du support clavier, quelles règles d’accessibilité visuelle vérifiez-vous sur une page de checkout ?",
+    "answer": "D’abord le contraste : les WCAG demandent au moins 4,5 pour 1 pour le texte normal, 3 pour 1 pour le grand texte, et 3 pour 1 pour les bordures de contrôles et les indicateurs de focus. La couleur ne doit jamais être le seul signal : une pastille de statut a aussi besoin de son texte. Ensuite les animations : je respecte `prefers-reduced-motion` en remplaçant un glissement par un court fondu, sans supprimer le retour visuel. Puis le focus masqué : WCAG 2.2 dit qu’une barre sticky ne doit pas couvrir entièrement le champ focalisé, ce que je corrige avec `scroll-padding-bottom` et de la place en bas de page. Et des cibles tactiles d’au moins 24 sur 24 pixels CSS, 44 étant plus confortable sur mobile.",
+    "keyPoints": [
+      "Texte 4,5:1, grand texte 3:1, contrôles et anneaux de focus 3:1",
+      "Jamais la couleur seule : ajouter du texte ou une icône",
+      "Respecter `prefers-reduced-motion` avec un fondu, garder le retour",
+      "Les barres sticky ne doivent pas masquer le focus : `scroll-padding`",
+      "Cibles d’au moins 24 sur 24 pixels CSS"
+    ],
+    "explanation": "Les recruteurs s’en servent pour voir si, pour toi, l’accessibilité s’arrête aux lecteurs d’écran. Un senior cite les vrais seuils, connaît les ajouts de WCAG 2.2 comme Focus Not Obscured et Target Size, et les corrige en CSS sans jeter le design.",
+    "example": "Un audit du checkout de la boutique a trouvé un texte secondaire gris `#9ca3af` à 2,54:1, un tiroir de panier qui glissait à travers l’écran, une barre Payer fixe de 80 px qui masquait les champs focalisés sur mobile, et des boutons de quantité de 16 px. L’équipe est passée à `#6b7280` à 4,83:1, a remplacé le glissement par un fondu sous `prefers-reduced-motion`, a ajouté `scroll-padding-bottom: 80px` avec un padding de body équivalent, et a agrandi les boutons.",
+    "mistakes": [
+      "Supposer que le gris `#777777` sur blanc passe : il est à 4,48:1, juste sous 4,5.",
+      "Supprimer toutes les animations en mode mouvement réduit, ce qui supprime aussi un retour utile ; remplace le mouvement par un fondu.",
+      "Afficher le statut de commande seulement par une pastille rouge ou verte, ce qui exclut les utilisateurs qui ne distinguent pas ces couleurs."
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qui compte comme grand texte pour le contraste ?",
+        "answer": "Au moins 18 points, environ 24 pixels CSS, ou 14 points en gras, environ 18,5 pixels. Seule cette taille a droit au seuil de 3 pour 1. Le texte courant et le texte secondaire sont presque toujours plus petits, donc 4,5 pour 1 est le chiffre à retenir."
+      },
+      {
+        "question": "Comment testez-vous le mouvement réduit sans changer vos réglages système ?",
+        "answer": "Les Chrome DevTools peuvent émuler `prefers-reduced-motion` dans leur panneau Rendering, et dans les tests, `page.emulateMedia({ reducedMotion: \"reduce\" })` de Playwright le fait, après quoi `matchMedia` renvoie true."
+      },
+      {
+        "question": "À quoi sert `scroll-padding-bottom` pour la barre sticky ?",
+        "answer": "Il dit au navigateur de laisser cet espace en bas quand il fait défiler un élément dans la vue, au focus compris, donc le champ focalisé s’arrête au-dessus de la barre de 80 px. Un padding sur le body laisse au dernier champ la place de se dégager. Le W3C le liste comme technique C43."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le niveau AA des WCAG exige un ratio de contraste d’au moins 4,5:1 pour du texte de taille normale.",
+        "why": "C’est le critère de succès 1.4.3 ; le grand texte demande 3:1.",
+        "twin": {
+          "statement": "Le niveau AA des WCAG accepte un ratio de contraste de 3:1 pour du texte de taille normale.",
+          "why": "Le critère de succès 1.4.3 demande au moins 4,5:1 pour le texte normal ; 3:1, c’est pour le grand texte."
+        }
+      },
+      {
+        "statement": "Sous `prefers-reduced-motion: reduce`, il faut supprimer toutes les transitions.",
+        "why": "Le but est moins de mouvement, pas zéro retour : un court fondu peut remplacer un glissement.",
+        "twin": {
+          "statement": "Sous `prefers-reduced-motion: reduce`, on peut remplacer un glissement par un court fondu plutôt que supprimer le retour visuel.",
+          "why": "Le but est moins de mouvement, pas zéro retour."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Perceptible veut dire que tout le monde peut voir et suivre l’interface : assez de contraste, plus que la couleur seule, des animations qui respectent les réglages de l’utilisateur, un focus jamais masqué et des cibles assez grandes.",
+      "points": [
+        "WCAG 1.4.3 (AA) demande un ratio de contraste de 4,5:1 pour le texte et 3:1 pour le grand texte (environ 24 px, ou 18,5 px en gras). 1.4.11 demande 3:1 pour les bordures de contrôles et les indicateurs de focus.",
+        "La couleur ne doit jamais être le seul signal (WCAG 1.4.1) : une pastille de statut rouge ou verte a aussi besoin de son texte, comme « Remboursée ».",
+        "`prefers-reduced-motion` reflète le réglage système « réduire les animations ». Respecte-le en remplaçant le mouvement par un court fondu, sans supprimer tout retour visuel.",
+        "WCAG 2.2 ajoute 2.4.11 Focus Not Obscured (AA) : une barre sticky ne doit pas masquer entièrement l’élément focalisé. `scroll-padding-bottom` et un padding en bas de page corrigent ça.",
+        "WCAG 2.5.8 Target Size (AA) demande des cibles de pointeur d’au moins 24 sur 24 pixels CSS, sauf si elles sont espacées ; 44 px (le niveau AAA) est plus confortable sur mobile."
+      ],
+      "takeaways": [
+        {
+          "term": "Contraste WCAG 1.4.3",
+          "detail": "4,5:1 pour le texte, 3:1 pour le grand texte (environ 24 px, ou 18,5 px en gras)."
+        },
+        {
+          "term": "WCAG 1.4.11 non-textuel",
+          "detail": "3:1 pour les bordures de contrôles et les indicateurs de focus."
+        },
+        {
+          "term": "Couleur WCAG 1.4.1",
+          "detail": "Jamais le seul signal : une pastille de statut a aussi besoin de texte, comme « Remboursée »."
+        },
+        {
+          "term": "`prefers-reduced-motion`",
+          "detail": "Reflète le réglage système ; remplacer le mouvement par un court fondu, garder le retour visuel."
+        },
+        {
+          "term": "Focus WCAG 2.4.11",
+          "detail": "Une barre sticky ne doit pas masquer entièrement l’élément focalisé : `scroll-padding-bottom` et padding en bas."
+        },
+        {
+          "term": "Taille de cible WCAG 2.5.8",
+          "detail": "Au moins 24 sur 24 pixels CSS sauf si espacées ; 44 px (AAA) est plus confortable."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Au checkout, les utilisateurs qui parcourent le formulaire avec Tab trouvent le champ code postal focalisé masqué derrière la barre sticky « Payer », et le texte d’aide gris clair est difficile à lire. Quelles règles s’appliquent, et comment corrigez-vous ?",
+        "bridge": "WCAG 2.2 interdit qu’un contenu sticky masque l’élément focalisé, corrigé avec `scroll-padding` ; le texte normal demande un contraste d’au moins 4,5:1."
+      },
+      {
+        "question": "Un designer signale les tailles indisponibles seulement par une bordure rouge, et veut supprimer toutes les animations pour les utilisateurs qui préfèrent un mouvement réduit. Que proposez-vous ?",
+        "bridge": "La couleur ne doit jamais être le seul signal, et mouvement réduit veut dire un court fondu au lieu d’un glissement, pas la suppression du retour visuel."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux stylent le texte secondaire du récapitulatif du checkout, sur fond blanc. Lequel respecte le contraste WCAG AA ?",
+        "why": "Le texte de taille normale demande un ratio de contraste d’au moins 4,5:1 (WCAG 1.4.3). `#6b7280` sur blanc donne 4,83:1. `#777777` paraît assez foncé mais donne 4,48:1, juste sous le seuil : l’audit le refuse, et les clients malvoyants peinent à lire les frais et la date de livraison."
+      }
+    ]
+  },
+  "test-user-event": {
+    "topic": "user-event et tests d’UI asynchrone",
+    "question": "Pourquoi utiliser user-event plutôt que `fireEvent`, et comment un test React doit-il attendre une UI asynchrone ?",
+    "answer": "`fireEvent` déclenche un seul événement DOM. user-event simule toute l’interaction : le focus, puis keydown, input et keyup pour chaque caractère, les pointer events avant un clic, et il refuse les clics qu’un vrai utilisateur ne pourrait pas faire, comme sur un élément en `pointer-events: none`. Les bugs qui apparaissent à chaque frappe ressortent donc. Je crée `const user = userEvent.setup()` avant le rendu et j’attends chaque appel. Pour l’UI asynchrone, j’attends ce que l’utilisateur verrait : les requêtes `findBy` réessaient jusqu’à ce que l’élément apparaisse, et `waitFor` relance un callback jusqu’à ce qu’il ne lève plus d’erreur, donc je n’y mets que des assertions. Jamais de pause fixe, et un warning act veut dire que le test a fait la course avec React.",
+    "keyPoints": [
+      "`fireEvent` envoie un événement ; user-event tape touche par touche",
+      "user-event refuse les clics qu’un vrai utilisateur ne pourrait pas faire",
+      "`userEvent.setup()` avant le rendu, et `await` sur chaque appel",
+      "Attendre avec `findBy` ; que des assertions dans `waitFor`",
+      "Pas de pause fixe ; un warning act signale une course"
+    ],
+    "explanation": "La question montre si tes tests attrapent de vrais bugs ou se contentent de passer. Un senior sait nommer un bug que `fireEvent` a caché, sait que `waitFor` relance son callback, et traite les warnings act comme un signal au lieu de les faire taire.",
+    "example": "L’autocomplétion d’adresse de la boutique envoyait une requête par frappe en production, et pourtant son test passait : `fireEvent.change` posait toute l’adresse en un seul événement, donc le composant faisait une seule requête. Réécrit avec `user.type`, le test tapait touche par touche, comptait les requêtes et échouait jusqu’à ce que le debounce soit corrigé. Le test du statut de commande a aussi remplacé une pause de 100 ms par `findByRole('alert')`.",
+    "mistakes": [
+      "Oublier le `await` sur les appels user-event : juste après un `type` non attendu, le handler ne s’est pas encore exécuté.",
+      "Mettre un clic dans `waitFor`, qui relance le callback et clique plusieurs fois.",
+      "Attendre un temps fixe avec `setTimeout`, ce qui est lent en local et peut être trop court en CI."
+    ],
+    "followUps": [
+      {
+        "question": "getBy, queryBy ou findBy : lequel, et quand ?",
+        "answer": "`getBy` pour ce qui doit être là maintenant : il lève une erreur s’il manque. `queryBy` pour vérifier qu’une chose est absente : il renvoie null. `findBy` pour ce qui apparaît plus tard : il renvoie une promesse qui réessaie jusqu’à ce que l’élément apparaisse ou que le timeout expire, une seconde par défaut."
+      },
+      {
+        "question": "Que veut dire le warning « not wrapped in act » ?",
+        "answer": "React attend les mises à jour dans `act()`, qui applique les rendus et effets en attente avant que le test regarde. `render`, user-event et les requêtes asynchrones enveloppent déjà leur travail. Le warning veut dire qu’une mise à jour a eu lieu en dehors : le test a vérifié l’écran alors que React avait encore du travail."
+      },
+      {
+        "question": "Pourquoi le warning act n’est-il jamais apparu dans une suite Vitest ?",
+        "answer": "Testing Library n’enregistre son cleanup automatique et son environnement act que si `afterEach` et `beforeAll` sont globaux. Sans `globals: true`, le DOM précédent restait et le flag act n’était jamais posé. J’active les globals, ou j’appelle `cleanup` et je pose le flag moi-même."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`fireEvent.change` avec une valeur complète appelle `onChange` une fois par caractère.",
+        "why": "Il déclenche un seul événement, donc `onChange` s’exécute une fois avec toute la valeur ; `user.type` l’exécute à chaque touche.",
+        "twin": {
+          "statement": "`fireEvent.change` avec une valeur complète appelle `onChange` une seule fois, avec toute la valeur.",
+          "why": "Il déclenche un seul événement ; c’est `user.type` qui exécute le handler à chaque touche."
+        }
+      },
+      {
+        "statement": "Les requêtes `findBy` réessaient jusqu’à ce que l’élément apparaisse ou que le timeout expire.",
+        "why": "Elles renvoient une promesse construite sur `waitFor`, une seconde par défaut.",
+        "twin": {
+          "statement": "Les requêtes `findBy` vérifient le DOM une fois et échouent tout de suite si l’élément manque.",
+          "why": "Elles renvoient une promesse construite sur `waitFor` qui réessaie jusqu’à ce que l’élément apparaisse, une seconde par défaut."
+        }
+      },
+      {
+        "statement": "user-event clique sur un élément même s’il a `pointer-events: none`.",
+        "why": "Il lève une erreur, car un vrai utilisateur ne pourrait pas cliquer dessus ; `fireEvent.click` appellerait le handler.",
+        "twin": {
+          "statement": "user-event lève une erreur quand on lui demande de cliquer sur un élément en `pointer-events: none`.",
+          "why": "Un vrai utilisateur ne pourrait pas cliquer dessus, donc user-event refuse ; `fireEvent.click` appellerait le handler."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les tests d’UI doivent interagir et attendre comme un utilisateur. user-event simule de vraies interactions, et les requêtes asynchrones attendent ce qui apparaît à l’écran : les tests attrapent les bugs liés à chaque frappe sans pause fixe.",
+      "points": [
+        "`fireEvent` déclenche un seul événement DOM. user-event simule une vraie interaction : le focus, puis keydown, input et keyup par caractère, et les pointer events avant un clic.",
+        "user-event refuse ce qu’un utilisateur ne pourrait pas faire : cliquer sur un élément en `pointer-events: none` lève une erreur. Crée `const user = userEvent.setup()` avant le rendu et fais un `await` sur chaque appel.",
+        "Après une étape asynchrone, attends ce que l’utilisateur verrait. Les requêtes `findBy` réessaient jusqu’à ce que l’élément apparaisse, une seconde par défaut ; jamais de pause fixe.",
+        "`waitFor(callback)` relance le callback jusqu’à ce qu’il ne lève plus d’erreur, donc il ne doit contenir que des assertions : une action dedans s’exécute plusieurs fois.",
+        "Les tests React appliquent les mises à jour dans `act()`. Un warning « not wrapped in act » veut dire que le test a regardé alors que React avait encore du travail : attends l’état final."
+      ],
+      "takeaways": [
+        {
+          "term": "`fireEvent`",
+          "detail": "Déclenche un seul événement DOM."
+        },
+        {
+          "term": "user-event",
+          "detail": "Focus, puis keydown, input et keyup par caractère ; refuse les clics qu’un utilisateur ne pourrait pas faire."
+        },
+        {
+          "term": "`userEvent.setup()`",
+          "detail": "Créer l’utilisateur avant le rendu et faire un `await` sur chaque appel."
+        },
+        {
+          "term": "Requêtes `findBy`",
+          "detail": "Réessaient jusqu’à ce que l’élément apparaisse, une seconde par défaut."
+        },
+        {
+          "term": "`waitFor(callback)`",
+          "detail": "Relance le callback jusqu’à ce qu’il ne lève plus d’erreur : que des assertions dedans, jamais d’actions."
+        },
+        {
+          "term": "« not wrapped in act »",
+          "detail": "Le test a regardé alors que React avait encore du travail : attendre l’état final."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un test du champ de recherche de la boutique passe avec `fireEvent.change`, pourtant en production l’autocomplétion casse seulement quand les clients tapent lettre par lettre. Pourquoi le test l’a-t-il raté, et comment le réécrivez-vous ?",
+        "bridge": "`fireEvent` envoie un seul événement ; user-event tape touche par touche avec le focus et les événements clavier, donc les bugs liés à chaque frappe ressortent."
+      },
+      {
+        "question": "Un test flaky du back-office fait une pause de 500 ms avant de vérifier la confirmation de remboursement. Comment devrait-il attendre à la place ?",
+        "bridge": "Attendre ce que l’utilisateur voit : `findBy` réessaie jusqu’à ce que l’élément apparaisse, et `waitFor` ne contient que des assertions. Jamais de pause fixe."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux vérifient que le champ de recherche envoie une requête après la saisie de « mug ». Quel test peut détecter un debounce manquant ?",
+        "why": "`user.type` tape touche par touche, donc un champ de recherche sans debounce appelle `onSearch` trois fois, pour « m », « mu » et « mug », et le test échoue. `fireEvent.change` pose toute la valeur en un seul événement, donc `onChange` s’exécute une fois et le test passe, que le debounce existe ou non."
+      }
+    ]
+  },
+  "test-react-providers": {
+    "topic": "Tester avec Query et le contexte",
+    "question": "Comment testez-vous des composants React qui utilisent TanStack Query et le contexte ?",
+    "answer": "Je mets tous les providers dans un seul helper de rendu, `renderWithProviders`, qui passe un `wrapper` au `render` de Testing Library. Dedans, je crée un nouveau `QueryClient` pour chaque test, parce que le client contient le cache : un client partagé fait fuir des données d’un test au suivant, et un test échoue seulement quand il passe après un autre. Je coupe les retries dans ce client, puisque les requêtes relancent les échecs trois fois avec des délais croissants : un état d’erreur prend des secondes et `findBy` abandonne avant. Les valeurs de contexte deviennent des options du helper, comme un panier vide. Et je mocke le réseau avec MSW, pas les hooks.",
+    "keyPoints": [
+      "Un helper de rendu avec un `wrapper` qui contient tous les providers",
+      "Un nouveau `QueryClient` par test : ne jamais partager le cache",
+      "Couper `retry`, sinon les états d’erreur prennent des secondes",
+      "Mocker le réseau, pas `useQuery` ni le hook maison"
+    ],
+    "explanation": "Les échecs qui dépendent de l’ordre à cause de caches partagés sont une cause classique de tests flaky, donc les recruteurs vérifient que tu sais où vit le state. Un senior explique aussi pourquoi mocker le hook est pire : ça saute le chargement, les erreurs et le cache, là où sont les bugs.",
+    "example": "Les tests du checkout de la boutique importaient le `queryClient` de l’app. Le test de la page commande échouait alors seulement après un autre test : le premier mettait en cache la commande `ord_1` comme `paid`, et le second, dont le mock répondait `refunded`, rendait d’abord le « payé » en cache, donc son assertion échouait avant qu’un refetch arrive. Un helper `renderWithProviders` qui construit un client neuf sans retries a corrigé ça, et les tests d’état d’erreur sont passés de 7 secondes à quelques millisecondes.",
+    "mistakes": [
+      "Importer dans les tests le `QueryClient` singleton de l’app, ce qui partage les données en cache entre eux.",
+      "Laisser les retries par défaut, si bien que l’UI d’erreur apparaît après que `findBy` a déjà abandonné.",
+      "Mocker `@tanstack/react-query` ou le hook maison, ce qui saute le chargement, les erreurs et le cache."
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi couper les retries dans le client ne marche-t-il pas toujours ?",
+        "answer": "Les `defaultOptions` du client ne sont que des valeurs par défaut. Si le `useQuery` du composant fixe lui-même `retry`, cette valeur l’emporte, et le test attend toujours les retries. Le guide de test de TanStack Query le signale : je garde les réglages de retry dans le client, pas dans les composants."
+      },
+      {
+        "question": "Les mutations sont-elles relancées par défaut ?",
+        "answer": "Non. Les requêtes réessaient trois fois par défaut, pas les mutations : un `POST /orders` en échec affiche son erreur après une seule requête. Je mets quand même les deux à `retry: false` dans le client de test pour rendre l’intention explicite."
+      },
+      {
+        "question": "Comment testez-vous un hook maison qui utilise `useQuery` ?",
+        "answer": "Avec `renderHook` de Testing Library et le même `wrapper`, puis `await waitFor(() => expect(result.current.isSuccess).toBe(true))`. Si le hook n’alimente qu’un composant, je teste plutôt le composant, puisque c’est ce que voit l’utilisateur."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "TanStack Query relance par défaut trois fois une requête en échec.",
+        "why": "Avec des délais croissants, c’est pourquoi les tests coupent `retry`.",
+        "twin": {
+          "statement": "TanStack Query affiche par défaut l’erreur d’une requête en échec tout de suite, sans relancer.",
+          "why": "Il relance trois fois avec des délais croissants, c’est pourquoi les tests coupent `retry`."
+        }
+      },
+      {
+        "statement": "Partager un `QueryClient` entre tests est sans risque, car chaque test rend un nouvel arbre de composants.",
+        "why": "Le cache vit dans le client, pas dans l’arbre, donc les données d’un test sont servies au suivant.",
+        "twin": {
+          "statement": "Partager un `QueryClient` entre tests peut servir à un test les données mises en cache par le précédent.",
+          "why": "Le cache vit dans le client, pas dans l’arbre rendu, donc un nouvel arbre ne le réinitialise pas."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les composants qui utilisent TanStack Query ou le contexte ont besoin de leurs providers dans les tests. Un helper de rendu partagé avec un client neuf par test garde les tests isolés et les états d’erreur rapides.",
+      "points": [
+        "Un `QueryClient` contient le cache de TanStack Query. Partage-le entre tests et les données en cache fuient : un test peut passer seul et échouer après un autre.",
+        "Crée un nouveau client par test dans un helper `renderWithProviders`, et passe tous les providers via l’option `wrapper` de `render`.",
+        "Les requêtes relancent les échecs 3 fois par défaut avec des délais croissants, donc un état d’erreur apparaît après des secondes. Mets `retry: false` dans le client de test ; les mutations ne sont pas relancées par défaut.",
+        "L’option `retry` propre à un composant écrase les valeurs par défaut du client : garde les réglages de retry hors des composants, sinon le test attend quand même.",
+        "Mocke le réseau avec MSW, pas le hook : un faux `useOrder` saute l’état de chargement, l’état d’erreur et le cache, là où sont les bugs."
+      ],
+      "takeaways": [
+        {
+          "term": "`renderWithProviders`",
+          "detail": "Un helper qui passe tous les providers via l’option `wrapper` de `render`."
+        },
+        {
+          "term": "Nouveau `QueryClient` par test",
+          "detail": "Le client contient le cache : un client partagé fait fuir des données, et un test échoue seulement après un autre."
+        },
+        {
+          "term": "`retry: false`",
+          "detail": "Les requêtes réessaient 3 fois par défaut avec des délais croissants ; les mutations ne sont pas relancées par défaut."
+        },
+        {
+          "term": "Option `retry` du composant",
+          "detail": "Écrase les valeurs par défaut du client : garder les réglages de retry hors des composants."
+        },
+        {
+          "term": "MSW, pas de mock de hook",
+          "detail": "Un faux `useOrder` saute l’état de chargement, l’état d’erreur et le cache, là où sont les bugs."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le test du détail de commande du back-office passe seul, mais lancé après le test de la liste des commandes, il affiche une commande qu’il n’a jamais demandée. Quelle est la cause probable ?",
+        "bridge": "Le `QueryClient` contient le cache ; en partager un entre tests fait fuir des données, donc le helper de rendu crée un nouveau client pour chaque test."
+      },
+      {
+        "question": "Un test de l’état d’erreur de la page des commandes abandonne sur `findByText(\"Could not load orders\")`, alors que le mock répond 500 tout de suite. Que changez-vous ?",
+        "bridge": "Les requêtes relancent par défaut les échecs trois fois avec des délais croissants ; couper `retry` dans le client de test."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux sont le helper de rendu des tests de la page commande de la boutique. Lequel garde chaque test indépendant des autres ?",
+        "why": "Un nouveau `QueryClient` à chaque appel donne à chaque test un cache vide. Le client au niveau du module garde son cache entre les tests : un test démarre avec les commandes chargées par le précédent et peut afficher « payé » là où son propre mock répond `refunded`. Il passe seul et échoue après un autre test."
+      }
+    ]
+  },
+  "test-playwright": {
+    "topic": "E2E Playwright et contrôles d’UI en CI",
+    "question": "Comment écririez-vous des tests end-to-end fiables pour le checkout avec Playwright, et comment les garderiez-vous dignes de confiance en CI ?",
+    "answer": "Je limite l’E2E à quelques parcours, comme le chemin nominal et une carte refusée. Les locators suivent l’utilisateur : `getByRole` avec un nom, plus `exact: true` quand un nom est le préfixe d’un autre, car les locators sont stricts et les noms correspondent par sous-chaîne par défaut. Les actions attendent automatiquement que l’élément soit visible, stable et activé, et les assertions web-first comme `toBeEnabled()` réessaient : je n’ajoute jamais d’attente fixe. Les chemins d’erreur sont mockés avec `page.route`, mais un chemin nominal tourne contre une vraie API. En CI, j’enregistre une trace au premier retry, je fais échouer le build sur les tests flaky, et je lance un scan axe sur les pages clés.",
+    "keyPoints": [
+      "Peu de parcours ; locators par rôle, `exact: true` quand des noms se recouvrent",
+      "Actions à attente automatique et assertions web-first, pas d’attente fixe",
+      "Mocker les chemins d’erreur avec `page.route` ; un vrai chemin nominal",
+      "Trace au premier retry ; `failOnFlakyTests` en CI",
+      "Un scan axe sur les pages clés, plus des contrôles manuels"
+    ],
+    "explanation": "Les suites E2E meurent souvent de leur instabilité, donc les recruteurs veulent entendre comment tu en gardes une digne de confiance, pas seulement quel outil tu utilises. Un senior nomme les causes des tests flaky et traite un test qui passe au retry comme un échec à corriger, pas comme une réussite.",
+    "example": "Le parcours carte refusée mockait `**/orders` avec `page.route`, qui répondait 402. La première semaine, il échouait de temps en temps, en CI seulement ; la trace du premier retry montrait le locator `Pay` qui correspondait à un bouton « Paying… ». Ajouter `exact: true` et remplacer une vérification ponctuelle `isEnabled()` par `toBeEnabled()` a supprimé l’instabilité, et `failOnFlakyTests` garde la suivante visible.",
+    "mistakes": [
+      "Attendre avec `page.waitForTimeout` au lieu de s’appuyer sur les actions à attente automatique et les assertions web-first.",
+      "Vérifier `expect(await locator.isEnabled()).toBe(true)`, qui lit l’état une fois et ne réessaie pas.",
+      "Mocker toutes les requêtes, si bien qu’un changement du contrat de la vraie API Orders n’est jamais détecté."
+    ],
+    "followUps": [
+      {
+        "question": "Quelles sont les causes habituelles des tests d’UI flaky ?",
+        "answer": "Les attentes fixes, les assertions qui ne réessaient pas, l’état partagé entre tests, comme un seul compte client pour toute la suite, et le temps réel. J’utilise des assertions web-first, je donne à chaque test ses propres données, et je contrôle le temps avec `page.clock.install()`."
+      },
+      {
+        "question": "Que contient une trace Playwright ?",
+        "answer": "Chaque action avec des snapshots du DOM avant et après, les requêtes réseau et la sortie console, qu’on ouvre avec `npx playwright show-trace`. L’enregistrer au premier retry donne une trace pour exactement les échecs qu’on ne reproduit pas en local."
+      },
+      {
+        "question": "Que peut prouver un scan axe automatisé ?",
+        "answer": "Que la page n’a pas de violations détectables par axe, comme des noms manquants ou des attributs ARIA invalides. La doc de Playwright dit que beaucoup de problèmes ne se trouvent qu’en test manuel, donc je garde des contrôles au clavier et au lecteur d’écran pour les parcours clés."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`page.getByRole(\"button\", { name: \"Pay\" })` correspond aussi à un bouton qui affiche « Paying… ».",
+        "why": "Le nom correspond par sous-chaîne insensible à la casse par défaut ; `exact: true` exige le nom complet.",
+        "twin": {
+          "statement": "`page.getByRole(\"button\", { name: \"Pay\" })` ne correspond qu’à un bouton dont le nom est exactement « Pay ».",
+          "why": "Le nom correspond par sous-chaîne insensible à la casse par défaut ; `exact: true` exige le nom complet."
+        }
+      },
+      {
+        "statement": "Avec les retries activés, un test qui échoue une fois puis passe fait échouer l’exécution par défaut.",
+        "why": "Playwright le signale comme flaky et l’exécution passe, sauf si `failOnFlakyTests` est activé.",
+        "twin": {
+          "statement": "Avec les retries activés, un test qui échoue une fois puis passe est signalé comme flaky, et l’exécution passe par défaut.",
+          "why": "L’exécution n’échoue sur les tests flaky que si `failOnFlakyTests` est activé."
+        }
+      },
+      {
+        "statement": "Les assertions web-first comme `toBeEnabled()` réessaient jusqu’à réussir ou atteindre le timeout.",
+        "why": "Elles interrogent le locator en boucle, 5 secondes par défaut, donc aucune attente manuelle n’est nécessaire.",
+        "twin": {
+          "statement": "Les assertions web-first comme `toBeEnabled()` vérifient une fois et échouent tout de suite si le bouton est encore désactivé.",
+          "why": "Elles interrogent le locator en boucle jusqu’à réussir ou atteindre le timeout, 5 secondes par défaut."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les tests end-to-end Playwright pilotent de vrais navigateurs sur quelques parcours critiques. Des locators stricts orientés utilisateur, l’attente automatique et des réglages CI stricts les gardent fiables plutôt que flaky.",
+      "points": [
+        "Playwright pilote Chromium, Firefox et WebKit. Les locators comme `page.getByRole` sont stricts, et `name` correspond par sous-chaîne insensible à la casse, sauf si tu ajoutes `exact: true`.",
+        "Les actions attendent automatiquement que l’élément soit visible, stable et activé ; les assertions web-first comme `expect(locator).toBeEnabled()` réessaient, 5 s par défaut. N’ajoute jamais d’attente fixe.",
+        "`page.route` intercepte les requêtes et `route.fulfill` y répond, idéal pour les chemins d’erreur. Garde un chemin nominal contre une vraie API pour détecter les changements de contrat.",
+        "En CI, enregistre une trace au premier retry et active `failOnFlakyTests` : un test qui ne passe qu’au retry fait passer le build au rouge.",
+        "`@axe-core/playwright` scanne les pages à la recherche de violations d’accessibilité détectables. Les scans automatisés ne trouvent qu’une partie des problèmes, donc les contrôles manuels restent."
+      ],
+      "takeaways": [
+        {
+          "term": "`page.getByRole`",
+          "detail": "Locator strict ; `name` correspond par sous-chaîne insensible à la casse, sauf si tu ajoutes `exact: true`."
+        },
+        {
+          "term": "Attente automatique",
+          "detail": "Les actions attendent que l’élément soit visible, stable et activé."
+        },
+        {
+          "term": "Assertions web-first",
+          "detail": "`expect(locator).toBeEnabled()` réessaie, 5 s par défaut. Jamais d’attente fixe."
+        },
+        {
+          "term": "`page.route`",
+          "detail": "Intercepte les requêtes, auxquelles `route.fulfill` répond : pour les chemins d’erreur. Garder un vrai chemin nominal."
+        },
+        {
+          "term": "`failOnFlakyTests`",
+          "detail": "Un test qui ne passe qu’au retry fait passer le build au rouge. Enregistrer une trace au premier retry."
+        },
+        {
+          "term": "`@axe-core/playwright`",
+          "detail": "Scanne les pages pour les violations d’accessibilité détectables ; les contrôles manuels restent."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le test E2E du checkout échoue avec une strict mode violation sur `getByRole(\"button\", { name: \"Pay\" })` après l’ajout d’un bouton « Pay later ». Pourquoi, et comment corrigez-vous ?",
+        "bridge": "Les locators sont stricts et les noms correspondent par sous-chaîne par défaut, donc les deux boutons correspondent ; `exact: true` exige le nom complet."
+      },
+      {
+        "question": "La suite Playwright de l’équipe est verte, mais tout le monde sait qu’elle est flaky et elle est pleine de `waitForTimeout(2000)`. Comment la rendez-vous digne de confiance en CI ?",
+        "bridge": "S’appuyer sur les actions à attente automatique et les assertions web-first au lieu d’attentes fixes, enregistrer une trace au premier retry, et faire échouer l’exécution sur les tests flaky."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux vérifient que Pay est de nouveau activé après une carte refusée. Quelle assertion est fiable sur un runner CI lent ?",
+        "why": "`toBeEnabled()` est une assertion web-first : elle réessaie jusqu’à ce que le bouton soit activé ou que 5 secondes passent. `isEnabled()` lit l’état une fois : quand le bouton est réactivé quelques millisecondes après l’apparition de l’alerte, le test échoue de temps en temps en CI et passe en local. C’est un test flaky."
+      }
+    ]
+  },
+  "fe-component-api": {
+    "topic": "Concevoir l’API d’un composant",
+    "question": "Comment concevez-vous l’API d’un composant partagé comme un Button ou des Tabs, et doit-il être contrôlé ou non contrôlé ?",
+    "answer": "Je modélise les options visuelles avec une seule prop `variant` typée en union, pas des booléens, pour que les combinaisons impossibles ne compilent pas. J’étends les props de l’élément natif avec `ComponentProps<'button'>` et je répands le reste sur le vrai élément, donc `onClick`, `aria-*` et `ref` fonctionnent directement ; en React 19, `ref` est une prop ordinaire. Je fusionne le `className` de l’appelant et je mets `type` à \"button\" par défaut. Le contenu passe par `children`. Pour les composants avec état, je supporte les deux modes avec les noms qu’utilise `<input>` : `defaultValue` quand le composant possède l’état, `value` plus `onValueChange` quand c’est le parent, par exemple pour garder l’onglet sélectionné dans l’URL.",
+    "keyPoints": [
+      "Une union `variant` plutôt que des props booléennes",
+      "Étendre `ComponentProps<'button'>`, répandre le reste ; `ref` est une prop",
+      "Fusionner `className`, `type=\"button\"` par défaut, contenu en `children`",
+      "Non contrôlé `defaultValue` ; contrôlé `value` + `onValueChange`"
+    ],
+    "explanation": "Dans un exercice de conception de composant, les recruteurs jugent la forme des props plus que le CSS. Un senior empêche les mauvais usages par les types, garde l’API de la plateforme au lieu d’en inventer une, et sait expliquer qui possède l’état dans chaque mode.",
+    "example": "Le back-office avait un `<PrimaryButton>`, un `<Btn>` avec 23 props booléennes et un `div` cliquable. Le nouveau Button de `@shop/ui` les a remplacés avec des unions `variant` et `size` par-dessus les props natives du bouton. Ses Tabs prennent `defaultValue` sur la page produit de la boutique, et `value` avec `onValueChange` sur le détail de commande, où les agents du support partagent des liens comme `?tab=refunds`.",
+    "mistakes": [
+      "Ajouter une prop booléenne par apparence, comme `primary` et `danger`, ce qui autorise des combinaisons contradictoires.",
+      "Répandre `{...rest}` après un `className` fixe, si bien que la classe de l’appelant remplace les styles de base.",
+      "Passer `value` sans stocker la nouvelle valeur dans `onValueChange`, ce qui fige un composant contrôlé."
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi mettre `type` à \"button\" par défaut ?",
+        "answer": "Un `<button>` dans un formulaire est un bouton de soumission par défaut : un bouton du design system dans le formulaire de remboursement le soumettrait au clic. Mettre `type` à \"button\" par défaut, tout en laissant l’appelant passer \"submit\", fait du comportement sûr le comportement par défaut."
+      },
+      {
+        "question": "Comment un même composant supporte-t-il les modes contrôlé et non contrôlé ?",
+        "answer": "Avec un petit hook comme `useControllableState` : quand `value` est défini, le composant est contrôlé, ne touche jamais à son propre state et appelle seulement `onChange`. Sinon il garde un state interne, initialisé une fois depuis `defaultValue`, et signale quand même les changements."
+      },
+      {
+        "question": "Quand utiliseriez-vous des slots nommés plutôt que `children` ?",
+        "answer": "Quand la mise en page est fixe et que seul le contenu varie, comme l’en-tête de chaque page du back-office. Des props typées `ReactNode`, comme `title` et `actions`, gardent la mise en page dans le design system et le contenu chez l’appelant."
+      },
+      {
+        "question": "Avez-vous encore besoin de `forwardRef` ?",
+        "answer": "Plus depuis React 19 : `ref` est une prop ordinaire des composants fonctions, donc un composant qui répand ses props la transmet à l’élément. react.dev dit que `forwardRef` n’est plus nécessaire et sera déprécié."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Changer `defaultValue` après le montage change l’onglet sélectionné de Tabs non contrôlés.",
+        "why": "`defaultValue` est lu une fois, comme l’argument de `useState` ; les changements suivants sont ignorés.",
+        "twin": {
+          "statement": "Changer `defaultValue` après le montage ne change pas l’onglet sélectionné de Tabs non contrôlés.",
+          "why": "`defaultValue` est lu une fois, comme l’argument de `useState` ; les changements suivants sont ignorés."
+        }
+      },
+      {
+        "statement": "En React 19, un composant fonction reçoit `ref` comme une prop ordinaire.",
+        "why": "Donc répandre les props sur l’élément transmet la ref sans `forwardRef`.",
+        "twin": {
+          "statement": "En React 19, un composant fonction a besoin de `forwardRef` pour recevoir une `ref`.",
+          "why": "React 19 passe `ref` comme une prop ordinaire, donc répandre les props sur l’élément la transmet."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’API d’un composant, ce sont ses props. Une bonne API rend les mauvaises combinaisons impossibles, se comporte comme l’élément natif qu’elle enveloppe, et supporte les usages contrôlé et non contrôlé.",
+      "points": [
+        "L’API d’un composant, ce sont ses props. Modélise les options visuelles avec une seule union, `variant: \"primary\" | \"danger\"`, pas des booléens, pour que `<Btn primary danger>` ne compile pas.",
+        "Étends les props natives avec `ComponentProps<\"button\">` et répands le reste sur le vrai élément. Depuis React 19, `ref` est une prop, donc elle est transmise sans `forwardRef`.",
+        "Décide qui gagne pour chaque prop : fusionne le `className` de l’appelant avec la classe de base, mets `type` à \"button\" par défaut, et passe le contenu par `children`.",
+        "Non contrôlé : le composant possède son état, initialisé depuis `defaultValue`, lu une fois. Contrôlé : le parent passe `value` et stocke la nouvelle valeur reçue de `onValueChange`.",
+        "Un composant est contrôlé quand `value` est défini. Il affiche exactement ce qu’on lui donne, donc un parent qui ne met jamais à jour `value` le fige."
+      ],
+      "takeaways": [
+        {
+          "term": "Union `variant`",
+          "detail": "Une prop comme `\"primary\" | \"danger\"` au lieu de booléens, pour que les combinaisons impossibles ne compilent pas."
+        },
+        {
+          "term": "`ComponentProps<\"button\">`",
+          "detail": "Étendre les props natives et répandre le reste sur le vrai élément."
+        },
+        {
+          "term": "`ref` en React 19",
+          "detail": "Une prop ordinaire, transmise sans `forwardRef`."
+        },
+        {
+          "term": "Valeurs par défaut",
+          "detail": "Fusionner le `className` de l’appelant, `type` à \"button\" par défaut, contenu via `children`."
+        },
+        {
+          "term": "Non contrôlé : `defaultValue`",
+          "detail": "Le composant possède son état, initialisé depuis `defaultValue`, lu une fois."
+        },
+        {
+          "term": "Contrôlé : `value`",
+          "detail": "Le parent passe `value` et stocke les mises à jour de `onValueChange` ; s’il ne met jamais à jour `value`, l’UI se fige."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le `Button` partagé a des props booléennes `primary`, `danger`, `small` et `outline`, une page part en production avec `primary` et `danger` à la fois, et `aria-label` n’atteint jamais le DOM. Comment repenseriez-vous son API ?",
+        "bridge": "Une seule union `variant` fait échouer à la compilation les combinaisons impossibles, et étendre `ComponentProps<'button'>` avec un rest spread transmet les props natives."
+      },
+      {
+        "question": "Les Tabs du détail de commande doivent garder l’onglet sélectionné dans l’URL, alors que les autres écrans s’en moquent. Comment un même composant supporte-t-il les deux usages ?",
+        "bridge": "`defaultValue` non contrôlé quand le composant possède l’état, `value` contrôlé plus `onValueChange` quand c’est le parent, comme `<input>`."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux sont le Button partagé, et un appelant passe `className=\"refund\"`. Lequel garde les styles de base ?",
+        "why": "Le meilleur Button sort `className` des props et le fusionne avec la classe de base : `class=\"btn refund\"`. L’autre répand `{...rest}` après son propre `className`, donc la valeur de l’appelant le remplace : le bouton de remboursement s’affiche avec `class=\"refund\"` seulement et perd tous ses styles de base."
+      }
+    ]
+  },
+  "fe-storybook": {
+    "topic": "Storybook pour les composants",
+    "question": "Comment utilisez-vous Storybook pour documenter et tester une bibliothèque de composants partagée ?",
+    "answer": "Storybook est un atelier où chaque composant est développé et documenté en isolation. Une story, c’est le composant rendu avec des props données, appelées args, écrite en Component Story Format : un export par défaut qui décrit le composant et un export nommé par story. Les designers relisent chaque état sur le site généré. Les mêmes stories sont des tests : une story qui se rend est un smoke test, une play function exécute des interactions et des assertions, l’addon d’accessibilité lance axe sur chaque story, et les tests visuels, par exemple avec Chromatic, comparent des captures d’écran à des références validées. L’addon Vitest exécute les stories comme des tests Vitest dans un vrai navigateur, donc tout ça tourne sur chaque pull request.",
+    "keyPoints": [
+      "Les stories rendent un composant avec des args, en Component Story Format",
+      "Le site de doc montre chaque état aux designers et aux équipes",
+      "Les play functions testent les interactions ; l’addon a11y lance axe",
+      "Les tests visuels comparent des captures ; l’addon Vitest les lance en CI"
+    ],
+    "explanation": "Les bibliothèques partagées cassent leurs consommateurs en silence, donc les recruteurs demandent comment tu les protèges. Un senior nomme une couche par risque, comportement, accessibilité et apparence, et sait ce que l’automatisation rate : axe ne détecte qu’une partie des WCAG.",
+    "example": "Les designers et trois équipes produit devaient voir chaque variante de Button et le comportement clavier des Tabs sans lancer d’app. Les stories de `@shop/ui` sont devenues la référence, une play function `KeyboardNavigation` vérifie que ArrowRight sélectionne Payments et appelle `onValueChange`, et avec `parameters.a11y.test` à \"error\", toute violation axe fait échouer la pull request.",
+    "mistakes": [
+      "Traiter Storybook comme de la documentation seulement, sans play functions ni contrôles en CI.",
+      "Supposer qu’un passage propre de l’addon d’accessibilité veut dire que le composant est accessible : axe ne détecte qu’une partie des WCAG.",
+      "Chercher les éléments dans les play functions par nom de classe au lieu du rôle et du nom accessible."
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qu’une play function ?",
+        "answer": "Une fonction sur une story qui s’exécute après son rendu, avec `canvas` pour les requêtes, `userEvent` pour les interactions et `expect` pour les assertions. Elle transforme une story en test d’interaction qui montre aussi le comportement visuellement."
+      },
+      {
+        "question": "En quoi les tests visuels diffèrent-ils des tests de snapshot du DOM ?",
+        "answer": "Un test visuel compare une capture de la story rendue à une référence validée, donc il attrape un style cassé ou une mauvaise couleur. Un snapshot du DOM compare le texte du markup et rate les changements CSS. Les diffs visuels demandent une étape de revue pour valider les changements voulus."
+      },
+      {
+        "question": "Que ne remplace pas Storybook ?",
+        "answer": "Les contrôles au clavier et au lecteur d’écran pour ce qu’axe ne voit pas, et les tests propres des apps consommatrices : un composant peut passer toutes ses stories et être mal branché dans la page de détail de commande."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "En Component Story Format, chaque export nommé d’un fichier de stories est une story.",
+        "why": "L’export par défaut décrit le composant ; chaque export nommé est une story.",
+        "twin": {
+          "statement": "En Component Story Format, l’export par défaut d’un fichier de stories est une story.",
+          "why": "L’export par défaut décrit le composant ; chaque export nommé est une story."
+        }
+      },
+      {
+        "statement": "Un composant dont les stories passent l’addon d’accessibilité respecte les WCAG.",
+        "why": "axe-core ne détecte qu’une partie des problèmes WCAG ; les contrôles au clavier et au lecteur d’écran restent nécessaires.",
+        "twin": {
+          "statement": "Passer l’addon d’accessibilité sur chaque story ne prouve pas qu’un composant respecte les WCAG.",
+          "why": "axe-core ne détecte qu’une partie des problèmes WCAG ; les contrôles au clavier et au lecteur d’écran restent nécessaires."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Storybook est un atelier pour développer, documenter et tester des composants en isolation. Les mêmes stories servent de documentation aux designers et tournent en CI comme tests.",
+      "points": [
+        "Storybook est un atelier pour développer, documenter et tester des composants en isolation. Une story, c’est un composant rendu avec des props données, appelées args.",
+        "Les stories utilisent le Component Story Format : un export par défaut, `meta`, décrit le composant, et chaque export nommé est une story. Storybook en construit un site de documentation.",
+        "Une play function exécute des interactions et des assertions après le rendu, ce qui transforme une story en test. L’addon a11y lance axe-core sur chaque story.",
+        "Les tests visuels comparent des captures d’écran à des références validées, par exemple avec Chromatic. L’addon Vitest exécute les stories comme des tests Vitest dans un vrai navigateur, donc elles tournent en CI.",
+        "L’automatisation ne détecte qu’une partie des problèmes d’accessibilité : les contrôles au clavier et au lecteur d’écran restent, et les apps consommatrices gardent leurs propres tests."
+      ],
+      "takeaways": [
+        {
+          "term": "Story et args",
+          "detail": "Une story, c’est le composant rendu avec des props données, appelées args."
+        },
+        {
+          "term": "Component Story Format",
+          "detail": "Un export par défaut, `meta`, décrit le composant ; chaque export nommé est une story."
+        },
+        {
+          "term": "Play function",
+          "detail": "Exécute des interactions et des assertions après le rendu, ce qui transforme une story en test."
+        },
+        {
+          "term": "Addon a11y",
+          "detail": "Lance axe-core sur chaque story ; les contrôles au clavier et au lecteur d’écran restent manuels."
+        },
+        {
+          "term": "Tests visuels",
+          "detail": "Comparent des captures d’écran à des références validées, par exemple avec Chromatic."
+        },
+        {
+          "term": "Addon Vitest",
+          "detail": "Exécute les stories comme des tests Vitest dans un vrai navigateur, donc elles tournent en CI."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Deux fois par mois, un changement de la bibliothèque de composants partagée semble correct dans une app mais casse le focus ou le style dans une autre. Comment Storybook pourrait-il l’attraper sur chaque pull request ?",
+        "bridge": "Les stories servent aussi de tests : play functions, addon d’accessibilité, tests visuels contre des références, et l’addon Vitest qui les lance en CI."
+      },
+      {
+        "question": "Un designer veut relire chaque état du `Button` de remboursement sans démarrer le back-office. Comment Storybook organise-t-il ça, et qu’est-ce qu’une story ?",
+        "bridge": "Une story rend le composant avec des args donnés, écrite en Component Story Format, et le site généré montre chaque état."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux play functions testent la navigation clavier dans la story des Tabs. Laquelle protège aussi l’accessibilité du composant ?",
+        "why": "Chercher par rôle et nom accessible trouve l’onglet comme le fait un lecteur d’écran, donc la story échoue si l’onglet perd `role=\"tab\"` ou son nom. Le sélecteur de classe continue de passer après une telle régression, et casse à la place sur un renommage CSS sans conséquence."
+      }
+    ]
+  }
+}

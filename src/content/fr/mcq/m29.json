@@ -1,0 +1,302 @@
+{
+  "m29.q1": {
+    "q": "L’agent clique sur Actualiser dans <code>OrderHeader</code>, ce qui met à jour son state. Son enfant <code>StatusBadge</code> reçoit la même prop <code>status</code> qu’avant et n’est pas enveloppé dans <code>memo</code>. Que fait React avec <code>StatusBadge</code> ?",
+    "options": [
+      "Il ne l’appelle pas, car React compare d’abord ses props et elles n’ont pas changé",
+      "Il le rappelle, compare le résultat et laisse son DOM intact",
+      "Il le rappelle et remplace son <code>span</code> dans le DOM",
+      "Il ne l’appelle qu’après le commit de <code>OrderHeader</code>"
+    ],
+    "explain": "Un changement de state rend le composant et, par défaut, tous ses enfants, quelles que soient leurs props. Rendre n’est pas committer : mesuré sur React 19.3.1, l’enfant a été appelé une fois de plus et un MutationObserver n’a vu aucune mutation du DOM. Sauter un enfant aux props inchangées, c’est ce qu’ajoutent <code>memo</code> ou le React Compiler ; ce n’est pas le comportement par défaut."
+  },
+  "m29.q2": {
+    "q": "Laquelle de ces actions est autorisée dans le corps d’un composant, pendant le rendu ?",
+    "options": [
+      "Pousser chaque ligne rendue dans un tableau déclaré au niveau du module",
+      "Trier le tableau <code>lines</code> reçu en props avec <code>lines.sort()</code>",
+      "Créer un tableau local et y pousser des éléments avant de renvoyer le JSX",
+      "Écrire l’id de la commande affichée dans le localStorage"
+    ],
+    "explain": "Muter une valeur créée pendant ce rendu, c’est de la mutation locale, et react.dev dit que c’est acceptable : chaque rendu repart de zéro. <code>lines.sort()</code> est tentant parce que ça ressemble à du travail local, mais cela mute le tableau que possède le parent (ou le cache de requêtes) ; utilise <code>toSorted()</code>. Le tableau au niveau du module et l’écriture dans le localStorage modifient des choses qui existent en dehors du rendu."
+  },
+  "m29.q3": {
+    "q": "En partant de <code>selectedCount === 0</code>, un handler de clic exécute trois fois <code>setSelectedCount(selectedCount + 1)</code>. Qu’affiche le compteur, et après combien de rendus ?",
+    "options": [
+      "3, après trois rendus",
+      "1, après un rendu",
+      "3, après un rendu",
+      "1, après trois rendus"
+    ],
+    "explain": "Pendant le handler, <code>selectedCount</code> vaut la valeur figée 0, donc chaque appel demande 0 + 1, et React regroupe les trois en un seul rendu : mesuré, 1 après un rendu. « 3 après un rendu », c’est ce que donnent les fonctions de mise à jour : <code>setSelectedCount((count) =&gt; count + 1)</code>."
+  },
+  "m29.q4": {
+    "q": "Un handler de clic async attend un appel au BFF, puis appelle deux setters différents l’un après l’autre. Combien de rendus React 19 effectue-t-il pour ces deux mises à jour ?",
+    "options": [
+      "Un : depuis React 18, React regroupe aussi les mises à jour dans les promesses et les timeouts",
+      "Deux : les mises à jour après un <code>await</code> ne sont plus dans l’événement, donc chacune déclenche un rendu",
+      "Aucun avant le prochain événement utilisateur",
+      "Un par setter, sauf si le handler est enveloppé dans <code>startTransition</code>"
+    ],
+    "explain": "Le batching automatique, introduit avec React 18, regroupe les mises à jour faites dans les promesses, les timeouts et les événements natifs, pas seulement dans les handlers d’événements React. Mesuré sur React 19.3.1 : un rendu pour deux setters après un <code>await</code>. « Deux rendus », c’était le comportement avant React 18, d’où la persistance de cette idée reçue."
+  },
+  "m29.q5": {
+    "q": "Un composant stocke <code>selectedLineIds</code> dans le state et copie sa taille dans un second state, <code>selectedCount</code>, avec <code>useEffect</code>. Que se passe-t-il quand la sélection passe de 1 ligne à 3 ?",
+    "options": [
+      "Un rendu, car React regroupe la mise à jour de l’effet avec le clic",
+      "Un rendu, car l’effet s’exécute avant le commit, donc le compteur périmé n’est jamais visible",
+      "Rien jusqu’au prochain clic, car les effets ne s’exécutent qu’au montage",
+      "Deux rendus : le premier committe le compteur périmé 1, puis la mise à jour de l’effet rend 3"
+    ],
+    "explain": "Les effets s’exécutent après le commit, donc la copie est mise à jour avec un rendu de retard : mesuré, le composant s’est rendu avec 1, puis avec 3. La mise à jour faite dans l’effet est un nouveau rendu, elle ne fait pas partie du batch du clic. Calculer <code>selectedLineIds.size</code> pendant le rendu donne un seul rendu et aucun décalage."
+  },
+  "m29.q6": {
+    "q": "<code>RefundForm</code> contient <code>useState(order.refundableCents)</code>. Le parent le rend pour la commande A (1000), puis, au même endroit et sans key, pour la commande B (2500). Qu’affiche le champ du montant ?",
+    "options": [
+      "1000 : l’argument de <code>useState</code> n’est lu qu’au premier rendu",
+      "2500 : une nouvelle prop déclenche un re-render, qui relit la valeur initiale",
+      "2500 après un bref flash de 1000",
+      "0 : React réinitialise le state quand une prop change"
+    ],
+    "explain": "L’argument de <code>useState</code> est la valeur initiale, utilisée une seule fois au montage du composant ; les rendus suivants l’ignorent. Mesuré : le champ a gardé 1000. Le re-render a bien lieu, ce qui rend les options à 2500 tentantes, mais un rendu ne réinitialise jamais un state existant."
+  },
+  "m29.q7": {
+    "q": "Que fait <code>&lt;RefundForm key={order.id} order={order} /&gt;</code> quand l’agent passe de la commande 1042 à la commande 1043 ?",
+    "options": [
+      "Il accélère seulement la comparaison du formulaire avec sa version précédente",
+      "Il garde le state du formulaire et lui passe seulement la nouvelle prop <code>order</code>",
+      "React démonte l’ancien formulaire avec son state et son DOM, et en monte un neuf",
+      "Il déclenche un avertissement, car <code>key</code> est réservé aux éléments rendus dans une liste"
+    ],
+    "explain": "Une key est l’identité d’un élément à sa position : une nouvelle key signifie un autre composant, donc React détruit l’ancien sous-arbre et en monte un nouveau avec le state initial. Garder le state et mettre à jour les props, c’est ce qui se passe sans la key, et c’est justement le bug. Les keys ne sont pas réservées aux listes."
+  },
+  "m29.q8": {
+    "q": "L’agent peut ajouter une ligne d’ajustement manuel au remboursement avant qu’il soit enregistré, elle n’a donc pas encore d’id en base. Quelle key sa ligne doit-elle utiliser ?",
+    "options": [
+      "Son index dans la liste, puisque les nouvelles lignes sont toujours ajoutées à la fin",
+      "<code>Math.random()</code> dans le JSX, qui donne une key unique à chaque ligne",
+      "Un id issu de <code>crypto.randomUUID()</code>, créé avec la ligne et stocké dessus",
+      "Le libellé saisi par l’agent, puisque deux lignes d’ajustement ont rarement le même libellé"
+    ],
+    "explain": "react.dev dit que les données créées localement doivent recevoir un id au moment de la création de l’élément, via un compteur, <code>crypto.randomUUID()</code> ou un package. Une valeur aléatoire générée dans le JSX change à chaque rendu et remonte toutes les lignes. L’index casse à la suppression, et un libellé saisi n’est ni unique ni stable pendant que l’agent le modifie."
+  },
+  "m29.q9": {
+    "q": "<code>NoteEditor</code> est déclaré à l’intérieur de <code>NotesPanel</code>. Pourquoi perd-il son state à chaque frappe dans la note ?",
+    "options": [
+      "Parce que React réinitialise à chaque rendu les hooks appelés dans une fonction imbriquée",
+      "Parce que l’input est contrôlé par le state du parent, qui écrase le state de l’enfant",
+      "Parce que React re-rend, et donc réinitialise, les enfants dont les props ont changé",
+      "Chaque rendu du parent crée une nouvelle fonction, donc React voit un nouveau type et la remonte"
+    ],
+    "explain": "Le type de l’élément est la fonction, comparée par identité. Une nouvelle fonction à chaque rendu du parent signifie un type différent à la même position, donc React détruit l’ancien sous-arbre, state et DOM compris. Mesuré : le toggle s’est réinitialisé, l’input était un nouveau nœud DOM et le focus était perdu. Un input contrôlé seul ne perd pas son state."
+  },
+  "m29.q10": {
+    "q": "Que rend <code>{order.openDisputes.length &amp;&amp; &lt;DisputeBadge /&gt;}</code> pour une commande sans litige ouvert ?",
+    "options": [
+      "Rien",
+      "Le texte 0",
+      "Le texte false",
+      "Une erreur console sur un enfant invalide"
+    ],
+    "explain": "<code>0 &amp;&amp; x</code> s’évalue à 0, et React rend les nombres sous forme de texte. Mesuré : l’en-tête affichait « 0 ». React ne rend rien pour <code>false</code>, <code>null</code> et <code>undefined</code>, d’où l’impression que « rien » est la bonne réponse ; fais du côté gauche un booléen avec <code>length &gt; 0</code>."
+  },
+  "m29.q11": {
+    "q": "Le champ du motif de remboursement est <code>&lt;input value={reason} onChange={…} /&gt;</code>, et <code>reason</code> vaut <code>undefined</code> au départ. L’agent tape une lettre. Que signale React 19 ?",
+    "options": [
+      "Un avertissement indiquant qu’un composant fait passer un input non contrôlé à contrôlé",
+      "Rien : React traite <code>undefined</code> comme une chaîne vide pour un input contrôlé",
+      "Une erreur qui interrompt le rendu",
+      "Un avertissement indiquant que l’input est en lecture seule"
+    ],
+    "explain": "<code>value={undefined}</code> signifie non contrôlé ; une chaîne signifie contrôlé, et un input ne peut pas basculer de l’un à l’autre. Mesuré sur React 19.3.1, l’avertissement dit « A component is changing an uncontrolled input to be controlled ». L’avertissement de lecture seule concerne <code>value</code> sans <code>onChange</code>. Pars de <code>''</code>."
+  },
+  "m29.q12": {
+    "q": "En développement sous <code>&lt;StrictMode&gt;</code>, quelles fonctions React appelle-t-il deux fois ?",
+    "options": [
+      "Les handlers d’événements attachés dans le JSX, et le corps des effets",
+      "Seulement le corps du composant, et seulement au premier montage de l’arbre",
+      "Toutes les fonctions déclarées dans le fichier du composant, helpers compris",
+      "Le corps du composant, les initialiseurs de <code>useState</code> et les fonctions de mise à jour"
+    ],
+    "explain": "StrictMode appelle deux fois le code de la phase de rendu : le corps des composants, les fonctions passées à <code>useState</code>, <code>useMemo</code> et <code>useReducer</code>, et les fonctions de mise à jour (mesuré : deux appels chacun sur React 19.3.1). Les handlers d’événements ne sont pas appelés deux fois ; les effets non plus, ils ont droit à un cycle setup et cleanup supplémentaire."
+  },
+  "m29.q13": {
+    "q": "Le statut est <code>'paid'</code>. L’agent clique sur le bouton de remboursement. Qu’affiche le log une seconde plus tard ?",
+    "options": [
+      "<code>refunded</code>, car le re-render s’est terminé bien avant le déclenchement du timeout",
+      "<code>undefined</code>, car la closure a été réinitialisée par le rendu",
+      "<code>paid</code> : le callback a capturé la valeur figée du rendu où a eu lieu le clic",
+      "Cela dépend de si React a déjà committé la mise à jour"
+    ],
+    "explain": "Le handler et le callback de son timeout appartiennent au rendu où le statut valait <code>'paid'</code> ; un rendu ultérieur crée de nouvelles variables mais ne peut pas modifier celle-là. Mesuré : l’écran affichait refunded alors que le log affichait paid. La réponse tentante suppose que la variable est mise à jour sur place, ce qui n’arrive jamais."
+  },
+  "m29.q14": {
+    "q": "En partant de <code>selectedCount === 0</code>, qu’affiche le compteur après l’exécution de ce handler ?",
+    "options": [
+      "12",
+      "84",
+      "42",
+      "6"
+    ],
+    "explain": "React traite la file dans l’ordre : une valeur simple remplace le résultat obtenu jusque-là, une fonction de mise à jour calcule à partir de lui. 0 + 5 = 5, puis 6, puis 42, puis 84 ; mesuré sur React 19.3.1. 42 est tentant si on pense que la dernière valeur simple l’emporte, mais la fonction de mise à jour mise en file après elle s’exécute quand même."
+  },
+  "m29.q15": {
+    "q": "Le panneau de remboursement doit afficher le total des lignes sélectionnées. Un collègue propose <code>const [total, setTotal] = useState(0)</code> et un effet qui le recalcule quand la sélection change. Quelle version mettriez-vous en production ?",
+    "options": [
+      "La version du collègue, mais avec <code>useLayoutEffect</code> pour que le total périmé ne soit jamais affiché à l’écran",
+      "Stocker le total dans le BFF et le recharger après chaque clic",
+      "La version du collègue, car les effets gardent le rendu pur",
+      "Le calculer pendant le rendu à partir des lignes et des ids sélectionnés ; n’ajouter <code>useMemo</code> que si le profiling le justifie"
+    ],
+    "explain": "Une valeur dérivée calculée pendant le rendu est toujours synchronisée et coûte un seul rendu ; la version avec effet ajoute un rendu avec une valeur périmée (mesuré : deux rendus). Un layout effect masque le scintillement mais garde deux sources de vérité et le rendu en trop. Recharger depuis le serveur une somme locale ajoute de la latence pour rien."
+  },
+  "m29.q16": {
+    "q": "L’agent saisit du texte dans le formulaire d’adresse de livraison, puis bascule vers l’autre mode. Qu’advient-il du state interne du formulaire ?",
+    "options": [
+      "Conservé : même type à la même position, donc React voit un seul composant avec une nouvelle prop",
+      "Réinitialisé : chaque branche d’un ternaire crée son propre composant, avec son propre state séparé",
+      "Il est réinitialisé, car la prop <code>mode</code> a changé",
+      "Il n’est conservé que si le composant est enveloppé dans <code>memo</code>"
+    ],
+    "explain": "C’est la position dans l’arbre, pas la position dans le source JSX, qui décide de l’identité, et les deux branches rendent <code>AddressForm</code> au même endroit. Mesuré avec un compteur : après la bascule, il affichait toujours 2. Écrire deux expressions <code>&amp;&amp;</code> séparées, ou donner des keys différentes, le réinitialiserait."
+  },
+  "m29.q17": {
+    "q": "Quand un litige est ouvert, la page de commande enveloppe son contenu dans une <code>&lt;section className=\"disputed\"&gt;</code> au lieu d’une <code>&lt;div&gt;</code>. Les agents remarquent que le formulaire de remboursement se vide à l’ouverture d’un litige. Pourquoi ?",
+    "options": [
+      "Le changement de className force un remontage de tous les enfants",
+      "Un type d’élément différent à cette position détruit le sous-arbre, state du formulaire compris",
+      "Le parent se re-rend avec de nouvelles props, et React réinitialise le state des enfants au re-render",
+      "Le formulaire est non contrôlé, donc une nouvelle classe vide ses champs"
+    ],
+    "explain": "La réconciliation démonte un sous-arbre quand le type à une position change, et passer de <code>div</code> à <code>section</code> est un changement de type. Mesuré : un compteur à l’intérieur est revenu à 0. Un simple changement de className ne fait que mettre à jour l’attribut sur le même nœud DOM, et un re-render ne réinitialise jamais le state à lui seul."
+  },
+  "m29.q18": {
+    "q": "Chaque <code>RefundLineRow</code> garde la quantité saisie dans un state local. L’agent saisit mug 1, T-shirt 2, casquette 3, puis supprime le mug. Qu’affichent les lignes restantes ?",
+    "options": [
+      "T-shirt 2, casquette 3",
+      "T-shirt 1, casquette 2",
+      "T-shirt 1, casquette 3",
+      "T-shirt vide, casquette vide"
+    ],
+    "explain": "Après la suppression, le T-shirt a la key 0 et la casquette la key 1, donc ils héritent du state des anciennes lignes 0 et 1 : mesuré, T-shirt 1, casquette 2. « T-shirt 2, casquette 3 », c’est ce que donne <code>key={line.id}</code>, qui est la correction."
+  },
+  "m29.q19": {
+    "q": "Pour faire taire l’avertissement de key manquante, une pull request ajoute <code>key={crypto.randomUUID()}</code> à chaque ligne de remboursement. Où est le bug ?",
+    "options": [
+      "Aucun, tant que chaque id généré est unique parmi les lignes sœurs",
+      "Les longues chaînes UUID ralentissent la comparaison des keys par React dans les grandes listes de lignes de remboursement",
+      "<code>crypto.randomUUID</code> n’est pas disponible dans les navigateurs qu’utilisent les agents",
+      "Les keys changent à chaque rendu, donc chaque ligne est remontée et perd son state à chaque fois"
+    ],
+    "explain": "Les keys doivent être stables d’un rendu à l’autre. Une key générée pendant le rendu ne correspond jamais à la précédente, donc React détruit et recrée chaque ligne : mesuré, une quantité saisie a disparu après un seul re-render du parent, et l’input était un nouveau nœud DOM. L’unicité est nécessaire mais pas suffisante ; génère l’id une seule fois, à la création de l’élément."
+  },
+  "m29.q20": {
+    "q": "La page de commande rend les lignes de commande à deux endroits : le tableau des lignes et le panneau de remboursement, tous deux avec <code>key={line.id}</code>. Un relecteur affirme que les keys doivent être uniques sur la page. A-t-il raison ?",
+    "options": [
+      "Oui : React tient un registre global des keys et avertit en cas de doublon",
+      "Oui : sinon les deux listes partagent le même state",
+      "Non : les keys doivent seulement être uniques parmi les enfants d’un même parent",
+      "Non : React ignore les keys en dehors d’un <code>map</code>"
+    ],
+    "explain": "react.dev indique que les keys ne sont pas uniques globalement : elles identifient seulement un élément parmi ses frères. Deux listes sous des parents différents peuvent utiliser les mêmes ids sans risque. Les doublons ne déclenchent un avertissement qu’entre frères d’un même parent, et les keys fonctionnent aussi en dehors de <code>map</code>, par exemple pour réinitialiser un formulaire."
+  },
+  "m29.q21": {
+    "q": "<code>NoteEditor</code> est déclaré dans <code>NotesPanel</code> parce qu’il lit <code>draft</code> et <code>setDraft</code> depuis la closure. Quelle correction mettriez-vous en production ?",
+    "options": [
+      "Déplacer <code>NoteEditor</code> au niveau du module et passer <code>draft</code> et <code>onDraftChange</code> en props",
+      "Envelopper la fonction interne dans <code>useCallback</code> pour que son identité reste stable entre les rendus",
+      "Ajouter <code>key=\"note-editor\"</code> au composant interne",
+      "Transformer l’input en input non contrôlé"
+    ],
+    "explain": "Déclarer le composant une seule fois au niveau du module lui donne un type stable, et les props rendent ses dépendances explicites ; react.dev dit de ne jamais imbriquer de définitions de composants. <code>useCallback</code> masquerait le bug jusqu’au changement des dépendances, puis remonterait à nouveau, et une key constante n’aide pas car le type change toujours."
+  },
+  "m29.q22": {
+    "q": "L’en-tête calcule <code>const refundRate = refundedCents / totalCents</code> et rend <code>{refundRate &amp;&amp; &lt;RateBadge rate={refundRate} /&gt;}</code>. Pour une commande de remplacement gratuite, les deux montants valent 0. Qu’affiche l’en-tête ?",
+    "options": [
+      "Rien",
+      "Le texte NaN",
+      "Le texte 0",
+      "Le texte Infinity"
+    ],
+    "explain": "0 / 0 donne NaN ; NaN est falsy, donc <code>&amp;&amp;</code> le renvoie, et React rend les nombres sous forme de texte. Mesuré : « NaN » est apparu dans l’en-tête. Infinity exigerait un numérateur non nul ; ne rien afficher exigerait un booléen, comme <code>Number.isFinite(refundRate) &amp;&amp; refundRate &gt; 0</code>."
+  },
+  "m29.q23": {
+    "q": "Quelle expression ne rend absolument rien quand <code>disputes</code> est un tableau vide ?",
+    "options": [
+      "<code>{disputes.length &amp;&amp; &lt;DisputeBadge /&gt;}</code>",
+      "<code>{disputes.length !== undefined &amp;&amp; &lt;DisputeBadge /&gt;}</code>",
+      "<code>{disputes?.length &amp;&amp; &lt;DisputeBadge /&gt;}</code>",
+      "<code>{disputes.length &gt; 0 ? &lt;DisputeBadge /&gt; : null}</code>"
+    ],
+    "explain": "Une condition booléenne avec une branche <code>null</code> ne rend rien. La première rend 0, la deuxième rend le badge car la longueur est toujours définie, et le chaînage optionnel de la troisième ne change rien pour un tableau vide : elle s’évalue toujours à 0, que React rend. Préfère une comparaison explicite plutôt que de compter sur les valeurs falsy."
+  },
+  "m29.q24": {
+    "q": "Le composant partagé <code>RefundAmountInput</code> est utilisé par le formulaire de remboursement, qui doit valider le montant, et par un filtre rapide qui n’a besoin que d’un callback. Quelle API concevez-vous ?",
+    "options": [
+      "Toujours contrôlé : chaque appelant doit passer <code>value</code> et <code>onChange</code> et posséder le state",
+      "Toujours non contrôlé, avec une ref que le parent lit à la soumission",
+      "<code>value</code> + <code>onValueChange</code>, ou <code>defaultValue</code> ; le mode découle de la présence de <code>value</code>",
+      "Une prop booléenne <code>controlled</code> que les appelants peuvent basculer à tout moment"
+    ],
+    "explain": "Calquer l’input natif permet à chaque appelant de choisir le mode le moins coûteux, et le mode découle du fait que <code>value</code> soit undefined ou non. Mesuré dans les deux cas en section 8. Le tout-contrôlé fonctionne mais impose un state aux appelants qui n’en ont pas besoin ; un mode basculable reproduit le problème contrôlé vers non contrôlé contre lequel React avertit."
+  },
+  "m29.q25": {
+    "q": "Le formulaire de remboursement rend <code>&lt;input value={amount} /&gt;</code> sans <code>onChange</code>. L’agent tape un chiffre. Que se passe-t-il ?",
+    "options": [
+      "Le champ continue d’afficher <code>amount</code>, et React avertit d’un champ en lecture seule",
+      "Le chiffre apparaît, et React met à jour <code>amount</code> pour toi via la prop value",
+      "Le chiffre apparaît, car le DOM possède la valeur jusqu’au prochain rendu",
+      "React lève une erreur, car un input contrôlé exige un handler"
+    ],
+    "explain": "Avec <code>value</code>, React impose la valeur affichée ; comme rien ne met à jour <code>amount</code>, chaque frappe est annulée. Mesuré : la saisie laissait le champ inchangé et la console avertissait « You provided a value prop to a form field without an onChange handler ». Utilise <code>defaultValue</code>, ajoute <code>onChange</code> ou mets <code>readOnly</code>."
+  },
+  "m29.q26": {
+    "q": "Le BFF renvoie <code>refundReason: null</code> pour les commandes sans motif, et le formulaire rend <code>&lt;input value={order.refundReason} onChange={…} /&gt;</code>. Quelle correction mettez-vous en production ?",
+    "options": [
+      "Retirer <code>value</code> et s’appuyer sur <code>defaultValue={order.refundReason}</code> plus le state",
+      "Désactiver l’avertissement en développement",
+      "Passer <code>value={order.refundReason || undefined}</code>",
+      "Passer <code>value={order.refundReason ?? ''}</code>, contrôlé dès le premier rendu"
+    ],
+    "explain": "Un input contrôlé doit toujours recevoir une chaîne ; <code>?? ''</code> transforme null en chaîne vide et garde le mode fixe. Mesuré : une valeur null déclenche l’avertissement « value prop on input should not be null ». La convertir en <code>undefined</code> rend l’input non contrôlé au départ, ce qui mène à l’avertissement de bascule dès qu’une valeur arrive."
+  },
+  "m29.q27": {
+    "q": "Après l’activation de StrictMode, la colonne du total cumulé affiche 24.00 et 104.00 au lieu de 12.00 et 52.00, en développement uniquement. Que faites-vous ?",
+    "options": [
+      "Corriger le composant pour qu’il additionne dans une variable créée pendant le rendu, et garder StrictMode",
+      "Désactiver StrictMode pour cette page, puisque le build de production affiche des totaux corrects",
+      "Envelopper la ligne dans <code>memo</code> pour qu’elle ne se rende qu’une fois",
+      "Déplacer le total cumulé dans un <code>useRef</code> pour que React ne le réinitialise pas"
+    ],
+    "explain": "Un composant pur renvoie le même résultat aux deux appels ; un résultat différent signifie qu’il mute quelque chose qui survit au rendu, et la production montre le même bug après n’importe quel rafraîchissement (mesuré : 64.00 et 104.00). <code>memo</code> ne fait que sauter certains rendus et une ref mute toujours pendant le rendu, donc aucun des deux ne corrige la pureté."
+  },
+  "m29.q28": {
+    "q": "Un développeur ajoute un log dans le corps de <code>OrderHeader</code> et voit deux logs par rendu sur le serveur de dev local, mais un seul par rendu dans le build de production. Quelle est l’explication ?",
+    "options": [
+      "Le hot module replacement de Vite rend chaque composant deux fois en développement pour les comparer",
+      "Le composant est monté deux fois à cause d’une key manquante",
+      "StrictMode appelle deux fois le corps des composants, en développement uniquement, pour révéler le code impur",
+      "React 19 rend sur le serveur et sur le client en développement"
+    ],
+    "explain": "Le double rendu est la vérification de StrictMode, et react.dev indique que ces vérifications n’existent qu’en développement. Mesuré : deux appels par rendu sous StrictMode, un seul sans. Un problème de key provoquerait un remontage, pas un doublement de chaque rendu, et ce back-office est une single-page app Vite sans rendu serveur."
+  },
+  "m29.q29": {
+    "q": "Un recruteur demande : « Que sont Fiber et la réconciliation ? » Quelle réponse est exacte au niveau attendu ?",
+    "options": [
+      "Fiber est une bibliothèque de virtual DOM que React utilise pour rendre du HTML côté serveur, et la réconciliation fusionne ce HTML dans la page",
+      "Un arbre de fibers contient le state ; React y compare chaque rendu par type, position et key, puis committe les différences",
+      "La réconciliation, c’est le navigateur qui compare l’ancien et le nouvel arbre DOM avant de peindre, et Fiber est son ordonnanceur",
+      "Fiber est le système de hooks, et la réconciliation, c’est React qui vérifie que les hooks sont appelés dans le même ordre à chaque rendu"
+    ],
+    "explain": "Fiber est le moteur central de React depuis React 16, et chaque nœud de son arbre est une fiber qui contient du state ; la réconciliation est la comparaison faite par React, à partir du type d’élément et de la key, avant le commit. Le navigateur ne compare rien : React calcule lui-même les opérations DOM minimales. L’ordre des hooks compte, mais ce n’est pas ce que désigne la réconciliation."
+  },
+  "m29.q30": {
+    "q": "Le statut est déjà <code>'paid'</code>. L’agent clique à nouveau sur « Marquer comme payé », ce qui appelle <code>setStatus('paid')</code>. Que fait React ?",
+    "options": [
+      "Il re-rend la page et tous ses enfants, car appeler un setter planifie toujours un rendu",
+      "Il lève une erreur, car affecter la même valeur est un bug",
+      "Il met la mise à jour en attente jusqu’à l’arrivée d’une valeur différente",
+      "Il abandonne après une vérification <code>Object.is</code> ; il peut rappeler le composant, jamais ses enfants"
+    ],
+    "explain": "React abandonne le rendu quand le nouveau state est identique selon <code>Object.is</code>. Mesuré sur React 19.3.1 : juste après un vrai changement, la même valeur a rappelé le parent une fois de plus sans aucun rendu d’enfant ; un appel identique suivant n’a provoqué aucun rendu. react.dev documente ce cas « may still call your component » ; il ne re-rend jamais les enfants."
+  }
+}

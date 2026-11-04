@@ -3,6 +3,7 @@
     "id": "js-scope",
     "unit": "js-core",
     "topic": "var, let, const and hoisting",
+    "topicFr": "var, let, const et hoisting",
     "file": "javascript",
     "mcqModules": [
       "m23"
@@ -12,6 +13,7 @@
     "id": "js-closures",
     "unit": "js-core",
     "topic": "Closures",
+    "topicFr": "Closures",
     "file": "javascript",
     "mcqModules": [
       "m23"
@@ -21,6 +23,7 @@
     "id": "js-this",
     "unit": "js-core",
     "topic": "The this keyword",
+    "topicFr": "Le mot-clé this",
     "file": "javascript",
     "mcqModules": [
       "m23"
@@ -30,6 +33,7 @@
     "id": "js-prototypes",
     "unit": "js-core",
     "topic": "Prototypes and classes",
+    "topicFr": "Prototypes et classes",
     "file": "javascript",
     "mcqModules": [
       "m23"
@@ -39,6 +43,7 @@
     "id": "js-equality",
     "unit": "js-core",
     "topic": "Equality, null and undefined",
+    "topicFr": "Égalité, null et undefined",
     "file": "javascript",
     "mcqModules": [
       "m23"
@@ -48,6 +53,7 @@
     "id": "js-modules",
     "unit": "js-core",
     "topic": "ES modules and CommonJS",
+    "topicFr": "Modules ES et CommonJS",
     "file": "javascript",
     "mcqModules": [
       "m23"
@@ -57,6 +63,7 @@
     "id": "js-generators",
     "unit": "js-core",
     "topic": "Iterators and generators",
+    "topicFr": "Itérateurs et générateurs",
     "file": "javascript",
     "mcqModules": [
       "m23"
@@ -66,6 +73,7 @@
     "id": "js-copying",
     "unit": "js-core",
     "topic": "Shallow and deep copies",
+    "topicFr": "Copies superficielles et profondes",
     "file": "javascript",
     "mcqModules": [
       "m23"
@@ -75,6 +83,7 @@
     "id": "js-memory",
     "unit": "js-core",
     "topic": "Garbage collection and memory leaks",
+    "topicFr": "Garbage collection et fuites mémoire",
     "file": "javascript",
     "mcqModules": [
       "m23"
@@ -84,6 +93,7 @@
     "id": "js-destructuring",
     "unit": "js-core",
     "topic": "Destructuring",
+    "topicFr": "Déstructuration",
     "file": "javascript-more",
     "mcqModules": []
   },
@@ -91,6 +101,7 @@
     "id": "js-spread-rest",
     "unit": "js-core",
     "topic": "Spread and rest",
+    "topicFr": "Spread et rest",
     "file": "javascript-more",
     "mcqModules": [
       "m23"
@@ -100,6 +111,7 @@
     "id": "js-event-delegation",
     "unit": "js-core",
     "topic": "Event delegation",
+    "topicFr": "Délégation d’événements",
     "file": "javascript-more",
     "mcqModules": [
       "m25"
@@ -109,6 +121,7 @@
     "id": "js-array-methods",
     "unit": "js-core",
     "topic": "map, forEach, filter and reduce",
+    "topicFr": "map, forEach, filter et reduce",
     "file": "javascript-more",
     "mcqModules": []
   },
@@ -116,6 +129,7 @@
     "id": "async-event-loop",
     "unit": "async-js",
     "topic": "Event loop and task order",
+    "topicFr": "Event loop et ordre des tâches",
     "file": "async",
     "mcqModules": [
       "m24"
@@ -125,6 +139,7 @@
     "id": "async-promises",
     "unit": "async-js",
     "topic": "Promises and their combinators",
+    "topicFr": "Les promesses et leurs combinateurs",
     "file": "async",
     "mcqModules": [
       "m24"
@@ -134,6 +149,7 @@
     "id": "async-await",
     "unit": "async-js",
     "topic": "async and await",
+    "topicFr": "async et await",
     "file": "async",
     "mcqModules": [
       "m02"
@@ -143,6 +159,7 @@
     "id": "async-abort",
     "unit": "async-js",
     "topic": "Cancelling fetch, stale responses",
+    "topicFr": "Annuler un fetch, réponses périmées",
     "file": "async",
     "mcqModules": [
       "m24"
@@ -152,6 +169,7 @@
     "id": "async-debounce",
     "unit": "async-js",
     "topic": "Debounce and throttle",
+    "topicFr": "Debounce et throttle",
     "file": "async",
     "mcqModules": [
       "m24"
@@ -161,6 +179,7 @@
     "id": "async-long-tasks",
     "unit": "async-js",
     "topic": "Long tasks and a frozen page",
+    "topicFr": "Tâches longues et page figée",
     "file": "async",
     "mcqModules": [
       "m24"
@@ -170,6 +189,7 @@
     "id": "web-box-model",
     "unit": "web-platform",
     "topic": "The CSS box model",
+    "topicFr": "Le box model CSS",
     "file": "web-platform",
     "mcqModules": []
   },
@@ -177,6 +197,7 @@
     "id": "web-flexbox-grid",
     "unit": "web-platform",
     "topic": "Flexbox and Grid",
+    "topicFr": "Flexbox et Grid",
     "file": "web-platform",
     "mcqModules": [
       "m28"
@@ -186,6 +207,7 @@
     "id": "web-position",
     "unit": "web-platform",
     "topic": "CSS positioning",
+    "topicFr": "Le positionnement CSS",
     "file": "web-platform",
     "mcqModules": [
       "m28"
@@ -195,6 +217,7 @@
     "id": "web-critical-rendering-path",
     "unit": "web-platform",
     "topic": "Critical rendering path",
+    "topicFr": "Critical rendering path",
     "file": "web-platform",
     "mcqModules": [
       "m25",
@@ -205,6 +228,7 @@
     "id": "web-semantic-html",
     "unit": "web-platform",
     "topic": "Semantic HTML",
+    "topicFr": "HTML sémantique",
     "file": "web-platform",
     "mcqModules": [
       "m28"
@@ -214,6 +238,7 @@
     "id": "web-responsive-design",
     "unit": "web-platform",
     "topic": "Responsive web design",
+    "topicFr": "Responsive design",
     "file": "web-platform",
     "mcqModules": [
       "m28"
@@ -223,6 +248,7 @@
     "id": "web-dom",
     "unit": "web-platform",
     "topic": "The DOM",
+    "topicFr": "Le DOM",
     "file": "web-platform",
     "mcqModules": [
       "m25"
@@ -232,6 +258,7 @@
     "id": "web-reflow-repaint",
     "unit": "web-platform",
     "topic": "Reflow and repaint",
+    "topicFr": "Reflow et repaint",
     "file": "web-platform",
     "mcqModules": [
       "m25"
@@ -241,6 +268,7 @@
     "id": "web-specificity",
     "unit": "web-platform",
     "topic": "CSS specificity",
+    "topicFr": "La spécificité CSS",
     "file": "web-platform",
     "mcqModules": [
       "m28"
@@ -250,6 +278,7 @@
     "id": "web-storage",
     "unit": "web-platform",
     "topic": "Cookies and Web Storage",
+    "topicFr": "Cookies et Web Storage",
     "file": "web-platform",
     "mcqModules": [
       "m25",
@@ -260,6 +289,7 @@
     "id": "web-sass",
     "unit": "web-platform",
     "topic": "Sass and modern CSS",
+    "topicFr": "Sass et CSS moderne",
     "file": "web-platform",
     "mcqModules": []
   },
@@ -267,6 +297,7 @@
     "id": "web-accessibility",
     "unit": "web-platform",
     "topic": "Web accessibility",
+    "topicFr": "Accessibilité web",
     "file": "web-platform",
     "mcqModules": [
       "m28"
@@ -276,6 +307,7 @@
     "id": "web-ssr-csr-ssg",
     "unit": "web-platform",
     "topic": "SSR, CSR and SSG",
+    "topicFr": "SSR, CSR et SSG",
     "file": "web-platform",
     "mcqModules": [
       "m33"
@@ -285,6 +317,7 @@
     "id": "web-id-class",
     "unit": "web-platform",
     "topic": "id and class",
+    "topicFr": "id et class",
     "file": "web-platform",
     "mcqModules": [
       "m28"
@@ -294,6 +327,7 @@
     "id": "web-cascade",
     "unit": "web-platform",
     "topic": "The cascade and inheritance",
+    "topicFr": "La cascade et l’héritage",
     "file": "web-platform",
     "mcqModules": [
       "m28"
@@ -303,6 +337,7 @@
     "id": "web-css-units",
     "unit": "web-platform",
     "topic": "CSS units",
+    "topicFr": "Les unités CSS",
     "file": "web-platform",
     "mcqModules": []
   },
@@ -310,6 +345,7 @@
     "id": "web-pseudo",
     "unit": "web-platform",
     "topic": "Pseudo-classes and pseudo-elements",
+    "topicFr": "Pseudo-classes et pseudo-éléments",
     "file": "web-platform",
     "mcqModules": []
   },
@@ -317,6 +353,7 @@
     "id": "web-centering",
     "unit": "web-platform",
     "topic": "Centring in CSS",
+    "topicFr": "Centrer en CSS",
     "file": "web-platform",
     "mcqModules": [
       "m28"
@@ -326,6 +363,7 @@
     "id": "web-css-architecture",
     "unit": "web-platform",
     "topic": "BEM and CSS architecture",
+    "topicFr": "BEM et architecture CSS",
     "file": "web-platform",
     "mcqModules": [
       "m36"
@@ -335,6 +373,7 @@
     "id": "web-container-queries",
     "unit": "web-platform",
     "topic": "Media and container queries",
+    "topicFr": "Media queries et container queries",
     "file": "web-platform",
     "mcqModules": [
       "m28"
@@ -344,6 +383,7 @@
     "id": "web-hydration",
     "unit": "web-platform",
     "topic": "Hydration",
+    "topicFr": "Hydratation",
     "file": "web-platform",
     "mcqModules": [
       "m33"
@@ -353,6 +393,7 @@
     "id": "web-spa-mpa",
     "unit": "web-platform",
     "topic": "SPA versus multi-page app",
+    "topicFr": "SPA ou application multipage",
     "file": "web-platform",
     "mcqModules": []
   },
@@ -360,6 +401,7 @@
     "id": "web-http2-http3",
     "unit": "web-platform",
     "topic": "HTTP/2 and HTTP/3",
+    "topicFr": "HTTP/2 et HTTP/3",
     "file": "web-platform",
     "mcqModules": [
       "m25"
@@ -369,6 +411,7 @@
     "id": "web-service-workers",
     "unit": "web-platform",
     "topic": "Service workers",
+    "topicFr": "Service workers",
     "file": "web-platform",
     "mcqModules": [
       "m25"
@@ -378,6 +421,7 @@
     "id": "web-wcag",
     "unit": "web-platform",
     "topic": "WCAG and its principles",
+    "topicFr": "WCAG et ses principes",
     "file": "web-platform",
     "mcqModules": [
       "m28"
@@ -387,6 +431,7 @@
     "id": "web-accessible-combobox",
     "unit": "web-platform",
     "topic": "Accessible custom dropdown",
+    "topicFr": "Liste déroulante custom accessible",
     "file": "web-platform",
     "mcqModules": [
       "m28",
@@ -397,6 +442,7 @@
     "id": "web-aria-live",
     "unit": "web-platform",
     "topic": "Live regions",
+    "topicFr": "Live regions",
     "file": "web-platform",
     "mcqModules": [
       "m28"
@@ -406,6 +452,7 @@
     "id": "react-virtual-dom",
     "unit": "react",
     "topic": "Virtual DOM and reconciliation",
+    "topicFr": "Virtual DOM et réconciliation",
     "file": "react",
     "mcqModules": [
       "m29"
@@ -415,6 +462,7 @@
     "id": "react-state-props",
     "unit": "react",
     "topic": "State and props",
+    "topicFr": "State et props",
     "file": "react",
     "mcqModules": [
       "m29"
@@ -424,6 +472,7 @@
     "id": "react-use-effect",
     "unit": "react",
     "topic": "useEffect, dependencies, cleanup",
+    "topicFr": "useEffect, dépendances, cleanup",
     "file": "react",
     "mcqModules": [
       "m30"
@@ -433,6 +482,7 @@
     "id": "react-controlled-inputs",
     "unit": "react",
     "topic": "Controlled and uncontrolled inputs",
+    "topicFr": "Champs contrôlés et non contrôlés",
     "file": "react",
     "mcqModules": [
       "m29"
@@ -442,6 +492,7 @@
     "id": "react-state-libraries",
     "unit": "react",
     "topic": "Where state lives: hooks or a store",
+    "topicFr": "Où vit le state : hooks ou store",
     "file": "react",
     "mcqModules": [
       "m32"
@@ -451,6 +502,7 @@
     "id": "react-keys",
     "unit": "react",
     "topic": "Keys in lists",
+    "topicFr": "Keys dans les listes",
     "file": "react",
     "mcqModules": [
       "m29"
@@ -460,6 +512,7 @@
     "id": "react-memoization",
     "unit": "react",
     "topic": "memo, useMemo and useCallback",
+    "topicFr": "memo, useMemo et useCallback",
     "file": "react",
     "mcqModules": [
       "m31"
@@ -469,6 +522,7 @@
     "id": "react-long-lists",
     "unit": "react",
     "topic": "Rendering thousands of rows",
+    "topicFr": "Rendre des milliers de lignes",
     "file": "react",
     "mcqModules": [
       "m31"
@@ -478,6 +532,7 @@
     "id": "react-data-binding",
     "unit": "react",
     "topic": "One-way and two-way data binding",
+    "topicFr": "Data binding unidirectionnel et bidirectionnel",
     "file": "react",
     "mcqModules": [
       "m29"
@@ -487,6 +542,7 @@
     "id": "react-testing",
     "unit": "react",
     "topic": "Testing React components",
+    "topicFr": "Tester des composants React",
     "file": "react",
     "mcqModules": [
       "m35"
@@ -496,6 +552,7 @@
     "id": "react-hooks",
     "unit": "react",
     "topic": "Hooks and the Rules of Hooks",
+    "topicFr": "Hooks et règles des hooks",
     "file": "react",
     "mcqModules": [
       "m30"
@@ -505,6 +562,7 @@
     "id": "react-lifecycle",
     "unit": "react",
     "topic": "Component lifecycle with hooks",
+    "topicFr": "Cycle de vie d’un composant avec les hooks",
     "file": "react",
     "mcqModules": [
       "m30"
@@ -514,6 +572,7 @@
     "id": "react-class-vs-function",
     "unit": "react",
     "topic": "Function and class components",
+    "topicFr": "Composants fonctions et classes",
     "file": "react",
     "mcqModules": []
   },
@@ -521,6 +580,7 @@
     "id": "react-jsx",
     "unit": "react",
     "topic": "JSX",
+    "topicFr": "JSX",
     "file": "react",
     "mcqModules": []
   },
@@ -528,6 +588,7 @@
     "id": "react-fragments",
     "unit": "react",
     "topic": "Fragments",
+    "topicFr": "Fragments",
     "file": "react",
     "mcqModules": []
   },
@@ -535,6 +596,7 @@
     "id": "react-use-ref",
     "unit": "react",
     "topic": "useRef",
+    "topicFr": "useRef",
     "file": "react",
     "mcqModules": [
       "m30"
@@ -544,6 +606,7 @@
     "id": "react-prop-drilling",
     "unit": "react",
     "topic": "Prop drilling",
+    "topicFr": "Prop drilling",
     "file": "react-state",
     "mcqModules": [
       "m32"
@@ -553,6 +616,7 @@
     "id": "react-redux",
     "unit": "react",
     "topic": "Redux and Zustand",
+    "topicFr": "Redux et Zustand",
     "file": "react-state",
     "mcqModules": [
       "m32"
@@ -562,6 +626,7 @@
     "id": "react-server-state",
     "unit": "react",
     "topic": "Server state and client state",
+    "topicFr": "Server state et client state",
     "file": "react-state",
     "mcqModules": [
       "m32"
@@ -571,6 +636,7 @@
     "id": "react-context",
     "unit": "react",
     "topic": "Context and its re-renders",
+    "topicFr": "Context et ses re-renders",
     "file": "react-state",
     "mcqModules": [
       "m31",
@@ -581,6 +647,7 @@
     "id": "react-lifting-state",
     "unit": "react",
     "topic": "Lifting state up",
+    "topicFr": "Remonter le state",
     "file": "react-state",
     "mcqModules": [
       "m32"
@@ -590,6 +657,7 @@
     "id": "react-atoms",
     "unit": "react",
     "topic": "Atomic state: Jotai and Recoil",
+    "topicFr": "State atomique : Jotai et Recoil",
     "file": "react-state",
     "mcqModules": []
   },
@@ -597,6 +665,7 @@
     "id": "react-use-reducer",
     "unit": "react",
     "topic": "useState or useReducer",
+    "topicFr": "useState ou useReducer",
     "file": "react-state",
     "mcqModules": []
   },
@@ -604,6 +673,7 @@
     "id": "react-optimistic-ui",
     "unit": "react",
     "topic": "Optimistic UI updates",
+    "topicFr": "Mises à jour optimistes de l’UI",
     "file": "react-state",
     "mcqModules": [
       "m32"
@@ -613,6 +683,7 @@
     "id": "react-data-fetching",
     "unit": "react",
     "topic": "Fetching data with hooks",
+    "topicFr": "Charger des données avec des hooks",
     "file": "react-state",
     "mcqModules": [
       "m30",
@@ -623,6 +694,7 @@
     "id": "react-custom-hooks",
     "unit": "react",
     "topic": "Custom hooks",
+    "topicFr": "Hooks custom",
     "file": "react-state",
     "mcqModules": [
       "m30"
@@ -632,6 +704,7 @@
     "id": "react-server-components",
     "unit": "react",
     "topic": "Server Components vs SSR",
+    "topicFr": "Server Components vs SSR",
     "file": "react-advanced",
     "mcqModules": [
       "m33"
@@ -641,6 +714,7 @@
     "id": "react-hoc",
     "unit": "react",
     "topic": "HOCs, render props and hooks",
+    "topicFr": "HOC, render props et hooks",
     "file": "react-advanced",
     "mcqModules": []
   },
@@ -648,6 +722,7 @@
     "id": "react-compiler",
     "unit": "react",
     "topic": "The React Compiler",
+    "topicFr": "Le React Compiler",
     "file": "react-advanced",
     "mcqModules": [
       "m31"
@@ -657,6 +732,7 @@
     "id": "react-layout-effect",
     "unit": "react",
     "topic": "useEffect vs useLayoutEffect",
+    "topicFr": "useEffect vs useLayoutEffect",
     "file": "react-advanced",
     "mcqModules": [
       "m30"
@@ -666,6 +742,7 @@
     "id": "react-rerenders",
     "unit": "react",
     "topic": "Unnecessary re-renders",
+    "topicFr": "Re-renders inutiles",
     "file": "react-advanced",
     "mcqModules": [
       "m31"
@@ -675,6 +752,7 @@
     "id": "react-profiling",
     "unit": "react",
     "topic": "Profiling a React app",
+    "topicFr": "Profiler une app React",
     "file": "react-advanced",
     "mcqModules": [
       "m31"
@@ -684,6 +762,7 @@
     "id": "react-testing-hooks",
     "unit": "react",
     "topic": "Testing custom hooks",
+    "topicFr": "Tester des custom hooks",
     "file": "react-advanced",
     "mcqModules": [
       "m35"
@@ -693,6 +772,7 @@
     "id": "react-mutation-bugs",
     "unit": "react",
     "topic": "A component that does not re-render",
+    "topicFr": "Un composant qui ne refait pas son rendu",
     "file": "react-advanced",
     "mcqModules": [
       "m31"
@@ -702,6 +782,7 @@
     "id": "react-error-boundaries",
     "unit": "react",
     "topic": "Error boundaries in production",
+    "topicFr": "Error boundaries en production",
     "file": "react-advanced",
     "mcqModules": [
       "m30"
@@ -711,6 +792,7 @@
     "id": "react-router",
     "unit": "react",
     "topic": "Routing with React Router",
+    "topicFr": "Routing avec React Router",
     "file": "react-advanced",
     "mcqModules": []
   },
@@ -718,6 +800,7 @@
     "id": "react-compound-components",
     "unit": "react",
     "topic": "Compound components",
+    "topicFr": "Compound components",
     "file": "react-advanced",
     "mcqModules": [
       "m36"
@@ -727,6 +810,7 @@
     "id": "react-suspense",
     "unit": "react",
     "topic": "Suspense: code and data",
+    "topicFr": "Suspense : code et données",
     "file": "react-advanced",
     "mcqModules": [
       "m31",
@@ -737,6 +821,7 @@
     "id": "react-19",
     "unit": "react",
     "topic": "React 19 features",
+    "topicFr": "Nouveautés de React 19",
     "file": "react-advanced",
     "mcqModules": [
       "m32"
@@ -746,6 +831,7 @@
     "id": "perf-code-splitting",
     "unit": "web-performance",
     "topic": "Code splitting",
+    "topicFr": "Code splitting",
     "file": "frontend-more",
     "mcqModules": [
       "m26"
@@ -755,6 +841,7 @@
     "id": "perf-lazy-loading",
     "unit": "web-performance",
     "topic": "Lazy loading",
+    "topicFr": "Lazy loading",
     "file": "frontend-more",
     "mcqModules": []
   },
@@ -762,6 +849,7 @@
     "id": "perf-images",
     "unit": "web-performance",
     "topic": "Image optimization",
+    "topicFr": "Optimisation des images",
     "file": "frontend-more",
     "mcqModules": [
       "m26"
@@ -771,6 +859,7 @@
     "id": "perf-tree-shaking",
     "unit": "web-performance",
     "topic": "Tree shaking",
+    "topicFr": "Tree shaking",
     "file": "frontend-more",
     "mcqModules": [
       "m26"
@@ -780,6 +869,7 @@
     "id": "perf-jank",
     "unit": "web-performance",
     "topic": "Jank and smooth rendering",
+    "topicFr": "Jank et rendu fluide",
     "file": "frontend-more",
     "mcqModules": [
       "m24",
@@ -790,6 +880,7 @@
     "id": "perf-bundle-size",
     "unit": "web-performance",
     "topic": "Bundle analysis and size",
+    "topicFr": "Analyse et taille du bundle",
     "file": "frontend-more",
     "mcqModules": [
       "m26"
@@ -799,6 +890,7 @@
     "id": "perf-resource-hints",
     "unit": "web-performance",
     "topic": "Preload, prefetch and preconnect",
+    "topicFr": "Preload, prefetch et preconnect",
     "file": "frontend-more",
     "mcqModules": []
   },
@@ -806,6 +898,7 @@
     "id": "perf-slow-page",
     "unit": "web-performance",
     "topic": "Diagnosing a slow page load",
+    "topicFr": "Diagnostiquer un chargement lent",
     "file": "frontend-more",
     "mcqModules": [
       "m26"
@@ -815,6 +908,7 @@
     "id": "perf-web-workers",
     "unit": "web-performance",
     "topic": "Web Workers",
+    "topicFr": "Web Workers",
     "file": "frontend-more",
     "mcqModules": [
       "m24"
@@ -824,6 +918,7 @@
     "id": "fe-architecture",
     "unit": "frontend-architecture",
     "topic": "Frontend architecture for many teams",
+    "topicFr": "Architecture frontend multi-équipes",
     "file": "frontend-more",
     "mcqModules": [
       "m36"
@@ -833,6 +928,7 @@
     "id": "fe-design-system",
     "unit": "frontend-architecture",
     "topic": "Designing a design system",
+    "topicFr": "Concevoir un design system",
     "file": "frontend-more",
     "mcqModules": [
       "m36"
@@ -842,6 +938,7 @@
     "id": "fe-micro-frontends",
     "unit": "frontend-architecture",
     "topic": "Micro-frontends",
+    "topicFr": "Micro-frontends",
     "file": "frontend-more",
     "mcqModules": [
       "m36"
@@ -851,6 +948,7 @@
     "id": "fe-legacy-migration",
     "unit": "frontend-architecture",
     "topic": "Migrating a legacy frontend",
+    "topicFr": "Migrer un frontend legacy",
     "file": "frontend-more",
     "mcqModules": [
       "m36"
@@ -860,6 +958,7 @@
     "id": "fe-monorepo",
     "unit": "frontend-architecture",
     "topic": "Frontend monorepo",
+    "topicFr": "Monorepo frontend",
     "file": "frontend-more",
     "mcqModules": [
       "m36"
@@ -869,6 +968,7 @@
     "id": "fw-vue",
     "unit": "frameworks",
     "topic": "Vue: Options and Composition API",
+    "topicFr": "Vue : Options API et Composition API",
     "file": "frontend-more",
     "mcqModules": []
   },
@@ -876,6 +976,7 @@
     "id": "fw-angular-di",
     "unit": "frameworks",
     "topic": "Angular dependency injection",
+    "topicFr": "Injection de dépendances Angular",
     "file": "frontend-more",
     "mcqModules": []
   },
@@ -883,6 +984,7 @@
     "id": "fw-signals",
     "unit": "frameworks",
     "topic": "Signals and fine-grained reactivity",
+    "topicFr": "Signals et réactivité fine",
     "file": "frontend-more",
     "mcqModules": []
   },
@@ -890,6 +992,7 @@
     "id": "fw-islands",
     "unit": "frameworks",
     "topic": "Islands architecture",
+    "topicFr": "Architecture en îles (islands)",
     "file": "frontend-more",
     "mcqModules": []
   },
@@ -897,6 +1000,7 @@
     "id": "api-rest-vs-graphql",
     "unit": "backend-api",
     "topic": "REST vs GraphQL",
+    "topicFr": "REST ou GraphQL",
     "file": "backend-api",
     "mcqModules": [
       "m05",
@@ -907,6 +1011,7 @@
     "id": "api-401-vs-403",
     "unit": "backend-api",
     "topic": "401 vs 403",
+    "topicFr": "401 ou 403",
     "file": "backend-api",
     "mcqModules": [
       "m05"
@@ -916,6 +1021,7 @@
     "id": "api-rest-design",
     "unit": "backend-api",
     "topic": "REST API design",
+    "topicFr": "Conception d’API REST",
     "file": "backend-api",
     "mcqModules": [
       "m05"
@@ -925,6 +1031,7 @@
     "id": "api-middleware",
     "unit": "backend-api",
     "topic": "Middleware",
+    "topicFr": "Middleware",
     "file": "backend-api",
     "mcqModules": [
       "m06"
@@ -934,6 +1041,7 @@
     "id": "api-sync-async-io",
     "unit": "backend-api",
     "topic": "Sync vs async I/O in Node",
+    "topicFr": "I/O sync ou async dans Node",
     "file": "backend-api",
     "mcqModules": [
       "m01"
@@ -943,6 +1051,7 @@
     "id": "api-authentication",
     "unit": "backend-api",
     "topic": "Authentication in a web app",
+    "topicFr": "Authentification dans une app web",
     "file": "backend-api",
     "mcqModules": [
       "m12"
@@ -952,6 +1061,7 @@
     "id": "api-cors",
     "unit": "backend-api",
     "topic": "CORS",
+    "topicFr": "CORS",
     "file": "backend-api",
     "mcqModules": [
       "m25",
@@ -962,6 +1072,7 @@
     "id": "api-file-uploads",
     "unit": "backend-api",
     "topic": "File uploads",
+    "topicFr": "Upload de fichiers",
     "file": "backend-api",
     "mcqModules": [
       "m03"
@@ -971,6 +1082,7 @@
     "id": "api-rate-limiting",
     "unit": "backend-api",
     "topic": "Rate limiting",
+    "topicFr": "Rate limiting",
     "file": "backend-api",
     "mcqModules": [
       "m12"
@@ -980,6 +1092,7 @@
     "id": "api-errors-logging",
     "unit": "backend-api",
     "topic": "Errors and logging",
+    "topicFr": "Erreurs et logs",
     "file": "backend-api",
     "mcqModules": [
       "m01",
@@ -991,6 +1104,7 @@
     "id": "api-dependency-injection",
     "unit": "backend-api",
     "topic": "Dependency injection",
+    "topicFr": "Injection de dépendances",
     "file": "backend-api",
     "mcqModules": [
       "m06"
@@ -1000,6 +1114,7 @@
     "id": "api-long-running-tasks",
     "unit": "backend-api",
     "topic": "Long-running tasks",
+    "topicFr": "Tâches longues",
     "file": "backend-api",
     "mcqModules": [
       "m13",
@@ -1010,6 +1125,7 @@
     "id": "api-versioning",
     "unit": "backend-api",
     "topic": "API versioning",
+    "topicFr": "Versionnement d’API",
     "file": "backend-api",
     "mcqModules": [
       "m05"
@@ -1019,6 +1135,7 @@
     "id": "api-http-lifecycle",
     "unit": "backend-api",
     "topic": "An HTTP request, end to end",
+    "topicFr": "Une requête HTTP de bout en bout",
     "file": "backend-api",
     "mcqModules": []
   },
@@ -1026,6 +1143,7 @@
     "id": "api-status-codes",
     "unit": "backend-api",
     "topic": "HTTP status codes",
+    "topicFr": "Codes de statut HTTP",
     "file": "backend-api",
     "mcqModules": [
       "m05"
@@ -1035,6 +1153,7 @@
     "id": "api-stateless",
     "unit": "backend-api",
     "topic": "Stateless vs stateful backends",
+    "topicFr": "Backends stateless vs stateful",
     "file": "backend-api",
     "mcqModules": []
   },
@@ -1042,6 +1161,7 @@
     "id": "api-idempotency",
     "unit": "backend-api",
     "topic": "Idempotency",
+    "topicFr": "Idempotence",
     "file": "backend-api",
     "mcqModules": [
       "m05",
@@ -1053,6 +1173,7 @@
     "id": "api-get-post",
     "unit": "backend-api",
     "topic": "GET vs POST",
+    "topicFr": "GET vs POST",
     "file": "backend-api",
     "mcqModules": [
       "m05"
@@ -1062,6 +1183,7 @@
     "id": "api-backpressure",
     "unit": "backend-api",
     "topic": "Backpressure and load shedding",
+    "topicFr": "Backpressure et délestage de charge",
     "file": "backend-api",
     "mcqModules": [
       "m02",
@@ -1072,6 +1194,7 @@
     "id": "api-pagination",
     "unit": "backend-api",
     "topic": "Paginating large collections",
+    "topicFr": "Paginer de grandes collections",
     "file": "backend-api",
     "mcqModules": [
       "m05"
@@ -1081,6 +1204,7 @@
     "id": "api-grpc",
     "unit": "backend-api",
     "topic": "gRPC",
+    "topicFr": "gRPC",
     "file": "backend-api",
     "mcqModules": []
   },
@@ -1088,6 +1212,7 @@
     "id": "api-authorization",
     "unit": "backend-api",
     "topic": "Authorization and access control",
+    "topicFr": "Autorisation et contrôle d’accès",
     "file": "backend-api",
     "mcqModules": [
       "m12"
@@ -1097,6 +1222,7 @@
     "id": "api-error-format",
     "unit": "backend-api",
     "topic": "API error format",
+    "topicFr": "Format d’erreur d’une API",
     "file": "backend-api",
     "mcqModules": [
       "m05",
@@ -1107,6 +1233,7 @@
     "id": "api-put-patch",
     "unit": "backend-api",
     "topic": "PUT vs PATCH",
+    "topicFr": "PUT vs PATCH",
     "file": "backend-api",
     "mcqModules": [
       "m05"
@@ -1116,6 +1243,7 @@
     "id": "api-service-contracts",
     "unit": "backend-api",
     "topic": "Internal service contracts",
+    "topicFr": "Contrats entre services internes",
     "file": "backend-api",
     "mcqModules": [
       "m05",
@@ -1127,6 +1255,7 @@
     "id": "db-sql-nosql",
     "unit": "databases",
     "topic": "SQL vs NoSQL",
+    "topicFr": "SQL ou NoSQL",
     "file": "databases",
     "mcqModules": [
       "m19"
@@ -1136,6 +1265,7 @@
     "id": "db-normalization",
     "unit": "databases",
     "topic": "Normalization and denormalization",
+    "topicFr": "Normalisation et dénormalisation",
     "file": "databases",
     "mcqModules": [
       "m10"
@@ -1145,6 +1275,7 @@
     "id": "db-index",
     "unit": "databases",
     "topic": "Database indexes",
+    "topicFr": "Index de base de données",
     "file": "databases",
     "mcqModules": [
       "m08"
@@ -1154,6 +1285,7 @@
     "id": "db-slow-query",
     "unit": "databases",
     "topic": "Diagnosing a slow query",
+    "topicFr": "Diagnostiquer une requête lente",
     "file": "databases",
     "mcqModules": [
       "m08"
@@ -1163,6 +1295,7 @@
     "id": "db-transactions-acid",
     "unit": "databases",
     "topic": "Transactions and ACID",
+    "topicFr": "Transactions et ACID",
     "file": "databases",
     "mcqModules": [
       "m09"
@@ -1172,6 +1305,7 @@
     "id": "db-many-to-many",
     "unit": "databases",
     "topic": "Many-to-many relationships",
+    "topicFr": "Relations plusieurs-à-plusieurs",
     "file": "databases",
     "mcqModules": []
   },
@@ -1179,6 +1313,7 @@
     "id": "db-connection-pooling",
     "unit": "databases",
     "topic": "Connection pooling",
+    "topicFr": "Pool de connexions",
     "file": "databases",
     "mcqModules": [
       "m11"
@@ -1188,6 +1323,7 @@
     "id": "db-sharding",
     "unit": "databases",
     "topic": "Sharding",
+    "topicFr": "Sharding",
     "file": "databases",
     "mcqModules": [
       "m19"
@@ -1197,6 +1333,7 @@
     "id": "db-orm",
     "unit": "databases",
     "topic": "ORMs and query builders",
+    "topicFr": "ORM et query builders",
     "file": "databases",
     "mcqModules": [
       "m11"
@@ -1206,6 +1343,7 @@
     "id": "db-activity-feed",
     "unit": "databases",
     "topic": "Activity feed schema",
+    "topicFr": "Schéma d’un fil d’activité",
     "file": "databases",
     "mcqModules": [
       "m05",
@@ -1216,6 +1354,7 @@
     "id": "db-race-conditions",
     "unit": "databases",
     "topic": "Race conditions",
+    "topicFr": "Race conditions",
     "file": "databases",
     "mcqModules": [
       "m09"
@@ -1225,6 +1364,7 @@
     "id": "db-replication",
     "unit": "databases",
     "topic": "Replication",
+    "topicFr": "Réplication",
     "file": "databases",
     "mcqModules": []
   },
@@ -1232,6 +1372,7 @@
     "id": "db-n-plus-one",
     "unit": "databases",
     "topic": "The N+1 query problem",
+    "topicFr": "Le problème des requêtes N+1",
     "file": "databases",
     "mcqModules": [
       "m11",
@@ -1242,6 +1383,7 @@
     "id": "db-isolation-levels",
     "unit": "databases",
     "topic": "Isolation levels",
+    "topicFr": "Niveaux d’isolation",
     "file": "databases",
     "mcqModules": [
       "m09"
@@ -1251,6 +1393,7 @@
     "id": "db-zero-downtime-migrations",
     "unit": "databases",
     "topic": "Zero-downtime migrations",
+    "topicFr": "Migrations sans interruption",
     "file": "databases",
     "mcqModules": [
       "m10"
@@ -1260,6 +1403,7 @@
     "id": "db-deadlocks",
     "unit": "databases",
     "topic": "Deadlocks",
+    "topicFr": "Deadlocks",
     "file": "databases",
     "mcqModules": [
       "m09"
@@ -1269,6 +1413,7 @@
     "id": "db-clustered-index",
     "unit": "databases",
     "topic": "Clustered and secondary indexes",
+    "topicFr": "Index clustered et index secondaires",
     "file": "databases",
     "mcqModules": [
       "m08",
@@ -1279,6 +1424,7 @@
     "id": "db-key-value",
     "unit": "databases",
     "topic": "Relational database vs key-value store",
+    "topicFr": "Base relationnelle ou clé-valeur",
     "file": "databases",
     "mcqModules": [
       "m13"
@@ -1288,6 +1434,7 @@
     "id": "design-url-shortener",
     "unit": "system-design",
     "topic": "URL shortener",
+    "topicFr": "Raccourcisseur d’URL",
     "file": "system-design",
     "mcqModules": [
       "m16"
@@ -1297,6 +1444,7 @@
     "id": "design-realtime-chat",
     "unit": "system-design",
     "topic": "Real-time chat architecture",
+    "topicFr": "Architecture d’un chat temps réel",
     "file": "system-design",
     "mcqModules": [
       "m20"
@@ -1306,6 +1454,7 @@
     "id": "design-scaling",
     "unit": "system-design",
     "topic": "Horizontal vs vertical scaling",
+    "topicFr": "Scalabilité horizontale et verticale",
     "file": "system-design",
     "mcqModules": [
       "m11",
@@ -1316,6 +1465,7 @@
     "id": "design-image-uploads",
     "unit": "system-design",
     "topic": "Image uploads at scale",
+    "topicFr": "Upload d’images à grande échelle",
     "file": "system-design",
     "mcqModules": [
       "m03",
@@ -1326,6 +1476,7 @@
     "id": "design-monolith-microservices",
     "unit": "system-design",
     "topic": "Monolith vs microservices",
+    "topicFr": "Monolithe ou microservices",
     "file": "system-design",
     "mcqModules": [
       "m18"
@@ -1335,6 +1486,7 @@
     "id": "design-caching-strategy",
     "unit": "system-design",
     "topic": "Caching strategy",
+    "topicFr": "Stratégie de cache",
     "file": "system-design",
     "mcqModules": [
       "m13"
@@ -1344,6 +1496,7 @@
     "id": "design-checkout",
     "unit": "system-design",
     "topic": "Reliable checkout",
+    "topicFr": "Checkout fiable",
     "file": "system-design",
     "mcqModules": [
       "m05",
@@ -1355,6 +1508,7 @@
     "id": "design-load-balancer",
     "unit": "system-design",
     "topic": "Load balancers",
+    "topicFr": "Load balancers",
     "file": "system-design",
     "mcqModules": [
       "m15",
@@ -1365,6 +1519,7 @@
     "id": "design-notifications",
     "unit": "system-design",
     "topic": "Notification system",
+    "topicFr": "Système de notifications",
     "file": "system-design",
     "mcqModules": [
       "m13",
@@ -1375,6 +1530,7 @@
     "id": "design-collaborative-editing",
     "unit": "system-design",
     "topic": "Collaborative editing",
+    "topicFr": "Édition collaborative",
     "file": "system-design",
     "mcqModules": []
   },
@@ -1382,6 +1538,7 @@
     "id": "design-feature-estimation",
     "unit": "system-design",
     "topic": "Estimating a full-stack feature",
+    "topicFr": "Estimer une fonctionnalité full-stack",
     "file": "system-design",
     "mcqModules": []
   },
@@ -1389,6 +1546,7 @@
     "id": "design-latency-diagnosis",
     "unit": "system-design",
     "topic": "Diagnosing a latency spike",
+    "topicFr": "Diagnostiquer un pic de latence",
     "file": "system-design",
     "mcqModules": [
       "m11",
@@ -1399,6 +1557,7 @@
     "id": "design-approach",
     "unit": "system-design",
     "topic": "Approaching a system design round",
+    "topicFr": "Aborder une épreuve de system design",
     "file": "system-design",
     "mcqModules": [
       "m16"
@@ -1408,6 +1567,7 @@
     "id": "design-cap",
     "unit": "system-design",
     "topic": "CAP and PACELC",
+    "topicFr": "CAP et PACELC",
     "file": "system-design",
     "mcqModules": [
       "m16"
@@ -1417,6 +1577,7 @@
     "id": "design-rate-limiter",
     "unit": "system-design",
     "topic": "Rate limiter design",
+    "topicFr": "Conception d’un rate limiter",
     "file": "system-design",
     "mcqModules": [
       "m16"
@@ -1426,6 +1587,7 @@
     "id": "design-million-users",
     "unit": "system-design",
     "topic": "Designing for a million users",
+    "topicFr": "Concevoir pour un million d’utilisateurs",
     "file": "system-design",
     "mcqModules": [
       "m16"
@@ -1435,6 +1597,7 @@
     "id": "design-exactly-once",
     "unit": "system-design",
     "topic": "Exactly-once processing",
+    "topicFr": "Traitement exactly-once",
     "file": "system-design",
     "mcqModules": [
       "m13"
@@ -1444,6 +1607,7 @@
     "id": "design-leaderboard",
     "unit": "system-design",
     "topic": "Real-time leaderboard",
+    "topicFr": "Classement en temps réel",
     "file": "system-design",
     "mcqModules": []
   },
@@ -1451,6 +1615,7 @@
     "id": "design-dedup",
     "unit": "system-design",
     "topic": "Deduplication and Bloom filters",
+    "topicFr": "Déduplication et filtres de Bloom",
     "file": "system-design",
     "mcqModules": []
   },
@@ -1458,6 +1623,7 @@
     "id": "design-ride-matching",
     "unit": "system-design",
     "topic": "Driver matching",
+    "topicFr": "Attribution des chauffeurs",
     "file": "system-design",
     "mcqModules": []
   },
@@ -1465,6 +1631,7 @@
     "id": "design-webhooks",
     "unit": "system-design",
     "topic": "Processing third-party webhooks",
+    "topicFr": "Traiter des webhooks tiers",
     "file": "system-design",
     "mcqModules": [
       "m05",
@@ -1475,6 +1642,7 @@
     "id": "msg-queues",
     "unit": "messaging",
     "topic": "Message queues",
+    "topicFr": "Files de messages",
     "file": "messaging",
     "mcqModules": [
       "m13"
@@ -1484,6 +1652,7 @@
     "id": "msg-rabbitmq-kafka",
     "unit": "messaging",
     "topic": "RabbitMQ vs Kafka",
+    "topicFr": "RabbitMQ ou Kafka",
     "file": "messaging",
     "mcqModules": [
       "m13"
@@ -1493,6 +1662,7 @@
     "id": "msg-dead-letter",
     "unit": "messaging",
     "topic": "Dead-letter queues",
+    "topicFr": "Dead letter queues",
     "file": "messaging",
     "mcqModules": [
       "m13"
@@ -1502,6 +1672,7 @@
     "id": "msg-circuit-breaker",
     "unit": "messaging",
     "topic": "Circuit breakers",
+    "topicFr": "Circuit breakers",
     "file": "messaging",
     "mcqModules": [
       "m02"
@@ -1511,6 +1682,7 @@
     "id": "msg-batch-processing",
     "unit": "messaging",
     "topic": "Large asynchronous batches",
+    "topicFr": "Gros traitements par lots asynchrones",
     "file": "messaging",
     "mcqModules": []
   },
@@ -1518,6 +1690,7 @@
     "id": "msg-event-sourcing",
     "unit": "messaging",
     "topic": "Event sourcing",
+    "topicFr": "Event sourcing",
     "file": "messaging",
     "mcqModules": [
       "m18"
@@ -1527,6 +1700,7 @@
     "id": "msg-cache-patterns",
     "unit": "messaging",
     "topic": "Cache-aside and write-through",
+    "topicFr": "Cache-aside et write-through",
     "file": "messaging",
     "mcqModules": [
       "m13"
@@ -1536,6 +1710,7 @@
     "id": "msg-ordering",
     "unit": "messaging",
     "topic": "Message ordering",
+    "topicFr": "Ordre des messages",
     "file": "messaging",
     "mcqModules": [
       "m13"
@@ -1545,6 +1720,7 @@
     "id": "msg-outbox",
     "unit": "messaging",
     "topic": "Transactional outbox",
+    "topicFr": "Outbox transactionnel",
     "file": "messaging",
     "mcqModules": [
       "m13"
@@ -1554,6 +1730,7 @@
     "id": "ops-test-levels",
     "unit": "delivery",
     "topic": "Unit, integration and E2E tests",
+    "topicFr": "Tests unitaires, d’intégration et E2E",
     "file": "delivery",
     "mcqModules": [
       "m14",
@@ -1564,6 +1741,7 @@
     "id": "ops-ci-cd",
     "unit": "delivery",
     "topic": "CI/CD pipelines",
+    "topicFr": "Pipelines CI/CD",
     "file": "delivery",
     "mcqModules": [
       "m17"
@@ -1573,6 +1751,7 @@
     "id": "ops-docker",
     "unit": "delivery",
     "topic": "Docker and containers",
+    "topicFr": "Docker et conteneurs",
     "file": "delivery",
     "mcqModules": [
       "m17"
@@ -1582,6 +1761,7 @@
     "id": "ops-test-async-api",
     "unit": "delivery",
     "topic": "Testing async code and API calls",
+    "topicFr": "Tester le code async et les appels d’API",
     "file": "delivery",
     "mcqModules": [
       "m14",
@@ -1592,6 +1772,7 @@
     "id": "ops-iac",
     "unit": "delivery",
     "topic": "Infrastructure as code",
+    "topicFr": "Infrastructure as code",
     "file": "delivery",
     "mcqModules": [
       "m17"
@@ -1601,6 +1782,7 @@
     "id": "ops-debug-production",
     "unit": "delivery",
     "topic": "Debugging production-only bugs",
+    "topicFr": "Déboguer un bug présent seulement en prod",
     "file": "delivery",
     "mcqModules": [
       "m15"
@@ -1610,6 +1792,7 @@
     "id": "ops-feature-flags",
     "unit": "delivery",
     "topic": "Feature flags",
+    "topicFr": "Feature flags",
     "file": "delivery",
     "mcqModules": [
       "m15"
@@ -1619,6 +1802,7 @@
     "id": "ops-blue-green-canary",
     "unit": "delivery",
     "topic": "Blue-green and canary deployments",
+    "topicFr": "Déploiements blue-green et canary",
     "file": "delivery",
     "mcqModules": [
       "m15",
@@ -1629,6 +1813,7 @@
     "id": "ops-code-review",
     "unit": "delivery",
     "topic": "Giving and receiving code review",
+    "topicFr": "Faire et recevoir une code review",
     "file": "delivery",
     "mcqModules": [
       "m22"
@@ -1638,6 +1823,7 @@
     "id": "ops-full-stack-performance",
     "unit": "delivery",
     "topic": "Full-stack performance",
+    "topicFr": "Performance full-stack",
     "file": "delivery",
     "mcqModules": [
       "m26"
@@ -1647,6 +1833,7 @@
     "id": "test-snapshots",
     "unit": "delivery",
     "topic": "Snapshot testing",
+    "topicFr": "Tests snapshot",
     "file": "delivery",
     "mcqModules": [
       "m35"
@@ -1656,6 +1843,7 @@
     "id": "test-tdd",
     "unit": "delivery",
     "topic": "Test-driven development",
+    "topicFr": "Test-driven development",
     "file": "delivery",
     "mcqModules": []
   },
@@ -1663,6 +1851,7 @@
     "id": "test-a11y",
     "unit": "delivery",
     "topic": "Testing accessibility",
+    "topicFr": "Tester l’accessibilité",
     "file": "delivery",
     "mcqModules": [
       "m28"
@@ -1672,6 +1861,7 @@
     "id": "test-doubles",
     "unit": "delivery",
     "topic": "Test doubles: mocks, stubs and fakes",
+    "topicFr": "Doublures de test : mocks, stubs et fakes",
     "file": "delivery",
     "mcqModules": [
       "m14"
@@ -1681,6 +1871,7 @@
     "id": "test-contract",
     "unit": "delivery",
     "topic": "Contract testing",
+    "topicFr": "Tests de contrat",
     "file": "delivery",
     "mcqModules": [
       "m14"
@@ -1690,6 +1881,7 @@
     "id": "test-load",
     "unit": "delivery",
     "topic": "Load testing an API",
+    "topicFr": "Test de charge d’une API",
     "file": "delivery",
     "mcqModules": []
   },
@@ -1697,6 +1889,7 @@
     "id": "test-legacy",
     "unit": "delivery",
     "topic": "Adding tests to legacy code",
+    "topicFr": "Ajouter des tests à du code legacy",
     "file": "delivery",
     "mcqModules": []
   },
@@ -1704,6 +1897,7 @@
     "id": "ops-code-quality",
     "unit": "delivery",
     "topic": "Code quality beyond review",
+    "topicFr": "Qualité du code au-delà de la review",
     "file": "delivery",
     "mcqModules": []
   },
@@ -1711,6 +1905,7 @@
     "id": "ops-health-probes",
     "unit": "delivery",
     "topic": "Health checks and probes",
+    "topicFr": "Health checks et probes",
     "file": "delivery",
     "mcqModules": [
       "m15"
@@ -1720,6 +1915,7 @@
     "id": "ops-observability",
     "unit": "delivery",
     "topic": "Observability: logs, metrics, traces",
+    "topicFr": "Observabilité : logs, métriques, traces",
     "file": "delivery",
     "mcqModules": [
       "m15"
@@ -1729,6 +1925,7 @@
     "id": "ops-graceful-shutdown",
     "unit": "delivery",
     "topic": "Graceful shutdown",
+    "topicFr": "Arrêt gracieux",
     "file": "delivery",
     "mcqModules": [
       "m06",
@@ -1740,6 +1937,7 @@
     "id": "ops-capacity-planning",
     "unit": "delivery",
     "topic": "Capacity planning for a traffic spike",
+    "topicFr": "Capacity planning pour un pic de trafic",
     "file": "delivery",
     "mcqModules": [
       "m16"
@@ -1749,6 +1947,7 @@
     "id": "ops-incident-response",
     "unit": "delivery",
     "topic": "Incident response and postmortems",
+    "topicFr": "Gestion d’incident et post-mortems",
     "file": "delivery",
     "mcqModules": [
       "m15"
@@ -1758,6 +1957,7 @@
     "id": "sec-xss",
     "unit": "security",
     "topic": "XSS",
+    "topicFr": "XSS",
     "file": "security",
     "mcqModules": [
       "m27"
@@ -1767,6 +1967,7 @@
     "id": "sec-sql-injection",
     "unit": "security",
     "topic": "SQL injection",
+    "topicFr": "Injection SQL",
     "file": "security",
     "mcqModules": [
       "m11"
@@ -1776,6 +1977,7 @@
     "id": "sec-csrf",
     "unit": "security",
     "topic": "CSRF",
+    "topicFr": "CSRF",
     "file": "security",
     "mcqModules": [
       "m12",
@@ -1786,6 +1988,7 @@
     "id": "sec-secrets",
     "unit": "security",
     "topic": "Secrets management",
+    "topicFr": "Gestion des secrets",
     "file": "security",
     "mcqModules": [
       "m12",
@@ -1797,6 +2000,7 @@
     "id": "sec-https",
     "unit": "security",
     "topic": "HTTPS",
+    "topicFr": "HTTPS",
     "file": "security",
     "mcqModules": []
   },
@@ -1804,6 +2008,7 @@
     "id": "sec-security-review",
     "unit": "security",
     "topic": "Pre-launch security review",
+    "topicFr": "Revue de sécurité avant lancement",
     "file": "security",
     "mcqModules": [
       "m12"
@@ -1813,6 +2018,7 @@
     "id": "sec-csp",
     "unit": "security",
     "topic": "Content Security Policy",
+    "topicFr": "Content Security Policy",
     "file": "security",
     "mcqModules": [
       "m27"
@@ -1822,6 +2028,7 @@
     "id": "sec-frontend-hardening",
     "unit": "security",
     "topic": "Frontend hardening",
+    "topicFr": "Durcissement du front",
     "file": "security",
     "mcqModules": [
       "m27"
@@ -1831,6 +2038,7 @@
     "id": "sec-broken-access-control",
     "unit": "security",
     "topic": "Broken access control",
+    "topicFr": "Contrôle d’accès défaillant",
     "file": "security",
     "mcqModules": [
       "m12"
@@ -1840,6 +2048,7 @@
     "id": "sec-passwords",
     "unit": "security",
     "topic": "Password storage",
+    "topicFr": "Stockage des mots de passe",
     "file": "security",
     "mcqModules": [
       "m12"
@@ -1849,6 +2058,7 @@
     "id": "sec-jwt",
     "unit": "security",
     "topic": "JWT authentication",
+    "topicFr": "Authentification JWT",
     "file": "security",
     "mcqModules": [
       "m12"
@@ -1858,6 +2068,7 @@
     "id": "story-full-stack-feature",
     "unit": "behavioural",
     "topic": "Delivering a full-stack feature",
+    "topicFr": "Livrer une fonctionnalité full-stack",
     "file": "behavioural",
     "mcqModules": [
       "m22"
@@ -1867,6 +2078,7 @@
     "id": "story-cross-layer-bug",
     "unit": "behavioural",
     "topic": "Telling a cross-layer bug story",
+    "topicFr": "Raconter un bug entre plusieurs couches",
     "file": "behavioural",
     "mcqModules": [
       "m22"
@@ -1876,6 +2088,7 @@
     "id": "story-business-logic",
     "unit": "behavioural",
     "topic": "Where business logic lives",
+    "topicFr": "Où vit la logique métier",
     "file": "behavioural",
     "mcqModules": [
       "m33"
@@ -1885,6 +2098,7 @@
     "id": "story-learn-fast",
     "unit": "behavioural",
     "topic": "Learning a technology fast",
+    "topicFr": "Apprendre une technologie vite",
     "file": "behavioural",
     "mcqModules": [
       "m22"
@@ -1894,6 +2108,7 @@
     "id": "story-disagreement",
     "unit": "behavioural",
     "topic": "Handling a technical disagreement",
+    "topicFr": "Gérer un désaccord technique",
     "file": "behavioural",
     "mcqModules": [
       "m22"
@@ -1903,6 +2118,7 @@
     "id": "story-new-codebase",
     "unit": "behavioural",
     "topic": "Onboarding to a new codebase",
+    "topicFr": "Prendre en main une nouvelle codebase",
     "file": "behavioural",
     "mcqModules": []
   },
@@ -1910,6 +2126,7 @@
     "id": "story-tech-debt",
     "unit": "behavioural",
     "topic": "Tech debt against a deadline",
+    "topicFr": "Dette technique face à une échéance",
     "file": "behavioural",
     "mcqModules": [
       "m22"
@@ -1919,6 +2136,7 @@
     "id": "story-organized",
     "unit": "behavioural",
     "topic": "Staying organized across tasks",
+    "topicFr": "Rester organisé sur plusieurs tâches",
     "file": "behavioural",
     "mcqModules": []
   },
@@ -1926,6 +2144,7 @@
     "id": "story-incident",
     "unit": "behavioural",
     "topic": "Diagnosing a production incident",
+    "topicFr": "Diagnostiquer un incident de production",
     "file": "behavioural",
     "mcqModules": [
       "m22"
@@ -1935,6 +2154,7 @@
     "id": "story-tradeoff",
     "unit": "behavioural",
     "topic": "An architectural trade-off",
+    "topicFr": "Un compromis d’architecture",
     "file": "behavioural",
     "mcqModules": [
       "m22"
@@ -1944,6 +2164,7 @@
     "id": "story-push-back",
     "unit": "behavioural",
     "topic": "Pushing back on a risky feature",
+    "topicFr": "S’opposer à une fonctionnalité risquée",
     "file": "behavioural",
     "mcqModules": [
       "m22"
@@ -1953,6 +2174,7 @@
     "id": "trend-ai-assistants",
     "unit": "trends",
     "topic": "AI coding assistants",
+    "topicFr": "Assistants de code IA",
     "file": "trends",
     "mcqModules": []
   },
@@ -1960,6 +2182,7 @@
     "id": "trend-edge-functions",
     "unit": "trends",
     "topic": "Edge functions",
+    "topicFr": "Edge functions",
     "file": "trends",
     "mcqModules": []
   },
@@ -1967,6 +2190,7 @@
     "id": "trend-meta-frameworks",
     "unit": "trends",
     "topic": "Meta-frameworks",
+    "topicFr": "Méta-frameworks",
     "file": "trends",
     "mcqModules": [
       "m33"
@@ -1976,6 +2200,7 @@
     "id": "trend-web-components",
     "unit": "trends",
     "topic": "Web Components",
+    "topicFr": "Web Components",
     "file": "trends",
     "mcqModules": []
   },
@@ -1983,6 +2208,7 @@
     "id": "trend-core-web-vitals",
     "unit": "trends",
     "topic": "Core Web Vitals",
+    "topicFr": "Core Web Vitals",
     "file": "trends",
     "mcqModules": [
       "m26"
@@ -1992,6 +2218,7 @@
     "id": "trend-staying-current",
     "unit": "trends",
     "topic": "Staying current",
+    "topicFr": "Rester à jour",
     "file": "trends",
     "mcqModules": []
   },
@@ -1999,6 +2226,7 @@
     "id": "trend-serverless",
     "unit": "trends",
     "topic": "Serverless",
+    "topicFr": "Serverless",
     "file": "trends",
     "mcqModules": [
       "m17"
@@ -2008,6 +2236,7 @@
     "id": "trend-event-driven",
     "unit": "trends",
     "topic": "Event-driven architecture",
+    "topicFr": "Architecture événementielle",
     "file": "trends",
     "mcqModules": [
       "m13",
@@ -2018,6 +2247,7 @@
     "id": "trend-platform-engineering",
     "unit": "trends",
     "topic": "Platform engineering",
+    "topicFr": "Platform engineering",
     "file": "trends",
     "mcqModules": []
   },
@@ -2025,6 +2255,7 @@
     "id": "ts-strict-config",
     "unit": "typescript",
     "topic": "Strict tsconfig and type checking in CI",
+    "topicFr": "tsconfig strict et vérification des types en CI",
     "file": "typescript",
     "mcqModules": [
       "m04"
@@ -2034,6 +2265,7 @@
     "id": "ts-narrowing",
     "unit": "typescript",
     "topic": "unknown, narrowing and type guards",
+    "topicFr": "unknown, narrowing et type guards",
     "file": "typescript",
     "mcqModules": [
       "m04"
@@ -2043,6 +2275,7 @@
     "id": "ts-branded-types",
     "unit": "typescript",
     "topic": "Branded types and literal unions",
+    "topicFr": "Branded types et unions de littéraux",
     "file": "typescript",
     "mcqModules": [
       "m04",
@@ -2053,6 +2286,7 @@
     "id": "ts-discriminated-unions",
     "unit": "typescript",
     "topic": "Discriminated unions and exhaustiveness",
+    "topicFr": "Unions discriminées et exhaustivité",
     "file": "typescript",
     "mcqModules": [
       "m04",
@@ -2063,6 +2297,7 @@
     "id": "ts-runtime-validation",
     "unit": "typescript",
     "topic": "Runtime validation with Zod",
+    "topicFr": "Validation à l’exécution avec Zod",
     "file": "typescript",
     "mcqModules": [
       "m04",
@@ -2073,6 +2308,7 @@
     "id": "ts-generics",
     "unit": "typescript",
     "topic": "Generics and constraints",
+    "topicFr": "Génériques et contraintes",
     "file": "typescript",
     "mcqModules": [
       "m04",
@@ -2083,6 +2319,7 @@
     "id": "ts-errors-as-values",
     "unit": "typescript",
     "topic": "Errors as values and Result types",
+    "topicFr": "Erreurs comme valeurs et types Result",
     "file": "typescript",
     "mcqModules": [
       "m04"
@@ -2092,6 +2329,7 @@
     "id": "ts-end-to-end-types",
     "unit": "typescript",
     "topic": "Sharing types between API and clients",
+    "topicFr": "Partager les types entre API et clients",
     "file": "typescript",
     "mcqModules": [
       "m04"
@@ -2101,6 +2339,7 @@
     "id": "ts-react-props",
     "unit": "typescript",
     "topic": "Typing React props, events and refs",
+    "topicFr": "Typer props, événements et refs en React",
     "file": "typescript",
     "mcqModules": [
       "m34"
@@ -2110,6 +2349,7 @@
     "id": "ts-exclusive-props",
     "unit": "typescript",
     "topic": "Exclusive and polymorphic props",
+    "topicFr": "Props exclusives et polymorphes",
     "file": "typescript",
     "mcqModules": [
       "m34"
@@ -2119,6 +2359,7 @@
     "id": "ts-typed-context",
     "unit": "typescript",
     "topic": "Typed context and custom hooks",
+    "topicFr": "Context typé et hooks custom",
     "file": "typescript",
     "mcqModules": [
       "m34"
@@ -2128,6 +2369,7 @@
     "id": "ts-utility-types",
     "unit": "typescript",
     "topic": "Utility types",
+    "topicFr": "Utility types",
     "file": "typescript",
     "mcqModules": [
       "m34"
@@ -2137,6 +2379,7 @@
     "id": "ts-type-level",
     "unit": "typescript",
     "topic": "Template literal and conditional types",
+    "topicFr": "Template literal types et types conditionnels",
     "file": "typescript",
     "mcqModules": [
       "m34"
@@ -2146,6 +2389,7 @@
     "id": "js-collections",
     "unit": "js-core",
     "topic": "Map, Set and grouping",
+    "topicFr": "Map, Set et regroupement",
     "file": "frontend-gaps",
     "mcqModules": [
       "m23"
@@ -2155,6 +2399,7 @@
     "id": "js-error-cause",
     "unit": "js-core",
     "topic": "Error cause and custom errors",
+    "topicFr": "Error cause et erreurs personnalisées",
     "file": "frontend-gaps",
     "mcqModules": [
       "m23"
@@ -2164,6 +2409,7 @@
     "id": "perf-bfcache",
     "unit": "web-performance",
     "topic": "bfcache and speculation rules",
+    "topicFr": "bfcache et speculation rules",
     "file": "frontend-gaps",
     "mcqModules": [
       "m25"
@@ -2173,6 +2419,7 @@
     "id": "perf-rum",
     "unit": "web-performance",
     "topic": "Real user monitoring with web-vitals",
+    "topicFr": "Real user monitoring avec web-vitals",
     "file": "frontend-gaps",
     "mcqModules": [
       "m26"
@@ -2182,6 +2429,7 @@
     "id": "perf-inp-diagnosis",
     "unit": "web-performance",
     "topic": "Diagnosing a slow INP",
+    "topicFr": "Diagnostiquer un INP lent",
     "file": "frontend-gaps",
     "mcqModules": [
       "m26"
@@ -2191,6 +2439,7 @@
     "id": "perf-third-party",
     "unit": "web-performance",
     "topic": "Governing third-party scripts",
+    "topicFr": "Gouverner les scripts tiers",
     "file": "frontend-gaps",
     "mcqModules": [
       "m26"
@@ -2200,6 +2449,7 @@
     "id": "sec-trusted-types",
     "unit": "security",
     "topic": "Trusted Types",
+    "topicFr": "Trusted Types",
     "file": "frontend-gaps",
     "mcqModules": [
       "m27"
@@ -2209,6 +2459,7 @@
     "id": "sec-postmessage",
     "unit": "security",
     "topic": "postMessage origin checks",
+    "topicFr": "postMessage et contrôle d’origine",
     "file": "frontend-gaps",
     "mcqModules": [
       "m27"
@@ -2218,6 +2469,7 @@
     "id": "web-dialog",
     "unit": "web-platform",
     "topic": "Accessible modal dialogs",
+    "topicFr": "Modales accessibles",
     "file": "frontend-gaps",
     "mcqModules": [
       "m28"
@@ -2227,6 +2479,7 @@
     "id": "web-perceivable",
     "unit": "web-platform",
     "topic": "Contrast, motion and hidden focus",
+    "topicFr": "Contraste, animations et focus masqué",
     "file": "frontend-gaps",
     "mcqModules": [
       "m28"
@@ -2236,6 +2489,7 @@
     "id": "test-user-event",
     "unit": "react",
     "topic": "user-event and async UI tests",
+    "topicFr": "user-event et tests d’UI asynchrone",
     "file": "frontend-gaps",
     "mcqModules": [
       "m35"
@@ -2245,6 +2499,7 @@
     "id": "test-react-providers",
     "unit": "react",
     "topic": "Testing with Query and context",
+    "topicFr": "Tester avec Query et le contexte",
     "file": "frontend-gaps",
     "mcqModules": [
       "m35"
@@ -2254,6 +2509,7 @@
     "id": "test-playwright",
     "unit": "delivery",
     "topic": "Playwright E2E and UI checks in CI",
+    "topicFr": "E2E Playwright et contrôles d’UI en CI",
     "file": "frontend-gaps",
     "mcqModules": [
       "m35"
@@ -2263,6 +2519,7 @@
     "id": "fe-component-api",
     "unit": "frontend-architecture",
     "topic": "Designing a component API",
+    "topicFr": "Concevoir l’API d’un composant",
     "file": "frontend-gaps",
     "mcqModules": [
       "m36"
@@ -2272,6 +2529,7 @@
     "id": "fe-storybook",
     "unit": "frontend-architecture",
     "topic": "Storybook for components",
+    "topicFr": "Storybook pour les composants",
     "file": "frontend-gaps",
     "mcqModules": [
       "m36"
@@ -2281,6 +2539,7 @@
     "id": "react-nested-components",
     "unit": "react",
     "topic": "Components defined inside components",
+    "topicFr": "Composants déclarés dans des composants",
     "file": "react-gaps",
     "mcqModules": [
       "m29"
@@ -2290,6 +2549,7 @@
     "id": "react-conditional-rendering",
     "unit": "react",
     "topic": "Conditional rendering traps",
+    "topicFr": "Pièges du rendu conditionnel",
     "file": "react-gaps",
     "mcqModules": [
       "m29"
@@ -2299,6 +2559,7 @@
     "id": "react-strict-mode",
     "unit": "react",
     "topic": "StrictMode and double rendering",
+    "topicFr": "StrictMode et double rendu",
     "file": "react-gaps",
     "mcqModules": [
       "m29"
@@ -2308,6 +2569,7 @@
     "id": "react-effect-loops",
     "unit": "react",
     "topic": "Effects that never stop",
+    "topicFr": "Effets qui ne s’arrêtent jamais",
     "file": "react-gaps",
     "mcqModules": [
       "m30"
@@ -2317,6 +2579,7 @@
     "id": "react-external-store",
     "unit": "react",
     "topic": "useSyncExternalStore",
+    "topicFr": "useSyncExternalStore",
     "file": "react-gaps",
     "mcqModules": [
       "m30"
@@ -2326,6 +2589,7 @@
     "id": "react-portals",
     "unit": "react",
     "topic": "Portals",
+    "topicFr": "Portals",
     "file": "react-gaps",
     "mcqModules": [
       "m30"
@@ -2335,6 +2599,7 @@
     "id": "react-transitions",
     "unit": "react",
     "topic": "useTransition and useDeferredValue",
+    "topicFr": "useTransition et useDeferredValue",
     "file": "react-gaps",
     "mcqModules": [
       "m31"
@@ -2344,6 +2609,7 @@
     "id": "react-url-state",
     "unit": "react",
     "topic": "URL state for filters",
+    "topicFr": "Filtres dans l’URL",
     "file": "react-gaps",
     "mcqModules": [
       "m32"
@@ -2353,6 +2619,7 @@
     "id": "react-complex-forms",
     "unit": "react",
     "topic": "React Hook Form and Zod",
+    "topicFr": "React Hook Form et Zod",
     "file": "react-gaps",
     "mcqModules": [
       "m32"
@@ -2362,6 +2629,7 @@
     "id": "next-route-handlers",
     "unit": "react",
     "topic": "Route Handlers and the BFF in Next.js",
+    "topicFr": "Route Handlers et BFF dans Next.js",
     "file": "react-gaps",
     "mcqModules": [
       "m33"
@@ -2371,6 +2639,7 @@
     "id": "next-errors",
     "unit": "react",
     "topic": "Errors and not-found in the App Router",
+    "topicFr": "Erreurs et not-found dans l’App Router",
     "file": "react-gaps",
     "mcqModules": [
       "m33"
@@ -2380,6 +2649,7 @@
     "id": "next-pages-migration",
     "unit": "react",
     "topic": "Pages Router to App Router migration",
+    "topicFr": "Migration Pages Router vers App Router",
     "file": "react-gaps",
     "mcqModules": [
       "m33"
@@ -2389,6 +2659,7 @@
     "id": "node-event-loop-lag",
     "unit": "node",
     "topic": "Proving a blocked event loop",
+    "topicFr": "Prouver un event loop bloqué",
     "file": "node-runtime",
     "mcqModules": [
       "m01"
@@ -2398,6 +2669,7 @@
     "id": "node-task-queues",
     "unit": "node",
     "topic": "Node queue order and nextTick",
+    "topicFr": "Ordre des files Node et nextTick",
     "file": "node-runtime",
     "mcqModules": [
       "m01"
@@ -2407,6 +2679,7 @@
     "id": "node-blocking-fixes",
     "unit": "node",
     "topic": "Fixing CPU work on the main thread",
+    "topicFr": "Sortir le CPU du thread principal",
     "file": "node-runtime",
     "mcqModules": [
       "m01"
@@ -2416,6 +2689,7 @@
     "id": "node-multi-core",
     "unit": "node",
     "topic": "Using more cores in Node",
+    "topicFr": "Utiliser plus de cœurs avec Node",
     "file": "node-runtime",
     "mcqModules": [
       "m01"
@@ -2425,6 +2699,7 @@
     "id": "node-builtins",
     "unit": "node",
     "topic": "What Node 24 does without packages",
+    "topicFr": "Ce que Node 24 fait sans packages",
     "file": "node-runtime",
     "mcqModules": [
       "m01"
@@ -2434,6 +2709,7 @@
     "id": "node-framework-choice",
     "unit": "node",
     "topic": "NestJS, Fastify or Express",
+    "topicFr": "NestJS, Fastify ou Express",
     "file": "node-runtime",
     "mcqModules": [
       "m06"
@@ -2443,6 +2719,7 @@
     "id": "node-service-layers",
     "unit": "node",
     "topic": "Controller, use case, repository",
+    "topicFr": "Controller, use case, repository",
     "file": "node-runtime",
     "mcqModules": [
       "m06"
@@ -2452,6 +2729,7 @@
     "id": "node-config-validation",
     "unit": "node",
     "topic": "Validating configuration at startup",
+    "topicFr": "Valider la configuration au démarrage",
     "file": "node-runtime",
     "mcqModules": [
       "m06"
@@ -2461,6 +2739,7 @@
     "id": "node-fan-out",
     "unit": "node",
     "topic": "Fan-out on the server",
+    "topicFr": "Fan-out côté serveur",
     "file": "node-async",
     "mcqModules": [
       "m02"
@@ -2470,6 +2749,7 @@
     "id": "node-deadlines",
     "unit": "node",
     "topic": "Deadlines and cancellation in Node",
+    "topicFr": "Deadlines et annulation en Node",
     "file": "node-async",
     "mcqModules": [
       "m02"
@@ -2479,6 +2759,7 @@
     "id": "node-retries",
     "unit": "node",
     "topic": "Retrying calls safely",
+    "topicFr": "Rejouer des appels sans risque",
     "file": "node-async",
     "mcqModules": [
       "m02"
@@ -2488,6 +2769,7 @@
     "id": "node-bounded-concurrency",
     "unit": "node",
     "topic": "Bounded concurrency",
+    "topicFr": "Concurrence bornée",
     "file": "node-async",
     "mcqModules": [
       "m02"
@@ -2497,6 +2779,7 @@
     "id": "node-async-iteration",
     "unit": "node",
     "topic": "Async iterators and cleanup",
+    "topicFr": "Itérateurs async et nettoyage",
     "file": "node-async",
     "mcqModules": [
       "m02"
@@ -2506,6 +2789,7 @@
     "id": "node-async-context",
     "unit": "node",
     "topic": "Error cause and request context",
+    "topicFr": "Cause d’erreur et contexte de requête",
     "file": "node-async",
     "mcqModules": [
       "m02",
@@ -2516,6 +2800,7 @@
     "id": "node-stream-pipeline",
     "unit": "node",
     "topic": "Streaming a large export",
+    "topicFr": "Streamer un gros export",
     "file": "node-async",
     "mcqModules": [
       "m03"
@@ -2525,6 +2810,7 @@
     "id": "node-csv-export",
     "unit": "node",
     "topic": "CSV exports: cursors and escaping",
+    "topicFr": "Exports CSV : curseurs et échappement",
     "file": "node-async",
     "mcqModules": [
       "m03"
@@ -2534,6 +2820,7 @@
     "id": "node-text-decoding",
     "unit": "node",
     "topic": "Bytes, text and chunk boundaries",
+    "topicFr": "Octets, texte et frontières de chunks",
     "file": "node-async",
     "mcqModules": [
       "m03"
@@ -2543,6 +2830,7 @@
     "id": "node-web-streams",
     "unit": "node",
     "topic": "Web Streams in Node",
+    "topicFr": "Web Streams dans Node",
     "file": "node-async",
     "mcqModules": [
       "m03"
@@ -2552,6 +2840,7 @@
     "id": "sql-joins",
     "unit": "sql",
     "topic": "Joins and their row counts",
+    "topicFr": "Jointures et nombre de lignes",
     "file": "sql",
     "mcqModules": [
       "m07"
@@ -2561,6 +2850,7 @@
     "id": "sql-nulls",
     "unit": "sql",
     "topic": "NULL logic and anti-joins",
+    "topicFr": "Logique du NULL et anti-jointures",
     "file": "sql",
     "mcqModules": [
       "m07"
@@ -2570,6 +2860,7 @@
     "id": "sql-aggregation",
     "unit": "sql",
     "topic": "GROUP BY, HAVING and FILTER",
+    "topicFr": "GROUP BY, HAVING et FILTER",
     "file": "sql",
     "mcqModules": [
       "m07"
@@ -2579,6 +2870,7 @@
     "id": "sql-ctes",
     "unit": "sql",
     "topic": "Fan-out and CTEs",
+    "topicFr": "Fan-out et CTE",
     "file": "sql",
     "mcqModules": [
       "m07"
@@ -2588,6 +2880,7 @@
     "id": "sql-lateral",
     "unit": "sql",
     "topic": "Subqueries and LATERAL",
+    "topicFr": "Sous-requêtes et LATERAL",
     "file": "sql",
     "mcqModules": [
       "m07"
@@ -2597,6 +2890,7 @@
     "id": "sql-window-functions",
     "unit": "sql",
     "topic": "Window functions",
+    "topicFr": "Window functions",
     "file": "sql",
     "mcqModules": [
       "m07"
@@ -2606,6 +2900,7 @@
     "id": "sql-top-n",
     "unit": "sql",
     "topic": "Top-N per group",
+    "topicFr": "Top-N par groupe",
     "file": "sql",
     "mcqModules": [
       "m07"
@@ -2615,6 +2910,7 @@
     "id": "sql-upserts",
     "unit": "sql",
     "topic": "Upserts, MERGE and RETURNING",
+    "topicFr": "Upserts, MERGE et RETURNING",
     "file": "sql",
     "mcqModules": [
       "m07"
@@ -2624,6 +2920,7 @@
     "id": "db-planner-ignores-index",
     "unit": "databases",
     "topic": "Why the planner ignores an index",
+    "topicFr": "Pourquoi le planificateur ignore un index",
     "file": "databases-more",
     "mcqModules": [
       "m08"
@@ -2633,6 +2930,7 @@
     "id": "db-index-types",
     "unit": "databases",
     "topic": "GIN, trigram and BRIN indexes",
+    "topicFr": "Index GIN, trigrammes et BRIN",
     "file": "databases-more",
     "mcqModules": [
       "m08"
@@ -2642,6 +2940,7 @@
     "id": "db-skip-locked",
     "unit": "databases",
     "topic": "SKIP LOCKED and advisory locks",
+    "topicFr": "SKIP LOCKED et verrous consultatifs",
     "file": "databases-more",
     "mcqModules": [
       "m09"
@@ -2651,6 +2950,7 @@
     "id": "db-column-types-constraints",
     "unit": "databases",
     "topic": "Column types and constraints",
+    "topicFr": "Types de colonnes et contraintes",
     "file": "databases-more",
     "mcqModules": [
       "m10"
@@ -2660,6 +2960,7 @@
     "id": "db-multi-tenancy",
     "unit": "databases",
     "topic": "Multi-tenancy and row-level security",
+    "topicFr": "Multi-tenant et row-level security",
     "file": "databases-more",
     "mcqModules": [
       "m10"
@@ -2669,6 +2970,7 @@
     "id": "db-soft-delete-audit",
     "unit": "databases",
     "topic": "Soft delete and audit trails",
+    "topicFr": "Soft delete et piste d’audit",
     "file": "databases-more",
     "mcqModules": [
       "m10"
@@ -2678,6 +2980,7 @@
     "id": "db-jsonb",
     "unit": "databases",
     "topic": "JSONB columns",
+    "topicFr": "Colonnes JSONB",
     "file": "databases-more",
     "mcqModules": [
       "m10"
@@ -2687,6 +2990,7 @@
     "id": "db-migration-tooling",
     "unit": "databases",
     "topic": "Migration files and tooling",
+    "topicFr": "Fichiers et outils de migration",
     "file": "databases-more",
     "mcqModules": [
       "m10"
@@ -2696,6 +3000,7 @@
     "id": "db-transactions-node",
     "unit": "databases",
     "topic": "Transactions in Node code",
+    "topicFr": "Transactions dans du code Node",
     "file": "databases-more",
     "mcqModules": [
       "m11"
@@ -2705,6 +3010,7 @@
     "id": "db-timeouts",
     "unit": "databases",
     "topic": "Database timeouts",
+    "topicFr": "Timeouts de base de données",
     "file": "databases-more",
     "mcqModules": [
       "m11"
@@ -2714,6 +3020,7 @@
     "id": "db-type-mapping",
     "unit": "databases",
     "topic": "PostgreSQL to JavaScript type mapping",
+    "topicFr": "Types PostgreSQL vers JavaScript",
     "file": "databases-more",
     "mcqModules": [
       "m11"
@@ -2723,6 +3030,7 @@
     "id": "mongo-schema-patterns",
     "unit": "mongodb",
     "topic": "MongoDB schema patterns",
+    "topicFr": "Patterns de schéma MongoDB",
     "file": "mongodb",
     "mcqModules": [
       "m19"
@@ -2732,6 +3040,7 @@
     "id": "mongo-driver-validation",
     "unit": "mongodb",
     "topic": "MongoDB driver, Mongoose, validation",
+    "topicFr": "Driver MongoDB, Mongoose, validation",
     "file": "mongodb",
     "mcqModules": [
       "m19"
@@ -2741,6 +3050,7 @@
     "id": "mongo-indexes",
     "unit": "mongodb",
     "topic": "MongoDB indexes and the ESR rule",
+    "topicFr": "Index MongoDB et règle ESR",
     "file": "mongodb",
     "mcqModules": [
       "m19"
@@ -2750,6 +3060,7 @@
     "id": "mongo-aggregation",
     "unit": "mongodb",
     "topic": "MongoDB aggregation pipeline",
+    "topicFr": "Pipeline d’agrégation MongoDB",
     "file": "mongodb",
     "mcqModules": [
       "m19"
@@ -2759,6 +3070,7 @@
     "id": "mongo-replication",
     "unit": "mongodb",
     "topic": "MongoDB write and read concern",
+    "topicFr": "Write concern et read concern MongoDB",
     "file": "mongodb",
     "mcqModules": [
       "m19"
@@ -2768,6 +3080,7 @@
     "id": "mongo-transactions",
     "unit": "mongodb",
     "topic": "MongoDB transactions",
+    "topicFr": "Transactions MongoDB",
     "file": "mongodb",
     "mcqModules": [
       "m19"
@@ -2777,6 +3090,7 @@
     "id": "mongo-change-streams",
     "unit": "mongodb",
     "topic": "MongoDB change streams",
+    "topicFr": "Change streams MongoDB",
     "file": "mongodb",
     "mcqModules": [
       "m19"
@@ -2786,6 +3100,7 @@
     "id": "api-conditional-requests",
     "unit": "backend-api",
     "topic": "ETags and conditional requests",
+    "topicFr": "ETags et requêtes conditionnelles",
     "file": "backend-more",
     "mcqModules": [
       "m05"
@@ -2795,6 +3110,7 @@
     "id": "sec-property-authz",
     "unit": "security",
     "topic": "Property-level authorization",
+    "topicFr": "Autorisation au niveau des propriétés",
     "file": "backend-more",
     "mcqModules": [
       "m12"
@@ -2804,6 +3120,7 @@
     "id": "api-graphql-schema",
     "unit": "backend-api",
     "topic": "Designing a GraphQL schema",
+    "topicFr": "Concevoir un schéma GraphQL",
     "file": "backend-more",
     "mcqModules": [
       "m20"
@@ -2813,6 +3130,7 @@
     "id": "api-graphql-authz",
     "unit": "backend-api",
     "topic": "GraphQL authorization",
+    "topicFr": "Autorisation en GraphQL",
     "file": "backend-more",
     "mcqModules": [
       "m20"
@@ -2822,6 +3140,7 @@
     "id": "api-graphql-limits",
     "unit": "backend-api",
     "topic": "GraphQL query cost limits",
+    "topicFr": "Limites de coût des requêtes GraphQL",
     "file": "backend-more",
     "mcqModules": [
       "m20"
@@ -2831,6 +3150,7 @@
     "id": "api-websocket-server",
     "unit": "backend-api",
     "topic": "Running a WebSocket server",
+    "topicFr": "Faire tourner un serveur WebSocket",
     "file": "backend-more",
     "mcqModules": [
       "m20"
@@ -2840,6 +3160,7 @@
     "id": "msg-sagas",
     "unit": "messaging",
     "topic": "Sagas and compensations",
+    "topicFr": "Sagas et compensations",
     "file": "backend-more",
     "mcqModules": [
       "m13"
@@ -2849,6 +3170,7 @@
     "id": "design-order-numbers",
     "unit": "system-design",
     "topic": "Order numbers and ids",
+    "topicFr": "Numéros de commande et ids",
     "file": "backend-more",
     "mcqModules": [
       "m16"
@@ -2858,6 +3180,7 @@
     "id": "arch-bounded-contexts",
     "unit": "system-design",
     "topic": "Bounded contexts and context maps",
+    "topicFr": "Bounded contexts et context maps",
     "file": "backend-more",
     "mcqModules": [
       "m18"
@@ -2867,6 +3190,7 @@
     "id": "arch-aggregates",
     "unit": "system-design",
     "topic": "Aggregates, entities and value objects",
+    "topicFr": "Agrégats, entités et value objects",
     "file": "backend-more",
     "mcqModules": [
       "m18"
@@ -2876,6 +3200,7 @@
     "id": "arch-hexagonal",
     "unit": "system-design",
     "topic": "Hexagonal architecture",
+    "topicFr": "Architecture hexagonale",
     "file": "backend-more",
     "mcqModules": [
       "m18"
@@ -2885,6 +3210,7 @@
     "id": "test-unit-pricing",
     "unit": "delivery",
     "topic": "Unit testing business rules",
+    "topicFr": "Tester unitairement les règles métier",
     "file": "delivery-more",
     "mcqModules": [
       "m14"
@@ -2894,6 +3220,7 @@
     "id": "test-database-integration",
     "unit": "delivery",
     "topic": "Integration tests on a real database",
+    "topicFr": "Tests d’intégration sur une vraie base",
     "file": "delivery-more",
     "mcqModules": [
       "m14"
@@ -2903,6 +3230,7 @@
     "id": "test-http-in-process",
     "unit": "delivery",
     "topic": "Testing HTTP routes in-process",
+    "topicFr": "Tester les routes HTTP dans le processus",
     "file": "delivery-more",
     "mcqModules": [
       "m14"
@@ -2912,6 +3240,7 @@
     "id": "test-flaky",
     "unit": "delivery",
     "topic": "Flaky tests: time, randomness, order",
+    "topicFr": "Tests flaky : temps, aléatoire, ordre",
     "file": "delivery-more",
     "mcqModules": [
       "m14"
@@ -2921,6 +3250,7 @@
     "id": "test-fast-suite",
     "unit": "delivery",
     "topic": "Speeding up a slow test suite",
+    "topicFr": "Accélérer une suite de tests lente",
     "file": "delivery-more",
     "mcqModules": [
       "m14"
@@ -2930,6 +3260,7 @@
     "id": "ops-opentelemetry",
     "unit": "delivery",
     "topic": "OpenTelemetry instrumentation",
+    "topicFr": "Instrumentation OpenTelemetry",
     "file": "delivery-more",
     "mcqModules": [
       "m15"
@@ -2939,6 +3270,7 @@
     "id": "ops-aws-managed",
     "unit": "delivery",
     "topic": "Managed AWS services for an API",
+    "topicFr": "Services AWS managés pour une API",
     "file": "delivery-more",
     "mcqModules": [
       "m17"
@@ -2948,6 +3280,7 @@
     "id": "llm-dependency",
     "unit": "llm",
     "topic": "The LLM as a dependency",
+    "topicFr": "Le LLM comme dépendance",
     "file": "llm",
     "mcqModules": [
       "m21"
@@ -2957,6 +3290,7 @@
     "id": "llm-tokens",
     "unit": "llm",
     "topic": "Tokens and LLM cost",
+    "topicFr": "Tokens et coût d’un LLM",
     "file": "llm",
     "mcqModules": [
       "m21"
@@ -2966,6 +3300,7 @@
     "id": "llm-streaming",
     "unit": "llm",
     "topic": "Streaming LLM answers",
+    "topicFr": "Streaming des réponses LLM",
     "file": "llm",
     "mcqModules": [
       "m21"
@@ -2975,6 +3310,7 @@
     "id": "llm-structured-output",
     "unit": "llm",
     "topic": "Structured output from an LLM",
+    "topicFr": "Sortie structurée d’un LLM",
     "file": "llm",
     "mcqModules": [
       "m21"
@@ -2984,6 +3320,7 @@
     "id": "llm-tool-calling",
     "unit": "llm",
     "topic": "Tool calling and AI actions",
+    "topicFr": "Tool calling et actions d’une IA",
     "file": "llm",
     "mcqModules": [
       "m21"
@@ -2993,6 +3330,7 @@
     "id": "llm-rag",
     "unit": "llm",
     "topic": "RAG: retrieval-augmented generation",
+    "topicFr": "RAG : retrieval-augmented generation",
     "file": "llm",
     "mcqModules": [
       "m21"
@@ -3002,6 +3340,7 @@
     "id": "llm-prompt-injection",
     "unit": "llm",
     "topic": "Prompt injection and data leaks",
+    "topicFr": "Prompt injection et fuites de données",
     "file": "llm",
     "mcqModules": [
       "m21"
@@ -3011,6 +3350,7 @@
     "id": "llm-evaluation",
     "unit": "llm",
     "topic": "Evaluating and monitoring LLM features",
+    "topicFr": "Évaluer et surveiller les fonctionnalités LLM",
     "file": "llm",
     "mcqModules": [
       "m21"
@@ -3020,6 +3360,7 @@
     "id": "fsd-method",
     "unit": "frontend-design",
     "topic": "Driving a frontend design round",
+    "topicFr": "Mener un entretien de design front",
     "file": "frontend-design",
     "mcqModules": [
       "m37"
@@ -3029,6 +3370,7 @@
     "id": "fsd-autocomplete",
     "unit": "frontend-design",
     "topic": "Designing a search autocomplete",
+    "topicFr": "Concevoir une autocomplétion de recherche",
     "file": "frontend-design",
     "mcqModules": [
       "m37"
@@ -3038,6 +3380,7 @@
     "id": "fsd-live-table",
     "unit": "frontend-design",
     "topic": "Designing a live data table",
+    "topicFr": "Concevoir un tableau de données en direct",
     "file": "frontend-design",
     "mcqModules": [
       "m37"
@@ -3047,6 +3390,7 @@
     "id": "fsd-optimistic-grid",
     "unit": "frontend-design",
     "topic": "Table edits, grid keyboard, budget",
+    "topicFr": "Édition en tableau, clavier, budget",
     "file": "frontend-design",
     "mcqModules": [
       "m37"
@@ -3056,6 +3400,7 @@
     "id": "fsd-product-page",
     "unit": "frontend-design",
     "topic": "Designing a product page",
+    "topicFr": "Concevoir une page produit",
     "file": "frontend-design",
     "mcqModules": [
       "m37"
@@ -3065,6 +3410,7 @@
     "id": "fsd-checkout",
     "unit": "frontend-design",
     "topic": "Checkout front end, one order per click",
+    "topicFr": "Front du checkout, une commande par clic",
     "file": "frontend-design",
     "mcqModules": [
       "m37"
@@ -3074,6 +3420,7 @@
     "id": "fsd-infinite-feed",
     "unit": "frontend-design",
     "topic": "Designing an infinite feed",
+    "topicFr": "Concevoir un feed infini",
     "file": "frontend-design",
     "mcqModules": [
       "m37"
@@ -3083,6 +3430,7 @@
     "id": "code-round-grading",
     "unit": "coding-rounds",
     "topic": "How a frontend coding round is graded",
+    "topicFr": "Comment est noté un exercice de code frontend",
     "file": "coding-rounds",
     "mcqModules": [
       "m38"
@@ -3092,6 +3440,7 @@
     "id": "code-promise-all",
     "unit": "coding-rounds",
     "topic": "Promise.all from scratch",
+    "topicFr": "Promise.all de zéro",
     "file": "coding-rounds",
     "mcqModules": [
       "m38"
@@ -3101,6 +3450,7 @@
     "id": "code-event-emitter",
     "unit": "coding-rounds",
     "topic": "Event emitter from scratch",
+    "topicFr": "Event emitter de zéro",
     "file": "coding-rounds",
     "mcqModules": [
       "m38"
@@ -3110,6 +3460,7 @@
     "id": "code-debounce-throttle",
     "unit": "coding-rounds",
     "topic": "Writing debounce and throttle",
+    "topicFr": "Écrire debounce et throttle",
     "file": "coding-rounds",
     "mcqModules": [
       "m38"
@@ -3119,6 +3470,7 @@
     "id": "code-concurrency-limit",
     "unit": "coding-rounds",
     "topic": "Async concurrency limit",
+    "topicFr": "Limite de concurrence asynchrone",
     "file": "coding-rounds",
     "mcqModules": [
       "m38"
@@ -3128,6 +3480,7 @@
     "id": "code-data-table",
     "unit": "coding-rounds",
     "topic": "Machine coding: an orders table",
+    "topicFr": "Machine coding : une table de commandes",
     "file": "coding-rounds",
     "mcqModules": [
       "m38"
@@ -3137,6 +3490,7 @@
     "id": "code-modal",
     "unit": "coding-rounds",
     "topic": "Machine coding: an accessible modal",
+    "topicFr": "Machine coding : une modale accessible",
     "file": "coding-rounds",
     "mcqModules": [
       "m38"
@@ -3146,6 +3500,7 @@
     "id": "code-take-home",
     "unit": "coding-rounds",
     "topic": "The fetch-and-display take-home",
+    "topicFr": "Test technique à la maison : fetch et affichage",
     "file": "coding-rounds",
     "mcqModules": [
       "m38"
@@ -3155,6 +3510,7 @@
     "id": "code-review-round",
     "unit": "coding-rounds",
     "topic": "The React code review round",
+    "topicFr": "L’exercice de code review React",
     "file": "coding-rounds",
     "mcqModules": [
       "m38"
@@ -3164,6 +3520,7 @@
     "id": "code-debugging-round",
     "unit": "coding-rounds",
     "topic": "The frontend debugging round",
+    "topicFr": "L’exercice de débogage frontend",
     "file": "coding-rounds",
     "mcqModules": [
       "m38"
@@ -3173,6 +3530,7 @@
     "id": "loop-rounds",
     "unit": "interview-loop",
     "topic": "The senior loop, round by round",
+    "topicFr": "Le processus senior, étape par étape",
     "file": "interview-loop",
     "mcqModules": [
       "m22"
@@ -3182,6 +3540,7 @@
     "id": "loop-recruiter-screen",
     "unit": "interview-loop",
     "topic": "The recruiter screen",
+    "topicFr": "L’appel avec le recruteur",
     "file": "interview-loop",
     "mcqModules": [
       "m22"
@@ -3191,6 +3550,7 @@
     "id": "loop-live-coding",
     "unit": "interview-loop",
     "topic": "The live coding round",
+    "topicFr": "L’entretien de live coding",
     "file": "interview-loop",
     "mcqModules": [
       "m22"
@@ -3200,6 +3560,7 @@
     "id": "loop-take-home",
     "unit": "interview-loop",
     "topic": "The take-home and its defence",
+    "topicFr": "Le test technique à la maison et sa défense",
     "file": "interview-loop",
     "mcqModules": [
       "m22"
@@ -3209,6 +3570,7 @@
     "id": "loop-ai-round",
     "unit": "interview-loop",
     "topic": "The AI-assisted round and AI policy",
+    "topicFr": "L’entretien avec IA et la politique IA",
     "file": "interview-loop",
     "mcqModules": [
       "m22",
@@ -3219,6 +3581,7 @@
     "id": "loop-system-design",
     "unit": "interview-loop",
     "topic": "The system design round in the loop",
+    "topicFr": "L’entretien de system design",
     "file": "interview-loop",
     "mcqModules": []
   },
@@ -3226,6 +3589,7 @@
     "id": "loop-questions-to-ask",
     "unit": "interview-loop",
     "topic": "Questions to ask the interviewers",
+    "topicFr": "Les questions à poser aux recruteurs",
     "file": "interview-loop",
     "mcqModules": [
       "m22"
@@ -3235,6 +3599,7 @@
     "id": "loop-seniority",
     "unit": "interview-loop",
     "topic": "How seniority shows across the loop",
+    "topicFr": "Comment la séniorité se voit dans le processus",
     "file": "interview-loop",
     "mcqModules": [
       "m22"

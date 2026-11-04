@@ -1,0 +1,1049 @@
+{
+  "react-prop-drilling": {
+    "topic": "Prop drilling",
+    "question": "Qu’est-ce que le prop drilling, et quels sont les moyens de l’éviter ?",
+    "answer": "Le prop drilling, c’est faire passer une prop à travers plusieurs composants qui ne l’utilisent pas, juste pour qu’un enfant profond puisse la lire. Ce n’est pas grave sur deux ou trois niveaux, mais ça couple chaque couche intermédiaire à des données qu’elle ignore, et chaque changement touche tous ces fichiers. Ma première correction, c’est la composition : le parent qui possède les données rend lui-même l’enfant profond et le passe en `children` ou en prop de slot. Pour les valeurs lues par beaucoup de composants éloignés et qui changent rarement, comme l’utilisateur courant, j’utilise un Context. Pour du state partagé qui change souvent, j’utilise un store avec des sélecteurs comme Zustand.",
+    "keyPoints": [
+      "Des props passées à travers des couches qui ne les utilisent pas",
+      "Acceptable sur quelques niveaux ; en profondeur, ça couple les couches intermédiaires",
+      "Première correction : la composition avec `children` ou des props de slot",
+      "Context pour les valeurs qui changent rarement, un store pour les fréquentes"
+    ],
+    "explanation": "Les recruteurs vérifient que tu ne sautes pas directement sur Context ou Redux. Une réponse senior commence par la composition, qui supprime le drilling sans nouveau mécanisme, et connaît le coût en re-renders du Context avant de le recommander.",
+    "example": "Dans le back-office, l’agent connecté passait de `App` au layout, à la page des commandes et au tableau jusqu’au bouton de remboursement, quatre couches qui ne le lisaient jamais. Le layout a été modifié pour prendre des `children`, donc `App` rendait lui-même la page, et l’agent est passé dans un petit `AgentContext` puisqu’il ne change qu’à la connexion. Trois composants ont perdu une prop qu’ils n’utilisaient jamais.",
+    "mistakes": [
+      "Sortir Context ou Redux dès la première prop sur deux niveaux au lieu d’essayer la composition",
+      "Mettre du state qui change vite dans un gros Context pour éviter le drilling, si bien que chaque lecteur se re-rend",
+      "Appeler « drilling » tout passage de props : passer des props sur un ou deux niveaux, c’est du React normal"
+    ],
+    "followUps": [
+      {
+        "question": "Quand utiliseriez-vous un Context, et quand Redux ou Zustand ?",
+        "answer": "Un Context pour les valeurs qui changent rarement et sont lues partout : l’utilisateur courant, le thème, la locale, les feature flags. Un store quand du state client est partagé par des composants éloignés et mis à jour souvent, parce que les composants s’abonnent avec un sélecteur et ne se re-rendent que quand leur tranche change. Redux Toolkit si l’app utilise déjà Redux."
+      },
+      {
+        "question": "Quelles sont les conséquences des re-renders du Context sur les performances, et quand le Context devient-il un mauvais choix ?",
+        "answer": "Chaque composant qui lit un context se re-rend quand la valeur du provider change, même s’il n’utilise qu’un champ, et `memo` ne l’empêche pas. Un nouvel objet comme valeur à chaque rendu aggrave les choses. Ça devient un mauvais choix pour du state qui change souvent et est lu à beaucoup d’endroits, comme une recherche lue par 5 000 lignes."
+      },
+      {
+        "question": "Comment la composition avec `children` évite-t-elle le prop drilling sans Context ?",
+        "answer": "Le composant qui possède les données crée lui-même l’enfant profond et le passe en `children` ou en prop de slot, donc les couches intermédiaires rendent ce qu’elles reçoivent sans connaître les données. `<Layout><RefundButton agent={agent} /></Layout>` : le layout ne voit jamais `agent`."
+      },
+      {
+        "question": "Comment refactoreriez-vous un arbre avec beaucoup de prop drilling ?",
+        "answer": "D’abord je liste les couches qui utilisent vraiment chaque prop. Ensuite je fais prendre des `children` ou des slots aux couches de passage pour que le propriétaire rende directement la feuille. Ce qui reste largement partagé va dans un context derrière un petit hook `useX`, ou dans un store s’il change souvent. Une prop à la fois, tests au vert."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Passer un composant en `children` peut supprimer le prop drilling sans utiliser de Context.",
+        "why": "Le propriétaire rend l’enfant profond avec ses props, et les couches intermédiaires ne font que placer `children` sans voir les données.",
+        "twin": {
+          "statement": "Supprimer le prop drilling exige toujours un Context ou une bibliothèque de state.",
+          "why": "Passer l’enfant profond en `children` permet au propriétaire de le rendre avec ses props, donc les couches intermédiaires ne voient jamais les données."
+        }
+      },
+      {
+        "statement": "Envelopper un lecteur de context dans `memo` l’empêche de se re-rendre quand la valeur du context change.",
+        "why": "`memo` ne compare que les props ; un composant qui lit un context se re-rend dès que la valeur du provider change.",
+        "twin": {
+          "statement": "Un lecteur de context enveloppé dans `memo` se re-rend quand même quand la valeur du context change.",
+          "why": "`memo` ne compare que les props ; lire un context abonne le composant à la valeur du provider."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le prop drilling, c’est faire passer une prop à travers des composants qui ne l’utilisent pas, juste pour qu’un enfant profond la lise. Quelques niveaux, c’est normal ; au-delà, la composition, un Context ou un store suppriment le couplage.",
+      "points": [
+        "Le prop drilling consiste à faire passer une prop à travers des composants qui ne l’utilisent pas, juste pour qu’un enfant plus profond la lise. Quelques niveaux, c’est normal ; beaucoup de niveaux couplent chaque couche intermédiaire aux données.",
+        "La composition est la première correction : le composant qui possède les données rend lui-même l’enfant profond et le passe en `children` ou en prop de slot. Les couches intermédiaires placent juste ce qu’elles reçoivent.",
+        "Le Context permet à n’importe quel descendant de lire une valeur sans props. Chaque lecteur se re-rend quand la valeur du provider change, donc il convient aux valeurs qui changent rarement : utilisateur courant, thème, locale.",
+        "Pour du state client partagé qui change souvent, un store comme Zustand ou Redux Toolkit permet à chaque composant de s’abonner à une tranche avec un sélecteur et de ne se re-rendre que quand cette tranche change."
+      ],
+      "takeaways": [
+        {
+          "term": "Coût",
+          "detail": "Les couches intermédiaires sont couplées à des données qu’elles ignorent, et chaque changement touche tous ces fichiers."
+        },
+        {
+          "term": "Quelques niveaux",
+          "detail": "Normal et acceptable ; ce sont les nombreux niveaux qui couplent chaque couche intermédiaire aux données."
+        },
+        {
+          "term": "Composition",
+          "detail": "Première correction : le propriétaire rend lui-même l’enfant profond et le passe en `children` ou en prop de slot."
+        },
+        {
+          "term": "Context",
+          "detail": "N’importe quel descendant lit la valeur, mais chaque lecteur se re-rend au changement : à réserver aux valeurs qui changent rarement."
+        },
+        {
+          "term": "Store avec sélecteurs",
+          "detail": "Zustand ou Redux Toolkit pour du state partagé qui change souvent : seuls les composants dont la tranche a changé se re-rendent."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, `currentAgent` passe par `Layout`, `OrdersPage`, `OrdersTable` et `OrderRow` juste pour qu’un `AssignButton` profond puisse le lire, et chaque refactoring touche cinq fichiers. Que changeriez-vous ?",
+        "bridge": "Le prop drilling : des couches intermédiaires transportent des données qu’elles ignorent. La composition avec `children`, un Context pour les valeurs qui changent rarement, ou un store règlent le problème."
+      },
+      {
+        "question": "Un collègue dit que le prop drilling est toujours un code smell et veut un Context pour chaque prop partagée. Quand est-ce que passer des props vers le bas est acceptable, et quelle est votre première correction quand ça ne l’est pas ?",
+        "bridge": "Quand ne pas combattre le prop drilling : quelques niveaux, c’est acceptable, et la composition avec `children` ou des props de slot passe avant un Context ou un store."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux donnent l’agent connecté au bouton de remboursement, et `Layout` ne s’en sert jamais. Lequel évite à `Layout` des données qu’il ignore ?",
+        "why": "Avec la composition, `App` rend lui-même `RefundButton` et le passe en `children` ; `Layout` ne fait que placer ce qu’il reçoit et ne prend pas de prop `agent`. Les deux rendent le même HTML, mais le drilling oblige `Layout` à accepter et transmettre `agent`, une donnée qu’il ne lit jamais, et chaque nouvelle prop dont le bouton a besoin modifie aussi `Layout`."
+      }
+    ]
+  },
+  "react-redux": {
+    "topic": "Redux et Zustand",
+    "question": "Quel problème Redux résout-il, quels sont ses trois principes, et en quoi Zustand en diffère-t-il ?",
+    "answer": "Redux garde le state client partagé dans un store unique hors de l’arbre de composants, pour que des composants éloignés le lisent et le modifient de façon prévisible. Ses trois principes : une source unique de vérité, un state en lecture seule qui ne change qu’en dispatchant une action, et des changements faits par des reducers purs qui renvoient un nouveau state. Les composants s’abonnent avec des sélecteurs. Aujourd’hui, je l’écris avec Redux Toolkit. Zustand résout le même problème avec moins de cérémonie : un store est un hook, on appelle `set` depuis des fonctions du store, et il ne faut ni provider ni actions. Je choisis Zustand pour un peu de state partagé, Redux là où le code l’utilise déjà.",
+    "keyPoints": [
+      "Un store prévisible pour le state client partagé, hors de l’arbre",
+      "Source unique de vérité, state en lecture seule, reducers purs",
+      "Le Redux moderne, c’est Redux Toolkit",
+      "Zustand : un store hook avec `set`, sans provider ni actions"
+    ],
+    "explanation": "Les recruteurs vérifient que tu connais le flux (dispatch, reducer, nouveau state, les sélecteurs se relancent) et que tu écris du Redux Toolkit moderne, pas des constantes d’action à la main. Un senior ajoute que les données serveur vont dans un cache de requêtes, pour que le store reste petit.",
+    "example": "La sélection du tableau du back-office vivait dans Redux, et la barre de sélection se re-rendait à chaque frappe dans le champ de recherche parce que son `useSelector` renvoyait un nouvel objet à chaque fois. La découper en un sélecteur par champ a réglé le problème. En parallèle, le panier de la boutique est passé dans un store Zustand de 20 lignes, lu par l’en-tête, le mini-panier et le checkout.",
+    "mistakes": [
+      "Muter le state dans un reducer écrit à la main, si bien que les sélecteurs voient la même référence et que rien ne se re-rend",
+      "Écrire un sélecteur qui renvoie un nouvel objet ou tableau, si bien que le composant se re-rend après chaque action",
+      "Garder les données d’API dans Redux et refaire à la main le chargement, le cache et le refetch"
+    ],
+    "followUps": [
+      {
+        "question": "Comment Redux Toolkit réduit-il le boilerplate et simplifie-t-il Redux ?",
+        "answer": "`createSlice` génère les action creators et les types à partir des fonctions reducer, et utilise Immer pour que j’écrive les mises à jour comme des mutations d’un brouillon. `configureStore` configure les devtools et les middlewares par défaut : thunk, plus des vérifications de mutations et de valeurs non sérialisables en développement. RTK Query couvre le chargement des données."
+      },
+      {
+        "question": "Redux ou Context pour la gestion du state ?",
+        "answer": "Le Context ne fait que transmettre une valeur vers le bas ; chaque lecteur se re-rend quand elle change, et il n’a ni actions, ni middleware, ni devtools. Redux est un store avec abonnements par sélecteur, donc un composant ne se re-rend que quand sa tranche change. Un Context pour les valeurs qui changent rarement, un store pour du state que beaucoup de composants mettent à jour souvent."
+      },
+      {
+        "question": "Pourquoi l’immutabilité des reducers compte-t-elle, et qu’est-ce qui casse sans elle ?",
+        "answer": "Les sélecteurs et React comparent les références avec `===` pour décider si quelque chose a changé. Si un reducer mute l’ancien state et le renvoie, la référence est la même, donc les composants abonnés ne se re-rendent pas, et l’historique des devtools montre de faux états passés. Avec RTK, Immer transforme mes « mutations » en nouveau state."
+      },
+      {
+        "question": "Qu’est-ce qu’un middleware Redux, avec un cas d’usage courant ?",
+        "answer": "Une fonction qui enveloppe `dispatch` et voit chaque action avant les reducers : elle peut loguer, retarder, transformer ou lancer des effets de bord. Le plus courant est thunk, inclus par défaut dans RTK, qui me permet de dispatcher une fonction qui appelle l’API puis dispatche le résultat. Le logging et l’analytics sont d’autres usages."
+      },
+      {
+        "question": "Quels sont les compromis entre l’API plus simple de Zustand et la structure de Redux ?",
+        "answer": "Zustand s’écrit vite et n’a pas de provider, mais rien n’impose une seule façon de mettre à jour le state, donc une grosse équipe peut éparpiller la logique. Redux force chaque changement à passer par des actions nommées et des reducers purs : plus de code, mais des changements traçables, des middlewares et des devtools avec time-travel."
+      },
+      {
+        "question": "Comment géreriez-vous du state dérivé dans Zustand ?",
+        "answer": "Je ne le stocke pas : je le calcule dans le sélecteur, comme `useCartStore((s) => s.lines.length)`, qui ne re-rend que quand le nombre change. Un sélecteur qui construit un nouveau tableau ou objet a besoin de `useShallow`, sinon Zustand 5 boucle avec « Maximum update depth exceeded ». Pour une valeur coûteuse, je la mémoïse."
+      },
+      {
+        "question": "Quand la structure et l’écosystème de Redux peuvent-ils encore être préférables ?",
+        "answer": "Dans une grosse app avec beaucoup de développeurs, où les actions nommées traçables, les middlewares pour les effets de bord et le debug time-travel sont rentables, ou quand le code tourne déjà sous Redux. Là, RTK Query gère les données serveur, donc ajouter Zustand à côté ne ferait que créer deux patterns."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans un reducer `createSlice` de Redux Toolkit, écrire `state.items.push(item)` ne pose pas de problème.",
+        "why": "RTK fait passer les reducers par Immer, qui enregistre le changement sur un brouillon et produit un nouveau state immuable.",
+        "twin": {
+          "statement": "Dans un reducer `createSlice` de Redux Toolkit, écrire `state.items.push(item)` mute le state du store sur place.",
+          "why": "RTK fait passer les reducers par Immer, qui enregistre le changement sur un brouillon et produit un nouveau state immuable."
+        }
+      },
+      {
+        "statement": "Zustand a besoin d’un composant provider à la racine de l’app, comme le `<Provider>` de Redux.",
+        "why": "Un store Zustand créé avec `create` est un hook que les composants appellent directement, sans provider.",
+        "twin": {
+          "statement": "Un store Zustand créé avec `create` est un hook que les composants appellent sans aucun provider.",
+          "why": "Contrairement au `<Provider>` de Redux, Zustand n’a besoin d’aucun composant à la racine de l’app."
+        }
+      },
+      {
+        "statement": "Un `useSelector` qui renvoie un nouvel objet littéral re-rend son composant après chaque action dispatchée.",
+        "why": "`useSelector` se relance après chaque action et compare avec `===`, donc un nouvel objet est toujours « différent ».",
+        "twin": {
+          "statement": "Un `useSelector` qui renvoie un nouvel objet littéral ne re-rend son composant que quand les champs sélectionnés changent.",
+          "why": "`useSelector` se relance après chaque action et compare avec `===`, donc un nouvel objet est toujours « différent »."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Redux et Zustand gardent le state client partagé dans un store hors de l’arbre de composants, pour que des composants éloignés le lisent et le modifient de façon prévisible. Zustand fait le même travail avec moins de cérémonie.",
+      "points": [
+        "Redux garde le state client partagé dans un store unique hors de React. Un composant dispatche une action, un objet simple comme `{ type: \"cart/added\" }`, et le store la passe aux reducers.",
+        "Trois principes : un store unique est la source de vérité, le state est en lecture seule et ne change que par des actions, et les reducers sont des fonctions pures qui renvoient un nouveau state.",
+        "Redux Toolkit est la façon standard d’écrire du Redux : `createSlice` génère les actions et utilise Immer pour que les mises à jour ressemblent à des mutations, et `configureStore` ajoute thunk et des vérifications en développement.",
+        "Les composants lisent avec `useSelector`, qui se relance après chaque action et re-rend quand le résultat change selon `===`. Renvoie des primitives ou des valeurs mémoïsées, jamais un nouvel objet.",
+        "Zustand est un store plus léger : `create` renvoie un hook, les actions sont des fonctions du store qui appellent `set`, et aucun provider n’est nécessaire. Les valeurs dérivées se calculent dans les sélecteurs."
+      ],
+      "takeaways": [
+        {
+          "term": "Action",
+          "detail": "Un objet simple comme `{ type: \"cart/added\" }`, dispatché au store et passé aux reducers."
+        },
+        {
+          "term": "Trois principes",
+          "detail": "Source unique de vérité, state en lecture seule modifié seulement par des actions, reducers purs qui renvoient un nouveau state."
+        },
+        {
+          "term": "Redux Toolkit",
+          "detail": "La façon standard : `createSlice` génère les actions et utilise Immer ; `configureStore` ajoute thunk et des vérifications de dev."
+        },
+        {
+          "term": "`useSelector`",
+          "detail": "Se relance après chaque action et re-rend quand le résultat change selon `===` : ne renvoie jamais un nouvel objet."
+        },
+        {
+          "term": "Zustand",
+          "detail": "`create` renvoie un hook, les fonctions du store appellent `set`, et il ne faut ni provider ni actions."
+        },
+        {
+          "term": "Choisir",
+          "detail": "Zustand pour un peu de state partagé, Redux là où le code l’utilise déjà."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, la sélection pour un remboursement groupé est lue et modifiée par le tableau, une barre d’outils et un panneau latéral éloignés dans l’arbre. Qu’est-ce que Redux vous apporterait ici, et Zustand conviendrait-il ?",
+        "bridge": "Ce que Redux résout : un store prévisible pour le state client partagé hors de l’arbre ; Zustand couvre le même besoin avec un store hook, sans provider ni actions."
+      },
+      {
+        "question": "Expliquez les trois principes de Redux à un junior qui ne connaît que `useState`.",
+        "bridge": "Les principes de Redux : une source unique de vérité, un state en lecture seule modifié seulement en dispatchant des actions, et des reducers purs qui renvoient un nouveau state."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux lisent le nombre d’éléments sélectionnés et le mode groupé pour la barre de sélection. Lequel évite de re-rendre la barre après chaque action ?",
+        "why": "`useSelector` se relance après chaque action dispatchée et re-rend quand son résultat change selon `===`. Un nombre et un booléen ne changent que quand la sélection change. L’objet littéral est nouveau à chaque exécution, donc la barre se re-rend après chaque action du store, frappes de recherche comprises, et react-redux avertit en développement que le sélecteur « returned a different result »."
+      }
+    ]
+  },
+  "react-server-state": {
+    "topic": "Server state et client state",
+    "question": "En quoi le server state diffère-t-il du client state, et pourquoi TanStack Query le traite-t-il différemment ?",
+    "answer": "Le client state appartient au navigateur : une boîte de dialogue ouverte, le panier avant le checkout. Le server state appartient au serveur ; le client n’en détient qu’une copie que quelqu’un d’autre peut modifier, donc elle peut devenir périmée. Cette copie a des besoins que le client state n’a jamais : cache et déduplication, une règle de fraîcheur, refetch au focus ou à la reconnexion, retries, annulation et invalidation après une écriture. TanStack Query est un cache conçu pour ça : chaque entrée a une query key, `staleTime` dit combien de temps elle est fraîche, et les mutations invalident les keys concernées. Donc j’y garde les données d’API, et seulement le vrai client state dans `useState` ou un store.",
+    "keyPoints": [
+      "Le server state appartient au serveur ; le client détient un cache",
+      "Un cache peut devenir périmé : fraîcheur, refetch, invalidation",
+      "TanStack Query : query keys, `staleTime`, déduplication, retries",
+      "Seul le vrai client state va dans `useState` ou un store"
+    ],
+    "explanation": "C’est la question qui sépare une réponse de 2018 (« mettez-le dans Redux ») d’une réponse actuelle. Les recruteurs attendent la propriété des données comme critère, et les fonctionnalités de cache concrètes que tu referais sinon à la main.",
+    "example": "Dans le back-office, le tableau des commandes, son compteur et le badge de la barre latérale appelaient chacun `GET /orders?status=paid`, trois requêtes identiques, et affichaient encore `paid` après un remboursement. Avec une seule key `orderQueries.list(filters)` partagée par les trois, TanStack Query a envoyé une seule requête, et `invalidateQueries({ queryKey: ['orders'] })` après la mutation de remboursement a rafraîchi la liste et le détail.",
+    "mistakes": [
+      "Traiter les réponses d’API comme du client state et les copier dans `useState` ou Redux",
+      "Laisser les filtres hors de la query key, si bien que deux requêtes différentes partagent une entrée de cache",
+      "Penser que les données périmées sont masquées : elles s’affichent tout de suite et sont rechargées en arrière-plan"
+    ],
+    "followUps": [
+      {
+        "question": "Comment TanStack Query gère-t-il les race conditions entre des refetchs rapides ?",
+        "answer": "Chaque résultat est stocké sous sa query key, donc la réponse d’un ancien filtre ne peut pas atterrir dans l’entrée du nouveau filtre. Pour une même key, un nouveau refetch annule celui en cours par défaut (`cancelRefetch: true`), et quand la fonction de requête passe son `AbortSignal` à `fetch`, la requête est vraiment interrompue."
+      },
+      {
+        "question": "Qu’est-ce que stale-while-revalidate, et où l’avez-vous déjà vu ?",
+        "answer": "Servir tout de suite la copie en cache, même périmée, et la rafraîchir en arrière-plan. C’est à l’origine une extension de `Cache-Control` en HTTP pour les CDN et les navigateurs ; la bibliothèque SWR en tire son nom, et TanStack Query fait pareil quand il affiche les lignes en cache et relance la requête."
+      },
+      {
+        "question": "Que résout React Query que garder les données chargées dans Redux ne résout pas ?",
+        "answer": "Redux ne stocke que ce que j’y mets. Je devrais écrire à la main les flags de chargement et d’erreur, la déduplication des requêtes identiques, la règle de fraîcheur, le refetch au focus, les retries, l’annulation, le garbage collection des données inutilisées et l’invalidation après une mutation. TanStack Query donne tout ça par query key."
+      },
+      {
+        "question": "Comment gérez-vous les mises à jour optimistes avec une bibliothèque de server state ?",
+        "answer": "Dans `onMutate`, j’annule les requêtes en cours pour la key, je prends un snapshot de la valeur en cache et j’écris le résultat attendu avec `setQueryData`. Dans `onError`, je restaure le snapshot, et dans `onSettled`, j’invalide la key pour que la vérité du serveur remplace ma supposition."
+      },
+      {
+        "question": "Comment décidez-vous de ce qui reste du client state et de ce qui est du server state ?",
+        "answer": "Je me demande qui possède la valeur et si quelqu’un d’autre peut la modifier pendant que la page est ouverte. Les commandes et le stock appartiennent au serveur, donc c’est du server state. Une boîte de dialogue ouverte ou le panier avant le checkout n’existent que dans le navigateur. Les filtres qu’un lien doit conserver vont dans l’URL."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le `staleTime` par défaut de TanStack Query est 0, donc les données en cache sont considérées comme périmées immédiatement.",
+        "why": "Avec la valeur par défaut, les données en cache s’affichent quand même tout de suite, mais un remontage, le focus de la fenêtre ou une reconnexion déclenche un refetch en arrière-plan.",
+        "twin": {
+          "statement": "Avec le `staleTime` par défaut de TanStack Query, les données en cache restent fraîches jusqu’à ce qu’on les invalide.",
+          "why": "Le `staleTime` par défaut est 0, donc les données sont périmées tout de suite, et un remontage, le focus de la fenêtre ou une reconnexion les recharge en arrière-plan."
+        }
+      },
+      {
+        "statement": "Deux composants qui appellent `useQuery` avec la même key au même moment envoient deux requêtes.",
+        "why": "Ils partagent une entrée de cache, et une requête déjà en cours pour cette key est partagée.",
+        "twin": {
+          "statement": "Deux composants qui appellent `useQuery` avec la même key au même moment partagent une seule requête.",
+          "why": "Ils partagent une entrée de cache, et une requête déjà en cours pour cette key est réutilisée."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le server state, ce sont des données qui appartiennent au serveur ; le client n’en détient qu’une copie qui peut devenir périmée. Cette copie a besoin de cache, de refetch et d’invalidation, c’est pourquoi elle va dans un cache comme TanStack Query plutôt que dans `useState`.",
+      "points": [
+        "Le client state appartient au navigateur : une boîte de dialogue ouverte, un panier avant le checkout. Le server state appartient au serveur : le client n’en garde qu’une copie, qui peut devenir périmée quand quelqu’un d’autre la modifie.",
+        "TanStack Query est un cache pour le server state. Chaque entrée a une query key, un tableau avec chaque paramètre de la requête, comme `[\"orders\", \"list\", filters]`. Les composants avec la même key partagent une entrée et une requête.",
+        "`staleTime` (0 par défaut) dit combien de temps les données sont fraîches. Les données périmées s’affichent quand même tout de suite et sont rechargées en arrière-plan, au remontage, au focus et à la reconnexion. Les entrées inutilisées sont supprimées après `gcTime`.",
+        "Après une écriture, `invalidateQueries` marque comme périmées les keys qui correspondent ; celles à l’écran sont rechargées tout de suite. Les keys correspondent par préfixe, donc `[\"orders\"]` couvre chaque liste et chaque détail de commande."
+      ],
+      "takeaways": [
+        {
+          "term": "Client state",
+          "detail": "Appartient au navigateur : une boîte de dialogue ouverte, un panier avant le checkout."
+        },
+        {
+          "term": "Query key",
+          "detail": "Un tableau de chaque paramètre de la requête, comme `[\"orders\", \"list\", filters]`. Même key : une entrée, une requête."
+        },
+        {
+          "term": "`staleTime`",
+          "detail": "0 par défaut : durée de fraîcheur des données. Périmées, elles s’affichent tout de suite et se rechargent au remontage, au focus et à la reconnexion."
+        },
+        {
+          "term": "`gcTime`",
+          "detail": "Une fois écoulé, les entrées inutilisées sont supprimées du cache."
+        },
+        {
+          "term": "`invalidateQueries`",
+          "detail": "Marque les keys correspondantes comme périmées après une écriture ; correspondance par préfixe, donc `[\"orders\"]` couvre chaque requête de commande."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un agent rembourse une commande dans le back-office, mais le tableau des commandes, chargé une fois dans un store Redux, l’affiche encore en `paid` jusqu’au rechargement de la page. De quel type de state s’agit-il, et comment faut-il le gérer ?",
+        "bridge": "Du server state : le client n’en détient qu’une copie qui peut devenir périmée, donc il faut un cache avec invalidation après une écriture, ce qui est le rôle de TanStack Query."
+      },
+      {
+        "question": "Pourquoi ne pas garder la liste des commandes de l’API dans `useState` comme n’importe quel autre state ? De quoi ces données ont-elles besoin que le client state n’a pas ?",
+        "bridge": "Server state contre client state : une copie de données qui appartiennent au serveur a besoin de cache, de fraîcheur, de refetch, de retries et d’invalidation."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux chargent la liste des commandes pour les filtres courants avec TanStack Query. Lequel affiche les bonnes commandes quand les filtres changent ?",
+        "why": "Chaque paramètre de la requête a sa place dans la query key : de nouveaux filtres font une nouvelle key, donc TanStack Query la charge et met chaque filtre en cache séparément. Sans `filters`, tous les filtres partagent une entrée de cache : passer de `paid` à `shipped` n’envoie aucune requête, et le tableau continue d’afficher les commandes payées jusqu’à ce que quelque chose d’autre déclenche un refetch."
+      }
+    ]
+  },
+  "react-context": {
+    "topic": "Context et ses re-renders",
+    "question": "Que résout Context avec `useContext`, et quels sont ses pièges de performance ?",
+    "answer": "Context permet à n’importe quel descendant de lire une valeur sans la faire passer par chaque niveau : un provider fixe la valeur et les composants la lisent avec `useContext`, ou `use` en React 19. Ça règle le prop drilling pour les valeurs dont beaucoup de composants ont besoin. Le piège, c’est que chaque lecteur fait un re-render quand la valeur du provider change, comparée avec `Object.is`, même s’il n’utilise qu’un champ, et `memo` ne l’empêche pas. Un objet littéral comme valeur est nouveau à chaque rendu, donc les lecteurs font des re-renders pour rien. Je mémoïse la valeur, je découpe les contexts selon leur fréquence de changement, et je mets le state qui change vite dans un store avec des sélecteurs.",
+    "keyPoints": [
+      "Passe une valeur à n’importe quel descendant sans props",
+      "Chaque lecteur fait un re-render quand la valeur change, `memo` ou pas",
+      "Mémoïser la valeur ; un objet littéral est nouveau à chaque rendu",
+      "Découper les contexts selon leur rythme de changement ; un store si ça change souvent"
+    ],
+    "explanation": "Les recruteurs veulent entendre que Context sert à transmettre une valeur, pas à gérer un state avec des abonnements. Un senior connaît le coût de la diffusion à tous les lecteurs et les remèdes concrets : valeur mémoïsée, contexts découpés, un store quand chaque lecteur a besoin d’une tranche.",
+    "example": "Chaque ligne du tableau de 5 000 commandes du back-office lisait un context contenant la recherche et la commande sélectionnée, si bien que chaque frappe provoquait le re-render de toutes les lignes. Mémoïser la valeur et la découper en un context de filtre et un context de sélection n’a plus laissé que la barre d’outils se re-rendre à chaque frappe ; la sélection est passée dans un petit store externe, et un clic ne re-rend plus que deux lignes.",
+    "mistakes": [
+      "Passer `value={{ items, addItem }}` sans `useMemo`, si bien que les lecteurs font un re-render à chaque rendu du provider",
+      "S’attendre à ce qu’un composant ne fasse un re-render que quand le champ qu’il lit change",
+      "Utiliser un seul context pour tout le state de l’app, y compris les valeurs qui changent vite"
+    ],
+    "followUps": [
+      {
+        "question": "Comment découperiez-vous Context pour éviter les re-renders inutiles ?",
+        "answer": "Selon la fréquence de changement de chaque partie. Les actions comme `addItem` vont dans leur propre context avec une valeur stable, donc les composants qui ne font que déclencher des mises à jour ne font jamais de re-render ; les données qui changent vont dans un autre. Les données rapides et lentes, comme la recherche et l’agent, ont des contexts séparés."
+      },
+      {
+        "question": "Comment des bibliothèques comme Zustand évitent-elles le problème de re-render de Context ?",
+        "answer": "Le state vit en dehors de React, et chaque composant s’abonne avec un sélecteur via `useSyncExternalStore`. Après un changement, le store exécute chaque sélecteur et ne re-rend que les composants dont la valeur sélectionnée a changé au sens de `===`. Context n’a aucun moyen de s’abonner à une tranche."
+      },
+      {
+        "question": "Quel problème de performance Context pose-t-il pour un state qui change souvent, et comment l’évitez-vous ?",
+        "answer": "Chaque changement re-rend tous les lecteurs du context, donc une valeur mise à jour à chaque frappe ou à chaque tick re-rend de grandes parties de l’arbre. Je garde le state fréquent près de là où il sert, je le mets dans son propre context, ou je le déplace dans un store où les composants ne sélectionnent que ce dont ils ont besoin."
+      },
+      {
+        "question": "Comment combineriez-vous Context avec `useReducer` ?",
+        "answer": "Un composant provider appelle `useReducer` et met le state dans un context et `dispatch` dans un autre, comme le montre react.dev. `dispatch` ne change jamais d’identité, donc les composants qui ne font que dispatcher ne font pas de re-render. De petits hooks comme `useCart()` et `useCartDispatch()` masquent les contexts."
+      },
+      {
+        "question": "Quand choisiriez-vous Context plutôt que Redux ?",
+        "answer": "Pour des valeurs qui changent rarement et sont lues partout : l’agent connecté, le thème, la locale, les feature flags, ou l’injection de dépendances comme un client d’API. C’est fourni avec React, sans rien d’autre. Dès que le state partagé change souvent ou a besoin de middleware et de devtools, je prends un store."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un composant qui lit un context ne fait un re-render que quand le champ qu’il utilise change.",
+        "why": "Il fait un re-render chaque fois que la valeur du provider change au sens de `Object.is`, quel que soit le champ utilisé.",
+        "twin": {
+          "statement": "Un composant qui lit un context fait un re-render chaque fois que la valeur du provider change, même si le champ qu’il utilise n’a pas changé.",
+          "why": "React compare la valeur entière avec `Object.is` ; il n’y a pas d’abonnement par champ."
+        }
+      },
+      {
+        "statement": "Passer un objet littéral comme `value` d’un provider fait re-rendre chaque lecteur à chaque rendu du provider.",
+        "why": "Le littéral est un nouvel objet à chaque rendu, donc `Object.is` voit une nouvelle valeur ; `useMemo` règle le problème.",
+        "twin": {
+          "statement": "Passer un objet littéral comme `value` d’un provider ne re-rend les lecteurs que quand son contenu change.",
+          "why": "Le littéral est un nouvel objet à chaque rendu, donc `Object.is` voit une nouvelle valeur ; `useMemo` règle le problème."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Context transmet une valeur à n’importe quel descendant sans faire passer des props à travers chaque niveau. Son coût : chaque lecteur fait un re-render quand la valeur change, donc il convient aux valeurs qui changent rarement.",
+      "points": [
+        "Context transmet une valeur à n’importe quel descendant sans props. `createContext` le crée, un provider fixe la valeur, et les composants la lisent avec `useContext`, ou `use` en React 19.",
+        "Quand le provider reçoit une nouvelle valeur, comparée avec `Object.is`, chaque composant qui lit le context fait un re-render, même s’il n’utilise qu’un champ. `memo` ne l’empêche pas.",
+        "Un objet littéral comme valeur est nouveau à chaque rendu du provider. Construis-le avec `useMemo`, et mets les actions stables dans un context séparé des données qui changent.",
+        "Context convient aux valeurs qui changent rarement : utilisateur courant, thème, locale, flags. Pour un state qui change souvent et est lu à de nombreux endroits, un store avec sélecteurs ne re-rend que les composants dont la tranche a changé."
+      ],
+      "takeaways": [
+        {
+          "term": "`createContext`",
+          "detail": "Crée le context ; un provider fixe sa valeur."
+        },
+        {
+          "term": "`useContext` ou `use`",
+          "detail": "Lire la valeur dans un composant ; `use` est la façon de faire de React 19."
+        },
+        {
+          "term": "Règle de re-render",
+          "detail": "Une nouvelle valeur au sens de `Object.is` re-rend chaque lecteur, même celui qui n’utilise qu’un champ. `memo` ne l’empêche pas."
+        },
+        {
+          "term": "Valeur en objet littéral",
+          "detail": "Nouvelle à chaque rendu du provider : construis-la avec `useMemo`."
+        },
+        {
+          "term": "Découper les contexts",
+          "detail": "Mettre les actions stables dans un context séparé des données qui changent."
+        },
+        {
+          "term": "Changements fréquents",
+          "detail": "Utiliser un store avec sélecteurs : seuls les composants dont la tranche a changé font un re-render."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans la boutique, un `ShopContext` contient le panier, l’utilisateur et un compte à rebours de soldes qui avance chaque seconde, et le Profiler montre le header et la grille de produits rendus chaque seconde. Pourquoi, et que changez-vous ?",
+        "bridge": "Le piège de performance de Context : chaque lecteur fait un re-render quand la valeur change, donc une valeur qui change vite a besoin de son propre context ou d’un store."
+      },
+      {
+        "question": "Quand choisiriez-vous Context plutôt que de passer des props, et quand ne l’utiliseriez-vous pas du tout ?",
+        "bridge": "Ce que Context résout, le prop drilling pour les valeurs dont beaucoup de composants ont besoin, et sa limite : il convient aux valeurs qui changent rarement, pas aux mises à jour fréquentes."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux fournissent le panier à des lecteurs mémoïsés comme le badge du header. Lequel les empêche de faire un re-render quand seul le parent du provider se re-rend ?",
+        "why": "`useMemo` garde le même objet valeur tant que `lines` ne change pas, donc React voit un context inchangé et les lecteurs mémoïsés sont sautés. L’objet littéral est nouveau à chaque rendu du provider : `Object.is` voit une nouvelle valeur, et chaque composant qui lit `CartContext` fait un re-render, `memo` ou pas, alors que le panier n’a pas changé."
+      }
+    ]
+  },
+  "react-lifting-state": {
+    "topic": "Remonter le state",
+    "question": "Qu’est-ce que remonter le state (lifting state up), et comment deux composants frères partagent-ils un state ?",
+    "answer": "Des frères ne peuvent pas lire le state l’un de l’autre, donc je déplace le state dans leur parent commun le plus proche. Le parent le possède, transmet la valeur en props, et passe un callback comme `onSelect` pour qu’un enfant puisse demander un changement. C’est ça, remonter le state : un seul composant possède chaque donnée, la source unique de vérité, et les frères ne peuvent jamais être en désaccord. Je le fais dès que deux composants doivent rester synchronisés. Quand le parent commun est très haut et que la valeur traverse beaucoup de niveaux, je passe à la composition, puis à Context, puis à un store.",
+    "keyPoints": [
+      "Déplacer le state dans le parent commun le plus proche",
+      "Transmettre la valeur vers le bas et un callback pour demander des changements",
+      "Un seul propriétaire par donnée : source unique de vérité",
+      "Trop de niveaux : composition, Context, puis un store"
+    ],
+    "explanation": "Ça vérifie que tu comprends le flux de données unidirectionnel et la notion de propriétaire. Un senior mentionne le coût (le parent et son sous-arbre font un re-render) et les étapes suivantes quand on remonte trop haut.",
+    "example": "Dans le back-office, le tableau des commandes et la barre d’actions groupées au-dessus gardaient chacun leur propre liste d’ids de commandes sélectionnées, et le compteur de la barre se décalait après un changement de filtre. La sélection a été remontée dans `OrdersPage`, qui passait `selectedIds` aux deux et `onToggle` au tableau, et le compteur ne pouvait plus être en désaccord.",
+    "mistakes": [
+      "Synchroniser les copies du state de deux frères avec des effets au lieu de le remonter",
+      "Remonter le state à la racine de l’app alors qu’un seul sous-arbre en a besoin, si bien que tout fait un re-render",
+      "Passer le setter brut partout au lieu de callbacks nommés comme `onToggle`"
+    ],
+    "followUps": [
+      {
+        "question": "Quand remonter le state devient-il peu pratique, et que faites-vous ensuite ?",
+        "answer": "Quand le parent commun est de nombreux niveaux au-dessus des lecteurs, si bien que la valeur traverse des composants qui l’ignorent, ou quand chaque changement re-rend un gros sous-arbre. Ensuite j’essaie la composition avec `children`, puis Context pour les valeurs qui changent rarement, puis un store avec sélecteurs."
+      },
+      {
+        "question": "Quel lien entre remonter le state et le principe de source unique de vérité ?",
+        "answer": "Remonter le state fait d’un composant le seul propriétaire d’une valeur ; tous les autres la reçoivent en props. Avec deux copies, une dans chaque frère, elles divergent et il faut du code de synchronisation. Avec un seul propriétaire, chaque lecteur affiche la même valeur par construction."
+      },
+      {
+        "question": "Comment gardez-vous le parent commun propre quand il détient le state remonté ?",
+        "answer": "Je déplace la logique dans un hook custom comme `useOrderSelection()` qui renvoie la valeur et des actions nommées, ou un `useReducer` quand les mises à jour sont complexes. Le parent ne fait alors que brancher le hook aux enfants, et les valeurs dérivées sont calculées, pas stockées."
+      },
+      {
+        "question": "Décrivez un exemple réel de state remonté pour faire communiquer des frères.",
+        "answer": "Sur la page de recherche de la boutique, le panneau de filtres et la liste de résultats avaient tous deux besoin de la catégorie sélectionnée. Je l’ai remontée dans la page, j’ai passé `category` aux deux et `onCategoryChange` au panneau. Plus tard on l’a déplacée dans l’URL pour que les liens la conservent, avec la même idée d’un seul propriétaire."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un composant peut lire directement le state de son frère si les deux ont le même parent.",
+        "why": "Le state est privé à son composant ; des frères ne partagent des données que via un propriétaire commun qui passe des props.",
+        "twin": {
+          "statement": "Un composant ne peut pas lire directement le state de son frère, même quand les deux ont le même parent.",
+          "why": "Le state est privé ; des frères ne partagent des données que via un propriétaire commun qui passe des props."
+        }
+      },
+      {
+        "statement": "Après avoir remonté le state dans un parent, chaque changement re-rend le parent et les composants enfants qu’il rend.",
+        "why": "Mettre à jour un state re-rend le composant qui le possède, et React rend à nouveau les composants qu’il crée, sauf s’ils sont mémoïsés.",
+        "twin": {
+          "statement": "Après avoir remonté le state dans un parent, un changement ne re-rend que l’enfant qui affiche la valeur.",
+          "why": "Mettre à jour un state re-rend son propriétaire, et React rend à nouveau les composants qu’il crée, sauf s’ils sont mémoïsés."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Des frères ne peuvent pas lire le state l’un de l’autre, donc les données partagées remontent dans leur parent commun le plus proche. Un seul propriétaire par donnée garde tous les lecteurs synchronisés.",
+      "points": [
+        "Le state de chaque composant est privé. Deux frères qui doivent afficher la même donnée ne peuvent pas se lire l’un l’autre, donc le state remonte dans leur parent commun le plus proche : c’est le lifting state up.",
+        "Le parent possède la valeur, la transmet en prop, et passe un callback comme `onToggle` qu’un enfant appelle pour demander un changement. Les données descendent, les demandes remontent.",
+        "Un seul propriétaire par donnée, c’est la source unique de vérité. Deux copies demandent du code de synchronisation et divergent ; un seul propriétaire garantit que chaque lecteur affiche la même valeur.",
+        "Le coût : chaque changement re-rend le parent et son sous-arbre. Si le parent est loin au-dessus des lecteurs, utilise la composition, puis Context, puis un store."
+      ],
+      "takeaways": [
+        {
+          "term": "Parent commun le plus proche",
+          "detail": "Là où le state remonte quand deux frères doivent afficher la même donnée."
+        },
+        {
+          "term": "Valeur vers le bas",
+          "detail": "Le parent transmet la valeur à ses enfants en prop."
+        },
+        {
+          "term": "Callback vers le haut",
+          "detail": "Un enfant appelle un callback comme `onToggle` pour demander un changement au propriétaire."
+        },
+        {
+          "term": "Source unique de vérité",
+          "detail": "Un seul propriétaire par donnée. Deux copies demandent du code de synchronisation et divergent."
+        },
+        {
+          "term": "Coût",
+          "detail": "Chaque changement re-rend le parent et son sous-arbre."
+        },
+        {
+          "term": "Parent éloigné",
+          "detail": "Utiliser la composition, puis Context, puis un store."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, cliquer sur une commande dans `OrdersList` doit la surligner et l’afficher dans le frère `OrderDetail`, mais chacun garde son propre `selectedId` et ils sont en désaccord. Comment corrigez-vous ça ?",
+        "bridge": "Remonter le state : le parent commun le plus proche possède `selectedId`, le transmet vers le bas, et donne à la liste un callback `onSelect`."
+      },
+      {
+        "question": "Expliquez la « source unique de vérité » en React à un junior, et dites quand vous remonteriez le state et quand vous prendriez autre chose.",
+        "bridge": "Remonter le state donne un seul propriétaire à chaque donnée ; quand le parent commun est très haut, viennent ensuite la composition, puis Context, puis un store."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux relient la barre d’actions groupées et le tableau des commandes. Lequel garde le compteur et les lignes cochées d’accord quand l’agent clique sur Clear ?",
+        "why": "Remonter les ids sélectionnés dans `OrdersPage` leur donne un seul propriétaire : la barre et le tableau lisent le même tableau, et Clear vide les deux. Dans l’autre version, le tableau possède la sélection et la page ne garde qu’une copie de son compteur, donc Clear affiche « 0 selected » alors que les lignes restent cochées : deux sources de vérité en désaccord."
+      }
+    ]
+  },
+  "react-atoms": {
+    "topic": "State atomique : Jotai et Recoil",
+    "question": "Que sont les atoms et les sélecteurs dans des bibliothèques comme Jotai ou Recoil, et en quoi diffèrent-ils d’un store global unique ?",
+    "answer": "Un atom est un petit morceau de state indépendant, et un atom dérivé, appelé sélecteur dans Recoil, calcule une valeur à partir d’autres atoms. Les composants s’abonnent aux atoms qu’ils lisent, et la bibliothèque suit les dépendances, donc un changement ne re-rend que les composants qui dépendent de cet atom. Un store global comme Redux part d’un gros objet de state que les composants découpent avec des sélecteurs. Les atoms construisent plutôt le state de bas en haut, ce qui convient à beaucoup de morceaux indépendants, comme des réglages par widget. C’est Jotai que je choisirais aujourd’hui ; le dépôt de Recoil a été archivé en janvier 2025.",
+    "keyPoints": [
+      "Un atom est une petite unité de state indépendante",
+      "Les atoms dérivés ou sélecteurs calculent à partir d’autres atoms",
+      "Suivi des dépendances : seuls les dépendants font un re-render",
+      "Des atoms de bas en haut contre un objet store unique de haut en bas"
+    ],
+    "explanation": "Les recruteurs vérifient que tu comprends le modèle, pas seulement les noms : un graphe de dépendances entre petits morceaux contre un objet unique découpé par des sélecteurs. Savoir que Recoil n’est plus maintenu montre que tu suis l’écosystème.",
+    "example": "Le dashboard du back-office a une douzaine de widgets, chacun avec sa plage de dates et son type de graphique. Avec Jotai, chaque réglage est un atom créé par widget, et un atom dérivé calcule les paramètres de la requête, donc changer la plage d’un widget ne re-rend que ce widget, sans reducer ni objet global à concevoir.",
+    "mistakes": [
+      "Dire que les atoms, c’est juste Context : les atoms suivent les dépendances et ne re-rendent que leurs lecteurs",
+      "Recommander Recoil pour un nouveau projet alors que son dépôt est archivé",
+      "Créer un atom dans le corps d’un composant sans le mémoïser, si bien que c’est un nouvel atom à chaque rendu"
+    ],
+    "followUps": [
+      {
+        "question": "Comment les sélecteurs gèrent-ils un state dérivé asynchrone ?",
+        "answer": "Dans Jotai, la fonction de lecture d’un atom dérivé peut être `async` et faire `await` sur d’autres atoms ; les composants qui le lisent suspendent jusqu’à sa résolution, donc une frontière `<Suspense>` affiche le fallback. Les sélecteurs Recoil renvoyaient une promesse de la même façon. Pour éviter de suspendre, `unwrap` de Jotai donne une valeur de repli synchrone."
+      },
+      {
+        "question": "Comment le state atomique se compare-t-il à la réactivité à base de signals ?",
+        "answer": "Les deux sont des graphes de petites valeurs réactives avec des valeurs dérivées. Avec les atoms dans React, un changement re-rend les composants qui lisent l’atom. Les signals de Solid ou Preact Signals peuvent mettre à jour exactement le texte du DOM qui les lit sans réexécuter le composant, ce qui est plus fin."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le dépôt GitHub de Recoil a été archivé et est en lecture seule.",
+        "why": "Son dépôt a été archivé par son propriétaire le 1er janvier 2025 ; Jotai est l’alternative maintenue.",
+        "twin": {
+          "statement": "Le dépôt GitHub de Recoil est toujours ouvert et activement maintenu.",
+          "why": "Il a été archivé par son propriétaire le 1er janvier 2025 et est en lecture seule ; Jotai est l’alternative maintenue."
+        }
+      },
+      {
+        "statement": "Quand un atom Jotai change, chaque composant qui utilise n’importe quel atom fait un re-render.",
+        "why": "Seuls les composants qui lisent cet atom, ou un atom qui en dérive, font un re-render.",
+        "twin": {
+          "statement": "Quand un atom Jotai change, seuls les composants qui le lisent, ou lisent un atom qui en dérive, font un re-render.",
+          "why": "Jotai suit quels composants dépendent de chaque atom."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le state atomique construit le state partagé de bas en haut à partir de petits atoms indépendants, au lieu d’un gros objet store. Seuls les composants qui dépendent d’un atom modifié font un re-render.",
+      "points": [
+        "Un atom est un petit morceau de state indépendant, déclaré en dehors des composants. Les composants le lisent et l’écrivent avec des hooks comme `useAtom`, un peu comme un `useState` partagé par tous.",
+        "Un atom dérivé (un sélecteur dans Recoil) calcule sa valeur à partir d’autres atoms avec `get`. La bibliothèque suit ces dépendances et ne recalcule que ce qui dépend d’un atom modifié.",
+        "Seuls les composants qui lisent un atom modifié, directement ou via un atom dérivé, font un re-render. Un store global part au contraire d’un objet unique, et chaque composant le découpe avec un sélecteur.",
+        "Un atom dérivé peut être asynchrone ; ses lecteurs suspendent jusqu’à sa résolution. Le dépôt de Recoil a été archivé en janvier 2025, donc le nouveau code utilise Jotai."
+      ],
+      "takeaways": [
+        {
+          "term": "Atom",
+          "detail": "Un petit morceau de state indépendant déclaré hors des composants, lu et écrit avec des hooks comme `useAtom`."
+        },
+        {
+          "term": "Atom dérivé",
+          "detail": "Calcule sa valeur à partir d’autres atoms avec `get`. Recoil l’appelle un sélecteur."
+        },
+        {
+          "term": "Suivi des dépendances",
+          "detail": "Seuls les lecteurs d’un atom modifié, directement ou via un atom dérivé, font un re-render."
+        },
+        {
+          "term": "Store global",
+          "detail": "De haut en bas au contraire : un objet unique que chaque composant découpe avec un sélecteur."
+        },
+        {
+          "term": "Atom dérivé asynchrone",
+          "detail": "Ses lecteurs suspendent jusqu’à sa résolution."
+        },
+        {
+          "term": "Jotai plutôt que Recoil",
+          "detail": "Le dépôt de Recoil a été archivé en janvier 2025, donc le nouveau code utilise Jotai."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le dashboard du back-office a 40 widgets avec leurs propres réglages, tous gardés dans un gros objet Context, et changer le réglage d’un widget re-rend les 40. Quel modèle de state conviendrait mieux ?",
+        "bridge": "Le state atomique : un atom par morceau indépendant, avec suivi des dépendances, donc un changement ne re-rend que les composants qui lisent cet atom."
+      },
+      {
+        "question": "En quoi les atoms Jotai diffèrent-ils d’un store Redux, et démarreriez-vous un nouveau projet avec Recoil aujourd’hui ?",
+        "bridge": "Des atoms de bas en haut contre un store unique de haut en bas, et le choix de bibliothèque : le dépôt de Recoil a été archivé en janvier 2025, et Jotai est maintenu."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux gardent la note de commande dans un atom Jotai. Lequel garde un même morceau de state stable d’un rendu à l’autre ?",
+        "why": "Un atom déclaré au niveau du module est le même objet à chaque rendu, donc le store garde sa valeur. Appeler `atom()` dans le corps du composant crée un nouvel atom à chaque rendu, un autre morceau de state qui repart de `''`. La doc de Jotai exige `useMemo` ou `useRef` pour un atom créé pendant le rendu, et avertit que ça peut provoquer une boucle infinie avec `useAtom`."
+      }
+    ]
+  },
+  "react-use-reducer": {
+    "topic": "useState ou useReducer",
+    "question": "Quelle est la différence entre `useState` et `useReducer`, et quand choisissez-vous l’un ou l’autre ?",
+    "answer": "`useState` contient une valeur et donne un setter ; je l’utilise pour des valeurs indépendantes comme un toggle ou un champ de saisie. `useReducer` prend un reducer, une fonction pure qui reçoit le state courant et une action et renvoie le state suivant, et me donne `dispatch`. Je le choisis quand plusieurs valeurs changent ensemble ou que les mises à jour suivent des règles, comme un panier avec ajout, suppression et changement de quantité. Toute la logique de mise à jour vit dans une seule fonction que je peux tester unitairement sans React, les composants décrivent seulement ce qui s’est passé, et `dispatch` garde la même identité d’un rendu à l’autre.",
+    "keyPoints": [
+      "`useState` pour des valeurs simples et indépendantes",
+      "`useReducer` : une fonction pure `(state, action) => newState`",
+      "Le choisir quand des valeurs changent ensemble ou que les mises à jour ont des règles",
+      "Logique testable sans React ; `dispatch` est stable"
+    ],
+    "explanation": "Ça vérifie si tu choisis selon la complexité, pas selon tes goûts. Un senior mentionne que le reducer se teste seul, que `dispatch` est stable, et comment ça passe à l’échelle avec Context.",
+    "example": "Le panier de la boutique a commencé avec trois appels à `useState` pour les lignes, le code promo et les erreurs, et un bug laissait le code promo survivre à un panier vidé. Passer à un `cartReducer` avec les actions `added`, `removed` et `quantityChanged` a mis toutes les règles dans une seule fonction couverte par dix tests unitaires simples, et la règle du code promo est devenue une ligne dans `removed`.",
+    "mistakes": [
+      "Muter le state dans le reducer au lieu de renvoyer un nouvel objet",
+      "Utiliser `useReducer` pour un simple booléen là où `useState` est plus clair",
+      "Mettre des effets de bord comme `fetch` dans le reducer, qui doit rester pur"
+    ],
+    "followUps": [
+      {
+        "question": "Comment écririez-vous un reducer de panier avec des actions d’ajout, de suppression et de mise à jour de quantité ?",
+        "answer": "Un `switch` sur `action.type`. `added` incrémente la ligne si le produit existe, sinon ajoute `{ productId, quantity: 1 }`. `removed` filtre la ligne. `quantityChanged` remplace la ligne par une copie avec la nouvelle quantité. Chaque cas renvoie un nouveau tableau, et le cas par défaut lève une erreur sur une action inconnue."
+      },
+      {
+        "question": "Quel lien entre `useReducer` et Redux ?",
+        "answer": "Même pattern : les actions décrivent ce qui s’est passé et un reducer pur calcule le state suivant. `useReducer` est local à un composant, sans store, ni middleware, ni devtools. Redux met les reducers dans un store global auquel n’importe quel composant peut s’abonner avec des sélecteurs."
+      },
+      {
+        "question": "Combineriez-vous `useReducer` avec Context, et comment ?",
+        "answer": "Oui, quand un sous-arbre partage le state. Un provider appelle `useReducer` et met le state dans un context et `dispatch` dans un autre, enveloppés dans des hooks comme `useCart()` et `useCartDispatch()`. Les composants qui ne font que dispatcher ne font jamais de re-render, parce que `dispatch` est stable."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "La fonction `dispatch` renvoyée par `useReducer` garde la même identité d’un rendu à l’autre.",
+        "why": "React lui donne une identité stable, donc on peut la transmettre ou la lister dans les dépendances sans provoquer de re-render.",
+        "twin": {
+          "statement": "La fonction `dispatch` de `useReducer` est nouvelle à chaque rendu, donc il faut l’envelopper dans `useCallback`.",
+          "why": "React donne à `dispatch` une identité stable, donc on peut la transmettre ou la lister dans les dépendances telle quelle."
+        }
+      },
+      {
+        "statement": "Un reducer est un bon endroit pour appeler l’API, puisqu’il s’exécute à chaque action.",
+        "why": "Un reducer doit être pur ; React peut l’appeler deux fois en développement. Les effets de bord vont dans les gestionnaires d’événements ou les effets.",
+        "twin": {
+          "statement": "Un reducer doit rester pur, donc les appels d’API ont leur place dans les gestionnaires d’événements ou les effets.",
+          "why": "React peut appeler un reducer deux fois en développement, et les effets de bord n’ont pas leur place dans une fonction pure."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "`useState` et `useReducer` contiennent tous deux du state de composant. `useReducer` déplace la logique de mise à jour dans une seule fonction pure, ce qui paie quand plusieurs valeurs changent ensemble ou que les mises à jour suivent des règles.",
+      "points": [
+        "`useState` contient une valeur et un setter. C’est le choix par défaut pour des valeurs indépendantes : une modale ouverte, un champ de saisie, un toggle.",
+        "`useReducer(reducer, initialState)` renvoie le state et `dispatch`. Tu dispatches une action, un objet comme `{ type: \"removed\", productId }`, et le reducer renvoie le state suivant.",
+        "Un reducer est une fonction pure : pas de mutation, pas d’appel d’API. Il renvoie un nouvel objet, et React peut l’appeler deux fois en développement (StrictMode) pour détecter les impuretés.",
+        "Choisis `useReducer` quand plusieurs valeurs changent ensemble ou que les mises à jour suivent des règles. La logique est testable sans React, et `dispatch` est stable, donc il se marie bien avec Context."
+      ],
+      "takeaways": [
+        {
+          "term": "`useState`",
+          "detail": "Le choix par défaut pour des valeurs indépendantes : une modale ouverte, un champ de saisie, un toggle."
+        },
+        {
+          "term": "`useReducer(reducer, initial)`",
+          "detail": "Renvoie le state et `dispatch`."
+        },
+        {
+          "term": "Action",
+          "detail": "Un objet comme `{ type: \"removed\", productId }` qui décrit ce qui s’est passé."
+        },
+        {
+          "term": "Reducer",
+          "detail": "Une fonction pure `(state, action) => newState` : pas de mutation, pas d’appel d’API. StrictMode peut l’appeler deux fois en développement."
+        },
+        {
+          "term": "Quand le choisir",
+          "detail": "Des valeurs qui changent ensemble ou des mises à jour avec des règles, comme un panier avec ajout, suppression et changement de quantité."
+        },
+        {
+          "term": "`dispatch`",
+          "detail": "Stable d’un rendu à l’autre, donc il se marie bien avec Context. Le reducer est testable sans React."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le panier de la boutique utilise cinq appels `useState` séparés, et après avoir retiré un article puis changé une quantité, le total et le nombre d’articles ne concordent plus. Comment le restructureriez-vous ?",
+        "bridge": "`useReducer` pour des valeurs qui changent ensemble : un seul reducer pur applique chaque action à tout le panier, donc les valeurs restent cohérentes."
+      },
+      {
+        "question": "Quand garderiez-vous `useState` plutôt que de passer à `useReducer`, et qu’apporte un reducer pour les tests ?",
+        "bridge": "Le choix entre les deux : `useState` pour des valeurs indépendantes, un reducer quand les mises à jour suivent des règles, avec une logique pure testable sans React."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux reducers ajoutent un produit au panier détenu dans `useReducer`. Lequel fait apparaître la nouvelle ligne dans le panier ?",
+        "why": "Un reducer doit renvoyer un nouveau state. `[...lines, action.line]` est un nouveau tableau, donc React voit un changement et rend le panier avec la nouvelle ligne. `push` mute le tableau courant et renvoie la même référence : React compare avec `Object.is`, ne trouve aucun changement, saute le rendu, et le panier affiche toujours les anciennes lignes."
+      }
+    ]
+  },
+  "react-optimistic-ui": {
+    "topic": "Mises à jour optimistes de l’UI",
+    "question": "Qu’est-ce qu’une mise à jour optimiste de l’UI, et comment l’implémentez-vous ?",
+    "answer": "Une mise à jour optimiste affiche le résultat attendu avant que le serveur ne le confirme, donc l’UI paraît instantanée. Avec TanStack Query, dans `onMutate` j’annule les requêtes en cours pour cette clé, je garde un snapshot et j’écris la valeur attendue dans le cache. Dans `onError` je restaure le snapshot et je préviens l’utilisateur, et dans `onSettled` j’invalide la clé pour que la réponse du serveur remplace ma supposition. Pour une Action de formulaire React 19, `useOptimistic` affiche une valeur temporaire pendant que l’Action s’exécute et revient tout seul en arrière. Je ne le fais que pour des modifications fréquentes et peu risquées, jamais pour des paiements ou des remboursements.",
+    "keyPoints": [
+      "Afficher le résultat attendu avant la réponse du serveur",
+      "Snapshot, écriture dans le cache, rollback en cas d’erreur",
+      "Refetch ou invalidation à la fin pour obtenir la vérité",
+      "Seulement pour des modifications peu risquées ; pas l’argent ni le stock"
+    ],
+    "explanation": "Les recruteurs attendent le cycle complet, rollback et refetch compris, et du discernement sur quand ne pas le faire. Un senior mentionne aussi l’annulation des requêtes en cours et les modifications qui se chevauchent.",
+    "example": "Les agents du back-office marquent les commandes urgentes avec un toggle de priorité (`PATCH /orders/:id`) qui attendait le serveur environ 400 ms, alors ils cliquaient deux fois. Le rendre optimiste avec un snapshot et un rollback l’a rendu instantané ; quand le serveur répondait 409, le toggle revenait en arrière et un toast expliquait pourquoi.",
+    "mistakes": [
+      "Oublier le rollback, si bien qu’une requête échouée laisse un mensonge à l’écran",
+      "Ne pas annuler les requêtes en cours, si bien qu’un refetch plus ancien écrase la valeur optimiste",
+      "Rendre optimistes les paiements ou les remboursements, que le serveur peut refuser pour des raisons métier"
+    ],
+    "followUps": [
+      {
+        "question": "Comment faites-vous le rollback quand la requête au serveur échoue ?",
+        "answer": "Je garde un snapshot de la valeur en cache avant l’écriture optimiste et je le renvoie depuis `onMutate` ; `onError` le reçoit et le réécrit avec `setQueryData`, puis j’affiche une erreur. Avec `useOptimistic`, il n’y a rien à défaire : le vrai state n’a jamais changé, donc la valeur temporaire disparaît."
+      },
+      {
+        "question": "Comment React Query prend-il en charge les mises à jour optimistes ?",
+        "answer": "De deux façons. Écrire dans le cache : `cancelQueries`, `getQueryData` pour le snapshot et `setQueryData` dans `onMutate`, rollback dans `onError`, `invalidateQueries` dans `onSettled`. Ou, quand le changement n’apparaît qu’à un seul endroit, rendre les `variables` de la mutation tant qu’elle est en cours, sans écriture dans le cache ni rollback."
+      },
+      {
+        "question": "Quelles actions se prêtent mal aux mises à jour optimistes ?",
+        "answer": "Tout ce que le serveur peut refuser pour des raisons métier ou dont l’échec coûte de l’argent ou de la confiance : paiements, remboursements, réservations de stock, passage de commande. Aussi les actions dont le client ne peut pas prédire le résultat, comme un numéro généré par le serveur. Là, j’affiche plutôt un état en attente."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Avec `useOptimistic`, il faut écrire du code de rollback pour le cas où l’Action échoue.",
+        "why": "La valeur optimiste n’est affichée que pendant l’exécution de l’Action ; si le vrai state n’a pas été mis à jour, elle disparaît simplement.",
+        "twin": {
+          "statement": "Avec `useOptimistic`, la valeur optimiste disparaît d’elle-même à la fin de l’Action, donc aucun code de rollback n’est nécessaire.",
+          "why": "Elle n’est affichée que pendant l’exécution de l’Action ; si le vrai state n’a pas été mis à jour, le composant y revient."
+        }
+      },
+      {
+        "statement": "Avant une écriture optimiste dans le cache, annuler les requêtes en cours pour cette clé empêche une réponse plus ancienne de l’écraser.",
+        "why": "Sinon, un refetch lancé avant la modification pourrait arriver après elle et afficher l’ancienne valeur.",
+        "twin": {
+          "statement": "Annuler les requêtes en cours avant une écriture optimiste dans le cache est inutile, car une réponse plus ancienne ne peut pas l’écraser.",
+          "why": "Un refetch lancé avant la modification peut arriver après elle et afficher l’ancienne valeur."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une mise à jour optimiste affiche le résultat attendu avant que le serveur ne le confirme, donc les modifications fréquentes paraissent instantanées. Il faut prévoir un rollback, et ce n’est pas pour les actions où une mauvaise supposition coûte de l’argent.",
+      "points": [
+        "Une mise à jour optimiste affiche le résultat attendu avant que le serveur ne le confirme, donc un toggle ou une note paraît instantané au lieu d’attendre l’aller-retour.",
+        "Avec TanStack Query : dans `onMutate`, annule les requêtes en cours, prends un snapshot du cache et écris la supposition ; dans `onError`, restaure le snapshot ; dans `onSettled`, invalide pour charger la vérité.",
+        "`useOptimistic` de React 19 affiche une valeur temporaire pendant qu’une Action de formulaire s’exécute, puis revient au vrai state. Un échec ne demande aucun code de rollback.",
+        "Réserve-le aux modifications fréquentes et peu risquées : un flag, une note, un réordonnancement. Paiements, remboursements et stock attendent le serveur et affichent un état en attente."
+      ],
+      "takeaways": [
+        {
+          "term": "`onMutate`",
+          "detail": "Annuler les requêtes en cours pour la clé, prendre un snapshot du cache et écrire la valeur attendue."
+        },
+        {
+          "term": "`onError`",
+          "detail": "Restaurer le snapshot et prévenir l’utilisateur."
+        },
+        {
+          "term": "`onSettled`",
+          "detail": "Invalider la clé pour que la réponse du serveur remplace la supposition."
+        },
+        {
+          "term": "`useOptimistic`",
+          "detail": "React 19 : affiche une valeur temporaire pendant qu’une Action de formulaire s’exécute, puis revient en arrière sans code de rollback."
+        },
+        {
+          "term": "Bon usage",
+          "detail": "Modifications fréquentes et peu risquées : un flag, une note, un réordonnancement."
+        },
+        {
+          "term": "À éviter pour",
+          "detail": "Paiements, remboursements et stock : attendre le serveur et afficher un état en attente."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Les agents se plaignent que basculer le flag de priorité d’une commande dans le back-office met une seconde à s’afficher, alors que l’API Orders ne le rejette presque jamais. Comment le rendriez-vous instantané, en toute sécurité ?",
+        "bridge": "Une mise à jour optimiste : afficher tout de suite la valeur attendue, garder un snapshot pour revenir en arrière en cas d’erreur, et invalider à la fin pour obtenir la vérité."
+      },
+      {
+        "question": "Rendriez-vous le bouton de remboursement optimiste ? Quand une mise à jour optimiste est-elle le mauvais choix ?",
+        "bridge": "Les limites de l’UI optimiste : elle convient aux modifications fréquentes et peu risquées, jamais à l’argent ni au stock, où afficher une supposition pourrait tromper l’utilisateur."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux rendent optimiste le toggle de priorité de commande avec TanStack Query. Lequel laisse un écran juste quand le `PATCH` échoue ?",
+        "why": "Renvoyer un snapshot depuis `onMutate` permet à `onError` de remettre l’ancienne commande quand le serveur refuse le changement. Sans lui, la requête échouée affiche seulement un toast : le cache garde la priorité optimiste, donc l’écran montre un changement rejeté par le serveur jusqu’au prochain refetch."
+      }
+    ]
+  },
+  "react-data-fetching": {
+    "topic": "Charger des données avec des hooks",
+    "question": "Comment chargeriez-vous des données avec des hooks, et quels sont les pièges ?",
+    "answer": "La façon brute, c’est `useEffect` : lancer la requête, stocker les données, le chargement et l’erreur dans le state, et lister les entrées, comme l’id de commande, en dépendances. Les pièges sont réels : une race condition quand l’id change avant l’arrivée de la première réponse, donc j’annule dans le cleanup avec un `AbortController` ; ne pas remonter une `AbortError` comme un échec ; et pas de cache, donc chaque composant recharge et les données deviennent obsolètes. Les effets créent aussi des cascades quand les enfants ne chargent qu’après le rendu des parents. Donc dans une app j’utilise TanStack Query, qui gère les clés, l’annulation, la déduplication et les retries, et je garde les effets bruts pour de rares cas ponctuels.",
+    "keyPoints": [
+      "Effet avec dépendances, plus un state de chargement et d’erreur",
+      "Race sur une entrée qui change : annuler ou ignorer dans le cleanup",
+      "Ni cache, ni déduplication, ni retries avec des effets bruts",
+      "Dans une app, TanStack Query ou un loader de framework"
+    ],
+    "explanation": "Ça vérifie que tu connais la race condition et le cleanup, puis que tu sais pourquoi les équipes ont arrêté d’écrire leurs effets de chargement à la main. Un senior cite le cache manquant et les cascades, pas seulement le code répétitif.",
+    "example": "Un agent a cliqué sur la commande A, puis vite sur la commande B, et le panneau de détail du back-office a affiché A sous la sélection de B parce que la réponse de A est arrivée en dernier. Annuler dans le cleanup de l’effet a corrigé la race, et passer le panneau à `useQuery` avec `['orders', orderId]` a aussi apporté un cache, donc revenir sur A était instantané.",
+    "mistakes": [
+      "Oublier le cleanup, si bien que c’est la dernière réponse qui gagne au lieu du dernier clic",
+      "Afficher une requête annulée comme une erreur à l’utilisateur",
+      "Rendre la fonction d’effet elle-même `async`, ce qui renvoie une promesse au lieu d’un cleanup"
+    ],
+    "followUps": [
+      {
+        "question": "Comment évitez-vous de répéter le schéma chargement-loading-erreur dans de nombreux composants ?",
+        "answer": "Je l’extrais une fois : un hook custom comme `useOrder(orderId)` qui renvoie `{ data, error, isLoading }`. En pratique, ce hook est une fine surcouche de `useQuery` avec une factory d’options de requête partagée, donc chaque écran utilise la même clé, le même fetcher et la même règle de fraîcheur."
+      },
+      {
+        "question": "Comment React Query ou SWR simplifient-ils ça ?",
+        "answer": "Je donne une clé et un fetcher ; la bibliothèque renvoie les données, l’erreur et le statut, met en cache par clé, partage les requêtes entre composants, recharge les données obsolètes au focus ou à la reconnexion, relance les échecs et annule les requêtes inutilisées. La race et les données obsolètes disparaissent sans code d’effet."
+      },
+      {
+        "question": "Comment relanceriez-vous un chargement manuellement, pas seulement sur un changement de dépendance ?",
+        "answer": "Avec TanStack Query, `refetch()` de `useQuery` pour un composant, ou `queryClient.invalidateQueries` pour rafraîchir tous les lecteurs d’une clé, par exemple après une mutation. Avec un effet brut, j’ajouterais un state `reloadCount` à ses dépendances et je l’incrémenterais."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Sans cleanup, un effet qui charge par id peut afficher la réponse d’un id plus ancien.",
+        "why": "Les deux requêtes appellent le setter, donc c’est la réponse arrivée en dernier qui gagne, pas la dernière sélection.",
+        "twin": {
+          "statement": "Sans cleanup, un effet qui charge par id affiche toujours la réponse du dernier id.",
+          "why": "Les deux requêtes appellent le setter, donc c’est la réponse arrivée en dernier qui gagne, pas la dernière sélection."
+        }
+      },
+      {
+        "statement": "On peut passer une fonction `async` directement à `useEffect`.",
+        "why": "Elle renvoie une promesse, alors que React attend de l’effet une fonction de cleanup ou rien ; définis plutôt la fonction asynchrone à l’intérieur.",
+        "twin": {
+          "statement": "Il ne faut pas passer une fonction `async` directement à `useEffect` ; on la définit dans l’effet et on l’appelle.",
+          "why": "Une fonction asynchrone renvoie une promesse, alors que React attend une fonction de cleanup ou rien."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Charger des données dans `useEffect` fonctionne, mais te laisse gérer toi-même les races, l’annulation et le cache. Ces pièges expliquent pourquoi les apps utilisent plutôt TanStack Query ou un loader de framework.",
+      "points": [
+        "Un chargement dans `useEffect` démarre après le rendu, stocke les données, le chargement et l’erreur dans le state, et liste ses entrées, comme `orderId`, en dépendances pour se relancer quand elles changent.",
+        "Quand l’entrée change avant l’arrivée de la réponse, deux requêtes font la course et la dernière à répondre gagne. Annule l’ancienne dans le cleanup avec un `AbortController`, ou pose un flag d’ignorance.",
+        "Un fetch annulé est rejeté avec une `AbortError` : vérifie `signal.aborted` et ne l’affiche pas comme un échec. La fonction d’effet ne peut pas être `async` ; définis une fonction asynchrone à l’intérieur.",
+        "Les effets bruts n’ont ni cache, ni déduplication, ni retry, ni rechargement au focus. Dans une app, TanStack Query ou SWR apportent tout ça par clé."
+      ],
+      "takeaways": [
+        {
+          "term": "Chargement dans un effet",
+          "detail": "Démarre après le rendu, stocke données, chargement et erreur dans le state, et liste des entrées comme `orderId` en dépendances."
+        },
+        {
+          "term": "Race",
+          "detail": "Si l’entrée change avant la réponse, la dernière requête à répondre gagne : annule-la ou ignore-la dans le cleanup."
+        },
+        {
+          "term": "`AbortError`",
+          "detail": "Un fetch annulé est rejeté avec elle. Vérifie `signal.aborted` et ne l’affiche pas comme un échec."
+        },
+        {
+          "term": "Effet `async`",
+          "detail": "La fonction d’effet ne peut pas être `async` : définis une fonction asynchrone à l’intérieur."
+        },
+        {
+          "term": "Pas de cache",
+          "detail": "Les effets bruts n’ont ni cache, ni déduplication, ni retry, ni rechargement au focus."
+        },
+        {
+          "term": "TanStack Query ou SWR",
+          "detail": "Apportent cache, déduplication et retries par clé."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, un agent clique sur la commande 41 puis vite sur la commande 42, et le panneau de détail finit par afficher la commande 41. Le chargement se fait dans un `useEffect`. Que se passe-t-il ?",
+        "bridge": "Une race dans le chargement par effet : la réponse la plus ancienne arrive en dernier et écrase la plus récente, donc le cleanup doit l’annuler ou l’ignorer."
+      },
+      {
+        "question": "Votre équipe charge chaque ressource avec `useEffect` et `useState`. Quels problèmes allez-vous rencontrer quand l’app grandira, et qu’utiliseriez-vous à la place ?",
+        "bridge": "Les pièges du chargement par effet brut : ni cache, ni déduplication, ni retries, et des cascades, que TanStack Query ou un loader de framework résolvent."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux chargent la commande que l’agent sélectionne. Lequel affiche la commande B quand l’agent clique sur A, puis vite sur B, et que A répond en dernier ?",
+        "why": "Le cleanup annule la requête pour l’`orderId` précédent quand l’agent choisit une autre commande, donc seule la dernière réponse atteint `setOrder`. Sans lui, rien n’est jamais annulé : les deux requêtes appellent `setOrder`, la dernière à répondre gagne, et le panneau affiche la commande A sous la sélection de B."
+      }
+    ]
+  },
+  "react-custom-hooks": {
+    "topic": "Hooks custom",
+    "question": "Comment écrivez-vous un hook custom, et quel problème résout-il ?",
+    "answer": "Un hook custom est une fonction dont le nom commence par `use` et qui appelle d’autres hooks. Il me permet de réutiliser de la logique avec state, comme un abonnement, une valeur debouncée ou une requête, entre composants sans la copier, et il donne à cette logique un nom et un contrat typé. Il partage de la logique, pas du state : chaque composant qui l’appelle a son propre state et ses propres effets. Les règles des hooks s’appliquent à l’intérieur, donc les hooks sont appelés au premier niveau, dans le même ordre à chaque rendu. Un bon hook fait une seule chose, prend des entrées typées, renvoie un petit résultat typé, et nettoie tout ce qu’il lance.",
+    "keyPoints": [
+      "Une fonction `use` qui appelle d’autres hooks",
+      "Réutilise de la logique avec state ; chaque appel a son propre state",
+      "Les règles des hooks s’appliquent : premier niveau, même ordre",
+      "Une seule responsabilité, contrat typé, cleanup à l’intérieur"
+    ],
+    "explanation": "Le piège, c’est de croire qu’un hook custom partage du state entre composants. Les recruteurs vérifient aussi que tu traites un hook comme une API : son nom, ses entrées, ses sorties, son cleanup et ses coûts.",
+    "example": "Le champ de recherche du back-office, le sélecteur de client et le filtre de produits avaient chacun leur propre debounce à base de `setTimeout`, et l’un d’eux oubliait de le nettoyer, ce qui lançait une recherche par frappe. Un `useDebouncedValue(value, delayMs)` de 10 lignes avec un cleanup a remplacé les trois, et taper une requête de 12 caractères envoie maintenant une requête au lieu de douze.",
+    "mistakes": [
+      "S’attendre à ce que deux composants qui appellent le même hook partagent son state",
+      "Appeler un hook dans une condition ou après un return anticipé",
+      "Nommer `useX` un helper qui n’appelle aucun hook, ou un hook sans le préfixe `use`, si bien que le lint ne peut pas le vérifier"
+    ],
+    "followUps": [
+      {
+        "question": "Comment testeriez-vous un hook custom isolément ?",
+        "answer": "Avec `renderHook` de React Testing Library : il rend un petit composant de test qui appelle le hook et expose la dernière valeur renvoyée dans `result.current`. J’enveloppe les mises à jour dans `act`, j’utilise des fake timers pour un debounce, et je mocke le réseau avec MSW pour un hook de requête."
+      },
+      {
+        "question": "Un hook custom peut-il renvoyer du JSX ?",
+        "answer": "Techniquement oui : c’est une fonction, elle peut renvoyer n’importe quoi. Mais si sa sortie principale est de l’UI, ça devrait être un composant, que React peut rendre, identifier par une key et mémoïser. Les hooks renvoient en général des données et des fonctions, et le composant décide du balisage."
+      },
+      {
+        "question": "Comment concevez-vous un hook custom vraiment réutilisable ?",
+        "answer": "Une seule responsabilité, un nom qui la dit, des entrées typées et un petit retour typé, souvent un objet aux champs nommés. Pas de state de module caché, pas d’URL en dur : on passe ce qui varie. Il nettoie ce qu’il lance, et sa TSDoc indique ses coûts, comme l’ouverture d’un stream par appel."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Deux composants qui appellent le même hook custom partagent son state.",
+        "why": "Chaque appel exécute ses propres hooks, donc chaque composant a son propre state et ses propres effets ; seule la logique est partagée.",
+        "twin": {
+          "statement": "Deux composants qui appellent le même hook custom ont chacun leur propre state et leurs propres effets.",
+          "why": "Seule la logique est partagée ; chaque appel exécute ses propres hooks."
+        }
+      },
+      {
+        "statement": "Les règles des hooks s’appliquent dans un hook custom comme dans les composants.",
+        "why": "React associe les appels de hooks à leur state par ordre d’appel, donc ils doivent s’exécuter au premier niveau, dans le même ordre.",
+        "twin": {
+          "statement": "Dans un hook custom, on peut appeler des hooks de façon conditionnelle, car les règles des hooks ne s’appliquent qu’aux composants.",
+          "why": "React associe les appels de hooks à leur state par ordre d’appel, donc les hooks custom suivent les mêmes règles."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un hook custom est une fonction commençant par `use` qui appelle d’autres hooks. Il emballe de la logique avec state sous un nom et un contrat typé, pour que les composants la réutilisent sans la copier.",
+      "points": [
+        "Un hook custom est une fonction dont le nom commence par `use` et qui appelle d’autres hooks. Il emballe de la logique avec state, comme un debounce ou un abonnement, sous un nom.",
+        "Il partage de la logique, pas du state : deux composants qui appellent `useCounter()` ont chacun leur propre compteur. Pour partager du state, remonte-le ou utilise Context ou un store.",
+        "Les règles des hooks s’appliquent à l’intérieur : appelle les hooks au premier niveau, dans le même ordre à chaque rendu, jamais dans une condition. La règle de lint `react-hooks/rules-of-hooks` le vérifie.",
+        "Conçois-le comme une API : une seule responsabilité, entrée et sortie typées, un cleanup pour tout ce qu’il lance. Teste-le avec `renderHook` de React Testing Library."
+      ],
+      "takeaways": [
+        {
+          "term": "Préfixe `use`",
+          "detail": "Le nom commence par `use`, et la fonction appelle d’autres hooks."
+        },
+        {
+          "term": "De la logique, pas du state",
+          "detail": "Deux composants qui appellent `useCounter()` ont chacun leur propre compteur."
+        },
+        {
+          "term": "Partager du state",
+          "detail": "Le remonter, ou utiliser Context ou un store."
+        },
+        {
+          "term": "Règles des hooks",
+          "detail": "Premier niveau, même ordre à chaque rendu. La règle de lint `react-hooks/rules-of-hooks` le vérifie."
+        },
+        {
+          "term": "Conception d’API",
+          "detail": "Une seule responsabilité, entrée et sortie typées, et un cleanup pour tout ce qu’il lance."
+        },
+        {
+          "term": "`renderHook`",
+          "detail": "Teste le hook seul, fourni par React Testing Library."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Trois pages du back-office copient chacune 30 lignes qui s’abonnent aux mises à jour de commandes en direct et se désabonnent au démontage, et un correctif n’a atterri que dans une copie. Que feriez-vous ?",
+        "bridge": "Un hook custom : extraire la logique avec state dans une seule fonction `use` avec un contrat typé et son propre cleanup, réutilisée par chaque page."
+      },
+      {
+        "question": "Un collègue s’attend à ce qu’un hook `useCart()` garde le panier synchronisé entre le header et la page de checkout « parce qu’ils utilisent le même hook ». A-t-il raison ?",
+        "bridge": "Ce que partage un hook custom : de la logique, pas du state. Chaque appel a son propre state et ses propres effets, donc des données partagées ont besoin d’un propriétaire commun."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux appliquent un debounce de 300 ms au texte de recherche avant de lancer une recherche. Lequel ne lance qu’une recherche quand l’agent tape un mot ?",
+        "why": "Le cleanup efface le timer en attente chaque fois que `value` change, donc la valeur se stabilise une fois la frappe en pause : une recherche pour un mot entier. Sans lui, le timer de chaque frappe se déclenche quand même 300 ms plus tard et la valeur debouncée change presque à chaque frappe : un mot tapé à 100 ms d’intervalle envoie environ une recherche par lettre, simplement retardée."
+      }
+    ]
+  }
+}

@@ -1,0 +1,302 @@
+{
+  "m17.q1": {
+    "q": "Une équipe de quatre personnes lance un nouveau service sur AWS. Personne dans l’entreprise n’exploite Kubernetes aujourd’hui. Quelle plateforme est le choix par défaut habituel en 2026 ?",
+    "options": [
+      "EKS avec des managed node groups, pour que l’équipe puisse passer à Kubernetes plus tard",
+      "ECS sur Fargate, avec un service par image de conteneur",
+      "Lambda pour chaque route, derrière API Gateway",
+      "Des machines virtuelles EC2 qui font tourner PM2 en mode cluster"
+    ],
+    "explain": "ECS sur Fargate fait tourner des conteneurs sans serveurs ni cluster à mettre à jour, ce qui convient à une petite équipe sans compétences Kubernetes. EKS est le bon choix quand l’entreprise exploite déjà Kubernetes et son écosystème ; l’adopter « pour plus tard » revient à gérer dès maintenant les nœuds, les add-ons et les mises à jour. Lambda convient mieux à des tâches planifiées ou en pics qu’à un service entier."
+  },
+  "m17.q2": {
+    "q": "Pourquoi le Dockerfile copie-t-il <code>package.json</code> et <code>package-lock.json</code>, lance <code>npm ci</code>, et seulement ensuite copie <code>src</code> ?",
+    "options": [
+      "Pour que la couche d’installation reste en cache quand seul le code source change",
+      "Parce que <code>npm ci</code> refuse de s’exécuter quand des fichiers source sont présents",
+      "Pour réduire l’image finale, puisqu’on y copie moins de fichiers",
+      "Parce que <code>COPY src</code> échoue si <code>node_modules</code> n’existe pas déjà dans le stage"
+    ],
+    "explain": "D’après la documentation du cache de Docker, quand une couche change, toutes les couches suivantes sont reconstruites. Copier d’abord les manifestes permet à un commit qui ne modifie que <code>src</code> de réutiliser la couche <code>npm ci</code> en cache. L’ordre ne change pas la taille de l’image finale ; c’est le build multi-stage qui s’en charge."
+  },
+  "m17.q3": {
+    "q": "Le stage de build reste sur <code>node:24-trixie-slim</code>, mais quelqu’un passe uniquement le stage d’exécution à <code>node:24-alpine</code> pour gagner de la place. Le service utilise un addon natif compilé pendant <code>npm ci</code>. Quel est le risque ?",
+    "options": [
+      "Les images Alpine ne peuvent pas tourner avec un utilisateur non root, donc le security context du pod les rejette",
+      "Il n’existe pas d’image Node 24 pour Alpine, donc le stage se rabat silencieusement sur un Node plus ancien",
+      "Alpine utilise musl, pas glibc, donc l’addon compilé dans le stage Debian risque de ne pas se charger",
+      "Les images Alpine finissent plus lourdes que les slim une fois les bibliothèques de l’addon ajoutées"
+    ],
+    "explain": "Le README de docker-node indique qu’Alpine utilise musl libc et que les programmes compilés pour la glibc de Debian ne tournent en général pas dessus. L’addon a été compilé contre glibc dans le stage de build, il peut donc échouer à l’exécution. Alpine est en effet environ 25 % plus petite que slim, d’où la tentation ; compile et exécute sur la même libc."
+  },
+  "m17.q4": {
+    "q": "Le Dockerfile se termine par <code>CMD node dist/server.js</code> (forme shell). Que se passe-t-il lors d’un <code>docker stop</code> ?",
+    "options": [
+      "Node reçoit <code>SIGTERM</code> directement et exécute son handler d’arrêt propre",
+      "Docker envoie <code>SIGINT</code> à la place pour les commandes en forme shell, et Node s’arrête sur <code>SIGINT</code> par défaut",
+      "Le conteneur redémarre aussitôt, parce que le shell se termine avec le code 143",
+      "<code>/bin/sh -c</code> ne transmet pas le signal, donc le conteneur est tué au bout de 10 secondes"
+    ],
+    "explain": "La référence Docker indique que la forme shell exécute la commande sous <code>/bin/sh -c</code>, qui ne transmet pas les signaux : le programme ne reçoit donc pas le <code>SIGTERM</code> de <code>docker stop</code>. Après les 10 secondes par défaut, le daemon envoie <code>SIGKILL</code> et les requêtes en cours sont coupées. La forme exec <code>[\"node\", \"dist/server.js\"]</code> corrige le problème."
+  },
+  "m17.q5": {
+    "q": "Pourquoi le workflow référence-t-il <code>actions/checkout@3d3c42e…</code> au lieu de <code>actions/checkout@v7</code> ?",
+    "options": [
+      "Un tag peut être déplacé vers un autre code ; un SHA de commit complet, non",
+      "GitHub exécute plus vite les actions épinglées par SHA, car leur code est en cache dans l’image du runner",
+      "Les tags de version ne sont pas autorisés pour les actions publiées par GitHub",
+      "Un SHA fait se mettre à jour l’action vers la dernière release"
+    ],
+    "explain": "Le guide de sécurité de GitHub indique qu’un tag « peut être déplacé ou supprimé » si quelqu’un obtient l’accès au dépôt de l’action. C’est arrivé en mars 2026, quand 76 des 77 tags de trivy-action ont été force-pushés vers du code malveillant. Un SHA épingle le code exact ; les mises à jour viennent d’un bot comme Dependabot qui propose un nouveau SHA."
+  },
+  "m17.q6": {
+    "q": "Le dépôt ECR a l’immutabilité des tags activée. Un script tente de pousser un build de hotfix sous le tag <code>3f9c2a1</code>, déjà utilisé par la release actuelle. Que se passe-t-il ?",
+    "options": [
+      "ECR déplace le tag vers la nouvelle image et garde l’ancienne sans tag dans le dépôt",
+      "ECR stocke les deux images sous le même tag",
+      "Le push est rejeté avec <code>ImageTagAlreadyExistsException</code>",
+      "ECR accepte le push mais bloque les pulls de la nouvelle image"
+    ],
+    "explain": "D’après la documentation ECR, une fois l’immutabilité des tags activée, pousser une image avec un tag déjà présent dans le dépôt renvoie <code>ImageTagAlreadyExistsException</code>. C’est cette garantie qui rend vrai « ce tag correspond à ce commit ». Écraser le tag, c’est ce que ferait un dépôt mutable, le comportement par défaut."
+  },
+  "m17.q7": {
+    "q": "Dans la trust policy du rôle de déploiement, à quoi sert la condition <code>sub = repo:shop/orders-api:environment:production</code> ?",
+    "options": [
+      "Elle donne au rôle l’accès au compte AWS de production",
+      "Seuls les jobs de ce dépôt qui ciblent <code>production</code> peuvent assumer le rôle",
+      "Elle garde les identifiants temporaires valides jusqu’à la suppression de l’environnement dans GitHub",
+      "Elle chiffre le token OIDC avec les secrets de l’environnement"
+    ],
+    "explain": "Le claim <code>sub</code> du token OIDC de GitHub nomme le dépôt et le contexte du job ; avec un environnement, il vaut <code>repo:ORG/REPO:environment:NAME</code>. Le comparer avec <code>StringEquals</code> empêche une exécution de pull request (sujet <code>…:pull_request</code>) ou un autre dépôt d’assumer le rôle. La condition restreint qui ; la permissions policy décide quoi."
+  },
+  "m17.q8": {
+    "q": "Les pods de l’API Orders utilisent EKS Pod Identity. Que doit faire le code applicatif pour obtenir des identifiants AWS ?",
+    "options": [
+      "Appeler STS <code>AssumeRole</code> au démarrage avec l’ARN du rôle, puis le rafraîchir toutes les heures",
+      "Lire la clé d’accès et le secret depuis un Secret Kubernetes monté dans le pod",
+      "Passer le token du service account à chaque constructeur de client",
+      "Rien : les clients créés sans identifiants utilisent la chaîne par défaut du SDK"
+    ],
+    "explain": "D’après la documentation EKS, EKS définit dans les conteneurs du pod des variables d’environnement qui orientent les SDK AWS vers le Pod Identity Agent, lequel délivre des identifiants temporaires et renouvelés. La chaîne d’identifiants par défaut les récupère, donc <code>new S3Client({})</code> suffit. Une clé statique dans un Secret, c’est exactement ce que Pod Identity supprime."
+  },
+  "m17.q9": {
+    "q": "Avec Helm 4, l’étape de déploiement lance <code>helm upgrade --install orders-api ./chart</code> sans option d’attente ni de rollback. Les nouveaux pods sont en crash-loop. Que rapporte le job de CI ?",
+    "options": [
+      "Succès : sans option d’attente, Helm 4 n’attend que les hooks",
+      "Échec : Helm 4 attend toujours que chaque pod du Deployment soit prêt",
+      "Échec, et Helm revient automatiquement à la release précédente",
+      "Le job reste bloqué jusqu’au timeout par défaut de 5 minutes, puis échoue"
+    ],
+    "explain": "La documentation de <code>upgrade</code> de Helm 4 donne <code>hookOnly</code> comme stratégie d’attente quand <code>--wait</code> est omis : la commande rend la main dès que les manifestes sont appliqués. Ajoute <code>--wait</code>, ou <code>--rollback-on-failure</code>, qui règle aussi l’attente sur <code>watcher</code> et revient à la dernière release réussie en cas d’échec."
+  },
+  "m17.q10": {
+    "q": "L’API ne télécharge jamais elle-même les exports, et pourtant sa policy IAM accorde <code>s3:GetObject</code> sur <code>exports/*</code>. Pourquoi ?",
+    "options": [
+      "S3 l’exige pour toute requête qui liste ou lit des objets du bucket",
+      "Sans elle, l’API ne pourrait pas écrire de nouveaux exports sous le préfixe <code>exports/</code>",
+      "Une URL présignée utilise les permissions du signataire, donc l’API en a besoin",
+      "Elle permet à l’API de générer le CSV dans S3 plutôt que dans le pod"
+    ],
+    "explain": "D’après la documentation S3, une URL présignée ne fonctionne que si elle a été créée par un principal autorisé à effectuer l’opération qu’elle représente. L’API signe des liens de téléchargement, son rôle a donc besoin de <code>s3:GetObject</code> sur ces clés, et de rien de plus large. Lister un bucket demande <code>s3:ListBucket</code>, et écrire demande <code>s3:PutObject</code>, que ce rôle n’a pas."
+  },
+  "m17.q11": {
+    "q": "Pourquoi la Lambda d’export crée-t-elle son pool pg et son client S3 au niveau racine du module, et donne-t-elle <code>max: 1</code> au pool ?",
+    "options": [
+      "Le code de niveau racine se réexécute avant chaque invocation, ce qui garde la connexion fraîche",
+      "L’init s’exécute une fois par environnement et est réutilisée ; un environnement traite une invocation à la fois",
+      "Lambda interdit d’ouvrir des connexions réseau dans la fonction handler elle-même",
+      "<code>max: 1</code> est exigé par RDS Proxy, qui rejette tout pool client de plus d’une connexion"
+    ],
+    "explain": "La documentation Lambda recommande d’initialiser les clients SDK et les connexions à la base hors du handler, car la phase d’init s’exécute une fois par environnement et les invocations suivantes les réutilisent. Chaque environnement sert une requête à la fois : une deuxième connexion resterait inactive et compterait dans la limite de la base. Le code de niveau racine ne se réexécute pas à chaque invocation."
+  },
+  "m17.q12": {
+    "q": "Deux ingénieurs lancent <code>terraform apply</code> sur le même state au même moment. Le backend S3 a <code>use_lockfile = true</code>. Que se passe-t-il ?",
+    "options": [
+      "Les deux applies s’exécutent, et celui qui finit en dernier écrase le state",
+      "Terraform fusionne les deux plans en un seul et les applique dans l’ordre",
+      "Le versioning S3 rejette la deuxième écriture du fichier de state",
+      "La deuxième exécution n’obtient pas le verrou et s’arrête"
+    ],
+    "explain": "Le verrouillage existe pour qu’une seule exécution à la fois puisse écrire un state. Avec <code>use_lockfile</code>, disponible en version stable depuis Terraform 1.11, le verrou est un fichier stocké à côté du state dans S3, et la deuxième exécution n’arrive pas à l’obtenir. Le versioning ne fait que garder les anciennes copies du state ; il n’empêche pas les écritures concurrentes."
+  },
+  "m17.q13": {
+    "q": "Un recruteur demande : « Lambda ou conteneurs pour l’API Orders elle-même ? » Elle reçoit un flux régulier de 400 requêtes par seconde toute la journée, chacune d’environ 80 ms et surtout en attente de PostgreSQL, avec des pics cinq fois plus élevés au Black Friday, et l’entreprise exploite EKS. Quelle est la meilleure réponse ?",
+    "options": [
+      "Lambda, parce qu’elle descend à zéro et reste donc l’option la moins chère à tout niveau de trafic",
+      "Lambda derrière API Gateway, puisque les cold starts n’existent plus sur le runtime Node 24",
+      "Des conteneurs sur le cluster EKS existant, en gardant Lambda pour les tâches annexes comme l’export",
+      "Une grosse instance EC2, pour que toute l’API partage un seul pool de connexions"
+    ],
+    "explain": "Un trafic régulier garde les conteneurs occupés, alors que Lambda facturerait chaque environnement pour toute sa durée, attentes de la base comprises, avec une requête par environnement et un jeu de connexions pour chacun. L’entreprise exploite déjà EKS, donc le coût marginal est faible. Descendre à zéro n’aide que les charges qui ont des temps morts, et les cold starts existent toujours."
+  },
+  "m17.q14": {
+    "q": "En code review, tu trouves ce Dockerfile, et le dépôt n’a pas de <code>.dockerignore</code>. Que demandes-tu de corriger en premier ?",
+    "options": [
+      "Multi-stage, manifestes avant le code source, <code>npm ci</code>, et un <code>.dockerignore</code>",
+      "Passer <code>CMD</code> en forme shell pour que les variables d’environnement soient développées au démarrage",
+      "Passer d’abord à <code>node:24-alpine</code>, car la taille de l’image est le principal risque ici",
+      "Ajouter <code>EXPOSE 3000</code>, sinon Kubernetes ne peut pas envoyer de trafic au conteneur"
+    ],
+    "explain": "<code>COPY . .</code> avant l’installation reconstruit les dépendances à chaque commit et, sans <code>.dockerignore</code>, copie le <code>node_modules</code> et le <code>.env</code> de l’hôte dans une image que toute l’entreprise peut puller. Un seul stage embarque aussi le compilateur et les dépendances de dev, et <code>npm install</code> n’installe pas exactement le lockfile. La forme shell casserait la transmission des signaux ; <code>EXPOSE</code> n’est que de la documentation."
+  },
+  "m17.q15": {
+    "q": "L’image se termine par <code>USER node</code>. Le pod définit <code>securityContext.runAsNonRoot: true</code> et aucun <code>runAsUser</code>. Que se passe-t-il au démarrage du pod ?",
+    "options": [
+      "Il démarre normalement, parce que l’utilisateur <code>node</code> de l’image n’est pas root",
+      "Il démarre en root, parce que Kubernetes ignore la ligne <code>USER</code> de l’image",
+      "Kubernetes remplace l’utilisateur par l’uid 65534 (nobody) et le démarre",
+      "Il ne démarre pas : le kubelet ne peut pas vérifier un utilisateur non numérique"
+    ],
+    "explain": "Avec <code>runAsNonRoot</code> et sans <code>runAsUser</code>, le kubelet vérifie l’utilisateur de l’image, et son code source renvoie l’erreur « image has non-numeric user (node), cannot verify user is non-root ». Écris <code>USER 1000</code> dans le Dockerfile ou définis <code>runAsUser: 1000</code>. Kubernetes utilise l’utilisateur de l’image quand aucun <code>runAsUser</code> n’est défini ; il ne l’ignore pas."
+  },
+  "m17.q16": {
+    "q": "Le build installe un package npm privé, alors un collègue ajoute <code>ARG NPM_TOKEN</code> et le passe avec <code>--build-arg</code>. Que suggères-tu ?",
+    "options": [
+      "C’est bon si le <code>RUN</code> suivant supprime le <code>.npmrc</code> qui contient le token",
+      "Utiliser un secret mount : les build arguments persistent dans l’image",
+      "Déplacer le token dans une ligne <code>ENV</code>, car les valeurs <code>ENV</code> ne sont pas stockées dans l’image",
+      "Garder le build argument, mais ne pousser l’image que vers un registre privé"
+    ],
+    "explain": "La documentation de Docker indique que les build arguments et les valeurs <code>ENV</code> persistent dans l’image finale, et M12 considère un tel token comme divulgué à tous ceux qui peuvent puller. Un secret mount expose le token sous forme de fichier pendant un seul <code>RUN</code> sans l’écrire dans une couche. Supprimer un fichier dans une couche suivante le laisse dans la précédente, et un registre privé ne rend pas le token secret."
+  },
+  "m17.q17": {
+    "q": "Deux pull requests sont mergées à une minute d’intervalle. Le deuxième merge annule la première exécution du workflow alors que son <code>helm upgrade</code> est à mi-chemin. Quel réglage en est la cause, et quelle est la correction ?",
+    "options": [
+      "Le nom du groupe : utiliser <code>github.sha</code> à la place, pour que deux exécutions ne partagent jamais un groupe",
+      "Rien dans ce bloc : Helm s’annule de lui-même dès qu’une release plus récente démarre",
+      "<code>cancel-in-progress</code> annule aussi les exécutions sur <code>main</code> : le limiter aux pull requests",
+      "Il manque <code>permissions: actions: write</code> au workflow, donc GitHub l’annule"
+    ],
+    "explain": "GitHub documente que <code>cancel-in-progress: true</code> annule le job ou le workflow en cours dans le même groupe, et chaque push sur <code>main</code> partage le groupe <code>refs/heads/main</code>. Une expression comme <code>github.event_name == 'pull_request'</code> limite l’annulation aux pull requests, et un groupe <code>deploy-production</code> avec <code>cancel-in-progress: false</code> sérialise les déploiements. Un groupe par SHA permettrait deux déploiements simultanés."
+  },
+  "m17.q18": {
+    "q": "Les manifestes de production utilisent <code>orders-api:latest</code>, poussée à chaque merge sur <code>main</code>. Pendant un incident, quel est le principal problème ?",
+    "options": [
+      "Personne ne sait quel commit tourne, et il n’y a rien de précis vers quoi faire un rollback",
+      "ECR ne scanne pas les images dont le seul tag est <code>latest</code>, donc les CVE passent inaperçues",
+      "Kubernetes refuse de puller une image taguée <code>latest</code> dans un namespace de production",
+      "Le tag <code>latest</code> fait télécharger l’image complète à chaque pull, ce qui ralentit les déploiements"
+    ],
+    "explain": "Un tag mobile ne dit rien du contenu : un pod replanifié après un nouveau push peut puller une image plus récente que ses voisins, et « revenir à latest » ne veut rien dire. Des tags au SHA du commit dans un dépôt immuable, déployés par digest, règlent les trois problèmes. ECR scanne par image, pas par nom de tag, et Kubernetes pulle <code>latest</code> sans broncher."
+  },
+  "m17.q19": {
+    "q": "Cette condition figure dans la trust policy de <code>orders-api-deploy</code>. Quel est le risque ?",
+    "options": [
+      "Aucun : la vérification de l’audience limite déjà le rôle aux workflows de l’API Orders",
+      "Seuls les forks de <code>shop/orders-api</code> dans d’autres organisations peuvent désormais assumer le rôle",
+      "Les identifiants durent désormais 12 heures au lieu d’une heure par défaut",
+      "N’importe quel dépôt, branche ou pull request de l’organisation <code>shop</code> peut déployer"
+    ],
+    "explain": "Le joker correspond à tout sujet qui commence par <code>repo:shop/</code>, donc tous les dépôts, branches et pull requests de l’organisation sont acceptés. L’audience prouve seulement que le token a été émis pour STS, par n’importe quel workflow GitHub. Fixe le sujet avec <code>StringEquals</code> sur <code>repo:shop/orders-api:environment:production</code>. La durée de session est définie par le rôle et l’action, pas par cette condition."
+  },
+  "m17.q20": {
+    "q": "Pod Identity est configuré pour l’API Orders, et pourtant CloudTrail montre ses appels S3 signés par l’utilisateur IAM <code>vm-legacy</code>. Quelle est la cause la plus probable ?",
+    "options": [
+      "Pod Identity se rabat sur les utilisateurs IAM dès que l’agent du nœud est surchargé",
+      "Un vieux <code>AWS_ACCESS_KEY_ID</code> dans le pod l’emporte : le SDK vérifie d’abord les variables d’env",
+      "CloudTrail enregistre les appels Pod Identity sous le dernier utilisateur IAM qui a modifié le rôle",
+      "La bucket policy force la signature de chaque requête par cet utilisateur IAM"
+    ],
+    "explain": "Le SDK pour JavaScript v3 essaie <code>fromEnv()</code> avant le provider d’identifiants du conteneur, donc des clés statiques oubliées l’emportent en silence. Retire les variables du pod, puis désactive la clé dans IAM. CloudTrail enregistre l’identité qui a réellement signé la requête, c’est pour ça qu’il révèle le problème."
+  },
+  "m17.q21": {
+    "q": "Le job nocturne de détection de drift lance <code>terraform plan -detailed-exitcode</code> sur la production et se termine avec le code 2. Qu’est-ce que ça signifie, et que fais-tu ?",
+    "options": [
+      "Terraform a planté pendant le refresh ; relancer le job règle généralement le problème",
+      "Le state est verrouillé par une autre exécution ; supprimer le fichier de verrou et relancer",
+      "Il y a des changements : les examiner, puis les codifier ou les annuler",
+      "Aucun changement : le code de sortie 2 signifie seulement que deux providers ont été vérifiés"
+    ],
+    "explain": "D’après la documentation de plan, le code de sortie 0 signifie un diff vide, 1 une erreur, et 2 un plan réussi avec des changements. Un plan refresh-only montre ce qui a changé hors de Terraform ; l’équipe reporte alors le changement dans le code ou applique pour l’annuler, après avoir lu le plan. Ne corrige jamais un drift par un apply automatique : le changement fait dans la console était peut-être la correction d’un incident."
+  },
+  "m17.q22": {
+    "q": "La version 42 a renommé <code>orders.total</code> en <code>orders.total_cents</code> dans la même migration et elle est cassée. L’équipe fait un rollback vers le digest de la version 41. Que se passe-t-il ?",
+    "options": [
+      "La version 41 échoue sur les requêtes qui lisent <code>orders.total</code>",
+      "Le rollback annule aussi la migration, donc la version 41 refonctionne",
+      "Helm détecte le changement de schéma et refuse le rollback de la release",
+      "Kubernetes garde les pods de la version 42 en marche jusqu’à ce que la migration soit annulée"
+    ],
+    "explain": "Redéployer un digest change le code, jamais la base. Un renommage en une seule étape casse la version précédente, c’est pourquoi les migrations suivent le schéma expand and contract (M10) : ajouter la nouvelle colonne, écrire dans les deux, basculer les lectures, et supprimer l’ancienne seulement quand plus aucune version en service n’en a besoin. Ni Helm ni Kubernetes ne savent quoi que ce soit du schéma."
+  },
+  "m17.q23": {
+    "q": "Le dépôt est privé, l’entreprise est sur GitHub Team, et l’environnement <code>production</code> liste deux reviewers obligatoires. Les déploiements passent pourtant sans aucune approbation. Pourquoi ?",
+    "options": [
+      "Les reviewers obligatoires ne s’appliquent qu’aux jobs qui lisent des secrets de l’environnement",
+      "Le job de déploiement a aussi besoin de <code>permissions: deployments: write</code> pour demander l’approbation",
+      "Les approbations données sur des exécutions précédentes valent pour les suivantes",
+      "Sur Free, Pro et Team, les reviewers obligatoires ne fonctionnent que dans les dépôts publics"
+    ],
+    "explain": "La documentation des environnements de GitHub indique que sur les plans Free, Pro et Team, les reviewers obligatoires et les délais d’attente ne sont disponibles que pour les dépôts publics. Un dépôt privé a besoin d’un plan supérieur pour ce contrôle, ou d’un autre contrôle, comme une branche protégée sur laquelle seuls les release managers peuvent pousser. Les approbations valent pour une exécution ; elles ne se reportent pas."
+  },
+  "m17.q24": {
+    "q": "La Lambda d’export envoyait par e-mail un lien présigné créé avec un <code>expiresIn</code> de sept jours. Des clients signalent que les liens ne marchent plus au bout de quelques heures. Pourquoi, et quelle est la correction ?",
+    "options": [
+      "S3 limite les URL présignées à une heure, donc l’e-mail doit être renvoyé toutes les heures",
+      "Il a expiré avec les identifiants temporaires du rôle ; signer au moment du clic",
+      "Une règle de cycle de vie du bucket a supprimé les fichiers ; il faut désactiver les règles de cycle de vie",
+      "Sept jours dépassent le maximum du SDK, donc il signe en silence pour une heure"
+    ],
+    "explain": "D’après la documentation S3, une URL signée avec des identifiants temporaires expire en même temps qu’eux, même si elle demandait plus longtemps ; sept jours ne sont possibles qu’avec les identifiants long terme d’un utilisateur IAM, que l’équipe vient de supprimer. Signer au moment du clic dans <code>GET /exports/orders.csv</code> garde des liens de courte durée et ne demande aucune clé long terme. La CLI et les SDK acceptent jusqu’à sept jours."
+  },
+  "m17.q25": {
+    "q": "EventBridge Scheduler a relancé l’export nocturne après un timeout, et la finance a trouvé deux fichiers pour la même nuit : <code>orders-2026-10-29-a81f.csv</code> et <code>orders-2026-10-29-c3d0.csv</code>. Quel changement rend les retries sûrs ?",
+    "options": [
+      "Désactiver les retries sur le planning, pour que chaque nuit s’exécute exactement une fois",
+      "Ajouter un délai aléatoire avant l’export pour que deux tentatives ne se chevauchent jamais",
+      "Dériver la clé de l’heure planifiée, pour qu’un retry écrase le fichier",
+      "Passer le timeout de la Lambda à 15 minutes pour que l’export n’expire jamais"
+    ],
+    "explain": "Scheduler livre au moins une fois, donc le handler doit être idempotent ; l’heure planifiée est la même pour toutes les tentatives d’une exécution, donc une clé qui en dérive transforme un retry en écrasement. Désactiver les retries échange des doublons contre des exports manquants, et un timeout plus long réduit les retries sans les supprimer."
+  },
+  "m17.q26": {
+    "q": "L’équipe envisage de passer le webhook de paiement sur Lambda. Au Black Friday, il reçoit 2 000 appels par seconde, de 0,5 s chacun. Que se passe-t-il avec les réglages par défaut ?",
+    "options": [
+      "1 000 environnements : tout le quota régional par défaut, et 1 000 connexions",
+      "4 000 environnements, et Lambda met les appels en trop en file jusqu’à ce qu’un se libère",
+      "Un seul environnement, parce que Node gère tous ces appels concurrents de façon asynchrone",
+      "2 000 environnements, un pour chaque appel arrivé dans la même seconde"
+    ],
+    "explain": "Concurrence = 2 000 requêtes par seconde × 0,5 s = 1 000, ce qui égale le quota de concurrence par défaut par région : les autres fonctions du compte sont donc throttlées aussi. Chaque environnement traite une requête à la fois et ouvre ses propres connexions, dix fois la limite par défaut de 100 de PostgreSQL, donc cette conception demande aussi RDS Proxy et de la concurrence réservée."
+  },
+  "m17.q27": {
+    "q": "Après avoir déplacé <code>aws_db_instance.orders</code> dans <code>modules/postgres</code>, le plan indique que l’ancienne adresse « will be destroyed » et que <code>module.orders_db.aws_db_instance.this</code> « will be created ». Quelle est la bonne correction ?",
+    "options": [
+      "Appliquer, puis restaurer la base depuis le snapshot final",
+      "Lancer <code>terraform apply -refresh-only</code> pour que Terraform remarque le déplacement",
+      "Ajouter <code>create_before_destroy</code> pour que la nouvelle base existe avant que l’ancienne disparaisse",
+      "Ajouter un bloc <code>moved</code> de l’ancienne adresse vers la nouvelle"
+    ],
+    "explain": "Terraform suit les objets par adresse : une nouvelle adresse ressemble à une nouvelle ressource, et celle qui manque à une suppression. Un bloc <code>moved</code> renomme l’adresse dans le state sans toucher à l’objet. <code>create_before_destroy</code> créerait une deuxième base vide ; restaurer depuis un snapshot perd toutes les commandes écrites depuis."
+  },
+  "m17.q28": {
+    "q": "Une pull request de « nettoyage » supprime tout l’appel <code>module \"orders_db\"</code>. Dans le module, la ressource RDS a <code>lifecycle { prevent_destroy = true }</code>. Qu’est-ce qui empêche réellement la suppression de la base ?",
+    "options": [
+      "<code>prevent_destroy</code>, qui reste enregistré dans le state après la suppression du bloc",
+      "<code>deletion_protection</code>, qu’AWS applique quel que soit l’outil",
+      "Rien : une fois mergé, l’apply supprime la base quoi qu’on ait réglé",
+      "Le backend S3, qui refuse les plans qui retirent des modules entiers"
+    ],
+    "explain": "La documentation de lifecycle indique que <code>prevent_destroy</code> n’empêche pas la destruction une fois la configuration de la ressource retirée, car le réglage disparaît avec le bloc. <code>deletion_protection</code> est un attribut de l’instance AWS, donc RDS refuse l’appel de suppression. Un garde-fou sur le plan pour les types protégés et un snapshot final ajoutent deux couches de plus."
+  },
+  "m17.q29": {
+    "q": "Le script de garde-fou de la section 11 s’exécute sur ce <code>plan.json</code>. Qu’affiche-t-il, et avec quel code de sortie ?",
+    "options": [
+      "« No protected resource is deleted. » avec le code de sortie 0, parce que la base est d’abord recréée",
+      "Les deux adresses, parce que les deux plans contiennent une suppression",
+      "Il signale <code>module.orders_db.aws_db_instance.this (create, delete)</code> et sort avec le code 1",
+      "Il lève une exception, parce que <code>[\"create\", \"delete\"]</code> n’est pas une liste d’actions valide"
+    ],
+    "explain": "Un remplacement s’écrit sous forme de deux actions, et <code>includes('delete')</code> attrape les deux ordres, comme le prévoit la documentation du format JSON de Terraform ; create-before-destroy détruit quand même l’ancienne base. La file SQS n’est pas un type protégé, donc seule la base est listée. Mesuré sur Node 24.11 avec exactement ce plan : une ligne, code de sortie 1."
+  },
+  "m17.q30": {
+    "q": "« Comment livrez-vous un service Node en production ? » Quelle réponse convaincrait un recruteur senior ?",
+    "options": [
+      "Checks de PR, une image scannée taguée au SHA, un déploiement OIDC approuvé par digest qui sait revenir en arrière, Terraform relu",
+      "On build l’image sur chaque serveur avec <code>docker compose up --build</code>, ce qui garde la préproduction et la production identiques",
+      "GitHub Actions avec une clé d’accès administrateur dans les secrets du dépôt, qui déploie <code>latest</code> à chaque push",
+      "On utilise Kubernetes, donc la plateforme s’occupe elle-même de la livraison, des health checks et du rollback"
+    ],
+    "explain": "La première réponse suit un commit et nomme le risque que chaque étape élimine : code non testé, images inconnues, clés de longue durée, pods pas prêts, infrastructure non relue. Builder sur le serveur recrée le problème des VM, une clé admin et <code>latest</code> sont ce que ce module supprime, et « Kubernetes s’en occupe » nomme un outil sans processus."
+  }
+}

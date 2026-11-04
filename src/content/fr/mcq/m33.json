@@ -1,0 +1,302 @@
+{
+  "m33.q1": {
+    "q": "Quelle est la principale différence entre un Server Component et un Client Component rendu en SSR ?",
+    "options": [
+      "Un Server Component produit du HTML sur le serveur, tandis que le SSR produit un payload JSON que le navigateur transforme en HTML",
+      "Son code n’atteint jamais le navigateur ; un Client Component rendu en SSR envoie quand même son code pour s’hydrater",
+      "Le SSR ne s’exécute qu’une fois au build, tandis que les Server Components s’exécutent à chaque requête et ne peuvent pas être mis en cache",
+      "Les Server Components ne peuvent pas récupérer de données eux-mêmes, donc le SSR reste nécessaire pour chaque page qui affiche des données"
+    ],
+    "explain": "Le SSR concerne le moment où le HTML est produit ; un Client Component rendu ainsi envoie quand même son JavaScript pour pouvoir s’hydrater. Un Server Component ne s’exécute que sur le serveur, au build ou à la requête, et n’en envoie aucun. La première option inverse les choses : le RSC Payload est la sortie sérialisée des Server Components, et le HTML vient du prérendu."
+  },
+  "m33.q2": {
+    "q": "<code>add-to-cart-button.tsx</code> commence par <code>'use client'</code> et importe <code>formatPrice</code> depuis <code>lib/money.ts</code>, qui n’a pas de directive. Où finit <code>formatPrice</code> ?",
+    "options": [
+      "Uniquement sur le serveur, car un module sans directive est côté serveur par défaut",
+      "Cela dépend de si <code>formatPrice</code> est async : les helpers async restent toujours sur le serveur",
+      "Nulle part : le build échoue tant que <code>lib/money.ts</code> n’a pas son propre <code>'use client'</code>",
+      "Dans le bundle client, car la directive couvre tout ce que le module importe"
+    ],
+    "explain": "React documente que <code>'use client'</code> marque le module et ses dépendances transitives comme du code client, pour qu’on n’ait pas à répéter la directive dans chaque helper. L’absence de directive ne garde pas un module sur le serveur ; seul <code>import 'server-only'</code> transformerait cet import en erreur de build."
+  },
+  "m33.q3": {
+    "q": "Quelle prop la page produit (un Server Component) peut-elle passer à un Client Component ?",
+    "options": [
+      "Une promesse des avis, que le Client Component déballe avec <code>use()</code> dans une boundary Suspense",
+      "Une fonction fléchée <code>onAddToCart</code> définie dans la page, que le bouton appelle au clic",
+      "Une instance de la classe <code>Product</code>, pour que le bouton puisse appeler <code>product.formatPrice()</code> lui-même",
+      "Un <code>Symbol('cart')</code> créé dans la page, utilisé comme identité stable du panier"
+    ],
+    "explain": "Les promesses font partie de la liste des props sérialisables de React, et Next.js documente le fait de passer une promesse non attendue et de la lire avec <code>use()</code> sous Suspense. Les fonctions classiques (hors Server Functions), les instances de classe et les symboles non enregistrés avec <code>Symbol.for</code> ne peuvent pas traverser la frontière."
+  },
+  "m33.q4": {
+    "q": "L’en-tête et le bloc prix appellent tous deux <code>getCurrentCustomer</code>, enveloppé avec <code>React.cache</code> dans un module partagé. Qu’est-ce que cela garantit ?",
+    "options": [
+      "Le client est mis en cache d’une requête à l’autre tant que le cookie de session est valide",
+      "Le résultat est partagé entre tous les visiteurs jusqu’à ce que le prochain déploiement l’invalide",
+      "Au sein d’une même requête serveur, les composants qui appellent la même fonction enveloppée partagent un seul appel",
+      "Le résultat est aussi mémoïsé dans le navigateur, donc l’hydratation ne récupère pas le client à nouveau"
+    ],
+    "explain": "React vide le cache à chaque requête serveur et ne le partage qu’entre les composants qui appellent la même fonction mémoïsée pendant le rendu. Ce n’est pas un cache inter-requêtes (c’est le rôle de <code>'use cache'</code>), donc les deux premières options sont fausses, et il est fait pour les Server Components, pas pour le navigateur."
+  },
+  "m33.q5": {
+    "q": "Une page rend un titre et un prix dans <code>&lt;Suspense fallback=\"Loading price...\"&gt;</code> ; le prix se résout au bout de 300 ms. Qu’envoie <code>renderToReadableStream</code> ?",
+    "options": [
+      "Rien tant que le prix n’est pas résolu, puis toute la page en un seul chunk",
+      "Le titre et le fallback d’abord, puis le prix avec un petit script d’échange",
+      "Le prix d’abord, car le contenu suspendu est envoyé avec une priorité plus haute que le shell",
+      "La page complète deux fois : une fois avec le fallback et une fois avec le prix"
+    ],
+    "explain": "Mesuré sur React 19.3.1 : le premier chunk est parti à 58 ms avec le titre et « Loading price... », le second à 305 ms avec le prix dans un élément masqué et le script d’échange inline. Tout attendre, c’est ce qu’exigerait un rendu sans streaming ; <code>renderToString</code> n’attend même pas et envoie le fallback."
+  },
+  "m33.q6": {
+    "q": "Le serveur a rendu « Livré d’ici mardi » et le premier rendu client produit « Livré d’ici mercredi ». Qu’a fait React 19.3.1 (mesuré) ?",
+    "options": [
+      "Il a signalé une erreur récupérable et reconstruit l’arbre côté client : mercredi",
+      "Il a gardé mardi en silence : l’hydratation ignore les différences de texte",
+      "Il a levé une erreur non interceptée, et le client a vu une page blanche au lieu du produit",
+      "Il a corrigé uniquement le nœud texte en mercredi, sans rien signaler au monitoring"
+    ],
+    "explain": "Mesuré avec hydrateRoot dans jsdom : <code>onRecoverableError</code> a reçu « Hydration failed because the server rendered text didn’t match the client. As a result this tree will be regenerated on the client », et le DOM a fini avec le texte du client. Garder le texte du serveur n’arrive qu’avec <code>suppressHydrationWarning</code>."
+  },
+  "m33.q7": {
+    "q": "Avec Cache Components activé, un composant lit <code>cookies()</code> et n’est dans aucune boundary Suspense. Que se passe-t-il ?",
+    "options": [
+      "<code>cookies()</code> renvoie un store de cookies vide pendant le prérendu, sans aucun avertissement",
+      "Toute l’application bascule en silence vers un rendu à la requête, page par page",
+      "Next.js le met en cache par visiteur, avec le cookie comme clé",
+      "Next.js signale la route comme bloquante et te demande d’ajouter une boundary Suspense"
+    ],
+    "explain": "Cache Components exige que les données d’exécution soient derrière une boundary Suspense pour que chaque route garde un shell statique ; l’overlay de dev affiche l’alerte de route bloquante et le build te guide pour corriger. Renvoyer des valeurs vides, c’est ce que fait <code>dynamic = 'force-static'</code> dans le modèle précédent, pas dans celui-ci."
+  },
+  "m33.q8": {
+    "q": "Dans une Server Action, un client met à jour son adresse de livraison enregistrée, et la page doit afficher la nouvelle adresse dans la même réponse. Quel appel ?",
+    "options": [
+      "<code>revalidateTag('address-' + customer.id, 'max')</code>",
+      "<code>revalidatePath('/')</code> depuis un Client Component",
+      "<code>updateTag('address-' + customer.id)</code>",
+      "<code>cacheLife('seconds')</code> sur la fonction qui lit l’adresse"
+    ],
+    "explain": "<code>updateTag</code> fait expirer le tag immédiatement, pour lire ses propres écritures, et est réservé aux Server Actions. <code>revalidateTag</code> avec un profil fait du stale-while-revalidate : le re-render propre à l’action n’attend pas les données fraîches, donc le client pourrait encore voir l’ancienne adresse."
+  },
+  "m33.q9": {
+    "q": "Quelle affirmation sur une Server Action exportée depuis <code>app/checkout/actions.ts</code> est vraie ?",
+    "options": [
+      "Quiconque peut envoyer le POST peut l’appeler, donc elle doit vérifier elle-même la session, la propriété et les entrées",
+      "Elle est privée, car Next.js chiffre les ids d’action et supprime les actions inutilisées",
+      "La vérification de connexion dans <code>app/checkout/page.tsx</code> la protège aussi, puisque la page rend le formulaire",
+      "Seul le formulaire qui l’importe peut l’appeler, car Next.js compare Origin et Host"
+    ],
+    "explain": "Next.js documente que les actions sont accessibles par des requêtes POST directes et qu’une vérification au niveau de la page ne s’étend pas aux actions qu’elle rend. Les ids chiffrés et la suppression du code mort réduisent l’exposition mais ne remplacent explicitement pas les vérifications dans chaque action ; la vérification d’Origin bloque les formulaires cross-site, pas une requête directe."
+  },
+  "m33.q10": {
+    "q": "Où doit se trouver <code>ORDERS_API_CLIENT_SECRET</code> dans la boutique ?",
+    "options": [
+      "<code>NEXT_PUBLIC_ORDERS_API_CLIENT_SECRET</code>, pour que les Client Components puissent appeler l’API directement",
+      "Une variable sans préfixe, lue uniquement dans un module DAL qui importe <code>server-only</code>",
+      "<code>publicRuntimeConfig</code> dans <code>next.config.ts</code>, qui la garde hors du bundle JavaScript",
+      "<code>localStorage</code>, écrit par la page de connexion et envoyé par le navigateur à chaque appel"
+    ],
+    "explain": "Les variables sans préfixe restent sur le serveur, et <code>server-only</code> transforme un import accidentel depuis un Client Component en erreur de build. Une variable <code>NEXT_PUBLIC_</code> est intégrée en dur dans le bundle du navigateur, ce qui publie le secret ; <code>publicRuntimeConfig</code> a été supprimé dans Next.js 16."
+  },
+  "m33.q11": {
+    "q": "<code>app/products/[slug]/error.tsx</code> existe. Quelle erreur n’intercepte-t-il <b>pas</b> ?",
+    "options": [
+      "Une erreur levée pendant le rendu de <code>page.tsx</code> dans le même dossier",
+      "Une erreur levée par un layout imbriqué dans un sous-dossier",
+      "Une erreur levée pendant le rendu d’un Client Component utilisé par la page",
+      "Une erreur levée par <code>app/products/[slug]/layout.tsx</code>"
+    ],
+    "explain": "Next.js documente que <code>error.js</code> enveloppe la page, loading, not-found et les layouts imbriqués, mais pas le <code>layout.js</code> de son propre segment. Une erreur à cet endroit remonte à la boundary du parent, ou à <code>global-error.tsx</code> pour le layout racine."
+  },
+  "m33.q12": {
+    "q": "Une ancienne page produit utilise <code>getStaticPaths</code> avec <code>fallback: 'blocking'</code>. Qu’est-ce qui le remplace dans l’App Router ?",
+    "options": [
+      "Un Server Component async sans cache, l’équivalent de <code>getServerSideProps</code>",
+      "Un Route Handler dans <code>route.ts</code> qui renvoie la liste des chemins au build",
+      "<code>generateStaticParams</code>, plus <code>dynamicParams</code> pour les slugs non listés",
+      "Un <code>loading.tsx</code> affiché pendant la génération"
+    ],
+    "explain": "Le guide de migration fait correspondre <code>getStaticPaths</code> à <code>generateStaticParams</code> et l’option <code>fallback</code> à <code>dynamicParams</code> ; <code>'blocking'</code> n’a pas d’équivalent direct car le streaming a rendu la différence négligeable. Les Route Handlers remplacent <code>pages/api</code>, pas les chemins statiques."
+  },
+  "m33.q13": {
+    "q": "Un recruteur demande : « <code>'use server'</code> est-il l’opposé de <code>'use client'</code> ? » Quelle réponse est exacte ?",
+    "options": [
+      "Non : les Server Components n’ont pas de directive ; <code>'use server'</code> marque les Server Functions",
+      "Oui : <code>'use server'</code> marque un composant comme Server Component, le défaut étant le client",
+      "Oui, mais seulement dans Next.js",
+      "Non : <code>'use server'</code> marque du code qui s’exécute une fois au build et jamais par requête"
+    ],
+    "explain": "react.dev le dit directement : une incompréhension courante consiste à croire que les Server Components sont signalés par <code>'use server'</code>, mais il n’existe pas de directive pour eux ; la directive concerne les Server Functions. C’est aussi pourquoi un fichier marqué <code>'use server'</code> expose des endpoints appelables."
+  },
+  "m33.q14": {
+    "q": "Chaque appel prend environ 200 ms et aucun ne dépend d’un autre. Quel changement mettriez-vous en production ?",
+    "options": [
+      "Envelopper les trois fonctions avec <code>React.cache</code> pour que leurs résultats soient réutilisés dans la requête",
+      "Marquer la page <code>'use client'</code> pour que le navigateur récupère les trois en parallèle après l’hydratation",
+      "<code>Promise.all</code> pour le produit et le stock ; les avis dans un enfant sous Suspense",
+      "Ajouter un <code>loading.tsx</code> et garder le code"
+    ],
+    "explain": "Les trois await séquentiels forment un waterfall serveur d’environ 600 ms ; des requêtes parallèles le ramènent à la plus lente, et streamer les avis facultatifs évite que le contenu LCP attende. <code>React.cache</code> ne fait que dédupliquer les appels répétés, et <code>loading.tsx</code> affiche un fallback mais laisse le waterfall en place."
+  },
+  "m33.q15": {
+    "q": "Combien de fois <code>fetchCurrentCustomer</code> s’exécute-t-il dans une requête ?",
+    "options": [
+      "Une fois : <code>cache</code> reconnaît que les deux wrappers pointent vers la même fonction sous-jacente",
+      "Deux fois : chaque appel à <code>cache</code> crée une nouvelle fonction mémoïsée avec son propre cache, séparé",
+      "Zéro : <code>cache</code> diffère l’appel jusqu’à ce qu’un Client Component lise réellement le client",
+      "Une fois par client, car la valeur mémoïsée est partagée entre ses requêtes"
+    ],
+    "explain": "React documente qu’appeler plusieurs fois <code>cache</code> avec la même fonction renvoie des fonctions mémoïsées différentes qui ne partagent pas de cache, donc les composants doivent importer une seule fonction mémoïsée définie au niveau du module. Et le cache ne s’étend jamais sur plusieurs requêtes, ce qui exclut la dernière option."
+  },
+  "m33.q16": {
+    "q": "La page rend son en-tête, puis un composant dans <code>&lt;Suspense&gt;</code> récupère le produit et appelle <code>notFound()</code> parce qu’il n’existe pas. Que reçoit le crawler ?",
+    "options": [
+      "Un statut 404 avec l’UI not-found, puisque <code>notFound()</code> le définit",
+      "Un statut 500, car <code>notFound()</code> lève une erreur pendant le streaming de la réponse",
+      "Un statut 410, car Next.js sait que le produit a été supprimé",
+      "Un statut 200 avec l’UI not-found et une balise meta <code>noindex</code>"
+    ],
+    "explain": "Les réponses en streaming commencent par 200 et le premier chunk fixe le statut ; Next.js streame ensuite l’UI not-found et ajoute <code>noindex</code> pour que l’URL sorte de l’index. Pour renvoyer un vrai 404, vérifie l’existence dans la page avant la première boundary Suspense."
+  },
+  "m33.q17": {
+    "q": "Un client qui revient a 3 articles dans un panier stocké dans <code>localStorage</code>. Que se passe-t-il au chargement de la page ?",
+    "options": [
+      "Un mismatch : le serveur rend 0 et le client 3 ; lire le stockage après le montage",
+      "Ça fonctionne : la vérification <code>typeof window</code> est la façon recommandée d’éviter les erreurs d’hydratation",
+      "Le serveur lève une ReferenceError sur <code>localStorage</code> et toute la page échoue à se rendre",
+      "React corrige 0 en 3 en silence"
+    ],
+    "explain": "La vérification s’exécute différemment sur le serveur et dans le navigateur, donc le premier rendu client diffère du HTML : mesuré dans jsdom, le serveur a envoyé 0, l’hydratation a signalé un mismatch de texte et le badge a fini à 3 après un re-render client. La garde évite la ReferenceError, c’est pourquoi le code a l’air sûr, mais elle crée le mismatch."
+  },
+  "m33.q18": {
+    "q": "Une description du CMS est rendue sous la forme <code>&lt;p&gt;&lt;p&gt;In stock&lt;/p&gt;&lt;/p&gt;</code> dans un Client Component. React rend les mêmes éléments côté serveur et côté client. Pourquoi l’hydratation échoue-t-elle quand même ?",
+    "options": [
+      "Le reconciler de React refuse les paragraphes imbriqués côté client, mais les accepte côté serveur",
+      "La minification de Next.js supprime le paragraphe intérieur",
+      "Le parser du navigateur ferme le premier <code>&lt;p&gt;</code> au second, donc le DOM diffère",
+      "Le serveur échappe le paragraphe intérieur en texte, donc le client voit un contenu différent"
+    ],
+    "explain": "Mesuré dans Chromium 156 : le balisage est devenu <code>&lt;p&gt;&lt;/p&gt;&lt;p&gt;In stock&lt;/p&gt;&lt;p&gt;&lt;/p&gt;</code>, donc React a trouvé un DOM différent et signalé une erreur d’hydratation, après avoir averti qu’un <code>&lt;p&gt;</code> ne peut pas être un descendant d’un <code>&lt;p&gt;</code>. La correction : un balisage valide, comme un wrapper <code>&lt;div&gt;</code>."
+  },
+  "m33.q19": {
+    "q": "Après l’avis de sécurité de décembre 2025 (CVE-2025-55182), un collègue affirme que la boutique est sûre parce qu’elle ne définit aucune Server Function. Ta réponse ?",
+    "options": [
+      "D’accord : seules les apps qui exposent des endpoints de Server Functions étaient concernées par cet avis",
+      "Pas forcément : les apps qui prennent en charge les RSC pouvaient être vulnérables sans elles ; il faut patcher",
+      "D’accord : les hébergeurs ont bloqué l’exploit sur leur edge, donc aucune mise à jour n’est nécessaire",
+      "Seules les parties en Pages Router sont concernées, donc terminer la migration vers l’App Router règle le problème"
+    ],
+    "explain": "Le billet de React indique qu’une app peut rester vulnérable si elle prend en charge les React Server Components, même sans endpoint de Server Function, et que les protections des hébergeurs ne doivent pas remplacer une mise à jour immédiate. Les apps sans serveur ou sans framework compatible RSC n’étaient pas concernées."
+  },
+  "m33.q20": {
+    "q": "Qu’est-ce qui ne va pas dans cette fonction mise en cache ?",
+    "options": [
+      "Rien : Next.js ajoute automatiquement la valeur du cookie à la clé de cache des fonctions mises en cache",
+      "La durée de vie est trop longue pour un prix",
+      "<code>getCurrentCustomer</code> doit aussi être enveloppé avec <code>React.cache</code> pour que la clé fonctionne",
+      "Les fonctions mises en cache ne peuvent pas lire les cookies, même via un helper : passe l’id en argument"
+    ],
+    "explain": "Next.js documente que les portées <code>'use cache'</code> ne peuvent pas accéder à <code>cookies()</code> ni à <code>headers()</code>, et la restriction suit la pile d’appels, en échouant avec <code>next-request-in-use-cache</code>. Passer l’id du client en argument l’intègre à la clé ; rien n’est ajouté automatiquement à la clé."
+  },
+  "m33.q21": {
+    "q": "Le back-office appelle le Route Handler <code>POST /api/revalidate</code> de la boutique après qu’un agent a modifié une description. Quelques secondes de contenu périmé ne posent pas de problème, et le handler ne doit pas bloquer. Quel appel ?",
+    "options": [
+      "<code>updateTag('product-' + slug)</code> depuis le handler",
+      "<code>revalidatePath('/', 'layout')</code> pour tout vider",
+      "<code>revalidateTag('product-' + slug, 'max')</code>",
+      "<code>cacheLife('seconds')</code> sur <code>getProduct</code> à la place"
+    ],
+    "explain": "<code>revalidateTag</code> avec un profil donne du stale-while-revalidate et est autorisé dans les Route Handlers ; les tags n’invalident que ce produit. <code>updateTag</code> est réservé aux Server Actions, invalider le chemin du layout racine est bien plus large que nécessaire, et une durée de vie <code>seconds</code> sort le produit du shell statique pour tous les visiteurs."
+  },
+  "m33.q22": {
+    "q": "Un candidat dit : « fetch dans un Server Component est mis en cache par défaut. » Quelle réponse est exacte en octobre 2026 ?",
+    "options": [
+      "Vrai dans Next.js 14 ; plus par défaut depuis Next.js 15 ; avec Cache Components, on met en cache explicitement avec <code>'use cache'</code>",
+      "Vrai dans toutes les versions : Next.js met toujours en cache les requêtes GET faites avec fetch jusqu’à une revalidation",
+      "Faux dans toutes les versions : Next.js n’a jamais mis en cache les résultats de fetch, seulement des pages rendues entières",
+      "Vrai seulement quand Cache Components est activé, car il met en cache chaque fetch fait pendant le rendu"
+    ],
+    "explain": "Next.js 15 a changé le comportement par défaut : les requêtes fetch et les Route Handlers GET ne sont plus mis en cache par défaut, et Cache Components (Next.js 16) rend la mise en cache opt-in via des directives. Cache Components fait l’inverse de la dernière option. Préciser d’abord la version, c’est tout l’enjeu de la question."
+  },
+  "m33.q23": {
+    "q": "Quelle est la vulnérabilité dans cette Server Action ?",
+    "options": [
+      "Il manque un token CSRF, et Next.js ne vérifie pas l’origine des requêtes de Server Action",
+      "Aucune vérification de propriété : n’importe quel client connecté peut annuler n’importe quelle commande par son id",
+      "Ce devrait être un Route Handler GET, car annuler une commande deux fois est de toute façon idempotent",
+      "Lever une erreur en l’absence de session divulgue la stack trace et le message au client"
+    ],
+    "explain": "L’authentification est vérifiée, l’autorisation sur l’objet ne l’est pas : l’id de commande vient du client, c’est donc une IDOR. Next.js compare déjà Origin et Host pour les actions, et en production les erreurs du serveur arrivent au navigateur sous forme de message générique avec un digest, donc les autres options ne sont pas le problème."
+  },
+  "m33.q24": {
+    "q": "Un double clic a créé deux commandes. Un coéquipier dit : « Next.js dispatche les Server Actions une par une pour chaque client, donc ça ne peut plus arriver. » Ta réponse ?",
+    "options": [
+      "Exact : le dispatch séquentiel rend chaque Server Action idempotente côté serveur",
+      "Désactiver le bouton pendant que l’action est en attente suffit ; aucun changement serveur n’est nécessaire",
+      "L’appeler via <code>Promise.all</code> pour fusionner les clics",
+      "Le dispatch est côté client ; le serveur ne met rien en file : utiliser une clé d’idempotence"
+    ],
+    "explain": "La doc de Next.js indique que le dispatch séquentiel relève du dispatcher client et que le serveur exécute chaque action à son arrivée : un second onglet, un retry ou un POST rejoué crée quand même une seconde requête. Seule une clé stockée par l’API Orders (M05) fait que le retry renvoie la première commande."
+  },
+  "m33.q25": {
+    "q": "Un attaquant ajoute <code>totalCents=1</code> aux données du formulaire « Passer la commande ». Que contient <code>parsed.data</code> (mesuré avec Zod 4.6.7) ?",
+    "options": [
+      "Seulement <code>cartId</code> et <code>idempotencyKey</code> : les clés que le schéma ne déclare pas sont supprimées",
+      "<code>cartId</code>, <code>idempotencyKey</code> et <code>totalCents: '1'</code>, gardé sous forme de chaîne",
+      "Rien : <code>safeParse</code> échoue car l’objet contient une clé inconnue",
+      "<code>totalCents: 1</code>, converti en nombre, à côté des deux ids"
+    ],
+    "explain": "Un objet Zod retire les clés qu’il ne déclare pas : le résultat mesuré ne contenait que les deux UUID. Échouer sur les clés inconnues exigerait un objet strict. Et de toute façon, l’action ne lit jamais un prix venant du client : c’est l’API Orders qui calcule le total."
+  },
+  "m33.q26": {
+    "q": "La commande est créée, pourtant le client voit « Could not place the order. ». Pourquoi ?",
+    "options": [
+      "<code>redirect</code> est interdit dans les Server Actions",
+      "<code>createOrder</code> lève une erreur après l’enregistrement de la commande, car l’API répond 201 Created",
+      "<code>redirect</code> lève une exception, et le <code>catch</code> l’avale : l’appeler après le try/catch",
+      "<code>redirect</code> a besoin d’un argument de statut 303 explicite quand il est appelé dans une Server Action"
+    ],
+    "explain": "La doc de redirect dit qu’il lève une erreur de contrôle de flux et doit être appelé hors du bloc try ; ici, le catch transforme une redirection réussie en message d’erreur. Les redirections sont autorisées dans les Server Actions, et Next.js choisit lui-même 303 pour les soumissions de formulaire sans JavaScript."
+  },
+  "m33.q27": {
+    "q": "Le back-office (une app Vite séparée) doit prévenir la boutique après la modification d’un produit. Server Action ou Route Handler ?",
+    "options": [
+      "Une Server Action, puisque les deux sont des requêtes POST et que l’id de l’action est dans le bundle client",
+      "Un Route Handler : une URL stable pour des appelants autres que ta propre UI",
+      "Une règle <code>proxy.ts</code> qui intercepte l’appel et invalide le produit avant le routage",
+      "Un Client Component qui appelle <code>router.refresh()</code>"
+    ],
+    "explain": "Les Server Actions sont référencées par des ids chiffrés propres à chaque build, faits pour être appelés par ta propre UI React ; une autre app a besoin d’un endpoint stable. Un Route Handler expose <code>POST /api/revalidate</code>, vérifie un secret partagé et appelle <code>revalidateTag</code>. Une règle de proxy ne fait qu’intercepter les requêtes avant le routage."
+  },
+  "m33.q28": {
+    "q": "La CI construit une seule image avec <code>NEXT_PUBLIC_PAYMENT_ENV=sandbox</code> ; la production exécute la même image avec <code>NEXT_PUBLIC_PAYMENT_ENV=live</code>. Que lit le code du navigateur ?",
+    "options": [
+      "<code>live</code>, car la variable d’environnement d’exécution l’emporte toujours",
+      "Une chaîne vide, car les valeurs du build et de l’exécution entrent en conflit",
+      "Rien : le conteneur refuse de démarrer quand une valeur publique change",
+      "<code>sandbox</code>, car les variables publiques sont intégrées en dur au build"
+    ],
+    "explain": "Next.js documente que les valeurs <code>NEXT_PUBLIC_</code> sont intégrées en dur dans le JavaScript pendant <code>next build</code> et figées : une image unique promue d’un environnement à l’autre garde la valeur du build. Les valeurs propres à chaque environnement doivent être lues sur le serveur au moment de la requête. Le remplacement par une chaîne vide, c’est ce qui arrive aux variables sans préfixe dans le code client."
+  },
+  "m33.q29": {
+    "q": "En production, l’API Orders échoue pendant le rendu d’un Server Component, et <code>error.tsx</code> affiche <code>error.message</code>. Que voit le client ?",
+    "options": [
+      "Le message d’origine avec toute la stack trace du serveur",
+      "Un message générique, avec un <code>digest</code> que tu peux rapprocher des logs serveur",
+      "Le corps d’erreur JSON que l’API Orders a renvoyé au serveur",
+      "Une chaîne vide, car les erreurs serveur ne lui sont jamais transmises"
+    ],
+    "explain": "Next.js remplace le message des erreurs transmises depuis les Server Components par un message générique accompagné d’un digest, pour éviter de divulguer des détails sensibles ; le message d’origine n’atteint le navigateur qu’en développement. C’est pourquoi <code>error.tsx</code> devrait loguer l’erreur et afficher une phrase fixe."
+  },
+  "m33.q30": {
+    "q": "Lequel des écrans de la boutique ne passerais-tu <b>pas</b> en Server Components ?",
+    "options": [
+      "Le tableau des commandes du back-office : connecté, sans SEO, beaucoup de state client",
+      "La page produit de la boutique, qui doit être indexée par Google et s’afficher vite sur mobile",
+      "Les landing pages marketing, qui ne changent que quand l’équipe contenu publie dans le CMS",
+      "La page de confirmation de commande, qui affiche une commande lue depuis l’API Orders"
+    ],
+    "explain": "Les Server Components sont rentables pour le SEO, le premier affichage et le fait de garder l’accès aux données sur le serveur ; un tableau très interactif derrière une connexion y gagne peu et tourne déjà bien en SPA Vite avec TanStack Query. Les trois autres écrans sont exactement ceux où un shell statique et des données serveur aident le plus."
+  }
+}

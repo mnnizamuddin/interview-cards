@@ -1,0 +1,302 @@
+{
+  "m16.q1": {
+    "q": "Dans une épreuve de system design, qu’évalue principalement le recruteur ?",
+    "options": [
+      "Si ton diagramme final correspond à l’architecture que l’entreprise utilise réellement",
+      "Ta façon de raisonner : clarifier les exigences, laisser les chiffres guider les choix et nommer ce que coûte chaque choix",
+      "Le nombre de technologies que tu sais nommer et placer sur le diagramme",
+      "Si tu termines chaque étape de la méthode avant la fin du temps imparti"
+    ],
+    "explain": "Il n’y a pas de design unique et correct, donc l’épreuve évalue le raisonnement qui mène à un design. Personne n’attend que tu retrouves l’architecture réelle de l’entreprise, et citer beaucoup de technologies sans exigence derrière est un signal négatif."
+  },
+  "m16.q2": {
+    "q": "Laquelle de ces exigences est <b>non fonctionnelle</b> pour le checkout de la vente flash ?",
+    "options": [
+      "Les clients peuvent réserver une console chacun",
+      "Une réservation expire après 10 minutes",
+      "Le checkout répond en moins de 300 ms au 99e percentile pendant le pic",
+      "Les clients reçoivent un e-mail de confirmation après avoir payé"
+    ],
+    "explain": "Une exigence non fonctionnelle dit à quel point le système doit bien fonctionner (latence, disponibilité, échelle, durabilité). Les trois autres décrivent ce que fait le système, donc elles sont fonctionnelles. L’objectif de latence pendant le pic est le genre d’exigence qui justifie ensuite une réponse « épuisé » bon marché servie depuis le cache."
+  },
+  "m16.q3": {
+    "q": "Tu supposes un million de clients en attente, chacun rafraîchissant la page produit toutes les 2 secondes. Combien de lectures de page par seconde, à peu près ?",
+    "options": [
+      "Environ 5 000",
+      "Environ 50 000",
+      "Environ 5 000 000",
+      "Environ 500 000"
+    ],
+    "explain": "1 000 000 clients / 2 secondes = 500 000 lectures par seconde (recalculé dans Node). 5 000 000 vient d’une multiplication par l’intervalle au lieu d’une division. À ce rythme, la page produit et son compteur de stock doivent venir d’un CDN ou d’un cache, jamais de la base."
+  },
+  "m16.q4": {
+    "q": "Un service traite 1 million de requêtes par jour, réparties uniformément. Cela fait environ combien de requêtes par seconde ?",
+    "options": [
+      "Environ 12",
+      "Environ 120",
+      "Environ 1,2",
+      "Environ 1 200"
+    ],
+    "explain": "1 000 000 / 86 400 secondes ≈ 11,6, donc environ 12 par seconde. Ça vaut la peine de le retenir : un million par jour est une petite charge qu’un seul serveur encaisse facilement, c’est pourquoi le pic compte plus que le total quotidien, comme le montre la vente flash avec 1 million de tentatives en une minute."
+  },
+  "m16.q5": {
+    "q": "Trois services (e-mails, analytics, comptabilité) doivent chacun lire chaque événement <code>order.paid</code>, et un service antifraude ajouté le mois prochain doit pouvoir rejouer les événements de la semaine dernière. Quelle brique convient ?",
+    "options": [
+      "Une file comme SQS, car elle livre chaque message à un worker",
+      "Un log comme Kafka, car les événements restent pendant une durée de rétention et chaque consommateur lit le flux",
+      "Un réplica en lecture de la base des commandes",
+      "Un cache à longue expiration contenant les derniers événements"
+    ],
+    "explain": "Kafka documente que les événements ne sont pas supprimés après consommation et sont conservés pendant une rétention configurable, donc plusieurs consommateurs lisent le même flux et un nouveau peut le rejouer. Une file remet chaque message à un seul consommateur et le supprime une fois traité, donc elle ne peut pas servir trois lecteurs plus un rejeu."
+  },
+  "m16.q6": {
+    "q": "La page « Mes commandes » lit depuis un réplica en lecture. Juste après avoir payé, un client l’ouvre et voit la commande toujours en attente de paiement. Que se passe-t-il ?",
+    "options": [
+      "Le pattern cache-aside a renvoyé une entrée expirée",
+      "La primaire a rejeté la mise à jour du paiement et le webhook ne l’a pas remarqué",
+      "Le load balancer a envoyé la requête à une instance en mauvaise santé",
+      "Le retard de réplication : la lecture est allée sur un réplica qui n’avait pas encore appliqué l’écriture"
+    ],
+    "explain": "Les réplicas appliquent les changements de la primaire un peu plus tard, donc une lecture envoyée à un réplica juste après une écriture peut la manquer. Le correctif habituel est le read-your-writes : envoyer les lectures de ce client vers la primaire pendant un court moment après une écriture. Aucun cache n’intervient dans le scénario, donc l’expiration du cache ne l’explique pas."
+  },
+  "m16.q7": {
+    "q": "Que contraint réellement le théorème CAP ?",
+    "options": [
+      "Ce qu’un stockage répliqué peut faire pendant une partition réseau : renvoyer des données peut-être périmées, ou refuser de répondre",
+      "Tout système distribué, en permanence : il ne peut jamais avoir que deux propriétés parmi cohérence, disponibilité et tolérance au partitionnement",
+      "Le compromis entre latence et cohérence quand le réseau fonctionne bien",
+      "Si une base de données prend en charge les transactions sur plusieurs tables"
+    ],
+    "explain": "CAP dit que pendant une partition, un système doit choisir entre la cohérence (la dernière écriture ou une erreur) et la disponibilité (une réponse sans erreur de chaque nœud qui fonctionne). Sans partition, les deux sont possibles, donc « en choisir deux en permanence » est le contresens courant. Le compromis entre latence et cohérence quand le réseau va bien, c’est ce qu’ajoute PACELC."
+  },
+  "m16.q8": {
+    "q": "Le webhook de paiement enregistre chaque id d’événement dans une table <code>processed_events</code>. Pourquoi cette insertion doit-elle être dans la même transaction que les effets ?",
+    "options": [
+      "Parce que PostgreSQL refuse une clause <code>ON CONFLICT</code> hors d’une transaction",
+      "Pour que le prestataire de paiement ne livre chaque événement qu’une fois",
+      "Pour qu’un crash laisse soit l’id et les effets, soit ni l’un ni les autres, et qu’une relivraison applique les effets exactement une fois",
+      "Pour accélérer l’insertion en la regroupant avec les mises à jour"
+    ],
+    "explain": "Si l’id était commité sans les effets, un crash ferait sauter à la relivraison un travail qui n’a jamais eu lieu ; si les effets étaient commités sans l’id, la relivraison les appliquerait deux fois. Commiter les deux ensemble donne un effet exactly-once au-dessus d’une livraison at-least-once. Le prestataire relivre toujours ; c’est le consommateur qui rend cela inoffensif."
+  },
+  "m16.q9": {
+    "q": "Un limiteur à fenêtre fixe autorise 100 requêtes par minute. Un client envoie 100 requêtes à 59,9 s et 100 de plus à 60,0 s. Combien sont acceptées ?",
+    "options": [
+      "100",
+      "200",
+      "150",
+      "0, car le client a dépassé la limite"
+    ],
+    "explain": "Le compteur se réinitialise à la frontière de la minute, donc le second lot tombe dans une nouvelle fenêtre. Mesuré sur Node 24 : la fenêtre fixe en a accepté 200 alors qu’un compteur à fenêtre glissante en a accepté 100. Cette double rafale à la frontière est la faiblesse classique de la fenêtre fixe."
+  },
+  "m16.q10": {
+    "q": "Un token bucket a une capacité de 5 et se recharge de 2 tokens par seconde. Un client envoie 5 requêtes à t = 0. Quand la requête suivante est-elle autorisée ?",
+    "options": [
+      "À t = 2 500 ms, quand le bucket est de nouveau plein",
+      "À t = 1 000 ms",
+      "Pas avant le début de la minute suivante",
+      "À t = 500 ms"
+    ],
+    "explain": "2 tokens par seconde, c’est un token toutes les 500 ms, et un token suffit pour une requête. Exécuté avec le token bucket du module : une sixième requête à 0 ms est refusée avec une attente de 500 ms, et la requête à 500 ms est autorisée. Il n’est pas nécessaire d’attendre que le bucket soit plein."
+  },
+  "m16.q11": {
+    "q": "L’équipe produit veut le nombre de clics sur chaque lien court. Quel statut de redirection renvoies-tu ?",
+    "options": [
+      "302, car les caches peuvent réutiliser un 301 et les clics suivants ne t’atteindraient pas",
+      "301, car c’est le plus rapide pour les utilisateurs",
+      "308, car il conserve la méthode de la requête",
+      "200 avec une page HTML qui redirige en JavaScript"
+    ],
+    "explain": "La RFC 9110 indique que 301 et 308 sont cachables par heuristique, et qu’après un 302 le client devrait continuer à utiliser l’URL d’origine. Un 301 en cache, ce sont des clics que tu ne vois jamais et une cible que tu ne peux plus changer. 308 a le même problème de cache que 301."
+  },
+  "m16.q12": {
+    "q": "Pourquoi utiliser des files séparées par canal et par priorité (par exemple <code>push.urgent</code>, <code>push.bulk</code>, <code>sms</code>) ?",
+    "options": [
+      "Parce que chaque prestataire exige sa propre technologie de file",
+      "Pour garantir que chaque message est livré exactement une fois",
+      "Pour qu’un prestataire lent ou une campagne de 10 millions ne retarde pas les codes de connexion ni les autres canaux",
+      "Pour réduire le coût de stockage de la file"
+    ],
+    "explain": "Une seule file partagée signifie qu’une rafale de campagne ou un prestataire SMS lent retient tout ce qui est derrière. Des files séparées laissent les messages urgents et les canaux en bonne santé continuer à avancer avec leurs propres workers. L’organisation des files n’apporte rien à l’exactly-once ; c’est la déduplication qui gère les doublons."
+  },
+  "m16.q13": {
+    "q": "L’API Orders tourne sur 10 réplicas derrière un load balancer, chacun avec un limiteur en mémoire de 100 requêtes par minute et par client. Qu’obtient réellement un client ?",
+    "options": [
+      "Exactement 100 par minute",
+      "Environ 10 par minute",
+      "Jusqu’à environ 1 000 par minute, réparties sur les réplicas",
+      "Illimité, car l’état en mémoire se réinitialise à chaque requête"
+    ],
+    "explain": "Chaque réplica ne compte que ce qu’il voit, donc un client réparti uniformément obtient 10 × 100. Le correctif est un état partagé dans Redis ou Valkey avec une mise à jour atomique, ou diviser la limite par le nombre de réplicas en acceptant l’imprécision. L’état en mémoire ne se réinitialise pas à chaque requête ; il vit aussi longtemps que le processus."
+  },
+  "m16.q14": {
+    "q": "Un collègue implémente le limiteur distribué comme ceci. Sous charge, des clients dépassent parfois la limite. Pourquoi ?",
+    "options": [
+      "La lecture et l’écriture sont deux commandes séparées, donc deux réplicas peuvent lire le même compteur et accepter tous les deux",
+      "L’expiration de 60 secondes réinitialise le compteur à chaque requête",
+      "<code>Number(null)</code> renvoie <code>NaN</code>, donc la comparaison est toujours fausse",
+      "Redis convertit le compteur en flottant et perd de la précision"
+    ],
+    "explain": "Entre le GET et le SET, un autre réplica peut exécuter le même GET et voir la même valeur, donc les deux acceptent la dernière place : la race condition check-then-act de la section 5, dans Redis. Le correctif est une seule opération atomique, un INCR avec expiration ou un script Lua, que Redis exécute sans intercaler d’autres commandes. Le code utilise <code>?? 0</code>, donc une clé absente donne 0, pas NaN."
+  },
+  "m16.q15": {
+    "q": "Une tentative de checkout est refusée, et le prochain token arrive dans 1 001 ms. Qu’envoies-tu dans <code>Retry-After</code> ?",
+    "options": [
+      "1",
+      "1001",
+      "2",
+      "1.001"
+    ],
+    "explain": "La RFC 9110 définit la forme délai de Retry-After comme un nombre entier de secondes. Arrondir 1,001 s à 1 vers le bas provoque un nouvel essai qui sera de nouveau refusé, donc arrondis vers le haut à 2. Les millisecondes (1001) et les décimales (1.001) ne sont pas des valeurs valides."
+  },
+  "m16.q16": {
+    "q": "Le Valkey derrière tes limiteurs devient injoignable. Que fais-tu pour la limite générale par client et pour la limite des tentatives de connexion ?",
+    "options": [
+      "Fail closed pour les deux, car une API non protégée est pire qu’une API indisponible",
+      "Fail open pour la limite par client avec une alerte dans les logs ; fail closed pour les tentatives de connexion",
+      "Fail open pour les deux, car la disponibilité passe toujours en premier",
+      "Arrêter les réplicas de l’API pour que le load balancer les retire jusqu’au retour de Valkey"
+    ],
+    "explain": "Une panne du limiteur ne doit pas devenir une panne de l’API : Stripe écrit que les requêtes ne devraient pas être affectées si Redis tombe. Les limites de connexion protègent contre la force brute, et laisser passer toutes les tentatives est exactement ce que veut un attaquant, donc elles échouent fermées. Traiter les deux de la même façon ignore ce que protège chaque limite."
+  },
+  "m16.q17": {
+    "q": "Avec le <code>createTokenBucket</code> du module, qu’affiche ce code ?",
+    "options": [
+      "15",
+      "30",
+      "9",
+      "10"
+    ],
+    "explain": "Après 30 s, le bucket contiendrait 39 tokens, mais la recharge est plafonnée à la capacité de 10, donc 10 des 15 requêtes passent (mesuré sur Node 24). C’est ce plafond qui borne une rafale après une période calme. 15 ou 30 voudrait dire que le bucket n’a pas de limite de capacité."
+  },
+  "m16.q18": {
+    "q": "Tu génères des numéros de commande aléatoires de 7 caractères en base 62. À partir de quand, à peu près, la probabilité d’au moins une collision atteint-elle 50 % ?",
+    "options": [
+      "Après environ 2,2 millions de numéros",
+      "Quand l’espace est à moitié plein, vers 1 760 milliards de numéros",
+      "Jamais, si le générateur aléatoire est cryptographiquement sûr",
+      "Après environ 3,5 milliards de numéros"
+    ],
+    "explain": "Le paradoxe des anniversaires : le seuil des 50 % est à environ 1,18 × √(62<sup>7</sup>) ≈ 2,2 millions, bien avant que l’espace se remplisse. Un générateur sûr reste aléatoire, donc il produit des collisions au même rythme. Les codes aléatoires ont donc toujours besoin d’une contrainte d’unicité et d’un nouvel essai."
+  },
+  "m16.q19": {
+    "q": "Quel est le principal problème des numéros de commande issus d’une séquence de la base écrite en base 62 ?",
+    "options": [
+      "Ils entrent en collision une fois que la séquence dépasse 62<sup>6</sup>",
+      "On ne peut pas les décoder pour retrouver l’id",
+      "Ils sont plus longs que des codes aléatoires pour le même nombre de commandes",
+      "Ils sont devinables : n’importe qui peut parcourir les numéros, et deux commandes révèlent ton volume de ventes"
+    ],
+    "explain": "Une séquence n’entre jamais en collision et est aussi courte que n’importe quel code pour le même nombre. Mais des numéros consécutifs peuvent être parcourus un par un, et deux commandes passées à quelques minutes d’intervalle disent à un concurrent combien d’unités tu as vendues. Parades : des codes aléatoires avec vérification d’unicité, ou un mélange réversible de l’id (multiplier par un nombre premier avec 62<sup>7</sup>, modulo 62<sup>7</sup>)."
+  },
+  "m16.q20": {
+    "q": "Avec l’<code>encodeBase62</code> du module (alphabet <code>0-9a-zA-Z</code>), qu’affiche ce code ?",
+    "options": [
+      "<code>100 Z</code>",
+      "<code>ZZ z</code>",
+      "<code>100 z</code>",
+      "<code>1000 Z</code>"
+    ],
+    "explain": "3 844 vaut 62<sup>2</sup>, donc il s’écrit 1 suivi de deux zéros, comme 100 en base 10 ; 61 est le dernier chiffre de l’alphabet, le Z majuscule. Mesuré sur Node 24 : <code>100 Z</code>. Le z minuscule est le chiffre 35, et ZZ vaut 3 843."
+  },
+  "m16.q21": {
+    "q": "La table des liens dépasse ce que peut tenir une seule primaire et tu dois la sharder. Quelle clé de sharding ?",
+    "options": [
+      "La date de création, pour que les liens récents soient stockés ensemble",
+      "Le pays du propriétaire, pour que les données restent proches des utilisateurs",
+      "Un hash du code court, puisque chaque redirection recherche exactement un code",
+      "La longueur de l’URL cible"
+    ],
+    "explain": "Le chemin critique est « trouver l’URL de ce code », donc hasher le code envoie chaque recherche vers exactement un shard et répartit la charge uniformément. Sharder par date met chaque nouveau lien, et la plupart des clics, sur le shard le plus récent : un shard chaud. Le pays donne des shards très inégaux et nécessite quand même le code pour trouver la ligne."
+  },
+  "m16.q22": {
+    "q": "Au pic, le raccourcisseur sert environ 11 600 redirections par seconde. Comment comptes-tu les clics ?",
+    "options": [
+      "Exécuter <code>UPDATE links SET clicks = clicks + 1</code> dans chaque redirection, dans la même transaction",
+      "Publier un événement de clic vers une file ou un log depuis la redirection et agréger les compteurs de façon asynchrone",
+      "Utiliser des redirections 301 et lire les compteurs dans le cache du navigateur",
+      "Compter les clics dans la mémoire de chaque instance et ne jamais les persister"
+    ],
+    "explain": "Une mise à jour par clic transforme le chemin de lecture en chemin d’écriture et fait des liens viraux une ligne chaude avec de la contention sur les verrous. Un événement publié dans une file ou un log garde la redirection à une seule lecture de cache, et les compteurs deviennent cohérents à terme, ce que l’exigence autorise. Le 301 cache les clics ; des compteurs uniquement en mémoire sont perdus au redémarrage."
+  },
+  "m16.q23": {
+    "q": "Un collègue propose d’afficher la clé primaire UUIDv7 (<code>uuidv7()</code> de PostgreSQL 18) comme numéro de commande dans l’e-mail de confirmation. Que réponds-tu ?",
+    "options": [
+      "Bonne idée : UUIDv7 est aléatoire, donc les numéros sont impossibles à deviner et courts",
+      "Impossible : PostgreSQL ne sait pas générer d’UUIDv7",
+      "Bonne idée, à condition de tronquer chacun à 7 caractères, ce qui le garde unique",
+      "Très bien comme clé primaire, mais 128 bits font 22 caractères en base 62, trop long pour un numéro de commande, et son préfixe est un timestamp"
+    ],
+    "explain": "UUIDv7 commence par un timestamp de 48 bits en millisecondes (RFC 9562), ce qui en fait une bonne clé primaire ordonnée dans le temps, et PostgreSQL 18 sait le générer. Mais 128 bits demandent 22 caractères en base 62, et tronquer fait perdre la garantie d’unicité. Garde l’UUID comme clé et génère un numéro de commande court à part."
+  },
+  "m16.q24": {
+    "q": "Un worker push appelle le prestataire avec succès, puis plante avant d’acquitter le message de la file, qui est relivré. Comment éviter un push en double ?",
+    "options": [
+      "Configurer la file pour une livraison exactly-once, ce qui règle le problème de bout en bout",
+      "Stocker une clé de déduplication comme (id de notification, canal) et faire sauter au worker les messages déjà envoyés",
+      "Acquitter le message avant d’appeler le prestataire",
+      "Ne jamais relancer les notifications push"
+    ],
+    "explain": "La relivraison est le comportement at-least-once normal, et une clé de déduplication vérifiée avant l’appel rend les doublons rares. Acquitter d’abord transforme les doublons en messages perdus, et aucun réglage de file ne rend exactly-once un appel à un prestataire externe, puisque le prestataire est en dehors de la transaction de la file."
+  },
+  "m16.q25": {
+    "q": "Le service de notifications insère la ligne de notification, commite, puis publie dans la file. Rarement, une notification n’est jamais envoyée. Que changes-tu ?",
+    "options": [
+      "Publier dans la file d’abord, puis insérer la ligne",
+      "Relancer la publication trois fois dans la requête",
+      "Écrire une ligne d’outbox dans la même transaction que la notification et laisser un relais la publier",
+      "Utiliser une file plus rapide pour réduire l’écart entre le commit et la publication"
+    ],
+    "explain": "Deux écritures séparées peuvent échouer à mi-chemin : un crash après le commit et avant la publication perd le message. L’outbox fait entrer le message dans la même transaction, et un relais le publie plus tard, au moins une fois. Publier d’abord ne fait que déplacer l’écart (un message pour une ligne jamais commitée), et les retries ne survivent pas à un crash."
+  },
+  "m16.q26": {
+    "q": "Avec 10 millions d’utilisateurs et 5 notifications par utilisateur et par jour, plus le push de 9 h 50 envoyé à tous les utilisateurs en 10 minutes, qu’est-ce qui dimensionne la file et les workers ?",
+    "options": [
+      "Le pic de la campagne, environ 16 700 par seconde, soit environ 29 fois la moyenne",
+      "Le total quotidien de 50 millions, réparti uniformément sur la journée",
+      "La moyenne d’environ 580 par seconde, avec 20 % de marge",
+      "Le nombre de canaux, puisque chacun a besoin d’un worker"
+    ],
+    "explain": "10 000 000 / 600 s ≈ 16 700 par seconde, contre une moyenne de 50 000 000 / 86 400 ≈ 580 (recalculé dans Node : un rapport de 28,8). Dimensionner pour la moyenne laisserait la campagne en file pendant des heures. Les files absorbent la rafale, et des workers en autoscaling la vident au rythme qu’acceptent les prestataires."
+  },
+  "m16.q27": {
+    "q": "Laquelle de ces fonctionnalités de la boutique a vraiment besoin d’une cohérence forte ?",
+    "options": [
+      "Le stock restant affiché sur la page produit",
+      "Le compteur de non-lus dans la boîte de notifications de l’app",
+      "La liste « populaire en ce moment » de la page d’accueil",
+      "Attribuer à un client l’une des 10 000 consoles"
+    ],
+    "explain": "Deux clients ne doivent jamais obtenir tous les deux la dernière console, donc la décision doit venir d’un seul endroit qui fait autorité : une mise à jour conditionnelle sur la primaire. Le stock affiché, les badges et les listes de popularité tolèrent quelques secondes de retard, donc ils peuvent être cohérents à terme et servis depuis des caches ou des réplicas."
+  },
+  "m16.q28": {
+    "q": "Une équipe de 8 ingénieurs démarre un nouveau produit au trafic incertain. Le recruteur demande comment tu structurerais le backend. Quelle est la meilleure réponse ?",
+    "options": [
+      "Un microservice par entité dès le premier jour, pour que chacun puisse scaler indépendamment plus tard",
+      "Un monolithe modulaire sur un PostgreSQL managé, avec des frontières de modules qui permettent d’extraire un service quand une raison concrète apparaît",
+      "Un cluster Kubernetes auto-hébergé avec Kafka entre chaque composant, pour être prêt à n’importe quelle échelle",
+      "Des fonctions serverless pour chaque endpoint, sans base partagée"
+    ],
+    "explain": "Un monolithe modulaire garde les transactions, le refactoring et l’exploitation bon marché pour une petite équipe, et des frontières de modules strictes laissent possible une extraction ultérieure. Découper avant d’avoir une raison (scaling indépendant, rythme de release, ownership d’équipe) ajoute des pannes réseau et des coûts d’exploitation sans aucun bénéfice pour l’instant."
+  },
+  "m16.q29": {
+    "q": "Tu as terminé le design de la vente flash. Le recruteur dit : « L’an prochain, 10 millions de clients et 100 000 unités. » Quelle est ta première action ?",
+    "options": [
+      "Sharder la base, puisqu’elle sera le goulot d’étranglement",
+      "Passer chaque composant en microservices pour que chacun scale seul",
+      "Refaire les estimations et trouver quel composant dépasse sa limite en premier",
+      "Doubler la capacité de chaque composant, puis la multiplier par cinq"
+    ],
+    "explain": "Le passage à l’échelle part des chiffres : les tentatives passent d’environ 16 700 à environ 167 000 par seconde et les lectures de page à 5 millions, alors que les paiements (environ 170 par seconde) tiennent toujours sur une seule primaire. Ce sont donc la ligne de stock, le cache et le CDN qui changent. Sharder d’abord fait scaler la partie qui n’était pas le problème."
+  },
+  "m16.q30": {
+    "q": "Ta base attend qu’un réplica dans une autre région confirme chaque écriture avant de répondre au client. Aucune partition réseau n’est en cours. En termes de PACELC, qu’échanges-tu ?",
+    "options": [
+      "La disponibilité contre la tolérance au partitionnement",
+      "La cohérence contre la disponibilité",
+      "La durabilité contre le débit",
+      "La latence contre la cohérence : chaque écriture est plus lente pour que les deux régions soient d’accord"
+    ],
+    "explain": "PACELC dit que sinon (Else), en l’absence de partition, un système arbitre entre latence et cohérence. Attendre le réplica distant ajoute un aller-retour inter-régions à chaque écriture en échange de données cohérentes dans les deux régions. Cohérence contre disponibilité, c’est le choix que décrit CAP pendant une partition, ce qui n’est pas le cas ici."
+  }
+}

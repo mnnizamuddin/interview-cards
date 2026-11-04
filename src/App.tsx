@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TOPICS, type Topic } from './content/catalog.ts';
 import { loadContent, type Content } from './content/load.ts';
+import { useLanguage } from './i18n/index.ts';
+import type { Language } from './i18n/language.ts';
 import { toDayKey } from './play/day.ts';
 import { emptyProgress, type Progress } from './play/progress.ts';
 import { weakTopicIds } from './play/review.ts';
@@ -41,13 +43,13 @@ function topicsFor(screen: Screen): readonly Topic[] {
   }
 }
 
-type Loaded = { screen: Screen; content: Content } | { screen: Screen; failed: true };
+type Loaded = { screen: Screen; language: Language; content: Content } | { screen: Screen; language: Language; failed: true };
 
 /**
- * Loads the content of the current screen. The home screen needs none: it only lists topics.
- * Returns `undefined` while loading, and `failed` when the files could not be downloaded.
+ * Loads the content of the current screen in `language`. The home screen needs none: it only lists
+ * topics. Returns `undefined` while loading, and `failed` when the files could not be downloaded.
  */
-function useScreenContent(screen: Screen): Content | 'failed' | undefined {
+function useScreenContent(screen: Screen, language: Language): Content | 'failed' | undefined {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
 
   useEffect(() => {
@@ -55,24 +57,24 @@ function useScreenContent(screen: Screen): Content | 'failed' | undefined {
       return;
     }
     let cancelled = false;
-    loadContent(topicsFor(screen)).then(
+    loadContent(topicsFor(screen), language).then(
       (content) => {
         if (!cancelled) {
-          setLoaded({ screen, content });
+          setLoaded({ screen, language, content });
         }
       },
       () => {
         if (!cancelled) {
-          setLoaded({ screen, failed: true });
+          setLoaded({ screen, language, failed: true });
         }
       },
     );
     return () => {
       cancelled = true;
     };
-  }, [screen]);
+  }, [screen, language]);
 
-  if (!loaded || loaded.screen !== screen) {
+  if (!loaded || loaded.screen !== screen || loaded.language !== language) {
     return undefined;
   }
   return 'failed' in loaded ? 'failed' : loaded.content;
@@ -88,7 +90,7 @@ export function App({ store, now, random }: { store: ProgressStore; now: () => D
   const units = useUnits();
   const [progress, setProgress] = useState<Progress | null>(null);
   const [screen, setScreen] = useState<Screen>({ name: 'home' });
-  const content = useScreenContent(screen);
+  const content = useScreenContent(screen, useLanguage());
 
   useEffect(() => {
     let cancelled = false;

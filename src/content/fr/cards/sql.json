@@ -1,0 +1,866 @@
+{
+  "sql-joins": {
+    "topic": "Jointures et nombre de lignes",
+    "question": "Combien de lignes une jointure renvoie-t-elle, et pourquoi un `LEFT JOIN` avec un filtre dans le `WHERE` peut-il perdre des lignes ?",
+    "answer": "Une jointure renvoie les paires qui correspondent, plus les lignes sans correspondance de chaque côté qu’elle conserve. Une jointure interne ne garde que les paires, une jointure gauche ajoute chaque ligne de gauche qui n’a rien trouvé, avec `NULL` à droite, et une jointure complète ajoute les lignes sans correspondance des deux côtés. Une jointure ne perd jamais de lignes d’un côté qu’elle conserve, mais elle répète une ligne une fois par correspondance : un client avec cinq commandes devient cinq lignes. Un filtre sur le côté optionnel va dans le `ON` : dans le `WHERE`, il s’exécute après le remplissage, supprime les lignes à `NULL` et transforme sans bruit la jointure gauche en jointure interne.",
+    "keyPoints": [
+      "Lignes = paires qui correspondent + lignes sans correspondance de chaque côté conservé",
+      "Une ligne est répétée une fois par correspondance : le un-à-plusieurs multiplie",
+      "Une jointure gauche remplit de `NULL` les lignes de gauche sans correspondance",
+      "Filtrer le côté optionnel dans le `ON`, pas dans le `WHERE`"
+    ],
+    "explanation": "Les recruteurs te donnent une jointure et demandent le nombre de lignes avant de l’exécuter, parce qu’un mauvais compte est derrière la plupart des bugs de reporting. Une réponse senior prédit le nombre à partir des données, explique la multiplication par les relations un-à-plusieurs, et repère le `WHERE` qui annule une jointure gauche.",
+    "example": "Le marketing voulait chaque client avec ses commandes payées. Le premier jet, `LEFT JOIN orders o ... WHERE o.status = 'paid'`, renvoyait 7 lignes et perdait Dana, Eve et Farid, qui n’avaient aucune commande payée. Déplacer le test de statut dans le `ON` a renvoyé 10 lignes : chaque client conservé, avec `NULL` là où aucune commande payée ne correspondait.",
+    "mistakes": [
+      "Penser qu’une jointure gauche renvoie autant de lignes que la table de gauche : elle renvoie une ligne par correspondance, donc un client avec cinq commandes apparaît cinq fois.",
+      "Filtrer la table de droite dans le `WHERE` après une jointure gauche, ce qui la transforme en jointure interne ; mets la condition dans le `ON`.",
+      "Utiliser `count(*)` après une jointure gauche et compter la ligne remplie comme une commande ; compte une colonne de la table jointe."
+    ],
+    "followUps": [
+      {
+        "question": "Avec 6 clients et 11 commandes, dont 2 commandes invitées sans client, combien de lignes renvoient les jointures interne, gauche et complète ?",
+        "answer": "Les 9 commandes qui ont un client donnent 9 paires, donc la jointure interne renvoie 9. La jointure gauche ajoute les 2 clients sans commande : 11. La jointure complète ajoute aussi les 2 commandes invitées : 13."
+      },
+      {
+        "question": "Quand utiliseriez-vous une jointure externe complète ?",
+        "answer": "Quand les deux côtés peuvent avoir des lignes sans correspondance et qu’il me les faut toutes, par exemple pour rapprocher nos commandes du rapport du prestataire de paiement : les commandes sans paiement et les paiements sans commande apparaissent tous, avec `NULL` du côté manquant."
+      },
+      {
+        "question": "Pour une jointure interne, est-ce important qu’une condition soit dans le `ON` ou dans le `WHERE` ?",
+        "answer": "Pas pour le résultat : une jointure interne garde les mêmes lignes dans les deux cas. Ça ne compte que pour les jointures externes, où le `WHERE` s’exécute après que les lignes sans correspondance ont été remplies de `NULL`, et les jette ensuite."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un `LEFT JOIN` ne renvoie jamais plus de lignes que n’en a la table de gauche.",
+        "why": "Il renvoie une ligne par correspondance, donc un client avec cinq commandes devient cinq lignes ; il garantit seulement qu’aucune ligne de gauche n’est perdue.",
+        "twin": {
+          "statement": "Un `LEFT JOIN` des clients vers les commandes renvoie une ligne par commande correspondante, donc il peut renvoyer plus de lignes qu’il n’y a de clients.",
+          "why": "Il garantit qu’aucune ligne de gauche n’est perdue, pas une ligne par ligne de gauche : un client avec cinq commandes devient cinq lignes."
+        }
+      },
+      {
+        "statement": "Ajouter `WHERE o.status = 'paid'` après `LEFT JOIN orders o` supprime les clients qui n’ont aucune commande payée.",
+        "why": "Le `WHERE` s’exécute après la jointure, et `NULL = 'paid'` n’est pas vrai, donc les lignes remplies sont supprimées.",
+        "twin": {
+          "statement": "Ajouter `WHERE o.status = 'paid'` après `LEFT JOIN orders o` garde quand même les clients qui n’ont aucune commande payée, avec des colonnes à `NULL`.",
+          "why": "Le `WHERE` s’exécute après la jointure et `NULL = 'paid'` n’est pas vrai, donc ces lignes remplies sont supprimées ; le filtre va dans le `ON`."
+        }
+      },
+      {
+        "statement": "Une jointure interne des clients et des commandes peut renvoyer moins de lignes qu’il n’y a de commandes.",
+        "why": "Les commandes dont le `customer_id` est `NULL` ne correspondent à aucun client, donc la jointure interne les supprime : 9 lignes pour 11 commandes dans la boutique.",
+        "twin": {
+          "statement": "Une jointure interne des clients et des commandes renvoie toujours au moins une ligne par commande.",
+          "why": "Les commandes dont le `customer_id` est `NULL` ne correspondent à aucun client, donc la jointure interne les supprime : 9 lignes pour 11 commandes dans la boutique."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une jointure associe les lignes de deux tables selon une condition. Prédire combien de lignes elle renvoie, et lesquelles elle garde, permet d’attraper la plupart des bugs de reporting avant la mise en production.",
+      "points": [
+        "Une jointure interne (`JOIN`) ne garde que les paires de lignes qui satisfont la condition du `ON`. Une jointure gauche garde aussi chaque ligne de gauche qui n’a rien trouvé, avec `NULL` dans les colonnes du côté droit.",
+        "Le nombre de lignes, c’est donc les paires qui correspondent plus les lignes sans correspondance de chaque côté conservé. Une jointure complète garde les lignes sans correspondance des deux côtés.",
+        "Une jointure ne perd jamais de lignes d’un côté qu’elle conserve, mais les répète une fois par correspondance : un client avec 5 commandes devient 5 lignes. Prédis-le avant de faire confiance à une somme.",
+        "Le `WHERE` s’exécute après la jointure, sur les lignes remplies de `NULL`. Un test comme `o.status = 'paid'` n’est pas vrai pour elles, donc la jointure gauche devient sans bruit une jointure interne.",
+        "Mets un filtre sur le côté optionnel dans le `ON` : le client reste, avec `NULL` quand rien ne correspond."
+      ],
+      "takeaways": [
+        {
+          "term": "`JOIN` (interne)",
+          "detail": "Ne garde que les paires de lignes qui satisfont la condition du `ON`."
+        },
+        {
+          "term": "`LEFT JOIN`",
+          "detail": "Garde aussi chaque ligne de gauche qui n’a rien trouvé, avec `NULL` dans les colonnes du côté droit."
+        },
+        {
+          "term": "`FULL JOIN`",
+          "detail": "Garde les lignes sans correspondance des deux côtés, remplies de `NULL`."
+        },
+        {
+          "term": "Nombre de lignes",
+          "detail": "Les paires qui correspondent plus les lignes sans correspondance de chaque côté conservé par la jointure."
+        },
+        {
+          "term": "Un-à-plusieurs",
+          "detail": "Une ligne est répétée une fois par correspondance : un client avec 5 commandes devient 5 lignes."
+        },
+        {
+          "term": "Filtre côté optionnel",
+          "detail": "Mets-le dans le `ON`. Dans le `WHERE`, il supprime les lignes à `NULL` et transforme la jointure gauche en jointure interne."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le rapport du back-office des clients avec leurs commandes payées liste 40 clients, mais la boutique en a 55. La requête utilise `LEFT JOIN orders o` et `WHERE o.status = 'paid'`. Où sont passés les 15 autres ?",
+        "bridge": "Un filtre sur le côté optionnel placé dans le `WHERE` supprime les lignes remplies de `NULL` et transforme la jointure gauche en jointure interne. Le sujet : quelles lignes une jointure conserve."
+      },
+      {
+        "question": "Un collègue affirme qu’un `LEFT JOIN` depuis les clients ne peut jamais renvoyer plus de lignes que la table des clients. A-t-il raison, et comment prédisez-vous le nombre de lignes d’une jointure ?",
+        "bridge": "L’affirmation oublie la répétition du un-à-plusieurs : une jointure renvoie une ligne par paire qui correspond, plus les lignes sans correspondance de chaque côté conservé."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux listent chaque client avec ses commandes annulées, s’il en a. Laquelle garde tous les clients ?",
+        "why": "Avec le test de statut dans le `ON`, la jointure gauche garde chaque client et remplit de `NULL` ceux qui n’ont aucune commande annulée : 6 lignes. Dans le `WHERE`, le test s’exécute après la jointure, `NULL = 'cancelled'` n’est pas vrai, donc les lignes remplies sont supprimées et la jointure gauche devient une jointure interne : il ne reste qu’Ada et Eve."
+      }
+    ]
+  },
+  "sql-nulls": {
+    "topic": "Logique du NULL et anti-jointures",
+    "question": "Pourquoi `WHERE id NOT IN (subquery)` peut-il ne renvoyer aucune ligne, et comment trouvez-vous les clients qui n’ont jamais commandé ?",
+    "answer": "`NULL` veut dire inconnu, donc une comparaison avec lui renvoie inconnu, ni vrai ni faux : c’est la logique à trois valeurs. `WHERE`, `ON` et `HAVING` ne gardent une ligne que si la condition est vraie, donc l’inconnu est écarté comme le faux. `x NOT IN (a, b, NULL)` se développe en `x <> a AND x <> b AND x <> NULL`, et la dernière partie n’est jamais vraie, donc un seul `NULL` dans la sous-requête vide le résultat. Pour une anti-jointure, j’écris `NOT EXISTS`, qui demande seulement si une ligne correspondante existe. Pour comparer avec une colonne nullable, j’utilise `IS NULL` ou `IS DISTINCT FROM`.",
+    "keyPoints": [
+      "`NULL` est inconnu : comparer avec lui renvoie inconnu",
+      "`WHERE` ne garde que les lignes vraies, donc l’inconnu est écarté",
+      "Un seul `NULL` dans une sous-requête `NOT IN` vide le résultat",
+      "Utiliser `NOT EXISTS`, `IS NULL` et `IS DISTINCT FROM`"
+    ],
+    "explanation": "C’est un classique, parce que le bug passe tous les tests sur des données propres et apparaît le jour où une colonne nullable reçoit son premier `NULL`. Les recruteurs attendent le développement de `NOT IN` en `<> ... AND`, la correction par `NOT EXISTS`, et la conscience que le même piège touche les filtres `<>` et les mises à jour.",
+    "example": "Pour une campagne, le marketing voulait les clients qui n’avaient jamais commandé. `WHERE c.id NOT IN (SELECT customer_id FROM orders)` ne renvoyait personne, parce que les deux commandes invitées mettaient un `NULL` dans la sous-requête. Réécrite avec `NOT EXISTS`, elle a renvoyé Dana et Farid, et `EXPLAIN` a montré un hash anti join au lieu d’un filtre sur un sous-plan haché.",
+    "mistakes": [
+      "Écrire `customer_id = NULL`, qui ne correspond à rien ; le test est `customer_id IS NULL`.",
+      "Utiliser `NOT IN` sur une colonne nullable : un seul `NULL` vide le résultat, donc utilise `NOT EXISTS`.",
+      "Filtrer `city <> 'Paris'` en attendant les clients sans ville ; ils sont écartés, donc utilise `IS DISTINCT FROM`."
+    ],
+    "followUps": [
+      {
+        "question": "`IN (subquery)` est-il touché par le même problème ?",
+        "answer": "Non. `IN` n’a besoin que d’une comparaison vraie, donc un `NULL` dans la liste ne change rien quand une valeur correspond. Seule la forme négative casse, parce qu’elle a besoin que toutes les comparaisons soient vraies."
+      },
+      {
+        "question": "Où d’autre le `NULL` change-t-il un résultat, au-delà des filtres ?",
+        "answer": "Une mise à jour protégée par `city <> 'Lyon'` saute les lignes dont la ville est `NULL`. `GROUP BY` met tous les `NULL` dans un seul groupe. Au tri, `NULL` arrive en dernier en ordre croissant et en premier en décroissant, donc j’écris `NULLS LAST` quand les utilisateurs voient l’ordre."
+      },
+      {
+        "question": "De quelle autre façon peut-on écrire une anti-jointure ?",
+        "answer": "`LEFT JOIN orders o ON o.customer_id = c.id WHERE o.id IS NULL` garde les clients pour lesquels la jointure n’a rien trouvé. Elle renvoie les mêmes lignes que `NOT EXISTS` ; je préfère `NOT EXISTS` parce qu’il exprime l’intention."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`NULL = NULL` vaut vrai.",
+        "why": "Il vaut `NULL` (inconnu). `NULL IS NULL` et `NULL IS NOT DISTINCT FROM NULL` sont vrais.",
+        "twin": {
+          "statement": "`NULL = NULL` vaut `NULL`, pas vrai.",
+          "why": "Comparer avec une valeur inconnue donne inconnu ; `NULL IS NULL` et `NULL IS NOT DISTINCT FROM NULL` sont les tests qui renvoient vrai."
+        }
+      },
+      {
+        "statement": "`TRUE OR NULL` vaut vrai.",
+        "why": "`OR` est vrai dès qu’un côté est vrai, quelle que soit la valeur du côté inconnu.",
+        "twin": {
+          "statement": "`TRUE OR NULL` vaut `NULL`.",
+          "why": "`OR` est vrai dès qu’un côté est vrai, donc le résultat est vrai quelle que soit la valeur du côté inconnu."
+        }
+      },
+      {
+        "statement": "`NOT EXISTS` ne renvoie aucune ligne quand la colonne de la sous-requête contient un `NULL`.",
+        "why": "`NOT EXISTS` demande seulement si une ligne correspondante existe, donc un `NULL` ne peut pas le casser ; c’est le défaut de `NOT IN`.",
+        "twin": {
+          "statement": "`NOT EXISTS` trouve quand même les clients qui n’ont jamais commandé quand la colonne de la sous-requête contient un `NULL`.",
+          "why": "`NOT EXISTS` demande seulement si une ligne correspondante existe, donc un `NULL` ne peut pas le casser ; c’est le défaut de `NOT IN`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "`NULL` désigne une valeur manquante, inconnue, et SQL le compare avec une logique à trois valeurs. Ça explique les filtres qui écartent des lignes sans prévenir et le `NOT IN` qui ne renvoie rien.",
+      "points": [
+        "`NULL` marque une valeur manquante, inconnue. Toute comparaison avec lui, même `NULL = NULL`, renvoie inconnu (affiché `NULL`) : ni vrai ni faux. C’est la logique à trois valeurs.",
+        "`WHERE`, `ON` et `HAVING` ne gardent une ligne que si la condition est vraie, donc l’inconnu est écarté comme le faux. `city <> 'Paris'` écarte aussi les clients sans ville.",
+        "Utilise `IS NULL` pour tester une valeur manquante, et `IS DISTINCT FROM` pour une comparaison où `NULL` se comporte comme une valeur ordinaire. `= NULL` ne correspond à rien.",
+        "Une anti-jointure garde les lignes sans correspondance ailleurs. `x NOT IN (a, NULL)` veut dire `x <> a AND x <> NULL`, jamais vrai, donc un seul `NULL` dans la sous-requête renvoie 0 ligne.",
+        "Écris les anti-jointures avec `NOT EXISTS` : il demande seulement si une ligne correspondante existe, un `NULL` ne peut pas le casser, et PostgreSQL l’exécute en anti join."
+      ],
+      "takeaways": [
+        {
+          "term": "Logique à trois valeurs",
+          "detail": "Toute comparaison avec `NULL`, même `NULL = NULL`, renvoie inconnu : ni vrai ni faux."
+        },
+        {
+          "term": "`WHERE`, `ON`, `HAVING`",
+          "detail": "Ne gardent une ligne que si la condition est vraie, donc l’inconnu est écarté comme le faux."
+        },
+        {
+          "term": "`IS NULL`",
+          "detail": "Teste une valeur manquante. `= NULL` ne correspond à rien."
+        },
+        {
+          "term": "`IS DISTINCT FROM`",
+          "detail": "Compare deux valeurs en traitant `NULL` comme une valeur ordinaire."
+        },
+        {
+          "term": "`NOT IN` avec un `NULL`",
+          "detail": "`x <> NULL` n’est jamais vrai, donc un seul `NULL` dans la sous-requête renvoie 0 ligne."
+        },
+        {
+          "term": "`NOT EXISTS`",
+          "detail": "L’anti-jointure sûre : il demande seulement si une ligne correspondante existe, et PostgreSQL l’exécute en anti join."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un export marketing des clients qui n’ont jamais commandé, écrit `WHERE id NOT IN (SELECT customer_id FROM orders)`, renvoie zéro ligne depuis la mise en ligne du checkout invité. Pourquoi ?",
+        "bridge": "Les commandes invitées ont un `customer_id` à `NULL`, et un seul `NULL` dans une liste `NOT IN` rend chaque comparaison inconnue : logique à trois valeurs. `NOT EXISTS` corrige le problème."
+      },
+      {
+        "question": "Comment expliqueriez-vous à un junior pourquoi `WHERE deleted_at = NULL` ne renvoie aucune ligne, même pour les lignes où `deleted_at` est vide ?",
+        "bridge": "Comparer avec `NULL` renvoie inconnu, et le `WHERE` ne garde que les lignes vraies ; `IS NULL` est le test d’une valeur manquante."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux cherchent les clients qui n’ont jamais commandé, et les commandes invitées n’ont pas de client. Laquelle les trouve ?",
+        "why": "`NOT EXISTS` demande seulement si une commande correspondante existe, donc il renvoie Dana et Farid. Les commandes invitées mettent un `NULL` dans la liste du `NOT IN`, et `c.id <> NULL` est inconnu, jamais vrai, donc la version `NOT IN` renvoie 0 ligne sur les mêmes données."
+      }
+    ]
+  },
+  "sql-aggregation": {
+    "topic": "GROUP BY, HAVING et FILTER",
+    "question": "Quelle est la différence entre `WHERE` et `HAVING`, et entre `count(*)` et `count(column)` ?",
+    "answer": "PostgreSQL évalue les jointures, puis le `WHERE`, qui filtre les lignes, puis le `GROUP BY`, puis le `HAVING`, qui filtre les groupes et peut utiliser des agrégats, puis le `SELECT`. Donc une condition sur les lignes va dans le `WHERE` et une condition sur un `count` va dans le `HAVING`. `count(*)` compte les lignes et `count(col)` compte les valeurs non nulles, ce qui compte après une jointure gauche : un client sans commande a quand même une ligne remplie. Pour compter plusieurs cas en un seul passage, j’attache `FILTER (WHERE ...)` à chaque agrégat, et j’enveloppe les sommes dans `coalesce`, parce qu’une somme sur zéro ligne vaut `NULL`.",
+    "keyPoints": [
+      "`WHERE` filtre les lignes avant le regroupement, `HAVING` filtre les groupes",
+      "`count(*)` compte les lignes, `count(col)` ignore les `NULL`",
+      "Après une jointure gauche, compter une colonne de la table jointe",
+      "`FILTER` restreint un agrégat ; une `sum` sur zéro ligne vaut `NULL`"
+    ],
+    "explanation": "Les recruteurs vérifient que tu connais l’ordre logique d’évaluation, parce qu’il explique toutes les erreurs que tu rencontres : agrégats dans le `WHERE`, colonnes non groupées, alias qui n’existent pas encore. Les seniors mentionnent aussi le piège du `count(*)` après une jointure gauche et la somme à `NULL` qui arrive dans l’API en `null`.",
+    "example": "La finance voulait, par client, le nombre de commandes payées et annulées et les frais de port payés. Une seule requête avec une jointure gauche, `GROUP BY c.id` et `count(o.id) FILTER (WHERE o.status = 'paid')` par colonne a listé les 6 clients en un seul passage. Sans `coalesce`, les frais de port d’Eve revenaient à `NULL` au lieu de 0, puisqu’elle n’avait aucune commande payée.",
+    "mistakes": [
+      "Mettre une condition sur un agrégat dans le `WHERE`, ce qui échoue avec l’erreur 42803 ; elle va dans le `HAVING`.",
+      "Utiliser `count(*)` après une jointure gauche, ce qui donne 1 à un client sans commande ; utilise `count(o.id)`.",
+      "Renvoyer `sum(...)` tel quel à l’API : sur zéro ligne, il vaut `NULL`, donc enveloppe-le dans `coalesce(..., 0)`."
+    ],
+    "followUps": [
+      {
+        "question": "Peut-on sélectionner une colonne qui n’est pas dans le `GROUP BY` ?",
+        "answer": "Seulement via la clé primaire : quand je groupe par `c.id`, PostgreSQL me laisse sélectionner `c.name` et `c.city` parce qu’elles dépendent de la clé. Toute autre colonne non groupée échoue avec « must appear in the GROUP BY clause or be used in an aggregate function »."
+      },
+      {
+        "question": "Pourquoi le `WHERE` ne peut-il pas utiliser un alias défini dans le `SELECT` ?",
+        "answer": "Parce que le `WHERE` s’exécute avant que le `SELECT` calcule les alias, donc PostgreSQL signale que la colonne n’existe pas. Le `ORDER BY` s’exécute après le `SELECT` et peut les utiliser."
+      },
+      {
+        "question": "`avg` traite-t-il les valeurs `NULL` comme des zéros ?",
+        "answer": "Non, il les ignore : la moyenne de 10, `NULL` et 20 vaut 15, alors que `avg(coalesce(x, 0))` donne 10. Je demande au métier laquelle il veut avant de choisir."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`count(*)` et `count(o.id)` renvoient le même nombre après un `LEFT JOIN`.",
+        "why": "Pour un client sans commande, la ligne remplie compte 1 avec `count(*)` et 0 avec `count(o.id)`.",
+        "twin": {
+          "statement": "Après un `LEFT JOIN`, `count(*)` peut renvoyer 1 là où `count(o.id)` renvoie 0.",
+          "why": "Pour un client sans commande, la ligne remplie est comptée par `count(*)`, mais son `o.id` à `NULL` est ignoré par `count(o.id)`."
+        }
+      },
+      {
+        "statement": "Une `sum` sur zéro ligne renvoie `NULL`, alors qu’un `count` sur zéro ligne renvoie 0.",
+        "why": "Les agrégats autres que `count` renvoient `NULL` quand ils ne voient aucune ligne, d’où `coalesce(sum(...), 0)`.",
+        "twin": {
+          "statement": "Une `sum` sur zéro ligne renvoie 0, comme un `count`.",
+          "why": "Les agrégats autres que `count` renvoient `NULL` quand ils ne voient aucune ligne, d’où `coalesce(sum(...), 0)`."
+        }
+      },
+      {
+        "statement": "`GROUP BY customer_id` met toutes les commandes dont le client est `NULL` dans un seul groupe.",
+        "why": "Le regroupement traite toutes les valeurs `NULL` comme un seul groupe, donc les commandes invitées sortent ensemble.",
+        "twin": {
+          "statement": "`GROUP BY customer_id` met chaque commande dont le client est `NULL` dans son propre groupe.",
+          "why": "Le regroupement traite toutes les valeurs `NULL` comme un seul groupe, donc les commandes invitées sortent ensemble."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les agrégats comme `count` et `sum` transforment de nombreuses lignes en une valeur par groupe. Savoir quand chaque clause s’exécute te dit où placer une condition et pourquoi certains comptes sont faux.",
+      "points": [
+        "Un agrégat comme `count`, `sum` ou `max` transforme de nombreuses lignes en une valeur. `GROUP BY` décide quelles lignes forment un groupe, et l’agrégat s’exécute une fois par groupe.",
+        "PostgreSQL évalue le `FROM` et les jointures, puis le `WHERE` (lignes), puis le `GROUP BY`, puis le `HAVING` (groupes), puis le `SELECT`, puis `ORDER BY` et `LIMIT`. Les agrégats vont donc dans le `HAVING`, pas dans le `WHERE`.",
+        "`count(*)` compte les lignes, `count(col)` les valeurs non nulles, `count(DISTINCT col)` les valeurs non nulles distinctes. Après une jointure gauche, `count(*)` compte aussi la ligne remplie.",
+        "`FILTER (WHERE ...)` attaché à un agrégat ne lui fait voir que son propre sous-ensemble, donc un seul passage peut compter côte à côte les commandes payées et annulées.",
+        "Les agrégats ignorent les `NULL`. Une `sum` ou un `max` sur zéro ligne vaut `NULL` alors qu’un `count` vaut 0, donc enveloppe les sommes dans `coalesce(..., 0)` quand l’appelant attend un nombre."
+      ],
+      "takeaways": [
+        {
+          "term": "Ordre d’évaluation",
+          "detail": "`FROM` et jointures, `WHERE`, `GROUP BY`, `HAVING`, `SELECT`, puis `ORDER BY` et `LIMIT`."
+        },
+        {
+          "term": "`WHERE` ou `HAVING`",
+          "detail": "`WHERE` filtre les lignes avant le regroupement ; `HAVING` filtre les groupes et peut utiliser des agrégats."
+        },
+        {
+          "term": "`count(*)` ou `count(col)`",
+          "detail": "`count(*)` compte les lignes, `count(col)` les valeurs non nulles. Après une jointure gauche, compte une colonne de la table jointe."
+        },
+        {
+          "term": "`FILTER (WHERE ...)`",
+          "detail": "Restreint un agrégat à son sous-ensemble : un seul passage compte côte à côte les commandes payées et annulées."
+        },
+        {
+          "term": "Entrée vide",
+          "detail": "Une `sum` ou un `max` sur zéro ligne vaut `NULL` alors qu’un `count` vaut 0 : enveloppe les sommes dans `coalesce(..., 0)`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le back-office liste les clients avec leur nombre de commandes, et les clients qui n’ont jamais commandé affichent 1 au lieu de 0. La requête est un `LEFT JOIN` avec `count(*)`. Qu’est-ce qui ne va pas ?",
+        "bridge": "`count(*)` compte la ligne remplie qu’une jointure gauche ajoute pour un client sans commande, alors que `count(o.id)` ignore son `NULL` : la différence entre les deux comptes."
+      },
+      {
+        "question": "Un collègue écrit `WHERE count(*) > 5` pour trouver les clients qui ont plus de cinq commandes, et PostgreSQL le rejette. Pourquoi, et où va cette condition ?",
+        "bridge": "Le `WHERE` filtre les lignes avant le regroupement, donc il ne peut pas utiliser d’agrégat ; une condition sur un `count` va dans le `HAVING`, qui filtre les groupes."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux comptent les commandes de chaque client, y compris ceux qui n’ont jamais commandé. Quel compte est juste ?",
+        "why": "`count(o.id)` compte les id de commande non nuls, donc Dana et Farid ont 0. `count(*)` compte les lignes, et la jointure gauche donne à chaque client sans commande une ligne remplie, donc ils affichent 1 commande qu’ils n’ont jamais passée."
+      }
+    ]
+  },
+  "sql-ctes": {
+    "topic": "Fan-out et CTE",
+    "question": "Votre rapport de chiffre d’affaires joint les commandes et les lignes de commande, et le total des frais de port sort trop haut. Que s’est-il passé, et comment le corrigez-vous ?",
+    "answer": "C’est du fan-out. Joindre une table un-à-plusieurs répète chaque ligne parente une fois par enfant, donc les valeurs au niveau de la commande, comme les frais de port, sont sommées une fois par article, et les comptes de commandes grossissent aussi. `DISTINCT` ne corrige pas les sommes : `sum(DISTINCT shipping)` supprime les montants égaux, pas les commandes en double. La correction consiste à agréger d’abord la table enfant à une ligne par parent, puis à joindre. Je l’écris avec des CTE : une clause `WITH` où chaque étape nommée fait un seul travail, les totaux par commande d’abord, puis la dépense par client. Depuis PostgreSQL 12, une CTE référencée une seule fois est intégrée dans la requête principale, donc les étapes ne coûtent rien.",
+    "keyPoints": [
+      "Joindre une table un-à-plusieurs répète les valeurs du parent par enfant",
+      "`DISTINCT` dans une somme ne corrige pas le fan-out",
+      "Agréger d’abord l’enfant par parent, puis joindre",
+      "Depuis PostgreSQL 12, une CTE utilisée une fois est intégrée"
+    ],
+    "explanation": "Le fan-out produit des chiffres plausibles, qui arrivent donc à la finance sans que personne ne le remarque ; les recruteurs veulent voir que tu le prédis à partir de la forme des jointures. Une réponse senior le corrige structurellement, explique pourquoi `DISTINCT` est une fausse correction, et sait que les CTE ne sont plus une barrière d’optimisation.",
+    "example": "Le rapport de chiffre d’affaires par client de la finance affichait 2500 de frais de port pour Ada, qui en avait payé 2000, parce que sa commande 101 a deux articles et était comptée deux fois. La réécriture en deux étapes CTE, une ligne par commande payée puis une ligne par client, a donné 16000 pour Ada et 26000 pour Brendan, et a rendu la requête relisible étape par étape.",
+    "mistakes": [
+      "Rafistoler le fan-out avec `count(DISTINCT ...)` et `sum(DISTINCT ...)` : le compte est réparé, la somme non.",
+      "Croire que les CTE sont toujours une barrière d’optimisation : depuis PostgreSQL 12, une CTE non récursive, sans effet de bord et référencée une fois est intégrée.",
+      "Vérifier les totaux seulement sur un client dont chaque commande n’a qu’un article, où le fan-out ne se voit pas."
+    ],
+    "followUps": [
+      {
+        "question": "Comment forcez-vous PostgreSQL à calculer une CTE une seule fois, avant la requête principale ?",
+        "answer": "Avec `AS MATERIALIZED` : la CTE est calculée d’abord puis parcourue, donc les filtres extérieurs n’atteignent plus la table. Une CTE référencée deux fois est matérialisée par défaut, et `NOT MATERIALIZED` la réintègre."
+      },
+      {
+        "question": "Une CTE est-elle différente d’une sous-requête dans le `FROM` ?",
+        "answer": "Pour une CTE référencée une fois, plus en performance : le planificateur l’intègre comme une sous-requête. Le gain, c’est la lisibilité, une étape nommée par tâche, lue de haut en bas, et la même étape peut être référencée deux fois."
+      },
+      {
+        "question": "À quoi sert `WITH RECURSIVE` ?",
+        "answer": "Aux hiérarchies comme un arbre de catégories : la CTE se référence elle-même, part d’une requête de base et se répète jusqu’à ce qu’aucune nouvelle ligne n’apparaisse. Je m’en sers pour parcourir parents et enfants, pas pour des rapports ordinaires."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`sum(DISTINCT o.shipping_cents)` corrige un total de frais de port gonflé par le fan-out.",
+        "why": "Il supprime les montants égaux, pas les commandes en double : pour Ada, quatre commandes à 500 chacune donnaient 500 au lieu de 2000.",
+        "twin": {
+          "statement": "`sum(DISTINCT o.shipping_cents)` peut sous-estimer un total de frais de port : quatre commandes à 500 chacune donnent 500.",
+          "why": "`DISTINCT` supprime les montants égaux, pas les commandes en double, donc la correction du fan-out consiste à agréger d’abord les articles par commande."
+        }
+      },
+      {
+        "statement": "Depuis PostgreSQL 12, une CTE non récursive, sans effet de bord et référencée une fois est intégrée par défaut dans la requête principale.",
+        "why": "Une CTE non récursive, sans effet de bord et référencée une fois est intégrée, donc les filtres extérieurs peuvent utiliser les index de sa table.",
+        "twin": {
+          "statement": "Depuis PostgreSQL 12, une CTE non récursive, sans effet de bord et référencée une fois est encore calculée séparément par défaut, comme une barrière d’optimisation.",
+          "why": "Une CTE non récursive, sans effet de bord et référencée une fois est intégrée par défaut, donc les filtres extérieurs peuvent utiliser les index de sa table."
+        }
+      },
+      {
+        "statement": "Une CTE référencée deux fois est intégrée deux fois par défaut.",
+        "why": "Elle est matérialisée par défaut : calculée une fois et parcourue deux fois, sauf si tu écris `NOT MATERIALIZED`.",
+        "twin": {
+          "statement": "Une CTE référencée deux fois est matérialisée par défaut : calculée une fois et parcourue deux fois.",
+          "why": "Seule une CTE référencée une fois est intégrée par défaut ; `NOT MATERIALIZED` force l’intégration d’une CTE référencée deux fois."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le fan-out se produit quand une jointure vers une table un-à-plusieurs répète les lignes parentes et gonfle les sommes et les comptes. Les CTE permettent d’agréger d’abord chaque niveau et de lire le rapport comme un pipeline.",
+      "points": [
+        "Fan-out : joindre une table un-à-plusieurs répète chaque ligne parente une fois par enfant. Une commande à 2 articles devient 2 lignes, donc ses frais de port sont sommés deux fois et la commande comptée deux fois.",
+        "`count(DISTINCT o.id)` répare un compte mais pas une somme : `sum(DISTINCT shipping)` supprime les montants égaux, pas les commandes en double.",
+        "La correction : agréger d’abord la table enfant à une ligne par parent, puis joindre. Chaque commande rencontre alors son client en une seule ligne.",
+        "Une CTE (common table expression) est une sous-requête nommée dans une clause `WITH`. Chaque étape peut utiliser les précédentes, donc un rapport se lit de haut en bas comme un pipeline.",
+        "Depuis PostgreSQL 12, une CTE non récursive, sans effet de bord et référencée une fois est intégrée. `AS MATERIALIZED` force son calcul en premier."
+      ],
+      "takeaways": [
+        {
+          "term": "Fan-out",
+          "detail": "Joindre une table un-à-plusieurs répète chaque ligne parente par enfant, donc les frais de port d’une commande sont sommés une fois par article."
+        },
+        {
+          "term": "`count(DISTINCT o.id)`",
+          "detail": "Répare un compte, mais pas une somme."
+        },
+        {
+          "term": "`sum(DISTINCT ...)`",
+          "detail": "Supprime les montants égaux, pas les commandes en double, donc ne corrige pas le fan-out."
+        },
+        {
+          "term": "La correction",
+          "detail": "Agréger d’abord la table enfant à une ligne par parent, puis joindre."
+        },
+        {
+          "term": "CTE (`WITH`)",
+          "detail": "Une sous-requête nommée. Chaque étape peut utiliser les précédentes, donc un rapport se lit de haut en bas."
+        },
+        {
+          "term": "Intégration (PostgreSQL 12+)",
+          "detail": "Une CTE non récursive, sans effet de bord, référencée une fois, est intégrée. `AS MATERIALIZED` force son calcul en premier."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le dashboard des dépenses clients affiche 12 commandes pour Ada, alors qu’elle en a passé 4. La requête joint clients, commandes et lignes de commande, puis compte. Que s’est-il passé ?",
+        "bridge": "Joindre la table des articles répète chaque commande une fois par article, donc les comptes de commandes et les sommes au niveau commande grossissent : du fan-out. Agréger les articles par commande avant de joindre."
+      },
+      {
+        "question": "Un collègue propose `sum(DISTINCT shipping_cents)` pour un total de frais de port gonflé et évite les CTE parce qu’elles « bloquent l’optimiseur ». Que répondez-vous sur ces deux points ?",
+        "bridge": "`DISTINCT` supprime les montants égaux, pas les commandes en double ; et depuis PostgreSQL 12, une CTE référencée une fois est intégrée, donc des CTE étape par étape ne coûtent rien."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux affichent les frais de port payés par chaque client, à côté du total de ses articles. Quel total de frais de port est juste ?",
+        "why": "La CTE réduit d’abord les articles à une ligne par commande, donc chaque commande rencontre son client une seule fois : Ada a payé 2000 de frais de port. Joindre directement `order_items` répète une commande une fois par article, donc les frais de port de sa commande 101 à deux articles sont sommés deux fois : 2500. Le total des articles est juste dans les deux cas, ce qui masque le bug."
+      }
+    ]
+  },
+  "sql-lateral": {
+    "topic": "Sous-requêtes et LATERAL",
+    "question": "Comment renvoyez-vous la dernière commande de chaque client à côté du client en PostgreSQL, et que fait `LATERAL` ?",
+    "answer": "Une sous-requête dans le `FROM` ne peut normalement pas voir les tables qui la précèdent. `LATERAL` lui permet d’utiliser la ligne extérieure, donc elle s’exécute une fois par client et peut renvoyer des lignes entières : `LEFT JOIN LATERAL (SELECT ... WHERE o.customer_id = c.id ORDER BY placed_on DESC, id DESC LIMIT 1) ON true`. La jointure gauche garde les clients sans commande, avec `NULL` ; `CROSS JOIN LATERAL` les supprime. Une sous-requête scalaire corrélée dans le `SELECT` ne renvoie qu’une valeur, et sans `LIMIT 1` elle échoue avec « more than one row ». Avec un index sur `(customer_id, placed_on DESC)`, chaque appel lateral ne lit que les entrées d’index les plus récentes.",
+    "keyPoints": [
+      "`LATERAL` permet à une sous-requête du `FROM` d’utiliser la ligne extérieure",
+      "`ORDER BY ... LIMIT 1` à l’intérieur choisit la ligne la plus récente",
+      "`LEFT JOIN LATERAL ... ON true` garde les lignes sans correspondance",
+      "Une sous-requête scalaire échoue dès qu’elle trouve deux lignes"
+    ],
+    "explanation": "« Le dernier X par Y » apparaît dans presque tous les produits, et les recruteurs veulent une sous-requête par ligne plutôt qu’une boucle en Node. Les seniors connaissent les trois sortes de sous-requêtes, savent pourquoi la scalaire casse en production, et quand `LATERAL` avec un index bat une window function.",
+    "example": "Le service client voulait la dernière commande payée de chaque client sur l’écran du CRM. Une sous-requête scalaire marchait en développement, où chaque client avait une commande, et échouait en production avec l’erreur 21000 sur les quatre commandes d’Ada. `LEFT JOIN LATERAL` avec `ORDER BY placed_on DESC, id DESC LIMIT 1` a renvoyé une ligne par client, avec `NULL` pour Dana, Eve et Farid.",
+    "mistakes": [
+      "Utiliser une sous-requête scalaire sans `LIMIT 1`, qui échoue à l’exécution dès qu’un client a deux lignes correspondantes.",
+      "Écrire `CROSS JOIN LATERAL` alors que les clients sans commande doivent rester ; utilise `LEFT JOIN LATERAL ... ON true`.",
+      "Trier par date seule, si bien que deux commandes du même jour reviennent dans un ordre arbitraire ; ajoute `id` pour départager."
+    ],
+    "followUps": [
+      {
+        "question": "Quelles sortes de sous-requêtes existe-t-il ?",
+        "answer": "Une sous-requête scalaire représente une valeur et doit renvoyer au plus une ligne. Une sous-requête d’ensemble suit `IN`, `EXISTS` ou `ANY` et peut renvoyer n’importe quel nombre de lignes. Une table dérivée se place dans le `FROM` et sert de table intermédiaire qu’on peut joindre."
+      },
+      {
+        "question": "Qu’est-ce qu’une sous-requête corrélée ?",
+        "answer": "Une sous-requête qui fait référence à une colonne de la requête extérieure, donc qui s’exécute logiquement une fois par ligne extérieure. `LATERAL` apporte cette idée dans le `FROM`, où la sous-requête peut renvoyer plusieurs colonnes et plusieurs lignes."
+      },
+      {
+        "question": "Que se passe-t-il si vous oubliez le mot-clé `LATERAL` ?",
+        "answer": "La sous-requête ne voit pas la table extérieure, et PostgreSQL rejette la requête avec l’erreur 42P01, « invalid reference to FROM-clause entry for table c »."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une sous-requête scalaire dans le `SELECT` qui trouve plusieurs lignes les renvoie comme plusieurs lignes de sortie, comme une jointure.",
+        "why": "Elle doit renvoyer au plus une ligne ; une deuxième fait échouer la requête avec l’erreur 21000.",
+        "twin": {
+          "statement": "Une sous-requête scalaire dans le `SELECT` qui trouve deux lignes fait échouer toute la requête.",
+          "why": "Elle doit renvoyer au plus une ligne ; une deuxième ligne lève l’erreur 21000, donc ajoute `LIMIT 1` ou utilise `LATERAL`."
+        }
+      },
+      {
+        "statement": "`CROSS JOIN LATERAL` supprime les lignes extérieures pour lesquelles la sous-requête ne renvoie rien.",
+        "why": "Il se comporte comme une jointure interne ; `LEFT JOIN LATERAL ... ON true` les garde avec `NULL`.",
+        "twin": {
+          "statement": "`CROSS JOIN LATERAL` garde les lignes extérieures pour lesquelles la sous-requête ne renvoie rien, avec des colonnes à `NULL`.",
+          "why": "Il se comporte comme une jointure interne et les supprime ; c’est `LEFT JOIN LATERAL ... ON true` qui les garde."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une sous-requête dans le `FROM` ne peut normalement pas voir les tables qui la précèdent. `LATERAL` lui permet d’utiliser la ligne extérieure : c’est la façon propre de récupérer la dernière commande de chaque client avec toutes ses colonnes.",
+      "points": [
+        "Une sous-requête est un `SELECT` à l’intérieur d’une autre requête. Une scalaire représente une valeur et doit renvoyer au plus une ligne ; une d’ensemble suit `IN` ou `EXISTS` ; une table dérivée se place dans le `FROM`.",
+        "Une sous-requête corrélée fait référence à la ligne de la requête extérieure, donc elle s’exécute logiquement une fois par ligne extérieure. Une scalaire échoue avec l’erreur 21000 quand elle trouve deux lignes.",
+        "Une table dérivée ne peut normalement pas voir les tables qui la précèdent dans le `FROM`. Avec `LATERAL`, elle le peut : elle s’exécute par ligne extérieure et peut renvoyer plusieurs colonnes et lignes.",
+        "`ORDER BY placed_on DESC, id DESC LIMIT 1` à l’intérieur choisit la dernière commande de chaque client. L’`id` départage les commandes du même jour.",
+        "`LEFT JOIN LATERAL (...) ON true` garde les clients pour lesquels elle ne renvoie rien, avec `NULL`. `CROSS JOIN LATERAL` les supprime."
+      ],
+      "takeaways": [
+        {
+          "term": "Sous-requête scalaire",
+          "detail": "Représente une valeur ; si elle trouve deux lignes, elle échoue avec l’erreur 21000."
+        },
+        {
+          "term": "Sous-requête corrélée",
+          "detail": "Fait référence à la ligne de la requête extérieure, donc s’exécute logiquement une fois par ligne extérieure."
+        },
+        {
+          "term": "`LATERAL`",
+          "detail": "Permet à une sous-requête du `FROM` d’utiliser la ligne extérieure et de renvoyer plusieurs colonnes et lignes."
+        },
+        {
+          "term": "`ORDER BY ... LIMIT 1`",
+          "detail": "Choisit la ligne la plus récente ; `id DESC` après la date départage les commandes du même jour."
+        },
+        {
+          "term": "`LEFT JOIN LATERAL ... ON true`",
+          "detail": "Garde les clients pour lesquels elle ne renvoie rien, avec `NULL`. `CROSS JOIN LATERAL` les supprime."
+        },
+        {
+          "term": "Index adapté",
+          "detail": "Avec `(customer_id, placed_on DESC)`, chaque appel lateral ne lit que les entrées d’index les plus récentes."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La liste des clients du back-office ajoute une colonne « dernière commande » avec `(SELECT id FROM orders WHERE customer_id = c.id ORDER BY placed_on DESC)`, et la page échoue avec « more than one row returned by a subquery ». Qu’écririez-vous à la place ?",
+        "bridge": "Une sous-requête scalaire ne peut renvoyer qu’une ligne ; `LEFT JOIN LATERAL ... LIMIT 1` utilise la ligne extérieure et renvoie la dernière commande entière de chaque client."
+      },
+      {
+        "question": "Quand écririez-vous `LEFT JOIN LATERAL` plutôt que `CROSS JOIN LATERAL`, et que permet `LATERAL` qu’une simple sous-requête dans le `FROM` ne permet pas ?",
+        "bridge": "`LATERAL` permet à la sous-requête de lire la ligne extérieure ; la forme gauche garde les clients sans commande, la forme cross les supprime comme une jointure interne."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux affichent chaque client à côté de sa dernière commande payée sur l’écran du CRM. Laquelle garde les clients qui n’en ont pas ?",
+        "why": "`LEFT JOIN LATERAL ... ON true` garde un client quand la sous-requête ne renvoie rien, avec `NULL` : 6 lignes. `CROSS JOIN LATERAL` se comporte comme une jointure interne, donc Dana, Eve et Farid, qui n’ont aucune commande payée, disparaissent de l’écran : 3 lignes."
+      }
+    ]
+  },
+  "sql-window-functions": {
+    "topic": "Window functions",
+    "question": "Que sont les window functions, et quelle est la différence entre `ROW_NUMBER`, `RANK` et `DENSE_RANK` ?",
+    "answer": "Une window function calcule une valeur pour chaque ligne à partir d’un ensemble de lignes liées, sa fenêtre, et garde toutes les lignes, contrairement au `GROUP BY`. J’écris `OVER (PARTITION BY ... ORDER BY ...)` : la partition regroupe les lignes, l’ordre les trie à l’intérieur. Les trois fonctions de classement ne diffèrent que sur les égalités : `row_number` n’a jamais d’ex aequo, `rank` donne le même numéro aux ex aequo puis saute, et `dense_rank` ne saute pas. `lag` et `lead` lisent la ligne précédente et la suivante, et `sum(...) OVER (ORDER BY month)` donne un cumul. Je termine toujours l’`ORDER BY` de la fenêtre par une colonne unique, sinon les ex aequo reviennent dans un ordre arbitraire.",
+    "keyPoints": [
+      "Une valeur par ligne à partir de lignes liées ; toutes les lignes sont gardées",
+      "`PARTITION BY` regroupe, `ORDER BY` trie dans la fenêtre",
+      "Les classements diffèrent sur les ex aequo : aucun, avec trous, sans trous",
+      "`lag`, `lead` et cumuls avec `sum() OVER`"
+    ],
+    "explanation": "Les window functions séparent les candidats qui écrivent leurs rapports en SQL de ceux qui retraitent les lignes en Node. Les recruteurs creusent le comportement sur les ex aequo et le départage déterministe, et les seniors connaissent les pièges plus discrets : `lag` lit la ligne précédente plutôt que la période précédente, et le frame par défaut inclut les pairs.",
+    "example": "Le classement marketing des plus grosses commandes utilisait `row_number() OVER (ORDER BY total DESC)`, et son test de pagination échouait de temps en temps : quatre commandes à 3000 revenaient dans un ordre différent. Ajouter `id` à l’`ORDER BY` de la fenêtre a rendu la numérotation déterministe. Plus tard, le rapport de chiffre d’affaires mensuel a sauté mars, qui n’avait aucune commande payée, jusqu’à ce qu’un calendrier `generate_series` soit d’abord joint à gauche.",
+    "mistakes": [
+      "Filtrer sur une window function dans le `WHERE`, ce qui échoue avec l’erreur 42P20 ; filtre un niveau au-dessus, dans une CTE.",
+      "Utiliser `lag` sur des mois groupés sans vérifier les mois manquants : il compare avec la ligne précédente, pas avec le mois précédent.",
+      "Oublier le frame par défaut : avec un `ORDER BY`, c’est `RANGE ... CURRENT ROW`, qui inclut toutes les lignes de même valeur de tri."
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi un cumul affiche-t-il parfois la même valeur sur plusieurs lignes ?",
+        "answer": "Avec un `ORDER BY`, le frame par défaut est `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`, qui inclut les pairs de la ligne courante, les lignes de même valeur de tri. Je trie par une clé unique, ou j’écris `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`."
+      },
+      {
+        "question": "Comment comparez-vous chaque mois au précédent quand un mois peut n’avoir aucune vente ?",
+        "answer": "`lag` lit la ligne précédente, donc un mois manquant est sauté sans bruit. Je construis un calendrier avec `generate_series`, j’y joins à gauche le chiffre d’affaires avec `coalesce(..., 0)`, puis j’applique `lag` sur le calendrier."
+      },
+      {
+        "question": "Peut-on filtrer sur `row_number()` dans la même requête ?",
+        "answer": "Non : les window functions s’exécutent à l’étape du `SELECT`, après le `WHERE`, donc PostgreSQL la rejette avec l’erreur 42P20. Je la calcule dans une CTE et je filtre avec `WHERE position <= 2` un niveau au-dessus."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Avec quatre commandes ex aequo à la 5e place, la commande suivante reçoit 9 avec `rank()` et 6 avec `dense_rank()`.",
+        "why": "`rank` saute les numéros utilisés par les ex aequo ; `dense_rank` continue sans trou.",
+        "twin": {
+          "statement": "Avec quatre commandes ex aequo à la 5e place, la commande suivante reçoit 6 avec `rank()` comme avec `dense_rank()`.",
+          "why": "`rank` saute les numéros utilisés par les ex aequo et donne 9 ; seul `dense_rank` continue avec 6."
+        }
+      },
+      {
+        "statement": "Une window function réduit les lignes de chaque partition à une seule ligne, comme `GROUP BY`.",
+        "why": "Elle garde toutes les lignes et ajoute une valeur calculée à chacune ; seul `GROUP BY` réduit les lignes.",
+        "twin": {
+          "statement": "Une window function garde toutes les lignes de sa partition et ajoute une valeur calculée à chacune.",
+          "why": "Contrairement à `GROUP BY`, elle ne réduit rien, c’est pourquoi elle peut afficher un total à côté de chaque ligne."
+        }
+      },
+      {
+        "statement": "`lag(revenue) OVER (ORDER BY month)` renvoie toujours le chiffre d’affaires du mois calendaire précédent.",
+        "why": "Il renvoie la valeur de la ligne précédente ; un mois sans ligne est sauté, donc construis d’abord un calendrier.",
+        "twin": {
+          "statement": "`lag(revenue) OVER (ORDER BY month)` renvoie la valeur de la ligne précédente, même quand un mois sans ligne se trouve entre les deux.",
+          "why": "Il lit la ligne précédente, donc un mois sans ventes est sauté ; construis d’abord un calendrier des mois."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une window function calcule une valeur pour chaque ligne à partir de lignes liées et garde toutes les lignes, contrairement au `GROUP BY`. Elle sert aux classements, aux comparaisons avec la ligne précédente et aux cumuls.",
+      "points": [
+        "Une window function calcule une valeur pour chaque ligne à partir de lignes liées, sa fenêtre, et garde toutes les lignes. Syntaxe : `fn() OVER (PARTITION BY ... ORDER BY ...)` ; sans `PARTITION BY`, tout le résultat forme une seule fenêtre.",
+        "`row_number` numérote 1, 2, 3 sans ex aequo. `rank` donne le même numéro aux ex aequo, puis saute (5, 5, 5, 5, 9). `dense_rank` ne saute pas (5, puis 6).",
+        "Termine l’`ORDER BY` de la fenêtre par une colonne unique comme `id`, sinon les lignes ex aequo sont numérotées dans un ordre arbitraire qui peut changer d’une exécution à l’autre.",
+        "`lag(x)` et `lead(x)` lisent la ligne précédente et la suivante, pas la période précédente : construis un calendrier avec `generate_series` quand des périodes peuvent manquer.",
+        "`sum(x) OVER (ORDER BY month)` est un cumul. Son frame par défaut, `RANGE`, inclut les lignes de même valeur de tri ; utilise `ROWS` pour un total ligne par ligne."
+      ],
+      "takeaways": [
+        {
+          "term": "`OVER (...)`",
+          "detail": "`PARTITION BY` regroupe les lignes, `ORDER BY` trie dans la fenêtre. Sans `PARTITION BY`, tout le résultat forme une seule fenêtre."
+        },
+        {
+          "term": "`row_number`",
+          "detail": "Numérote 1, 2, 3 sans ex aequo. Termine l’`ORDER BY` par une colonne unique, sinon les ex aequo ont un ordre arbitraire."
+        },
+        {
+          "term": "`rank`",
+          "detail": "Les ex aequo partagent un numéro, puis il saute : 5, 5, 5, 5, 9."
+        },
+        {
+          "term": "`dense_rank`",
+          "detail": "Les ex aequo partagent un numéro, sans trou : 5, puis 6."
+        },
+        {
+          "term": "`lag` et `lead`",
+          "detail": "Lisent la ligne précédente et la suivante, pas la période précédente : utilise `generate_series` quand des périodes peuvent manquer."
+        },
+        {
+          "term": "`sum(x) OVER (ORDER BY month)`",
+          "detail": "Un cumul. Le frame `RANGE` par défaut inclut les lignes de même valeur de tri ; `ROWS` avance ligne par ligne."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le graphique du chiffre d’affaires mensuel affiche une « évolution par rapport au mois dernier » complètement fausse pour mars, et février n’a eu aucune vente. La requête utilise `lag(revenue) OVER (ORDER BY month)`. Pourquoi ?",
+        "bridge": "`lag` lit la ligne précédente, pas le mois calendaire précédent : les window functions travaillent sur les lignes présentes, donc un mois manquant doit d’abord être généré."
+      },
+      {
+        "question": "Un product manager veut une liste des « meilleures ventes » où les produits ex aequo partagent une place. Quelle fonction de classement utilisez-vous, et en quoi `row_number`, `rank` et `dense_rank` diffèrent-elles ?",
+        "bridge": "Les trois window functions de classement ne diffèrent que sur les ex aequo : pas d’ex aequo, places partagées avec trous, places partagées sans trous."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux calculent un cumul des frais de port, commande par commande, et deux commandes tombent le même jour. Laquelle les ajoute une à une ?",
+        "why": "Avec un `ORDER BY`, le frame par défaut est `RANGE ... CURRENT ROW`, qui inclut les pairs de la ligne courante. Quand deux commandes tombent le même jour, par exemple 500 et 700 de frais de port, terminer le tri par l’`id` unique ajoute une commande par ligne : 500, puis 1200. Triées par jour seulement, les deux commandes de ce jour affichent 1200, comme si elles avaient été payées ensemble."
+      }
+    ]
+  },
+  "sql-top-n": {
+    "topic": "Top-N par groupe",
+    "question": "Comment obtenez-vous les deux dernières commandes de chaque client en SQL, et quelle approche choisiriez-vous ?",
+    "answer": "`LIMIT 2` seul renvoie deux lignes au total, donc il me faut un pattern par groupe, et PostgreSQL en a trois. `DISTINCT ON (customer_id)` avec un `ORDER BY` assorti garde une ligne par groupe : le plus court quand N vaut 1. `row_number() OVER (PARTITION BY customer_id ORDER BY placed_on DESC, id DESC)` dans une CTE, filtré un niveau au-dessus, c’est du SQL standard pour n’importe quel N, et `rank` garde les ex aequo. `CROSS JOIN LATERAL` avec `LIMIT 2` s’exécute par client ; avec un index sur `(customer_id, placed_on DESC, id DESC)`, il lit environ deux entrées par client, donc il gagne sur les gros groupes.",
+    "keyPoints": [
+      "`LIMIT` seul donne N lignes au total, pas par groupe",
+      "`DISTINCT ON` pour une ligne par groupe (PostgreSQL uniquement)",
+      "`row_number` dans une CTE pour tout N ; `rank` pour garder les ex aequo",
+      "`LATERAL ... LIMIT` avec un index assorti pour les gros groupes"
+    ],
+    "explanation": "Le top-N par groupe est l’une des questions SQL les plus posées en entretien. Une réponse de niveau intermédiaire donne un pattern ; une réponse senior donne les trois, demande si les ex aequo comptent, ajoute un départage, et choisit selon la forme des données et les index plutôt que par habitude.",
+    "example": "L’e-mail marketing montrait à chaque client ses deux dernières commandes payées, et le `LIMIT 2` du premier jet renvoyait deux lignes au total. La version `row_number` a renvoyé cinq lignes : deux pour Ada, deux pour Brendan, une pour Chen. Sur une copie de test avec 1 000 clients et 100 000 commandes, la version `LATERAL` a lu 2 000 entrées d’index au lieu de 100 000 et s’est exécutée en moins de la moitié du temps.",
+    "mistakes": [
+      "Ajouter `LIMIT N` à toute la requête et attendre N lignes par client.",
+      "Filtrer sur `row_number()` dans le même `WHERE`, ce qui échoue ; filtre-le un niveau au-dessus, dans une CTE.",
+      "Ne pas poser la question des ex aequo : `row_number` les coupe arbitrairement, `rank` les garde et peut renvoyer plus de N lignes."
+    ],
+    "followUps": [
+      {
+        "question": "Et si deux commandes d’un client sont ex aequo pour la dernière place ?",
+        "answer": "Je demande ce que veut le métier. `row_number` garde exactement N et a besoin d’un départage comme `id` pour être déterministe. `rank` garde toutes les lignes ex aequo : le top 3 des commandes d’Ada par montant a renvoyé 4 lignes, 5000 et trois commandes ex aequo à 3000."
+      },
+      {
+        "question": "Qu’exige `DISTINCT ON` ?",
+        "answer": "Ses expressions doivent commencer l’`ORDER BY`, parce qu’il garde la première ligne de chaque groupe dans cet ordre ; sinon PostgreSQL refuse la requête avec l’erreur 42P10. C’est propre à PostgreSQL et ça renvoie une ligne par groupe."
+      },
+      {
+        "question": "Pourquoi la version `LATERAL` est-elle plus rapide avec un index ?",
+        "answer": "Pour chaque client, elle lit l’index dans l’ordre et s’arrête après N entrées. `row_number` et `DISTINCT ON` lisent toutes les commandes pour les classer, même quand le planificateur pousse la condition `<= 2` dans l’étape de fenêtrage."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`SELECT ... FROM orders ORDER BY placed_on DESC LIMIT 2` renvoie les deux dernières commandes de chaque client.",
+        "why": "`LIMIT` s’applique à tout le résultat : il renvoie deux lignes au total.",
+        "twin": {
+          "statement": "`SELECT ... FROM orders ORDER BY placed_on DESC LIMIT 2` renvoie deux commandes au total, quel que soit le nombre de clients.",
+          "why": "`LIMIT` s’applique à tout le résultat, donc un top N par client demande `row_number`, `DISTINCT ON` ou `LATERAL`."
+        }
+      },
+      {
+        "statement": "Avec `rank() <= 3`, une requête top 3 peut renvoyer plus de trois lignes pour un groupe.",
+        "why": "`rank` donne le même numéro aux lignes ex aequo, donc toutes les lignes ex aequo à la 3e place sont gardées.",
+        "twin": {
+          "statement": "Avec `rank() <= 3`, une requête top 3 renvoie au plus trois lignes par groupe.",
+          "why": "`rank` donne le même numéro aux lignes ex aequo, donc toutes les lignes ex aequo à la 3e place sont gardées ; c’est `row_number` qui plafonne à trois."
+        }
+      },
+      {
+        "statement": "`SELECT DISTINCT ON (customer_id) ... ORDER BY placed_on DESC` est une requête valide.",
+        "why": "Les expressions du `DISTINCT ON` doivent commencer l’`ORDER BY` ; sinon PostgreSQL échoue avec l’erreur 42P10.",
+        "twin": {
+          "statement": "`SELECT DISTINCT ON (customer_id) ... ORDER BY placed_on DESC` échoue avec l’erreur 42P10.",
+          "why": "Les expressions du `DISTINCT ON` doivent commencer l’`ORDER BY`, comme dans `ORDER BY customer_id, placed_on DESC`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le top-N par groupe, c’est N lignes pour chaque client, pas N au total. `LIMIT` seul ne sait pas le faire, donc PostgreSQL propose trois patterns aux points forts différents.",
+      "points": [
+        "Le top-N par groupe, c’est N lignes pour chaque client, pas N au total. `LIMIT` s’applique à tout le résultat, donc il faut l’un des trois patterns.",
+        "`DISTINCT ON (customer_id)`, propre à PostgreSQL, garde la première ligne de chaque groupe dans l’ordre du `ORDER BY`, donc ses colonnes doivent commencer l’`ORDER BY`. Le plus court pour N = 1.",
+        "`row_number() OVER (PARTITION BY customer_id ORDER BY ...)` dans une CTE, puis `WHERE position <= N` un niveau au-dessus : SQL standard, tout N. Utilise `rank` pour garder les ex aequo.",
+        "`CROSS JOIN LATERAL (... LIMIT N)` s’exécute par client. Avec un index assorti à son `ORDER BY`, il lit environ N entrées d’index par client au lieu de toutes les commandes.",
+        "Termine toujours l’`ORDER BY` par une colonne unique comme `id`, pour que les ex aequo soient départagés de la même façon à chaque exécution."
+      ],
+      "takeaways": [
+        {
+          "term": "`LIMIT` seul",
+          "detail": "S’applique à tout le résultat : N lignes au total, pas par groupe."
+        },
+        {
+          "term": "`DISTINCT ON (customer_id)`",
+          "detail": "Propre à PostgreSQL : garde la première ligne de chaque groupe dans l’ordre du `ORDER BY`, qui doit commencer par ces colonnes. Idéal pour N = 1."
+        },
+        {
+          "term": "`row_number()` dans une CTE",
+          "detail": "Puis `WHERE position <= N` un niveau au-dessus : SQL standard, tout N. Utilise `rank` pour garder les ex aequo."
+        },
+        {
+          "term": "`CROSS JOIN LATERAL ... LIMIT N`",
+          "detail": "S’exécute par client. Avec un index assorti, il lit environ N entrées par client, donc il gagne sur les gros groupes."
+        },
+        {
+          "term": "Départage",
+          "detail": "Termine chaque `ORDER BY` par une colonne unique comme `id`, pour départager les ex aequo de la même façon à chaque exécution."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le support veut les deux dernières commandes de chaque client sur un dashboard. La requête d’un coéquipier se termine par `ORDER BY placed_on DESC LIMIT 2` et renvoie deux commandes pour toute la boutique. Comment la corrigez-vous ?",
+        "bridge": "`LIMIT` s’applique à tout le résultat ; un pattern par groupe comme `row_number()` dans une CTE ou `LATERAL ... LIMIT 2` donne N lignes par client."
+      },
+      {
+        "question": "Pour une requête top-N par groupe, quand choisiriez-vous `DISTINCT ON` plutôt que `row_number()`, et quand `LATERAL` plutôt que les deux ?",
+        "bridge": "Les trois patterns top-N de PostgreSQL comparés : `DISTINCT ON` pour une ligne, `row_number` pour tout N, `LATERAL` avec un index assorti pour les gros groupes."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux sont censées renvoyer les deux dernières commandes payées de chaque client. Laquelle le fait ?",
+        "why": "`row_number` repart à 1 dans la partition de chaque client, et le filtrer un niveau au-dessus garde deux lignes par client : 5 lignes pour Ada, Brendan et Chen. `LIMIT` s’applique à tout le résultat, donc l’autre version renvoie 2 lignes au total, toutes deux d’Ada."
+      }
+    ]
+  },
+  "sql-upserts": {
+    "topic": "Upserts, MERGE et RETURNING",
+    "question": "Comment insérez-vous une ligne, ou la mettez-vous à jour si elle existe déjà, en PostgreSQL, et quand utiliseriez-vous `MERGE` ?",
+    "answer": "J’utilise `INSERT ... ON CONFLICT (sku) DO UPDATE SET price_cents = EXCLUDED.price_cents` : ça nomme la contrainte d’unicité, et `EXCLUDED` contient les valeurs que j’ai tenté d’insérer. C’est une seule instruction atomique qui reste correcte quand une autre transaction insère la même clé, contrairement à un select puis insert depuis Node. Un `WHERE ... IS DISTINCT FROM` saute les lignes identiques, et `RETURNING` renvoie les lignes dans le même aller-retour, avec les valeurs `old` et `new` depuis PostgreSQL 18. `MERGE` exécute plusieurs actions conditionnelles, suppressions comprises, ce qui convient à une synchro nocturne du catalogue ; avec des insertions concurrentes, il peut échouer sur une violation d’unicité.",
+    "keyPoints": [
+      "`ON CONFLICT (key) DO UPDATE`, avec les valeurs `EXCLUDED`",
+      "Atomique et sûr face aux insertions concurrentes, contrairement à lire puis écrire",
+      "`RETURNING` renvoie le résultat dans le même aller-retour",
+      "`MERGE` pour les synchros par lot à plusieurs actions, suppressions comprises"
+    ],
+    "explanation": "Les recruteurs posent la question pour voir si tu mets la logique sensible à la concurrence dans une seule instruction plutôt que dans un lire-puis-écrire exposé aux race conditions dans le code applicatif. Les seniors connaissent les cas limites, comme `DO NOTHING` qui ne renvoie rien et les clés en double dans un même lot, et savent dire quand `MERGE` convient et pourquoi il est plus fragile en concurrence.",
+    "example": "L’import nocturne du fournisseur exécutait depuis Node un `SELECT`, puis un `INSERT` ou un `UPDATE`, par ligne : deux allers-retours par ligne et une race condition avec tout écrivain concurrent. Un seul `INSERT ... ON CONFLICT (sku) DO UPDATE` par lot l’a remplacé, en sautant les prix inchangés avec `IS DISTINCT FROM`, et sur PostgreSQL 18, `RETURNING old.price_cents, new.price_cents` a directement donné à la finance la liste des prix modifiés.",
+    "mistakes": [
+      "S’attendre à ce que `ON CONFLICT DO NOTHING RETURNING id` renvoie l’id de la ligne existante : il ne renvoie aucune ligne pour un conflit.",
+      "Envoyer un lot avec deux fois la même clé, ce qui échoue avec « cannot affect row a second time » ; dédoublonne-le d’abord.",
+      "Écrire un select puis insert en Node, exposé aux race conditions avec les requêtes concurrentes ; laisse la contrainte d’unicité arbitrer."
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi le produit inséré a-t-il reçu l’id 9 au lieu de 7 ?",
+        "answer": "Les lignes en conflit avaient déjà pris des valeurs dans la séquence de la colonne identity avant que le conflit soit détecté. Les upserts laissent des trous dans les id générés, et c’est normal : les id sont uniques, pas contigus."
+      },
+      {
+        "question": "Comment savez-vous si un changement d’état a vraiment eu lieu ?",
+        "answer": "Avec une mise à jour gardée : `UPDATE orders SET status = 'cancelled' WHERE id = $1 AND status = 'paid' RETURNING id`. Une ligne renvoyée veut dire que c’est fait ; zéro veut dire que la commande n’était plus payée, donc l’API peut répondre sans lecture préalable."
+      },
+      {
+        "question": "Upsert ou `MERGE` pour un webhook de paiement ?",
+        "answer": "`INSERT ... ON CONFLICT` sur la clé d’idempotence : c’est atomique et sûr quand deux livraisons arrivent en même temps. `MERGE` peut échouer sur une violation d’unicité quand une transaction concurrente insère la même clé, donc je le garde pour les synchros par lot depuis un flux ou une table de staging."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`INSERT ... ON CONFLICT DO NOTHING RETURNING id` renvoie l’id de la ligne existante quand la clé est en conflit.",
+        "why": "Il ne renvoie aucune ligne pour une entrée en conflit ; lis l’id existant avec un `SELECT` séparé.",
+        "twin": {
+          "statement": "`INSERT ... ON CONFLICT DO NOTHING RETURNING id` ne renvoie aucune ligne quand la clé est en conflit.",
+          "why": "L’entrée en conflit est sautée, donc rien n’est renvoyé pour elle ; lis l’id existant avec un `SELECT` séparé."
+        }
+      },
+      {
+        "statement": "Dans `ON CONFLICT DO UPDATE`, la table `EXCLUDED` contient les valeurs proposées pour l’insertion.",
+        "why": "La ligne existante est désignée par le nom de la table, la proposition rejetée par `EXCLUDED`.",
+        "twin": {
+          "statement": "Dans `ON CONFLICT DO UPDATE`, `EXCLUDED` contient la ligne existante qui a causé le conflit.",
+          "why": "`EXCLUDED` contient les valeurs proposées pour l’insertion ; la ligne existante est désignée par le nom de la table."
+        }
+      },
+      {
+        "statement": "`MERGE` peut supprimer des lignes de la table cible.",
+        "why": "Une clause `WHEN MATCHED` peut exécuter `DELETE`, c’est pourquoi il convient à la synchro d’une table depuis un flux.",
+        "twin": {
+          "statement": "`MERGE` peut insérer et mettre à jour des lignes de la table cible, mais jamais les supprimer.",
+          "why": "Une clause `WHEN MATCHED` peut exécuter `DELETE`, c’est pourquoi il convient à la synchro d’une table depuis un flux."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un upsert insère une ligne, ou la met à jour quand sa clé existe déjà. Une seule instruction le garde correct face aux requêtes concurrentes, ce que n’est pas un select puis insert depuis Node.",
+      "points": [
+        "Un upsert insère une ligne ou la met à jour si sa clé existe. `INSERT ... ON CONFLICT (sku) DO UPDATE SET ...` nomme la contrainte d’unicité ; `EXCLUDED` contient les valeurs que tu as tenté d’insérer.",
+        "C’est une seule instruction atomique, sûre quand une autre transaction insère la même clé, contrairement à un `SELECT` puis `INSERT` depuis Node, exposé aux race conditions et qui coûte deux allers-retours.",
+        "`RETURNING` renvoie les lignes touchées dans le même aller-retour. PostgreSQL 18 ajoute `old` et `new`, les valeurs avant et après. `DO NOTHING` ne renvoie aucune ligne pour un conflit.",
+        "`MERGE` (depuis PostgreSQL 15) compare une source à une table et exécute des actions `WHEN MATCHED` ou `WHEN NOT MATCHED`, suppressions comprises. Depuis la 17, il supporte `RETURNING`.",
+        "Choisis `ON CONFLICT` pour les upserts par clé des API et des webhooks, `MERGE` pour les synchros par lot : une insertion concurrente de la même clé peut faire échouer `MERGE` sur une violation d’unicité."
+      ],
+      "takeaways": [
+        {
+          "term": "`ON CONFLICT (sku) DO UPDATE`",
+          "detail": "Nomme la contrainte d’unicité. Une seule instruction atomique, sûre quand une autre transaction insère la même clé."
+        },
+        {
+          "term": "`EXCLUDED`",
+          "detail": "Contient les valeurs que tu as tenté d’insérer : `SET price_cents = EXCLUDED.price_cents`."
+        },
+        {
+          "term": "`WHERE ... IS DISTINCT FROM`",
+          "detail": "Ajouté à la mise à jour, il saute les lignes déjà identiques."
+        },
+        {
+          "term": "`RETURNING`",
+          "detail": "Renvoie les lignes touchées dans le même aller-retour ; PostgreSQL 18 ajoute `old` et `new`. `DO NOTHING` ne renvoie aucune ligne en cas de conflit."
+        },
+        {
+          "term": "`MERGE`",
+          "detail": "Depuis PostgreSQL 15 : actions `WHEN MATCHED` et `WHEN NOT MATCHED`, suppressions comprises. `RETURNING` depuis la 17."
+        },
+        {
+          "term": "Lequel choisir",
+          "detail": "`ON CONFLICT` pour les upserts par clé des API et webhooks, `MERGE` pour les synchros par lot : une insertion concurrente peut faire échouer `MERGE`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’import nocturne des prix sélectionne chaque SKU, puis l’insère si rien n’est revenu. Depuis que deux pods d’import tournent, il échoue parfois avec une erreur de clé dupliquée sur `sku`. Que changeriez-vous ?",
+        "bridge": "Un select puis insert depuis Node entre en race condition avec l’autre transaction ; `INSERT ... ON CONFLICT (sku) DO UPDATE` fait le même travail en une seule instruction atomique."
+      },
+      {
+        "question": "Quand choisiriez-vous `MERGE` plutôt que `INSERT ... ON CONFLICT`, et quel est son défaut face aux insertions concurrentes ?",
+        "bridge": "`MERGE` exécute plusieurs actions conditionnelles, suppressions comprises, ce qui convient aux synchros par lot ; `ON CONFLICT` reste le choix sûr quand des insertions concurrentes visent la même clé."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux enregistrent le prix fournisseur d’un SKU, et deux imports peuvent tourner en même temps. Lequel reste correct ?",
+        "why": "L’upsert est une seule instruction atomique : la contrainte d’unicité sur `sku` tranche, et une insertion concurrente du même SKU se transforme en mise à jour. Avec un select puis insert, les deux imports ne voient aucune ligne, insèrent tous les deux, et le second échoue avec l’erreur de clé dupliquée `23505` ; ça coûte aussi deux allers-retours par ligne."
+      }
+    ]
+  }
+}

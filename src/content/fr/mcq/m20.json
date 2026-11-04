@@ -1,0 +1,302 @@
+{
+  "m20.q1": {
+    "q": "Dans le schéma Orders, <code>customer: Customer</code> n’a pas de <code>!</code>. Qu’est-ce que ça indique à un client ?",
+    "options": [
+      "Le champ peut être null, par exemple quand la récupération du client échoue",
+      "Le champ est facultatif à sélectionner dans une requête, contrairement aux champs non nuls",
+      "Le champ est chargé à la demande, seulement après le reste de la commande",
+      "Le champ peut être lu mais pas défini par une mutation"
+    ],
+    "explain": "Sans <code>!</code>, un champ est nullable, le comportement par défaut en GraphQL : le serveur peut renvoyer null, par exemple après une erreur, et le client doit le gérer. Tout champ est facultatif à sélectionner, nullable ou non ; le <code>!</code> est une promesse sur la valeur, pas sur la requête."
+  },
+  "m20.q2": {
+    "q": "Le schéma déclare <code>orders: [Order!]!</code> et <code>customer: Customer!</code>. Pour une commande sur trois, le resolver du client lève une erreur. Que reçoit le client ?",
+    "options": [
+      "Trois commandes, celle en échec avec <code>customer: null</code> et une erreur",
+      "Deux commandes : celle en échec est retirée de la liste, avec une erreur",
+      "<code>\"data\": null</code> et une entrée dans <code>errors</code>",
+      "Une réponse HTTP 500, avec le message d’erreur dans le corps"
+    ],
+    "explain": "Un champ non nul ne peut pas être null, donc l’erreur rend null sa commande parente ; la commande est non nulle dans la liste, donc la liste saute ; la liste est non nulle, donc <code>data</code> devient null (mesuré avec graphql-js 16.14.2). Une réponse <code>customer: null</code> n’arrive que si <code>customer</code> est nullable."
+  },
+  "m20.q3": {
+    "q": "La liste des commandes en direct utilise une connection de style Relay. Comment le back-office demande-t-il la page suivante ?",
+    "options": [
+      "Il envoie un argument <code>page</code> supérieur d’une unité à celui de la requête précédente",
+      "Il renvoie <code>pageInfo.endCursor</code> en tant qu’<code>after</code>",
+      "Il envoie l’id du dernier nœud reçu comme argument <code>offset</code>",
+      "Il répète la même requête en doublant <code>first</code> à chaque fois"
+    ],
+    "explain": "Une connection renvoie <code>pageInfo { hasNextPage endCursor }</code>, et le client passe <code>endCursor</code> comme <code>after</code> pour continuer : la pagination keyset de M05 derrière un curseur opaque. Les numéros de page et les offsets sont justement ce que les curseurs remplacent, car ils répètent ou sautent des lignes quand les données changent."
+  },
+  "m20.q4": {
+    "q": "Pourquoi un resolver qui charge « le client de cette commande » envoie-t-il 21 requêtes pour une page de 20 commandes ?",
+    "options": [
+      "graphql-js transforme chaque champ sélectionné en sa propre jointure SQL, une par commande",
+      "Chaque appel ne voit que sa propre commande parente, donc il charge un seul client",
+      "Le back-office a envoyé une opération GraphQL par commande de la page",
+      "graphql-js réessaie chaque resolver une fois avant de renvoyer sa valeur"
+    ],
+    "explain": "graphql-js appelle le resolver <code>customer</code> une fois par commande, avec cette commande comme parent, donc le code naïf envoie une requête par commande plus une pour la liste : 21, mesuré avec graphql-js 16.14.2. GraphQL ne génère pas de jointures ; la solution est le batching avec DataLoader."
+  },
+  "m20.q5": {
+    "q": "Pourquoi les DataLoaders sont-ils créés par requête, dans la factory du contexte, plutôt qu’une fois au démarrage ?",
+    "options": [
+      "Une instance de DataLoader ne peut exécuter qu’un seul batch, puis doit être jetée",
+      "Les loaders créés par requête collectent plus de clés dans chacun de leurs batchs",
+      "Son cache est par instance : partagé, il ferait fuiter des données entre utilisateurs et deviendrait périmé",
+      "graphql-js refuse un objet de contexte déjà utilisé par une autre requête"
+    ],
+    "explain": "DataLoader mémorise les résultats par instance ; son README recommande une nouvelle instance par requête et prévient que son cache ne remplace pas Redis ou Memcache. Un loader à l’échelle du processus ferait fuiter des données entre utilisateurs et servirait des lignes périmées. Le batching fonctionne de la même façon dans les deux cas."
+  },
+  "m20.q6": {
+    "q": "Où graphql.org recommande-t-il de placer la logique d’autorisation en production ?",
+    "options": [
+      "Dans la couche métier qu’appelle chaque point d’entrée, avec un utilisateur entièrement chargé",
+      "Dans une directive de schéma sur chaque type, évaluée par le seul serveur GraphQL",
+      "Dans un middleware HTTP placé devant <code>/graphql</code> pour chaque requête",
+      "Dans le client, qui ne devrait pas demander les champs qu’il n’a pas le droit de voir"
+    ],
+    "explain": "graphql.org dit de déléguer l’autorisation à la couche de logique métier, la source de vérité unique partagée par GraphQL, REST et les jobs. Il cite les directives comme une option et précise que la logique doit quand même rester dans cette couche. Un middleware avant <code>/graphql</code> ne peut pas savoir quels objets et quels champs la requête atteindra."
+  },
+  "m20.q7": {
+    "q": "Une requête contient 100 alias de <code>order(id:)</code> avec des ids différents. Sans aucune limite configurée, que fait le serveur ?",
+    "options": [
+      "Il exécute le resolver une fois, puis copie le résultat dans les 100 alias",
+      "Il rejette l’opération à la validation, car trop d’alias la rendent invalide",
+      "Il exécute le resolver <code>order</code> 100 fois au sein de cette seule requête",
+      "Il n’exécute que le premier alias et renvoie null pour les 99 autres"
+    ],
+    "explain": "Les alias sont du GraphQL valide, donc chacun est une exécution de champ distincte : mesuré avec graphql-js, 100 alias ont exécuté le resolver 100 fois. Un rate limiter qui compte les requêtes n’en voit qu’une, c’est pourquoi graphql.org recommande des limites de largeur et d’alias."
+  },
+  "m20.q8": {
+    "q": "Qu’est-ce qui fait des trusted documents un vrai garde-fou, alors que les automatic persisted queries (APQ) n’en sont pas un ?",
+    "options": [
+      "Les trusted documents sont compressés, donc moins coûteux à exécuter sur le serveur",
+      "Seules les opérations connues au build s’exécutent ; APQ stocke toute requête envoyée par un client",
+      "Les trusted documents désactivent aussi l’introspection et les suggestions de champs",
+      "APQ ne s’applique qu’aux mutations, donc les queries restent sans restriction avec lui"
+    ],
+    "explain": "Avec les trusted documents, le serveur n’exécute que des ids connus, donc une requête arbitraire ne s’exécute jamais. APQ permet au client d’enregistrer n’importe quelle requête après une réponse <code>PERSISTED_QUERY_NOT_FOUND</code> : ça économise de la bande passante, mais n’importe quel client peut toujours tout exécuter. Aucun des deux ne désactive l’introspection."
+  },
+  "m20.q9": {
+    "q": "Le serveur GraphQL répond 200 pour des résultats partiels. Quelle métrique signale à l’astreinte que l’écran des commandes est en échec ?",
+    "options": [
+      "Le taux de réponses 5xx renvoyées par <code>/graphql</code>, par minute",
+      "La taille moyenne des réponses de <code>/graphql</code>, comparée à la semaine dernière",
+      "Le nombre de réponses HTTP 4xx, groupées par application cliente",
+      "Les erreurs par opération et par <code>extensions.code</code>, lues dans les corps de réponse"
+    ],
+    "explain": "Les erreurs de champ arrivent dans le tableau <code>errors</code> à côté de données partielles, en général avec un statut 2xx, donc les taux de 5xx et de 4xx restent plats pendant que l’écran casse. Compter les erreurs par opération et par code à partir du corps, c’est ce qui le révèle. Les codes de statut ne distinguent que les erreurs de requête (400, 422 dans le projet de spécification) des requêtes exécutées."
+  },
+  "m20.q10": {
+    "q": "Quel changement graphql-js signale-t-il comme cassant ?",
+    "options": [
+      "Ajouter un champ à <code>Order</code>",
+      "Passer un champ de sortie de <code>String</code> à <code>String!</code>",
+      "Ajouter un argument optionnel",
+      "Passer un champ de sortie de <code>Int!</code> à <code>Int</code>"
+    ],
+    "explain": "Assouplir un champ de sortie en nullable casse les clients qui s’appuyaient sur la promesse de non-nullité : <code>findBreakingChanges</code> a signalé <code>FIELD_CHANGED_KIND</code> (mesuré sur 16.14.2). Durcir une sortie en non nulle ne fait que renforcer la promesse et n’a posé aucun problème ; un argument optionnel était « dangerous », pas cassant."
+  },
+  "m20.q11": {
+    "q": "Les mises à jour du statut des commandes ne circulent que du serveur vers le navigateur du client. Quel transport est le choix par défaut raisonnable ?",
+    "options": [
+      "Les server-sent events sur HTTP/2",
+      "Les WebSockets avec ws",
+      "Du short polling toutes les secondes",
+      "Une mutation GraphQL appelée toutes les quelques secondes"
+    ],
+    "explain": "SSE est conçu pour le push unidirectionnel sur du HTTP classique : cookies, load balancers et logs fonctionnent sans changement, et <code>EventSource</code> se reconnecte avec <code>Last-Event-ID</code>. Les WebSockets ajoutent un protocole, des heartbeats et une reconnexion dont tu n’as pas besoin pour du trafic unidirectionnel, et un polling toutes les secondes coûterait une requête par client et par seconde."
+  },
+  "m20.q12": {
+    "q": "Pourquoi le serveur <code>/live</code> envoie-t-il un ping à chaque socket toutes les 30 secondes ?",
+    "options": [
+      "Pour mesurer la bande passante de chaque client et adapter la taille des messages",
+      "Parce que la RFC 6455 exige un ping sur chaque connexion toutes les 30 secondes",
+      "Pour repérer les sockets morts et empêcher les timeouts d’inactivité de 60 secondes des proxys de se déclencher",
+      "Pour rafraîchir le cookie de session de l’agent avant qu’il n’expire sur le serveur"
+    ],
+    "explain": "Un socket sans pong depuis le tour précédent est mort et on le termine, et le trafic de ping empêche les timeouts d’inactivité, comme les 60 secondes par défaut de nginx, de se déclencher. La RFC 6455 définit ping et pong mais ne fixe aucun intervalle ; 30 secondes, c’est l’exemple du README de ws."
+  },
+  "m20.q13": {
+    "q": "Le service client part en timeout pour une commande sur les 50 affichées dans la liste en direct. Que voient les agents, et que changerais-tu ?",
+    "options": [
+      "49 commandes complètes et une avec un client null ; rien à changer",
+      "Un écran vide, car <code>data</code> est null ; rendre <code>customer</code> nullable",
+      "Les 50 commandes, parce que GraphQL réessaie une fois le resolver en échec",
+      "Un HTTP 504 du serveur GraphQL, donc le client affiche sa page d’erreur"
+    ],
+    "explain": "L’erreur sur le <code>customer</code> non nul rend la commande null, ce qui rend null la liste non nulle, ce qui rend <code>data</code> null : un seul service lent vide tout l’écran (mesuré avec graphql-js). Un champ qui va chercher dans un autre service devrait être nullable ; le résultat « un seul client null » est exactement ce que ce changement apporte."
+  },
+  "m20.q14": {
+    "q": "Qu’est-ce qui ne va pas dans ce code, qui fait pourtant correctement le batching ?",
+    "options": [
+      "Rien : un loader partagé entre requêtes regroupe plus de clés, donc il est plus rapide",
+      "Le loader doit être créé dans la fonction resolver, à chaque appel",
+      "<code>load</code> doit être attendu dans le resolver, sinon le batching casse",
+      "Son cache vit aussi longtemps que le processus : lignes périmées, partagées entre utilisateurs"
+    ],
+    "explain": "DataLoader met en cache par instance, donc un loader au niveau du module est un cache à l’échelle du processus, sans expiration ni portée par utilisateur ; le README recommande une instance par requête. Le créer dans le resolver casserait le batching, puisque chaque appel aurait son propre loader. Renvoyer la promesse sans <code>await</code> ne pose aucun problème."
+  },
+  "m20.q15": {
+    "q": "Cette fonction de batch renvoie les lignes telles que PostgreSQL les donne. Deux des ids demandés ont été supprimés. Qu’est-ce qui ne va pas ?",
+    "options": [
+      "Les valeurs s’associent aux clés par position, donc un tableau plus court dans un ordre quelconque rompt le contrat",
+      "PostgreSQL rejette <code>= ANY($1)</code> quand le paramètre est un tableau de texte",
+      "DataLoader réessaie les deux ids manquants un par un, dans un second batch",
+      "Rien : DataLoader associe chaque ligne à sa clé en lisant le champ <code>id</code>"
+    ],
+    "explain": "Le README de DataLoader exige un tableau de valeurs de même longueur que les clés, où chaque index correspond au même index dans les clés. Les lignes reviennent sans ordre garanti et les ids manquants raccourcissent le tableau. DataLoader n’inspecte jamais de champ <code>id</code> : indexe les lignes par id et renvoie <code>ids.map(...)</code> avec null pour les manquants."
+  },
+  "m20.q16": {
+    "q": "Une page de 20 commandes appartient à 5 clients distincts. Avec les options par défaut de DataLoader, combien de clés la fonction de batch reçoit-elle ?",
+    "options": [
+      "20, une par commande",
+      "5, une par client distinct",
+      "1, parce que DataLoader charge une clé par tick",
+      "25, les commandes plus les clients"
+    ],
+    "explain": "Avec le cache activé (le défaut), une clé déjà demandée à ce loader n’est pas renvoyée ; sa promesse se résout à partir du même batch, d’après le README. Les doublons n’atteignent la fonction de batch qu’avec <code>cache: false</code>. Le batching envoie d’un coup toutes les clés distinctes du tick, pas une seule."
+  },
+  "m20.q17": {
+    "q": "Un client appelle <code>node(id: \"T3JkZXI6OTk=\")</code> et reçoit la commande d’un autre client, alors que <code>order(id:)</code> vérifie la propriété. Quelle est la cause racine ?",
+    "options": [
+      "Les ids globaux sont en base64, donc devinables ; passer à des UUID règle le problème",
+      "La vérification se trouve dans un resolver, pas dans la couche qu’appelle chaque chemin",
+      "Les champs <code>node</code> sont dangereux par conception et doivent être désactivés en production",
+      "GraphQL ne peut pas exprimer d’autorisation par objet, seulement par type"
+    ],
+    "explain": "Le même <code>Order</code> est accessible depuis plusieurs champs ; une vérification dans <code>order(id:)</code> ne protège que ce chemin. graphql.org recommande la couche de logique métier comme source de vérité unique. Des ids impossibles à deviner réduisent l’énumération mais ne sont pas de l’autorisation, comme le dit la section BOLA de M12."
+  },
+  "m20.q18": {
+    "q": "Avec la règle de coût de la section 4 (un champ coûte 1 par ligne parente ; un champ liste multiplie ses enfants par <code>first</code>), combien coûte cette opération ?",
+    "options": [
+      "101",
+      "2 551",
+      "2 601",
+      "130 101"
+    ],
+    "explain": "Le <code>orders</code> externe coûte 1, ses 50 champs <code>customer</code> coûtent 50, les champs <code>orders</code> internes coûtent 50, et leurs champs <code>id</code> 50 × 50 = 2 500 : 2 601, comme mesuré. Un niveau de plus l’a multiplié jusqu’à 130 101, c’est pourquoi chaque liste imbriquée doit compter."
+  },
+  "m20.q19": {
+    "q": "L’endpoint GraphQL est limité à 100 requêtes par seconde et par client, et pourtant un client met encore les réplicas à 100 % de CPU. Qu’ajoutes-tu ?",
+    "options": [
+      "Une limite de requêtes plus basse par client, comme 10 requêtes par seconde",
+      "Des limites de profondeur, d’alias et de coût, et un budget débité selon le coût de chaque opération",
+      "Plus de réplicas derrière le load balancer, avec de l’autoscaling sur le CPU",
+      "GET au lieu de POST, pour que le CDN absorbe l’essentiel de la charge répétée"
+    ],
+    "explain": "Une seule requête GraphQL peut être arbitrairement coûteuse, donc compter les requêtes passe à côté du problème ; graphql.org recommande l’analyse de coût et le débit de ce coût sur un budget client. Une limite de requêtes plus basse laisse quand même passer une requête profonde, et des réplicas ne font que répartir le même travail coûteux."
+  },
+  "m20.q20": {
+    "q": "Un collègue dit : « On a désactivé l’introspection en production, donc les attaquants ne peuvent pas découvrir le schéma. » Que réponds-tu ?",
+    "options": [
+      "D’accord : sans introspection, personne à l’extérieur ne peut découvrir le schéma",
+      "L’introspection doit rester active, parce que chaque client en a besoin à l’exécution",
+      "D’accord, et la désactiver bloque aussi les attaques par alias et par profondeur",
+      "C’est de l’obscurité : les erreurs « Did you mean » divulguent encore les noms de champs"
+    ],
+    "explain": "graphql.org qualifie la seule désactivation de l’introspection de « sécurité par l’obscurité ». Mesuré avec graphql-js, un champ inconnu a produit « Cannot query field \"total\" on type \"Order\". Did you mean \"note\"? », qui divulgue des noms ; GraphQL Armor peut bloquer les suggestions de champs. Les clients n’ont pas besoin de l’introspection à l’exécution ; l’outillage, si."
+  },
+  "m20.q21": {
+    "q": "Le prototype exécute les requêtes directement avec graphql-js. Un resolver lève l’erreur ci-dessous. Que reçoit le client ?",
+    "options": [
+      "Un message masqué, « Unexpected error. », avec le vrai dans les logs",
+      "Un HTTP 500 avec un corps vide, et l’écran des commandes n’affiche rien",
+      "<code>order: null</code>, et le message brut, IP comprise, dans <code>errors</code>",
+      "Rien de visible : le champ est null en silence et <code>errors</code> reste vide"
+    ],
+    "explain": "graphql-js met le message levé tel quel dans l’erreur (mesuré), donc les adresses de base de données fuitent. Masquer en « Unexpected error. », c’est ce que fait Yoga par défaut ; avec Apollo Server, on masque dans <code>formatError</code>. Seule une <code>GraphQLError</code> levée délibérément devrait atteindre les clients."
+  },
+  "m20.q22": {
+    "q": "Un agent tente d’annuler une commande déjà expédiée. Comment <code>cancelOrder</code> devrait-il le signaler ?",
+    "options": [
+      "Un résultat union avec un type <code>OrderAlreadyShipped</code> et son <code>shippedAt</code>",
+      "Une <code>GraphQLError</code> levée, avec le statut HTTP à 409 Conflict",
+      "<code>null</code>, et l’écran indique à l’agent que quelque chose s’est mal passé",
+      "<code>CancelOrderSuccess</code>, avec un avertissement ajouté sous <code>extensions</code>"
+    ],
+    "explain": "Un résultat métier attendu est une donnée sur laquelle le client doit agir, il a donc sa place dans le schéma sous forme de résultat typé ; les types client générés obligent alors l’écran à le gérer. Une erreur levée atterrit dans un tableau <code>errors</code> non typé, et le statut HTTP d’une réponse GraphQL ne porte pas de résultats par champ."
+  },
+  "m20.q23": {
+    "q": "L’équipe catalogue veut que les requêtes produits en GraphQL soient mises en cache par le CDN. Qu’est-ce qui fonctionne ?",
+    "options": [
+      "Ajouter <code>Cache-Control: public</code> aux réponses POST de <code>/graphql</code>",
+      "Configurer le CDN pour utiliser le corps de la requête dans sa clé de cache",
+      "Exposer les produits via des subscriptions plutôt que des queries",
+      "Des hash de persisted queries en GET, avec <code>Cache-Control</code> sur la réponse"
+    ],
+    "explain": "Les caches HTTP utilisent la méthode et l’URL comme clé, et chaque POST vers <code>/graphql</code> se ressemble. La spécification autorise GET pour les queries, et la documentation d’Apollo associe les requêtes hashées en GET au cache CDN, car les requêtes complètes tiennent rarement dans une URL cachable. Les subscriptions poussent des événements et ne sont pas mises en cache."
+  },
+  "m20.q24": {
+    "q": "Tu ajoutes <code>REFUNDED</code> à <code>enum OrderStatus</code>. Quelle affirmation est juste ?",
+    "options": [
+      "C’est sûr : les changements additifs d’un schéma n’affectent jamais les clients existants",
+      "C’est cassant : les anciens clients échouent à la validation quand ils rencontrent la valeur",
+      "C’est dangereux : d’anciennes apps peuvent recevoir une valeur qu’elles ne gèrent pas",
+      "C’est cassant : ça change le sens des valeurs existantes de l’enum"
+    ],
+    "explain": "<code>findDangerousChanges</code> a signalé <code>VALUE_ADDED_TO_ENUM</code> (mesuré sur graphql-js 16.14.2) : les anciennes opérations se valident toujours, mais un switch client sans cas par défaut peut planter ou ne rien afficher. Les apps mobiles qui restent installées des mois en font le piège classique."
+  },
+  "m20.q25": {
+    "q": "Socket.io tourne sur 6 pods derrière un Service Kubernetes sans affinité de session. Les clients n’arrivent pas à se connecter et se rabattent encore et encore. Quelle est la cause probable ?",
+    "options": [
+      "Socket.io ne peut pas tourner sur plus d’un pod sans son adapter cluster",
+      "L’adapter Redis manque, et Socket.io refuse les connexions sans lui",
+      "Les Services Kubernetes ne transmettent pas l’upgrade WebSocket entre pods",
+      "Les requêtes de long-polling d’une même session arrivent sur des pods différents : pas de sticky sessions"
+    ],
+    "explain": "La documentation de Socket.io dit que le long-polling a besoin de sticky sessions, car une session s’étend sur plusieurs requêtes HTTP qui doivent atteindre le serveur qui la détient ; avec le seul transport WebSocket, une connexion reste sur un pod. L’adapter Redis sert à diffuser entre pods, pas à se connecter."
+  },
+  "m20.q26": {
+    "q": "Le back-office utilise SSE sur HTTP/1.1. Un agent ouvre des flux de commandes dans sept onglets, et le septième ne charge jamais. Pourquoi ?",
+    "options": [
+      "En HTTP/1.1, un navigateur ouvre environ 6 connexions par domaine ; utiliser HTTP/2",
+      "<code>EventSource</code> ne supporte qu’un seul flux ouvert par page et par onglet",
+      "Node ferme la plus ancienne réponse ouverte dès que six flux sont ouverts",
+      "Le load balancer épingle chaque agent à un pod, qui refuse un septième flux"
+    ],
+    "explain": "MDN documente la limite de 6 connexions par navigateur et par domaine pour SSE en HTTP/1.x ; en HTTP/2, le nombre de flux est négocié, 100 par défaut. Rien dans Node ni dans <code>EventSource</code> ne limite les flux par page."
+  },
+  "m20.q27": {
+    "q": "Le socket <code>/live</code> est authentifié par le cookie de session. Un pentesteur montre qu’une page d’un autre site ouvre <code>/live</code> en tant qu’agent connecté. Quelle est la correction ?",
+    "options": [
+      "Passer le token de session dans la query string de l’URL au lieu du cookie",
+      "Vérifier <code>Origin</code> contre une allowlist à l’upgrade ; refuser avec 403",
+      "Passer de <code>ws://</code> à <code>wss://</code> pour que le cookie soit chiffré",
+      "Activer <code>permessage-deflate</code> et signer chaque message avec un secret"
+    ],
+    "explain": "Les navigateurs envoient les cookies avec le handshake WebSocket, donc une page hostile peut ouvrir un socket au nom de l’agent : c’est le Cross-Site WebSocket Hijacking. L’OWASP dit de valider <code>Origin</code> à chaque handshake avec une allowlist, et la RFC 6455 suggère 403 pour une origine refusée. Les tokens dans les URL fuitent dans les logs, et TLS n’arrête pas une requête cross-site."
+  },
+  "m20.q28": {
+    "q": "Avec cette fonction d’envoi, l’ordinateur d’un agent se met en veille avec l’onglet ouvert et la mémoire du réplica grimpe pendant des heures. Que se passe-t-il ?",
+    "options": [
+      "Le client ne lit rien, donc les messages s’accumulent dans la mémoire du serveur : plafonner <code>bufferedAmount</code>",
+      "ws fuit de la mémoire dès qu’un socket reste ouvert plus de quelques heures",
+      "Le timer du heartbeat garde des références vers des sockets déjà fermés",
+      "Les buffers de socket du système d’exploitation grossissent sans limite pour un pair en veille"
+    ],
+    "explain": "<code>send()</code> ne bloque jamais : ce que le pair ne lit pas reste dans la file du serveur. Mesuré avec ws 8.22.0, après environ 2,5 Mo partis dans les buffers de l’OS, <code>bufferedAmount</code> a atteint 10,4 Mo pour 200 messages de 64 Ko et continuait de grossir. Les buffers de l’OS sont bornés ; la file du processus, non."
+  },
+  "m20.q29": {
+    "q": "Le réplica 5 détient le flux SSE d’un client. Pendant que le réplica 5 passe 2 secondes à se reconnecter à Redis, le réplica 2 publie <code>SHIPPED</code> sur le canal pub/sub. Que se passe-t-il ?",
+    "options": [
+      "Redis garde le message jusqu’à ce que le réplica 5 se réabonne au canal",
+      "Redis retente la livraison trois fois, puis l’abandonne avec un avertissement",
+      "Le navigateur s’en aperçoit, se reconnecte avec <code>Last-Event-ID</code> et le récupère",
+      "Il est perdu (at-most-once) : resynchroniser depuis la base ou utiliser Redis Streams"
+    ],
+    "explain": "La documentation de Redis indique qu’un message pub/sub qu’un abonné ne peut pas traiter, par exemple pendant une déconnexion, est perdu pour toujours. Le flux du navigateur vers le réplica 5 n’a jamais été coupé, donc <code>EventSource</code> ne se reconnecte pas et rien n’est rejoué : le réplica doit se resynchroniser lui-même, ou lire depuis un stream qui conserve les entrées."
+  },
+  "m20.q30": {
+    "q": "Dans le chat du support, l’app du client renvoie un message après un timeout, mais la première tentative avait été enregistrée. Comment t’assures-tu qu’il ne s’affiche qu’une fois ?",
+    "options": [
+      "Socket.io livre exactement une fois, donc l’app ne devrait jamais renvoyer",
+      "Dédoublonner sur l’écran de l’agent en comparant les textes des messages",
+      "Un <code>clientMessageId</code> côté client, une contrainte unique et <code>ON CONFLICT</code>",
+      "Verrouiller la ligne de la conversation jusqu’à ce que le client confirme l’ack reçu"
+    ],
+    "explain": "Renvoyer jusqu’à l’ack donne une livraison at-least-once, et un id généré par le client avec une contrainte unique la transforme en stockage unique : la clé d’idempotence de M05 appliquée au chat. Le défaut de Socket.io est at-most-once, d’après sa documentation, et deux textes identiques peuvent être deux vrais messages."
+  }
+}

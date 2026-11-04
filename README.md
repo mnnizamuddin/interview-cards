@@ -19,7 +19,7 @@ Progress is stored in IndexedDB **on the device only**. Use "Back up" and "Resto
 
 ## Languages
 
-The interface is in English and French (`i18next` with `react-i18next`). Its text is in `src/i18n/en.json` and `fr.json`, which must have the same keys (a test checks it, and `t()` keys are typed from the English file); French unit titles are in `src/content/fr/units.ts`. The selector on the home screen saves the choice on the device; without one, a French browser gets French and any other gets English. Card content is still in English.
+The interface is in English and French (`i18next` with `react-i18next`). Its text is in `src/i18n/en.json` and `fr.json`, which must have the same keys (a test checks it, and `t()` keys are typed from the English file); French unit titles are in `src/content/fr/units.ts`. The selector on the home screen saves the choice on the device; without one, a French browser gets French and any other gets English. Cards and track questions are translated too: French overlays in `src/content/fr/` hold only their prose, laid over the English when French is on (see "French translation" in `CONTENT.md`).
 
 ## Commands
 

@@ -1,0 +1,1190 @@
+{
+  "sec-xss": {
+    "topic": "XSS",
+    "question": "Qu’est-ce que le XSS, et comment le prévenez-vous dans une application full-stack ?",
+    "answer": "Le cross-site scripting, c’est le script d’un attaquant qui s’exécute dans ma page, sous mon origine : il peut lire la page et appeler mon API en tant que l’utilisateur. Il peut être stocké, comme un avis malveillant, réfléchi depuis une URL, ou basé sur le DOM, dans mon propre code front. React encode les valeurs rendues en JSX, donc les vrais risques sont les sinks qu’il ne couvre pas : `dangerouslySetInnerHTML`, des refs qui écrivent du HTML, des URL aux schémas exotiques, des scripts inline construits côté serveur. Je valide les entrées, j’encode les sorties par défaut, je nettoie avec DOMPurify seulement là où du HTML doit être rendu, et j’ajoute une Content Security Policy stricte avec nonces. Les cookies `HttpOnly` limitent ce qu’un XSS peut voler.",
+    "keyPoints": [
+      "Le script d’un attaquant qui tourne sous ton origine, en tant que l’utilisateur",
+      "Stocké, réfléchi et basé sur le DOM",
+      "React encode le JSX ; le danger est dans les sinks comme `dangerouslySetInnerHTML`",
+      "Encoder par défaut, nettoyer avec une allow-list, CSP en seconde couche"
+    ],
+    "explanation": "Les recruteurs vérifient si tu penses « React s’en occupe » ou si tu sais où il ne le fait pas. Les seniors empilent les défenses : prévention au niveau des sinks, CSP pour limiter les dégâts, et sessions `HttpOnly` pour qu’un XSS réussi n’ait aucun token à voler.",
+    "example": "Un avis client contenant `<img src=x onerror=...>` s’exécutait dans le navigateur des agents du support, parce que le back-office rendait les avis avec `dangerouslySetInnerHTML` pour garder leur mise en forme. L’équipe a nettoyé le HTML des avis avec DOMPurify et une allow-list de balises de mise en forme, juste avant le sink, et a ajouté une CSP avec nonces ; au retest du pentest, le payload s’affichait comme du texte inoffensif.",
+    "mistakes": [
+      "Croire que React rend le XSS impossible, alors que `dangerouslySetInnerHTML` et `innerHTML` via une ref le contournent",
+      "Écrire une expression régulière qui retire les balises `<script>` et appeler ça du nettoyage",
+      "Stocker des tokens dans `localStorage`, où n’importe quel XSS peut les lire"
+    ],
+    "followUps": [
+      {
+        "question": "Quelle est la différence entre validation, encodage et nettoyage ?",
+        "answer": "La validation rejette à l’API une entrée qui n’a pas la bonne forme. L’encodage rend du texte inerte dans un contexte de sortie donné, comme du texte HTML. Le nettoyage réduit le HTML à une allow-list, uniquement là où on doit rendre du HTML fourni par l’utilisateur."
+      },
+      {
+        "question": "Pourquoi la CSP utilise-t-elle des nonces plutôt que des allow-lists de domaines ?",
+        "answer": "Les domaines autorisés hébergent souvent des scripts qu’un attaquant peut réutiliser. Un nonce est une valeur aléatoire par réponse, donc seules les balises script que le serveur a rendues avec peuvent s’exécuter."
+      },
+      {
+        "question": "Qu’est-ce qui distingue le XSS stocké, réfléchi et basé sur le DOM ?",
+        "answer": "Le XSS stocké est enregistré par le serveur, comme un avis affiché à chaque agent. Le XSS réfléchi revient de la requête, comme un terme de recherche renvoyé dans la page. Le XSS basé sur le DOM ne passe jamais par le HTML du serveur : du code front écrit des données non fiables, comme `location.hash`, dans un sink."
+      },
+      {
+        "question": "Comment une Content Security Policy limite-t-elle les dégâts d’un XSS ?",
+        "answer": "Le navigateur n’exécute que les scripts autorisés par la politique : avec `script-src 'nonce-...' 'strict-dynamic'`, un `<script>` injecté ou un handler `onerror` inline n’a pas de nonce et il est bloqué. `object-src 'none'` et `base-uri 'none'` ferment d’autres voies, et les rapports de violation montrent les tentatives."
+      },
+      {
+        "question": "Pourquoi un token dans un cookie `HttpOnly` est-il plus sûr face au XSS qu’un token dans `localStorage` ?",
+        "answer": "N’importe quel script de la page peut lire `localStorage` et envoyer le token à l’attaquant, qui le rejoue d’où il veut jusqu’à son expiration. Un cookie `HttpOnly` est invisible pour JavaScript, donc un XSS ne peut agir que dans la page ouverte, pendant qu’il s’exécute ; il faut quand même le corriger."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "React encode une chaîne rendue entre accolades en JSX, donc son balisage est affiché, pas exécuté.",
+        "why": "React l’insère comme nœud texte côté client et l’encode en HTML côté serveur.",
+        "twin": {
+          "statement": "React rend une chaîne entre accolades en JSX comme du HTML, donc son balisage est exécuté.",
+          "why": "React l’insère comme nœud texte côté client et l’encode en HTML côté serveur, donc le balisage est seulement affiché."
+        }
+      },
+      {
+        "statement": "Un cookie de session `HttpOnly` empêche un XSS d’effectuer des actions en tant que l’utilisateur.",
+        "why": "Le script ne peut pas lire le cookie, mais il peut toujours envoyer des requêtes depuis la page, et le navigateur y joint le cookie.",
+        "twin": {
+          "statement": "Un cookie de session `HttpOnly` n’empêche pas un XSS d’effectuer des actions en tant que l’utilisateur.",
+          "why": "Le script ne peut pas lire le cookie, mais ses requêtes depuis la page le transportent quand même."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le cross-site scripting, c’est le script d’un attaquant qui s’exécute dans ta page, sous ton origine : il peut lire la page et appeler ton API en tant que l’utilisateur. React couvre l’essentiel du rendu, le travail consiste donc à protéger les sinks qu’il ignore.",
+      "points": [
+        "Le cross-site scripting (XSS), c’est le script d’un attaquant qui s’exécute dans ta page, sous ton origine. Il peut lire la page et appeler ton API en tant que l’utilisateur, et le navigateur ajoute ses cookies.",
+        "Le XSS stocké vient de données enregistrées, comme un avis ; le réfléchi, d’une URL renvoyée dans la page ; celui basé sur le DOM, de ton propre code front qui écrit des données non fiables dans la page.",
+        "Un sink est l’endroit où une chaîne devient du balisage ou du code. React encode les valeurs rendues en JSX, le risque est donc dans les sinks qu’il ignore : `dangerouslySetInnerHTML`, `innerHTML` via une ref, des URL contrôlées par l’utilisateur.",
+        "L’encodage rend le texte inerte. Le nettoyage réduit le HTML à une allow-list de balises, avec DOMPurify, juste avant un sink qui doit rendre du HTML. Une regex qui retire `<script>` n’est pas du nettoyage.",
+        "Un header Content Security Policy (CSP) limite les scripts exécutés ; avec des nonces, seules les balises script marquées par le serveur s’exécutent. Les cookies `HttpOnly` cachent la session, mais un script injecté peut toujours envoyer des requêtes."
+      ],
+      "takeaways": [
+        {
+          "term": "Stocké, réfléchi, DOM",
+          "detail": "Depuis des données enregistrées comme un avis, depuis une URL renvoyée dans la page, ou depuis ton propre code front."
+        },
+        {
+          "term": "Sink",
+          "detail": "Là où une chaîne devient du balisage ou du code : `dangerouslySetInnerHTML`, `innerHTML` via une ref, des URL contrôlées par l’utilisateur."
+        },
+        {
+          "term": "Encodage",
+          "detail": "Rend le texte inerte. React encode par défaut les valeurs rendues en JSX."
+        },
+        {
+          "term": "DOMPurify",
+          "detail": "Nettoie le HTML selon une allow-list de balises, juste avant un sink qui doit rendre du HTML. Une regex sur `<script>`, ce n’est pas ça."
+        },
+        {
+          "term": "CSP avec nonces",
+          "detail": "Seules les balises script marquées par le serveur s’exécutent : une seconde couche, pas le correctif."
+        },
+        {
+          "term": "Cookies `HttpOnly`",
+          "detail": "Cachent la session aux scripts, mais un script injecté peut toujours envoyer des requêtes en tant que l’utilisateur."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un avis produit contenant `<img src=x onerror=...>` exécute du code dans le navigateur d’autres clients. La page produit rend les avis avec `dangerouslySetInnerHTML`. De quoi s’agit-il, et comment le corrigez-vous ?",
+        "bridge": "Un XSS stocké via un sink que React n’encode pas : rendre l’avis comme du texte ou le nettoyer avec une allow-list comme DOMPurify, avec une CSP stricte derrière."
+      },
+      {
+        "question": "Un collègue dit : « On utilise React, donc le XSS n’est pas notre problème. » Où se trompe-t-il ?",
+        "bridge": "React encode les valeurs en JSX, mais le XSS entre toujours par les sinks qu’il ne couvre pas, comme `dangerouslySetInnerHTML`, les schémas d’URL exotiques et les scripts inline construits côté serveur."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux affichent dans le back-office le corps en texte brut d’un avis client. Lequel est sûr face au XSS stocké ?",
+        "why": "React insère une chaîne entre accolades comme du texte, donc un corps `<img src=x onerror=…>` est affiché, encodé en `&lt;img` côté serveur. `dangerouslySetInnerHTML` le parse comme du HTML : le handler `onerror` s’exécute dans le navigateur de chaque agent du support, sous l’origine du back-office, et peut appeler l’API en leur nom."
+      }
+    ]
+  },
+  "sec-sql-injection": {
+    "topic": "Injection SQL",
+    "question": "Qu’est-ce que l’injection SQL, et comment la prévenez-vous ?",
+    "answer": "L’injection SQL, c’est quand une entrée utilisateur est collée dans une chaîne SQL : l’entrée peut alors modifier la requête elle-même. Un e-mail comme `x' OR '1'='1` transforme une recherche en « renvoie toutes les lignes ». La solution, ce sont les requêtes paramétrées : le texte SQL part avec des placeholders comme `$1`, les valeurs voyagent à part, et la base parse l’instruction avant de les lier, donc une valeur ne peut jamais devenir du SQL. Les query builders et les tagged templates le font pour moi. Les paramètres ne portent que des valeurs, donc les noms de table ou de colonne de tri passent par une allow-list dans le code. Je relis aussi les échappatoires brutes comme `sql.raw`, et je donne à l’utilisateur base de données de l’app des droits minimaux.",
+    "keyPoints": [
+      "Une entrée concaténée dans le SQL peut réécrire la requête",
+      "Requêtes paramétrées : valeurs envoyées à part du texte SQL",
+      "Les identifiants comme les colonnes de tri viennent d’une allow-list",
+      "Surveiller les échappatoires brutes des ORM ; utilisateur base à moindre privilège"
+    ],
+    "explanation": "C’est un classique auquel tout développeur backend doit répondre proprement. Une meilleure réponse explique pourquoi les paramètres fonctionnent (parsing avant liaison) et couvre les cas qu’ils ne traitent pas : identifiants dynamiques et échappatoires des ORM.",
+    "example": "Un relecteur a découvert que la liste des commandes de l’API Orders collait le paramètre de requête `sort` du client dans `ORDER BY`. L’équipe l’a remplacé par une table de correspondance de `newest` et `oldest` vers des fragments SQL fixes, a rejeté tout le reste avec un 400, et a passé la recherche de client en `WHERE email = $1`. Un test avec un payload d’injection renvoie maintenant 0 ligne au lieu de tous les clients.",
+    "mistakes": [
+      "Échapper les guillemets à la main au lieu d’utiliser des paramètres",
+      "Essayer de passer un nom de colonne en `$1` sans remarquer que le tri se fait sur une constante",
+      "Supposer qu’un ORM rend l’injection impossible, alors que `$queryRawUnsafe` ou `sql.raw` collent le texte tel quel"
+    ],
+    "followUps": [
+      {
+        "question": "Comment passez-vous une liste d’id à `IN` de façon sûre ?",
+        "answer": "En PostgreSQL, j’écris `WHERE id = ANY($1)` et je passe un tableau comme un seul paramètre. `IN ($1)` avec un tableau échoue, parce que `$1` est une seule valeur."
+      },
+      {
+        "question": "Pourquoi un tagged template, comme le tag `sql` de postgres.js, est-il sûr face à l’injection ?",
+        "answer": "La fonction de tag reçoit séparément les parties littérales et les valeurs, donc la bibliothèque met un placeholder à la place de chaque valeur et envoie les valeurs comme paramètres."
+      },
+      {
+        "question": "Techniquement, comment les requêtes paramétrées empêchent-elles l’injection SQL ?",
+        "answer": "Le protocole étendu de PostgreSQL envoie le texte SQL avec les placeholders `$1` dans un message, puis les valeurs séparément, dans une étape de liaison ultérieure. L’instruction est déjà parsée quand les valeurs arrivent, donc une entrée comme `' OR 1=1` n’est jamais comparée que comme une chaîne."
+      },
+      {
+        "question": "Un ORM supprime-t-il complètement le risque d’injection SQL ?",
+        "answer": "Non. Ses méthodes de requête normales paramètrent, mais les échappatoires brutes comme `$queryRawUnsafe` de Prisma, `sql.raw` ou une chaîne brute passée à `query()` collent le texte tel quel. Les noms de colonnes dynamiques dans `orderBy` ont aussi besoin d’une allow-list."
+      },
+      {
+        "question": "Comment auditeriez-vous une base de code existante pour l’injection SQL ?",
+        "answer": "Je cherche dans chaque appel de requête brute les template literals ou les concaténations, plus les échappatoires `Unsafe` et `raw`, et je remonte l’origine de chaque entrée. Ensuite j’ajoute une règle Semgrep en CI pour que les nouveaux cas cassent le build, et je teste les endpoints à risque avec des payloads d’injection."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "En PostgreSQL, on peut passer un nom de table en paramètre `$1`.",
+        "why": "Les paramètres ne représentent que des valeurs ; `SELECT * FROM $1` est une erreur de syntaxe, donc les noms viennent d’une allow-list.",
+        "twin": {
+          "statement": "En PostgreSQL, on ne peut pas passer un nom de table en paramètre `$1`.",
+          "why": "Les paramètres ne représentent que des valeurs ; `SELECT * FROM $1` est une erreur de syntaxe, donc les noms viennent d’une allow-list."
+        }
+      },
+      {
+        "statement": "Avec une requête paramétrée, une entrée contenant des guillemets et `OR 1=1` est comparée comme du simple texte.",
+        "why": "L’instruction est parsée avant que la valeur soit liée, donc la valeur ne peut jamais modifier la structure de la requête.",
+        "twin": {
+          "statement": "Avec une requête paramétrée, une entrée contenant des guillemets et `OR 1=1` peut encore modifier la structure de la requête.",
+          "why": "L’instruction est parsée avant que la valeur soit liée, donc la valeur est comparée comme du simple texte."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’injection SQL se produit quand une entrée utilisateur est collée dans le texte SQL : l’entrée peut alors modifier la requête elle-même. Les requêtes paramétrées l’éliminent en envoyant les valeurs à part du SQL.",
+      "points": [
+        "L’injection SQL se produit quand une entrée est collée dans le texte SQL : elle peut alors modifier la requête. Avec `x' OR '1'='1` comme e-mail, une recherche par e-mail renvoie tous les clients.",
+        "Une requête paramétrée envoie le SQL avec des placeholders comme `$1`, et les valeurs séparément. PostgreSQL parse l’instruction avant de lier les valeurs, donc une valeur ne peut jamais devenir du SQL.",
+        "Les paramètres ne portent que des valeurs, jamais des identifiants : `SELECT * FROM $1` est une erreur de syntaxe. Les colonnes de tri et les noms de table viennent d’une allow-list dans le code.",
+        "Pour une liste, écris `WHERE id = ANY($1)` et passe un tableau comme un seul paramètre. Les query builders et les tagged templates paramètrent pour toi, mais les échappatoires brutes comme `sql.raw` collent le texte tel quel.",
+        "Ne donne à l’utilisateur base de données de l’app que les droits nécessaires, pour qu’une injection ratée ne puisse pas supprimer des tables ni lire d’autres schémas."
+      ],
+      "takeaways": [
+        {
+          "term": "`x' OR '1'='1`",
+          "detail": "Collé dans une recherche par e-mail, il transforme la requête en « renvoie toutes les lignes »."
+        },
+        {
+          "term": "Requête paramétrée",
+          "detail": "Du SQL avec des placeholders comme `$1`, les valeurs envoyées à part. PostgreSQL parse avant de lier, donc une valeur ne devient jamais du SQL."
+        },
+        {
+          "term": "Identifiants",
+          "detail": "Les paramètres ne portent que des valeurs : `SELECT * FROM $1` est une erreur de syntaxe. Les colonnes de tri viennent d’une allow-list."
+        },
+        {
+          "term": "`WHERE id = ANY($1)`",
+          "detail": "Passe une liste comme un seul paramètre tableau."
+        },
+        {
+          "term": "`sql.raw`",
+          "detail": "Les échappatoires brutes des query builders collent le texte tel quel : relis chaque usage."
+        },
+        {
+          "term": "Moindre privilège",
+          "detail": "L’utilisateur base de l’app n’a que les droits nécessaires, donc une injection ratée ne peut pas supprimer de tables."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, chercher des clients avec l’e-mail `x' OR '1'='1` renvoie tous les clients. La requête est construite avec une template string. De quoi s’agit-il, et quelle est la correction ?",
+        "bridge": "Une injection SQL : une entrée collée dans le texte SQL modifie la requête. Les requêtes paramétrées envoient les valeurs à part du SQL."
+      },
+      {
+        "question": "Le tableau des commandes permet aux agents de trier par n’importe quelle colonne, et un collègue veut passer le nom de colonne en `$1`. Pourquoi est-ce que ça ne marchera pas, et comment le faire de façon sûre ?",
+        "bridge": "Les paramètres ne portent que des valeurs, jamais des identifiants, donc les colonnes de tri viennent d’une allow-list dans le code : la part de la prévention que les paramètres ne couvrent pas."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux trient la liste des commandes par la colonne envoyée par le client, comme `created_at`. Lequel trie correctement et de façon sûre ?",
+        "why": "Les paramètres ne portent que des valeurs, donc `ORDER BY $1` trie par la chaîne constante 'created_at' : toutes les lignes sont à égalité et PostgreSQL les renvoie dans l’ordre où il les lit, sans erreur. Les identifiants ne peuvent pas être des paramètres ; l’allow-list rend sûr le collage du nom de colonne, puisque seuls les noms listés atteignent le SQL."
+      }
+    ]
+  },
+  "sec-csrf": {
+    "topic": "CSRF",
+    "question": "Qu’est-ce que le CSRF, et comment protégez-vous une application contre lui ?",
+    "answer": "Le cross-site request forgery, c’est un autre site qui fait envoyer au navigateur de la victime une requête qui modifie l’état de mon app, le navigateur joignant automatiquement les cookies de la victime. Les cookies `SameSite=Lax` ou `Strict` en bloquent l’essentiel, mais c’est de la défense en profondeur : `Lax` envoie encore les cookies sur les navigations `GET` de premier niveau, et SameSite compare des sites, donc un sous-domaine voisin compte comme le même site. Je ne modifie donc jamais l’état en `GET`, et j’ajoute une vraie vérification : le header `Sec-Fetch-Site` doit valoir `same-origin` pour les écritures, avec une vérification de `Origin` en repli, ou un token CSRF. Exiger du JSON force aussi les requêtes cross-origin à passer par un preflight CORS.",
+    "keyPoints": [
+      "Un autre site déclenche une requête ; le navigateur ajoute les cookies de l’utilisateur",
+      "`SameSite` aide mais reste de la défense en profondeur",
+      "Limites : `Lax` autorise le `GET` de premier niveau ; les sous-domaines sont le même site",
+      "Vraie défense : Fetch Metadata ou vérification d’`Origin`, ou un token CSRF"
+    ],
+    "explanation": "Les recruteurs vérifient que tu sais que le CSRF n’existe que parce que les cookies partent automatiquement, et si tu sais expliquer pourquoi `SameSite` seul ne suffit pas. Les seniors le relient à la conception de la session : une API purement à bearer token dans un header n’est pas exposée de la même façon.",
+    "example": "La page d’un pentester sur un autre domaine soumettait automatiquement un formulaire à l’endpoint de remboursement du BFF du back-office pendant qu’un agent était connecté. L’équipe a gardé `SameSite=Lax` sur le cookie de session mais a ajouté un garde qui rejette les écritures sauf si `Sec-Fetch-Site` vaut `same-origin` et que le corps est du JSON, avec une allow-list d’`Origin` pour les anciens navigateurs ; au retest, le formulaire a reçu un 403.",
+    "mistakes": [
+      "Dire que CORS protège du CSRF, alors qu’un POST de formulaire part sans aucune vérification CORS",
+      "Compter sur `SameSite` seul en oubliant qu’un sous-domaine compromis est le même site",
+      "Modifier l’état en `GET`, que les cookies `Lax` accompagnent encore sur un clic de lien"
+    ],
+    "followUps": [
+      {
+        "question": "Next.js protège-t-il les Server Actions contre le CSRF ?",
+        "answer": "En partie : les Server Actions n’acceptent que `POST`, et Next.js compare le header `Origin` à l’hôte et abandonne en cas de différence. Les Route Handlers qu’on écrit soi-même ont besoin de leur propre vérification."
+      },
+      {
+        "question": "Une API qui reçoit un bearer token dans le header `Authorization` est-elle vulnérable au CSRF ?",
+        "answer": "Pas de la façon classique : le navigateur n’ajoute pas ce header de lui-même, donc un autre site ne peut pas lui faire envoyer le token."
+      },
+      {
+        "question": "Comment `SameSite` protège-t-il du CSRF, et en quoi `Strict`, `Lax` et `None` diffèrent-ils ?",
+        "answer": "Il indique au navigateur quand envoyer le cookie sur les requêtes cross-site. `Strict` ne l’envoie jamais ; `Lax` seulement sur les navigations `GET` de premier niveau, et des navigateurs comme Chrome l’appliquent quand l’attribut est absent ; `None` l’envoie toujours et exige `Secure`."
+      },
+      {
+        "question": "Comment implémentez-vous la validation d’un token CSRF côté front et côté back ?",
+        "answer": "Le serveur génère un token aléatoire lié à la session et le donne à la page. Le front l’envoie dans un header comme `X-CSRF-Token` à chaque écriture, et le serveur le compare à la valeur de la session en temps constant, en répondant 403 s’ils diffèrent."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un cookie `SameSite=Lax` est encore envoyé quand un utilisateur clique sur un lien d’un autre site vers le tien.",
+        "why": "`Lax` autorise les cookies sur les navigations `GET` de premier niveau, c’est pourquoi un `GET` ne doit jamais modifier l’état.",
+        "twin": {
+          "statement": "Un cookie `SameSite=Lax` n’est pas envoyé quand un utilisateur clique sur un lien d’un autre site vers le tien.",
+          "why": "`Lax` autorise les cookies sur les navigations `GET` de premier niveau, c’est pourquoi un `GET` ne doit jamais modifier l’état."
+        }
+      },
+      {
+        "statement": "`SameSite=Strict` protège le back-office d’un script tournant sur un autre sous-domaine du même domaine.",
+        "why": "SameSite compare les domaines enregistrables, donc les sous-domaines de `shop.example` sont le même site.",
+        "twin": {
+          "statement": "`SameSite=Strict` ne protège pas le back-office d’un script tournant sur un autre sous-domaine du même domaine.",
+          "why": "SameSite compare les domaines enregistrables, donc les sous-domaines de `shop.example` sont le même site."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le cross-site request forgery, c’est un autre site qui fait envoyer au navigateur de la victime une requête qui modifie l’état de ton app, avec ses cookies joints automatiquement. Les cookies `SameSite` le réduisent, mais une vraie vérification côté serveur reste nécessaire.",
+      "points": [
+        "Cross-site request forgery (CSRF) : un autre site fait envoyer au navigateur de la victime une requête qui modifie l’état de ton app, et le navigateur joint automatiquement les cookies de la victime.",
+        "L’attribut de cookie `SameSite` limite ça. `Strict` n’envoie jamais le cookie sur les requêtes cross-site ; `Lax` l’envoie encore sur les navigations `GET` de premier niveau, donc un `GET` ne doit jamais modifier l’état.",
+        "Un site, c’est le schéma plus le domaine enregistrable : `admin.shop.example` et `www.shop.example` sont le même site. SameSite ne protège pas d’un sous-domaine voisin : c’est de la défense en profondeur.",
+        "Les navigateurs envoient `Sec-Fetch-Site` : `same-origin`, `same-site`, `cross-site` ou `none`. N’accepte les écritures que s’il vaut `same-origin`, avec en repli une allow-list d’`Origin`, ou utilise un token CSRF.",
+        "CORS n’arrête pas le CSRF, car un `POST` de formulaire part sans rien demander. Exiger du JSON force les scripts cross-origin à passer par un preflight. Un bearer token dans un header n’est jamais joint automatiquement."
+      ],
+      "takeaways": [
+        {
+          "term": "`SameSite=Strict`",
+          "detail": "Le cookie n’est jamais envoyé sur les requêtes cross-site."
+        },
+        {
+          "term": "`SameSite=Lax`",
+          "detail": "Encore envoyé sur les navigations `GET` de premier niveau, donc un `GET` ne doit jamais modifier l’état."
+        },
+        {
+          "term": "Site ou origine",
+          "detail": "Un site, c’est le schéma plus le domaine enregistrable : `admin.shop.example` et `www.shop.example` sont le même site."
+        },
+        {
+          "term": "`Sec-Fetch-Site`",
+          "detail": "N’accepte les écritures que s’il vaut `same-origin` ; en repli, une allow-list d’`Origin` ou un token CSRF."
+        },
+        {
+          "term": "CORS",
+          "detail": "N’arrête pas le CSRF : un `POST` de formulaire part sans rien demander. Exiger du JSON force les scripts cross-origin à passer par un preflight."
+        },
+        {
+          "term": "Bearer token dans un header",
+          "detail": "Jamais joint automatiquement par le navigateur, donc pas exposé au CSRF."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un agent du support ouvre une page de forum et un remboursement est émis depuis sa session du back-office. Le cookie de session est `SameSite=None` et la route de remboursement accepte les POST de formulaire. Que s’est-il passé ?",
+        "bridge": "Du CSRF : un autre site a fait envoyer la requête au navigateur, et le cookie est parti avec. Une vérification Fetch Metadata ou d’`Origin`, ou un token CSRF, l’arrête."
+      },
+      {
+        "question": "Un collègue dit : « Nos cookies sont en `SameSite=Lax`, donc on n’a pas besoin de protection CSRF. » Quelles en sont les limites ?",
+        "bridge": "SameSite est de la défense en profondeur : `Lax` autorise le `GET` de premier niveau et les sous-domaines voisins sont le même site, donc les écritures ont toujours besoin d’une vraie vérification."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux décident à partir de Fetch Metadata si le BFF du back-office accepte une écriture. Lequel doit protéger la route de remboursement ?",
+        "why": "Seul `same-origin` prouve que la requête vient du back-office lui-même. `!== 'cross-site'` accepte aussi `same-site`, donc un script sur un sous-domaine voisin compromis peut poster un remboursement avec les cookies de l’agent, que SameSite laisse aussi passer. Il accepte en plus les requêtes sans aucun header."
+      }
+    ]
+  },
+  "sec-secrets": {
+    "topic": "Gestion des secrets",
+    "question": "Comment stockez-vous et gérez-vous des secrets comme des clés d’API et des mots de passe de base de données dans une application full-stack ?",
+    "answer": "Les secrets ne vont jamais dans le dépôt, l’image Docker ou le bundle front. Ils vivent dans un gestionnaire de secrets, comme AWS Secrets Manager ou Vault, et arrivent au process au runtime sous forme de variables d’environnement ou de fichiers montés, avec un accès limité par service. L’app valide sa configuration au démarrage et échoue tout de suite s’il en manque un. Côté front, tout ce qui a un préfixe `NEXT_PUBLIC_` ou `VITE_` est publié dans le bundle, donc les appels privilégiés restent dans le code serveur. Quand c’est possible, j’évite complètement les secrets statiques, avec des identifiants à courte durée de vie via OIDC. Je masque les secrets dans les logs, et en cas de fuite, je fais d’abord la rotation.",
+    "keyPoints": [
+      "Jamais dans le dépôt, l’image ou le bundle client",
+      "Un gestionnaire de secrets, injecté au runtime, moindre privilège par service",
+      "Les variables `NEXT_PUBLIC_` et `VITE_` sont publiques par conception",
+      "Identifiants à courte durée de vie si possible ; rotation d’abord en cas de fuite"
+    ],
+    "explanation": "La question vérifie de vraies habitudes d’exploitation. Les seniors connaissent les chemins de fuite (historique git, couches d’image, bundles, logs, paramètres de CI), préfèrent des identifiants qui expirent d’eux-mêmes, et savent que supprimer un commit n’annule pas la fuite d’une clé.",
+    "example": "Le bundle de la boutique contenait la clé admin du fournisseur de recherche, parce qu’elle avait été nommée `NEXT_PUBLIC_SEARCH_KEY`. L’équipe a fait la rotation de la clé le jour même, a déplacé l’indexation dans un module `server-only` qui lit une variable sans préfixe depuis AWS Secrets Manager, et a donné au navigateur une clé publique limitée à la recherche. Un scanner de secrets en CI bloque désormais les commits similaires.",
+    "mistakes": [
+      "Supprimer un secret fuité de l’historique git sans en faire la rotation",
+      "Passer des secrets en arguments de build Docker ou en `ENV`, qui persistent dans l’image",
+      "Considérer les Secrets Kubernetes comme chiffrés, alors que par défaut ils sont seulement en base64 dans etcd"
+    ],
+    "followUps": [
+      {
+        "question": "Comment un pipeline de CI déploie-t-il sur AWS sans clé d’accès stockée ?",
+        "answer": "Via OIDC : le job de CI obtient un token signé qui nomme son dépôt et son environnement, et AWS l’échange contre des identifiants temporaires d’un rôle dont la trust policy n’accepte que ce job."
+      },
+      {
+        "question": "Comment faites-vous la rotation d’un mot de passe de base de données sans interruption ?",
+        "answer": "Je crée le nouvel identifiant pendant que l’ancien fonctionne encore, je le déploie sur toutes les instances, puis je révoque l’ancien. Les gestionnaires de secrets peuvent automatiser cette rotation."
+      },
+      {
+        "question": "Comment faites-vous la rotation d’un identifiant compromis dans tous les environnements et services ?",
+        "answer": "D’abord je le révoque ou le remplace chez le fournisseur, puis je le mets à jour dans le gestionnaire de secrets et je redémarre ou recharge chaque service qui le lit, retrouvé grâce à la liste d’accès du gestionnaire. Je vérifie dans les logs du fournisseur s’il a été utilisé par l’attaquant, et je donne à chaque environnement son propre identifiant pour qu’une fuite reste contenue."
+      },
+      {
+        "question": "Quels outils avez-vous utilisés pour gérer les secrets en production ?",
+        "answer": "Sur l’API Orders, AWS Secrets Manager, synchronisé dans Kubernetes par External Secrets Operator, avec un rôle IAM par service, et GitHub Actions qui déploie via OIDC. La leçon : c’est l’inventaire de qui lit quel secret qui rend une rotation rapide."
+      },
+      {
+        "question": "Comment empêchez-vous les secrets d’être commités au départ ?",
+        "answer": "Je les garde hors de l’arbre de travail : `.env` dans `.gitignore` et seulement un `.env.example` commité. Ensuite je scanne : un hook pre-commit avec gitleaks, la push protection de GitHub et un scanner en CI. Les identifiants à courte durée de vie laissent moins de secrets à fuiter."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Par défaut, les Secrets Kubernetes sont stockés en clair dans etcd.",
+        "why": "La documentation de Kubernetes le dit ; il faut activer le chiffrement au repos ou utiliser un stockage de secrets externe.",
+        "twin": {
+          "statement": "Par défaut, les Secrets Kubernetes sont chiffrés dans etcd.",
+          "why": "La documentation de Kubernetes dit qu’ils sont stockés en clair, sauf si on active le chiffrement au repos ou qu’on utilise un stockage de secrets externe."
+        }
+      },
+      {
+        "statement": "Minifier le bundle front suffit à garder secrète une clé d’API qu’il contient.",
+        "why": "Tout ce qui est envoyé au navigateur est public ; n’importe qui peut fouiller le bundle dans les DevTools.",
+        "twin": {
+          "statement": "Une clé d’API dans un bundle front minifié est publique : n’importe qui peut la trouver dans les DevTools.",
+          "why": "La minification ne cache rien ; tout ce qui est envoyé au navigateur peut être lu."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un secret, c’est toute valeur qui donne un accès, comme un mot de passe de base de données, une clé d’API ou une clé de signature. Il doit vivre hors du code et des images et arriver à chaque process au runtime, avec le moins d’accès possible.",
+      "points": [
+        "Un secret, c’est toute valeur qui donne un accès : mot de passe de base de données, clé d’API, clé de signature. Il ne doit jamais se trouver dans le dépôt, une image Docker, les logs de CI ou le bundle front.",
+        "Les secrets vivent dans un gestionnaire de secrets, comme AWS Secrets Manager ou HashiCorp Vault, et arrivent au process au runtime sous forme de variables d’environnement ou de fichiers montés, chaque service ne lisant que les siens.",
+        "Les variables préfixées `NEXT_PUBLIC_` (Next.js) ou `VITE_` (Vite) sont écrites dans le bundle du navigateur, que tout le monde peut lire. Les appels privilégiés restent dans le code serveur, avec des variables sans préfixe.",
+        "Les Secrets Kubernetes sont seulement encodés en base64 dans etcd tant que le chiffrement au repos n’est pas activé. Les arguments de build Docker et les valeurs `ENV` persistent dans l’image : ce n’est pas la place des secrets.",
+        "En cas de fuite, fais d’abord la rotation ; supprimer le commit n’annule pas la fuite. Les identifiants à courte durée de vie, comme une CI qui déploie sur AWS via OIDC, suppriment complètement les clés statiques."
+      ],
+      "takeaways": [
+        {
+          "term": "Jamais stocké dans",
+          "detail": "Le dépôt, une image Docker, les logs de CI ou le bundle front."
+        },
+        {
+          "term": "Gestionnaire de secrets",
+          "detail": "AWS Secrets Manager ou Vault, injecté au runtime en variables d’environnement ou en fichiers, chaque service ne lisant que les siens."
+        },
+        {
+          "term": "`NEXT_PUBLIC_` / `VITE_`",
+          "detail": "Écrites dans le bundle du navigateur, lisibles par tous. Les appels privilégiés utilisent des variables sans préfixe dans le code serveur."
+        },
+        {
+          "term": "Secrets Kubernetes",
+          "detail": "Seulement encodés en base64 dans etcd tant que le chiffrement au repos n’est pas activé."
+        },
+        {
+          "term": "Build args et `ENV`",
+          "detail": "Persistent dans l’image Docker : ce n’est pas la place des secrets."
+        },
+        {
+          "term": "Secret fuité",
+          "detail": "Rotation d’abord : supprimer le commit n’annule pas la fuite. Les identifiants OIDC à courte durée de vie suppriment les clés statiques."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un chercheur vous envoie par e-mail la clé secrète du prestataire de paiement, trouvée en fouillant le JavaScript de la boutique dans les DevTools. Comment est-elle arrivée là, et que faites-vous en premier ?",
+        "bridge": "Une variable `NEXT_PUBLIC_` est publiée dans le bundle : les secrets restent dans le code serveur, viennent d’un gestionnaire de secrets, et un secret fuité passe d’abord par la rotation."
+      },
+      {
+        "question": "Un coéquipier veut commiter le mot de passe de la base dans un fichier `.env`, parce que « le dépôt est privé ». Comment gérez-vous les secrets à la place ?",
+        "bridge": "Les secrets ne vont jamais dans le dépôt ni dans l’image : un gestionnaire de secrets les injecte au runtime, par service, avec des identifiants à courte durée de vie si possible."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux créent le client de recherche qui indexe les produits pour la boutique. Lequel garde la clé admin secrète ?",
+        "why": "Next.js écrit chaque variable `NEXT_PUBLIC_` dans le bundle du navigateur au build, donc la clé admin part chez chaque visiteur, minifiée ou non, et n’importe qui peut réécrire l’index. Une variable sans préfixe reste sur le serveur, et `server-only` fait échouer le build si un composant client importe le module."
+      }
+    ]
+  },
+  "sec-https": {
+    "topic": "HTTPS",
+    "question": "Qu’est-ce que HTTPS, et pourquoi toute application en a-t-elle besoin, même sans données sensibles ?",
+    "answer": "HTTPS, c’est HTTP sur TLS. Ça apporte trois choses : la confidentialité, personne sur le réseau ne lit le trafic ; l’intégrité, personne ne le modifie ; et l’authentification du serveur par son certificat. Même sans données sensibles, en HTTP simple, un hotspot Wi-Fi ou un attaquant réseau peut injecter des scripts ou des pubs dans mes pages et voler les cookies de session. Les navigateurs réservent aussi beaucoup de fonctionnalités aux contextes sécurisés, comme les service workers, la géolocalisation et les passkeys, et ne parlent HTTP/2 et HTTP/3 que sur TLS. Les certificats sont gratuits et automatisés avec ACME, donc je termine TLS au load balancer, je redirige HTTP et j’envoie HSTS.",
+    "keyPoints": [
+      "HTTP sur TLS : confidentialité, intégrité, authentification du serveur",
+      "Sans lui, le réseau peut lire et injecter du contenu",
+      "Beaucoup de fonctionnalités exigent un contexte sécurisé ; HTTP/2 exige TLS",
+      "Certificats gratuits et automatisés ; redirection et HSTS"
+    ],
+    "explanation": "La question teste si tu vois l’intégrité, pas seulement le secret. Une bonne réponse donne des raisons concrètes au-delà des mots de passe, et un senior mentionne HSTS et la faille de la première visite que le preload comble.",
+    "example": "Les pages marketing de la boutique étaient encore servies en HTTP sur un ancien sous-domaine, et des clients sur le Wi-Fi d’un hôtel ont signalé des pubs injectées dans les pages produit. L’équipe a placé chaque hôte derrière le TLS du load balancer, a redirigé HTTP vers HTTPS et a envoyé `Strict-Transport-Security` avec `includeSubDomains`, si bien que les navigateurs ont complètement arrêté d’essayer HTTP.",
+    "mistakes": [
+      "Dire que HTTPS ne compte que pour les pages de connexion et de paiement",
+      "Servir en HTTPS mais oublier le flag `Secure` sur les cookies, qui peuvent alors encore fuiter en HTTP",
+      "Croire que HTTPS cache le site visité ; le nom de domaine est en général visible du réseau"
+    ],
+    "followUps": [
+      {
+        "question": "Que fait HSTS, et quelle est sa faiblesse ?",
+        "answer": "Il demande au navigateur de n’utiliser que HTTPS pour l’hôte et de refuser les erreurs de certificat. Il ne marche qu’après une première visite sécurisée, donc la première requête peut être attaquée ; la liste de preload comble ce trou."
+      },
+      {
+        "question": "Où terminez-vous TLS dans une installation Kubernetes ?",
+        "answer": "En général au load balancer ou à l’ingress, avec des certificats automatisés. Le trafic dans le cluster peut être rechiffré, par exemple avec un service mesh, quand le modèle de menace l’exige."
+      },
+      {
+        "question": "Comment le handshake TLS établit-il une connexion sécurisée ?",
+        "answer": "En TLS 1.3, le client envoie les suites de chiffrement qu’il supporte et une part de clé, le serveur répond avec sa propre part de clé, son certificat et une signature qui prouve qu’il détient la clé privée. Les deux dérivent les mêmes clés de session par Diffie-Hellman, et le client vérifie la chaîne de certificats et le nom d’hôte."
+      },
+      {
+        "question": "Comment obtenez-vous et renouvelez-vous de façon fiable un certificat TLS de production ?",
+        "answer": "Je l’automatise avec ACME : cert-manager dans Kubernetes avec Let’s Encrypt, ou un certificat managé sur le load balancer cloud, qui se renouvelle tout seul. Ensuite je surveille les dates d’expiration et j’alerte des semaines à l’avance, car un renouvellement raté reste silencieux jusqu’au jour de l’expiration."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Les navigateurs ignorent un header `Strict-Transport-Security` reçu en HTTP simple.",
+        "why": "Sinon un attaquant réseau pourrait l’ajouter ou le raccourcir ; il ne compte que reçu en HTTPS.",
+        "twin": {
+          "statement": "Les navigateurs appliquent un header `Strict-Transport-Security` reçu en HTTP simple.",
+          "why": "Ils l’ignorent en HTTP, car un attaquant réseau pourrait l’ajouter ou le raccourcir ; il ne compte qu’en HTTPS."
+        }
+      },
+      {
+        "statement": "Un site sans connexion ni données personnelles ne gagne rien à HTTPS.",
+        "why": "Sans intégrité, n’importe qui sur le réseau peut injecter des scripts dans ses pages, et les navigateurs réservent beaucoup de fonctionnalités aux contextes sécurisés.",
+        "twin": {
+          "statement": "Même un site sans connexion ni données personnelles gagne quelque chose à HTTPS.",
+          "why": "Sans intégrité, n’importe qui sur le réseau peut injecter des scripts dans ses pages, et les navigateurs réservent beaucoup de fonctionnalités aux contextes sécurisés."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "HTTPS, c’est HTTP sur TLS : le trafic reste privé, intact et vient du vrai serveur. Tout site en a besoin, car sans intégrité n’importe quel réseau intermédiaire peut injecter du contenu, et beaucoup de fonctionnalités du navigateur l’exigent.",
+      "points": [
+        "HTTPS, c’est HTTP sur TLS (Transport Layer Security). TLS apporte la confidentialité (personne ne lit le trafic), l’intégrité (personne ne le modifie) et l’authentification du serveur par son certificat.",
+        "L’intégrité compte même sans secrets : en HTTP simple, un hotspot ou un attaquant réseau peut injecter des scripts ou des pubs dans tes pages, et lire les cookies sans le flag `Secure`.",
+        "Les navigateurs réservent beaucoup de fonctionnalités aux contextes sécurisés, comme les service workers, la géolocalisation et les passkeys (WebAuthn), et ne parlent HTTP/2 et HTTP/3 que sur TLS.",
+        "Les certificats sont gratuits et renouvelés automatiquement avec le protocole ACME, par exemple chez Let’s Encrypt. TLS se termine en général au load balancer ou à l’ingress, qui redirige aussi HTTP vers HTTPS.",
+        "HSTS (`Strict-Transport-Security`) oblige le navigateur à n’utiliser que HTTPS pour l’hôte, et ne compte que reçu en HTTPS. La liste de preload comble le trou de la première visite ; elle exige un `max-age` d’un an ou plus."
+      ],
+      "takeaways": [
+        {
+          "term": "Garanties de TLS",
+          "detail": "Confidentialité, intégrité, et authentification du serveur par son certificat."
+        },
+        {
+          "term": "Risque du HTTP simple",
+          "detail": "Un hotspot peut injecter des scripts ou des pubs, et lire les cookies sans le flag `Secure`."
+        },
+        {
+          "term": "Contextes sécurisés",
+          "detail": "Service workers, géolocalisation et passkeys exigent HTTPS ; les navigateurs ne parlent HTTP/2 et HTTP/3 que sur TLS."
+        },
+        {
+          "term": "ACME",
+          "detail": "Le protocole des certificats gratuits renouvelés automatiquement, par exemple chez Let’s Encrypt."
+        },
+        {
+          "term": "Terminaison TLS",
+          "detail": "En général au load balancer ou à l’ingress, qui redirige aussi HTTP vers HTTPS."
+        },
+        {
+          "term": "HSTS",
+          "detail": "Force HTTPS pour l’hôte, ne compte qu’en HTTPS. Le preload exige un `max-age` d’un an ou plus."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Des clients sur le Wi-Fi d’un café voient des pubs injectées dans les pages produit de la boutique, encore chargées en HTTP simple. Qu’apporte HTTPS ici, et comment le déployez-vous ?",
+        "bridge": "HTTPS ajoute intégrité, confidentialité et authentification du serveur ; rediriger HTTP vers HTTPS et envoyer HSTS pour que les navigateurs n’utilisent plus HTTP."
+      },
+      {
+        "question": "Un product manager dit que le blog marketing n’a pas de connexion, donc qu’il n’a pas besoin de HTTPS. Que répondez-vous ?",
+        "bridge": "Sans TLS, le réseau peut lire et injecter du contenu, et les navigateurs réservent beaucoup de fonctionnalités, ainsi que HTTP/2, aux connexions sécurisées."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux posent le cookie de session de la boutique sur une réponse HTTPS. Lequel ne voyage jamais en HTTP simple ?",
+        "why": "Avec `Secure`, le navigateur n’envoie le cookie qu’en HTTPS. Sans lui, n’importe quelle requête `http://` simple vers le site, comme un vieux lien ou une URL d’image injectée par un attaquant, transporte le cookie de session en clair, et n’importe qui sur le réseau peut le copier et agir en tant que le client."
+      }
+    ]
+  },
+  "sec-security-review": {
+    "topic": "Revue de sécurité avant lancement",
+    "question": "Comment mèneriez-vous une revue de sécurité de base d’une application full-stack avant son lancement ?",
+    "answer": "Je commence par un modèle de menace rapide : ce qu’on protège, qui attaque, et les points d’entrée. Ensuite je déroule une checklist cadrée par l’OWASP Top 10, dont l’édition actuelle est 2025, et l’OWASP API Security Top 10. Le contrôle d’accès d’abord, puisque c’est A01 : pour chaque route, le client A demande l’objet du client B, et un client appelle les routes admin. Puis l’authentification et les sessions, la validation des entrées et l’injection, l’encodage des sorties et la CSP, les secrets, les headers de sécurité et CORS, le rate limiting, les dépendances et le lockfile, les logs et les alertes. Les scans automatisés et les audits de dépendances tournent en CI. Chaque problème trouvé reçoit une sévérité et un responsable, et les critiques bloquent le lancement.",
+    "keyPoints": [
+      "D’abord un modèle de menace : actifs, attaquants, points d’entrée",
+      "OWASP Top 10 (2025) et API Security Top 10 comme checklist",
+      "Tester le contrôle d’accès par route avec deux utilisateurs et un non-admin",
+      "Scans automatisés en CI ; problèmes classés, les critiques bloquent le lancement"
+    ],
+    "explanation": "Les recruteurs veulent une méthode, pas une liste d’outils. Les seniors partent du risque, testent l’autorisation à la main parce que les scanners la ratent, et transforment la revue en contrôles durables en CI plutôt qu’en audit ponctuel.",
+    "example": "Avant le lancement du back-office, l’équipe a parcouru les listes OWASP route par route. Le test à deux clients a montré que `GET /orders/:id` renvoyait n’importe quelle commande à n’importe quel client connecté, et qu’un non-admin pouvait appeler directement la route de remboursement. Les deux ont été corrigés avec la propriété dans la requête et des vérifications de rôle côté serveur, et les deux tests tournent maintenant en CI sur chaque route.",
+    "mistakes": [
+      "Lancer un scanner et appeler ça une revue : les scanners trouvent rarement les failles d’autorisation",
+      "Réciter le Top 10 sans relier chaque risque aux routes et aux données de l’application",
+      "Traiter la revue comme ponctuelle au lieu d’ajouter des tests et des contrôles en CI qui la maintiennent vraie"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qui a changé dans l’édition 2025 de l’OWASP Top 10 ?",
+        "answer": "Broken Access Control reste A01 et absorbe SSRF, et Security Misconfiguration monte en A02. Software Supply Chain Failures (A03) élargit l’ancienne catégorie des composants vulnérables, et Mishandling of Exceptional Conditions (A10) est nouvelle."
+      },
+      {
+        "question": "Que vérifieriez-vous dans la supply chain ?",
+        "answer": "Un lockfile commité et installé à l’identique en CI, des audits de dépendances, une adoption retardée des toutes nouvelles versions, les scripts d’installation bloqués sauf relecture, et aucun secret accessible depuis le build."
+      },
+      {
+        "question": "Quels scanners de sécurité automatisés avez-vous utilisés, et que détectent-ils le mieux ?",
+        "answer": "Sur l’API Orders : Dependabot et `npm audit` pour les packages aux vulnérabilités connues, Semgrep pour les motifs d’injection dans le code, Trivy pour les images de conteneurs, et ZAP sur la staging pour les headers manquants. Ils détectent bien les motifs connus ; aucun n’a trouvé la commande qu’un autre client pouvait lire."
+      },
+      {
+        "question": "Comment testez-vous un contrôle d’accès défaillant, comme une référence directe non sécurisée à un objet ?",
+        "answer": "Avec deux vrais clients de test : A crée une commande, B demande `GET /orders/:id` avec l’id de A et doit recevoir un 404 ; puis un non-admin appelle la route de remboursement et doit recevoir un 403. Je les écris en tests d’intégration pour chaque route qui prend un id, pour que la CI continue de les vérifier."
+      },
+      {
+        "question": "Comment priorisez-vous plusieurs problèmes de sécurité trouvés en même temps ?",
+        "answer": "Par le risque : la facilité d’exploitation, l’accès possible sans connexion, et les données ou l’argent exposés, avec le CVSS comme repère, pas comme réponse. Une fuite de commandes ouverte à n’importe quel client passe avant un header manquant, et chaque problème reçoit un responsable et une échéance."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans l’OWASP Top 10:2025, Broken Access Control est A01.",
+        "why": "Il est premier dans l’édition 2025, comme en 2021.",
+        "twin": {
+          "statement": "Dans l’OWASP Top 10:2025, Injection est A01.",
+          "why": "Broken Access Control est A01 dans l’édition 2025, comme en 2021."
+        }
+      },
+      {
+        "statement": "Si un scanner de vulnérabilités automatisé ne signale rien, l’API n’a aucune faille d’autorisation.",
+        "why": "Les scanners ne savent pas qui possède quelle commande ; l’autorisation au niveau objet demande des tests avec deux vrais utilisateurs.",
+        "twin": {
+          "statement": "Un scanner de vulnérabilités automatisé qui ne signale rien peut quand même rater des failles d’autorisation dans l’API.",
+          "why": "Les scanners ne savent pas qui possède quelle commande ; l’autorisation au niveau objet demande des tests avec deux vrais utilisateurs."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une revue de sécurité avant lancement confronte une application aux risques connus avant l’arrivée des vrais utilisateurs et des attaquants. Elle part d’un modèle de menace, parcourt les listes OWASP route par route, et se termine par des problèmes classés qui peuvent bloquer le lancement.",
+      "points": [
+        "Commence par un modèle de menace : ce que tu protèges (commandes, paiements, données clients), qui pourrait attaquer, et les points d’entrée (routes, webhook de paiement, uploads, back-office).",
+        "Utilise deux checklists : l’OWASP Top 10 (édition 2025) pour les applications web et l’OWASP API Security Top 10 (édition 2023) pour les API. Relie chaque risque à tes propres routes et données.",
+        "Broken Access Control est A01 dans le Top 10, et Broken Object Level Authorization (BOLA, un utilisateur qui atteint l’objet d’un autre) est API1. Teste chaque route avec deux clients et avec un non-admin.",
+        "Parcours ensuite l’authentification et les sessions, l’injection, l’encodage des sorties et la CSP, les secrets, les headers et CORS, le rate limiting, la supply chain des dépendances, et les logs avec alertes.",
+        "Les scanners trouvent rarement les failles d’autorisation. Garde la revue vivante : tests et audits de dépendances en CI, chaque problème classé avec un responsable, et les critiques qui bloquent le lancement."
+      ],
+      "takeaways": [
+        {
+          "term": "Modèle de menace",
+          "detail": "Ce que tu protèges, qui pourrait attaquer, et les points d’entrée : routes, webhooks, uploads, back-office."
+        },
+        {
+          "term": "OWASP Top 10 (2025)",
+          "detail": "La checklist des applications web ; Broken Access Control est A01."
+        },
+        {
+          "term": "OWASP API Top 10 (2023)",
+          "detail": "La checklist des API ; BOLA, un utilisateur qui atteint l’objet d’un autre, est API1."
+        },
+        {
+          "term": "Tests de contrôle d’accès",
+          "detail": "Chaque route avec deux clients et avec un non-admin : les scanners trouvent rarement ces failles."
+        },
+        {
+          "term": "Reste de la checklist",
+          "detail": "Auth et sessions, injection, encodage et CSP, secrets, headers et CORS, rate limiting, dépendances, logs."
+        },
+        {
+          "term": "Problèmes trouvés",
+          "detail": "Chacun classé avec un responsable ; les critiques bloquent le lancement. Tests et audits continuent de tourner en CI."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La nouvelle boutique est lancée dans trois semaines et le CTO vous demande de vous assurer que rien d’embarrassant ne part en production. Que faites-vous pendant ces trois semaines ?",
+        "bridge": "Une revue de sécurité avant lancement : modèle de menace, checklist basée sur l’OWASP menée par le contrôle d’accès, scans en CI, et problèmes classés dont les critiques bloquent le lancement."
+      },
+      {
+        "question": "Un collègue dit que le scanner en CI n’a rien trouvé, donc que la revue de sécurité est terminée. Que vérifieriez-vous encore, et comment ?",
+        "bridge": "Les scanners ratent les failles d’autorisation : la revue teste le contrôle d’accès par route avec deux utilisateurs et un non-admin, au regard des listes OWASP."
+      }
+    ]
+  },
+  "sec-csp": {
+    "topic": "Content Security Policy",
+    "question": "Qu’est-ce qu’une Content Security Policy, et contre quoi protège-t-elle ?",
+    "answer": "Une Content Security Policy est un header de réponse qui indique au navigateur quels scripts et autres ressources une page peut charger et exécuter. Son rôle principal est de limiter le XSS : avec une politique stricte, un `script-src` avec un nonce par réponse et `'strict-dynamic'`, un script ou un handler inline injecté n’a pas de nonce, donc le navigateur le bloque. D’autres directives arrêtent le clickjacking avec `frame-ancestors`, les plugins avec `object-src 'none'` et les balises `<base>` injectées avec `base-uri`. C’est de la défense en profondeur, pas le correctif : je supprime quand même le sink dangereux. Je la déploie d’abord en mode report-only, je lis les rapports, puis je l’applique.",
+    "keyPoints": [
+      "Un header de réponse qui liste ce que la page peut charger et exécuter",
+      "Politique stricte : un nonce par réponse plus `'strict-dynamic'`",
+      "Limite le XSS ; `frame-ancestors` arrête le clickjacking",
+      "Défense en profondeur ; déployer d’abord en mode report-only"
+    ],
+    "explanation": "Les recruteurs vérifient si tu connais une CSP stricte moderne plutôt qu’une longue liste d’hôtes autorisés, et si tu la traites comme une seconde couche derrière la correction du sink. Les seniors parlent du déploiement : report-only, lecture des rapports, et coût des nonces pour les pages statiques.",
+    "example": "Après un XSS stocké dans le back-office, l’équipe a déployé une CSP stricte sur la boutique depuis `proxy.ts`, d’abord en `Content-Security-Policy-Report-Only`. Deux semaines de rapports ont montré qu’un vieux widget de chat injectait des scripts inline ; il a été remplacé, et une variable d’environnement a fait passer la politique en mode bloquant. Le payload suivant du pentest, caché dans un avis, a été bloqué par le navigateur.",
+    "mistakes": [
+      "Lister les hôtes CDN autorisés, qui servent des scripts qu’un attaquant peut réutiliser, au lieu d’utiliser des nonces",
+      "Ajouter `'unsafe-inline'` sans nonce pour faire taire les erreurs, ce qui laisse de nouveau s’exécuter les scripts inline injectés",
+      "Appliquer une nouvelle politique sans phase report-only, et casser le checkout"
+    ],
+    "followUps": [
+      {
+        "question": "Comment déploieriez-vous une CSP en toute sécurité sur une grosse application existante ?",
+        "answer": "J’envoie une politique stricte en `Content-Security-Policy-Report-Only`, un groupe de pages à la fois, avec les rapports vers un seul endpoint. Je corrige ce qu’ils montrent : handlers inline déplacés dans le code, nonces ajoutés, scripts tiers remplacés ou isolés. J’applique quand il ne reste que du bruit, je garde les rapports, et je bascule avec un flag pour un rollback instantané."
+      },
+      {
+        "question": "À quoi servent `report-uri` et `report-to` ?",
+        "answer": "Ils indiquent au navigateur où envoyer en POST les rapports de violation, pour les politiques report-only comme appliquées. `report-uri` prend une URL et c’est l’ancienne forme ; `report-to` nomme un endpoint déclaré dans le header `Reporting-Endpoints` et le remplace. MDN conseille d’envoyer les deux pour l’instant."
+      },
+      {
+        "question": "Que coûtent les nonces dans une application Next.js ?",
+        "answer": "Chaque réponse a besoin d’un nonce neuf, donc les pages doivent être rendues dynamiquement : on perd la génération statique, l’ISR et le cache CDN du HTML. Pour les pages statiques, une politique à base de hashes convient mieux."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un header `Content-Security-Policy-Report-Only` bloque les scripts en violation et les signale.",
+        "why": "Il ne fait que signaler : le script s’exécute quand même, c’est ce qui le rend sûr pour un déploiement.",
+        "twin": {
+          "statement": "Un header `Content-Security-Policy-Report-Only` signale les scripts en violation mais les laisse s’exécuter.",
+          "why": "Il ne fait que signaler, c’est ce qui le rend sûr pour un déploiement."
+        }
+      },
+      {
+        "statement": "Avec `'strict-dynamic'`, les navigateurs ignorent l’allow-list d’hôtes du même `script-src`.",
+        "why": "Ils ne font confiance qu’aux scripts avec nonce ou hash et aux scripts que ceux-ci chargent ; les hôtes listés ne comptent plus.",
+        "twin": {
+          "statement": "Avec `'strict-dynamic'`, les navigateurs font encore confiance aux scripts des hôtes autorisés dans le même `script-src`.",
+          "why": "Ils ne font confiance qu’aux scripts avec nonce ou hash et aux scripts que ceux-ci chargent ; les hôtes listés ne comptent plus."
+        }
+      },
+      {
+        "statement": "Une fois une CSP stricte appliquée, le HTML des utilisateurs n’a plus besoin d’être nettoyé.",
+        "why": "La CSP est de la défense en profondeur : une politique peut être fausse ou contournée, donc on corrige quand même le sink.",
+        "twin": {
+          "statement": "Le HTML des utilisateurs doit encore être nettoyé une fois une CSP stricte appliquée.",
+          "why": "La CSP est de la défense en profondeur : une politique peut être fausse ou contournée, donc on corrige quand même le sink."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une Content Security Policy est un header de réponse qui indique au navigateur quels scripts et autres ressources une page peut charger et exécuter. Elle limite les dégâts du XSS et du clickjacking, en couche supplémentaire au-dessus de la correction du code vulnérable.",
+      "points": [
+        "Une Content Security Policy (CSP) est un header de réponse qui indique au navigateur quels scripts, styles, frames et autres ressources une page peut charger et exécuter. Le navigateur bloque tout le reste.",
+        "Une CSP stricte met un nonce aléatoire, nouveau à chaque réponse, dans `script-src` et sur chaque `<script>` légitime. Un script ou un handler `onerror` inline injecté n’a pas de nonce, donc il ne s’exécute pas.",
+        "`'strict-dynamic'` permet aux scripts avec nonce de charger d’autres scripts, comme les chunks du bundle. Les allow-lists d’hôtes sont faibles : les CDN autorisés hébergent du code réutilisable par un attaquant. Ajoute `object-src 'none'` et `base-uri 'none'`.",
+        "La CSP arrête aussi le clickjacking avec `frame-ancestors`. C’est de la défense en profondeur : corrige d’abord le sink vulnérable ; la politique limite les dégâts de la prochaine erreur.",
+        "Déploie avec `Content-Security-Policy-Report-Only` : rien n’est bloqué, et les violations sont envoyées en POST à `report-uri` ou à un endpoint `report-to`. Lis les rapports, corrige, puis applique."
+      ],
+      "takeaways": [
+        {
+          "term": "Nonce dans `script-src`",
+          "detail": "Aléatoire et nouveau à chaque réponse ; un script ou un handler inline injecté n’a pas de nonce, donc il ne s’exécute pas."
+        },
+        {
+          "term": "`'strict-dynamic'`",
+          "detail": "Permet aux scripts avec nonce de charger d’autres scripts, comme les chunks du bundle."
+        },
+        {
+          "term": "Allow-lists d’hôtes",
+          "detail": "Faibles : les CDN autorisés hébergent du code réutilisable par un attaquant."
+        },
+        {
+          "term": "`object-src 'none'`, `base-uri`",
+          "detail": "Bloquent les plugins et les balises `<base>` injectées."
+        },
+        {
+          "term": "`frame-ancestors`",
+          "detail": "Arrête le clickjacking en contrôlant qui peut afficher la page dans une frame."
+        },
+        {
+          "term": "Déploiement report-only",
+          "detail": "`Content-Security-Policy-Report-Only` ne bloque rien et signale les violations. Corrige-les, puis applique."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le bug de `dangerouslySetInnerHTML` est corrigé, mais l’équipe sécurité veut une seconde couche pour qu’un `<script>` injecté sur la boutique ne s’exécute pas. Quel header ajoutez-vous, et comment le déployez-vous ?",
+        "bridge": "Une Content Security Policy avec un nonce par réponse et `'strict-dynamic'` bloque les scripts sans nonce ; commencer en mode report-only, puis appliquer."
+      },
+      {
+        "question": "Un collègue dit qu’avec une CSP, on peut arrêter de nettoyer le HTML des utilisateurs. Contre quoi une CSP protège-t-elle, et que ne remplace-t-elle pas ?",
+        "bridge": "La CSP limite le XSS et le clickjacking en défense en profondeur ; une politique peut être fausse ou contournée, donc le sink dangereux doit quand même être corrigé."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux sont la Content Security Policy de la boutique pour les scripts. Laquelle bloque un script inline injecté ?",
+        "why": "Seuls les scripts portant le nonce de cette réponse s’exécutent, plus les scripts qu’ils chargent, donc un `<script>` ou un handler `onerror` injecté est bloqué. Avec 'unsafe-inline' et sans nonce, chaque script et handler inline s’exécute, y compris les injectés, et le CDN autorisé peut héberger du code réutilisable par un attaquant."
+      }
+    ]
+  },
+  "sec-frontend-hardening": {
+    "topic": "Durcissement du front",
+    "question": "Au-delà du XSS et du CSRF, comment sécurisez-vous une application front ?",
+    "answer": "Je pars de deux faits : tout ce qui est envoyé au navigateur est public, et chaque script de la page a tous ses pouvoirs. Donc aucun secret dans le bundle : les variables `NEXT_PUBLIC_` et `VITE_` sont publiées, et les appels privilégiés restent dans le code serveur. Je garde peu de scripts tiers, chacun avec un responsable, j’épingle les versionnés avec Subresource Integrity et je laisse la CSP bloquer le reste. J’arrête le clickjacking avec `frame-ancestors`, je vérifie `event.origin` sur chaque `postMessage`, j’envoie des headers comme HSTS et `nosniff`, et je garde les tokens hors de JavaScript derrière un BFF. Les dépendances npm sont aussi du code tiers : lockfile, audits, mises à jour retardées.",
+    "keyPoints": [
+      "Le bundle est public : pas de secrets, appels privilégiés côté serveur",
+      "Peu de scripts tiers, avec un responsable ; SRI pour les fichiers versionnés",
+      "Clickjacking : `frame-ancestors` ; `postMessage` : vérifier l’origine",
+      "Headers de sécurité, tokens hors du JS, hygiène des dépendances"
+    ],
+    "explanation": "La question vérifie si ton modèle de sécurité s’arrête au XSS. Les seniors raisonnent depuis la vue qu’a l’attaquant du navigateur : ce qu’il peut lire (le bundle), ce qui tourne avec les pouvoirs de la page (tiers, dépendances), et quels canaux du navigateur demandent des vérifications.",
+    "example": "Une revue de la boutique a trouvé la clé admin du fournisseur de recherche dans le bundle et un polyfill chargé depuis un CDN public. L’équipe a fait la rotation de la clé et déplacé l’indexation dans un module `server-only`, a auto-hébergé le polyfill, et a épinglé avec SRI le script versionné du widget d’avis. Une étape de CI cherche désormais des motifs de clés dans le résultat du build avant chaque déploiement.",
+    "mistakes": [
+      "Penser que la minification ou l’obfuscation cache une clé dans le bundle",
+      "Charger des scripts tiers depuis un CDN sans SRI ni responsable qui en répond",
+      "Accepter des événements `postMessage` sans comparer exactement `event.origin`"
+    ],
+    "followUps": [
+      {
+        "question": "Comment auditeriez-vous une base de code à la recherche de secrets exposés ?",
+        "answer": "Je scanne tout l’historique git, pas seulement l’arbre actuel, avec gitleaks ou TruffleHog, puis je builde l’app et je cherche des motifs de clés dans le bundle produit. Je liste chaque variable `NEXT_PUBLIC_` et `VITE_` et je me demande si elle peut être publique. Tout ce que je trouve passe d’abord par la rotation, puis est déplacé dans le code serveur."
+      },
+      {
+        "question": "Qu’est-ce que Subresource Integrity, et quand faut-il l’utiliser ?",
+        "answer": "L’attribut `integrity` contient un hash du fichier attendu, et le navigateur refuse un fichier qui ne correspond pas. Je l’utilise pour les fichiers tiers versionnés qui ne changent jamais ; un script cross-origin a aussi besoin de `crossorigin` et de CORS côté CDN. Un tag manager qui change ne peut pas porter de hash fixe."
+      },
+      {
+        "question": "Qu’est-ce que le clickjacking, et comment l’arrêtez-vous ?",
+        "answer": "Un autre site charge ta page dans une iframe invisible par-dessus un bouton appât, et l’utilisateur clique sans le savoir sur ton bouton Rembourser. La page refuse d’être affichée dans une frame avec `Content-Security-Policy: frame-ancestors 'self'`, plus `X-Frame-Options` pour les anciens navigateurs."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Subresource Integrity peut protéger un script tiers dont le contenu change à chaque requête.",
+        "why": "SRI compare un hash fixe, donc il ne convient qu’aux fichiers versionnés qui ne changent jamais.",
+        "twin": {
+          "statement": "Subresource Integrity ne peut pas protéger un script tiers dont le contenu change à chaque requête.",
+          "why": "SRI compare un hash fixe, donc il ne convient qu’aux fichiers versionnés qui ne changent jamais."
+        }
+      },
+      {
+        "statement": "Un script cross-origin avec un attribut `integrity` a aussi besoin de l’attribut `crossorigin` pour s’exécuter.",
+        "why": "Sans requête CORS, le navigateur ne peut pas vérifier le hash, donc il bloque le script.",
+        "twin": {
+          "statement": "Un script cross-origin avec un attribut `integrity` s’exécute même sans l’attribut `crossorigin`.",
+          "why": "Sans requête CORS, le navigateur ne peut pas vérifier le hash, donc il bloque le script."
+        }
+      },
+      {
+        "statement": "Un script d’analytics tiers ne peut pas lire ce que l’utilisateur tape dans ton formulaire de checkout.",
+        "why": "Tout script de la page tourne avec tous les pouvoirs de la page, champs de formulaire compris.",
+        "twin": {
+          "statement": "Un script d’analytics tiers peut lire ce que l’utilisateur tape dans ton formulaire de checkout.",
+          "why": "Tout script de la page tourne avec tous les pouvoirs de la page, champs de formulaire compris."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le durcissement du front part de deux faits : tout ce qui est envoyé au navigateur est public, et chaque script de la page a tous ses pouvoirs. Les secrets restent donc sur le serveur, le code tiers reste rare et vérifié, et les headers ferment les failles restantes.",
+      "points": [
+        "Tout ce qui est envoyé au navigateur est public. Les variables `NEXT_PUBLIC_` (Next.js) et `VITE_` (Vite) sont écrites dans le bundle au build, donc les secrets et les appels privilégiés restent dans le code serveur.",
+        "Un script tiers tourne avec tous les pouvoirs de ta page : il lit le DOM et appelle ton API en tant que l’utilisateur. Garde une liste courte avec des responsables, auto-héberge ce que tu peux, et laisse une CSP stricte bloquer le reste.",
+        "Subresource Integrity (SRI) : l’attribut `integrity` contient un hash du fichier attendu, et le navigateur refuse un fichier modifié. Un script cross-origin a aussi besoin de `crossorigin` et de CORS côté CDN.",
+        "Le clickjacking affiche ta page de façon invisible sous un bouton appât : arrête-le avec `frame-ancestors` dans la CSP. Avec `postMessage`, compare exactement `event.origin` et valide les données.",
+        "Envoie aussi des headers de sécurité (HSTS, `X-Content-Type-Options: nosniff`), garde les tokens hors de JavaScript avec un BFF, et traite les dépendances npm comme du code tiers : lockfile, audits, mises à jour retardées."
+      ],
+      "takeaways": [
+        {
+          "term": "Bundle public",
+          "detail": "Les variables `NEXT_PUBLIC_` et `VITE_` y sont écrites au build : pas de secrets, appels privilégiés côté serveur."
+        },
+        {
+          "term": "Scripts tiers",
+          "detail": "Lisent le DOM et appellent ton API en tant que l’utilisateur : peu nombreux, avec un responsable, auto-hébergés, la CSP bloque le reste."
+        },
+        {
+          "term": "Subresource Integrity",
+          "detail": "`integrity` contient le hash du fichier ; un fichier modifié est refusé. Le cross-origin exige `crossorigin` et CORS."
+        },
+        {
+          "term": "Clickjacking",
+          "detail": "Arrêté avec `frame-ancestors` dans la CSP."
+        },
+        {
+          "term": "`postMessage`",
+          "detail": "Compare exactement `event.origin` et valide les données."
+        },
+        {
+          "term": "Headers, tokens, npm",
+          "detail": "HSTS et `nosniff` ; tokens derrière un BFF ; lockfile, audits et mises à jour retardées."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un tag marketing ajouté à la boutique via un tag manager envoie les champs du formulaire de checkout vers un domaine inconnu. Quel durcissement du front aurait limité ça ?",
+        "bridge": "Chaque script de la page a tous ses pouvoirs : peu de scripts tiers, avec un responsable, SRI sur les fichiers versionnés, et une CSP qui bloque le reste."
+      },
+      {
+        "question": "Vos défenses contre le XSS et le CSRF sont en place. Que durciriez-vous encore dans l’application React du back-office ?",
+        "bridge": "Au-delà du XSS et du CSRF : pas de secrets dans le bundle, scripts tiers maîtrisés, `frame-ancestors`, vérification d’origine sur `postMessage`, headers, tokens derrière un BFF, hygiène des dépendances."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux chargent le widget d’avis versionné depuis un CDN tiers. Lequel refuse un fichier altéré ?",
+        "why": "Avec Subresource Integrity, le navigateur calcule le hash du fichier téléchargé et le refuse s’il diffère de `integrity` ; `crossorigin` lui permet de vérifier un fichier cross-origin. Sans eux, si le CDN est compromis ou le fichier remplacé, le nouveau code s’exécute dans la boutique avec un accès complet au formulaire de checkout."
+      }
+    ]
+  },
+  "sec-broken-access-control": {
+    "topic": "Contrôle d’accès défaillant",
+    "question": "Qu’est-ce qu’un contrôle d’accès défaillant (broken access control), et comment le testez-vous ?",
+    "answer": "Un contrôle d’accès défaillant, c’est un utilisateur qui fait ce qu’il ne devrait pas : lire la commande d’un autre client en changeant un id, ou un client qui appelle une route admin que l’UI cache. C’est A01 dans l’OWASP Top 10. Je le préviens en refusant par défaut et en vérifiant chaque requête, côté serveur : la propriété dans la requête SQL, comme `WHERE id = $1 AND customer_id = $2`, et les rôles tirés de la session vérifiée, jamais de la requête. Je le teste avec deux clients et un non-admin par route : B demande la commande de A et doit recevoir un 404, et un client qui appelle la route de remboursement doit recevoir un 403, en CI.",
+    "keyPoints": [
+      "Des utilisateurs qui sortent de leurs droits : données d’autrui ou actions admin",
+      "Refus par défaut ; vérification côté serveur à chaque requête",
+      "Propriété dans la requête SQL ; rôle tiré de la session vérifiée",
+      "Tester chaque route avec deux utilisateurs et un non-admin, en CI"
+    ],
+    "explanation": "C’est la faille web grave la plus courante, et les scanners la trouvent rarement parce qu’ils ne savent pas qui possède quoi. Les recruteurs attendent une correction structurelle qu’un contrôle oublié ne peut pas mettre en échec, et un test reproductible plutôt qu’un pentest ponctuel.",
+    "example": "Un audit a montré que `GET /orders/:id` renvoyait n’importe quelle commande à n’importe quel client connecté, et que `POST /admin/orders/:id/refund` comptait sur le back-office pour cacher le bouton. L’équipe a fait de `findOrderForCaller` le seul moyen de charger une commande, a ajouté un garde de rôle sur le routeur admin, et a généré des tests qui appellent chaque route en tant que second client ; les deux failles font maintenant échouer le build.",
+    "mistakes": [
+      "Cacher un bouton ou une route dans l’UI et appeler ça de l’autorisation",
+      "Compter sur des UUID aléatoires, qui fuient par les URL, les e-mails et les logs",
+      "Prendre l’id ou le rôle de l’utilisateur dans le corps de la requête au lieu de la session vérifiée"
+    ],
+    "followUps": [
+      {
+        "question": "Comment testeriez-vous systématiquement une API contre les IDOR ?",
+        "answer": "Je liste depuis la spec OpenAPI chaque route qui prend un id. Pour chacune, je crée l’objet en tant que client A, puis je le lis, le modifie et le supprime en tant que client B, en attendant un 404 comme pour un id inexistant. Je génère les tests depuis la spec pour qu’une nouvelle route soit couverte par défaut, et je les fais tourner en CI."
+      },
+      {
+        "question": "Comment concevriez-vous un modèle d’autorisation cohérent pour qu’aucun endpoint ne passe à travers ?",
+        "answer": "Refus par défaut : un garde au niveau du routeur rejette toute route qui ne déclare pas sa politique, donc un oubli échoue en mode fermé. La propriété vit dans des fonctions de repository qui prennent l’appelant, donc aucune requête sans filtre n’est disponible. Les politiques sont dans un seul module, et un test liste chaque route et vérifie qu’elle en a une."
+      },
+      {
+        "question": "Quelle est la différence entre l’escalade de privilèges horizontale et verticale ?",
+        "answer": "Horizontale : atteindre les ressources d’un autre utilisateur du même niveau, comme le client B qui lit la commande de A. Verticale : obtenir les pouvoirs d’un rôle supérieur, comme un client qui appelle la route de remboursement. La première demande des vérifications de propriété, la seconde des vérifications de rôle."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Des UUID aléatoires à la place d’id séquentiels empêchent les références directes non sécurisées à un objet.",
+        "why": "Les id fuient par les URL, les e-mails et les logs ; seule une vérification à chaque accès l’empêche.",
+        "twin": {
+          "statement": "Des UUID aléatoires à la place d’id séquentiels n’empêchent pas les références directes non sécurisées à un objet.",
+          "why": "Les id fuient par les URL, les e-mails et les logs ; seule une vérification à chaque accès l’empêche."
+        }
+      },
+      {
+        "statement": "Répondre 404 plutôt que 403 pour la commande d’un autre client évite de confirmer que la commande existe.",
+        "why": "Un 403 indique à l’attaquant que l’id est réel, ce qui l’aide à parcourir les id.",
+        "twin": {
+          "statement": "Répondre 403 plutôt que 404 pour la commande d’un autre client cache si la commande existe.",
+          "why": "Un 403 indique à l’attaquant que l’id est réel, ce qui l’aide à parcourir les id."
+        }
+      },
+      {
+        "statement": "Un client qui appelle une route admin, c’est une escalade de privilèges horizontale.",
+        "why": "Obtenir les pouvoirs d’un rôle supérieur, c’est vertical ; l’horizontal, c’est atteindre les données d’un pair.",
+        "twin": {
+          "statement": "Un client qui appelle une route admin, c’est une escalade de privilèges verticale.",
+          "why": "Obtenir les pouvoirs d’un rôle supérieur, c’est vertical ; l’horizontal, c’est atteindre les données d’un pair."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un contrôle d’accès défaillant, c’est un utilisateur qui sort de ses droits : il lit les données d’un autre client ou utilise les fonctions d’un rôle supérieur. C’est A01 dans l’OWASP Top 10, et les scanners le détectent rarement : on le prévient dès la conception et on le teste route par route.",
+      "points": [
+        "Contrôle d’accès défaillant : un utilisateur sort de ses permissions, lit ou modifie les données de quelqu’un d’autre ou utilise les fonctions d’un rôle supérieur. C’est A01 dans l’OWASP Top 10 (2025).",
+        "L’escalade horizontale atteint les données d’un pair, comme le client B qui lit la commande de A : une référence directe non sécurisée à un objet (IDOR). L’escalade verticale obtient un rôle supérieur, comme un client qui émet des remboursements.",
+        "Refuse par défaut et vérifie chaque requête côté serveur. Mets la propriété dans la requête SQL, avec l’id de l’appelant tiré de la session vérifiée, pour qu’un contrôle oublié ne renvoie rien. Un bouton caché n’est pas un contrôle.",
+        "Réponds 404 pour l’objet d’un autre utilisateur, comme pour un id inexistant, pour que la réponse ne confirme pas son existence. Les UUID aléatoires n’aident pas : les id fuient par les URL, les e-mails et les logs.",
+        "Les scanners le trouvent rarement. Teste chaque route à id avec deux utilisateurs et chaque route admin en tant que non-admin, et fais tourner ces tests en CI."
+      ],
+      "takeaways": [
+        {
+          "term": "Escalade horizontale (IDOR)",
+          "detail": "Atteindre les données d’un pair, comme le client B qui lit la commande de A en changeant un id."
+        },
+        {
+          "term": "Escalade verticale",
+          "detail": "Obtenir les fonctions d’un rôle supérieur, comme un client qui émet des remboursements."
+        },
+        {
+          "term": "Refus par défaut",
+          "detail": "Vérifier chaque requête côté serveur. Un bouton caché n’est pas un contrôle."
+        },
+        {
+          "term": "Propriété dans la requête",
+          "detail": "`WHERE id = $1 AND customer_id = $2`, avec l’id et le rôle de l’appelant tirés de la session vérifiée."
+        },
+        {
+          "term": "404 pour les objets d’autrui",
+          "detail": "Même réponse que pour un id inexistant. Les UUID aléatoires n’aident pas : les id fuient par les URL, les e-mails et les logs."
+        },
+        {
+          "term": "Tests en CI",
+          "detail": "Chaque route à id avec deux utilisateurs, chaque route admin en tant que non-admin."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un client a changé l’id dans `GET /orders/:id` et a vu l’adresse et les articles d’un autre client. Quelle est la faille, et comment détecteriez-vous cette classe de bug avant la mise en production ?",
+        "bridge": "Contrôle d’accès défaillant, OWASP A01 : la propriété va dans la requête SQL, et chaque route est testée en CI avec deux clients et un non-admin."
+      },
+      {
+        "question": "Un collègue dit que passer les id de commande en UUID aléatoires corrige les références directes non sécurisées à un objet. Êtes-vous d’accord, et que faites-vous à la place ?",
+        "bridge": "Les id fuient par les URL, les e-mails et les logs ; le contrôle d’accès, c’est une vérification côté serveur à chaque requête, avec refus par défaut."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux chargent une commande pour `GET /orders/:id`. Lequel empêche le client B de lire la commande du client A ?",
+        "why": "Avec la propriété dans la requête SQL et l’id client tiré de la session vérifiée, la commande de quelqu’un d’autre ne renvoie aucune ligne, le même 404 qu’un id inexistant. Sans ça, n’importe quel client connecté qui change l’id dans l’URL lit la commande d’un autre client : une IDOR, un cas de A01 dans l’OWASP Top 10."
+      }
+    ]
+  },
+  "sec-passwords": {
+    "topic": "Stockage des mots de passe",
+    "question": "Comment implémenteriez-vous un stockage sécurisé des mots de passe ?",
+    "answer": "Je ne stocke jamais les mots de passe, seulement un hash lent et salé issu d’une fonction de hachage dédiée : Argon2id en premier, comme le recommande l’OWASP, scrypt quand il n’est pas disponible, bcrypt seulement sur les systèmes legacy. Les hashes rapides comme SHA-256 sont un mauvais choix, parce qu’un GPU essaie des milliards de candidats par seconde. Chaque mot de passe a son propre sel aléatoire, donc des mots de passe identiques donnent des hashes différents et doivent être cassés un par un. L’algorithme, les paramètres et le sel sont dans la chaîne stockée, donc je peux augmenter le coût et rehacher à la connexion suivante. Autour, je limite la longueur des mots de passe, le rate limiting protège le login, et un e-mail inconnu reçoit la même réponse, aussi vite.",
+    "keyPoints": [
+      "Un hash de mot de passe lent et salé : Argon2id d’abord, jamais SHA-256",
+      "Un sel aléatoire par mot de passe, stocké dans la chaîne du hash",
+      "Les paramètres dans la chaîne, pour augmenter le coût à la connexion suivante",
+      "Rate limiting au login ; même réponse et même temps pour les e-mails inconnus"
+    ],
+    "explanation": "La question vérifie si tu sais pourquoi les hashes généralistes sont un mauvais choix et ce que fait vraiment un sel. Une réponse senior cite l’ordre de l’OWASP, prévoit le jour où la table fuit, et couvre l’endpoint de login autour du hash : rate limiting, énumération de comptes et credential stuffing.",
+    "example": "Un audit a montré que la table `customers` de la boutique était hachée en SHA-256 simple. L’équipe est passée à Argon2id au réglage OWASP via une bibliothèque native, et a rehaché chaque client à sa connexion réussie suivante, après vérification de l’ancien hash. Un mois plus tard, les comptes encore en SHA-256 ont vu leur mot de passe réinitialisé par e-mail.",
+    "mistakes": [
+      "Utiliser SHA-256 ou MD5, même salés : ils sont conçus pour être rapides",
+      "Chiffrer les mots de passe, qui fuient alors avec la clé",
+      "Répondre instantanément pour les e-mails inconnus, ce qui dit aux attaquants qui a un compte"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi un hash volontairement lent est-il une fonctionnalité de sécurité ?",
+        "answer": "Un attaquant qui a une table fuitée essaie des candidats hors ligne, aussi vite que son matériel le permet. Une fonction qui coûte des dizaines de millisecondes et des mégaoctets de mémoire par essai divise ses essais par seconde de plusieurs ordres de grandeur, alors qu’une connexion le remarque à peine."
+      },
+      {
+        "question": "Qu’est-ce qu’un sel, et pourquoi bcrypt le gère-t-il automatiquement ?",
+        "answer": "Un sel est une valeur aléatoire par mot de passe : deux clients avec le même mot de passe obtiennent des hashes différents et les tables précalculées deviennent inutiles. bcrypt le génère et l’écrit dans sa chaîne de sortie, après la version `$2b$` et le coût, donc la vérification le relit. Les bibliothèques Argon2id font pareil."
+      },
+      {
+        "question": "Comment géreriez-vous une attaque de credential stuffing suspectée sur le login ?",
+        "answer": "Le credential stuffing rejoue des paires e-mail et mot de passe fuitées. J’applique du rate limiting au login par compte et par IP dans un stockage partagé, je soumets les connexions à risque à un CAPTCHA ou à un second facteur, et j’alerte sur le taux d’échec. Selon l’OWASP, la MFA est la défense la plus forte. Ensuite je réinitialise les comptes touchés."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "C’est l’ajout d’un sel qui rend chaque essai de mot de passe lent à calculer.",
+        "why": "Le sel fait que des mots de passe identiques donnent des hashes différents ; la lenteur vient des paramètres de coût.",
+        "twin": {
+          "statement": "Ce sont les paramètres de coût, pas le sel, qui rendent chaque essai de mot de passe lent à calculer.",
+          "why": "Le sel fait que des mots de passe identiques donnent des hashes différents ; la lenteur vient des paramètres de coût."
+        }
+      },
+      {
+        "statement": "Une chaîne de hash bcrypt contient son propre sel.",
+        "why": "La sortie contient la version, le coût, le sel et le hash, donc `verify` n’a besoin de rien d’autre.",
+        "twin": {
+          "statement": "Une chaîne de hash bcrypt ne contient pas son sel, donc le sel a besoin de sa propre colonne.",
+          "why": "La sortie contient la version, le coût, le sel et le hash, donc `verify` n’a besoin de rien d’autre."
+        }
+      },
+      {
+        "statement": "SHA-256 est un bon hash de mot de passe parce que c’est un hash cryptographique sûr.",
+        "why": "Il est sûr mais rapide, donc deviner hors ligne coûte peu ; un hachage de mot de passe doit être lent.",
+        "twin": {
+          "statement": "SHA-256 est un mauvais hash de mot de passe bien que ce soit un hash cryptographique sûr.",
+          "why": "Il est rapide, donc deviner hors ligne coûte peu ; un hachage de mot de passe doit être lent."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Stocker des mots de passe de façon sûre, c’est ne jamais stocker les mots de passe, seulement un hash lent et salé produit par une fonction de hachage de mots de passe. Une base volée devient alors coûteuse à casser, un mot de passe à la fois.",
+      "points": [
+        "Ne stocke jamais les mots de passe, seulement un hash de mot de passe. Une fonction de hachage de mots de passe est volontairement lente et gourmande en mémoire, donc chaque essai coûte du vrai temps à l’attaquant. SHA-256 est conçu pour être rapide : mauvais outil.",
+        "L’OWASP les classe : Argon2id d’abord, scrypt quand il manque (il est intégré à `node:crypto`), bcrypt pour les systèmes legacy, PBKDF2 quand la conformité FIPS-140 est exigée.",
+        "Un sel est une valeur aléatoire par mot de passe : des mots de passe identiques ont des hashes différents et doivent être attaqués un par un. Les bibliothèques le génèrent et le stockent dans la chaîne du hash avec les paramètres.",
+        "Comme les paramètres voyagent dans la chaîne, tu peux augmenter le coût plus tard : après une connexion réussie, rehache quand les paramètres stockés sont plus faibles que ceux d’aujourd’hui.",
+        "Protège le login autour : limite la longueur des mots de passe, applique du rate limiting par compte et par IP, donne aux e-mails inconnus la même réponse dans le même temps, et compare les nouveaux mots de passe aux listes de fuites."
+      ],
+      "takeaways": [
+        {
+          "term": "Argon2id",
+          "detail": "Premier choix de l’OWASP ; scrypt s’il manque (intégré à `node:crypto`), bcrypt pour le legacy, PBKDF2 pour FIPS-140."
+        },
+        {
+          "term": "SHA-256",
+          "detail": "Conçu pour être rapide, donc un GPU essaie des milliards de candidats par seconde : mauvais outil."
+        },
+        {
+          "term": "Sel",
+          "detail": "Une valeur aléatoire par mot de passe : des mots de passe identiques ont des hashes différents et doivent être attaqués un par un."
+        },
+        {
+          "term": "Chaîne du hash",
+          "detail": "Contient l’algorithme, les paramètres et le sel, générés et stockés par la bibliothèque."
+        },
+        {
+          "term": "Rehacher au login",
+          "detail": "Après une connexion réussie, rehacher quand les paramètres stockés sont plus faibles que ceux d’aujourd’hui."
+        },
+        {
+          "term": "Autour du login",
+          "detail": "Longueur limitée, rate limiting par compte et IP, même réponse et même temps pour les e-mails inconnus, listes de fuites."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Une sauvegarde de la table `customers` a fuité, et les mots de passe sont stockés en SHA-256 sans sel. À quel point est-ce grave, et qu’aurait-il fallu stocker à la place ?",
+        "bridge": "Les hashes rapides permettent à un GPU d’essayer des milliards de candidats par seconde : un hash de mot de passe lent comme Argon2id, avec un sel par mot de passe, rend le cassage lent et un par un."
+      },
+      {
+        "question": "Un collègue vous demande pourquoi vous vous embêtez avec Argon2id alors que SHA-256 est un hash cryptographique sûr. Comment expliquez-vous le stockage des mots de passe ?",
+        "bridge": "Un hash sûr peut quand même être rapide ; le hachage de mots de passe doit être lent et salé, avec ses paramètres stockés pour pouvoir augmenter le coût à la connexion suivante."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux hachent le mot de passe d’un client avant son enregistrement dans la table `customers`. Lequel doit partir en production ?",
+        "why": "scrypt est une fonction de hachage de mots de passe : avec les valeurs par défaut de Node, chaque hash prend 16 Mio de mémoire et des dizaines de millisecondes, et un sel aléatoire donne des hashes différents à des mots de passe identiques. SHA-256 prend environ une microseconde et donne le même hash à deux clients qui ont le même mot de passe, donc une table fuitée se casse hors ligne à peu de frais."
+      }
+    ]
+  },
+  "sec-jwt": {
+    "topic": "Authentification JWT",
+    "question": "Comment concevriez-vous une authentification par JWT, et quels en sont les pièges ?",
+    "answer": "Un JWT est signé, pas chiffré : n’importe qui peut lire ses claims, et celui qui le détient peut l’utiliser jusqu’à `exp`. Je garde donc des access tokens à courte durée de vie, quelques minutes, avec un refresh token qui tourne à chaque utilisation. Le vérificateur fixe l’algorithme, l’émetteur et l’audience et exige `exp` ; je préfère des clés asymétriques publiées en JWKS, avec un `kid` pour la rotation. Les pièges : faire confiance au `alg` du token lui-même, des tokens à longue durée de vie que personne ne peut révoquer, des données personnelles dans le payload, et des tokens dans `localStorage`. Pour une application web first-party, un BFF avec un cookie de session `HttpOnly` est souvent plus simple.",
+    "keyPoints": [
+      "Signé, pas chiffré : lisible, utilisable jusqu’à `exp`",
+      "Access token court plus un refresh token qui tourne",
+      "Fixer algorithme, émetteur et audience ; exiger `exp`",
+      "La révocation est le point faible ; jamais dans `localStorage`"
+    ],
+    "explanation": "Les recruteurs cherchent à savoir si tu vois les JWT comme un compromis plutôt qu’un choix par défaut. Les seniors expliquent pourquoi des tokens stateless sont difficiles à révoquer, comment en vérifier un correctement, et quand une session serveur ou un BFF est la meilleure conception.",
+    "example": "L’audit de l’API Orders a montré qu’elle vérifiait la signature du JWT et rien d’autre, donc un token valide émis pour une autre API était accepté. L’équipe a fixé `ES256`, l’émetteur et l’audience `orders-api` dans `jwtVerify`, a exigé `exp`, et a réduit les access tokens à 5 minutes avec des refresh tokens qui tournent. Des tests avec des tokens hostiles tournent maintenant en CI.",
+    "mistakes": [
+      "Laisser le header `alg` du token choisir l’algorithme de vérification",
+      "Émettre des access tokens valables plusieurs jours, sans moyen de les révoquer",
+      "Mettre des données personnelles dans le payload en croyant qu’il est chiffré"
+    ],
+    "followUps": [
+      {
+        "question": "Comment implémenteriez-vous une « déconnexion partout » avec des JWT ?",
+        "answer": "Je révoque tous les refresh tokens de l’utilisateur dans le stockage, pour qu’aucun nouvel access token ne puisse être émis, et je laisse les access tokens courts expirer en quelques minutes. Si ce délai est trop long, je garde par utilisateur un timestamp « valide après » et je rejette les tokens plus anciens, au prix d’une lecture par requête."
+      },
+      {
+        "question": "À quoi sert un refresh token, et pourquoi est-ce plus sûr ?",
+        "answer": "Il obtient un nouvel access token à courte durée de vie sans nouvelle connexion. L’access token, envoyé à chaque appel, expire vite ; le refresh token ne va qu’à l’endpoint de token et peut être révoqué. Avec la rotation, la réutilisation d’un ancien refresh token révèle un vol et révoque toute la famille."
+      },
+      {
+        "question": "Où stocker un JWT côté client, et pourquoi est-ce important ?",
+        "answer": "Pas dans `localStorage` : n’importe quel XSS le lit et le rejoue d’où il veut. Pour une application web, un BFF garde les tokens sur le serveur et donne au navigateur un cookie `HttpOnly`, `Secure`, `SameSite`. Si une single-page app doit en détenir un, je garde l’access token uniquement en mémoire, à courte durée de vie."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "N’importe qui détenant un JWT peut lire son payload sans la clé de signature.",
+        "why": "Le payload est seulement encodé en base64url ; la signature protège l’intégrité, pas la confidentialité.",
+        "twin": {
+          "statement": "Personne ne peut lire le payload d’un JWT sans la clé de signature.",
+          "why": "Le payload est seulement encodé en base64url ; la signature protège l’intégrité, pas la confidentialité."
+        }
+      },
+      {
+        "statement": "Supprimer le JWT dans le navigateur à la déconnexion le rend invalide sur le serveur.",
+        "why": "Toute copie reste valide jusqu’à `exp` ; révoque le refresh token et garde des access tokens courts.",
+        "twin": {
+          "statement": "Supprimer un JWT dans le navigateur à la déconnexion laisse toute copie valide jusqu’à `exp`.",
+          "why": "Supprimer une copie ne change rien sur le serveur ; révoque le refresh token et garde des access tokens courts."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un JWT est un token signé qui porte des claims sur un utilisateur : n’importe qui peut le lire, et celui qui le détient peut l’utiliser jusqu’à son expiration. Concevoir une auth JWT, c’est des durées de vie courtes, une vérification stricte et des tokens hors de portée des scripts.",
+      "points": [
+        "Un JWT (JSON Web Token), c’est `header.payload.signature` en base64url. Le payload contient des claims : `sub` (l’utilisateur), `iss` (l’émetteur), `aud` (l’API visée), `exp` (l’expiration). Il est signé, pas chiffré : n’importe qui peut le lire.",
+        "Un bearer token marche pour quiconque le détient jusqu’à `exp`, et le révoquer demande une lecture. Les access tokens vivent donc quelques minutes, et un refresh token, renouvelé à chaque utilisation, en obtient de nouveaux.",
+        "C’est le vérificateur qui décide, pas le token : fixe l’algorithme, l’émetteur et l’audience, et exige `exp`. Préfère des clés asymétriques (ES256, RS256) publiées en JWKS, chacune avec un `kid` pour la rotation.",
+        "Ne garde jamais de tokens dans `localStorage`, où n’importe quel XSS les lit. Une application web est plus sûre avec un BFF : les tokens restent sur le serveur, et le navigateur reçoit un cookie de session `HttpOnly`.",
+        "Pour une seule application web first-party, une session serveur est plus simple et se révoque instantanément. Les JWT conviennent aux apps mobiles, aux tiers et à de nombreux services derrière un même fournisseur d’identité."
+      ],
+      "takeaways": [
+        {
+          "term": "Structure",
+          "detail": "`header.payload.signature` en base64url. Signé, pas chiffré : n’importe qui peut lire les claims."
+        },
+        {
+          "term": "Claims",
+          "detail": "`sub` l’utilisateur, `iss` l’émetteur, `aud` l’API visée, `exp` l’expiration."
+        },
+        {
+          "term": "Access token court",
+          "detail": "Vit quelques minutes ; un refresh token, renouvelé à chaque utilisation, en obtient de nouveaux. Révoquer demande une lecture."
+        },
+        {
+          "term": "Le vérificateur fixe",
+          "detail": "L’algorithme, l’émetteur et l’audience, et exige `exp`. Ne jamais faire confiance au `alg` du token lui-même."
+        },
+        {
+          "term": "JWKS et `kid`",
+          "detail": "Clés asymétriques (ES256, RS256) publiées en JWKS, chacune avec un `kid` pour la rotation."
+        },
+        {
+          "term": "Stockage",
+          "detail": "Jamais `localStorage`. Pour une application web first-party, un BFF avec un cookie de session `HttpOnly` est plus simple."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’access token volé d’un agent du support a continué de fonctionner sur l’API Orders pendant 24 heures après la désactivation de son compte. Qu’est-ce qui ne va pas dans la conception du token ?",
+        "bridge": "Un JWT est utilisable jusqu’à `exp` et difficile à révoquer : garder les access tokens à quelques minutes et faire tourner les refresh tokens, qui peuvent être révoqués."
+      },
+      {
+        "question": "Un collègue veut mettre l’adresse et le numéro de téléphone du client dans le JWT pour économiser un appel à la base. Que répondez-vous, et que doit vérifier le vérificateur ?",
+        "bridge": "Un JWT est signé, pas chiffré, donc n’importe qui peut lire ses claims ; le vérificateur fixe l’algorithme, l’émetteur et l’audience et exige `exp`."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux vérifient l’access token sur l’API Orders avec `jose`. Lequel refuse un token émis pour une autre API ?",
+        "why": "Avec `audience`, `jwtVerify` rejette un token dont le `aud` n’est pas `orders-api`. Sans ça, n’importe quel token valide du même fournisseur d’identité passe, comme un token émis pour le service de newsletter, donc un token fuité d’une API moins critique ouvre aussi l’API Orders."
+      }
+    ]
+  }
+}

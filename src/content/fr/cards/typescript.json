@@ -1,0 +1,1393 @@
+{
+  "ts-strict-config": {
+    "topic": "tsconfig strict et vérification des types en CI",
+    "question": "Comment configurez-vous TypeScript pour un service Node, et quelle étape vérifie réellement les types ?",
+    "answer": "J’active `strict` dès le premier commit, plus `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax` et `erasableSyntaxOnly`, avec `module: nodenext` pour que le compilateur suive le resolver de Node. Ajouter ces flags plus tard sur une grosse codebase, c’est des centaines de corrections. Ensuite je sépare deux rôles. Exécuter du TypeScript demande seulement de retirer les types : le type stripping de Node, tsx et les bundlers font ça, et aucun ne vérifie les types. La vérification, c’est le rôle de tsc, donc la CI lance `tsc --noEmit` sur chaque pull request et bloque le merge en cas d’échec. J’utilise tsx en développement, tsc pour le build, et Node tout court en production.",
+    "keyPoints": [
+      "`strict` plus `noUncheckedIndexedAccess` dès le premier commit",
+      "Type stripping, tsx et bundlers exécutent le code sans le vérifier",
+      "La CI lance `tsc --noEmit` et bloque le merge",
+      "`erasableSyntaxOnly` : pas d’enums, pour que Node retire les types"
+    ],
+    "explanation": "Les recruteurs veulent savoir si tu comprends ce que le compilateur garantit et où cette garantie est appliquée. Une réponse senior sépare exécution et vérification et nomme l’étape CI bloquante, au lieu de supposer que « ça tourne, donc les types sont bons ».",
+    "example": "Dans l’API Orders, une pull request passait `null` là où un `string` était attendu ; la CI lançait les tests via tsx, est restée verte, et la staging a planté. L’équipe a ajouté un job bloquant `tsc --noEmit` et activé `noUncheckedIndexedAccess`, ce qui a fait ressortir quelques dizaines de lectures de `rows[0]` sur des résultats qui peuvent être vides.",
+    "mistakes": [
+      "Supposer que `node src/main.ts` ou tsx vérifie les types : ils ne font que les retirer.",
+      "Repousser les flags stricts à plus tard, quand les activer coûte des centaines de corrections.",
+      "Utiliser `enum` ou des parameter properties de constructeur dans du code que Node exécute par type stripping, qui les rejette avec `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`."
+    ],
+    "followUps": [
+      {
+        "question": "Que change `noUncheckedIndexedAccess` ?",
+        "answer": "Une lecture par index comme `orders[0]` ou `byId[key]` prend le type `T | undefined`, donc il faut gérer la liste vide ou la clé absente avant d’utiliser la valeur. Côté backend, les résultats vides et les clés absentes arrivent tous les jours, donc ça attrape de vrais bugs."
+      },
+      {
+        "question": "Que refuse le type stripping de Node ?",
+        "answer": "La syntaxe qui génère du code : les enums, les parameter properties de constructeur et les namespaces avec du code échouent avec `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`. Les décorateurs aussi, donc NestJS a besoin d’une vraie étape de compilation. Il ignore `tsconfig.json`, donc les alias `paths` ne s’appliquent pas, et il refuse les fichiers `.ts` sous `node_modules`."
+      },
+      {
+        "question": "Qu’est-ce qui a changé avec TypeScript 7 ?",
+        "answer": "TypeScript 7.0, sorti en juillet 2026, c’est le compilateur porté en Go ; l’annonce officielle mesurait des builds complets environ dix fois plus rapides. La 7.0 n’a pas d’API programmatique, donc des outils comme les règles de lint typées tournent sur la 6.0 installée à côté. Les options dépréciées en 6.0, comme `baseUrl`, sont des erreurs en 7.0."
+      },
+      {
+        "question": "Contre quoi `verbatimModuleSyntax` vous protège-t-il ?",
+        "answer": "Il garde les imports exactement comme écrits, donc un type doit être importé avec `type`. Sans lui, importer une interface comme une valeur peut faire planter Node au démarrage avec « does not provide an export named », car les interfaces n’existent pas en JavaScript. Avec lui, tsc signale l’erreur à la compilation."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Lancer `node src/main.ts` sur Node 24 vérifie les types du fichier avant de l’exécuter.",
+        "why": "Le type stripping remplace seulement les annotations par des espaces ; un type faux s’exécute quand même.",
+        "twin": {
+          "statement": "Lancer `node src/main.ts` sur Node 24 exécute le fichier même s’il contient une erreur de type.",
+          "why": "Le type stripping retire seulement les annotations ; il ne les vérifie jamais."
+        }
+      },
+      {
+        "statement": "Avec `noUncheckedIndexedAccess` activé, `orders[0]` sur un `Order[]` a le type `Order | undefined`.",
+        "why": "Le flag ajoute `undefined` à chaque lecture par index, car la liste peut être vide.",
+        "twin": {
+          "statement": "Avec `noUncheckedIndexedAccess` activé, `orders[0]` sur un `Order[]` a toujours le type `Order`.",
+          "why": "Le flag ajoute `undefined` à chaque lecture par index, car la liste peut être vide."
+        }
+      },
+      {
+        "statement": "tsx refuse d’exécuter un fichier qui contient une erreur de type.",
+        "why": "tsx utilise esbuild, qui retire les types sans les vérifier ; seul tsc vérifie.",
+        "twin": {
+          "statement": "tsx exécute un fichier même s’il contient une erreur de type.",
+          "why": "tsx utilise esbuild, qui retire les types sans les vérifier ; seul tsc vérifie."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un `tsconfig` strict dès le premier commit attrape les bugs de null et les types laxistes avant qu’ils se répandent, et un contrôle en CI garantit que rien de non vérifié n’atteint la branche principale, puisque exécuter du TypeScript ne le vérifie jamais.",
+      "points": [
+        "Les valeurs par défaut sont trop laxistes. `strict` ajoute les contrôles de null et refuse les `any` implicites ; `noUncheckedIndexedAccess` rend `list[0]` potentiellement `undefined` ; `exactOptionalPropertyTypes` refuse `{ key: undefined }`.",
+        "`module: nodenext` fait suivre à tsc le resolver de Node, extensions de fichier comprises. `verbatimModuleSyntax` impose `type` sur les imports de types ; `erasableSyntaxOnly` interdit les enums et toute syntaxe qui génère du code.",
+        "Exécuter et vérifier sont deux rôles distincts. Node 24 exécute les fichiers `.ts` par type stripping, et tsx et les bundlers comme esbuild font pareil : ils retirent les types sans jamais les vérifier.",
+        "Seul tsc vérifie les types, donc la CI lance `tsc --noEmit` sur chaque pull request et bloque le merge. Un découpage courant : tsx en développement, tsc pour le build, Node tout court en production.",
+        "TypeScript 7.0 (juillet 2026) est le compilateur porté en Go, environ dix fois plus rapide. Il active `strict` par défaut mais ne charge aucun type global tant que tu ne les listes pas dans `types`."
+      ],
+      "takeaways": [
+        {
+          "term": "`strict`",
+          "detail": "Ajoute les contrôles de null et refuse les `any` implicites. L’ajouter plus tard sur une grosse codebase, c’est des centaines de corrections."
+        },
+        {
+          "term": "`noUncheckedIndexedAccess`",
+          "detail": "Rend `list[0]` potentiellement `undefined`."
+        },
+        {
+          "term": "`exactOptionalPropertyTypes`",
+          "detail": "Refuse `{ key: undefined }` pour une clé optionnelle."
+        },
+        {
+          "term": "`module: nodenext`",
+          "detail": "tsc suit le resolver de Node, extensions de fichier comprises."
+        },
+        {
+          "term": "`erasableSyntaxOnly`",
+          "detail": "Interdit les enums et toute syntaxe qui génère du code, pour que Node puisse retirer les types."
+        },
+        {
+          "term": "`tsc --noEmit` en CI",
+          "detail": "Type stripping, tsx et bundlers ne vérifient jamais les types : la CI lance tsc sur chaque pull request et bloque le merge."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Une pull request a renommé `Order.total` en `Order.totalCents`. La CI était verte, mais la staging renvoie des totaux `NaN` depuis un fichier qui lit encore `order.total`. La CI lance les tests avec tsx. Que manque-t-il ?",
+        "bridge": "tsx retire les types sans les vérifier. Seul tsc vérifie, donc la CI doit lancer `tsc --noEmit` et bloquer le merge en cas d’échec."
+      },
+      {
+        "question": "Vous démarrez un nouveau service Node 24 en TypeScript. Quelles options du compilateur activez-vous dès le premier jour, et pourquoi ne pas les ajouter plus tard ?",
+        "bridge": "Les flags stricts ne coûtent rien le premier jour et des centaines de corrections plus tard, et `erasableSyntaxOnly` garde le code exécutable par le type stripping de Node."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux définissent les statuts de commande dans un fichier que l’API Orders exécute avec `node src/main.ts` sur Node 24. Lequel démarre ?",
+        "why": "Node exécute les fichiers `.ts` en retirant seulement les types, et un `enum` n’est pas qu’un type : il génère un objet JavaScript. Node le refuse au démarrage avec `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`, et `erasableSyntaxOnly` le fait signaler aussi par tsc. L’objet `as const` est du JavaScript standard plus un type qui se retire proprement, avec les mêmes constantes nommées."
+      }
+    ]
+  },
+  "ts-narrowing": {
+    "topic": "unknown, narrowing et type guards",
+    "question": "Quelle est la différence entre `unknown` et `any`, et comment affinez-vous le type d’une valeur en toute sécurité ?",
+    "answer": "`any` désactive la vérification des types, et ça se propage : tout ce qu’on lit d’un `any` est aussi `any`, donc du code qui plante compile quand même. `unknown` veut dire « ça peut être n’importe quoi, prouve-le d’abord » : je ne peux pas lire une propriété avant d’affiner le type. Le narrowing se fait dans des contrôles que le compilateur comprend, comme `typeof`, `instanceof`, `'key' in value` ou une comparaison avec un littéral. Pour mes propres contrôles, j’écris un type predicate qui renvoie `value is T`, ou une assertion function qui lève une erreur. Donc les bodies de requête, les payloads de webhook et les résultats de `JSON.parse` sont `unknown` dans mon code. Et le typage est structurel : un type ne retire jamais les champs en trop à l’exécution.",
+    "keyPoints": [
+      "`any` coupe les contrôles et se propage ; `unknown` force une vérification",
+      "Affiner avec `typeof`, `instanceof`, `in` ou un test de littéral",
+      "Les type predicates `value is T` sont crus sur parole",
+      "Typage structurel : les champs en trop ne sont jamais retirés"
+    ],
+    "explanation": "Ça teste si tu traites les données externes comme non fiables. Les seniors ajoutent qu’un type predicate est une promesse que le compilateur ne vérifie pas, et que le typage structurel peut faire fuiter des champs dans une réponse.",
+    "example": "L’API Orders renvoyait le token du prestataire de paiement dans `GET /orders/:id` : la ligne de la base avait un champ `paymentToken`, et passer la ligne à une fonction typée avec `PublicOrder` compilait, car les champs en trop sont autorisés. Le correctif construit l’objet de réponse champ par champ, et un test vérifie désormais les clés exactes du body JSON.",
+    "mistakes": [
+      "Utiliser `any` pour la sortie de `JSON.parse` ou les erreurs attrapées, ce qui fait taire tous les contrôles suivants.",
+      "Écrire un type predicate qui vérifie moins que ce qu’il affirme, si bien que le mauvais type se propage partout.",
+      "Croire que passer un objet à une fonction typée avec moins de champs retire les autres champs."
+    ],
+    "followUps": [
+      {
+        "question": "Quelle est la différence entre un type predicate et une assertion function ?",
+        "answer": "Un predicate renvoie un booléen typé `value is T`, et le type est affiné à l’intérieur du `if`. Une assertion function est typée `asserts value is T` et lève une erreur si le contrôle échoue, donc le type est affiné sur toutes les lignes après l’appel."
+      },
+      {
+        "question": "Quand TypeScript rejette-t-il les champs en trop ?",
+        "answer": "Uniquement via l’excess property check : un objet littéral écrit directement là où un type est attendu est rejeté (TS2353), car une clé inconnue à cet endroit est probablement une faute de frappe. Une variable qui contient le même objet passe, puisque le typage structurel exige seulement au moins les champs déclarés."
+      },
+      {
+        "question": "Pourquoi la variable d’un `catch` est-elle `unknown` sous `strict` ?",
+        "answer": "Parce que JavaScript peut lever n’importe quoi, y compris une chaîne ou `undefined`. Donc `error.message` échoue tant qu’on n’affine pas avec `error instanceof Error`. Attention : le paramètre d’un callback `.catch((error) => …)` reste `any`, même avec `strict` activé."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Lire `body.type` sur une valeur typée `unknown` compile.",
+        "why": "Lire une propriété d’une valeur `unknown` échoue (TS18046) tant que la valeur n’est pas affinée.",
+        "twin": {
+          "statement": "Lire `body.type` sur une valeur typée `unknown` est une erreur de compilation tant que la valeur n’est pas affinée.",
+          "why": "TypeScript signale TS18046 sur toute lecture de propriété d’une valeur `unknown` non affinée."
+        }
+      },
+      {
+        "statement": "Passer un objet avec des champs en trop à une fonction typée `PublicOrder` retire ces champs à l’exécution.",
+        "why": "Les types sont effacés ; l’objet entier passe, donc `JSON.stringify` affiche tous les champs.",
+        "twin": {
+          "statement": "Passer un objet avec des champs en trop à une fonction typée `PublicOrder` garde tous les champs à l’exécution.",
+          "why": "Les types sont effacés, donc l’objet entier passe et `JSON.stringify` affiche tous les champs."
+        }
+      },
+      {
+        "statement": "Le compilateur ne vérifie pas qu’un type predicate contrôle ce qu’il affirme.",
+        "why": "Il fait confiance au type de retour `value is T`, donc un predicate qui vérifie trop peu ment partout.",
+        "twin": {
+          "statement": "Le compilateur vérifie que le corps d’un type predicate prouve vraiment `value is T`.",
+          "why": "Il fait confiance au type de retour `value is T`, donc un predicate qui vérifie trop peu ment partout où il est utilisé."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "`unknown` t’oblige à prouver ce qu’est une valeur avant de l’utiliser, alors que `any` coupe silencieusement la vérification. Le narrowing, c’est la façon dont le compilateur apprend ce qu’un contrôle a prouvé.",
+      "points": [
+        "`any` désactive la vérification des types et se propage : tout ce qu’on en lit est aussi `any`. `unknown` veut dire « peut être n’importe quoi » : le compilateur refuse les lectures de propriétés tant que tu n’as pas affiné le type.",
+        "Narrowing : dans un `if` sur `typeof`, `instanceof`, `'key' in value` ou une comparaison avec un littéral, le compilateur affine le type selon ce que le contrôle a prouvé.",
+        "Un type predicate est une fonction qui renvoie `value is T` ; une assertion function renvoie `asserts value is T` et lève une erreur. Le compilateur croit les deux sur parole, donc elles doivent vérifier tout ce qu’elles affirment.",
+        "Le typage est structurel : une valeur correspond à un type si elle a au moins ses champs. Les champs en trop sont autorisés et jamais retirés, donc une réponse typée peut quand même faire fuiter un champ secret."
+      ],
+      "takeaways": [
+        {
+          "term": "`any`",
+          "detail": "Désactive la vérification des types et se propage : tout ce qu’on en lit est aussi `any`."
+        },
+        {
+          "term": "`unknown`",
+          "detail": "Peut être n’importe quoi : les lectures de propriétés sont refusées tant que tu n’affines pas le type."
+        },
+        {
+          "term": "Contrôles de narrowing",
+          "detail": "`typeof`, `instanceof`, `'key' in value` ou une comparaison avec un littéral affinent le type dans le `if`."
+        },
+        {
+          "term": "Type predicate",
+          "detail": "Une fonction qui renvoie `value is T`. Le compilateur la croit sur parole, donc elle doit vérifier tout ce qu’elle affirme."
+        },
+        {
+          "term": "Assertion function",
+          "detail": "Renvoie `asserts value is T` et lève une erreur si le contrôle échoue."
+        },
+        {
+          "term": "Typage structurel",
+          "detail": "Une valeur correspond si elle a au moins les champs. Les champs en trop ne sont jamais retirés, donc des secrets peuvent fuiter."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le handler `POST /webhooks/payments` lit `req.body.data.orderId`. Ça compile parce que le body est `any`, et ça plante en production quand le prestataire envoie un événement sans `data`. Comment faudrait-il typer le body ?",
+        "bridge": "`any` coupe les contrôles. Typer le body en `unknown` impose un narrowing avant toute lecture de propriété."
+      },
+      {
+        "question": "Le type predicate `isOrder(x): x is Order` d’un collègue vérifie seulement que `x` a un `id`. Qu’est-ce qui peut mal tourner, et comment affinez-vous les valeurs en toute sécurité ?",
+        "bridge": "Le compilateur croit sur parole le `value is T` d’un predicate, qui doit donc vérifier ce qu’il affirme. Les contrôles natifs comme `typeof` et `in` sont vérifiés."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux transforment une ligne de la base, qui contient `paymentToken`, en body de `GET /orders/:id`. Lequel garde le token hors de la réponse ?",
+        "why": "Le typage est structurel : `row` a au moins les champs de `PublicOrder`, donc la renvoyer compile. Mais les types sont effacés, donc toute la ligne est renvoyée et `JSON.stringify` envoie tous les champs, `paymentToken` compris. Construire l’objet champ par champ n’envoie que les champs listés."
+      }
+    ]
+  },
+  "ts-branded-types": {
+    "topic": "Branded types et unions de littéraux",
+    "question": "Comment empêchez-vous qu’un id de commande soit passé là où un id de paiement est attendu, ou des euros là où des centimes sont attendus ?",
+    "answer": "Pour le compilateur, toutes les chaînes ont le même type, et tous les nombres aussi. J’utilise des branded types : `OrderId` est une chaîne intersectée avec une propriété marqueur qui n’existe que pour le compilateur, donc une chaîne brute ou un `PaymentId` est rejeté là où un `OrderId` est attendu. Chaque brand a une seule fonction constructeur qui vérifie la valeur une fois, comme `toCents`, qui refuse 19,99. Aucun coût à l’exécution et le JSON ne change pas. Pour l’argent, je garde des centimes entiers à côté d’une devise et je convertis en euros seulement pour l’affichage. Pour des ensembles fixes comme les statuts de commande, j’utilise des unions de littéraux issues d’un objet `as const` plutôt qu’un enum.",
+    "keyPoints": [
+      "Un brand : un marqueur de compilation qui distingue des types de même forme",
+      "Un constructeur qui vérifie, par brand ; aucun coût à l’exécution",
+      "L’argent en centimes entiers avec une devise, jamais en flottants",
+      "Unions de littéraux issues d’objets `as const` au lieu d’enums"
+    ],
+    "explanation": "Ça montre si tu utilises le système de types pour prévenir les bugs métier, pas seulement pour décrire des formes. Les seniors parlent du constructeur qui vérifie, du problème des flottants pour l’argent, et de pourquoi on évite les enums quand Node retire les types.",
+    "example": "L’API Orders a remboursé 1 999,00 € sur une commande de 19,99 € parce que `amount` était un simple `number`, en centimes dans la base et en euros dans le client de paiement. Avec des brands, `refundPayment(paymentId: PaymentId, amount: Cents)` refuse un `1999` brut, et `toCents` lève une erreur sur `19.99`, donc la même erreur est maintenant une erreur de compilation ou un échec en bordure du système.",
+    "mistakes": [
+      "Garder l’argent en euros flottants : `19.99 * 100` vaut `1998.9999999999998` en JavaScript.",
+      "Caster avec `as OrderId` partout dans le code au lieu d’un seul constructeur qui vérifie.",
+      "Utiliser `enum` pour les statuts dans du code que Node exécute par type stripping, qui le rejette."
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi pas un enum pour les statuts de commande ?",
+        "answer": "Un enum génère du code, donc le type stripping de Node et `erasableSyntaxOnly` le rejettent, et un paramètre de type enum string refuse la chaîne brute `'paid'`. Un objet `as const` donne les mêmes constantes nommées et une liste à l’exécution, avec un type union qui en dérive."
+      },
+      {
+        "question": "Qu’apporte `satisfies` ?",
+        "answer": "Il vérifie une valeur par rapport à un type sans donner ce type à la variable. Une faute de frappe dans une map de config est détectée, mais les clés restent connues et les littéraux restent précis, là où une annotation les élargirait. On écrit `as const satisfies …` pour garder chaque littéral."
+      },
+      {
+        "question": "Un `OrderId` brandé peut-il être utilisé là où un `string` est attendu ?",
+        "answer": "Oui : c’est toujours une chaîne, donc `const text: string = orderId` compile. Seul l’autre sens est bloqué, et c’est exactement le but : une chaîne quelconque ne peut pas devenir un `OrderId` sans passer par `toOrderId`."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un branded type ajoute une propriété à la valeur à l’exécution.",
+        "why": "Le brand n’existe que pour le compilateur ; la valeur et son JSON ne changent pas.",
+        "twin": {
+          "statement": "Une valeur brandée est la même chaîne ou le même nombre brut à l’exécution.",
+          "why": "Le brand n’existe que pour le compilateur ; la valeur et son JSON ne changent pas."
+        }
+      },
+      {
+        "statement": "En JavaScript, `0.1 + 0.2` ne vaut pas exactement `0.3`.",
+        "why": "Les flottants donnent `0.30000000000000004`, c’est pour ça que l’argent reste en centimes entiers.",
+        "twin": {
+          "statement": "En JavaScript, `0.1 + 0.2 === 0.3` est vrai.",
+          "why": "Les flottants donnent `0.30000000000000004`, c’est pour ça que l’argent reste en centimes entiers."
+        }
+      },
+      {
+        "statement": "Un `OrderId` brandé ne peut pas être assigné à une variable typée `string`.",
+        "why": "Un brand est une intersection avec `string`, donc il reste assignable à `string` ; seul le sens inverse est bloqué.",
+        "twin": {
+          "statement": "Un `OrderId` brandé peut être assigné à une variable typée `string`.",
+          "why": "Un brand est une intersection avec `string`, donc il reste assignable à `string` ; seul le sens inverse est bloqué."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Pour le compilateur, toutes les chaînes ont le même type, donc un id de commande passe là où un id de paiement est attendu. Les branded types et les unions de littéraux transforment ces confusions en erreurs de compilation, sans coût à l’exécution.",
+      "points": [
+        "Pour le compilateur, toutes les chaînes sont un seul type et tous les nombres un autre, donc un id de commande passe là où un id de paiement est attendu, et des euros là où des centimes sont attendus.",
+        "Un branded type intersecte le type de base avec une propriété marqueur qui n’existe qu’à la compilation. `OrderId` et `PaymentId` ne sont alors plus interchangeables, sans aucun coût à l’exécution.",
+        "Chaque brand a un seul constructeur qui vérifie la valeur et caste une fois, donc chaque valeur `Cents` a été vérifiée. L’argent reste en centimes entiers à côté d’un code devise.",
+        "Les types littéraux affinent aussi les chaînes : le type `'paid'` n’accepte que cette chaîne. Un objet `as const` donne des constantes à l’exécution plus un type union, sans enum qui génère du code."
+      ],
+      "takeaways": [
+        {
+          "term": "Branded type",
+          "detail": "Le type de base intersecté avec une propriété marqueur qui n’existe qu’à la compilation."
+        },
+        {
+          "term": "Constructeur du brand",
+          "detail": "Une fonction par brand vérifie la valeur et caste une fois, comme `toCents`, qui refuse 19,99."
+        },
+        {
+          "term": "Coût à l’exécution",
+          "detail": "Aucun : le JSON ne change pas."
+        },
+        {
+          "term": "Argent",
+          "detail": "Des centimes entiers à côté d’un code devise ; convertir en euros seulement pour l’affichage."
+        },
+        {
+          "term": "Type littéral",
+          "detail": "Le type `'paid'` n’accepte que cette chaîne."
+        },
+        {
+          "term": "Objet `as const`",
+          "detail": "Donne des constantes à l’exécution plus un type union, sans enum qui génère du code."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un remboursement du back-office a appelé `refund(paymentId, orderId)` avec les deux arguments inversés. Ce sont deux chaînes, donc ça a compilé et n’a échoué que chez le prestataire de paiement. Comment en faire une erreur de compilation ?",
+        "bridge": "Branded types : un marqueur de compilation fait de `OrderId` et `PaymentId` des types différents, alors que les deux sont des chaînes à l’exécution."
+      },
+      {
+        "question": "Un collègue stocke les prix en euros dans un `number`, comme 19,99. Quels problèmes voyez-vous, et comment modéliseriez-vous l’argent ?",
+        "bridge": "Les flottants ne représentent pas exactement la plupart des montants décimaux, et `number` ne distingue pas euros et centimes : des centimes entiers brandés avec une devise règlent les deux."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux typent l’appel de remboursement au prestataire de paiement, qui attend des centimes. Lequel rejette un montant en euros à la compilation ?",
+        "why": "Un simple alias n’est qu’un autre nom pour `number`, donc `refundPayment(id, order.totalEuros)` compile et le prestataire reçoit des euros comme si c’étaient des centimes. Avec le brand, un nombre brut échoue avec TS2345 : seul un constructeur qui vérifie, comme `toCents`, peut produire une valeur `Cents`."
+      }
+    ]
+  },
+  "ts-discriminated-unions": {
+    "topic": "Unions discriminées et exhaustivité",
+    "question": "Qu’est-ce qu’une union discriminée, et comment l’utiliseriez-vous pour modéliser les états d’une commande ou l’état de chargement d’un écran ?",
+    "answer": "Une union discriminée est une union de types objet qui partagent un champ littéral, le discriminant, comme `status`. Chaque membre ne contient que les champs de cet état : une commande en attente n’a pas de `paymentId`, un écran chargé a `data` et un écran en échec a `error`. Quand je teste `status`, TypeScript affine vers ce membre, donc je ne peux lire les champs que là où ils existent. Je l’utilise à la place de champs optionnels et de booléens indépendants : deux booléens et deux optionnels autorisent seize formes alors que trois ont du sens. Une branche `default` qui appelle `assertNever` rend le switch exhaustif, donc un nouvel état est une erreur de compilation tant qu’il n’est pas géré.",
+    "keyPoints": [
+      "Une union de types objet qui partagent un champ littéral",
+      "Tester le discriminant affine vers un seul membre",
+      "Remplace optionnels et booléens qui permettent des états impossibles",
+      "`assertNever` dans `default` fait d’un nouveau cas une erreur de compilation"
+    ],
+    "explanation": "« Rendre les états impossibles impossibles » est un sujet senior classique des deux côtés de la stack. Les recruteurs attendent le contrôle d’exhaustivité et, côté backend, la façon dont l’union se traduit dans le stockage.",
+    "example": "Le panneau des commandes du back-office a un jour affiché un spinner et une erreur en même temps, parce que son state était `{ isLoading, isError, error?, data? }`. Le remplacer par `AsyncState<T>`, trois membres sur `status`, a rendu `state.data` lisible seulement dans la branche de succès, et les combinaisons impossibles ont cessé de compiler.",
+    "mistakes": [
+      "Modéliser les états avec des champs optionnels, si bien que rien ne dit quelles combinaisons existent.",
+      "Ajouter un `default` qui renvoie une valeur de repli, ce qui cache un nouveau cas au lieu de faire échouer le build.",
+      "Avec TanStack Query, affiner sur `isLoading` au lieu de `isPending`, ce qui laisse `data` potentiellement undefined."
+    ],
+    "followUps": [
+      {
+        "question": "Comment fonctionne le contrôle d’exhaustivité ?",
+        "answer": "Une fois tous les cas gérés, la variable a le type `never`, un type sans valeur possible, donc la passer à `assertNever(value: never)` compile. Si on ajoute un événement `partial_refund`, cet appel échoue avec « not assignable to parameter of type 'never' » tant qu’on ne le gère pas."
+      },
+      {
+        "question": "Comment stockez-vous une telle union dans PostgreSQL ?",
+        "answer": "Avec une colonne `status` et des colonnes nullables pour les champs de chaque état. Le repository convertit chaque ligne en union une seule fois, donc le reste du code ne manipule que des états valides."
+      },
+      {
+        "question": "Comment TanStack Query s’inscrit-il là-dedans ?",
+        "answer": "Son résultat de query est déjà une union discriminée sur `status` : `pending`, `error`, `success`. Je fais un return anticipé sur `isPending` et `isError`, et `data` est défini ensuite. `isLoading` vaut `isFetching && isPending`, donc il n’affine pas `data`."
+      },
+      {
+        "question": "Où vivent les transitions d’état ?",
+        "answer": "Dans une seule fonction qui fait un switch sur l’événement, vérifie l’état courant et renvoie le suivant, en levant une erreur sur une transition invalide comme rembourser une commande en attente. Aucun autre code ne peut construire une commande remboursée sans `paymentId`."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans `if (order.status === 'paid')`, TypeScript te laisse lire uniquement les champs du membre payé.",
+        "why": "Comparer le discriminant affine l’union vers le membre qui a ce littéral.",
+        "twin": {
+          "statement": "Dans `if (order.status === 'paid')`, TypeScript te laisse toujours lire seulement les champs communs à tous les membres.",
+          "why": "Comparer le discriminant affine l’union vers le membre payé, donc ses propres champs deviennent lisibles."
+        }
+      },
+      {
+        "statement": "Un `switch` dont le `default` renvoie une valeur de repli fait signaler un cas manquant par le compilateur.",
+        "why": "La valeur de repli absorbe le nouveau cas en silence ; seul un contrôle `never` dans `default` le signale.",
+        "twin": {
+          "statement": "Un `switch` dont le `default` renvoie une valeur de repli laisse passer un nouveau cas sans aucune erreur de compilation.",
+          "why": "La valeur de repli absorbe le nouveau cas en silence ; seul un contrôle `never` dans `default` le signale."
+        }
+      },
+      {
+        "statement": "Avec TanStack Query, un return anticipé sur `isLoading` garantit que `data` est défini ensuite.",
+        "why": "`isLoading` vaut `isFetching && isPending`, donc une query en attente qui ne fetch pas passe sans données.",
+        "twin": {
+          "statement": "Avec TanStack Query, `data` peut encore être `undefined` après un return anticipé sur `isLoading`.",
+          "why": "`isLoading` vaut `isFetching && isPending`, donc une query en attente qui ne fetch pas passe sans données."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une union discriminée modélise chaque état comme son propre type objet, étiqueté par un champ littéral. Elle rend les états impossibles irreprésentables et transforme un cas oublié en erreur de compilation.",
+      "points": [
+        "Une union discriminée est une union de types objet qui partagent un champ littéral, le discriminant, comme `status`. Chaque membre ne contient que les champs qui existent dans cet état.",
+        "Tester le discriminant affine la valeur vers un seul membre : après `status === 'success'`, `data` existe ; avant tout test, le lire ne compile pas.",
+        "Elle remplace les booléens indépendants et les champs optionnels : `isLoading`, `isError`, `error?` et `data?` autorisent 16 formes, dont trois seulement ont du sens.",
+        "Exhaustivité : une fois tous les cas gérés, la valeur a le type `never`. Un `default` qui appelle `assertNever(value: never)` transforme un nouveau membre non géré en erreur de compilation.",
+        "Côté serveur, convertis les lignes de la base en union une seule fois, dans le repository. Les résultats de TanStack Query sont déjà une union : affine sur `isPending`, pas sur `isLoading`."
+      ],
+      "takeaways": [
+        {
+          "term": "Discriminant",
+          "detail": "Un champ littéral, comme `status`, partagé par tous les membres de l’union."
+        },
+        {
+          "term": "Narrowing",
+          "detail": "Après `status === 'success'`, `data` existe ; avant tout test, le lire ne compile pas."
+        },
+        {
+          "term": "États impossibles",
+          "detail": "`isLoading`, `isError`, `error?` et `data?` autorisent 16 formes, dont trois seulement ont du sens."
+        },
+        {
+          "term": "`assertNever`",
+          "detail": "Appelé dans `default` avec un paramètre `never` : un nouveau membre non géré devient une erreur de compilation."
+        },
+        {
+          "term": "Repository",
+          "detail": "Côté serveur, convertir les lignes de la base en union une seule fois, dans le repository."
+        },
+        {
+          "term": "TanStack Query",
+          "detail": "Les résultats sont déjà une union : affiner sur `isPending`, pas sur `isLoading`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le state de l’écran de commande du back-office a `isLoading`, `isError`, `data?` et `error?`, et un bug affiche ensemble la bannière d’erreur et des données périmées. Comment typeriez-vous ce state pour que ce soit impossible ?",
+        "bridge": "Une union discriminée sur `status` : chaque état ne contient que ses propres champs, donc les combinaisons impossibles ne peuvent pas s’écrire."
+      },
+      {
+        "question": "Le produit ajoute un statut de commande `partially_refunded`. Comment faites-vous pour que le compilateur pointe chaque `switch` qui ne le gère pas encore ?",
+        "bridge": "Exhaustivité sur une union discriminée : `assertNever` dans la branche `default` transforme un membre non géré en erreur de compilation."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux typent le state du panneau des commandes du back-office. Lequel rend impossible un spinner affiché avec une erreur ?",
+        "why": "Avec une union sur `status`, chaque état ne contient que ses propres champs : `{ status: 'loading', error }` ne compile pas (TS2353), et `data` n’est lisible qu’après avoir testé `status === 'success'`. Avec un booléen et deux champs optionnels, un chargement avec une erreur compile sans problème, donc le panneau peut afficher un spinner et une erreur en même temps."
+      }
+    ]
+  },
+  "ts-runtime-validation": {
+    "topic": "Validation à l’exécution avec Zod",
+    "question": "Les types TypeScript disparaissent à l’exécution. Comment vous assurez-vous que les données qui entrent dans votre app correspondent vraiment à leurs types ?",
+    "answer": "J’applique « parse, don’t validate » : toute valeur qui entre dans le process, un body de requête, un webhook, une réponse d’API dans l’UI, les variables d’environnement, reste `unknown` jusqu’à ce qu’un schéma la vérifie une fois, en bordure, et la transforme en valeur typée. J’utilise Zod 4 : je déclare le schéma et j’en dérive le type avec `z.infer`, donc la vérification et le type ne peuvent pas diverger. Dans les handlers, j’appelle `safeParse`, qui renvoie des issues au lieu de lever une erreur, et je réponds 400. `z.object` retire les clés inconnues, ce qui bloque aussi le mass assignment. Je ne caste jamais une réponse avec `as` : c’est une affirmation que le compilateur ne peut pas vérifier.",
+    "keyPoints": [
+      "Les données externes sont `unknown` jusqu’à ce qu’un schéma les parse",
+      "Parser une fois en bordure ; le cœur fait confiance à ses types",
+      "Dériver le type du schéma avec `z.infer`",
+      "`safeParse` renvoie des issues ; `as` sur une réponse ne vérifie rien"
+    ],
+    "explanation": "La question vérifie que tu sais que les types sont effacés et que `as` n’est pas une validation. Un senior dit où le parsing a lieu (à chaque frontière, une fois), ce qui se passe en cas d’échec, et pourquoi le type vient du schéma.",
+    "example": "Le back-office a affiché `NaN €` dans le tableau des commandes pendant une matinée après que le BFF a renommé `total` en `totalCents` : `fetchOrders` castait le JSON avec `as Order[]`. Le fetcher parse maintenant le body avec un schéma Zod, donc le même renommage échoue avec une issue au chemin `[\"items\", 0, \"totalCents\"]`, que TanStack Query affiche comme l’erreur de la query.",
+    "mistakes": [
+      "Caster `await response.json()` avec `as`, ce qui transforme un changement backend en `NaN` ou `undefined` silencieux à l’écran.",
+      "Revalider les mêmes données dans chaque couche au lieu d’une fois en bordure.",
+      "Appeler `parse` dans un handler de requête, qui lève une erreur, alors que `safeParse` permet de répondre proprement 400."
+    ],
+    "followUps": [
+      {
+        "question": "Comment validez-vous les variables d’environnement ?",
+        "answer": "Avec un schéma parsé une fois au démarrage, pour qu’un `DATABASE_URL` manquant arrête le déploiement au lieu d’échouer une heure plus tard. Les valeurs d’env sont des chaînes, donc j’utilise `z.coerce.number()` pour le port et `z.stringbool()` pour les flags ; la coercition transforme une chaîne vide en 0, donc j’ajoute `.min(1)`."
+      },
+      {
+        "question": "Qu’est-ce que Standard Schema ?",
+        "answer": "Une petite interface commune : un schéma conforme expose une propriété `~standard` avec `version`, `vendor` et une fonction `validate`. Zod, Valibot et ArkType l’implémentent, donc des bibliothèques comme tRPC acceptent n’importe lequel sans adaptateur."
+      },
+      {
+        "question": "Zod, Valibot ou ArkType ?",
+        "answer": "Zod 4 est mon choix par défaut : le plus gros écosystème, et `z.toJSONSchema` pour OpenAPI. Valibot quand la taille du bundle compte, car seules les fonctions importées sont bundlées. ArkType quand l’équipe veut des schémas qui se lisent comme des définitions de types TypeScript."
+      },
+      {
+        "question": "Les types générés depuis OpenAPI remplacent-ils la validation à l’exécution ?",
+        "answer": "Non. Ils décrivent le contrat à la compilation et ne vérifient rien à l’exécution. Pour une API qu’on possède, avec des types régénérés en CI, ils suffisent en général ; pour une API tierce comme le prestataire de paiement, je parse quand même les réponses avec un schéma."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`z.object` rejette un payload qui contient des clés que le schéma ne déclare pas.",
+        "why": "`z.object` retire les clés inconnues du résultat ; c’est `z.strictObject` qui les rejette.",
+        "twin": {
+          "statement": "`z.object` accepte un payload avec des clés non déclarées et retire ces clés du résultat.",
+          "why": "Les clés inconnues sont retirées du résultat ; c’est `z.strictObject` qui les rejette."
+        }
+      },
+      {
+        "statement": "`safeParse` renvoie un objet résultat au lieu de lever une erreur sur une entrée invalide.",
+        "why": "Il renvoie `{ success: true, data }` ou `{ success: false, error }` ; c’est `parse` qui lève une erreur.",
+        "twin": {
+          "statement": "`safeParse` lève une erreur sur une entrée invalide.",
+          "why": "Il renvoie `{ success: false, error }` ; c’est `parse` qui lève une erreur."
+        }
+      },
+      {
+        "statement": "`(await response.json()) as Order[]` vérifie le body à l’exécution.",
+        "why": "`as` dit seulement au compilateur quoi croire ; les types sont effacés et rien n’est vérifié.",
+        "twin": {
+          "statement": "`(await response.json()) as Order[]` ne vérifie rien à l’exécution.",
+          "why": "`as` dit seulement au compilateur quoi croire ; les types sont effacés."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les types sont effacés à l’exécution, donc les données qui entrent dans le process ne prouvent rien tant qu’elles ne sont pas vérifiées. Un schéma les parse une fois en bordure et passe au reste du code une valeur typée.",
+      "points": [
+        "Les types sont effacés quand le code s’exécute, donc un type sur des données d’API ne prouve rien. `response.json()` renvoie `any`, et `as Order[]` est une affirmation que le compilateur ne peut pas vérifier.",
+        "« Parse, don’t validate » : les données qui entrent dans le process restent `unknown` jusqu’à ce qu’un schéma, une description de la forme à l’exécution, les vérifie une fois en bordure et renvoie une valeur typée.",
+        "Avec Zod 4, `z.infer<typeof Schema>` dérive le type du schéma, donc la vérification et le type ne peuvent pas diverger.",
+        "`safeParse` renvoie `{ success, data }` ou `{ success, error }` avec les issues et leurs chemins ; `parse` lève une `ZodError`. `z.object` retire les clés inconnues ; `z.strictObject` les rejette.",
+        "Applique-le à chaque frontière : bodies de requête, webhooks, messages de file, réponses d’API dans l’UI, et `process.env` au démarrage."
+      ],
+      "takeaways": [
+        {
+          "term": "Parse, don’t validate",
+          "detail": "Les données externes restent `unknown` jusqu’à ce qu’un schéma les vérifie une fois, en bordure, et renvoie une valeur typée."
+        },
+        {
+          "term": "`as Order[]`",
+          "detail": "Une affirmation que le compilateur ne peut pas vérifier : `response.json()` renvoie `any`."
+        },
+        {
+          "term": "`z.infer`",
+          "detail": "`z.infer<typeof Schema>` dérive le type du schéma, donc ils ne peuvent pas diverger."
+        },
+        {
+          "term": "`safeParse` vs `parse`",
+          "detail": "`safeParse` renvoie `{ success, data }` ou `{ success, error }` ; `parse` lève une `ZodError`."
+        },
+        {
+          "term": "Clés inconnues",
+          "detail": "`z.object` les retire, ce qui bloque le mass assignment ; `z.strictObject` les rejette."
+        },
+        {
+          "term": "Frontières",
+          "detail": "Bodies de requête, webhooks, messages de file, réponses d’API dans l’UI, et `process.env` au démarrage."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’API Orders caste la réponse de suivi du transporteur avec `as TrackingInfo`. Après que le transporteur a renommé un champ, « mes commandes » affiche une date de livraison vide et aucune erreur n’est loguée nulle part. Comment l’éviter ?",
+        "bridge": "`as` ne vérifie rien à l’exécution. Parser la réponse avec un schéma en bordure transforme le changement du transporteur en erreur claire."
+      },
+      {
+        "question": "Un collègue dit que TypeScript type déjà le body de la requête, donc qu’une bibliothèque de validation à l’exécution est redondante. Que répondez-vous ?",
+        "bridge": "Les types sont effacés à l’exécution. Seul un schéma comme Zod vérifie les données qui entrent dans le process, et `z.infer` garde le type synchronisé avec lui."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux chargent la liste des commandes du back-office depuis le BFF. Lequel signale un champ renommé au lieu d’afficher `NaN €` ?",
+        "why": "Le schéma Zod vérifie le body à l’exécution : si le BFF renomme `totalCents`, `parse` lève une erreur avec une issue au chemin `[0, \"totalCents\"]`, et la query affiche une erreur. `as` dit seulement au compilateur quoi croire : le body passe sans vérification, `order.totalCents` vaut `undefined`, et le tableau affiche `NaN €`."
+      }
+    ]
+  },
+  "ts-generics": {
+    "topic": "Génériques et contraintes",
+    "question": "Comment utilisez-vous les génériques avec des contraintes ? Donnez un exemple côté backend et un dans un composant React.",
+    "answer": "Les génériques sont des paramètres de type qui gardent le lien entre une entrée et une sortie, et une contrainte, écrite avec `extends`, dit ce que le paramètre doit être. Côté backend, je type un bus d’événements métier à partir d’une interface qui associe chaque nom d’événement à son payload : `emit<E extends keyof DomainEvents>(name: E, payload: DomainEvents[E])`, donc un nom mal orthographié ou un champ manquant fait échouer le build. En React, un `DataTable<Row>` infère `Row` depuis sa prop `rows`, et ses colonnes sont typées `keyof Row`, donc un champ renommé casse le build au lieu de l’écran. Je m’arrête quand un type devient plus dur à lire que le bug qu’il évite.",
+    "keyPoints": [
+      "Les paramètres de type relient entrées et sorties",
+      "`extends` contraint, comme dans `E extends keyof Events`",
+      "L’accès indexé `Events[E]` lie un nom à son payload",
+      "Les composants génériques infèrent le type depuis la prop de données"
+    ],
+    "explanation": "Les génériques, c’est là que se séparent les profils intermédiaires et seniors en TypeScript : les recruteurs veulent que l’inférence fasse le travail, pas des arguments de type écrits partout. Un senior dit aussi quand s’arrêter.",
+    "example": "Le tableau partagé du back-office prenait `rows: any[]`, donc une colonne sur `total` compilait encore après que le BFF a renommé le champ en `totalCents`, et l’écran affichait `NaN €`. En `DataTable<Row>` avec des clés de colonne typées `keyof Row & string`, la même colonne échoue avec TS2322, et `render` reçoit une commande typée.",
+    "mistakes": [
+      "Écrire les arguments de type à la main partout au lieu de laisser TypeScript les inférer depuis les arguments.",
+      "Déclarer un composant fléché générique en `<T>(props) => …` dans un fichier `.tsx`, où `<T>` est parsé comme une balise JSX.",
+      "Laisser un paramètre de type sans contrainte, puis caster à l’intérieur parce qu’on ne sait rien de lui."
+    ],
+    "followUps": [
+      {
+        "question": "À quoi sert `NoInfer` ?",
+        "answer": "Il empêche TypeScript d’inférer un paramètre de type depuis un argument. Dans un `Select<Option>`, typer `value` en `NoInfer<Option>` signifie que seul `options` décide de `Option`, donc `value=\"broken\"` échoue au lieu d’élargir le type. Il a été ajouté dans TypeScript 5.4."
+      },
+      {
+        "question": "Pourquoi `React.FC` ne convient-il pas à un composant générique ?",
+        "answer": "Un `const` annoté avec `React.FC` ne peut pas déclarer son propre paramètre de type. J’écris les composants génériques en déclarations de fonction, `function DataTable<Row>(props: DataTableProps<Row>)`, ce qui évite aussi le problème de parsing de `<T>` dans les `.tsx`."
+      },
+      {
+        "question": "Comment typeriez-vous un getter de config ?",
+        "answer": "`getConfig<K extends keyof AppConfig>(key: K): AppConfig[K]`. La contrainte n’autorise que les vraies clés, et le type d’accès indexé renvoie le type exact de cette entrée, donc `getConfig('logLevel')` renvoie l’union des niveaux de log."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans un fichier `.tsx`, `const Pill = <T>(props: PillProps<T>) => null` est parsé comme une fonction fléchée générique.",
+        "why": "`<T>` est lu comme une balise JSX (TS17008) ; écris une déclaration de fonction ou `<T,>`.",
+        "twin": {
+          "statement": "Dans un fichier `.tsx`, `const Pill = <T,>(props: PillProps<T>) => null` est parsé comme une fonction fléchée générique.",
+          "why": "La virgule finale indique au parser que `<T,>` est une liste de paramètres de type, pas une balise JSX."
+        }
+      },
+      {
+        "statement": "Avec `function DataTable<Row>(props: { rows: readonly Row[] })`, TypeScript infère `Row` depuis la prop `rows`.",
+        "why": "Les paramètres de type sont inférés depuis les arguments, ici l’objet props, donc les appelants n’écrivent aucun argument de type.",
+        "twin": {
+          "statement": "Avec `function DataTable<Row>(props: { rows: readonly Row[] })`, les appelants doivent écrire l’argument de type, comme dans `<DataTable<Order> rows={orders} />`.",
+          "why": "TypeScript infère `Row` depuis la prop `rows`, donc les appelants n’écrivent aucun argument de type."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les génériques sont des paramètres de type qui gardent le lien entre ce qui entre dans une fonction ou un composant et ce qui en sort. Ils permettent à un seul helper typé de servir de nombreuses formes sans retomber sur `any`.",
+      "points": [
+        "Un générique est un paramètre de type, comme `<T>`, qui garde le lien entre ce qui entre et ce qui sort. TypeScript l’infère en général depuis les arguments.",
+        "Une contrainte, écrite `T extends Something`, limite ce que peut être le paramètre. `K extends keyof T` le limite aux clés de `T`.",
+        "Un type d’accès indexé, `DomainEvents[E]`, récupère le type d’une clé, donc chaque nom d’événement est lié à son propre payload.",
+        "Les composants React génériques infèrent leur paramètre depuis les données : `DataTable<Row>` prend `Row` depuis `rows`, puis vérifie les colonnes typées `keyof Row` et `render(row: Row)`.",
+        "Dans les fichiers `.tsx`, écris les composants génériques en déclarations de fonction : `<T>` sur une fonction fléchée est parsé comme une balise JSX."
+      ],
+      "takeaways": [
+        {
+          "term": "Paramètre de type `<T>`",
+          "detail": "Relie entrées et sorties ; TypeScript l’infère en général depuis les arguments."
+        },
+        {
+          "term": "Contrainte `extends`",
+          "detail": "`T extends Something` limite le paramètre ; `K extends keyof T` le limite aux clés de `T`."
+        },
+        {
+          "term": "Accès indexé",
+          "detail": "`DomainEvents[E]` récupère le type d’une clé, ce qui lie chaque nom d’événement à son payload."
+        },
+        {
+          "term": "Composant générique",
+          "detail": "`DataTable<Row>` infère `Row` depuis `rows`, puis vérifie les colonnes typées `keyof Row`."
+        },
+        {
+          "term": "Génériques en `.tsx`",
+          "detail": "Écris les composants génériques en déclarations de fonction : `<T>` sur une fonction fléchée est parsé comme du JSX."
+        },
+        {
+          "term": "Quand s’arrêter",
+          "detail": "Quand un type est plus dur à lire que le bug qu’il évite."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans l’API Orders, `bus.emit('order.payed', { orderId })` a compilé, et personne n’a reçu l’événement : le nom était mal orthographié et il manquait `amountCents` au payload. Comment typeriez-vous `emit` pour que les deux fassent échouer le build ?",
+        "bridge": "Un générique contraint par `keyof DomainEvents`, avec le payload typé par accès indexé, lie chaque nom d’événement à son payload."
+      },
+      {
+        "question": "Vous construisez un seul `DataTable` pour le back-office, pour les commandes, les clients et les produits. Comment le typez-vous pour que ses colonnes ne puissent nommer que des champs des lignes qu’il reçoit ?",
+        "bridge": "Un composant générique : `Row` est inféré depuis la prop `rows`, et les colonnes sont typées `keyof Row`."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux trient les lignes du tableau des commandes du back-office selon une colonne. Lequel fait échouer le build quand le nom de colonne est faux ?",
+        "why": "Avec `K extends keyof Row`, TypeScript infère `Row` depuis les lignes et n’accepte que leurs vraies clés : `sortBy(orders, 'total')` échoue avec TS2345 dès que le champ s’appelle `totalCents`, et le résultat reste typé `Order[]`. Avec `any[]` et `string`, le même appel compile, compare `undefined` avec `undefined`, et le tableau arrête de trier sans rien dire."
+      }
+    ]
+  },
+  "ts-errors-as-values": {
+    "topic": "Erreurs comme valeurs et types Result",
+    "question": "Quand renverriez-vous une erreur comme valeur au lieu de la lever, et comment le typez-vous en TypeScript ?",
+    "answer": "Je sépare les échecs en deux. Les issues attendues du métier, comme une commande non payée ou une carte refusée, font partie du contrat de la fonction, donc je les renvoie comme valeurs : un type `Result`, une union discriminée sur `ok` qui contient soit une valeur, soit une erreur typée. L’appelant ne peut pas lire `value` avant d’avoir testé `ok`, et un `switch` sur `error.kind` peut être exhaustif. Les bugs et les pannes d’infrastructure, comme la base ou le prestataire hors service, sont levés et atteignent le middleware d’erreur, qui répond 500. Quand j’attrape une erreur, elle est `unknown` ; je la logue et je relance une erreur métier avec `{ cause }`.",
+    "keyPoints": [
+      "Les échecs métier attendus sont des valeurs ; les incidents sont levés",
+      "`Result` est une union sur `ok` : une valeur ou une erreur typée",
+      "L’appelant doit tester `ok` avant de lire `value`",
+      "Une variable de `catch` est `unknown` ; relancer avec `{ cause }`"
+    ],
+    "explanation": "Une signature `Promise<Order>` cache les échecs que l’appelant doit gérer. Les recruteurs veulent une règle claire sur ce qui est une valeur et ce qui est une exception, pas « toujours lever » ou « des Result partout ».",
+    "example": "Les agents du support remboursent les commandes depuis le back-office via `refundOrder`. Elle levait une erreur aussi bien pour « commande non payée » que pour un timeout du prestataire, donc les agents voyaient une 500 générique pour un refus normal. Elle renvoie maintenant `{ ok: false, error: { kind: 'not_paid', status } }`, que le BFF transforme en message clair, tandis que les pannes du prestataire sont toujours levées et alertent l’ingénieur d’astreinte.",
+    "mistakes": [
+      "Lever une erreur pour des refus métier normaux, si bien que la signature cache ce que les appelants doivent gérer.",
+      "Renvoyer aussi un `Result` pour les pannes, ce qui oblige chaque appelant à gérer des échecs qu’il ne peut pas corriger.",
+      "Relancer une nouvelle erreur sans `{ cause }`, ce qui perd la stack d’origine."
+    ],
+    "followUps": [
+      {
+        "question": "Comment la couche HTTP utilise-t-elle le `Result` ?",
+        "answer": "Le handler fait un switch sur `error.kind` et associe chaque cas à un statut et à un code d’erreur clair, par exemple `order_not_found` vers 404. Les erreurs levées sautent ce chemin et atteignent le middleware d’erreur, qui les logue et répond 500."
+      },
+      {
+        "question": "Comment gérez-vous l’erreur dans un bloc `catch` ?",
+        "answer": "Sous `strict`, la variable est `unknown`, donc j’affine avec `error instanceof Error` avant de lire `message`. Je logue l’original et je relance une erreur métier comme `PaymentProviderError` avec `{ cause: error }`, pour que la stack d’origine reste attachée."
+      },
+      {
+        "question": "Utiliseriez-vous une bibliothèque comme neverthrow ?",
+        "answer": "Elle ajoute des helpers de chaînage comme `andThen` par-dessus un type Result. Pour la plupart des équipes, une simple union de `{ ok: true; value }` et `{ ok: false; error }` suffit ; je n’ajouterais la bibliothèque que si les longues chaînes d’étapes faillibles devenaient courantes."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Sous `strict`, le paramètre d’un callback `.catch((error) => …)` est typé `unknown`.",
+        "why": "`strict` ne type en `unknown` que les variables de clause `catch` ; le paramètre du callback reste `any`.",
+        "twin": {
+          "statement": "Sous `strict`, le paramètre d’un callback `.catch((error) => …)` est toujours typé `any`.",
+          "why": "`strict` ne type en `unknown` que les variables de clause `catch` ; le paramètre du callback garde le `any` de la signature de la promesse."
+        }
+      },
+      {
+        "statement": "Avec `Result<T, E> = { ok: true; value: T } | { ok: false; error: E }`, lire `result.value` avant de tester `ok` ne compile pas.",
+        "why": "`value` n’existe pas sur le membre d’échec, donc on ne peut le lire qu’après avoir affiné sur `ok`.",
+        "twin": {
+          "statement": "Avec `Result<T, E> = { ok: true; value: T } | { ok: false; error: E }`, on peut lire `result.value` avant de tester `ok`.",
+          "why": "`value` n’existe pas sur le membre d’échec, donc le lire avant d’affiner sur `ok` ne compile pas."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Tout échec n’est pas une exception. Les issues métier attendues ont leur place dans le type de retour de la fonction, pour que les appelants doivent les gérer, alors que les bugs et les pannes sont levés vers un handler central.",
+      "points": [
+        "Les échecs attendus sont des issues du métier : une commande non payée, une carte refusée, un article en rupture. Les incidents sont des bugs et des pannes : la base ou le prestataire est hors service.",
+        "Un type `Result` renvoie les échecs attendus comme valeurs : une union discriminée sur `ok` qui contient soit `value`, soit une `error` typée. L’appelant doit tester `ok` avant de lire `value`.",
+        "Les incidents sont levés et atteignent le middleware d’erreur, qui les logue et répond 500. Les appelants ne peuvent pas les corriger, donc ils ne devraient pas avoir à les gérer un par un.",
+        "Sous `strict`, une variable de `catch` est `unknown`, puisque JavaScript peut lever n’importe quoi. Affine-la, puis relance une erreur métier avec `{ cause: error }` pour garder la stack d’origine."
+      ],
+      "takeaways": [
+        {
+          "term": "Échec attendu",
+          "detail": "Une issue métier, comme une commande non payée ou une carte refusée : renvoie-la comme valeur."
+        },
+        {
+          "term": "Incident",
+          "detail": "Un bug ou une panne, comme la base hors service : lève-le vers le middleware d’erreur, qui répond 500."
+        },
+        {
+          "term": "Type `Result`",
+          "detail": "Une union discriminée sur `ok`, qui contient soit `value`, soit une `error` typée."
+        },
+        {
+          "term": "Tester `ok`",
+          "detail": "L’appelant ne peut pas lire `value` avant de tester `ok` ; un `switch` sur `error.kind` peut être exhaustif."
+        },
+        {
+          "term": "Variable de `catch`",
+          "detail": "Typée `unknown` sous `strict`, puisque JavaScript peut lever n’importe quoi : affine-la d’abord."
+        },
+        {
+          "term": "`{ cause }`",
+          "detail": "Relance une erreur métier avec `{ cause: error }` pour garder la stack d’origine."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans `POST /orders`, une carte refusée et une connexion à la base perdue lèvent toutes deux une erreur, et finissent toutes deux en 500 avec la même ligne de log. Comment les sépareriez-vous, et comment le typez-vous ?",
+        "bridge": "Une carte refusée est une issue métier attendue, renvoyée comme `Result` typé ; une connexion perdue est un incident qui reste levé."
+      },
+      {
+        "question": "Un collègue veut que chaque fonction de l’API Orders renvoie un `Result` et ne lève jamais d’erreur. Sur quoi seriez-vous en désaccord ?",
+        "bridge": "Les Result servent aux issues métier attendues. Les bugs et les pannes d’infrastructure doivent toujours être levés et atteindre le middleware d’erreur."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux enveloppent un échec du prestataire de paiement pendant un remboursement. Lequel garde l’erreur d’origine pour l’ingénieur d’astreinte ?",
+        "why": "Passer `{ cause: error }` attache l’erreur d’origine, avec son message et sa stack, à la nouvelle : `error.cause` contient le timeout du prestataire, et Node l’affiche sous `[cause]` quand l’erreur est loguée. Sans ça, le log dit seulement « Refund failed », et la vraie raison, un timeout, une 401 ou une requête invalide, est perdue."
+      }
+    ]
+  },
+  "ts-end-to-end-types": {
+    "topic": "Partager les types entre API et clients",
+    "question": "Comment gardez-vous les types de votre frontend synchronisés avec votre API backend ?",
+    "answer": "Les types du client doivent venir du contrat du serveur, pour qu’un champ renommé casse le build du client au lieu de la production. Entre équipes, j’utilise OpenAPI : le serveur publie le document, openapi-typescript génère les types en CI, et openapi-fetch fournit un client `fetch` typé. Au sein d’une seule équipe TypeScript dans un monorepo, tRPC permet au client d’importer le type du router du serveur sans étape de génération. Entre services qui échangent des événements, un package partagé exporte des schémas Zod, uniquement des contrats, jamais de logique métier. Les types générés décrivent le contrat mais ne vérifient rien à l’exécution, donc je parse quand même les réponses des API que je ne contrôle pas.",
+    "keyPoints": [
+      "Les types du client dérivent du contrat du serveur",
+      "OpenAPI avec types générés entre équipes et langages",
+      "tRPC dans une seule équipe TypeScript ; schémas partagés pour les événements",
+      "Les types générés ne sont pas des contrôles à l’exécution"
+    ],
+    "explanation": "Les recruteurs full-stack posent cette question parce que la dérive d’API est un bug de production courant. Un senior choisit l’outil selon le public et dit clairement ce que des types de compilation ne peuvent pas garantir.",
+    "example": "L’API Orders a renommé `total` en `totalCents` dans `GET /orders/:id` ; tous les tests backend passaient, et le back-office affichait des montants vides en production. Avec des types client générés en CI depuis le document OpenAPI, le même renommage fait maintenant échouer le build du back-office avec TS2339 sur l’ancien champ.",
+    "mistakes": [
+      "Écrire à la main la copie des types de réponse côté client, qui dérive en silence.",
+      "Mettre de la logique métier dans le package partagé, ce qui couple des services qui devraient se déployer indépendamment.",
+      "Traiter les types générés comme une validation des réponses d’une API tierce."
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi pas tRPC partout ?",
+        "answer": "tRPC marche parce que le client importe le type TypeScript du router du serveur, donc les deux côtés doivent être en TypeScript, en général dans un monorepo tenu par une seule équipe. Une API publique ou partagée entre équipes, ou des clients dans d’autres langages, ont besoin d’un contrat neutre comme OpenAPI."
+      },
+      {
+        "question": "OpenAPI spec-first ou code-first ?",
+        "answer": "Spec-first veut dire que le document est écrit et relu comme du code avant l’implémentation. Code-first le génère depuis les schémas du serveur : Zod 4 a `z.toJSONSchema`, et NestJS et Fastify ont des générateurs. Dans les deux cas, la CI régénère les types client à chaque changement."
+      },
+      {
+        "question": "Comment openapi-fetch type-t-il une réponse ?",
+        "answer": "Un appel comme `GET` renvoie `data`, rempli seulement sur un 2xx, et `error`, rempli seulement sur un 4xx ou un 5xx, chacun typé depuis la spec. Tant qu’on n’a pas testé `error`, `data` est potentiellement undefined, donc le compilateur oblige à gérer le chemin d’échec."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Les types générés depuis un document OpenAPI rejettent une réponse mal formée à l’exécution.",
+        "why": "Ils n’existent qu’à la compilation ; un contrôle à l’exécution demande un schéma comme Zod.",
+        "twin": {
+          "statement": "Les types générés depuis un document OpenAPI laissent passer une réponse mal formée à l’exécution.",
+          "why": "Ils n’existent qu’à la compilation ; un contrôle à l’exécution demande un schéma comme Zod."
+        }
+      },
+      {
+        "statement": "tRPC partage les types avec le client sans fichier de schéma ni étape de génération de code.",
+        "why": "Le client importe directement le type du router du serveur.",
+        "twin": {
+          "statement": "tRPC a besoin d’une étape de génération de code pour donner au client les types du serveur.",
+          "why": "Le client importe directement le type du router du serveur, sans étape de génération."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Quand les types du client viennent du contrat du serveur, un champ renommé casse le build du client au lieu de la production. Le bon outil dépend de qui possède les deux côtés.",
+      "points": [
+        "Typage de bout en bout : les types du client viennent du contrat du serveur, la description lisible par machine des routes et des formes de réponse, donc un renommage fait échouer le build du client.",
+        "OpenAPI : le serveur publie un document, openapi-typescript génère les types TypeScript en CI, et openapi-fetch est un client `fetch` typé et léger. Idéal entre équipes et langages.",
+        "tRPC : le client importe le type du router du serveur, sans fichier de schéma ni génération. Idéal pour une seule équipe TypeScript dans un monorepo.",
+        "Un package partagé du workspace avec des schémas Zod convient aux événements entre services TypeScript. Limite-le aux contrats, jamais de logique métier.",
+        "Les types générés ne vérifient rien à l’exécution : parse les réponses des API tierces avec un schéma."
+      ],
+      "takeaways": [
+        {
+          "term": "Contrat",
+          "detail": "La description lisible par machine des routes et des formes de réponse, d’où viennent les types du client."
+        },
+        {
+          "term": "OpenAPI",
+          "detail": "Le serveur publie le document ; openapi-typescript génère les types en CI. Idéal entre équipes et langages."
+        },
+        {
+          "term": "openapi-fetch",
+          "detail": "Un client `fetch` typé et léger construit sur les types générés."
+        },
+        {
+          "term": "tRPC",
+          "detail": "Le client importe le type du router du serveur, sans étape de génération : une équipe TypeScript, un monorepo."
+        },
+        {
+          "term": "Schémas Zod partagés",
+          "detail": "Un package du workspace pour les événements entre services TypeScript : uniquement des contrats, jamais de logique métier."
+        },
+        {
+          "term": "Aucun contrôle à l’exécution",
+          "detail": "Les types générés ne vérifient rien à l’exécution : parse les réponses des API tierces avec un schéma."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’API Orders a renommé `deliveryDate` en `estimatedDeliveryDate`. Le back-office a quand même buildé et été déployé, et a affiché des dates vides jusqu’à ce qu’un agent se plaigne. Comment faire pour que ça casse le build à la place ?",
+        "bridge": "Dériver les types du client du contrat du serveur, par exemple des types générés depuis OpenAPI en CI, pour qu’un champ renommé fasse échouer le build du client."
+      },
+      {
+        "question": "Quand choisiriez-vous tRPC plutôt qu’OpenAPI pour partager les types entre un frontend et son API, et quand non ?",
+        "bridge": "tRPC partage le type du router au sein d’une seule équipe TypeScript sans étape de génération ; OpenAPI convient aux API utilisées entre équipes et langages."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux donnent au back-office le type d’une commande de l’API Orders. Lequel casse le build quand l’API renomme un champ ?",
+        "why": "Le type généré vient du document OpenAPI du serveur, régénéré en CI, donc quand `total` devient `totalCents`, chaque `order.total` du back-office échoue avec TS2339. La copie écrite à la main dit toujours `total` : elle compile, et l’écran affiche des montants vides en production."
+      }
+    ]
+  },
+  "ts-react-props": {
+    "topic": "Typer props, événements et refs en React",
+    "question": "Comment typez-vous les props, les children, les handlers d’événements et les refs d’un composant React en React 19 ?",
+    "answer": "J’écris une simple fonction avec un seul paramètre props déclaré avec `type`. Pour un composant qui enveloppe un élément natif, je dérive les props de cet élément : `ComponentPropsWithoutRef<'button'>` intersecté avec mes propres props, donc chaque attribut natif est typé sans une ligne de plus. `children` est un `ReactNode`, qui accepte tout ce que React sait rendre ; j’utilise `ReactElement` seulement pour un slot qui doit être un seul élément, comme une icône. Les handlers inline infèrent leur type d’événement ; un handler extrait le nomme, comme `ChangeEvent<HTMLInputElement>`. En React 19, `ref` est une prop ordinaire, donc je déclare `ref?: Ref<HTMLInputElement>` et je me passe de `forwardRef`.",
+    "keyPoints": [
+      "Dériver les props de l’élément : `ComponentPropsWithoutRef<'button'>`",
+      "`children: ReactNode` ; `ReactElement` pour un slot d’un seul élément",
+      "Les handlers extraits nomment le type d’événement",
+      "React 19 : `ref` est une prop, pas de `forwardRef`"
+    ],
+    "explanation": "C’est la question quotidienne de TypeScript avec React, et React 19 a changé une partie de la réponse. Les seniors connaissent le pattern des props natives et les changements de React 19, pas seulement une interface avec `children: any`.",
+    "example": "Le `Button` partagé du package UI de la boutique prenait `props: any`, donc `tone=\"warnng\"` compilait et personne ne savait quelles props natives arrivaient au DOM. Typé `ComponentPropsWithoutRef<'button'> & { tone?: Tone }`, la faute de frappe échoue avec TS2322, et `disabled`, `aria-label` et `onClick` sont typés gratuitement.",
+    "mistakes": [
+      "Typer `children` en `JSX.Element`, ce qui rejette du texte brut et `null`.",
+      "Continuer à envelopper les nouveaux composants dans `forwardRef` en React 19.",
+      "Typer les handlers à la main en `(e: any) => void` au lieu d’utiliser les types d’événements de React."
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est devenu le namespace global `JSX` ?",
+        "answer": "Les types de React 19 ne le déclarent plus, donc `const icon: JSX.Element` échoue avec « Cannot find namespace 'JSX' ». On l’importe avec `import type { JSX } from 'react'` ou on écrit `React.JSX.Element` ; en général, je laisse simplement TypeScript inférer le type de retour d’un composant."
+      },
+      {
+        "question": "Que renvoie `useRef<HTMLInputElement>(null)` ?",
+        "answer": "Un `RefObject<HTMLInputElement | null>`. `current` vaut `null` tant que React n’a pas attaché l’élément, donc `inputRef.current.focus()` ne compile pas ; on écrit `inputRef.current?.focus()`. Dans les types de React 19, `useRef()` sans argument est une erreur : la valeur initiale est obligatoire."
+      },
+      {
+        "question": "Faut-il utiliser `React.FC` ?",
+        "answer": "Je préfère une simple fonction. `React.FC` apparaît encore dans du code ancien, mais un `const` annoté avec lui ne peut pas déclarer son propre paramètre de type, donc il ne convient pas aux composants génériques."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`ReactNode` accepte les chaînes, les nombres, `null` et les éléments JSX.",
+        "why": "C’est le type de tout ce que React sait rendre, c’est pour ça qu’il est le choix par défaut pour `children`.",
+        "twin": {
+          "statement": "`ReactNode` accepte seulement les éléments JSX, pas les chaînes ni les nombres.",
+          "why": "C’est le type de tout ce que React sait rendre, chaînes, nombres et `null` compris."
+        }
+      },
+      {
+        "statement": "En React 19, un composant fonction a besoin de `forwardRef` pour recevoir une `ref`.",
+        "why": "React 19 passe `ref` comme une prop ordinaire ; react.dev indique que `forwardRef` n’est plus nécessaire.",
+        "twin": {
+          "statement": "En React 19, un composant fonction reçoit `ref` comme une prop ordinaire, sans `forwardRef`.",
+          "why": "React 19 passe `ref` comme n’importe quelle autre prop ; react.dev indique que `forwardRef` n’est plus nécessaire."
+        }
+      },
+      {
+        "statement": "`useRef<HTMLInputElement>(null).current` est typé `HTMLInputElement`.",
+        "why": "Il est typé `HTMLInputElement | null`, car l’élément n’est attaché qu’après le rendu.",
+        "twin": {
+          "statement": "`useRef<HTMLInputElement>(null).current` est typé `HTMLInputElement | null`.",
+          "why": "L’élément n’est attaché qu’après le rendu, donc le type garde `null`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les composants React sont de simples fonctions avec un seul paramètre props typé. Dériver les props des éléments natifs et connaître les quelques types React pour les children, les événements et les refs couvre l’essentiel du code réel.",
+      "points": [
+        "Écris les composants comme de simples fonctions avec un seul paramètre props typé. Pour envelopper un élément natif, pars de `ComponentPropsWithoutRef<'button'>` : toutes les props natives, typées pour cet élément.",
+        "`ReactNode`, c’est tout ce que React sait rendre : éléments, texte, nombres, `null`, tableaux. Utilise-le pour `children`. `ReactElement` n’accepte qu’un élément JSX, pour un slot qui doit être un seul élément.",
+        "Les handlers inline infèrent leur type d’événement. Un handler extrait le nomme : `ChangeEvent<HTMLInputElement>`, `MouseEvent<HTMLButtonElement>` ; lis les valeurs depuis `event.currentTarget`.",
+        "En React 19, `ref` est une simple prop : déclare `ref?: Ref<HTMLInputElement>` et transmets-la, sans `forwardRef`. `useRef<T>(null)` donne un `RefObject<T | null>`.",
+        "Les types de React 19 n’ont plus de namespace global `JSX` : importe `JSX` depuis `react` quand tu en as besoin."
+      ],
+      "takeaways": [
+        {
+          "term": "`ComponentPropsWithoutRef`",
+          "detail": "`ComponentPropsWithoutRef<'button'>` donne toutes les props natives de cet élément, typées."
+        },
+        {
+          "term": "`ReactNode`",
+          "detail": "Tout ce que React sait rendre : éléments, texte, nombres, `null`, tableaux. À utiliser pour `children`."
+        },
+        {
+          "term": "`ReactElement`",
+          "detail": "Seulement un élément JSX : pour un slot qui doit être un seul élément, comme une icône."
+        },
+        {
+          "term": "Types d’événements",
+          "detail": "Les handlers inline les infèrent ; les handlers extraits les nomment, comme `ChangeEvent<HTMLInputElement>`."
+        },
+        {
+          "term": "`ref` en React 19",
+          "detail": "Une simple prop : déclare `ref?: Ref<HTMLInputElement>` et passe-toi de `forwardRef`."
+        },
+        {
+          "term": "Namespace `JSX`",
+          "detail": "Les types de React 19 n’ont plus de `JSX` global : importe-le depuis `react` si besoin."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le `Button` du back-office ne déclare que `label` et `onClick`, donc passer `disabled` ou `type=\"submit\"` ne compile pas, et l’équipe ajoute des props une par une. Comment le typeriez-vous ?",
+        "bridge": "Dériver les props de l’élément natif avec `ComponentPropsWithoutRef<'button'>`, pour que chaque attribut natif soit typé d’un coup."
+      },
+      {
+        "question": "Vous migrez une bibliothèque de composants de React 18 à React 19. Qu’est-ce qui change dans la façon de typer `ref`, et comment typez-vous `children` et les handlers d’événements ?",
+        "bridge": "En React 19, `ref` est une prop ordinaire, donc `forwardRef` disparaît. `children` reste `ReactNode`, et les handlers extraits nomment leur type d’événement."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux typent le badge de statut, utilisé comme `<Badge tone=\"success\">Paid</Badge>`. Lequel accepte cet appel ?",
+        "why": "`ReactNode`, c’est tout ce que React sait rendre : texte, nombres, `null`, éléments, tableaux. `ReactElement` n’accepte qu’un élément JSX, donc le texte « Paid » ne compile pas, avec TS2747 : le composant n’accepte pas de texte comme enfant. Garde `ReactElement` pour un slot qui doit être un seul élément, comme une icône."
+      }
+    ]
+  },
+  "ts-exclusive-props": {
+    "topic": "Props exclusives et polymorphes",
+    "question": "Comment typeriez-vous un composant qui est soit un lien, soit un bouton, mais jamais les deux ? Et une prop `as` ?",
+    "answer": "Un lien et un bouton ont des contrats différents, donc les props sont une union de deux membres. Une union simple ne suffit pas : l’excess property check accepte une clé qui existe dans n’importe quel membre, donc `href` et `onClick` ensemble compilent. Je donne à chaque membre la clé de l’autre typée `never` : le lien a `onClick?: never`, le bouton `href?: never`. Passer les deux échoue alors, et à l’intérieur, tester `href` affine les props. Un composant polymorphe reçoit l’élément dans une prop `as`, typée avec `ComponentPropsWithoutRef<As>`. Ça marche, mais ça coûte des erreurs illisibles, une implémentation non vérifiée et du temps de compilation, donc je le réserve aux primitives comme `Text`.",
+    "keyPoints": [
+      "Une union de deux formes de props, une par contrat",
+      "Typer `never` la clé de l’autre membre pour interdire les deux",
+      "Une union simple accepte quand même les deux props",
+      "Les props `as` coûtent en erreurs et en compilation : primitives seulement"
+    ],
+    "explanation": "« Rendre les états impossibles impossibles » appliqué aux props est une question de design system courante pour les seniors. Les recruteurs attendent pourquoi une union simple échoue et un chiffrage honnête du coût du pattern polymorphe.",
+    "example": "Dans le back-office, quelqu’un a écrit `<Button href=\"/orders/ord_7f3k\" onClick={refundOrder}>` et le composant a rendu un lien sans rien dire. Avec les clés `never`, cet appel échoue avec TS2322, et un audit n’a gardé `as` que sur `Text`, après avoir mesuré environ 9 200 instanciations de types pour 200 utilisations, contre 21 pour un bouton simple.",
+    "mistakes": [
+      "Utiliser une union simple en supposant qu’elle interdit de passer les deux props.",
+      "Rendre chaque composant polymorphe, ce qui ralentit la vérification des types et produit des erreurs illisibles.",
+      "Ajouter une troisième puis une quatrième variante à l’union au lieu de séparer en composants distincts."
+    ],
+    "followUps": [
+      {
+        "question": "Quelles sont les alternatives à une prop `as` ?",
+        "answer": "Le `asChild` de Radix compose les props et le comportement du composant sur l’unique enfant qu’on passe ; la prop `render` de Base UI remplace l’élément que le composant rend. Pour des composants dont les variantes diffèrent par le comportement, des composants séparés comme `LinkButton` et `Button` sont plus lisibles."
+      },
+      {
+        "question": "Pourquoi l’implémentation d’un composant polymorphe n’est-elle pas vérifiée ?",
+        "answer": "À l’intérieur, l’élément est stocké comme un simple `ElementType`, donc le code qui étale les props dessus n’est pas vérifié par rapport à `As`. Seuls les appelants ont des types précis."
+      },
+      {
+        "question": "Comment mesurez-vous le coût de compilation d’un type ?",
+        "answer": "Je lance `tsc --extendedDiagnostics` et je compare le nombre d’instanciations de types et le temps de vérification avant et après le changement. Ensuite je garde les types lourds dans quelques primitives testées."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Avec des props typées `{ href: string } | { onClick: () => void }`, passer à la fois `href` et `onClick` ne compile pas.",
+        "why": "L’excess property check sur une union accepte une clé qui existe dans n’importe quel membre, donc les deux passent.",
+        "twin": {
+          "statement": "Avec des props typées `{ href: string } | { onClick: () => void }`, passer à la fois `href` et `onClick` compile.",
+          "why": "L’excess property check sur une union accepte une clé qui existe dans n’importe quel membre."
+        }
+      },
+      {
+        "statement": "Typer `onClick?: never` sur le membre lien fait de `<Action href=\"/orders\" onClick={refund} />` une erreur de compilation.",
+        "why": "Aucune fonction n’est assignable à `never`, donc le membre lien la rejette et le membre bouton rejette `href`.",
+        "twin": {
+          "statement": "Typer `onClick?: never` sur le membre lien laisse quand même compiler `<Action href=\"/orders\" onClick={refund} />`.",
+          "why": "Aucune fonction n’est assignable à `never`, donc le membre lien la rejette et le membre bouton rejette `href`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Certains composants acceptent une forme de props parmi deux, comme un lien ou un bouton, jamais les deux. Une union avec des clés `never` l’impose, et une prop polymorphe `as` est un outil plus lourd réservé aux primitives.",
+      "points": [
+        "Un lien et un bouton ont des contrats différents, donc modélise les props comme une union de deux membres, un par contrat.",
+        "Une union simple n’interdit pas les deux : l’excess property check accepte toute clé qui existe dans l’un des membres. Typer la clé de l’autre membre en `never` fait de l’envoi des deux une erreur de compilation.",
+        "Dans le composant, tester la prop distinctive (`props.href !== undefined`) affine les props, donc chaque branche n’étale que les props de son propre élément.",
+        "Un composant polymorphe rend l’élément passé dans `as`, avec des props typées par `ComponentPropsWithoutRef<As>`, donc un texte `span` n’accepte `htmlFor` qu’avec `as=\"label\"`.",
+        "Ses coûts : des erreurs longues, une implémentation que le compilateur ne vérifie pas, et une vérification des types plus lente. Réserve-le à quelques primitives ; sépare plutôt les composants de comportement."
+      ],
+      "takeaways": [
+        {
+          "term": "Union de props",
+          "detail": "Un membre par contrat : les props du lien ou celles du bouton."
+        },
+        {
+          "term": "Excess property check",
+          "detail": "Accepte une clé qui existe dans n’importe quel membre, donc une union simple laisse passer `href` et `onClick` ensemble."
+        },
+        {
+          "term": "Clé `never`",
+          "detail": "Type la clé de l’autre membre `onClick?: never` ou `href?: never` : passer les deux ne compile pas."
+        },
+        {
+          "term": "Narrowing à l’intérieur",
+          "detail": "`props.href !== undefined` affine les props, donc chaque branche n’étale que ses propres props."
+        },
+        {
+          "term": "Prop `as`",
+          "detail": "Rend l’élément donné, avec des props typées par `ComponentPropsWithoutRef<As>`."
+        },
+        {
+          "term": "Coûts du polymorphisme",
+          "detail": "Erreurs longues, implémentation non vérifiée et vérification des types plus lente : à réserver aux primitives comme `Text`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un `Action` du back-office prend `href` ou `onClick`. Un développeur a passé les deux, ça a compilé, et le bouton de remboursement a navigué ailleurs au lieu de rembourser. Comment en faire une erreur de compilation ?",
+        "bridge": "Une union simple accepte les clés de n’importe quel membre. Typer en `never` l’autre clé de chaque membre fait de l’envoi des deux une erreur de compilation."
+      },
+      {
+        "question": "Le `Text` du design system prend une prop `as` pour rendre un `p`, un `span` ou un `label`. Comment le typez-vous, et pourquoi ne pas utiliser ce pattern pour tous les composants ?",
+        "bridge": "Une prop polymorphe `as` typée avec `ComponentPropsWithoutRef<As>`. Son coût en erreurs et en temps de compilation la réserve aux primitives."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux typent un `Action` qui rend un lien ou un bouton. Lequel rejette `<Action href=\"/orders/ord_7f3k\" onClick={refund} />` ?",
+        "why": "Une union simple laisse passer un objet dont chaque clé existe dans l’un des membres, donc `href` et `onClick` ensemble compilent et le composant rend un lien sans rien dire. Typer la clé de l’autre membre en `never` fait qu’aucun membre n’accepte les deux : l’appel échoue avec TS2322."
+      }
+    ]
+  },
+  "ts-typed-context": {
+    "topic": "Context typé et hooks custom",
+    "question": "Comment typez-vous un context React et son hook custom pour que les consommateurs n’aient jamais affaire à `undefined` ?",
+    "answer": "Je crée le context avec `null` comme valeur « pas de provider », `createContext<CartContextValue | null>(null)`, et je ne l’expose jamais directement. Les consommateurs appellent un hook custom, `useCart`, qui lit le context et lève une erreur claire quand il reçoit `null`. Ce contrôle retire `null` du type, donc les appelants reçoivent un simple `CartContextValue`, et un provider manquant échoue bruyamment au lieu d’afficher un panier vide. J’évite un faux objet par défaut, qui cache ce bug. En React 19, je rends `<CartContext value={…}>` comme provider et je le lis avec `use`. Les hooks custom qui renvoient une paire la renvoient `as const`.",
+    "keyPoints": [
+      "Créer le context avec `null`, typé `T | null`",
+      "Un hook custom lève une erreur hors du provider et renvoie `T`",
+      "Pas de faux objet par défaut : il cache un provider manquant",
+      "Renvoyer les tuples des hooks `as const`"
+    ],
+    "explanation": "Les recruteurs s’en servent pour vérifier les réflexes quotidiens en React et TypeScript. Le signal senior, c’est préférer un échec bruyant à un défaut silencieux, et connaître le piège d’inférence des tuples.",
+    "example": "Le context du panier de la boutique était `createContext<Cart | undefined>(undefined)`, chaque consommateur écrivait `cart?.lines ?? []`, et une page rendue hors du provider affichait un panier vide. Avec `useCart` qui lève « useCart must be used inside <CartProvider> », la même erreur échoue maintenant dès le premier rendu en développement.",
+    "mistakes": [
+      "Donner à `createContext` un faux objet par défaut, si bien qu’un provider manquant rend un affichage faux en silence.",
+      "Renvoyer `[isOpen, toggle]` sans `as const`, ce qui type chaque élément en `boolean | (() => void)`.",
+      "Appeler `useState([])` sans argument de type, ce qui infère `never[]`."
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi un hook qui renvoie `[isOpen, toggle]` a-t-il besoin de `as const` ?",
+        "answer": "Sans lui, TypeScript infère un tableau, `(boolean | (() => void))[]`, donc `toggle()` échoue : tous les membres de l’union ne sont pas appelables. `as const` en fait un tuple readonly, `readonly [boolean, () => void]`, avec un type par position."
+      },
+      {
+        "question": "Qu’est-ce qui a changé pour le context en React 19 ?",
+        "answer": "Le context lui-même peut être rendu comme provider, `<CartContext value={value}>`, au lieu de `<CartContext.Provider>`. Et `use(CartContext)` le lit ; contrairement à `useContext`, `use` peut être appelé dans des conditions et des boucles."
+      },
+      {
+        "question": "Pourquoi mémoïser la valeur du provider ?",
+        "answer": "Un nouvel objet à chaque rendu du provider re-rend tous les consommateurs. `useMemo` sur le state, avec les actions enveloppées dans `useCallback`, garde la valeur stable jusqu’à ce que le panier change vraiment."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un context créé avec un objet par défaut fait échouer bruyamment un provider manquant.",
+        "why": "Les consommateurs hors du provider reçoivent le défaut en silence ; seuls un défaut `null` et un hook qui lève une erreur échouent.",
+        "twin": {
+          "statement": "Un context créé avec un objet par défaut laisse passer inaperçu un provider manquant.",
+          "why": "Les consommateurs hors du provider reçoivent le défaut en silence ; seuls un défaut `null` et un hook qui lève une erreur échouent."
+        }
+      },
+      {
+        "statement": "Après `if (cart === null) throw …`, le hook peut renvoyer `cart` avec un type qui exclut `null`.",
+        "why": "Le throw affine le type, donc le code qui suit ne voit que la valeur non nulle.",
+        "twin": {
+          "statement": "Après `if (cart === null) throw …`, le type de retour du hook inclut toujours `null`.",
+          "why": "Le throw affine le type, donc le code qui suit ne voit que la valeur non nulle."
+        }
+      },
+      {
+        "statement": "Sous `strict`, `useState([])` sans argument de type infère `never[]`.",
+        "why": "Un tableau littéral vide ne donne aucun type d’élément, donc un `setOrders([order])` ultérieur ne compile pas.",
+        "twin": {
+          "statement": "Sous `strict`, `useState([])` sans argument de type infère `any[]`.",
+          "why": "Un tableau littéral vide ne donne aucun type d’élément, donc il infère `never[]` et un `setOrders([order])` ultérieur ne compile pas."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un context React typé avec `null` pour « pas de provider » et un hook custom qui lève une erreur donnent aux consommateurs une valeur simple et non nulle, et font échouer bruyamment un provider manquant.",
+      "points": [
+        "Crée le context avec `null` comme valeur « pas de provider » : `createContext<CartContextValue | null>(null)`. Évite un faux objet par défaut, qui cache un provider manquant.",
+        "Expose un hook custom qui lit le context et lève une erreur quand il reçoit `null`. Le contrôle retire `null` du type, donc les appelants reçoivent une valeur simple.",
+        "React 19 rend le context lui-même comme provider, `<CartContext value={value}>`, et le lit avec `use(CartContext)`. Mémoïse la valeur pour que les consommateurs ne se re-rendent pas inutilement.",
+        "Un hook qui renvoie une paire doit la renvoyer `as const` ; sinon chaque élément est typé comme l’union des deux.",
+        "`useState([])` infère `never[]` : donne un argument de type quand la valeur initiale est vide, comme dans `useState<OrderSummary[]>([])`."
+      ],
+      "takeaways": [
+        {
+          "term": "`createContext`",
+          "detail": "`createContext<CartContextValue | null>(null)` : `null` signifie pas de provider."
+        },
+        {
+          "term": "Faux défaut",
+          "detail": "Évite un objet par défaut : il cache un provider manquant derrière un panier vide."
+        },
+        {
+          "term": "Hook custom",
+          "detail": "`useCart` lève une erreur quand il lit `null`, donc les appelants reçoivent un simple `CartContextValue`."
+        },
+        {
+          "term": "Provider en React 19",
+          "detail": "Rends `<CartContext value={value}>` et lis-le avec `use(CartContext)`. Mémoïse la valeur."
+        },
+        {
+          "term": "Tuples `as const`",
+          "detail": "Un hook qui renvoie une paire la renvoie `as const`, sinon chaque élément est typé comme l’union des deux."
+        },
+        {
+          "term": "`useState([])`",
+          "detail": "Infère `never[]` : passe un argument de type, comme dans `useState<OrderSummary[]>([])`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le badge du panier de la boutique affiche 0 sur une nouvelle page, sans erreur, parce que cette page est rendue hors de `CartProvider`. Le context avait été créé avec un panier vide par défaut. Comment auriez-vous détecté ça ?",
+        "bridge": "Un faux défaut cache un provider manquant. Un défaut `null` et un hook custom qui lève une erreur le font échouer bruyamment."
+      },
+      {
+        "question": "Chaque consommateur de `CartContext` écrit `cart?.items ?? []` parce que le type du context inclut `null`. Comment supprimez-vous ce bruit sans perdre en sécurité ?",
+        "bridge": "Envelopper le context dans un hook custom qui lève une erreur sur `null` : le throw affine le type, donc les consommateurs reçoivent une valeur simple."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux typent le context du panier de la boutique et son hook. Lequel échoue bruyamment quand une page est rendue hors de `<CartProvider>` ?",
+        "why": "Avec `null` comme valeur « pas de provider », le hook lève une erreur dès le premier rendu hors du provider, et le contrôle affine le type de retour en `Cart`. Avec un objet par défaut, une page hors du provider reçoit en silence ce panier vide : le badge affiche 0 article et rien ne signale le bug."
+      }
+    ]
+  },
+  "ts-utility-types": {
+    "topic": "Utility types",
+    "question": "Quels utility types TypeScript utilisez-vous le plus, et comment typeriez-vous un payload PATCH pour une commande ?",
+    "answer": "Les utility types construisent un nouveau type à partir d’un type existant, donc chaque payload dérive d’un seul type métier et un renommage les casse tous d’un coup. `Pick` garde certaines clés, `Omit` en retire, `Partial` et `Required` changent l’optionalité, `Readonly` bloque les écritures, `Record` associe des clés à un type de valeur, et `ReturnType` et `Awaited` nomment ce qu’une fonction renvoie. Pour `PATCH /orders/:id`, j’écris `Partial<Pick<OrderDetail, 'shippingAddress' | 'deliveryNote'>>` : seulement les champs modifiables, chacun optionnel, donc `status` ne peut pas se glisser dedans. Un piège : `Omit` sur une union ne garde que les clés communes, donc j’y utilise une version distributive.",
+    "keyPoints": [
+      "Dériver les payloads d’un seul type métier",
+      "`Partial<Pick<…>>` pour un patch : seulement les champs modifiables",
+      "`Partial<Order>` laisse passer des champs interdits comme `status`",
+      "`Omit` n’est pas distributif sur les unions"
+    ],
+    "explanation": "Ça vérifie l’aisance et le discernement : dériver les types au lieu de les copier. Le piège de `Omit` sur une union et `exactOptionalPropertyTypes` pour les patchs distinguent les seniors.",
+    "example": "Le détail de commande du back-office envoyait ses modifications avec un body typé `Partial<Order>`, donc un bug de formulaire pouvait envoyer `status: 'refunded'`. Typé `Partial<Pick<OrderDetail, 'shippingAddress' | 'deliveryNote'>>`, ce champ échoue avec TS2353, et avec `exactOptionalPropertyTypes` une note `null` signifie « l’effacer » tandis que `undefined` est refusé.",
+    "mistakes": [
+      "Typer un body de patch en `Partial<Order>`, ce qui autorise tous les champs, `id` et `status` compris.",
+      "Recopier les types à la main pour chaque payload, si bien qu’ils divergent quand le type métier change.",
+      "Appliquer `Omit` à une union discriminée et perdre les champs propres à chaque membre."
+    ],
+    "followUps": [
+      {
+        "question": "Comment typez-vous un helper `pick` générique ?",
+        "answer": "`pick<T extends object, K extends keyof T>(source: T, keys: readonly K[]): Pick<T, K>`. La contrainte n’autorise que les vraies clés, et le type de retour sait exactement quelles clés existent, donc lire tout autre champ ne compile pas."
+      },
+      {
+        "question": "Pourquoi `Omit` casse-t-il sur une union, et comment le corrigez-vous ?",
+        "answer": "`Omit` utilise `keyof` sur toute l’union, ce qui ne donne que les clés communes à tous les membres, donc les champs propres à un membre disparaissent. Un conditional type distributif, `T extends unknown ? Omit<T, K> : never`, applique `Omit` à chaque membre séparément."
+      },
+      {
+        "question": "Qu’est-ce que `ReturnType` et `Awaited` vous apportent ?",
+        "answer": "`Awaited<ReturnType<typeof loadOrder>>` nomme le type vers lequel une fonction async se résout sans le répéter. Ce sont deux conditional types qui utilisent `infer` pour capturer une partie d’un autre type."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`Omit<A | B, 'id'>` garde les champs propres à `A` et ceux propres à `B`.",
+        "why": "`Omit` travaille sur les clés communes à tous les membres, donc les champs propres à un membre sont perdus.",
+        "twin": {
+          "statement": "`Omit<A | B, 'id'>` perd les champs que seul `A` ou seul `B` possède.",
+          "why": "`Omit` travaille sur les clés communes à tous les membres, donc les champs propres à un membre sont perdus."
+        }
+      },
+      {
+        "statement": "`Record<OrderStatus, string>` exige une entrée pour chaque statut de l’union.",
+        "why": "Chaque membre de l’union des clés devient une propriété obligatoire, donc un statut manquant échoue (TS2741).",
+        "twin": {
+          "statement": "`Record<OrderStatus, string>` accepte un objet qui omet certains statuts.",
+          "why": "Chaque membre de l’union des clés devient une propriété obligatoire, donc un statut manquant échoue (TS2741)."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les utility types construisent de nouveaux types à partir d’un type existant, donc chaque payload dérive d’un seul type métier et un champ renommé les casse tous à la compilation.",
+      "points": [
+        "Les utility types sont des types génériques qui construisent un nouveau type à partir d’un type existant. Dériver chaque payload d’un seul type métier fait qu’un champ renommé les casse tous à la compilation.",
+        "`Pick<T, K>` garde des clés, `Omit<T, K>` en retire, `Partial` et `Required` rendent toutes les clés optionnelles ou obligatoires, `Readonly` bloque les écritures, `Record<K, V>` donne un `V` par clé de `K`.",
+        "`ReturnType` et `Awaited` nomment ce qu’une fonction renvoie ou ce vers quoi elle se résout. Ce sont des conditional types, `T extends U ? X : Y`, avec `infer` qui capture une partie.",
+        "Un body de patch est un `Partial<Pick<…>>` des champs modifiables, donc les autres champs sont rejetés. Avec `exactOptionalPropertyTypes`, `null` peut signifier « effacer » et `undefined` est refusé.",
+        "`Omit` sur une union ne garde que les clés communes à tous les membres. Un conditional type distributif l’applique à chaque membre."
+      ],
+      "takeaways": [
+        {
+          "term": "`Pick` et `Omit`",
+          "detail": "`Pick<T, K>` garde des clés, `Omit<T, K>` en retire."
+        },
+        {
+          "term": "`Partial` et `Required`",
+          "detail": "Rendent toutes les clés optionnelles ou obligatoires ; `Readonly` bloque les écritures."
+        },
+        {
+          "term": "`Record<K, V>`",
+          "detail": "Un `V` par clé de `K`."
+        },
+        {
+          "term": "`ReturnType`, `Awaited`",
+          "detail": "Nomment ce qu’une fonction renvoie ou ce vers quoi elle se résout ; deux conditional types avec `infer`."
+        },
+        {
+          "term": "Body de patch",
+          "detail": "`Partial<Pick<OrderDetail, 'shippingAddress' | 'deliveryNote'>>` : `status` ne peut pas se glisser dedans."
+        },
+        {
+          "term": "`Omit` sur une union",
+          "detail": "Ne garde que les clés communes à tous les membres : utilise une version distributive."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le body de `PATCH /orders/:id` est typé `Partial<Order>`, et un outil du support a envoyé `status: 'refunded'` par ce biais sans aucun remboursement. Comment typeriez-vous ce payload ?",
+        "bridge": "Le dériver avec `Partial<Pick<…>>` : seulement les champs modifiables, chacun optionnel, donc `status` ne fait pas partie du type."
+      },
+      {
+        "question": "Un collègue écrit `OrderSummary` à la main en copiant trois champs de `Order`. Quel est le risque, et quels utility types utiliseriez-vous à la place ?",
+        "bridge": "Les copies écrites à la main divergent du type métier. `Pick`, `Omit` et les autres utility types les dérivent, donc un renommage casse tous les payloads d’un coup."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux typent le body de `PATCH /orders/:id`, où seuls l’adresse et la note de livraison sont modifiables. Lequel rejette `status` ?",
+        "why": "`Partial<Pick<…>>` ne garde que les deux champs modifiables, chacun optionnel, donc `patchOrder(id, { status: 'refunded' })` échoue avec TS2353. `Partial<OrderDetail>` rend tous les champs optionnels mais les garde tous, donc un bug de formulaire peut envoyer `status: 'refunded'` et ça compile."
+      }
+    ]
+  },
+  "ts-type-level": {
+    "topic": "Template literal types et types conditionnels",
+    "question": "Avez-vous déjà utilisé des template literal types, des mapped types ou des types conditionnels ? Donnez un exemple concret, et dites où vous vous arrêteriez.",
+    "answer": "Oui, pour quelques noms et maps vérifiés dans un design system. Un template literal type construit des types string comme une template string, et une union à l’intérieur s’étend à toutes les combinaisons : quatre tons et deux slots donnent huit noms de tokens de couleur vérifiés. Un mapped type crée une propriété par membre d’une union ; `Partial` et `Record` sont faits comme ça. Un type conditionnel, c’est un if/else sur les types, et avec `infer` il extrait des morceaux : j’ai dérivé les params de route d’un pattern comme `/orders/:orderId`, donc le builder d’URL refuse un param manquant. Je m’arrête quand un type est plus dur à lire que le bug qu’il évite.",
+    "keyPoints": [
+      "Template literal types : les unions s’étendent en noms vérifiés",
+      "Mapped types : une propriété par membre d’une union",
+      "Types conditionnels avec `infer` : extraire des morceaux de types",
+      "S’arrêter quand le type coûte plus que le bug"
+    ],
+    "explanation": "Les recruteurs la posent pour voir si tu sais appliquer les types avancés à de vrais problèmes et, tout autant, si tu sais quand t’en passer. Un senior donne un usage concret et cite le coût en lisibilité et en temps de compilation.",
+    "example": "Le badge de statut partagé par la boutique et le back-office utilisait un `switch` avec un défaut gris : le nouveau statut `refunded` est resté gris pendant une semaine, et une faute dans un token, `--color-sucess-bg`, est partie en prod. Avec `as const satisfies Record<OrderStatus, BadgeStyle>` et un type template literal `ColorToken`, un statut manquant comme un token mal orthographié font échouer le build.",
+    "mistakes": [
+      "Écrire un type récursif de 40 lignes pour un problème qu’un contrôle au runtime et un test couvriraient.",
+      "Annoter une map de variantes avec `: Record<…>`, ce qui élargit ses littéraux, au lieu d’utiliser `satisfies`.",
+      "Ajouter des types lourds aux composants partagés sans mesurer le coût du type-check."
+    ],
+    "followUps": [
+      {
+        "question": "Que signifie « distributif » pour un type conditionnel ?",
+        "answer": "Quand le type testé est un paramètre de type nu et qu’on passe une union, le type conditionnel s’exécute une fois par membre et fait l’union des résultats. Un type `AggregateOf` qui capture la partie avant le point transforme donc `'order.placed' | 'payment.captured'` en `'order' | 'payment'`."
+      },
+      {
+        "question": "Comment gardez-vous une map de variantes synchronisée avec les statuts ?",
+        "answer": "`as const satisfies Record<OrderStatus, BadgeStyle>`. `satisfies` transforme un statut manquant en erreur de compilation sans élargir l’objet, et `as const` garde chaque littéral, donc `statusBadges.paid.tone` reste `'success'`."
+      },
+      {
+        "question": "Où croisez-vous des template literal types sans les écrire ?",
+        "answer": "Dans les types d’Express 5 : ils parsent la chaîne de route, donc dans `app.get('/orders/:orderId', …)` le compilateur connaît `req.params.orderId` et refuse `req.params.customerId`."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un template literal type construit à partir d’une union de 4 tons et d’une union de 2 slots décrit 8 chaînes.",
+        "why": "Une union dans un template literal type s’étend à toutes les combinaisons.",
+        "twin": {
+          "statement": "Un template literal type construit à partir d’une union de 4 tons et d’une union de 2 slots décrit 6 chaînes.",
+          "why": "Une union dans un template literal type s’étend à toutes les combinaisons : 4 fois 2 donnent 8."
+        }
+      },
+      {
+        "statement": "Annoter un objet avec `: Record<OrderStatus, BadgeStyle>` garde le type littéral de chaque `tone`.",
+        "why": "L’annotation donne à chaque entrée le type `BadgeStyle`, donc `tone` s’élargit à toute l’union ; `satisfies` le garde.",
+        "twin": {
+          "statement": "Annoter un objet avec `: Record<OrderStatus, BadgeStyle>` élargit chaque `tone` au type déclaré dans `BadgeStyle`.",
+          "why": "L’annotation donne à chaque entrée le type `BadgeStyle` ; `satisfies` vérifie l’objet et garde chaque littéral."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les template literal types, mapped types et types conditionnels calculent des types à partir d’autres types. À quelques endroits, comme les design tokens ou les params de route, ils transforment les fautes de frappe en erreurs de compilation.",
+      "points": [
+        "Un template literal type construit des types string comme une template string construit des chaînes. Une union à l’intérieur s’étend à toutes les combinaisons : 4 tons fois 2 slots donnent 8 noms de tokens.",
+        "Un mapped type, `{ [K in Keys]: V }`, crée une propriété par membre d’une union ; `Partial` et `Record` sont construits ainsi.",
+        "Un type conditionnel, `T extends U ? X : Y`, est un if/else sur les types. `infer` capture un morceau, comme les noms `:param` d’un pattern de route. Sur un paramètre de type union, il s’exécute une fois par membre.",
+        "`as const satisfies Record<OrderStatus, Style>` rend une map de variantes exhaustive : un statut manquant fait échouer le build, et chaque valeur garde son type littéral.",
+        "Ces types coûtent en lisibilité et en temps de compilation. Utilise-les à quelques endroits testés, et écris un type plus simple quand l’un d’eux est plus dur à lire que le bug qu’il évite."
+      ],
+      "takeaways": [
+        {
+          "term": "Template literal type",
+          "detail": "Construit des types string ; une union à l’intérieur s’étend à toutes les combinaisons : 4 tons fois 2 slots donnent 8 noms."
+        },
+        {
+          "term": "Mapped type",
+          "detail": "`{ [K in Keys]: V }` crée une propriété par membre ; `Partial` et `Record` sont construits ainsi."
+        },
+        {
+          "term": "Type conditionnel",
+          "detail": "`T extends U ? X : Y` est un if/else sur les types ; sur un paramètre de type union, il s’exécute une fois par membre."
+        },
+        {
+          "term": "`infer`",
+          "detail": "Capture un morceau d’un type, comme les noms `:param` d’un pattern de route tel que `/orders/:orderId`."
+        },
+        {
+          "term": "`as const satisfies`",
+          "detail": "Rend une map de variantes exhaustive tout en gardant le type littéral de chaque valeur."
+        },
+        {
+          "term": "Quand s’arrêter",
+          "detail": "Quand un type est plus dur à lire que le bug qu’il évite."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans la boutique, `buildPath('/orders/:orderId', {})` compilait et produisait des liens `/orders/undefined`. Comment le système de types pourrait-il refuser le `orderId` manquant ?",
+        "bridge": "Un type conditionnel avec `infer` extrait les params de la chaîne du pattern, donc le helper exige exactement ces clés."
+      },
+      {
+        "question": "Un collègue a écrit un type conditionnel de 60 lignes pour vérifier les tokens d’espacement du design system. Quand les template literal types, mapped types et types conditionnels valent-ils le coup, et quand vous arrêtez-vous ?",
+        "bridge": "Ils méritent leur place pour quelques noms et maps vérifiés. On s’arrête quand le type est plus dur à lire que le bug qu’il évite."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Un statut `refunded` vient d’être ajouté à `OrderStatus`. Les deux associent les statuts à des tons de badge. Lequel fait échouer le build tant que `refunded` n’est pas mappé ?",
+        "why": "`satisfies Record<OrderStatus, Tone>` exige une entrée par statut, donc la clé `refunded` manquante ne compile pas (TS1360), tandis que `as const` garde chaque ton littéral. Indexée par `string`, la map accepte n’importe quel ensemble de clés : elle compile, `badgeTone['refunded']` vaut `undefined` au runtime, et le badge s’affiche sans ton."
+      }
+    ]
+  }
+}

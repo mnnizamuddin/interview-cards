@@ -1,0 +1,1114 @@
+{
+  "story-full-stack-feature": {
+    "topic": "Livrer une fonctionnalité full-stack",
+    "question": "Parlez-moi d’une fois où vous avez travaillé sur toute la stack, frontend et backend, pour livrer une fonctionnalité.",
+    "answer": "Les clients appelaient sans arrêt le support pour savoir où en était leur commande, parce que « mes commandes » ne changeait qu’au rechargement. J’ai porté le statut de commande en direct de bout en bout. Côté API Orders, j’ai ajouté une table d’événements de statut et un endpoint SSE, diffusé sur les réplicas via Redis, avec rejeu depuis le dernier id d’événement après une reconnexion. Dans la boutique Next.js, j’ai construit la timeline de statut en composant client abonné à ce flux. J’ai d’abord validé le format des événements avec le développeur de l’app, pour qu’on travaille en parallèle. Les tickets « où est ma commande » ont baissé d’environ 30 % en un mois. J’en ai retenu qu’il faut figer le contrat avant de répartir le travail.",
+    "keyPoints": [
+      "Le problème utilisateur, en une phrase",
+      "Mes propres actions avec « je », côté backend et côté frontend",
+      "Une décision entre les couches, comme valider le contrat d’abord",
+      "Un résultat mesuré et une leçon"
+    ],
+    "explanation": "Le recruteur évalue si tu portes une fonctionnalité de bout en bout plutôt qu’une seule couche, et comment tu prends les décisions là où les couches se rencontrent. Une bonne réponse montre l’ownership, une décision entre couches et un résultat pour les utilisateurs, racontés avec « je ».",
+    "example": "Autre histoire : les agents avaient besoin de rembourser depuis le back-office. Tu as ajouté `POST /orders/:id/refunds` avec une clé d’idempotence sur l’API, une route BFF qui vérifie le rôle de l’agent, et une modale React qui affiche l’état du remboursement ; un remboursement est passé d’un ticket de dix minutes à l’équipe finance à une action de deux minutes.",
+    "mistakes": [
+      "Raconter toute l’histoire avec « on », si bien que ta propre part est invisible",
+      "Lister des technologies sans les décisions et les compromis derrière",
+      "Finir sans résultat, ou sur « ça s’est bien passé » au lieu d’un chiffre"
+    ],
+    "followUps": [
+      {
+        "question": "Que feriez-vous différemment ?",
+        "answer": "Je cite une vraie chose, par exemple : « J’aurais ajouté plus tôt un test end-to-end de la reconnexion ; on a trouvé en production un bug de rejeu qu’un test avec une connexion coupée aurait attrapé. »"
+      },
+      {
+        "question": "Comment l’avez-vous testée sur les différentes couches ?",
+        "answer": "Je dis ce que chaque couche avait : un test d’intégration du rejeu après un id d’événement donné sur l’API, un test de composant de la timeline avec un faux flux, et un test navigateur du parcours complet."
+      },
+      {
+        "question": "Comment vous êtes-vous mis d’accord sur le contrat d’API entre le frontend et le backend avant de commencer ?",
+        "answer": "J’ai écrit le format des événements comme un type TypeScript dans un package partagé, avec un exemple de payload pour chaque statut et la règle de reconnexion, et je l’ai revu avec le développeur de l’app lors d’un court appel. Il a construit la timeline contre un faux flux qui rejouait ces exemples pendant que je construisais l’endpoint."
+      },
+      {
+        "question": "Quel a été le bug entre couches le plus difficile de ce projet, et comment l’avez-vous résolu ?",
+        "answer": "Après une reconnexion, certains clients voyaient un statut deux fois. L’API rejouait à partir du dernier id d’événement inclus au lieu de strictement après, et le client ajoutait sans vérifier. J’ai corrigé la requête, fait ignorer au client les id d’événement qu’il avait déjà, et ajouté un test avec une connexion coupée."
+      },
+      {
+        "question": "Comment avez-vous décidé où vivait la logique métier, frontend ou backend ?",
+        "answer": "Les règles qui décident de quelque chose vivent côté backend ; le frontend fait le rendu. L’API Orders décidait quels statuts existent et quand ils changent, et la timeline affichait seulement ce que le flux envoyait, donc ajouter `refunded` plus tard n’a demandé qu’un libellé dans l’app."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans une réponse STAR, l’essentiel du temps doit aller à la situation.",
+        "why": "La situation tient en une ou deux phrases ; l’essentiel du temps va aux actions que tu as menées.",
+        "twin": {
+          "statement": "Dans une réponse STAR, l’essentiel du temps doit aller aux actions que tu as menées.",
+          "why": "La situation tient en une ou deux phrases ; ce sont tes actions que le recruteur évalue."
+        }
+      },
+      {
+        "statement": "Dire « on » tout du long empêche le recruteur de juger ta part.",
+        "why": "Le recruteur t’embauche toi, pas l’équipe, donc les actions se racontent avec « je ».",
+        "twin": {
+          "statement": "Dire « on » tout du long permet facilement au recruteur de juger ta part.",
+          "why": "Le recruteur ne peut pas distinguer tes actions de celles de l’équipe, donc raconte-les avec « je »."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une histoire full-stack montre l’ownership : tu as porté une fonctionnalité à travers toutes les couches et pris les décisions là où elles se rencontrent, pas seulement écrit le code de l’une d’elles.",
+      "points": [
+        "Le recruteur évalue l’ownership : est-ce que tu portes une fonctionnalité à travers toutes les couches et prends les décisions là où elles se rencontrent, pas seulement le code de l’une d’elles.",
+        "Utilise STAR : la Situation en une ou deux phrases, la Tâche que tu portais, les Actions que tu as menées racontées avec « je », et un Résultat mesuré plus une leçon. L’essentiel du temps va aux actions.",
+        "Montre une décision entre couches, comme valider d’abord le contrat d’API ou le format des événements, pour que le frontend et le backend soient construits en parallèle.",
+        "Prépare les relances : comment chaque couche a été testée, et une vraie chose que tu ferais différemment.",
+        "Pièges : raconter avec « on », lister des technologies sans les décisions derrière, et finir sur « ça s’est bien passé » au lieu d’un chiffre."
+      ],
+      "takeaways": [
+        {
+          "term": "Situation",
+          "detail": "Le problème utilisateur en une ou deux phrases, comme des clients qui appellent le support parce que le statut de commande ne change qu’au rechargement."
+        },
+        {
+          "term": "Tâche",
+          "detail": "Ce que tu portais : la fonctionnalité de bout en bout, de la base de données et l’API jusqu’à l’écran."
+        },
+        {
+          "term": "Tes actions, avec « je »",
+          "detail": "L’essentiel du temps va ici : ce que tu as construit côté backend et côté frontend, et la décision derrière chaque technologie."
+        },
+        {
+          "term": "Décision entre couches",
+          "detail": "Une décision là où les couches se rencontrent, comme valider d’abord le contrat d’API ou le format des événements pour construire les deux côtés en parallèle."
+        },
+        {
+          "term": "Résultat mesuré et leçon",
+          "detail": "Finis sur un chiffre, comme des tickets support en baisse d’environ 30 %, plus une leçon. Jamais « ça s’est bien passé »."
+        },
+        {
+          "term": "Relances",
+          "detail": "Sois prêt à dire comment chaque couche a été testée et une vraie chose que tu ferais différemment."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Racontez-moi une fonctionnalité que vous avez portée de bout en bout, de la base de données jusqu’à l’écran.",
+        "bridge": "La même histoire full-stack : un problème utilisateur, tes propres actions sur l’API et dans l’UI, et la décision prise là où les couches se rencontrent."
+      },
+      {
+        "question": "Quelle est la fonctionnalité la plus difficile que vous ayez livrée qui demandait des changements côté backend et côté frontend ? Comment avez-vous réparti le travail ?",
+        "bridge": "Une autre façon de demander l’histoire full-stack ; « comment avez-vous réparti le travail » appelle la décision entre couches, comme valider le contrat d’abord."
+      }
+    ]
+  },
+  "story-cross-layer-bug": {
+    "topic": "Raconter un bug entre plusieurs couches",
+    "question": "Décrivez un bug difficile à reproduire que vous avez débogué et qui traversait plusieurs couches de la stack.",
+    "answer": "Environ une commande payée sur deux mille restait en `pending_payment` sur la boutique, jamais en staging. J’ai porté l’enquête. Les traces des commandes touchées montraient le webhook de paiement arrivant quelques centaines de millisecondes après la création de la commande : le handler lisait la commande sur un réplica en lecture qui prenait du retard sous charge, ne trouvait rien, loguait et renvoyait 200, donc le fournisseur ne réessayait jamais. Je l’ai reproduit dans un test en retardant la réplication, puis j’ai fait lire le handler sur le primaire et renvoyer une erreur pour les commandes inconnues, pour que le fournisseur réessaie. Les commandes bloquées sont tombées à zéro. Leçon : les bugs rares sont souvent des races, et les traces les trouvent.",
+    "keyPoints": [
+      "Le symptôme et sa rareté, en une phrase",
+      "Comment j’ai circonscrit le problème entre couches : traces, logs, données",
+      "Une reproduction avant le correctif",
+      "Un correctif de la cause racine, un résultat mesuré et la leçon"
+    ],
+    "explanation": "Le recruteur évalue ta méthode de débogage dans l’incertitude : est-ce que tu rassembles des preuves à travers les couches au lieu de deviner, reproduis avant de corriger, et empêches la récidive. Les seniors expliquent aussi pourquoi le bug se cachait en staging.",
+    "example": "Autre histoire : certains agents voyaient une table de commandes vide dans le back-office après le déjeuner. La session du BFF avait expiré, l’API renvoyait 401, et la couche de requêtes React le traitait comme « aucun résultat ». Tu as suivi une requête du navigateur jusqu’au BFF, fait rediriger les 401 vers la connexion, et ajouté un test pour une session expirée.",
+    "mistakes": [
+      "Décrire le correctif sans la méthode qui a trouvé la cause",
+      "Dire que le bug « a disparu » après un changement que personne ne savait expliquer",
+      "S’arrêter au patch sans le garde-fou, le test ou l’alerte qui empêche la récidive"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi cela n’arrivait-il jamais en staging ?",
+        "answer": "Le staging n’avait pas de réplica en lecture sous charge, donc le retard de réplication était proche de zéro. Je dis ce que j’ai changé pour que le staging ou les tests le montrent la prochaine fois."
+      },
+      {
+        "question": "Comment vous êtes-vous assuré que le correctif fonctionnait ?",
+        "answer": "Je donne le signal que j’ai suivi : le nombre de commandes payées chez le fournisseur mais encore en `pending_payment` après cinq minutes, qui est tombé à zéro et a maintenant une alerte."
+      },
+      {
+        "question": "Quels outils avez-vous utilisés à chaque couche pour circonscrire le problème ?",
+        "answer": "Sur la boutique, l’onglet réseau du navigateur montrait que l’API renvoyait vraiment `pending_payment`. Dans l’API, les traces et les logs recherchés par id de commande montraient le webhook arrivant avant que la commande soit visible sur le réplica, et la métrique de retard de réplication du réplica avait un pic exactement à ces moments-là."
+      },
+      {
+        "question": "Comment avez-vous confirmé que vous aviez corrigé la cause racine et pas seulement un symptôme ?",
+        "answer": "La reproduction échouait avant le correctif et passait après, et le correctif supprimait la race elle-même, en lisant sur le primaire, au lieu d’ajouter un délai ou un retry autour. Ensuite, les commandes payées bloquées sont restées à zéro pendant des semaines, à travers les mêmes pics du soir."
+      },
+      {
+        "question": "Qu’avez-vous changé ensuite dans votre façon de travailler pour détecter plus tôt des problèmes similaires ?",
+        "answer": "J’ai ajouté un test d’intégration qui retarde la réplication, une règle de review selon laquelle les handlers qui agissent sur des paiements lisent sur le primaire, et l’alerte sur les commandes payées chez le fournisseur mais encore en `pending_payment` après cinq minutes. J’ai aussi présenté le bug à notre revue d’incidents."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une bonne histoire de débogage dit comment tu as trouvé la cause, pas seulement quel était le correctif.",
+        "why": "Le recruteur évalue ta méthode, donc l’enquête est le cœur de la réponse.",
+        "twin": {
+          "statement": "Une bonne histoire de débogage se concentre sur le correctif ; comment tu as trouvé la cause compte peu.",
+          "why": "Le recruteur évalue ta méthode, donc l’enquête est le cœur de la réponse."
+        }
+      },
+      {
+        "statement": "Une réponse comportementale est plus forte sans chiffres, parce que les chiffres sonnent appris par cœur.",
+        "why": "Un résultat mesuré, comme la fréquence du bug avant et après, rend l’histoire crédible.",
+        "twin": {
+          "statement": "Une réponse comportementale est plus forte avec un résultat mesuré, comme la fréquence du bug avant et après.",
+          "why": "Les chiffres rendent l’histoire crédible et montrent l’impact du correctif."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une histoire de bug entre couches montre ta méthode de débogage dans l’incertitude : des preuves rassemblées à travers les couches, une reproduction avant le correctif, et un garde-fou pour que le bug ne revienne jamais.",
+      "points": [
+        "Le recruteur évalue ta méthode de débogage dans l’incertitude : des preuves rassemblées à travers les couches, une reproduction avant le correctif, et un garde-fou contre le retour du bug.",
+        "Structure-la dans l’ordre STAR : le symptôme et sa rareté, comment tu l’as circonscrit (traces, logs, données), la reproduction, le correctif de la cause racine, un résultat mesuré et la leçon.",
+        "Les bugs rares qui n’apparaissent jamais en staging sont souvent des races ou des écarts de timing, comme le retard de réplication d’un réplica en lecture sous charge. Sois prêt à dire pourquoi il s’y cachait.",
+        "Dis comment tu as prouvé le correctif : un signal que tu as vu tomber à zéro, et l’alerte ou le test qui l’attrape désormais.",
+        "Pièges : décrire le correctif sans la méthode, dire que le bug « a disparu » après un changement que personne ne savait expliquer, et s’arrêter au patch."
+      ],
+      "takeaways": [
+        {
+          "term": "Symptôme et rareté",
+          "detail": "Commence par ce que voyaient les utilisateurs et la rareté du bug, comme une commande payée sur deux mille bloquée, jamais en staging."
+        },
+        {
+          "term": "Circonscrire le problème",
+          "detail": "Comment tu as suivi les preuves à travers les couches : traces, logs et données, chacune confirmant ou écartant une piste."
+        },
+        {
+          "term": "Reproduction",
+          "detail": "Reproduis-le dans un test avant de le corriger, par exemple en retardant la réplication pour recréer la race."
+        },
+        {
+          "term": "Correctif de la cause racine",
+          "detail": "Corrige la cause, pas le symptôme. Dis pourquoi il se cachait en staging : les bugs rares sont souvent des races ou des écarts de timing."
+        },
+        {
+          "term": "Preuve et garde-fou",
+          "detail": "Un signal que tu as vu tomber à zéro, et l’alerte ou le test qui l’attrape désormais."
+        },
+        {
+          "term": "Pièges",
+          "detail": "Un correctif sans la méthode, un bug qui « a disparu » après un changement inexpliqué, ou s’arrêter au patch."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Parlez-moi du bug le plus difficile que vous ayez traqué en production.",
+        "bridge": "La même histoire de débogage : le recruteur veut ta méthode à travers les couches, une reproduction, et un correctif de la cause racine avec un résultat mesuré."
+      },
+      {
+        "question": "Expliquez-moi comment vous avez enquêté sur un bug qui arrivait rarement et jamais sur votre machine.",
+        "bridge": "Un bug rare qui n’apparaît qu’en production, c’est l’histoire entre couches : comment des preuves comme les traces l’ont circonscrit avant que tu le corriges."
+      }
+    ]
+  },
+  "story-business-logic": {
+    "topic": "Où vit la logique métier",
+    "question": "Comment décidez-vous où vit la logique métier : frontend, backend, ou les deux ?",
+    "answer": "Les règles qui protègent l’argent, le stock ou les permissions vivent côté backend, parce que tout ce qui est dans le navigateur peut être contourné : l’API Orders recalcule le total du panier, vérifie le stock et décide si un remboursement est autorisé, même si l’UI l’a déjà fait. Le frontend répète certaines règles uniquement pour le confort de l’utilisateur : validation instantanée du formulaire, ou masquer un bouton de remboursement que l’agent ne peut pas utiliser. Pour garder les deux versions synchronisées, je partage le schéma de validation, par exemple un schéma Zod dans un package utilisé par l’API et les formulaires React, et la réponse du serveur fait foi. La logique de présentation, comme formater un prix, reste dans le frontend.",
+    "keyPoints": [
+      "Les règles d’argent, de stock et de permissions s’appliquent sur le serveur",
+      "Le client répète des règles uniquement pour un retour rapide",
+      "Des schémas partagés évitent la divergence ; le serveur a le dernier mot",
+      "La logique de présentation reste dans le frontend"
+    ],
+    "explanation": "Le recruteur évalue ton jugement sur les frontières de confiance : ce qu’on peut confier au client et ce qu’on ne peut pas. Une réponse senior sépare la sécurité de l’expérience utilisateur et propose un moyen concret d’empêcher les règles dupliquées de diverger.",
+    "example": "Le formulaire de checkout de la boutique affichait le total remisé, mais `POST /orders` acceptait le total envoyé par le navigateur. Un audit de sécurité a modifié l’API pour qu’elle recalcule chaque prix depuis la base de données et ignore le total du client ; le formulaire a gardé son aperçu, désormais calculé avec les mêmes règles partagées.",
+    "mistakes": [
+      "Faire confiance à un prix, un rôle ou un total envoyé par le client",
+      "Croire qu’une Server Action Next.js est privée parce que seule la page l’appelle",
+      "Dupliquer la validation à la main des deux côtés jusqu’à ce que les deux versions divergent"
+    ],
+    "followUps": [
+      {
+        "question": "Où se placent les Server Functions de Next.js ?",
+        "answer": "Elles s’exécutent sur le serveur, mais n’importe quel client peut envoyer le POST qui les appelle, donc ce sont des endpoints publics : chacune doit valider ses arguments et vérifier elle-même l’autorisation."
+      },
+      {
+        "question": "Quand mettriez-vous une règle uniquement dans le frontend ?",
+        "answer": "Quand l’enfreindre ne nuit qu’à l’expérience de l’utilisateur lui-même, comme l’ordre des étapes d’un formulaire ou une préférence d’affichage."
+      },
+      {
+        "question": "Comment gardez-vous la validation frontend et backend cohérente à mesure que l’app évolue ?",
+        "answer": "Un schéma Zod par requête dans un package partagé, utilisé par l’API et le formulaire React, donc une règle change à un seul endroit. Les erreurs de l’API nomment le champ, donc une règle que le formulaire ne connaît pas encore s’affiche quand même à côté du bon champ, et le serveur garde le dernier mot."
+      },
+      {
+        "question": "Qu’est-ce que cela change dans une app rendue côté serveur par rapport à une single-page app ?",
+        "answer": "Dans la boutique Next.js, les Server Components et les Server Functions s’exécutent sur le serveur, donc la logique peut quitter le navigateur, mais les Server Functions sont des endpoints publics qui valident et autorisent quand même. Dans la SPA du back-office, tout ce qui est dans le navigateur est non fiable, donc les règles sont dans le BFF et l’API Orders."
+      },
+      {
+        "question": "Où calculez-vous une remise : côté client, côté serveur, ou les deux ?",
+        "answer": "Le serveur calcule la remise facturée, à partir du code et du panier qu’il charge lui-même. Le client peut afficher un aperçu avec la même fonction partagée, mais `POST /orders` ignore tout total ou remise envoyé par le navigateur."
+      },
+      {
+        "question": "Comment empêchez-vous les utilisateurs de manipuler une logique qui s’exécute uniquement côté client ?",
+        "answer": "On ne peut pas : le navigateur est le leur, ils peuvent modifier le code, les requêtes et le state. Tout ce qui compte, comme les prix, les limites, les rôles ou un remboursement, est revérifié sur le serveur, et la logique client n’est là que pour le confort."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "La validation dans le formulaire React suffit à protéger l’endpoint de remboursement.",
+        "why": "N’importe qui peut appeler l’endpoint directement, donc le serveur doit appliquer la règle.",
+        "twin": {
+          "statement": "L’endpoint de remboursement doit appliquer lui-même la règle de remboursement, même quand le formulaire React la valide déjà.",
+          "why": "N’importe qui peut appeler l’endpoint directement, en contournant le formulaire."
+        }
+      },
+      {
+        "statement": "Une Server Function Next.js doit vérifier elle-même l’autorisation, même si seuls les utilisateurs connectés voient le formulaire.",
+        "why": "Masquer le formulaire protège le formulaire, pas l’action : quiconque peut envoyer le POST peut l’appeler.",
+        "twin": {
+          "statement": "Une Server Function Next.js n’a besoin d’aucune vérification d’autorisation quand seuls les utilisateurs connectés voient son formulaire.",
+          "why": "Masquer le formulaire ne protège pas l’action : quiconque peut envoyer le POST peut l’appeler."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Décider où vit la logique métier, c’est juger des frontières de confiance : le navigateur est sous le contrôle de l’utilisateur, donc les règles qui comptent s’appliquent sur le serveur et ne sont répétées dans l’UI que pour le confort.",
+      "points": [
+        "C’est une question de jugement sur les frontières de confiance : réponds par une règle claire, puis ancre-la dans un exemple concret tiré de ton travail.",
+        "Les règles qui protègent l’argent, le stock ou les permissions s’appliquent sur le serveur, parce que le navigateur est sous le contrôle de l’utilisateur et que n’importe qui peut envoyer une requête directement.",
+        "Le client répète des règles uniquement pour le confort, comme la validation instantanée ou masquer un bouton. Partage un seul schéma, par exemple Zod dans un package partagé, pour que les deux côtés soient d’accord, et laisse le dernier mot au serveur.",
+        "Une Server Function Next.js s’exécute sur le serveur mais c’est un endpoint public : n’importe qui peut envoyer le POST qui l’appelle, donc elle valide ses arguments et vérifie elle-même l’autorisation.",
+        "La logique de présentation, comme formater un prix ou l’ordre des étapes d’un formulaire, a sa place dans le frontend."
+      ],
+      "takeaways": [
+        {
+          "term": "Argent, stock, permissions",
+          "detail": "Appliqués sur le serveur, parce que n’importe qui peut contourner le navigateur et envoyer une requête directement."
+        },
+        {
+          "term": "Règles côté client",
+          "detail": "Répétées uniquement pour le confort : validation instantanée du formulaire ou masquer un bouton que l’utilisateur ne peut pas utiliser."
+        },
+        {
+          "term": "Schéma partagé",
+          "detail": "Un seul schéma, comme Zod dans un package partagé, utilisé par l’API et les formulaires ; le serveur a le dernier mot."
+        },
+        {
+          "term": "Server Functions",
+          "detail": "Une Server Function Next.js est un endpoint public : elle valide ses arguments et vérifie elle-même l’autorisation."
+        },
+        {
+          "term": "Logique de présentation",
+          "detail": "Formater un prix ou l’ordre des étapes d’un formulaire a sa place dans le frontend."
+        },
+        {
+          "term": "Forme de la réponse",
+          "detail": "Énonce d’abord une règle claire, puis ancre-la dans un exemple concret tiré de ton travail."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un audit de sécurité découvre que le back-office masque le bouton de remboursement aux agents juniors, mais que l’API Orders rembourse n’importe quelle commande qu’on lui demande. Qu’est-ce qui ne va pas, et où la règle doit-elle vivre ?",
+        "bridge": "Une règle de permission appliquée uniquement dans le navigateur peut être contournée : les règles qui protègent l’argent et les permissions vivent sur le serveur, qui a le dernier mot."
+      },
+      {
+        "question": "Un collègue veut supprimer la vérification du total du panier dans l’API Orders, parce que le checkout Next.js le calcule déjà. Que lui répondez-vous ?",
+        "bridge": "Une idée fausse sur les règles côté client : le frontend ne répète des règles que pour le confort de l’utilisateur, tandis que le serveur fait respecter l’argent, le stock et les permissions."
+      }
+    ]
+  },
+  "story-learn-fast": {
+    "topic": "Apprendre une technologie vite",
+    "question": "Parlez-moi d’une fois où vous avez dû apprendre rapidement une nouvelle technologie pour livrer.",
+    "answer": "Notre transporteur a annoncé qu’il retirait son API REST dans six semaines, et le remplaçant était en GraphQL, que personne dans l’équipe n’avait utilisé. Je me suis porté volontaire pour la migration. J’ai passé deux jours sur la doc officielle et construit un client jetable contre leur sandbox avant de toucher à notre code, puis j’ai posé deux questions précises à leur support sur les erreurs. J’ai encapsulé le nouveau client derrière notre interface de livraison existante, pour que le reste de l’API Orders ne change pas, et ajouté des tests sur des réponses enregistrées. On a basculé une semaine avant l’échéance sans aucune expédition ratée. J’ai appris à prototyper d’abord hors de la codebase.",
+    "keyPoints": [
+      "La contrainte : ce qui était nouveau et le peu de temps disponible",
+      "Comment j’ai appris : doc, prototype, questions précises",
+      "Comment j’ai limité le risque dans le vrai code",
+      "Un résultat mesuré et ce que je réutiliserais"
+    ],
+    "explanation": "Le recruteur évalue comment tu apprends, pas ce que tu sais déjà : as-tu une méthode, poses-tu de bonnes questions, protèges-tu le produit pendant que tu apprends. On attend des juniors de la curiosité et un plan ; les meilleures réponses montrent aussi que le risque était maîtrisé.",
+    "example": "Autre histoire : le back-office a migré ses tables vers TanStack Table et tu ne l’avais jamais utilisé. Tu as lu la doc et les exemples, refait d’abord une petite table dans une branche, demandé à un collègue de relire ce pattern, puis migré la grande table des commandes en une semaine.",
+    "mistakes": [
+      "Dire que tu l’as appris « en un week-end » sans méthode",
+      "Décrire seulement l’apprentissage, pas ce que tu as livré avec",
+      "Cacher comment tu as limité le risque d’utiliser quelque chose de nouveau en production"
+    ],
+    "followUps": [
+      {
+        "question": "Comment savez-vous que vous en avez assez appris pour commencer ?",
+        "answer": "Quand un petit prototype couvre les cas dont la vraie fonctionnalité a besoin, erreurs comprises. Alors les inconnues restantes sont assez petites pour les apprendre en construisant."
+      },
+      {
+        "question": "À qui avez-vous demandé de l’aide, et quand ?",
+        "answer": "Je le dis clairement : après avoir lu la doc, avec des questions précises, pour que les personnes sollicitées puissent répondre vite."
+      },
+      {
+        "question": "Comment décidez-vous quoi apprendre en premier quand le temps manque ?",
+        "answer": "Ce dont la fonctionnalité a besoin, par ordre de risque. Pour l’API GraphQL du partenaire, j’ai d’abord appris l’authentification, la façon dont les erreurs reviennent et comment créer une expédition, puis la pagination ; tout ce que notre code n’appelait pas pouvait attendre."
+      },
+      {
+        "question": "Vers quelles ressources vous tournez-vous en premier pour apprendre quelque chose de nouveau ?",
+        "answer": "La doc officielle et son guide de démarrage, puis les exemples ou la sandbox du fournisseur, et le changelog pour les changements récents. Les articles de blog et les réponses d’IA viennent après, vérifiés avec la doc. Quand je bloque, je pose une question précise à quelqu’un qui l’a utilisé."
+      },
+      {
+        "question": "Comment jugez-vous si une nouvelle technologie est prête pour la production ?",
+        "answer": "Je regarde qui la maintient et à quelle fréquence elle sort des versions, les issues ouvertes sur les cas dont j’ai besoin, la doc, la licence, et si on peut la monitorer et la déboguer. Puis un prototype dans notre environnement et une première utilisation sur une petite partie réversible, comme on l’a fait avec TanStack Table sur une petite table du back-office."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une histoire STAR doit se terminer par un résultat et une leçon apprise.",
+        "why": "Le résultat montre l’impact et la leçon montre que tu progresses grâce à l’expérience.",
+        "twin": {
+          "statement": "Une histoire STAR est complète une fois les actions racontées ; le résultat et la leçon sont facultatifs.",
+          "why": "Le résultat montre l’impact et la leçon montre que tu progresses grâce à l’expérience."
+        }
+      },
+      {
+        "statement": "Pour une question « appris rapidement », la meilleure réponse est que tu en savais déjà l’essentiel.",
+        "why": "La question évalue comment tu apprends, donc l’histoire doit montrer quelque chose de nouveau et ta méthode pour l’apprendre.",
+        "twin": {
+          "statement": "Pour une question « appris rapidement », l’histoire doit montrer quelque chose de nouveau pour toi et comment tu l’as appris.",
+          "why": "La question évalue comment tu apprends, donc une histoire où tu en savais déjà l’essentiel ne laisse rien à évaluer."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une histoire d’apprentissage rapide porte sur comment tu apprends, pas sur ce que tu savais déjà : ta méthode, les questions que tu poses, et comment tu protèges le produit pendant que tu apprends encore.",
+      "points": [
+        "Le recruteur évalue comment tu apprends, pas ce que tu savais déjà : ta méthode, les questions que tu poses, et comment tu protèges le produit pendant que tu apprends.",
+        "Une bonne histoire STAR nomme la contrainte (ce qui était nouveau, combien de temps), puis la méthode : doc officielle, prototype jetable, questions précises aux bonnes personnes.",
+        "Montre comment tu as maîtrisé le risque dans le vrai code, par exemple en encapsulant le nouveau client derrière une interface existante et en testant sur des réponses enregistrées.",
+        "Termine par un résultat mesuré et ce que tu réutiliserais. Sois prêt à dire comment tu as su que tu en savais assez pour commencer, et quand tu as demandé de l’aide.",
+        "Pièges : « je l’ai appris en un week-end » sans méthode, décrire seulement l’apprentissage et pas la livraison, ou prétendre que tu en savais déjà l’essentiel."
+      ],
+      "takeaways": [
+        {
+          "term": "La contrainte",
+          "detail": "Ce qui était nouveau et le peu de temps disponible, comme un partenaire qui retire son API REST au profit de GraphQL en six semaines."
+        },
+        {
+          "term": "Méthode d’apprentissage",
+          "detail": "Doc officielle, prototype jetable hors de la codebase, et questions précises aux bonnes personnes."
+        },
+        {
+          "term": "Maîtriser le risque",
+          "detail": "Encapsule le nouveau client derrière une interface existante et teste sur des réponses enregistrées, pour que le reste ne change pas."
+        },
+        {
+          "term": "Résultat mesuré",
+          "detail": "Livré avec un chiffre, comme une bascule une semaine en avance sans aucune expédition ratée, et ce que tu réutiliserais."
+        },
+        {
+          "term": "Relances",
+          "detail": "Comment tu as su que tu en savais assez pour commencer, et quand tu as demandé de l’aide."
+        },
+        {
+          "term": "Pièges",
+          "detail": "« Je l’ai appris en un week-end » sans méthode, seulement l’apprentissage et pas la livraison, ou prétendre que tu en savais l’essentiel."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Décrivez une fois où vous avez dû devenir productif, avec une échéance, sur un langage, une bibliothèque ou une API que vous n’aviez jamais utilisés.",
+        "bridge": "La même histoire d’apprentissage : ce qui était nouveau et le peu de temps disponible, comment tu as appris, et comment tu as limité le risque dans le vrai code."
+      },
+      {
+        "question": "Quel est le plus court délai dans lequel vous avez dû apprendre quelque chose de nouveau pour le travail ? Expliquez-moi comment vous vous y êtes pris.",
+        "bridge": "« Expliquez-moi comment » demande ta méthode : doc, prototype jetable, questions précises, puis un résultat mesuré et ce que tu réutiliserais."
+      }
+    ]
+  },
+  "story-disagreement": {
+    "topic": "Gérer un désaccord technique",
+    "question": "Décrivez une fois où vous étiez en désaccord avec une décision technique. Comment avez-vous géré la situation ?",
+    "answer": "Un collègue proposait de faire tourner PM2 en mode cluster dans chaque pod de l’API Orders pour utiliser plus de CPU. J’étais contre, parce que Kubernetes lance et redémarre déjà les pods, et un second gestionnaire de processus masque redémarrages et métriques. Au lieu de débattre dans la pull request, j’ai demandé ce qu’il voulait corriger : la latence p99 au pic du soir. On a convenu d’un test de charge des deux options en staging. Davantage de pods mono-processus donnaient le même débit avec des health checks plus simples. Son inquiétude sur un scale-up lent était fondée, donc on a relevé le minimum de réplicas avant le pic. On a livré ça, et la p99 est restée sous l’objectif. J’ai appris à transformer des opinions en test partagé.",
+    "keyPoints": [
+      "Le désaccord et ma raison, exposés honnêtement",
+      "J’ai compris l’objectif de l’autre personne",
+      "Tranché avec des données, comme une mesure ou un test",
+      "Le résultat, et je me suis engagé derrière la décision"
+    ],
+    "explanation": "Le recruteur évalue si tu argumentes avec des données, écoutes l’autre point de vue et t’engages une fois la décision prise. Une histoire où l’autre avait simplement tort laisse penser que tu ne vois pas les autres points de vue.",
+    "example": "Autre histoire : tu voulais une pagination par curseur pour la table des commandes du back-office, et le lead frontend voulait des numéros de page pour les agents. Tu as mesuré que les pages `OFFSET` profondes prenaient des secondes sur une grande table ; vous vous êtes mis d’accord sur des curseurs avec « suivant » et « précédent », plus un filtre par date qui remplaçait le saut à la page 40.",
+    "mistakes": [
+      "Choisir une histoire où l’autre personne avait simplement tort",
+      "Gagner par l’autorité ou l’insistance plutôt que par des preuves",
+      "Ne pas dire ce qui s’est passé ensuite : si tu t’es engagé derrière la décision finale"
+    ],
+    "followUps": [
+      {
+        "question": "Et si la décision vous avait été défavorable ?",
+        "answer": "Je dis que je m’y serais pleinement engagé, que je me serais assuré que le risque que je voyais soit surveillé, et que je serais revenu avec des données s’il se concrétisait."
+      },
+      {
+        "question": "Y a-t-il eu une décision avec laquelle vous n’étiez pas d’accord et que vous avez acceptée ?",
+        "answer": "J’en ai une prête : elle montre que je sais être en désaccord et m’engager quand même, ce qui compte autant qu’avoir raison."
+      },
+      {
+        "question": "Comment avez-vous su qu’il était temps d’arrêter de défendre votre position et de vous engager ?",
+        "answer": "Une fois que le test de charge a répondu à la question qu’on avait convenu de tester, le débat était clos ; continuer n’aurait été qu’une affaire d’ego. J’avais dit avant le test que je soutiendrais son option si les chiffres lui donnaient raison."
+      },
+      {
+        "question": "Qu’auriez-vous fait si cette décision s’était révélée mauvaise par la suite ?",
+        "answer": "Je l’aurais assumée avec mon collègue, puisqu’on l’avait choisie ensemble : d’abord stopper l’impact en augmentant les réplicas ou en faisant un rollback, puis relancer la comparaison avec les nouvelles données. Sans chercher de coupable, et j’aurais écrit ce que notre test de charge avait manqué."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "La meilleure histoire de désaccord est celle où l’autre personne avait clairement tort.",
+        "why": "Elle laisse penser que tu ne vois pas les autres points de vue ; choisis-en une où tu as compris sa raison.",
+        "twin": {
+          "statement": "La meilleure histoire de désaccord est celle où tu as compris la raison de l’autre personne.",
+          "why": "Elle montre que tu vois les autres points de vue ; une histoire où l’autre avait simplement tort laisse penser le contraire."
+        }
+      },
+      {
+        "statement": "Les recruteurs posent des relances en partie pour vérifier que l’histoire est vraiment la tienne.",
+        "why": "Les détails, les alternatives et ce que tu changerais sont difficiles à inventer, donc les histoires empruntées s’effondrent.",
+        "twin": {
+          "statement": "Les relances n’apprennent rien au recruteur sur le fait qu’une histoire soit vraiment la tienne.",
+          "why": "Les détails, les alternatives et ce que tu changerais sont difficiles à inventer, donc les histoires empruntées s’effondrent sous les relances."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une histoire de désaccord montre si tu argumentes avec des données, écoutes l’autre point de vue et t’engages une fois la décision prise. Choisis-en une où l’autre personne avait une vraie raison.",
+      "points": [
+        "Le recruteur évalue si tu argumentes avec des données, écoutes l’autre point de vue et t’engages une fois la décision prise.",
+        "Choisis une histoire où l’autre personne avait une vraie raison. Expose honnêtement son objectif, puis montre comment tu as transformé des opinions en test ou mesure partagés.",
+        "Disagree and commit : une fois la décision prise, tu la soutiens pleinement, tu surveilles le risque que tu voyais, et tu reviens avec des données s’il se concrétise.",
+        "Les relances vérifient que l’histoire est la tienne : alternatives, chiffres et ce que tu changerais sont difficiles à inventer, donc raconte tes propres histoires.",
+        "Pièges : une histoire où l’autre avait simplement tort, gagner par l’autorité ou l’insistance, et omettre ce qui s’est passé ensuite."
+      ],
+      "takeaways": [
+        {
+          "term": "Le désaccord",
+          "detail": "Ce qui était proposé et ta raison de t’y opposer, exposés sans caricature."
+        },
+        {
+          "term": "Son objectif",
+          "detail": "Demande ce que l’autre personne veut corriger, comme la latence p99 au pic du soir, et expose-le honnêtement."
+        },
+        {
+          "term": "Tranché avec des données",
+          "detail": "Transforme les opinions en test ou mesure partagés, comme un test de charge des deux options en staging."
+        },
+        {
+          "term": "Disagree and commit",
+          "detail": "Une fois la décision prise, soutiens-la pleinement, surveille le risque que tu voyais, et reviens avec des données s’il se concrétise."
+        },
+        {
+          "term": "Résultat",
+          "detail": "Ce qui a été livré et le résultat mesuré, y compris la part de son inquiétude qui était fondée."
+        },
+        {
+          "term": "Pièges",
+          "detail": "L’autre avait simplement tort, gagner par l’autorité ou l’insistance, ou omettre ce qui s’est passé ensuite."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Parlez-moi d’une fois où vous vous êtes opposé à la proposition technique d’un collègue. Que s’est-il passé ?",
+        "bridge": "La même histoire de désaccord : expose honnêtement l’autre point de vue, comprends son objectif, tranche avec des données, et engage-toi derrière le résultat."
+      },
+      {
+        "question": "Avez-vous déjà été en désaccord avec un coéquipier sur la façon de construire quelque chose ? Comment êtes-vous arrivés à une décision ?",
+        "bridge": "« Comment êtes-vous arrivés à une décision » pointe vers le cœur de l’histoire : transformer des opinions en test ou mesure partagés."
+      }
+    ]
+  },
+  "story-new-codebase": {
+    "topic": "Prendre en main une nouvelle codebase",
+    "question": "Comment montez-vous en compétence sur une codebase full-stack inconnue que vous venez de rejoindre ?",
+    "answer": "Je pars du produit : j’utilise la boutique comme un client et le back-office comme un agent, puis je suis un parcours de bout en bout, comme passer une commande, à travers le code Next.js, le BFF, l’API Orders et les tables qu’elle écrit. Je fais tourner le projet en local, je lis le README, les architecture decision records et les rapports d’incident récents, et je regarde les dashboards pour voir ce qui compte en production. Je demande un petit vrai ticket dès la première semaine, et je tiens une liste de questions et de points confus, qui se transforme souvent en corrections de documentation. Et je rencontre les personnes qui portent chaque partie.",
+    "keyPoints": [
+      "Utiliser le produit d’abord, puis suivre un parcours de bout en bout",
+      "Le lancer en local ; lire ADR, rapports d’incident et dashboards",
+      "Livrer tôt un petit vrai changement",
+      "Noter les questions ; transformer les réponses en doc"
+    ],
+    "explanation": "Le recruteur évalue à quelle vitesse tu deviens utile et si tu apprends le système et ses gens, pas seulement le code. Une bonne réponse a une méthode concrète et rend quelque chose à l’équipe, comme une meilleure doc d’onboarding.",
+    "example": "En arrivant dans la boutique, tu as suivi `POST /orders` du bouton de checkout jusqu’à la ligne d’outbox en deux jours, livré un petit correctif sur l’e-mail de confirmation de commande la première semaine, et transformé tes notes en page « première semaine » que la recrue suivante a utilisée.",
+    "mistakes": [
+      "Essayer de lire toute la codebase avant de toucher à quoi que ce soit",
+      "Attendre des semaines avant de poser des questions, pour ne pas paraître lent",
+      "Ignorer la production : les dashboards et les incidents montrent ce qui compte vraiment"
+    ],
+    "followUps": [
+      {
+        "question": "Comment savez-vous que vous êtes opérationnel ?",
+        "answer": "Quand je peux prendre un ticket dans une zone que je n’ai pas touchée, l’estimer et le livrer sans guide, et quand je commence à répondre aux questions des nouveaux."
+      },
+      {
+        "question": "Que faites-vous quand le code n’a aucune documentation ?",
+        "answer": "Je lis les tests et l’historique git des fichiers principaux, je demande aux responsables, et j’écris ce que j’apprends là où la prochaine personne le trouvera."
+      },
+      {
+        "question": "Comment arbitrez-vous entre devenir productif vite et casser quelque chose que vous ne comprenez pas encore ?",
+        "answer": "Je commence par de petits changements réversibles dans des zones bien testées, derrière un flag quand ils touchent au checkout, et je demande une review au responsable du code. Avant de modifier du code que je ne comprends pas, j’ajoute un test qui fige son comportement actuel, pour que le changement montre ce qu’il modifie vraiment."
+      },
+      {
+        "question": "Quelles questions poseriez-vous en premier à vos coéquipiers pendant l’onboarding ?",
+        "answer": "Quels parcours sont critiques et ce qui casse le plus souvent, qui porte chaque partie, comment le code arrive en production et comment on fait un rollback, quelles parties sont fragiles ou sur le point de changer, et ce qu’ils auraient aimé savoir leur premier mois. Les réponses me disent où être prudent et à qui demander."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Pour une question « comment faites-vous… », ancrer la démarche dans un exemple concret renforce la réponse.",
+        "why": "Un exemple montre que tu travailles vraiment ainsi, plutôt que de décrire un idéal.",
+        "twin": {
+          "statement": "Pour une question « comment faites-vous… », une description générale de ta démarche est plus forte qu’un exemple concret.",
+          "why": "Un exemple montre que tu travailles vraiment ainsi ; une description seule peut n’être qu’un idéal."
+        }
+      },
+      {
+        "statement": "Poser beaucoup de questions les premières semaines est un signal négatif à éviter dans ta réponse.",
+        "why": "Les questions précises sont le moyen le plus rapide d’apprendre une codebase, et les recruteurs s’attendent à ce que tu en poses.",
+        "twin": {
+          "statement": "Poser des questions précises les premières semaines est un signal positif qui mérite d’être mentionné dans ta réponse.",
+          "why": "Les questions précises sont le moyen le plus rapide d’apprendre une codebase, et les recruteurs s’attendent à ce que tu en poses."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les questions d’onboarding testent à quelle vitesse tu deviens utile et si tu apprends le système et ses gens, pas seulement le code. Donne une méthode, puis ancre-la dans un exemple réel.",
+      "points": [
+        "Le recruteur évalue à quelle vitesse tu deviens utile et si tu apprends le système et ses gens, pas seulement le code. Donne une méthode et ancre-la dans un exemple réel.",
+        "Pars du produit : utilise-le comme un client et comme un agent, puis suis un parcours de bout en bout, comme passer une commande, du bouton jusqu’aux tables qu’il écrit.",
+        "Lance-le en local et lis ce qui explique les décisions et la production : le README, les architecture decision records (ADR), les rapports d’incident et les dashboards.",
+        "Livre un petit vrai changement la première semaine, tiens une liste de questions, et transforme les réponses en documentation pour la personne suivante.",
+        "Pièges : lire toute la codebase avant de toucher à quoi que ce soit, et attendre des semaines avant de demander ; les questions précises sont attendues et sont le moyen le plus rapide d’apprendre."
+      ],
+      "takeaways": [
+        {
+          "term": "Le produit d’abord",
+          "detail": "Utilise le produit comme un client et comme un agent avant de lire le code."
+        },
+        {
+          "term": "Un parcours de bout en bout",
+          "detail": "Suis un parcours, comme passer une commande, du bouton à travers chaque service jusqu’aux tables qu’il écrit."
+        },
+        {
+          "term": "Le lancer et lire le pourquoi",
+          "detail": "Lance-le en local ; lis le README, les architecture decision records (ADR), les rapports d’incident et les dashboards."
+        },
+        {
+          "term": "Un petit vrai changement tôt",
+          "detail": "Livre un petit vrai ticket la première semaine."
+        },
+        {
+          "term": "Des questions à la doc",
+          "detail": "Tiens une liste de questions et de points confus ; transforme les réponses en documentation pour la personne suivante."
+        },
+        {
+          "term": "Pièges",
+          "detail": "Lire toute la codebase avant de toucher à quoi que ce soit, ou attendre des semaines pour demander : les questions précises sont attendues."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Vous arrivez lundi : une boutique Next.js, un BFF et l’API Orders, que vous n’avez jamais vus. Que faites-vous pendant vos deux premières semaines ?",
+        "bridge": "La question d’onboarding en situation concrète : le produit d’abord, un parcours de bout en bout, le lancer en local, et un petit vrai changement tôt."
+      },
+      {
+        "question": "Parlez-moi de la dernière fois où vous avez rejoint une nouvelle codebase. Comment êtes-vous devenu productif ?",
+        "bridge": "La même démarche racontée comme une histoire : ancre chaque étape, comme suivre un parcours ou livrer un petit ticket, dans ce que tu as réellement fait."
+      }
+    ]
+  },
+  "story-tech-debt": {
+    "topic": "Dette technique face à une échéance",
+    "question": "Parlez-moi d’une fois où vous avez dû arbitrer entre dette technique et une échéance serrée.",
+    "answer": "Trois semaines avant le Black Friday, le produit voulait des cartes cadeaux au checkout, et je savais que nos appels au transporteur n’avaient pas de timeout et avaient déjà bloqué le checkout une fois. Je portais le parcours de checkout. J’ai chiffré la dette : cet incident avait bloqué les commandes pendant 20 minutes, ce qui en plein pic voudrait dire des milliers de commandes perdues. J’ai proposé au product manager de livrer les cartes cadeaux sans utilisation partielle, et de consacrer les jours gagnés aux timeouts et aux retries avec backoff. Il a accepté. Le Black Friday s’est passé sans aucun incident de checkout, les cartes cadeaux sont sorties à temps, et l’utilisation partielle est arrivée en janvier. Leçon : parler de la dette en termes business.",
+    "keyPoints": [
+      "L’échéance et la dette, en une phrase chacune",
+      "Un coût mis sur la dette, en termes que le business comprend",
+      "Un arbitrage négocié : périmètre réduit, pas qualité sacrifiée en silence",
+      "Le résultat pour l’échéance comme pour le risque, et la leçon"
+    ],
+    "explanation": "Le recruteur évalue si tu sais rendre la dette visible et négocier, plutôt que de l’ignorer ou de refuser l’échéance. Les seniors chiffrent le risque, réduisent le périmètre avec le product owner, et suivent ce qui a été reporté.",
+    "example": "Autre histoire : avant des soldes, l’export CSV tournait encore sur le thread principal de l’API et bloquait les requêtes chaque soir. Tu as livré les fonctionnalités des soldes avec l’export temporairement limité aux heures creuses, puis déplacé les exports dans une file au sprint suivant, comme convenu avec le product manager.",
+    "mistakes": [
+      "Raconter une histoire où tu as sacrifié la qualité en silence pour tenir la date",
+      "Appeler la dette « du mauvais code » sans dire ce qu’elle coûte ou risque",
+      "Omettre ce qu’est devenu le travail reporté ensuite"
+    ],
+    "followUps": [
+      {
+        "question": "Comment vous assurez-vous que la dette reportée est réellement remboursée ?",
+        "answer": "Elle va dans le backlog avec son coût et un responsable, une date ou un déclencheur est convenu avec le product manager, et je la remets sur la table au planning suivant."
+      },
+      {
+        "question": "Quand acceptez-vous volontairement une nouvelle dette ?",
+        "answer": "Quand l’échéance a une vraie valeur business, que le raccourci est circonscrit et réversible, et que le plan pour le supprimer est écrit."
+      },
+      {
+        "question": "Comment décidez-vous ce qu’on peut sacrifier sous la pression d’une échéance, et ce qu’on ne sacrifie jamais ?",
+        "answer": "On peut réduire le périmètre et la finition, comme l’utilisation partielle des cartes cadeaux. Jamais : l’exactitude de l’argent et du stock, la sécurité, les timeouts et retries qui gardent le checkout debout, les tests sur les parcours qui débitent les clients, et tout ce qui pourrait perdre des données. Ce sont les raccourcis dont le coût retombe sur les clients."
+      },
+      {
+        "question": "Comment expliquez-vous un tel compromis à une partie prenante non technique ?",
+        "answer": "Dans ses unités : le checkout bloqué avait arrêté les commandes pendant 20 minutes, ce qui en plein pic veut dire des milliers de commandes perdues, contre quelques jours de travail. J’ai donné au product manager deux options avec leur coût et leur risque, et on a choisi ensemble."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Mettre un coût business sur la dette technique aide à négocier du temps pour la traiter.",
+        "why": "Un product manager peut peser des commandes perdues ou du temps d’incident face à une fonctionnalité ; « du code sale » ne lui donne rien à peser.",
+        "twin": {
+          "statement": "Décrire la dette technique comme « du code sale » convainc un product manager aussi bien que de lui mettre un coût business.",
+          "why": "Un product manager peut peser des commandes perdues ou du temps d’incident face à une fonctionnalité ; « du code sale » ne lui donne rien à peser."
+        }
+      },
+      {
+        "statement": "Un senior doit refuser toute échéance qui laisse en place une dette technique connue.",
+        "why": "Les seniors négocient le périmètre et planifient le remboursement ; refuser net ignore le besoin business.",
+        "twin": {
+          "statement": "Quand une échéance laisse en place une dette technique connue, un senior négocie le périmètre et planifie le remboursement.",
+          "why": "Refuser net ignore le besoin business ; un arbitrage négocié garde en vue à la fois l’échéance et le risque."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une histoire de dette technique montre que tu rends la dette visible et négocies un arbitrage, plutôt que de l’ignorer ou de refuser l’échéance.",
+      "points": [
+        "Le recruteur évalue si tu rends la dette technique visible et négocies, plutôt que de l’ignorer ou de refuser l’échéance.",
+        "Mets un coût business sur la dette : commandes perdues, minutes d’incident ou tickets support donnent au product manager quelque chose à peser ; « du code sale », non.",
+        "L’arbitrage porte sur le périmètre, convenu avec le product owner, comme une première version réduite pour consacrer du temps à la dette risquée. Ne sacrifie jamais les tests ou la qualité en silence.",
+        "Boucle la boucle dans ton histoire : ce qu’est devenu le travail reporté, avec un responsable et une date ou un déclencheur dans le backlog.",
+        "Prendre volontairement une nouvelle dette, ça va quand l’échéance a une vraie valeur et que le raccourci est circonscrit, réversible et accompagné d’un plan écrit pour le supprimer."
+      ],
+      "takeaways": [
+        {
+          "term": "Échéance et dette",
+          "detail": "Une phrase chacune, comme les cartes cadeaux avant le Black Friday et des appels au partenaire sans timeout."
+        },
+        {
+          "term": "Coût business",
+          "detail": "Exprime la dette en termes qu’un product manager peut peser : commandes perdues, minutes d’incident, tickets support. Pas « du code sale »."
+        },
+        {
+          "term": "Arbitrage négocié",
+          "detail": "Réduis le périmètre avec le product owner, comme une première version réduite, pour consacrer du temps à la dette risquée."
+        },
+        {
+          "term": "Jamais de qualité sacrifiée en silence",
+          "detail": "Les tests et la qualité ne sont pas la variable qu’on abandonne sans prévenir personne."
+        },
+        {
+          "term": "Boucler la boucle",
+          "detail": "Dis ce qu’est devenu le travail reporté : un responsable et une date ou un déclencheur dans le backlog."
+        },
+        {
+          "term": "Dette volontaire",
+          "detail": "Acceptable quand l’échéance a une vraie valeur et que le raccourci est circonscrit, réversible et accompagné d’un plan écrit pour le supprimer."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Décrivez une fois où vous avez dû choisir entre livrer à temps et corriger quelque chose que vous saviez fragile.",
+        "bridge": "La même histoire de compromis : nomme l’échéance et la dette, mets un coût business sur la dette, et négocie le périmètre plutôt que de sacrifier la qualité en silence."
+      },
+      {
+        "question": "Comment avez-vous convaincu un product manager de vous donner du temps pour la dette technique ? Donnez-moi un exemple réel.",
+        "bridge": "Convaincre un product manager, c’est la négociation au cœur de cette histoire : la dette exprimée en commandes perdues ou en temps d’incident."
+      }
+    ]
+  },
+  "story-organized": {
+    "topic": "Rester organisé sur plusieurs tâches",
+    "question": "Comment restez-vous organisé quand vous travaillez sur plusieurs fonctionnalités ou tâches à la fois ?",
+    "answer": "Au printemps dernier, je jonglais entre la modale de remboursement du back-office, un bug dans l’export CSV et les reviews d’un nouveau coéquipier. Je tenais une seule liste dans notre outil de suivi, ordonnée avec mon lead par impact et échéance, et je m’autorisais une seule tâche en cours, avec les reviews à deux moments fixes par jour. Chaque tâche avait sa branche et une courte note de là où je m’étais arrêté, donc changer de tâche coûtait quelques minutes, pas une heure. Quand le bug d’export a repoussé la modale de deux jours, je l’ai dit au stand-up le matin même. Les trois sont sorties sans surprise. Leçon : annoncer un retard tôt fait partie du fait d’être organisé.",
+    "keyPoints": [
+      "Une seule liste priorisée, validée avec le lead",
+      "Limiter le travail en cours ; regrouper les interruptions comme les reviews",
+      "Rendre les changements de tâche peu coûteux : branches et notes d’arrêt",
+      "Annoncer un retard tôt ; donner le résultat"
+    ],
+    "explanation": "Le recruteur évalue si on peut te confier plusieurs chantiers sans que tu en laisses tomber un. Un exemple concret vaut mieux qu’une liste d’outils, et les meilleures réponses montrent une priorisation validée avec d’autres et une communication précoce.",
+    "example": "Autre histoire : pendant une semaine d’astreinte, tu avais aussi une fonctionnalité de la boutique à livrer. Tu as convenu avec ton lead que les incidents passaient d’abord, découpé les tâches restantes de la fonctionnalité en petites pull requests que tu pouvais finir entre deux alertes, et prévenu le product manager dès le deuxième jour que la fonctionnalité arriverait avec un jour de retard.",
+    "mistakes": [
+      "Lister des outils (« j’utilise Jira et Notion ») sans méthode",
+      "Dire que tu es bon en multitâche au lieu de montrer comment tu limites le travail en cours",
+      "Omettre comment tu communiques quand les priorités changent"
+    ],
+    "followUps": [
+      {
+        "question": "Que faites-vous quand deux personnes disent chacune que leur tâche est la plus urgente ?",
+        "answer": "J’apporte les deux à celui qui fixe les priorités, en général le lead ou le product manager, avec l’impact de chacune, et je suis sa décision au lieu de choisir dans mon coin."
+      },
+      {
+        "question": "Comment gérez-vous les interruptions comme les questions sur Slack ?",
+        "answer": "Je réponds tout de suite aux urgentes et je regroupe le reste à des moments fixes, pour que le travail de fond ne soit pas coupé toutes les cinq minutes."
+      },
+      {
+        "question": "Comment gérez-vous une nouvelle demande urgente qui menace un travail sur lequel vous vous êtes déjà engagé ?",
+        "answer": "Je vérifie à quel point elle est vraiment urgente, puis je dis à mon lead ce qu’elle repousserait et de combien, pour que l’arbitrage soit une décision, pas une surprise. Quand le bug d’export est arrivé, on a convenu qu’il passait d’abord, et j’ai annoncé le retard de deux jours de la modale de remboursement le matin même."
+      },
+      {
+        "question": "Quels outils ou systèmes avez-vous utilisés pour suivre et prioriser votre propre travail ?",
+        "answer": "L’outil de suivi de l’équipe pour tout ce dont d’autres dépendent, ordonné avec mon lead, une courte liste quotidienne de mes trois tâches principales, et une note par branche qui dit où je me suis arrêté. L’outil compte moins que d’avoir une seule liste ordonnée et de la tenir à jour."
+      },
+      {
+        "question": "Comment limitez-vous le coût du passage entre frontend et backend dans une même journée ?",
+        "answer": "Je regroupe le travail par couche en blocs de quelques heures au lieu d’alterner, et je laisse une note avec la prochaine étape avant de changer. Travailler en fines tranches verticales aide aussi : l’API et l’UI d’une même tranche sont le même problème, donc passer de l’une à l’autre coûte peu."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un exemple concret est plus fort qu’une liste des outils que tu utilises.",
+        "why": "Le recruteur veut voir comment tu travailles en pratique, et les outils seuls ne disent rien de ton jugement.",
+        "twin": {
+          "statement": "Une liste des outils que tu utilises est plus forte qu’un exemple concret de ta façon de travailler.",
+          "why": "Les outils seuls ne disent rien de ton jugement ; le recruteur veut voir comment tu travailles en pratique."
+        }
+      },
+      {
+        "statement": "Mentionner qu’une tâche a pris du retard affaiblit une histoire d’organisation.",
+        "why": "Dire comment tu as repéré et annoncé le retard tôt montre exactement le jugement évalué.",
+        "twin": {
+          "statement": "Dire comment tu as repéré et annoncé tôt une tâche qui prenait du retard renforce une histoire d’organisation.",
+          "why": "Annoncer un retard tôt, c’est exactement le jugement évalué."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Cette question vérifie que tu peux mener plusieurs chantiers sans en laisser tomber un. Réponds avec un exemple concret et une méthode, pas une liste d’outils.",
+      "points": [
+        "Le recruteur évalue si tu peux mener plusieurs chantiers sans en laisser tomber un. Montre-le avec un exemple concret, pas une liste d’outils.",
+        "Tiens une seule liste priorisée, ordonnée avec ton lead par impact et échéance, et limite le travail en cours, idéalement une tâche à la fois.",
+        "Rends les changements de tâche peu coûteux et les interruptions bornées : une branche et une note d’arrêt pour chaque tâche, reviews et messages regroupés à des moments fixes.",
+        "Quand des priorités se heurtent ou qu’une tâche prend du retard, dis-le tôt et laisse décider celui qui fixe les priorités. Annoncer un retard tôt fait partie du fait d’être organisé.",
+        "Pièges : « je suis bon en multitâche » sans méthode, des outils sans jugement, et omettre comment tu as communiqué quand les priorités ont changé."
+      ],
+      "takeaways": [
+        {
+          "term": "Une seule liste priorisée",
+          "detail": "Une liste unique, ordonnée avec ton lead par impact et échéance."
+        },
+        {
+          "term": "Limiter le travail en cours",
+          "detail": "Idéalement une seule tâche en cours à la fois."
+        },
+        {
+          "term": "Regrouper les interruptions",
+          "detail": "Reviews et messages à des moments fixes de la journée, pour que les interruptions restent bornées."
+        },
+        {
+          "term": "Changements peu coûteux",
+          "detail": "Une branche et une courte note d’arrêt pour chaque tâche, pour que changer coûte quelques minutes, pas une heure."
+        },
+        {
+          "term": "Annoncer les retards tôt",
+          "detail": "Quand une tâche prend du retard, dis-le tôt et laisse décider celui qui fixe les priorités."
+        },
+        {
+          "term": "Pièges",
+          "detail": "« Je suis bon en multitâche » sans méthode, des outils sans jugement, ou passer sous silence comment tu as communiqué les changements."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Racontez-moi une semaine où vous aviez plusieurs choses en cours en même temps. Comment avez-vous décidé sur quoi travailler ?",
+        "bridge": "La même histoire d’organisation : une seule liste priorisée validée avec le lead, un travail en cours limité, des changements peu coûteux et des alertes précoces."
+      },
+      {
+        "question": "Parlez-moi d’une fois où une tâche a pris du retard parce que d’autres travaux se sont mis en travers. Qu’avez-vous fait ?",
+        "bridge": "Un retard a sa place dans cette histoire : le jugement évalué, c’est repérer le retard et l’annoncer tôt, pas le cacher."
+      }
+    ]
+  },
+  "story-incident": {
+    "topic": "Diagnostiquer un incident de production",
+    "question": "Parlez-moi d’une fois où vous avez diagnostiqué un incident de production sous pression.",
+    "answer": "Pendant des soldes un vendredi soir, le checkout a commencé à échouer : environ 30 % des `POST /orders` renvoyaient 500, et ça augmentait. J’étais d’astreinte, donc j’ai mené la réponse. J’ai d’abord fait un rollback du déploiement de l’après-midi ; rien n’a changé, donc la cause était ailleurs. Les traces montraient des requêtes en attente de connexions à la base, et `pg_stat_activity` montrait le pool rempli de sessions idle in transaction, venant d’un nouvel export qui ouvrait une transaction puis streamait vers S3. J’ai terminé ces sessions et désactivé l’export avec son feature flag ; les erreurs sont tombées à zéro en dix minutes. Leçon : d’abord arrêter l’hémorragie, ensuite trouver la cause.",
+    "keyPoints": [
+      "L’impact et mon rôle, en une phrase chacun",
+      "D’abord la mitigation : rollback ou flag, puis la cause racine",
+      "Les preuves qui m’ont mené à la cause",
+      "Le temps de rétablissement, et ce qui a changé ensuite"
+    ],
+    "explanation": "Le recruteur évalue ton calme sous pression, une méthode plutôt que de la chance, et l’ownership : mitiger avant de diagnostiquer, suivre les preuves, tenir les gens informés, et s’assurer que ça ne peut pas se reproduire. Les seniors montrent aussi comment ils ont coordonné les autres.",
+    "example": "Autre histoire : le webhook de paiement a commencé à partir en timeout après que le fournisseur a doublé ses retries pendant une panne. Tu as vu les retries s’accumuler dans les logs, ajouté des réplicas d’API pour absorber la charge, puis modifié le webhook pour qu’il réponde dès l’événement stocké et le traite en asynchrone ; les timeouts ont cessé et aucun paiement n’a été perdu.",
+    "mistakes": [
+      "Raconter le débogage et sauter la façon dont tu as d’abord limité l’impact",
+      "Dire « on » tout du long, si bien que le recruteur ne voit pas tes actions",
+      "S’arrêter au correctif, sans le post-mortem et ce qui a changé"
+    ],
+    "followUps": [
+      {
+        "question": "Comment avez-vous communiqué l’état de la situation aux parties prenantes non techniques pendant l’incident ?",
+        "answer": "J’ai demandé à l’engineering manager de gérer les parties prenantes pendant que je travaillais, et je lui donnais un point simple toutes les 15 minutes : ce que voient les clients, ce qu’on fait, quand vient le prochain point. Aucune cause devinée. Ensuite, un court résumé avec le nombre de commandes échouées et le correctif."
+      },
+      {
+        "question": "Qu’auriez-vous fait avec encore moins de temps ?",
+        "answer": "Sauter l’enquête au début : désactiver toutes les fonctionnalités livrées ce jour-là derrière un flag, puis chercher la cause une fois le checkout rétabli. La mitigation n’a pas besoin de la cause racine ; elle a besoin d’une action réversible qui réduit l’impact."
+      },
+      {
+        "question": "Quel changement de process est sorti du post-mortem ?",
+        "answer": "Le post-mortem sans recherche de coupable a donné trois changements, chacun avec un responsable : un `idle_in_transaction_session_timeout` sur le rôle de base de données de l’export, une alerte sur le temps d’attente du pool, et une règle de review selon laquelle aucune transaction ne reste ouverte pendant un appel réseau."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Pendant un incident, trouver la cause racine passe avant réduire l’impact.",
+        "why": "Mitige d’abord avec un rollback, un flag ou plus de capacité ; diagnostique une fois les clients à l’abri.",
+        "twin": {
+          "statement": "Pendant un incident, réduire l’impact passe avant trouver la cause racine.",
+          "why": "Mitige d’abord avec un rollback, un flag ou plus de capacité ; diagnostique une fois les clients à l’abri."
+        }
+      },
+      {
+        "statement": "Un post-mortem sans recherche de coupable regarde ce qui, dans le système, a permis l’erreur, pas qui l’a commise.",
+        "why": "Chercher un coupable pousse les gens à cacher des détails ; corriger le système empêche la personne suivante de faire la même erreur.",
+        "twin": {
+          "statement": "Un post-mortem sans recherche de coupable regarde qui a commis l’erreur, pour que cette personne ne la répète pas.",
+          "why": "Chercher un coupable pousse les gens à cacher des détails ; un post-mortem sans coupable regarde ce qui, dans le système, a permis l’erreur."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une histoire d’incident montre ton calme sous pression, une méthode plutôt que de la chance, l’ownership et la communication. Racontée en STAR, elle place la limitation de l’impact avant la recherche de la cause.",
+      "points": [
+        "Le recruteur évalue ton calme sous pression, une méthode plutôt que de la chance, l’ownership et la communication. Raconte-la en STAR : situation, tâche, action, résultat.",
+        "Montre l’ordre du travail : limite d’abord l’impact avec une action réversible (rollback, feature flag, plus de capacité), puis trouve la cause racine avec des preuves comme les traces, les métriques et les vues de la base.",
+        "Dis ce que tu as fait, avec « je » : l’hypothèse testée, ce qui l’a écartée, et les preuves qui ont pointé vers la cause.",
+        "Donne un résultat mesuré, comme les minutes jusqu’au rétablissement ou les commandes échouées, et dis comment tu as tenu les parties prenantes informées pendant l’incident.",
+        "Termine par le post-mortem sans recherche de coupable : les changements qui empêchent la récidive, chacun avec un responsable. Pièges : sauter la mitigation, dire « on » tout du long, s’arrêter au correctif."
+      ],
+      "takeaways": [
+        {
+          "term": "Impact et rôle",
+          "detail": "Une phrase chacun : ce qui a échoué et dans quelle mesure, comme 30 % des checkouts en 500, et que tu as mené la réponse, étant d’astreinte."
+        },
+        {
+          "term": "La mitigation d’abord",
+          "detail": "Limite l’impact avec une action réversible : rollback, feature flag ou plus de capacité."
+        },
+        {
+          "term": "Des preuves à la cause",
+          "detail": "L’hypothèse testée, ce qui l’a écartée, et les traces, métriques ou vues de la base qui ont pointé vers la cause."
+        },
+        {
+          "term": "Résultat mesuré",
+          "detail": "Minutes jusqu’au rétablissement ou commandes échouées, et comment tu as tenu les parties prenantes informées pendant l’incident."
+        },
+        {
+          "term": "Post-mortem sans coupable",
+          "detail": "Les changements qui empêchent la récidive, chacun avec un responsable."
+        },
+        {
+          "term": "Pièges",
+          "detail": "Sauter la mitigation, dire « on » tout du long, ou s’arrêter au correctif."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Parlez-moi de la pire panne de production que vous ayez vécue. Quel était votre rôle ?",
+        "bridge": "La même histoire d’incident : d’abord l’impact et ton rôle, la mitigation avant le diagnostic, les preuves qui ont mené à la cause, et le temps de rétablissement."
+      },
+      {
+        "question": "Racontez-moi ce que vous avez fait dans les quinze premières minutes d’un incident de production que vous avez géré.",
+        "bridge": "C’est dans les premières minutes que se voit le réflexe clé : arrêter l’hémorragie avec un rollback ou un flag, puis trouver la cause."
+      }
+    ]
+  },
+  "story-tradeoff": {
+    "topic": "Un compromis d’architecture",
+    "question": "Décrivez un compromis d’architecture important que vous avez fait, comme cohérence contre disponibilité.",
+    "answer": "Le checkout appelait le service d’inventaire en synchrone, donc quand il ralentissait pendant les soldes, le checkout échouait. Je portais le parcours de checkout, et le choix était entre cohérence stricte, ne jamais vendre un stock qu’on n’a pas, et disponibilité. J’ai mesuré que les surventes seraient rares, peu de produits tombant en rupture, et que chacune pouvait être remboursée. J’ai proposé d’accepter la commande quand l’inventaire ne répondait pas en 300 ms, de réserver le stock en asynchrone et de rembourser la rare survente, sauf pour les éditions limitées, qui gardaient la vérification stricte. Le product manager a accepté. Aux soldes suivantes, les erreurs de checkout sont tombées presque à zéro, avec 4 surventes remboursées. Leçon : laisser le business choisir le risque.",
+    "keyPoints": [
+      "Les deux options et ce que chacune coûtait",
+      "Des données derrière le choix, en termes business",
+      "Qui a décidé avec moi, et les exceptions gardées",
+      "Le résultat mesuré et ce que j’ai continué à surveiller"
+    ],
+    "explanation": "Le recruteur évalue si tu raisonnes en compromis plutôt qu’en bonnes pratiques, chiffres les conséquences, et impliques le business dans une décision qui porte en réalité sur le risque. Les seniors nomment ce qu’ils ont sacrifié et les conditions qui les feraient changer d’avis.",
+    "example": "Autre histoire : la table des commandes du back-office lisait sur un réplica en lecture pour épargner le primaire, donc les agents pouvaient voir un statut avec une seconde de retard. Tu as gardé le réplica pour les listes mais lu le détail de la commande sur le primaire juste après un remboursement, pour que les agents ne voient jamais leur propre remboursement manquer.",
+    "mistakes": [
+      "Présenter le choix comme évidemment bon, sans aucun coût de l’autre côté",
+      "Décider seul d’un compromis dont le business porte le risque",
+      "Utiliser le vocabulaire CAP sans conséquence concrète pour les utilisateurs"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qui aurait changé votre décision avec d’autres exigences business ?",
+        "answer": "Si on vendait surtout du stock limité, ou si une survente ne pouvait pas être remboursée, comme pour des billets d’événement, j’aurais gardé la vérification stricte et rendu le service d’inventaire plus rapide à la place. La décision reposait sur des surventes rares et peu coûteuses à corriger."
+      },
+      {
+        "question": "Comment avez-vous expliqué le compromis aux parties prenantes non techniques ?",
+        "answer": "Sans les mots cohérence et disponibilité. J’ai dit : soit le checkout échoue quand le système de stock est lent, environ 2 % des commandes aux dernières soldes, soit on prend ces commandes et on rembourse la poignée qui se révèle en rupture. Puis j’ai demandé ce qu’ils préféraient."
+      },
+      {
+        "question": "Feriez-vous le même choix aujourd’hui ?",
+        "answer": "Oui pour cette boutique, mais j’ajouterais dès le premier jour ce qu’on a ajouté plus tard : un dashboard des surventes par soldes, pour que l’hypothèse qu’elles restent rares soit vérifiée à chaque fois au lieu d’être tenue pour acquise."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une bonne histoire de compromis dit ce que tu as sacrifié, pas seulement ce que tu as gagné.",
+        "why": "Un compromis sans coût n’est pas un compromis ; nommer le coût montre du jugement.",
+        "twin": {
+          "statement": "Une bonne histoire de compromis se concentre sur ce que tu as gagné ; mieux vaut taire ce que tu as sacrifié.",
+          "why": "Un compromis sans coût n’est pas un compromis ; nommer le coût montre du jugement."
+        }
+      },
+      {
+        "statement": "La meilleure réponse présente l’option choisie comme n’ayant aucun vrai inconvénient.",
+        "why": "Cela laisse penser que tu n’as pas vu les alternatives ; les recruteurs creusent alors jusqu’à ce que le coût apparaisse.",
+        "twin": {
+          "statement": "La meilleure réponse nomme le vrai inconvénient de l’option choisie.",
+          "why": "Le cacher laisse penser que tu n’as pas vu les alternatives, et les recruteurs creusent jusqu’à ce que le coût apparaisse."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une histoire de compromis montre que tu raisonnes avec deux vraies options, chacune avec un coût, et que tu choisis avec des données en termes business plutôt que par habitude.",
+      "points": [
+        "Le recruteur évalue si tu raisonnes en compromis : deux vraies options, chacune avec un coût, et un choix fait avec des données plutôt que par habitude.",
+        "Traduis le compromis en termes business : commandes échouées contre surventes remboursées, une seconde de données périmées contre la charge sur le primaire. Laisse celui qui porte le risque décider avec toi.",
+        "Nomme ce que tu as sacrifié et les exceptions gardées, comme une vérification stricte du stock pour les éditions limitées.",
+        "Donne le résultat mesuré, et dis ce qui changerait ta décision : d’autres exigences, volumes ou coûts.",
+        "Pièges : un choix sans inconvénient, du vocabulaire CAP sans conséquence pour les utilisateurs, et un risque décidé seul."
+      ],
+      "takeaways": [
+        {
+          "term": "Deux options et leurs coûts",
+          "detail": "Nomme les deux et ce que chacune coûte, comme la cohérence stricte du stock contre la disponibilité du checkout."
+        },
+        {
+          "term": "Termes business",
+          "detail": "Traduis-le : commandes échouées contre surventes remboursées, ou une seconde de données périmées contre la charge sur le primaire."
+        },
+        {
+          "term": "Des données derrière le choix",
+          "detail": "Mesure d’abord, par exemple la rareté des surventes, avant de proposer."
+        },
+        {
+          "term": "Qui décide",
+          "detail": "Laisse celui qui porte le risque décider avec toi ; nomme ce que tu as sacrifié et les exceptions gardées."
+        },
+        {
+          "term": "Résultat, ce qui le changerait",
+          "detail": "Le résultat mesuré, et quelles exigences, volumes ou coûts changeraient la décision."
+        },
+        {
+          "term": "Pièges",
+          "detail": "Un choix sans inconvénient, du vocabulaire CAP sans conséquence pour les utilisateurs, ou un risque décidé seul."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Parlez-moi d’une décision de conception où vous avez délibérément accepté une faiblesse pour gagner autre chose.",
+        "bridge": "Accepter volontairement une faiblesse, c’est une histoire de compromis : les deux options, ce que chacune coûtait, les données, et qui a choisi le risque avec toi."
+      },
+      {
+        "question": "Décrivez une fois où vous avez choisi la disponibilité plutôt que la cohérence stricte, ou l’inverse. Qu’est-ce que cela a coûté ?",
+        "bridge": "« Qu’est-ce que cela a coûté » demande le côté sacrifié, avec des chiffres comme les surventes remboursées, et ce que tu as continué à surveiller."
+      }
+    ]
+  },
+  "story-push-back": {
+    "topic": "S’opposer à une fonctionnalité risquée",
+    "question": "Un product manager demande une fonctionnalité qui présente un risque sérieux de sécurité ou de scalabilité. Que faites-vous ?",
+    "answer": "Je m’assure d’abord de comprendre l’objectif, puis j’explique le risque dans ses termes et je propose des options. Notre product manager voulait un jour que les agents du support exportent tous les clients avec leur adresse dans un tableur, en un clic depuis le back-office. J’ai expliqué qu’une seule session d’agent volée ferait fuiter les données personnelles de tous nos clients, et que l’export chargerait la base pendant des minutes en plein pic. J’ai proposé des exports limités aux dossiers en cours de l’agent, générés en asynchrone, journalisés, avec un lien qui expire. Il a accepté ; les agents ont eu ce dont ils avaient besoin dans le sprint, et l’export complet n’a jamais existé. Je ne dis jamais simplement non.",
+    "keyPoints": [
+      "Comprendre d’abord l’objectif derrière la demande",
+      "Expliquer le risque en termes business : impact et probabilité",
+      "Proposer des alternatives qui atteignent l’objectif sans danger",
+      "Documenter ou escalader s’ils veulent quand même avancer"
+    ],
+    "explanation": "Le recruteur évalue si tu protèges le produit sans bloquer le business : écouter, traduire le risque technique, proposer des options, et savoir quand escalader. Refuser net et obéir en silence sont deux réponses faibles.",
+    "example": "Autre histoire : le produit voulait le stock en direct sur chaque page produit, rafraîchi chaque seconde pour chaque visiteur. Tu as montré la charge que cela mettrait sur l’API Orders en plein pic, des dizaines de milliers de requêtes par seconde, et proposé un badge « plus que 3 » mis en cache 30 secondes ; il est sorti, et la charge de l’API n’a pas bougé.",
+    "mistakes": [
+      "Dire non sans comprendre le besoin ni proposer d’alternative",
+      "Décrire le risque en jargon, si bien que le product manager ne peut pas le peser",
+      "Le construire quand même sans écrire le risque et qui l’a accepté"
+    ],
+    "followUps": [
+      {
+        "question": "Et s’ils veulent quand même avancer malgré votre inquiétude ?",
+        "answer": "Si c’est un risque que le business peut accepter, je l’écris avec qui l’a accepté et les mesures d’atténuation, et je construis la version la plus sûre. S’il enfreint la loi ou notre politique de sécurité, comme exposer des données personnelles, j’escalade à mon manager et au responsable sécurité plutôt que de le livrer."
+      },
+      {
+        "question": "Comment expliquez-vous un risque technique pour qu’une personne non technique puisse le peser ?",
+        "answer": "Comme ce qui pourrait arriver, sa probabilité et ce que ça coûterait : « un seul login d’agent volé ferait fuiter l’adresse de chaque client, une violation qu’on doit déclarer à la CNIL sous 72 heures ». Puis je donne des options avec leur coût et leur délai, et je les laisse choisir."
+      },
+      {
+        "question": "Décrivez une fois où cette conversation ne s’est pas passée comme espéré, et ce que vous en avez appris.",
+        "answer": "Je me suis opposé à un compte à rebours de vente flash qui interrogeait l’API chaque seconde, avec seulement des chiffres de charge, et le product manager est passé outre. Pendant la vente, il a bien ralenti l’API. J’ai appris à apporter une alternative moins coûteuse avec l’avertissement ; la fois suivante, on a mis le compte à rebours en cache sur le CDN."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un ingénieur senior doit refuser toute fonctionnalité qui comporte un risque de sécurité.",
+        "why": "La plupart des risques se réduisent avec une conception plus sûre ; ne refuse ou n’escalade que ce que le business ne peut pas accepter.",
+        "twin": {
+          "statement": "Un ingénieur senior réduit la plupart des risques de sécurité avec une conception plus sûre, et ne refuse ou n’escalade que ce que le business ne peut pas accepter.",
+          "why": "La plupart des fonctionnalités risquées ont une version plus sûre qui atteint quand même l’objectif."
+        }
+      },
+      {
+        "statement": "Expliquer un risque en termes d’impact et de probabilité aide une personne non technique à le peser.",
+        "why": "Cela transforme une inquiétude technique en décision business qu’elle peut prendre.",
+        "twin": {
+          "statement": "Un risque expliqué en termes techniques est plus facile à peser pour une personne non technique qu’un risque exprimé en impact et probabilité.",
+          "why": "L’impact et la probabilité transforment une inquiétude technique en décision business qu’elle peut prendre."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "S’opposer à une fonctionnalité risquée, c’est protéger le produit sans bloquer le business : tu écoutes, expliques le risque, proposes des options plus sûres et sais quand escalader.",
+      "points": [
+        "Le recruteur évalue si tu protèges le produit sans bloquer le business : tu écoutes, expliques le risque, proposes des options et sais quand escalader.",
+        "Pars de l’objectif derrière la demande ; une fonctionnalité plus sûre l’atteint souvent, comme un export filtré et asynchrone au lieu d’un dump en un clic de tous les clients.",
+        "Explique le risque en termes business : ce qui pourrait arriver, sa probabilité, ce que ça coûterait. Puis donne des options avec leur coût et leur délai, et laisse le product manager choisir.",
+        "S’il avance quand même, écris le risque et qui l’a accepté. S’il enfreint la loi ou la politique de sécurité, escalade à ton manager et au responsable sécurité.",
+        "Ancre la réponse dans une vraie histoire avec un résultat. Pièges : un non sec, du jargon, et le construire en silence."
+      ],
+      "takeaways": [
+        {
+          "term": "L’objectif derrière la demande",
+          "detail": "Pars de là : une fonctionnalité plus sûre l’atteint souvent, comme un export filtré et asynchrone au lieu d’un dump complet."
+        },
+        {
+          "term": "Le risque en termes business",
+          "detail": "Ce qui pourrait arriver, sa probabilité et ce que ça coûterait. Pas de jargon."
+        },
+        {
+          "term": "Options",
+          "detail": "Des alternatives avec leur coût et leur délai qui atteignent l’objectif sans danger ; le product manager choisit."
+        },
+        {
+          "term": "S’il avance quand même",
+          "detail": "Écris le risque et qui l’a accepté."
+        },
+        {
+          "term": "Escalader",
+          "detail": "S’il enfreint la loi ou la politique de sécurité, va voir ton manager et le responsable sécurité."
+        },
+        {
+          "term": "Pièges",
+          "detail": "Un non sec, du jargon, ou le construire en silence. Ancre la réponse dans une vraie histoire avec un résultat."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le produit veut un bouton « se connecter en tant que n’importe quel client » dans le back-office pour les agents du support, livré au prochain sprint. Vous voyez le risque. Que faites-vous ?",
+        "bridge": "Une fonctionnalité avec un risque de sécurité : comprends l’objectif, explique impact et probabilité en termes business, et propose une conception plus sûre plutôt qu’un simple non."
+      },
+      {
+        "question": "Parlez-moi d’une fois où vous avez dit non à une partie prenante. Comment cela s’est-il terminé ?",
+        "bridge": "Les recruteurs posent souvent l’histoire d’opposition ainsi ; une bonne réponse montre que tu n’as pas juste dit non mais proposé des options qui atteignaient l’objectif."
+      }
+    ]
+  }
+}

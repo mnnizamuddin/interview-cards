@@ -1,0 +1,2235 @@
+{
+  "design-url-shortener": {
+    "topic": "Raccourcisseur d’URL",
+    "question": "Comment concevriez-vous un raccourcisseur d’URL, de bout en bout ?",
+    "answer": "Je pars des besoins : créer un lien, rediriger vite, compter les clics, alias et expiration en option. Puis les estimations : à 100 millions de liens par mois, ça fait environ 39 écritures et 3 900 lectures par seconde, et 3 To sur cinq ans ; c’est donc dominé par les lectures, et un seul primaire PostgreSQL tient les écritures. Les codes viennent d’une séquence encodée en base 62, mélangée s’ils ne doivent pas être devinables, avec une contrainte d’unicité. Les redirections lisent un cache Redis devant la base et répondent 302, pas 301, pour que les clics continuent de nous arriver. Les clics partent dans une file et sont comptés en asynchrone, jamais par un update sur le chemin de redirection.",
+    "keyPoints": [
+      "D’abord besoins et estimations : environ 100 lectures par écriture",
+      "Codes en base 62 issus d’une séquence, protégés par une contrainte d’unicité",
+      "Un cache devant la base sur le chemin de redirection",
+      "Redirection 302, clics comptés en asynchrone à partir d’événements"
+    ],
+    "explanation": "C’est la question de conception classique d’échauffement : les recruteurs attendent la méthode plutôt que le schéma. Besoins, chiffres, puis décisions qui découlent des chiffres. Un senior cite le compromis 301 contre 302, garde les écritures hors du chemin de lecture et repère le lien viral comme clé chaude avant qu’on le lui demande.",
+    "example": "Les SMS d’expédition de la boutique devaient contenir des liens de suivi tenant dans un seul message ; l’équipe a donc généré des codes `sho.rt` à partir d’une séquence PostgreSQL en base 62, avec un mélange réversible puisque les liens pointent vers les commandes des clients. Quand un lien de campagne est devenu viral, chaque redirection est restée une simple lecture de cache dans Valkey, et les compteurs de clics arrivaient avec quelques secondes de retard via une file, ce que le marketing avait accepté.",
+    "mistakes": [
+      "Rediriger en 301 : navigateurs et proxys peuvent la mettre en cache, donc des clics ne sont pas comptés et un changement de cible n’atteint pas ceux qui l’ont en cache",
+      "Exécuter `UPDATE links SET clicks = clicks + 1` à chaque redirection, ce qui transforme un lien viral en ligne chaude verrouillée",
+      "Accepter n’importe quelle URL cible : seuls `http` et `https` sont sûrs, puisqu’un lien court masque sa destination"
+    ],
+    "followUps": [
+      {
+        "question": "Comment les alias personnalisés cohabitent-ils avec les codes générés ?",
+        "answer": "Ils partagent le même espace de noms : le générateur doit donc sauter les codes déjà pris, ou les alias doivent contenir un caractère que le générateur n’émet jamais, comme `-`. L’unicité vient de la contrainte d’unicité sur le primaire, jamais d’un cache."
+      },
+      {
+        "question": "La table devient trop grosse pour un seul primaire. Comment la shardez-vous ?",
+        "answer": "Par un hash du code, puisque chaque redirection demande exactement un code. Sharder par date de création enverrait les nouveaux liens, et donc la plupart des clics, sur le shard le plus récent. Avant d’en arriver là, j’agrandis le cache et j’ajoute des réplicas en lecture."
+      },
+      {
+        "question": "Comment serviriez-vous 100 000 redirections par seconde ?",
+        "answer": "Chaque redirection reste une seule lecture de cache, sur des pods sans état qui s’autoscalent. Je répartis le cache Valkey sur plusieurs nœuds et je duplique les codes les plus chauds, ou je les garde dans un petit LRU en mémoire, pour qu’un lien viral ne soit pas un nœud chaud. À 100 lectures par écriture, les écritures restent autour de 1 000 par seconde : un seul primaire suffit encore."
+      },
+      {
+        "question": "Comment empêchez-vous qu’on utilise le raccourcisseur pour diffuser du phishing ou du spam ?",
+        "answer": "J’accepte seulement les cibles `http` et `https`, je limite la création de liens par compte et par IP, et je vérifie les cibles contre une liste de menaces comme Google Safe Browsing à la création puis plus tard, car un domaine peut devenir malveillant. Un code signalé est désactivé immédiatement et son entrée de cache supprimée."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "301 est le meilleur choix par défaut pour un lien court, parce que le lien est permanent.",
+        "why": "Une 301 peut être réutilisée par les caches sans redemander, donc on perd le comptage des clics et la possibilité de changer la cible ; une 302 fait que les requêtes continuent d’arriver.",
+        "twin": {
+          "statement": "302 est le meilleur choix par défaut pour un lien court, même quand le lien est permanent.",
+          "why": "Une 301 peut être réutilisée par les caches sans redemander, ce qui fait perdre le comptage des clics et la possibilité de changer la cible."
+        }
+      },
+      {
+        "statement": "Six caractères en base 62 donnent plus de 56 milliards de codes possibles.",
+        "why": "62 puissance 6 vaut 56 800 235 584, ce qui tient des décennies à 1,2 milliard de liens par an.",
+        "twin": {
+          "statement": "Six caractères en base 62 donnent moins d’un milliard de codes possibles.",
+          "why": "62 puissance 6 vaut 56 800 235 584, ce qui tient des décennies à 1,2 milliard de liens par an."
+        }
+      },
+      {
+        "statement": "Sharder les liens par date de création répartit uniformément la charge des redirections.",
+        "why": "Les nouveaux liens reçoivent la plupart des clics, donc ils atterriraient tous sur le shard le plus récent.",
+        "twin": {
+          "statement": "Sharder les liens par date de création ferait porter l’essentiel de la charge des redirections au shard le plus récent.",
+          "why": "Les nouveaux liens reçoivent la plupart des clics, donc ils atterriraient tous sur le même shard."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un raccourcisseur d’URL associe un code court à une URL longue et redirige vite. C’est une épreuve de conception classique parce que la charge est dominée par les lectures et qu’elle teste les estimations, la génération de codes, le cache et la sémantique HTTP.",
+      "points": [
+        "Un raccourcisseur d’URL est dominé par les lectures : avec 100 millions de nouveaux liens par mois et 100 lectures par écriture, cela fait en moyenne environ 39 écritures et 3 900 lectures par seconde, et environ 3 To sur cinq ans à 500 octets par lien.",
+        "Les codes viennent d’une séquence de la base écrite en base 62 (chiffres plus lettres minuscules et majuscules). Six caractères donnent 62^6, environ 56,8 milliards de codes ; on les mélange de façon réversible s’ils ne doivent pas être devinables.",
+        "Une redirection est une lecture par clé, donc un cache comme Redis ou Valkey se place devant PostgreSQL. Un lien viral est une clé chaude : une seule clé qui reçoit une grande part de toutes les requêtes.",
+        "On redirige en 302, pas en 301 : la RFC 9110 permet aux caches de réutiliser une 301 sans redemander, donc des clics ne seraient pas comptés et une cible modifiée n’atteindrait jamais ceux qui avaient l’ancienne en cache.",
+        "On compte les clics à partir d’événements envoyés dans une file, jamais avec un `UPDATE` dans la redirection. Si la table dépasse un seul primaire, on sharde par hash du code, pas par date, puisque les nouveaux liens reçoivent la plupart des clics."
+      ],
+      "takeaways": [
+        {
+          "term": "Estimations",
+          "detail": "100 millions de liens par mois à 100 lectures par écriture : environ 39 écritures et 3 900 lectures par seconde, 3 To sur cinq ans."
+        },
+        {
+          "term": "Codes en base 62",
+          "detail": "Une séquence écrite en chiffres plus lettres des deux casses ; six caractères donnent environ 56,8 milliards de codes."
+        },
+        {
+          "term": "Codes non devinables",
+          "detail": "Mélanger la séquence de façon réversible, et garder une contrainte d’unicité sur le code."
+        },
+        {
+          "term": "Cache sur la redirection",
+          "detail": "Redis ou Valkey devant PostgreSQL. Un lien viral est une clé chaude."
+        },
+        {
+          "term": "302, pas 301",
+          "detail": "La RFC 9110 permet aux caches de réutiliser une 301 sans redemander : des clics ne sont pas comptés et une nouvelle cible rate ceux qui l’ont en cache."
+        },
+        {
+          "term": "Comptage et sharding",
+          "detail": "Compter les clics à partir d’événements en file, jamais par un `UPDATE` à la redirection. Sharder par hash du code, pas par date."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Les SMS d’expédition de la boutique doivent contenir un lien de suivi qui tient dans un seul message, et le marketing veut le nombre de clics. Comment construiriez-vous le service de liens courts ?",
+        "bridge": "Codes courts, redirections rapides et comptage des clics : c’est le raccourcisseur d’URL. Estimations, codes en base 62, un cache sur le chemin de redirection et un comptage en dehors."
+      },
+      {
+        "question": "Un collègue veut que la redirection du lien court réponde 301 et exécute `UPDATE links SET clicks = clicks + 1` à chaque requête. Que changeriez-vous, et pourquoi ?",
+        "bridge": "Le même sujet à travers deux choix de conception : une 302 fait que les requêtes continuent de vous arriver, et les clics passent par une file, jamais par un update sur le chemin de redirection."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux répondent à un clic sur un lien court vers une fiche produit. Quelle réponse garde chaque clic compté et la cible modifiable ?",
+        "why": "La RFC 9110 permet aux navigateurs et aux caches de réutiliser une 301 sans redemander, donc les clics suivants n’atteignent jamais le raccourcisseur : ils ne sont pas comptés, et changer la cible ne change rien pour ceux qui ont déjà cliqué. Une 302 n’est mise en cache que si la réponse le dit, donc chaque clic atteint le service, est compté et suit la cible actuelle."
+      }
+    ]
+  },
+  "design-realtime-chat": {
+    "topic": "Architecture d’un chat temps réel",
+    "question": "Comment concevriez-vous l’architecture d’un chat en temps réel ?",
+    "answer": "Je clarifie d’abord le périmètre : une conversation par commande entre un client et des agents, historique conservé, ordre préservé dans une conversation, accusés de lecture, indicateur de saisie, et une notification push quand le client est hors ligne. Le chat va dans les deux sens, donc j’utilise des WebSockets. Un message porte un id généré par le client et est stocké dans PostgreSQL, dans une transaction qui prend aussi le numéro de séquence suivant de la conversation ; une contrainte d’unicité sur l’id client rend les renvois inoffensifs. Le serveur acquitte, puis publie via Redis pub/sub pour que le réplica qui tient le socket de l’agent le livre. Pub/sub peut perdre des messages, donc à la reconnexion le client demande tout ce qui suit sa dernière séquence.",
+    "keyPoints": [
+      "Besoins : ordre par conversation, historique, accusés, push hors ligne",
+      "WebSockets, parce que le trafic va dans les deux sens",
+      "Id de message client et contrainte d’unicité : stocké une fois malgré les renvois",
+      "Diffusion entre réplicas via Redis ; rejeu depuis la dernière séquence"
+    ],
+    "explanation": "Les questions de relance portent toutes sur les garanties : un message est-il perdu, affiché deux fois ou dans le désordre ? Une réponse senior place ces garanties dans les ids et la base de données plutôt que dans le socket, et traite la présence et l’indicateur de saisie comme des données peu coûteuses qu’on peut perdre.",
+    "example": "Le chat du support de la boutique traite environ 300 000 messages par jour, soit environ 3,5 par seconde, donc une seule table PostgreSQL suffit. Sur des connexions mobiles instables, les renvois des clients ont d’abord créé des messages en double ; une contrainte d’unicité sur `client_message_id` a réglé le problème. La présence des agents est une clé Redis avec un TTL de 60 secondes rafraîchi par le heartbeat, donc les agents d’un réplica tombé disparaissent d’eux-mêmes.",
+    "mistakes": [
+      "Compter sur le socket pour les garanties de livraison au lieu des acquittements, des ids et du rejeu depuis la base",
+      "Construire un ordre global des messages alors qu’une séquence par conversation suffit",
+      "Dire que les WebSockets exigent des sessions sticky : un socket est une seule connexion, routée une fois"
+    ],
+    "followUps": [
+      {
+        "question": "Comment gérez-vous la présence et « l’agent est en train d’écrire » ?",
+        "answer": "Les deux sont éphémères. La présence est une clé Redis avec un TTL rafraîchi par le heartbeat, donc elle expire quand un réplica meurt ; l’indicateur de saisie passe uniquement par pub/sub et n’est jamais stocké."
+      },
+      {
+        "question": "Qu’est-ce qui change pour quelque chose comme WhatsApp ?",
+        "answer": "Les conversations de groupe demandent une diffusion vers beaucoup de membres, et l’échelle impose un stockage des messages partitionné par id de conversation au lieu d’une seule table. Les ids, les acquittements et la séquence par conversation restent les mêmes."
+      },
+      {
+        "question": "Comment faites-vous monter en charge les connexions WebSocket sur plusieurs serveurs derrière un load balancer ?",
+        "answer": "Un socket est une seule connexion routée une fois, donc pas de sessions sticky ; le load balancer doit juste autoriser l’upgrade. Chaque réplica publie les messages via Redis pub/sub vers le réplica qui tient le socket du destinataire. Lors d’un déploiement, un réplica ferme ses sockets avec le code 1001 et les clients se reconnectent avec backoff et jitter."
+      },
+      {
+        "question": "Comment garantissez-vous la livraison et l’ordre quand une connexion tombe puis revient ?",
+        "answer": "Les garanties vivent dans la base. Le client renvoie les messages non acquittés avec le même id client, que la contrainte d’unicité stocke une seule fois, et à la reconnexion il demande tous les messages après son dernier numéro de séquence. Cette séquence par conversation donne aussi l’ordre : le client trie dessus."
+      },
+      {
+        "question": "Comment géreriez-vous des messages WebSocket en double ou dans le désordre ?",
+        "answer": "Le client indexe les messages par id et ignore celui qu’il a déjà, donc un doublon ne change rien. Il trie selon la séquence par conversation du serveur, pas selon l’arrivée ; un trou dans la séquence déclenche la récupération de la plage manquante. Pour les statuts, il garde la version la plus haute par élément, donc un événement en retard n’écrase jamais un plus récent."
+      },
+      {
+        "question": "WebSockets ou server-sent events ?",
+        "answer": "SSE, c’est une longue réponse HTTP du serveur vers le client : cookies, load balancer et logs fonctionnent sans changement, et `EventSource` se reconnecte et reprend avec `Last-Event-ID` tout seul. Les WebSockets vont dans les deux sens, mais on construit soi-même heartbeats, reconnexion et rejeu. Un flux à sens unique comme le statut de commande en direct prend SSE ; le chat prend les WebSockets."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Redis pub/sub livre les messages qu’un abonné a manqués pendant une courte déconnexion.",
+        "why": "La doc Redis décrit pub/sub comme at-most-once : un message manqué est perdu, donc les clients rejouent depuis la base.",
+        "twin": {
+          "statement": "Redis pub/sub perd un message envoyé pendant qu’un abonné était brièvement déconnecté.",
+          "why": "La doc Redis décrit pub/sub comme at-most-once, donc les clients rejouent depuis la base ce qu’ils ont manqué."
+        }
+      },
+      {
+        "statement": "Un numéro de séquence par conversation suffit pour ordonner les messages d’un chat ; aucun ordre global n’est nécessaire.",
+        "why": "Les utilisateurs ne voient l’ordre qu’au sein d’une conversation, donc un compteur incrémenté sous le verrou de ligne de la conversation suffit.",
+        "twin": {
+          "statement": "Les messages d’un chat ont besoin d’un ordre global sur toutes les conversations.",
+          "why": "Les utilisateurs ne voient l’ordre qu’au sein d’une conversation, donc un compteur par conversation, incrémenté sous son verrou de ligne, suffit."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un chat temps réel doit livrer les messages dans l’ordre, les stocker une seule fois et les pousser à travers de nombreux réplicas de serveur. Les garanties vivent dans la base ; le socket et pub/sub ne font que transporter vite les messages.",
+      "points": [
+        "Un WebSocket garde ouverte une connexion bidirectionnelle, ce qui convient au chat ; les server-sent events (SSE) ne poussent que du serveur vers le client.",
+        "Les garanties vivent dans la base, pas dans le socket : chaque message porte un id généré par le client et protégé par une contrainte d’unicité, donc un renvoi après un acquittement perdu est stocké une seule fois.",
+        "L’ordre ne compte qu’au sein d’une conversation, donc un numéro de séquence par conversation, pris sous le verrou de ligne de cette conversation, suffit ; aucun ordre global n’est nécessaire.",
+        "Avec plusieurs réplicas, le serveur publie chaque message via Redis pub/sub vers le réplica qui tient le socket du destinataire. Pub/sub est at-most-once, donc un client qui se reconnecte demande tout ce qui suit sa dernière séquence.",
+        "Présence et indicateur de saisie sont éphémères : la présence est une clé Redis avec un TTL rafraîchi par le heartbeat, et la saisie passe uniquement par pub/sub, jamais stockée."
+      ],
+      "takeaways": [
+        {
+          "term": "WebSocket ou SSE",
+          "detail": "Un WebSocket est une connexion bidirectionnelle, adaptée au chat ; SSE ne pousse que du serveur vers le client."
+        },
+        {
+          "term": "Id de message client",
+          "detail": "Protégé par une contrainte d’unicité, donc un renvoi après un acquittement perdu est stocké une seule fois."
+        },
+        {
+          "term": "Séquence par conversation",
+          "detail": "Prise sous le verrou de ligne de la conversation dans la transaction d’insertion ; aucun ordre global nécessaire."
+        },
+        {
+          "term": "Diffusion via Redis pub/sub",
+          "detail": "Atteint le réplica qui tient le socket du destinataire. C’est at-most-once, donc des messages peuvent se perdre."
+        },
+        {
+          "term": "Rejeu à la reconnexion",
+          "detail": "Le client demande tout ce qui suit son dernier numéro de séquence."
+        },
+        {
+          "term": "Présence et saisie",
+          "detail": "Éphémères : la présence est une clé Redis avec un TTL rafraîchi par heartbeat ; la saisie passe par pub/sub, jamais stockée."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le chat du support, les clients sur des connexions mobiles instables voient leurs messages en double, et les agents sur un autre réplica ratent des messages jusqu’à ce qu’ils rechargent. Comment concevriez-vous le chat pour régler les deux ?",
+        "bridge": "Doublons et messages perdus entre réplicas sont le cœur de la conception d’un chat : ids client avec contrainte d’unicité, diffusion via pub/sub, et rejeu."
+      },
+      {
+        "question": "De quoi un chat a-t-il besoin qu’une simple API requête-réponse n’a pas ? Décrivez-moi l’architecture que vous construiriez.",
+        "bridge": "Le même sujet à partir des principes : un trafic bidirectionnel appelle les WebSockets, et plusieurs réplicas demandent diffusion, ordre par conversation et rejeu."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux stockent un message de chat que le client renvoie quand son acquittement est perdu. Lequel ne le stocke qu’une fois ?",
+        "why": "L’émetteur génère l’id du message une seule fois et le réutilise à chaque renvoi, donc la contrainte d’unicité transforme un renvoi en no-op. Avec un id généré par le serveur, chaque renvoi est une nouvelle ligne : la conversation affiche le message deux fois, voire plus sur une connexion instable dans un train."
+      }
+    ]
+  },
+  "design-scaling": {
+    "topic": "Scalabilité horizontale et verticale",
+    "question": "Quelle est la différence entre scalabilité horizontale et verticale, et comment appliqueriez-vous chacune à une application full-stack ?",
+    "answer": "Scaler verticalement, c’est prendre une machine plus grosse : plus de CPU et de mémoire pour la même instance. Aucun changement de code, mais il y a un plafond et chaque palier coûte plus cher. Scaler horizontalement, c’est ajouter des copies derrière un load balancer : pas de plafond dur, et une copie peut tomber, mais les copies doivent être sans état, donc sessions, caches et uploads partent dans Redis, la base ou un stockage objet. Dans une app full-stack, je scale horizontalement les couches Next.js et API, puisqu’elles sont sans état. PostgreSQL, je le scale d’abord verticalement, puis j’ajoute des réplicas en lecture pour les lectures, et je ne sharde que quand un seul primaire est vraiment trop petit.",
+    "keyPoints": [
+      "Vertical : une machine plus grosse ; simple, mais plafonné et plus cher",
+      "Horizontal : plus de copies derrière un load balancer ; exige d’être sans état",
+      "Sortir l’état : sessions, caches et fichiers dans des stockages partagés",
+      "Base : primaire plus gros, puis réplicas en lecture, sharding en dernier"
+    ],
+    "explanation": "La question vérifie que tu sais où vit l’état, parce que c’est ce qui décide de ce qu’on peut dupliquer. Les seniors ajoutent les effets de bord du scaling horizontal, comme les limites de connexions à la base, et traitent le sharding comme un dernier recours, avec une clé nommée.",
+    "example": "Pour des soldes, l’autoscaler a fait passer l’API Orders de 4 à 16 pods, chacun avec un pool de 10 connexions, et les nouveaux pods ont échoué avec `too_many_connections` : 160 contre les 100 que PostgreSQL accepte par défaut. L’équipe a dimensionné chaque pool à partir d’un budget divisé par le nombre maximal de pods, et prévu un pooler pour l’étape suivante.",
+    "mistakes": [
+      "Croire que les réplicas en lecture ajoutent de la capacité d’écriture : les écritures vont toujours sur un seul primaire",
+      "Scaler horizontalement un service qui garde les sessions en mémoire, ce qui déconnecte les utilisateurs quand ils tombent sur une autre copie",
+      "Ajouter des pods sans additionner leurs connexions à la base"
+    ],
+    "followUps": [
+      {
+        "question": "Comment dimensionnez-vous le pool de la base quand l’API scale horizontalement ?",
+        "answer": "La taille du pool multipliée par le nombre maximal de pods, déploiements compris, doit tenir sous `max_connections`. Quand le nombre de pods est grand ou imprévisible, je mets un pooler externe comme PgBouncer entre les deux."
+      },
+      {
+        "question": "Sur quoi l’autoscaler doit-il se baser ?",
+        "answer": "Sur une métrique qui suit la charge de ce service : le CPU pour l’API, la profondeur de file ou l’âge du plus vieux message pour les workers. Le Horizontal Pod Autoscaler de Kubernetes accepte des métriques personnalisées en plus du CPU."
+      },
+      {
+        "question": "Que faut-il changer dans une application avec état, disons avec des sessions en mémoire, pour qu’elle puisse scaler horizontalement ?",
+        "answer": "Tout l’état sort du process : les sessions vont dans Redis, les caches dans Redis, les uploads dans un stockage objet, et les tâches planifiées tournent derrière un verrou pour qu’une seule copie les exécute. Ensuite n’importe quelle copie peut prendre la requête suivante, et un pod peut mourir sans déconnecter personne."
+      },
+      {
+        "question": "En quoi un load balancer rend-il possible la scalabilité horizontale ?",
+        "answer": "Les clients voient une seule adresse pendant que le load balancer répartit les requêtes sur les copies, donc une nouvelle copie ajoute de la capacité sans que personne ne change d’URL. Ses health checks écartent le trafic des copies qui échouent ou qui démarrent encore, ce qui permet à l’autoscaler d’ajouter et de retirer des pods sans risque."
+      },
+      {
+        "question": "Comment scalez-vous la base horizontalement, par rapport à l’application ?",
+        "answer": "Les copies de l’API sont interchangeables ; les copies de données, non. Les réplicas en lecture répartissent les lectures, mais chaque écriture va toujours sur le primaire. Pour répartir les écritures, on sharde, par exemple les commandes par id client, ce qui complique les requêtes et transactions entre shards ; donc ça vient en dernier."
+      },
+      {
+        "question": "Quel effet la scalabilité horizontale a-t-elle sur la charge de la base ?",
+        "answer": "Chaque nouvelle copie apporte son propre pool de connexions et sa part de requêtes, donc la base voit plus de connexions et au moins autant de charge, et elle devient le goulot d’étranglement. Avant d’ajouter des pods, je budgète les connexions, j’ajoute un pooler, je mets en cache les lectures chaudes et j’envoie les rapports sur un réplica en lecture."
+      },
+      {
+        "question": "Quand la scalabilité verticale cesse-t-elle d’être raisonnable ?",
+        "answer": "Quand la taille suivante coûte bien plus que la capacité qu’elle ajoute, quand on atteint la plus grosse instance, ou quand une seule machine est un point de défaillance unique qu’on ne peut pas accepter. Pour PostgreSQL, ça arrive tard : un primaire plus gros plus des réplicas en lecture vont loin avant que le sharding vaille sa complexité."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Ajouter des réplicas en lecture augmente la capacité d’écriture de PostgreSQL.",
+        "why": "Les réplicas ne servent que les lectures ; chaque écriture va toujours sur l’unique primaire.",
+        "twin": {
+          "statement": "Ajouter des réplicas en lecture n’augmente pas la capacité d’écriture de PostgreSQL.",
+          "why": "Les réplicas ne servent que les lectures ; chaque écriture va toujours sur l’unique primaire."
+        }
+      },
+      {
+        "statement": "La scalabilité horizontale exige que l’application soit sans état, ou que son état vive dans un stockage partagé.",
+        "why": "N’importe quelle copie peut recevoir la requête suivante, donc elle ne peut pas compter sur une mémoire que détient une autre copie.",
+        "twin": {
+          "statement": "Des copies scalées horizontalement peuvent compter sans risque sur un état qu’une seule copie garde en mémoire.",
+          "why": "N’importe quelle copie peut recevoir la requête suivante, donc l’app doit être sans état ou garder son état dans un stockage partagé."
+        }
+      },
+      {
+        "statement": "Dans le cloud, la scalabilité verticale n’a pas de limite haute.",
+        "why": "Chaque fournisseur a une taille d’instance maximale, et chaque palier coûte plus cher.",
+        "twin": {
+          "statement": "Dans le cloud, la scalabilité verticale s’arrête à la plus grosse taille d’instance du fournisseur.",
+          "why": "Chaque fournisseur a une taille d’instance maximale, et chaque palier coûte plus cher."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Scaler verticalement donne plus de ressources à une machine ; scaler horizontalement ajoute des copies derrière un load balancer. Les vrais systèmes combinent les deux : les couches sans état scalent horizontalement, la base scale d’abord verticalement.",
+      "points": [
+        "La scalabilité verticale donne plus de CPU et de mémoire à une instance. Aucun changement de code, mais chaque fournisseur a une taille d’instance maximale et chaque palier coûte plus cher.",
+        "La scalabilité horizontale fait tourner plus de copies derrière un load balancer. N’importe quelle copie peut recevoir la requête suivante, donc sessions, caches et uploads doivent vivre dans des stockages partagés : Redis, la base ou un stockage objet.",
+        "Les couches sans état comme l’app Next.js et l’API Orders scalent horizontalement. PostgreSQL scale d’abord verticalement, puis ajoute des réplicas en lecture, qui ne servent que les lectures : chaque écriture va toujours sur l’unique primaire. Le sharding vient en dernier.",
+        "Scaler horizontalement multiplie les connexions à la base : la taille du pool multipliée par le nombre maximal de pods doit tenir sous `max_connections`, 100 par défaut dans PostgreSQL. Au-delà, on ajoute un pooler comme PgBouncer.",
+        "On autoscale sur une métrique qui suit la charge de ce service : le CPU pour l’API, la profondeur de file ou l’âge du plus vieux message pour les workers."
+      ],
+      "takeaways": [
+        {
+          "term": "Scalabilité verticale",
+          "detail": "Plus de CPU et de mémoire, aucun changement de code, mais chaque fournisseur a une instance maximale et chaque palier coûte plus cher."
+        },
+        {
+          "term": "Scalabilité horizontale",
+          "detail": "Plus de copies derrière un load balancer ; n’importe laquelle peut recevoir la requête suivante, donc elles doivent être sans état."
+        },
+        {
+          "term": "État partagé",
+          "detail": "Sessions, caches et uploads partent dans Redis, la base ou un stockage objet."
+        },
+        {
+          "term": "Parcours de la base",
+          "detail": "Primaire plus gros, puis réplicas en lecture pour les lectures seulement (les écritures vont toujours sur un primaire), sharding en dernier."
+        },
+        {
+          "term": "Budget de connexions",
+          "detail": "Taille du pool fois nombre max de pods doit tenir sous `max_connections` (100 par défaut) ; au-delà, ajouter PgBouncer."
+        },
+        {
+          "term": "Métrique d’autoscaling",
+          "detail": "Une métrique qui suit la charge : le CPU pour l’API, la profondeur de file ou l’âge du plus vieux message pour les workers."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Pour des soldes, l’autoscaler fait passer l’API Orders de 4 à 16 pods, et les nouveaux pods échouent avec `too_many_connections`. Qu’est-ce que cela vous dit sur la façon dont chaque couche doit scaler ?",
+        "bridge": "Les copies de l’API scalent horizontalement, mais la base ne scale pas de la même façon : c’est la scalabilité horizontale contre verticale, couche par couche."
+      },
+      {
+        "question": "Un collègue dit : mettez simplement l’API sur la plus grosse instance que propose le cloud et arrêtez de vous soucier du scaling. Quand est-ce raisonnable, et quand ça ne l’est pas ?",
+        "bridge": "Le même sujet sous l’angle du compromis : le vertical ne demande aucun changement de code mais a un plafond et coûte plus cher à chaque palier ; l’horizontal demande des copies sans état."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux conservent la session de la boutique après la connexion ; l’API tourne en 6 réplicas derrière un load balancer. Laquelle fonctionne sur n’importe quel réplica ?",
+        "why": "N’importe quel réplica peut recevoir la requête suivante, donc la session vit dans un stockage partagé avec un TTL. La `Map` vit dans un seul process : la requête suivante atterrit la plupart du temps sur un autre réplica, n’y trouve rien et déconnecte le client, et chaque déploiement ou redémarrage déconnecte tout le monde."
+      }
+    ]
+  },
+  "design-image-uploads": {
+    "topic": "Upload d’images à grande échelle",
+    "question": "Comment géreriez-vous l’upload et la diffusion d’images à grande échelle ?",
+    "answer": "Je sépare upload, traitement et diffusion. Pour l’upload, l’API vérifie les droits de l’utilisateur et renvoie une URL présignée : le navigateur envoie le fichier directement dans S3 et l’API ne manipule jamais les octets, elle enregistre seulement la clé. Un événement déclenche ensuite un worker qui valide le fichier, retire ses métadonnées et génère des versions redimensionnées dans des formats modernes comme AVIF et WebP. La diffusion passe par un CDN avec des durées de cache longues, sur des URL qui changent quand l’image change. Sur la boutique, `srcset` et `sizes` permettent à chaque appareil de télécharger la bonne largeur, et la photo produit principale n’est jamais en lazy loading.",
+    "keyPoints": [
+      "URL présignée : le navigateur uploade directement dans le stockage objet",
+      "Un worker asynchrone valide et génère tailles et formats",
+      "Diffusion par un CDN, avec une nouvelle URL quand l’image change",
+      "`srcset`/`sizes` responsive ; la photo LCP n’est jamais en lazy"
+    ],
+    "explanation": "Les recruteurs veulent voir que les octets ne bloquent jamais l’API et que le traitement est asynchrone. Une réponse senior full-stack relie la conception backend à ce que ressent l’utilisateur : poids des images, Largest Contentful Paint et décalages de mise en page.",
+    "example": "Les agents uploadaient depuis le back-office des photos produit de 15 à 20 Mo via l’API Orders, et la mémoire grimpait à chaque import du catalogue. L’équipe est passée aux uploads présignés, et un worker basé sur `sharp` écrit désormais des versions de 400, 800 et 1 600 pixels en AVIF et WebP. Sur mobile, les fiches produit téléchargent le fichier de 800 pixels au lieu de l’original.",
+    "mistakes": [
+      "Faire transiter chaque upload par l’API, ce qui mobilise mémoire et connexions pendant tout le transfert",
+      "Se fier au nom de fichier ou au `Content-Type` envoyé par le client au lieu de décoder l’image",
+      "Écraser une image sous la même URL, si bien que CDN et navigateurs continuent de servir l’ancienne"
+    ],
+    "followUps": [
+      {
+        "question": "Comment empêchez-vous quelqu’un d’uploader un fichier énorme via une URL présignée ?",
+        "answer": "J’utilise un POST présigné dont la policy fixe un `content-length-range`, je garde une expiration courte pour l’URL, et le worker vérifie la taille de l’objet stocké et supprime tout ce qui sort des bornes."
+      },
+      {
+        "question": "Comment mettez-vous à jour une photo que le CDN garde en cache pendant un an ?",
+        "answer": "Je la stocke sous une nouvelle clé, par exemple avec un hash du contenu ou une version, et je fais pointer le produit dessus. L’ancienne URL cesse simplement d’être référencée, donc aucune purge n’est nécessaire."
+      },
+      {
+        "question": "Comment implémenteriez-vous et sécuriseriez-vous l’URL d’upload présignée ?",
+        "answer": "L’API vérifie que l’agent a le droit de modifier le produit, choisit elle-même la clé de l’objet et signe un POST présigné avec le SDK AWS : expiration courte, type de contenu autorisé et `content-length-range`. Le bucket reste privé, et le worker décode quand même le fichier avant toute publication."
+      },
+      {
+        "question": "Comment générez-vous les miniatures de façon asynchrone et fiable, échecs compris ?",
+        "answer": "L’événement de stockage part dans une file, et un worker basé sur `sharp` écrit chaque taille sous une clé dérivée de l’original, donc un retry écrase les mêmes fichiers. Les échecs sont relancés avec backoff, puis finissent dans une dead letter queue avec une alerte, et la page affiche un placeholder tant que les tailles n’existent pas."
+      },
+      {
+        "question": "Comment détectez-vous et traitez-vous les uploads inappropriés ?",
+        "answer": "Les photos des avis clients passent par un service de modération, comme la modération de contenu d’Amazon Rekognition, et restent non publiées tant qu’elles ne sont pas validées. Les scores incertains vont dans une file de revue du back-office, et une image rejetée est supprimée et journalisée avec l’auteur de l’upload."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Avec une URL présignée, les octets du fichier passent par votre serveur d’API.",
+        "why": "Le client les envoie directement dans le bucket ; l’API se contente de signer l’URL et d’enregistrer la clé.",
+        "twin": {
+          "statement": "Avec une URL présignée, le client envoie le fichier directement dans le bucket, sans passer par votre API.",
+          "why": "L’API se contente de signer l’URL et d’enregistrer la clé."
+        }
+      },
+      {
+        "statement": "`next/image` charge les images en lazy loading par défaut.",
+        "why": "C’est pour ça que la photo principale a besoin de `loading=\"eager\"` ou `fetchPriority=\"high\"`.",
+        "twin": {
+          "statement": "`next/image` charge les images immédiatement par défaut.",
+          "why": "Il les charge en lazy loading par défaut, c’est pour ça que la photo principale a besoin de `loading=\"eager\"` ou `fetchPriority=\"high\"`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’upload d’images à grande échelle sépare trois tâches : faire entrer les octets dans le stockage sans passer par l’API, les traiter de façon asynchrone, et servir la bonne taille à chaque appareil via un CDN.",
+      "points": [
+        "Une URL présignée est une URL de courte durée signée par l’API, qui permet au navigateur d’uploader un objet directement dans un stockage comme S3. L’API vérifie les droits et enregistre la clé ; elle ne détient jamais les octets.",
+        "Un POST présigné peut porter une policy avec `content-length-range` pour plafonner la taille du fichier. On garde une expiration courte, et le worker revérifie l’objet stocké.",
+        "Le traitement est asynchrone : un événement déclenche un worker qui décode l’image (sans jamais se fier au nom de fichier ni au `Content-Type`), retire les métadonnées et écrit plusieurs largeurs en AVIF et WebP.",
+        "On sert les images via un CDN avec des durées de cache longues, et une image modifiée reçoit une nouvelle URL, par exemple avec un hash du contenu, pour n’avoir rien à purger.",
+        "Dans la page, `srcset` et `sizes` laissent le navigateur choisir la bonne largeur. `next/image` fait du lazy loading par défaut, donc la photo produit principale a besoin de `loading=\"eager\"` ou `fetchPriority=\"high\"`."
+      ],
+      "takeaways": [
+        {
+          "term": "URL présignée",
+          "detail": "Une URL signée de courte durée : le navigateur uploade directement dans S3 ; l’API vérifie les droits et enregistre la clé."
+        },
+        {
+          "term": "`content-length-range`",
+          "detail": "Une condition de policy de POST présigné qui plafonne la taille. Expiration courte ; le worker revérifie l’objet."
+        },
+        {
+          "term": "Worker asynchrone",
+          "detail": "Décode l’image (sans se fier au nom ni au `Content-Type`), retire les métadonnées, écrit des largeurs en AVIF et WebP."
+        },
+        {
+          "term": "CDN et nouvelles URL",
+          "detail": "Durées de cache longues, et une image modifiée reçoit une nouvelle URL, comme un hash du contenu : rien à purger."
+        },
+        {
+          "term": "`srcset` et `sizes`",
+          "detail": "Laissent le navigateur choisir la bonne largeur pour chaque appareil."
+        },
+        {
+          "term": "Photo LCP",
+          "detail": "`next/image` fait du lazy loading par défaut, donc la photo principale a besoin de `loading=\"eager\"` ou `fetchPriority=\"high\"`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Les agents uploadent des photos produit de 15 à 20 Mo via l’API Orders, la mémoire grimpe à chaque import du catalogue, et les téléphones téléchargent les originaux complets. Comment repenseriez-vous l’upload et la diffusion ?",
+        "bridge": "Des octets qui traversent l’API et des images trop lourdes relèvent du pipeline d’images : uploads présignés, worker de redimensionnement asynchrone, CDN et images responsive."
+      },
+      {
+        "question": "Un collègue ajoute `loading=\"lazy\"` à toutes les images de la fiche produit, photo principale comprise, pour l’accélérer. Que lui dites-vous, et comment faut-il servir les images ?",
+        "bridge": "Le même sujet côté diffusion : la photo LCP n’est jamais en lazy loading, et chaque appareil reçoit la bonne largeur grâce à `srcset` et `sizes` depuis un CDN."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux stockent une photo produit redimensionnée que le CDN garde en cache un an. Laquelle affiche la nouvelle photo juste après une modification ?",
+        "why": "Une image modifiée reçoit une nouvelle URL dérivée de son contenu, donc le cache d’un an n’a jamais tort : le produit pointe vers la nouvelle clé et rien n’est à purger. Écraser la même clé garde l’URL, donc le CDN et les navigateurs continuent de servir l’ancienne photo jusqu’à un an, et les caches des navigateurs ne peuvent pas être purgés."
+      }
+    ]
+  },
+  "design-monolith-microservices": {
+    "topic": "Monolithe ou microservices",
+    "question": "Monolithe ou microservices : comment décidez-vous ?",
+    "answer": "Je pars d’un monolithe modulaire : un seul déployable, découpé en modules qui possèdent chacun leurs données et exposent une petite API publique, avec des frontières imposées, par exemple des imports vérifiés en CI et un schéma de base par module. Ça garde les transactions, le refactoring et les déploiements simples. Les microservices apportent des déploiements et une montée en charge indépendants, mais on le paie en pannes réseau, données distribuées, tracing et astreinte sur de nombreux services. Donc je n’extrais un service que pour une raison concrète : une partie scale très différemment, a besoin de son propre rythme de release, d’une isolation de sécurité, ou appartient à une équipe distincte. Et je consigne cette décision dans un architecture decision record.",
+    "keyPoints": [
+      "Par défaut : un monolithe modulaire aux frontières imposées",
+      "Chaque module possède ses données et expose une petite API publique",
+      "Coût des microservices : pannes réseau, données distribuées, exploitation",
+      "Extraire pour une raison nommée : charge, rythme de release, sécurité, équipe"
+    ],
+    "explanation": "La question teste si tu choisis l’architecture à partir des besoins ou de la mode. Une réponse senior nomme le coût des microservices, explique comment on impose les frontières dans un monolithe et donne les signaux concrets qui justifient d’extraire un service.",
+    "example": "L’API Orders est devenue un monolithe modulaire : un dossier par contexte, les imports entre modules vérifiés en CI par dependency-cruiser, et un schéma et un rôle PostgreSQL par module. Un an plus tard, Payments déployait dix fois par jour, avait sa propre équipe et des exigences de sécurité plus strictes : il a donc été extrait avec un strangler fig et un ADR ; les autres modules sont restés ensemble.",
+    "mistakes": [
+      "Découper en services qui partagent encore des tables, ce qui donne un monolithe distribué",
+      "Choisir les microservices pour une petite équipe dont les frontières bougent encore",
+      "Qualifier un monolithe de « modulaire » alors que rien n’échoue si un module va lire les tables d’un autre"
+    ],
+    "followUps": [
+      {
+        "question": "Comment extrayez-vous un service sans réécriture big bang ?",
+        "answer": "Avec un strangler fig : je place une façade devant, je déplace les fonctionnalités une par une vers le nouveau service, je copie et synchronise ses données jusqu’à ce que la nouvelle base devienne la source de vérité, puis je retire l’ancien code."
+      },
+      {
+        "question": "Qu’est-ce qu’un monolithe distribué ?",
+        "answer": "Des services qui ne peuvent pas changer leur schéma ni déployer indépendamment, en général parce qu’ils partagent des tables ou doivent livrer ensemble, avec des appels réseau en plus. On cumule les coûts des deux styles."
+      },
+      {
+        "question": "Comment choisissez-vous les frontières des services quand vous découpez un monolithe qui grossit ?",
+        "answer": "Selon des capacités métier qui possèdent leurs données, comme Ordering, Payments ou Inventory, pas selon des couches techniques. Une bonne frontière n’est traversée que par peu d’appels synchrones ; si deux parties changent sans cesse dans la même pull request, elles vont dans le même service."
+      },
+      {
+        "question": "Comment les services gardent-ils des données cohérentes sans transactions distribuées ?",
+        "answer": "Chaque service commite localement et publie un événement via un outbox, et les autres réagissent : les données sont cohérentes à terme. Un flux en plusieurs étapes comme le checkout tourne en saga : quand une étape échoue, des actions compensatoires annulent les précédentes, comme libérer du stock ou rembourser. Les consommateurs dédupliquent par id d’événement."
+      },
+      {
+        "question": "Quels signaux montrent qu’une équipe est prête pour les microservices ?",
+        "answer": "Plusieurs équipes qui se bloquent dans un même déployable, des frontières déjà stables dans un monolithe modulaire, et les bases en place : CI/CD automatisée, métriques et tracing par service, et astreinte. Sans ça, découper ajoute des pannes réseau aux mêmes problèmes d’organisation."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans un monolithe modulaire, chaque module devrait posséder ses données et ne les exposer que via son API publique.",
+        "why": "Sinon les frontières s’érodent, et extraire un module plus tard oblige à démêler des tables partagées.",
+        "twin": {
+          "statement": "Dans un monolithe modulaire, les modules peuvent lire librement les tables des autres, puisqu’ils partagent un seul déployable.",
+          "why": "Les frontières s’érodent alors, et extraire un module plus tard oblige à démêler des tables partagées."
+        }
+      },
+      {
+        "statement": "Des microservices qui lisent les tables les uns des autres dans une base partagée restent déployables indépendamment.",
+        "why": "Un changement de schéma dans l’un casse les autres, donc ils doivent livrer ensemble : un monolithe distribué.",
+        "twin": {
+          "statement": "Des microservices qui lisent les tables les uns des autres dans une base partagée finissent par devoir déployer ensemble.",
+          "why": "Un changement de schéma dans l’un casse les autres : un monolithe distribué."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le choix se fait entre un seul déployable découpé en modules et de nombreux services déployés indépendamment. On commence par un monolithe modulaire et on n’extrait un service que lorsqu’une raison concrète justifie son coût d’exploitation.",
+      "points": [
+        "Un monolithe modulaire est un seul déployable découpé en modules. Chaque module possède ses données, par exemple son propre schéma de base, et expose une petite API publique aux autres.",
+        "Les frontières ne tiennent que si on les impose : imports entre modules vérifiés en CI, par exemple avec dependency-cruiser, et aucun module qui lit les tables d’un autre.",
+        "Les microservices apportent des déploiements et une montée en charge indépendants. Ils coûtent des pannes réseau, des données réparties sur plusieurs bases, du tracing distribué et de l’astreinte sur de nombreux services.",
+        "On extrait un service pour une raison nommée : une charge très différente, un rythme de release propre, une isolation de sécurité ou une équipe propriétaire distincte. On le consigne dans un ADR (architecture decision record).",
+        "On extrait avec un strangler fig : une façade devant, les fonctionnalités déplacées une par une, les données synchronisées jusqu’à ce que le nouveau stockage soit la source de vérité. Des services qui partagent des tables forment un monolithe distribué."
+      ],
+      "takeaways": [
+        {
+          "term": "Monolithe modulaire",
+          "detail": "Un seul déployable ; chaque module possède ses données, comme son propre schéma, et expose une petite API publique."
+        },
+        {
+          "term": "Frontières imposées",
+          "detail": "Imports vérifiés en CI, par exemple avec dependency-cruiser ; aucun module ne lit les tables d’un autre."
+        },
+        {
+          "term": "Coût des microservices",
+          "detail": "Pannes réseau, données réparties sur plusieurs bases, tracing distribué, astreinte sur de nombreux services."
+        },
+        {
+          "term": "Raisons d’extraire",
+          "detail": "Charge très différente, rythme de release propre, isolation de sécurité ou équipe propriétaire distincte."
+        },
+        {
+          "term": "ADR",
+          "detail": "Un architecture decision record documente pourquoi un service a été extrait."
+        },
+        {
+          "term": "Strangler fig",
+          "detail": "Une façade devant, fonctionnalités déplacées une par une, données synchronisées jusqu’à ce que le nouveau stockage soit la source de vérité."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un nouveau CTO veut découper l’API Orders en douze microservices le trimestre prochain, pour une seule équipe de six développeurs. Que recommandez-vous ?",
+        "bridge": "Un découpage sans raison concrète, c’est la décision monolithe ou microservices : commencer modulaire, et n’extraire un service que pour la charge, le rythme, la sécurité ou la propriété."
+      },
+      {
+        "question": "Deux services lisent les tables l’un de l’autre dans une base partagée, et chaque changement de schéma les oblige à déployer ensemble. Qu’est-ce qui a mal tourné, et que feriez-vous ?",
+        "bridge": "Le même sujet par son mode d’échec : les frontières ne tiennent que si chaque module possède ses données et expose une petite API publique."
+      }
+    ]
+  },
+  "design-caching-strategy": {
+    "topic": "Stratégie de cache",
+    "question": "Comment concevriez-vous une stratégie de cache pour une application full-stack ?",
+    "answer": "Je décide pour chaque donnée à qui elle appartient et à quel point elle peut être périmée, puis je la mets en cache dans la couche la plus externe qui le permet. Les réponses publiques reçoivent un `Cache-Control`, pour que le navigateur et le CDN les gardent, avec `s-maxage` et `stale-while-revalidate` ; tout ce qui est propre à un utilisateur est en `private, no-store`. Dans l’API, j’utilise Redis en cache-aside : lire le cache, charger depuis PostgreSQL en cas de miss, stocker avec un TTL et du jitter. Sur une écriture, je commite puis je supprime la clé, et le TTL borne ce que l’invalidation rate. Côté base, les index passent avant un cache de plus. Et je protège les clés chaudes des stampedes avec du single flight.",
+    "keyPoints": [
+      "Par donnée : à qui elle appartient et à quel point elle peut être périmée",
+      "`Cache-Control` pour navigateur et CDN ; données par utilisateur jamais partagées",
+      "Redis en cache-aside avec un TTL et du jitter",
+      "Sur une écriture : commit, puis suppression de la clé ; le TTL en filet",
+      "Protéger les clés chaudes des stampedes, par exemple avec du single flight"
+    ],
+    "explanation": "Le cache est facile à ajouter et difficile à garder correct, donc les recruteurs guettent l’invalidation, la péremption et les fuites de données plutôt qu’un « on ajoute Redis ». Un senior choisit la couche par donnée, explique la règle de suppression après commit et sait ce qu’est un stampede.",
+    "example": "Pendant le test de charge des soldes, `GET /products/:id` recevait environ 2 000 requêtes par seconde et saturait PostgreSQL, alors que les produits changeaient quelques fois par jour. Le CDN garde désormais les réponses produit cinq minutes avec `stale-while-revalidate`, et le trafic connecté lit Redis. Quand la clé de la console phare a expiré à l’ouverture, le single flight a ramené 100 chargements simultanés depuis la base à un seul par réplica.",
+    "mistakes": [
+      "Mettre en cache des données propres à un utilisateur, comme une remise membre, sous une clé partagée : c’est une fuite de données",
+      "Mettre à jour le cache au lieu de le supprimer, ou supprimer avant le commit, ce qui peut laisser une ancienne valeur",
+      "Des clés sans TTL, si bien qu’une invalidation ratée vit pour toujours"
+    ],
+    "followUps": [
+      {
+        "question": "Cache en mémoire du process ou Redis ?",
+        "answer": "En mémoire, c’est le plus rapide, mais chaque réplica a sa propre copie, qu’une suppression ailleurs n’atteint jamais. Redis donne une seule copie à invalider ; un petit LRU en mémoire avec un TTL de quelques secondes peut se placer devant pour les clés les plus chaudes."
+      },
+      {
+        "question": "Comment la boutique Next.js s’intègre-t-elle là-dedans ?",
+        "answer": "Les données produit sont mises en cache avec `'use cache'` et un tag par produit, et le catalogue appelle un webhook qui exécute `revalidateTag` : un changement de prix atteint les clients après un rendu en arrière-plan, au lieu d’attendre un minuteur."
+      },
+      {
+        "question": "Comment invalidez-vous le cache quand la donnée source change ?",
+        "answer": "Le code qui écrit supprime la clé après le commit. Quand le changement appartient à un autre service, celui-ci publie un événement via son outbox et un consommateur supprime la clé. La boutique revalide le tag du produit de la même façon, et chaque clé garde un TTL qui borne ce que l’invalidation rate."
+      },
+      {
+        "question": "Qu’est-ce qu’un cache stampede, et comment l’évitez-vous ?",
+        "answer": "Beaucoup de requêtes ratent la même clé chaude expirée et la chargent toutes depuis la base en même temps. Le single flight partage un seul chargement par process ; entre réplicas, on sert la valeur périmée pendant qu’un appelant rafraîchit, on prend un verrou Redis court avec `SET NX PX`, ou on rafraîchit en avance avec XFetch."
+      },
+      {
+        "question": "Qu’est-ce qui ne doit jamais être mis en cache parce que ça doit être frais ?",
+        "answer": "Tout ce dont une valeur périmée coûte de l’argent ou de la sécurité : le stock et le prix quand `POST /orders` commite, le statut de paiement, les permissions et les vérifications de session. On peut les cacher pour l’affichage, mais la décision lit la source de vérité, et une donnée par utilisateur ne va jamais sous une clé partagée."
+      },
+      {
+        "question": "Write-through ou write-behind ?",
+        "answer": "Le write-through écrit le cache et la base à chaque écriture : les lectures restent chaudes, mais chaque écriture paie les deux, et une panne entre les deux les désynchronise. Le write-behind vide le cache vers la base plus tard : rapide, mais un crash du cache perd des écritures. Pour les commandes, je n’utilise ni l’un ni l’autre : commit dans PostgreSQL, puis suppression de la clé."
+      },
+      {
+        "question": "Comment invalidez-vous sur plusieurs nœuds de cache ?",
+        "answer": "Dans un cluster Redis, chaque clé vit sur un seul shard, donc un `DEL` atteint l’unique copie et ses réplicas suivent. Les caches en mémoire sur chaque pod demandent une diffusion : on publie la clé sur Redis pub/sub et chaque pod la supprime, avec un TTL court en filet, car pub/sub peut perdre des messages. Le CDN reçoit une purge par tag."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`Cache-Control: no-cache` signifie que la réponse ne doit pas être stockée.",
+        "why": "Elle peut être stockée mais doit être revalidée avant chaque réutilisation ; c’est `no-store` qui interdit le stockage.",
+        "twin": {
+          "statement": "`Cache-Control: no-cache` autorise le stockage d’une réponse mais impose une revalidation avant chaque réutilisation.",
+          "why": "Interdire le stockage, c’est le rôle de `no-store`."
+        }
+      },
+      {
+        "statement": "En cache-aside, vider tout le cache ne fait perdre aucune donnée.",
+        "why": "Le cache n’est jamais la source de vérité : l’API devient seulement plus lente le temps que le cache se remplisse.",
+        "twin": {
+          "statement": "En cache-aside, vider tout le cache fait perdre des données jamais enregistrées en base.",
+          "why": "Le cache n’est jamais la source de vérité : l’API devient seulement plus lente le temps que le cache se remplisse."
+        }
+      },
+      {
+        "statement": "Après une écriture, écraser la valeur en cache est plus sûr que supprimer la clé.",
+        "why": "Deux écrivains concurrents peuvent écraser dans l’ordre inverse de leurs commits ; une suppression n’a pas d’ordre à respecter.",
+        "twin": {
+          "statement": "Après une écriture, supprimer la clé en cache est plus sûr qu’écraser sa valeur.",
+          "why": "Deux écrivains concurrents peuvent écraser dans l’ordre inverse de leurs commits ; une suppression n’a pas d’ordre à respecter."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une stratégie de cache décide, pour chaque donnée, à qui elle appartient et à quel point elle peut être périmée, puis la met en cache dans la couche la plus externe qui le permet : navigateur, CDN, cache de l’API, puis index de la base.",
+      "points": [
+        "On décide pour chaque donnée à qui elle appartient et à quel point elle peut être périmée, puis on la met en cache dans la couche la plus externe qui le permet : navigateur, CDN, cache de l’API, puis index dans la base.",
+        "`Cache-Control` pilote les caches HTTP : `s-maxage` s’applique aux caches partagés comme les CDN, `stale-while-revalidate` sert une copie périmée pendant le rafraîchissement, `no-cache` signifie revalider d’abord, `no-store` ne jamais stocker.",
+        "Cache-aside : lire Redis ; en cas de miss, charger depuis PostgreSQL et stocker avec un TTL plus un jitter aléatoire pour que les clés n’expirent pas toutes en même temps. Le cache n’est jamais la source de vérité.",
+        "Sur une écriture, on commite d’abord, puis on supprime la clé. Une suppression n’a pas d’ordre à respecter, contrairement à deux écrasements concurrents, et le TTL borne toute invalidation ratée. Une donnée par utilisateur ne va jamais sous une clé partagée.",
+        "Un stampede, c’est beaucoup de requêtes qui chargent la même clé expirée en même temps. Le single flight laisse un seul chargement s’exécuter pendant que les autres requêtes attendent son résultat."
+      ],
+      "takeaways": [
+        {
+          "term": "`s-maxage`",
+          "detail": "Durée de fraîcheur pour les caches partagés comme les CDN."
+        },
+        {
+          "term": "`stale-while-revalidate`",
+          "detail": "Sert une copie périmée pendant le rafraîchissement en arrière-plan."
+        },
+        {
+          "term": "`no-cache` ou `no-store`",
+          "detail": "`no-cache` : revalider avant usage ; `no-store` : ne jamais stocker. Les données par utilisateur sont en `private, no-store`."
+        },
+        {
+          "term": "Cache-aside",
+          "detail": "Lire Redis ; en cas de miss, charger depuis PostgreSQL et stocker avec un TTL plus jitter. Le cache n’est jamais la source de vérité."
+        },
+        {
+          "term": "Invalider à l’écriture",
+          "detail": "Commit, puis suppression de la clé. Une suppression n’a pas d’ordre à respecter ; le TTL borne toute invalidation ratée."
+        },
+        {
+          "term": "Stampede et single flight",
+          "detail": "Beaucoup de requêtes chargent la même clé expirée ; le single flight laisse un seul chargement, les autres attendent son résultat."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Pendant le test de charge des soldes, `GET /products/:id` reçoit environ 2 000 requêtes par seconde et sature PostgreSQL, alors que les produits changent quelques fois par jour. Que feriez-vous ?",
+        "bridge": "Des lectures chaudes qui changent rarement appellent un cache dans la couche la plus externe possible : en-têtes CDN pour les réponses publiques, Redis en cache-aside dans l’API."
+      },
+      {
+        "question": "Un collègue veut mettre en cache chaque réponse de l’API dans Redis pendant une heure, paniers des clients compris. Quelles questions poseriez-vous, et comment concevriez-vous le cache ?",
+        "bridge": "Le même sujet par sa première question : pour chaque donnée, à qui elle appartient et à quel point elle peut être périmée décident où et combien de temps on la met en cache."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux sont la réponse à `GET /me/orders` sur la boutique, servie derrière un CDN. Laquelle ne montre jamais à un client les commandes d’un autre ?",
+        "why": "« Mes commandes » appartient à un seul client : `private` interdit aux caches partagés comme le CDN de la stocker, et `no-cache` oblige le navigateur à revalider. `public, s-maxage=60` laisse le CDN garder la réponse 60 secondes sous une URL identique pour tout le monde, donc le client suivant qui ouvre « mes commandes » peut recevoir la liste du premier."
+      }
+    ]
+  },
+  "design-checkout": {
+    "topic": "Checkout fiable",
+    "question": "Comment concevriez-vous un checkout e-commerce qui reste fiable et cohérent ?",
+    "answer": "Les exigences : ne jamais débiter deux fois, ne jamais vendre du stock qu’on n’a pas, ne jamais perdre une commande payée. La boutique envoie `POST /orders` avec une clé d’idempotence, donc un retry après une réponse perdue renvoie la même commande. Une seule transaction PostgreSQL crée la commande en `pending_payment` et prend le stock par un update conditionnel. Le résultat du paiement arrive par un webhook signé, que je traite une fois par id d’événement, parce que les fournisseurs relancent. Passer la commande en `paid` et écrire une ligne `order.paid` dans une table outbox se font dans la même transaction, et un relais la publie, donc les e-mails et l’expédition ne ratent jamais un paiement.",
+    "keyPoints": [
+      "Clé d’idempotence sur `POST /orders` : un retry renvoie la même commande",
+      "Une transaction : la commande, et le stock pris par un update conditionnel",
+      "Webhook de paiement signé, traité une fois par id d’événement",
+      "Outbox transactionnel pour `order.paid` ; les consommateurs restent idempotents"
+    ],
+    "explanation": "Le checkout est l’endroit où l’argent rencontre les pannes réseau, donc les recruteurs creusent chaque retry : celui du client, celui du fournisseur et ceux de tes propres workers. Une réponse senior refuse la livraison exactly-once et construit des effets exactly-once à partir de clés d’idempotence, de transactions et de l’outbox.",
+    "example": "Le support a trouvé des commandes en double à quelques secondes d’écart : le `POST /orders` de l’app réussissait, la réponse se perdait dans un tunnel, et l’app relançait. Un en-tête `Idempotency-Key`, identique à chaque retry, rejoue désormais la première réponse. La même revue a trouvé deux e-mails de confirmation quand le fournisseur relançait un webhook ; enregistrer chaque `webhook-id` avant d’agir a réglé le problème.",
+    "mistakes": [
+      "Compter sur un bouton Commander désactivé pour empêcher les commandes en double",
+      "Appeler le fournisseur de paiement dans la transaction de la base, ce qui garde une connexion et des verrous pendant un appel réseau",
+      "Publier `order.paid` juste après le commit : un crash entre les deux le perd, et c’est ce qu’empêche l’outbox"
+    ],
+    "followUps": [
+      {
+        "question": "Et si le résultat du paiement n’arrive jamais ?",
+        "answer": "Un worker planifié annule les commandes `pending_payment` plus vieilles que la fenêtre de réservation et libère leur stock. Si un succès arrive plus tard pour une commande annulée, le système vérifie auprès du fournisseur et rembourse ou restaure la commande."
+      },
+      {
+        "question": "Que doit faire le serveur quand la même clé d’idempotence arrive avec un corps différent ?",
+        "answer": "La rejeter, avec une 422 dans le draft de l’IETF : le client a réutilisé une clé pour une autre opération, c’est un bug à faire remonter, pas un retry à rejouer."
+      },
+      {
+        "question": "Comment implémenteriez-vous l’idempotence sur `POST /orders` ?",
+        "answer": "La boutique génère une clé par tentative de checkout et l’envoie dans un en-tête `Idempotency-Key` à chaque retry. L’API insère la clé sous une contrainte d’unicité dans la transaction de la commande et stocke la réponse ; une répétition se voit rejouer cette réponse, et une répétition pendant que la première tourne encore reçoit une 409."
+      },
+      {
+        "question": "Et si le paiement réussit mais qu’une étape suivante, comme la mise à jour du stock, échoue ?",
+        "answer": "Le stock est pris avant le paiement, dans la transaction de la commande. Après le paiement, le passage en `paid` et sa ligne d’outbox sont commités ensemble ; si ça échoue, le webhook renvoie une erreur et le fournisseur relance. Si un article ne peut vraiment pas être expédié, la saga compense en remboursant et en annulant."
+      },
+      {
+        "question": "Comment évitez-vous de manipuler ou de stocker des données de carte brutes ?",
+        "answer": "Les clients saisissent leur carte dans les champs ou la page du fournisseur, comme Stripe Elements ou Checkout, qui les envoient directement au fournisseur : nos serveurs ne les voient jamais. On ne garde que la marque, les quatre derniers chiffres et l’expiration pour les reçus, hors périmètre PCI selon Stripe. Ça réduit nos obligations PCI."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un fournisseur de paiement peut garantir que chaque événement de webhook est livré exactement une fois.",
+        "why": "Sur un réseau, la livraison est at-least-once ; ton handler doit rendre les doublons inoffensifs.",
+        "twin": {
+          "statement": "Un fournisseur de paiement livre les événements de webhook au moins une fois, donc un handler peut voir le même événement deux fois.",
+          "why": "Sur un réseau, la livraison ne peut pas être exactly-once ; le handler doit rendre les doublons inoffensifs."
+        }
+      },
+      {
+        "statement": "Écrire la ligne d’outbox dans la même transaction que la mise à jour de la commande supprime le problème de double écriture.",
+        "why": "Les deux sont commités ou aucun, et le relais publie la ligne ensuite, éventuellement plus d’une fois.",
+        "twin": {
+          "statement": "Écrire la ligne d’outbox dans la même transaction que la mise à jour de la commande laisse encore le problème de double écriture.",
+          "why": "Les deux sont commités ou aucun, et le relais publie la ligne ensuite, éventuellement plus d’une fois."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un checkout fiable survit aux retries du client, du fournisseur de paiement et des workers sans débiter deux fois, survendre ni perdre une commande payée. L’idempotence, une seule transaction et un outbox portent ces garanties.",
+      "points": [
+        "Le checkout a trois invariants : ne jamais débiter deux fois, ne jamais vendre du stock qu’on n’a pas, ne jamais perdre une commande payée. Chaque retry, du client, du fournisseur ou d’un worker, doit les respecter.",
+        "Une clé d’idempotence est un id unique que le client envoie avec `POST /orders` et répète à chaque retry. Le serveur la stocke avec le résultat et rejoue ce résultat ; la même clé avec un corps différent est rejetée.",
+        "Une seule transaction crée la commande en `pending_payment` et prend le stock par un update conditionnel, comme ci-dessous. Le fournisseur de paiement n’est jamais appelé dans cette transaction.",
+        "Les webhooks de paiement sont livrés au moins une fois : on vérifie la signature, on enregistre l’id d’événement, et on ne fait rien si l’id a déjà été traité.",
+        "L’outbox transactionnel écrit la ligne `order.paid` dans la même transaction que le changement de statut ; un relais la publie, parfois deux fois, donc les consommateurs dédupliquent."
+      ],
+      "takeaways": [
+        {
+          "term": "Trois invariants",
+          "detail": "Ne jamais débiter deux fois, ne jamais vendre du stock qu’on n’a pas, ne jamais perdre une commande payée."
+        },
+        {
+          "term": "Clé d’idempotence",
+          "detail": "Envoyée avec `POST /orders` et répétée au retry ; le serveur rejoue le résultat stocké. Même clé, corps différent : rejeté."
+        },
+        {
+          "term": "Transaction de commande",
+          "detail": "Crée la commande en `pending_payment` et prend le stock par un update conditionnel. Jamais d’appel au fournisseur dedans."
+        },
+        {
+          "term": "Webhook de paiement",
+          "detail": "Au moins une fois : vérifier la signature, enregistrer l’id d’événement, ne rien faire s’il a déjà été traité."
+        },
+        {
+          "term": "Outbox transactionnel",
+          "detail": "La ligne `order.paid` est écrite avec le changement de statut ; un relais la publie, parfois deux fois, donc les consommateurs dédupliquent."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le support trouve des commandes en double passées à quelques secondes d’écart, et certains clients reçoivent deux e-mails de confirmation pour un seul paiement. Comment rendriez-vous le checkout fiable ?",
+        "bridge": "Les retries après des réponses perdues et les webhooks répétés, c’est ce qu’absorbe un checkout fiable : clés d’idempotence, une transaction, webhooks traités une fois, un outbox."
+      },
+      {
+        "question": "Le handler passe la commande en `paid` dans PostgreSQL, puis publie `order.paid` sur le broker. Qu’est-ce qui peut mal tourner entre ces deux étapes, et comment concevez-vous autour ?",
+        "bridge": "Le même sujet par la double écriture : la mise à jour de la commande et l’événement vont dans une seule transaction avec un outbox, et un relais publie ensuite."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux prennent un mug dans le stock pendant le checkout, alors que deux clients se disputent le dernier. Laquelle ne le vend jamais deux fois ?",
+        "why": "L’`UPDATE` conditionnel vérifie et décrémente en une seule instruction : PostgreSQL verrouille la ligne, le second checkout revérifie `stock >= 1` une fois le premier commité, met à jour 0 ligne et échoue. Dans l’autre version, les deux checkouts lisent `stock = 1` avant que l’un d’eux n’écrive, passent tous deux la vérification, et le stock finit à -1 : deux clients ont payé pour un seul mug."
+      }
+    ]
+  },
+  "design-load-balancer": {
+    "topic": "Load balancers",
+    "question": "Qu’est-ce qu’un load balancer, et quels algorithmes de répartition de charge existent ?",
+    "answer": "Un load balancer reçoit le trafic sur une adresse et le répartit sur plusieurs copies d’un service. Il arrête d’envoyer aux copies qui échouent à leur health check, donc on peut ajouter, retirer ou redéployer des instances sans interruption. Un load balancer de couche 4 route des connexions TCP ; un de couche 7 lit le HTTP, donc il peut router par chemin ou en-tête et terminer le TLS. Les algorithmes courants sont le round robin, le round robin pondéré pour des machines inégales, least connections ou least outstanding requests quand la durée des requêtes varie, et le hash d’une clé comme l’IP du client quand un client doit toujours atteindre la même instance.",
+    "keyPoints": [
+      "Répartit le trafic sur des copies ; les health checks retirent celles en échec",
+      "Couche 4 route des connexions ; couche 7 lit le HTTP et route par chemin",
+      "Round robin, pondéré, least connections ou least requests",
+      "Hash d’une clé pour l’affinité, au prix d’une charge inégale"
+    ],
+    "explanation": "C’est une brique de toute réponse de conception, donc les recruteurs vérifient que tu sais ce qu’il fait au-delà de « répartir la charge ». Un candidat de niveau intermédiaire doit choisir un algorithme selon la forme des requêtes et connaître la différence entre couche 4 et couche 7.",
+    "example": "Après le passage de l’API Orders de 4 à 12 pods, les nouveaux pods ne recevaient presque aucun trafic du BFF. Le BFF gardait des connexions keep-alive longues, et un load balancer de couche 4 route des connexions, pas des requêtes, donc les anciens pods gardaient tout. Répartir en couche 7, requête par requête, a équilibré la charge en quelques minutes.",
+    "mistakes": [
+      "Supposer qu’un load balancer de couche 4 répartit chaque requête HTTP, alors qu’il ne répartit que des connexions",
+      "Utiliser des sessions sticky pour masquer des sessions en mémoire au lieu de les déplacer dans un stockage partagé",
+      "Mettre la base dans un health check qui redémarre les pods, si bien qu’un hoquet de la base redémarre tout"
+    ],
+    "followUps": [
+      {
+        "question": "Quelle est la différence entre une readiness probe et une liveness probe dans Kubernetes ?",
+        "answer": "Une readiness probe en échec retire le pod des endpoints du Service : il ne reçoit plus de trafic mais continue de tourner. Une liveness probe en échec fait redémarrer le conteneur par le kubelet, donc elle ne doit pas vérifier les dépendances."
+      },
+      {
+        "question": "Quand choisiriez-vous least outstanding requests plutôt que round robin ?",
+        "answer": "Quand la durée des requêtes varie beaucoup, comme un mélange de lectures rapides et d’exports lents. Le round robin ignore la charge de chaque instance, donc des requêtes lentes peuvent s’empiler sur une copie."
+      },
+      {
+        "question": "Quelle est la différence entre répartition de charge en couche 4 et en couche 7 ?",
+        "answer": "La couche 4 transfère des connexions TCP par adresse et port sans les lire : c’est rapide, mais elle répartit des connexions, pas des requêtes. La couche 7 termine le TLS et lit le HTTP, donc elle peut router par chemin ou en-tête et répartir chaque requête, ce qui compte avec les longues connexions keep-alive du BFF."
+      },
+      {
+        "question": "Comment obtiendriez-vous des sessions sticky sans hasher l’IP du client ?",
+        "answer": "Avec un cookie : le load balancer de couche 7 ou l’app pose un cookie d’affinité et route selon lui, donc les clients derrière l’IP partagée d’un même opérateur mobile ne sont pas tous collés au même pod. Je ne m’en sers que pour des caches chauds, jamais pour de l’état : les sessions vivent dans Redis, donc perdre l’affinité ne déconnecte personne."
+      },
+      {
+        "question": "Comment un load balancer détecte-t-il une instance en mauvaise santé et la contourne-t-il ?",
+        "answer": "Il sonde chaque instance à intervalle régulier, par exemple `GET /ready`, la sort de la rotation après quelques échecs consécutifs et la remet une fois que les checks passent. Certains load balancers éjectent aussi une instance qui renvoie trop d’erreurs sur le vrai trafic. Dans Kubernetes, la readiness probe retire le pod des endpoints."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un load balancer de couche 4 peut router les requêtes par chemin d’URL.",
+        "why": "Il voit des connexions, pas du HTTP ; router par chemin demande un load balancer de couche 7.",
+        "twin": {
+          "statement": "Router les requêtes par chemin d’URL demande un load balancer de couche 7.",
+          "why": "Un load balancer de couche 4 voit des connexions, pas du HTTP, donc il ne peut pas lire le chemin."
+        }
+      },
+      {
+        "statement": "Le round robin ignore la charge actuelle de chaque instance.",
+        "why": "Il distribue les requêtes à tour de rôle ; least connections ou least outstanding requests regardent la charge actuelle.",
+        "twin": {
+          "statement": "Le round robin envoie chaque requête à l’instance la moins occupée.",
+          "why": "Il distribue les requêtes à tour de rôle ; least connections ou least outstanding requests regardent la charge actuelle."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un load balancer reçoit le trafic sur une adresse et le répartit sur plusieurs copies d’un service, en retirant celles qui échouent. C’est lui qui rend possibles la scalabilité horizontale et les déploiements sans interruption.",
+      "points": [
+        "Un load balancer reçoit le trafic sur une adresse et le répartit sur plusieurs copies d’un service. Les health checks retirent les copies en échec, ce qui permet de déployer sans interruption.",
+        "La couche 4 ne voit que des connexions TCP ; la couche 7 lit le HTTP, donc elle peut router par chemin ou en-tête, terminer le TLS et répartir chaque requête. Avec des connexions keep-alive longues, la couche 4 continue d’envoyer aux anciennes copies.",
+        "Le round robin distribue les requêtes à tour de rôle ; le round robin pondéré favorise les machines plus grosses ; least connections ou least outstanding requests choisissent la copie la moins occupée, ce qui aide quand les durées varient.",
+        "Hasher une clé comme l’IP du client garde un client sur la même copie (affinité), au prix d’une charge inégale. Mieux vaut déplacer les sessions dans un stockage partagé que compter sur des sessions sticky.",
+        "Dans Kubernetes, une readiness probe en échec retire le pod du trafic ; une liveness probe en échec le redémarre, donc la liveness ne doit jamais vérifier la base."
+      ],
+      "takeaways": [
+        {
+          "term": "Health checks",
+          "detail": "Sortent de la rotation les copies en échec, ce qui permet de déployer sans interruption."
+        },
+        {
+          "term": "Couche 4",
+          "detail": "Ne voit que des connexions TCP ; avec des connexions keep-alive longues, elle continue d’envoyer aux anciennes copies."
+        },
+        {
+          "term": "Couche 7",
+          "detail": "Lit le HTTP : route par chemin ou en-tête, termine le TLS, répartit chaque requête."
+        },
+        {
+          "term": "Algorithmes",
+          "detail": "Round robin ; pondéré pour les machines plus grosses ; least connections ou least outstanding requests quand les durées varient."
+        },
+        {
+          "term": "Affinité par hash",
+          "detail": "Hasher une clé comme l’IP du client garde un client sur une copie, au prix d’une charge inégale. Préférer un stockage de sessions partagé."
+        },
+        {
+          "term": "Probes Kubernetes",
+          "detail": "Readiness en échec retire le pod du trafic ; liveness en échec le redémarre, donc la liveness ne vérifie jamais la base."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Après le passage de l’API Orders de 4 à 12 pods, les nouveaux pods ne reçoivent presque aucun trafic du BFF, qui garde des connexions keep-alive longues. Pourquoi, et que changeriez-vous ?",
+        "bridge": "Une charge bloquée sur des connexions keep-alive relève de la répartition de charge : la couche 4 route des connexions, la couche 7 route chaque requête."
+      },
+      {
+        "question": "Certaines requêtes de l’API Orders prennent 5 ms et les exports CSV 20 s, et le round robin laisse quelques pods surchargés. Quel algorithme choisiriez-vous, et quelles sont les alternatives ?",
+        "bridge": "Le même sujet par les algorithmes : le round robin ignore la charge actuelle, alors que least connections ou least outstanding requests conviennent à des durées variées."
+      }
+    ]
+  },
+  "design-notifications": {
+    "topic": "Système de notifications",
+    "question": "Comment concevriez-vous un système de notifications par e-mail, push et SMS ?",
+    "answer": "Je clarifie les canaux, les déclencheurs, les préférences utilisateur, les priorités, et que rien ne se perd tandis que les doublons restent rares. Puis je dimensionne pour le pic : un push de campagne à 10 millions d’utilisateurs en 10 minutes, c’est environ 16 700 par seconde, à peu près 29 fois la moyenne. Les événements arrivent à un service de notifications qui vérifie les préférences, rend le template, et écrit la notification et une ligne d’outbox dans une seule transaction. Un relais publie vers une file par canal et priorité, donc une campagne ne retarde jamais un code de connexion. Les workers appellent APNs, FCM ou les fournisseurs e-mail et SMS avec rate limiting, retries avec backoff, une dead letter queue et une clé de dédup par notification et canal.",
+    "keyPoints": [
+      "Besoins : canaux, préférences, priorités, aucune perte",
+      "Dimensionner pour le pic de campagne, pas la moyenne quotidienne",
+      "Outbox, puis une file par canal et priorité",
+      "Retries avec backoff, dead letter queue, clé de dédup par canal"
+    ],
+    "explanation": "La question combine files, idempotence et dimensionnement en un seul énoncé. Les seniors se démarquent en dimensionnant pour le pic, en isolant les priorités pour que les messages urgents ne soient jamais bloqués, et en traitant les préférences comme un problème de cohérence.",
+    "example": "Le push de 9 h 50 annonçant les soldes est parti vers tous les utilisateurs de l’app par la même file que les codes de connexion, et les clients ont attendu leur code plusieurs minutes. Séparer `push.urgent` de `push.bulk` a réglé le problème. Le même jour, une cliente désabonnée à 9 h 49 a quand même reçu le push : les préférences sont désormais lues au moment de l’envoi depuis le primaire, pas depuis l’instantané de la campagne.",
+    "mistakes": [
+      "Envoyer les notifications dans la requête HTTP qui les a déclenchées",
+      "Une seule file partagée pour tous les canaux et priorités, si bien qu’un fournisseur lent ou une campagne retarde tout",
+      "Relancer un token d’appareil invalide au lieu de le supprimer"
+    ],
+    "followUps": [
+      {
+        "question": "Que se passe-t-il quand le fournisseur SMS tombe ?",
+        "answer": "Je garde un second fournisseur configuré et je bascule quand le taux d’erreur du premier dépasse un seuil, avec la même clé de dédup pour qu’un message ne parte pas par les deux."
+      },
+      {
+        "question": "Comment stockez-vous la boîte de réception in-app ?",
+        "answer": "Comme un modèle de lecture taillé pour cet écran : des lignes indexées par id utilisateur et date de création dans PostgreSQL, partitionnées par utilisateur à grande échelle."
+      },
+      {
+        "question": "Comment évitez-vous les notifications en double pour un même événement ?",
+        "answer": "Chaque notification reçoit un id dérivé de l’événement, comme `order.paid` plus l’id de commande. Le worker saute une paire (id de notification, canal) déjà enregistrée comme envoyée, l’enregistre une fois que le fournisseur accepte, et passe le même id comme clé d’idempotence quand le fournisseur le permet."
+      },
+      {
+        "question": "Comment appliquez-vous les préférences et désabonnements de façon cohérente sur tous les canaux ?",
+        "answer": "Un seul stockage les possède par utilisateur, canal et catégorie, et chaque worker de canal le lit au moment de l’envoi depuis le primaire plutôt qu’un instantané. Les messages transactionnels comme un code de connexion ignorent les désabonnements marketing, et chaque e-mail marketing porte un lien de désabonnement qui écrit dans ce même stockage."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Avec un outbox et des retries, une notification peut être publiée plus d’une fois, donc les workers doivent dédupliquer.",
+        "why": "Le relais et la file livrent au moins une fois ; une clé par notification et canal rend les répétitions inoffensives.",
+        "twin": {
+          "statement": "Avec un outbox et des retries, chaque notification est publiée exactement une fois, donc les workers n’ont pas besoin de dédupliquer.",
+          "why": "Le relais et la file livrent au moins une fois ; une clé par notification et canal rend les répétitions inoffensives."
+        }
+      },
+      {
+        "statement": "Le débit moyen quotidien est le bon chiffre pour dimensionner les files et les workers.",
+        "why": "Une campagne peut atteindre environ 29 fois la moyenne, et c’est ce pic qui décide de la conception.",
+        "twin": {
+          "statement": "Les files et workers de notifications doivent être dimensionnés pour le pic de campagne, pas pour la moyenne quotidienne.",
+          "why": "Une campagne peut atteindre environ 29 fois la moyenne, et c’est ce pic qui décide de la conception."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un système de notifications transforme des événements en messages push, e-mail et SMS qui respectent les préférences des utilisateurs. Il doit absorber les pics de campagne, garder les messages urgents rapides, et ne rien perdre tout en gardant les doublons rares.",
+      "points": [
+        "On dimensionne pour le pic, pas pour la moyenne : 50 millions de notifications par jour, c’est environ 580 par seconde, mais un push à 10 millions d’utilisateurs en 10 minutes, c’est environ 16 700 par seconde, à peu près 29 fois plus.",
+        "Le flux : un événement arrive au service de notifications, qui vérifie les préférences, rend le template et écrit la notification plus une ligne d’outbox dans une seule transaction ; un relais publie vers les files.",
+        "On utilise une file par canal et priorité, comme `push.urgent` et `push.bulk`, pour qu’une campagne ou un fournisseur lent ne retarde jamais un code de connexion.",
+        "La livraison est at-least-once, donc les workers dédupliquent sur (id de notification, canal). Les retries utilisent un backoff exponentiel avec jitter et plafond, puis une dead letter queue ; les tokens d’appareil invalides sont supprimés.",
+        "On lit les préférences au moment de l’envoi, depuis le primaire : un utilisateur désabonné une minute avant la campagne ne doit pas la recevoir."
+      ],
+      "takeaways": [
+        {
+          "term": "Dimensionner pour le pic",
+          "detail": "50 millions par jour, c’est environ 580 par seconde ; 10 millions de push en 10 minutes, environ 16 700 par seconde, à peu près 29 fois plus."
+        },
+        {
+          "term": "Outbox en une transaction",
+          "detail": "Vérifier les préférences, rendre, écrire la notification et une ligne d’outbox ensemble ; un relais publie vers les files."
+        },
+        {
+          "term": "File par canal et priorité",
+          "detail": "Comme `push.urgent` et `push.bulk`, pour qu’une campagne ne retarde jamais un code de connexion."
+        },
+        {
+          "term": "Clé de dédup",
+          "detail": "La livraison est at-least-once : les workers dédupliquent sur (id de notification, canal)."
+        },
+        {
+          "term": "Retries",
+          "detail": "Backoff exponentiel avec jitter et plafond, puis une dead letter queue ; supprimer les tokens d’appareil invalides."
+        },
+        {
+          "term": "Préférences à l’envoi",
+          "detail": "Lues depuis le primaire, pour qu’un utilisateur désabonné une minute avant une campagne ne la reçoive pas."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le push de 9 h 50 annonçant les soldes est parti vers tous les utilisateurs de l’app, et les clients ont attendu leurs codes de connexion plusieurs minutes. Comment concevriez-vous les notifications pour que ça ne puisse pas arriver ?",
+        "bridge": "Une campagne qui retarde les codes de connexion renvoie à la conception des files : une file par canal et priorité, dimensionnée pour le pic, avec retries et dédup."
+      },
+      {
+        "question": "Un collègue dimensionne les files et workers de notifications sur le débit d’envoi moyen quotidien. Que manque-t-il, et comment concevriez-vous le système ?",
+        "bridge": "Le même sujet par le dimensionnement : un push de campagne peut atteindre environ 29 fois la moyenne, et files, priorités et retries sont conçus pour ce pic."
+      }
+    ]
+  },
+  "design-collaborative-editing": {
+    "topic": "Édition collaborative",
+    "question": "Comment aborderiez-vous l’édition collaborative en temps réel, comme Google Docs ?",
+    "answer": "La difficulté, ce sont les modifications concurrentes : deux agents qui tapent dans la même description produit doivent finir avec le même texte, sans perdre aucune des deux modifications. Il y a deux familles. L’operational transformation, adoptée par Google Docs, transforme chaque opération par rapport aux opérations concurrentes, en général avec un serveur central qui les ordonne. Les CRDT donnent une identité à chaque élément, donc les copies fusionnent dans n’importe quel ordre et convergent sans autorité centrale, ce qui permet aussi l’édition hors ligne. Je n’écrirais ni l’un ni l’autre : j’utiliserais Yjs, une bibliothèque CRDT avec des bindings pour des éditeurs comme ProseMirror et Tiptap, synchronisée par WebSockets, je persisterais ses updates et j’afficherais les curseurs via sa fonctionnalité awareness.",
+    "keyPoints": [
+      "Les modifications concurrentes doivent converger sans perte",
+      "OT : transformer les opérations, en général ordonnées par un serveur central",
+      "Les CRDT fusionnent dans n’importe quel ordre, sans autorité centrale, hors ligne",
+      "Utiliser une bibliothèque comme Yjs ; synchro par WebSockets, updates persistées"
+    ],
+    "explanation": "Personne n’attend que tu implémentes l’OT au tableau ; les recruteurs vérifient que tu nommes le problème de convergence, connais les deux familles et leur compromis, et te tournes vers une bibliothèque éprouvée. Un senior demande aussi si la co-édition en direct est vraiment nécessaire ou si une détection de conflit suffit.",
+    "example": "Deux agents modifiaient la même description produit dans le back-office et la dernière sauvegarde effaçait silencieusement le travail de l’autre. Le premier correctif a été la concurrence optimiste, un `ETag` vérifié avec `If-Match`, qui a transformé la perte silencieuse en conflit visible. Quand l’équipe contenu a demandé la co-édition en direct, l’équipe a intégré un éditeur Tiptap adossé à Yjs, synchronisé via la connexion WebSocket du back-office.",
+    "mistakes": [
+      "Sauvegarder tout le document en last-write-wins et appeler ça de la collaboration",
+      "Écrire son propre CRDT ou OT au lieu d’utiliser une bibliothèque testée",
+      "Stocker les curseurs et la présence dans le document, alors qu’ils sont éphémères"
+    ],
+    "followUps": [
+      {
+        "question": "A-t-on toujours besoin de co-édition en temps réel ?",
+        "answer": "Non. Quand les conflits sont rares, une version ou un `ETag` vérifié avec `If-Match` suffit : la seconde sauvegarde échoue en 412 et l’utilisateur fusionne. La co-édition en direct vaut son coût quand les gens éditent vraiment ensemble."
+      },
+      {
+        "question": "Qu’apporte Automerge par rapport à Yjs ?",
+        "answer": "Ce sont deux bibliothèques CRDT. Automerge est conçu pour le logiciel local-first et garde l’historique des modifications, donc on peut voir d’anciennes versions, créer des branches et fusionner ; il a des implémentations JavaScript et Rust, celle en Rust compilant en WebAssembly."
+      },
+      {
+        "question": "Dans les grandes lignes, comment un CRDT fusionne-t-il des modifications concurrentes sans coordination ?",
+        "answer": "Chaque élément inséré reçoit un id unique, formé de son auteur et d’un compteur, et il est placé par rapport aux ids de ses voisins plutôt qu’à un index ; les suppressions sont marquées, pas effacées. La fusion est commutative et idempotente, donc chaque réplica qui applique les mêmes updates, dans n’importe quel ordre, finit avec le même texte."
+      },
+      {
+        "question": "Quelle est la différence fondamentale entre OT et CRDT, et quels sont les compromis ?",
+        "answer": "L’OT modifie les opérations : chacune est transformée par rapport aux opérations concurrentes, en général par un serveur central qui fixe l’ordre. Les CRDT modifient les données : les éléments portent des ids, donc les updates commutent. L’OT exige ce serveur mais garde des documents légers ; les CRDT permettent le pair-à-pair et le hors ligne mais portent des métadonnées en plus."
+      },
+      {
+        "question": "Comment gérez-vous un utilisateur qui a fait beaucoup de modifications hors ligne avant de se reconnecter ?",
+        "answer": "Avec Yjs, les modifications sont sauvegardées en local, par exemple avec y-indexeddb. À la reconnexion, client et serveur échangent leurs state vectors pour que chacun n’envoie que les updates qui manquent à l’autre, et elles fusionnent sans conflit. Le texte fusionné peut quand même sembler bizarre, donc je signalerais à l’agent que des modifications d’autres personnes sont arrivées."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Les réplicas d’un CRDT convergent vers le même état quel que soit l’ordre dans lequel ils reçoivent les updates.",
+        "why": "C’est la propriété qui les définit : les fusions ne dépendent pas de l’ordre, donc aucun serveur central n’a à décider.",
+        "twin": {
+          "statement": "Les réplicas d’un CRDT ne convergent que s’ils reçoivent les updates dans le même ordre.",
+          "why": "Les fusions ne dépendent pas de l’ordre par construction, donc les réplicas convergent quel que soit l’ordre d’arrivée des updates."
+        }
+      },
+      {
+        "statement": "Yjs a besoin d’un serveur central comme source de vérité.",
+        "why": "Sa doc dit qu’il n’a pas besoin d’une source de vérité centrale ; les serveurs ne sont qu’un moyen parmi d’autres de relayer et stocker les updates.",
+        "twin": {
+          "statement": "Yjs n’a pas besoin d’un serveur central comme source de vérité.",
+          "why": "Sa doc le dit ; les serveurs ne sont qu’un moyen parmi d’autres de relayer et stocker les updates."
+        }
+      },
+      {
+        "statement": "Yjs stocke les données d’awareness, comme la position des curseurs, dans le document partagé.",
+        "why": "L’awareness est gardée hors du document et n’est pas persistée, puisqu’elle n’a pas besoin de survivre à une session.",
+        "twin": {
+          "statement": "Yjs garde les données d’awareness, comme la position des curseurs, hors du document partagé.",
+          "why": "L’awareness n’est pas persistée, puisqu’elle n’a pas besoin de survivre à une session."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’édition collaborative permet à plusieurs personnes de modifier le même document en même temps et de finir quand même avec le même texte, sans perdre la modification de personne. Deux familles d’algorithmes résolvent le problème ; en pratique, on utilise une bibliothèque.",
+      "points": [
+        "Les modifications concurrentes doivent converger : chaque copie finit avec le même texte et aucune modification n’est perdue. Sauvegarder tout le document en last-write-wins en supprime une silencieusement.",
+        "L’operational transformation (OT) réécrit chaque opération par rapport aux opérations concurrentes, en général avec un serveur central qui les ordonne. Google Docs l’a adoptée.",
+        "Un CRDT (conflict-free replicated data type) donne une identité à chaque élément, donc les réplicas fusionnent les updates dans n’importe quel ordre et convergent sans autorité centrale, ce qui permet aussi l’édition hors ligne.",
+        "En pratique, on utilise une bibliothèque : Yjs est un CRDT avec des bindings pour des éditeurs comme ProseMirror et Tiptap. On synchronise ses updates par WebSockets, on les persiste, et on garde les curseurs dans sa fonctionnalité awareness, hors du document.",
+        "Quand les conflits sont rares, la concurrence optimiste suffit : le client envoie l’`ETag` de la version dans `If-Match`, et une sauvegarde obsolète échoue en 412 Precondition Failed."
+      ],
+      "takeaways": [
+        {
+          "term": "Convergence",
+          "detail": "Chaque copie finit avec le même texte et aucune modification n’est perdue. Le last-write-wins sur tout le document en supprime une."
+        },
+        {
+          "term": "Operational transformation",
+          "detail": "Réécrit chaque opération par rapport aux opérations concurrentes, en général avec un serveur central qui les ordonne. Adoptée par Google Docs."
+        },
+        {
+          "term": "CRDT",
+          "detail": "Donne une identité à chaque élément : les réplicas fusionnent dans n’importe quel ordre sans autorité centrale, hors ligne compris."
+        },
+        {
+          "term": "Yjs",
+          "detail": "Une bibliothèque CRDT avec des bindings ProseMirror et Tiptap ; synchroniser les updates par WebSockets et les persister."
+        },
+        {
+          "term": "Awareness",
+          "detail": "Fonctionnalité de Yjs pour les curseurs et la présence, gardée hors du document."
+        },
+        {
+          "term": "`ETag` et `If-Match`",
+          "detail": "Quand les conflits sont rares, la concurrence optimiste suffit : une sauvegarde obsolète échoue en 412 Precondition Failed."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Deux agents modifient la même description produit dans le back-office, et la dernière sauvegarde efface silencieusement le travail de l’autre. L’équipe contenu veut maintenant de la co-édition en direct. Comment l’aborderiez-vous ?",
+        "bridge": "Des modifications concurrentes qui doivent fusionner sans perte, c’est le cœur de l’édition collaborative : OT ou CRDT, et en pratique une bibliothèque comme Yjs."
+      },
+      {
+        "question": "Expliquez à un junior la différence entre l’operational transformation et les CRDT, et sur laquelle vous bâtiriez un produit aujourd’hui.",
+        "bridge": "Le même sujet sous forme de comparaison : l’OT transforme les opérations, en général via un serveur central ; les CRDT fusionnent dans n’importe quel ordre, et Yjs en implémente un."
+      }
+    ]
+  },
+  "design-feature-estimation": {
+    "topic": "Estimer une fonctionnalité full-stack",
+    "question": "Comment estimez-vous et planifiez-vous le périmètre technique d’une nouvelle fonctionnalité full-stack en sprint planning ?",
+    "answer": "Avant d’estimer, je m’assure qu’on est d’accord sur le résultat attendu et les critères d’acceptation. Ensuite je découpe la fonctionnalité à travers la stack : modèle de données et migration, endpoint d’API et contrat, écrans front et leurs états, tests, et mise en production. Chaque tranche fait apparaître des inconnues, comme une API tierce ou une migration sur une grosse table ; pour les plus risquées, je propose d’abord un spike court et limité dans le temps. J’estime par rapport à du travail déjà fait, et j’ajoute des items explicites pour la revue, la QA et le monitoring. Si ça ne tient pas dans le sprint, je propose une première version plus petite derrière un feature flag, plutôt qu’une estimation plus petite.",
+    "keyPoints": [
+      "Clarifier d’abord le résultat attendu et les critères d’acceptation",
+      "Découper à travers la stack : schéma, API, UI, tests, mise en production",
+      "Nommer les inconnues ; un spike limité dans le temps pour les risquées",
+      "Trop gros : couper le périmètre derrière un flag, jamais l’estimation"
+    ],
+    "explanation": "Les recruteurs vérifient que tu vois le coût complet d’une fonctionnalité, pas seulement le code, et que tu gères l’incertitude ouvertement. Une réponse senior négocie le périmètre avec le product owner au lieu de promettre une estimation que l’équipe ne peut pas tenir.",
+    "example": "Les retours de commande touchaient toutes les couches : une table `returns`, `POST /orders/:id/returns`, un formulaire sur la boutique, un écran agent dans le back-office et l’API d’étiquettes de retour du transporteur. Un spike d’une journée a montré que la sandbox du transporteur ne pouvait pas produire d’étiquettes, donc l’équipe a d’abord livré le formulaire client derrière un flag, et l’intégration des étiquettes au sprint suivant.",
+    "mistakes": [
+      "N’estimer que le code, sans migration, tests, revue ni mise en production",
+      "Donner un chiffre ferme sous la pression alors qu’une grosse inconnue subsiste",
+      "Réduire l’estimation pour tenir dans le sprint au lieu de réduire le périmètre"
+    ],
+    "followUps": [
+      {
+        "question": "Le product manager dit que ça doit sortir ce sprint. Que faites-vous ?",
+        "answer": "Je montre ce qui tient et ce qui ne tient pas, et je propose une version plus petite qui livre la valeur essentielle. Le compromis se fait sur le périmètre, jamais en silence sur les tests ou la qualité."
+      },
+      {
+        "question": "Comment intégrez-vous au plan une migration sur une table de plusieurs millions de lignes ?",
+        "answer": "Comme un item à part, en étapes qui gardent l’ancien code fonctionnel : ajouter la colonne, faire le backfill par lots, basculer le code, puis nettoyer, chaque étape déployée séparément."
+      },
+      {
+        "question": "Comment communiquez-vous tôt une échéance ou une estimation ratée ?",
+        "answer": "Dès que je le sais, pas le jour de l’échéance : je dis au lead et au product manager ce qui a glissé, pourquoi, la nouvelle estimation et les options, comme couper une tranche ou décaler la date. Sur les retours, j’ai remonté le problème de l’API d’étiquettes le jour où le spike s’est terminé, donc le plan a changé en milieu de sprint, pas à la revue."
+      },
+      {
+        "question": "Comment prenez-vous en compte la code review, la QA et les tests dans l’estimation ?",
+        "answer": "Ils font partie du travail, ce n’est pas une marge : les tests sont dans l’estimation de chaque tranche, et la revue, la QA en staging et le monitoring sont des items explicites. Je les dimensionne d’après notre historique, comme la durée des revues de pull requests similaires, et je garde des pull requests petites pour que les revues restent rapides."
+      },
+      {
+        "question": "Comment découpez-vous une grosse fonctionnalité en morceaux qui se livrent et s’estiment seuls ?",
+        "answer": "En fines tranches de bout en bout, chacune avec de la valeur : pour les retours, d’abord un formulaire client dont les agents traitent les retours à la main, puis l’écran agent, puis l’intégration des étiquettes. Chaque tranche traverse la stack, peut sortir derrière un flag, et est assez petite pour être estimée."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un spike est censé produire du code prêt pour la production.",
+        "why": "Ce qu’il produit, c’est de la connaissance, comme savoir si une approche fonctionne et ce qu’elle coûte ; le code est généralement jeté.",
+        "twin": {
+          "statement": "Un spike est censé produire de la connaissance, et son code est généralement jeté.",
+          "why": "Il répond à la question de savoir si une approche fonctionne et ce qu’elle coûte."
+        }
+      },
+      {
+        "statement": "Découper une fonctionnalité en fines tranches de bout en bout permet d’en livrer une partie plus tôt.",
+        "why": "Chaque tranche fonctionne de la base jusqu’à l’écran, donc la première peut sortir seule.",
+        "twin": {
+          "statement": "Une fonctionnalité découpée en fines tranches de bout en bout ne peut sortir qu’une fois toutes les tranches terminées.",
+          "why": "Chaque tranche fonctionne de la base jusqu’à l’écran, donc la première peut sortir seule."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Estimer une fonctionnalité full-stack, c’est s’accorder sur le résultat attendu, la découper à travers la stack et exposer ses inconnues. Une estimation honnête se protège en coupant le périmètre, jamais en réduisant le chiffre.",
+      "points": [
+        "On s’accorde d’abord sur le résultat attendu et les critères d’acceptation : l’estimation d’une fonctionnalité floue n’est qu’une supposition.",
+        "On découpe la fonctionnalité à travers la stack : schéma et migration, contrat d’API, écrans et leurs états, tests, mise en production. De fines tranches de bout en bout peuvent chacune sortir seule.",
+        "On nomme les inconnues, comme une API tierce ou une migration sur une grosse table. Un spike est une expérience limitée dans le temps qui produit de la connaissance ; son code est généralement jeté.",
+        "On estime par rapport à du travail déjà fait, et on liste revue, QA et monitoring comme items explicites. Une grosse migration a ses propres étapes : ajouter la colonne, backfill par lots, basculer le code, nettoyer.",
+        "Quand ça ne tient pas dans le sprint, on coupe le périmètre, par exemple une première version derrière un feature flag. On ne réduit jamais en douce l’estimation ni les tests."
+      ],
+      "takeaways": [
+        {
+          "term": "Critères d’acceptation",
+          "detail": "S’accorder d’abord sur le résultat : l’estimation d’une fonctionnalité floue n’est qu’une supposition."
+        },
+        {
+          "term": "Tranches",
+          "detail": "Schéma et migration, contrat d’API, écrans et leurs états, tests, mise en production. De fines tranches sortent chacune seule."
+        },
+        {
+          "term": "Spike",
+          "detail": "Une expérience limitée dans le temps pour une inconnue risquée ; elle produit de la connaissance et son code est généralement jeté."
+        },
+        {
+          "term": "Estimation relative",
+          "detail": "Comparer avec du travail déjà fait, et lister revue, QA et monitoring comme items explicites."
+        },
+        {
+          "term": "Étapes d’une grosse migration",
+          "detail": "Ajouter la colonne, backfill par lots, basculer le code, nettoyer."
+        },
+        {
+          "term": "Trop gros pour le sprint",
+          "detail": "Couper le périmètre, comme une première version derrière un feature flag. Ne jamais réduire en douce l’estimation ni les tests."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le produit veut les retours de commande au prochain sprint : un formulaire sur la boutique, un écran dans le back-office et des étiquettes de retour du transporteur. Comment l’estimez-vous en planning ?",
+        "bridge": "Une fonctionnalité qui traverse toutes les couches s’estime en la découpant à travers la stack, en nommant les inconnues et en faisant un spike sur les plus risquées."
+      },
+      {
+        "question": "Votre estimation pour une fonctionnalité ne tient pas dans le sprint, et le product owner vous demande simplement de la baisser. Que faites-vous ?",
+        "bridge": "Le même sujet par son point de pression : quand le travail ne tient pas, on coupe le périmètre, par exemple une première version derrière un flag, jamais l’estimation."
+      }
+    ]
+  },
+  "design-latency-diagnosis": {
+    "topic": "Diagnostiquer un pic de latence",
+    "question": "Comment diagnostiqueriez-vous une application full-stack dont la latence devient soudain élevée en production ?",
+    "answer": "D’abord je délimite : quelles routes, quels percentiles, tous les utilisateurs ou certains, et ce qui a changé à ce moment-là, comme un déploiement, un pic de trafic ou une dépendance. Les percentiles de latence par route me disent où ; une trace d’une requête lente me dit quel span prend le temps : la base, un appel externe, ou une attente avant que le moindre span démarre. Ensuite je suis les preuves : plans de requêtes lents ou pool de connexions saturé, délai de l’event loop si le temps est passé dans Node, tiers lent. J’atténue d’abord, en faisant un rollback ou en coupant un flag, et je corrige la cause racine ensuite, avec une alerte pour la prochaine fois.",
+    "keyPoints": [
+      "Délimiter : quelles routes, quels utilisateurs, depuis quand, ce qui a changé",
+      "Percentiles par route, puis traces pour trouver le span lent",
+      "Vérifier attente du pool, requêtes lentes, délai de l’event loop, dépendances",
+      "Atténuer d’abord (rollback, flag), puis corriger la cause racine"
+    ],
+    "explanation": "C’est une épreuve de debug déguisée : les recruteurs veulent une méthode, pas une liste de suppositions. Les seniors partent de ce qui a changé, utilisent percentiles et traces plutôt que des moyennes, et arrêtent l’hémorragie avant d’aller plus loin dans l’enquête.",
+    "example": "Après un déploiement, le p99 de `GET /orders/:id` est passé de 120 ms à 2 s. Les traces montraient des requêtes qui attendaient avant leur première requête SQL : un nouveau chemin de code appelait l’API du transporteur dans une transaction, gardant une connexion du pool pendant tout l’appel. L’équipe a fait un rollback en quelques minutes, puis a sorti l’appel de la transaction.",
+    "mistakes": [
+      "Regarder la moyenne, qui masque une traîne lente",
+      "Ajouter des réplicas avant de connaître la cause, ce qui ajoute des connexions à un problème lié à la base",
+      "Enquêter une heure avant de faire le rollback du déploiement qui a tout déclenché"
+    ],
+    "followUps": [
+      {
+        "question": "Comment distinguez-vous le temps passé dans Node du temps passé à attendre ?",
+        "answer": "Je surveille le délai de l’event loop, par exemple avec `monitorEventLoopDelay` de `node:perf_hooks` : s’il monte, du travail synchrone bloque le thread, et un profil CPU nomme la fonction. L’attente d’I/O apparaît sous forme de longs spans pour la base ou les appels HTTP."
+      },
+      {
+        "question": "Les utilisateurs disent que la boutique est lente mais l’API a l’air normale. Où regardez-vous ?",
+        "answer": "Les données terrain des vrais utilisateurs, comme le LCP et l’INP de la bibliothèque `web-vitals`, découpées par page. Le temps peut être dans le navigateur, dans le rendu ou le JavaScript, pas dans l’API."
+      },
+      {
+        "question": "Quelles métriques voudriez-vous sur le dashboard pour diagnostiquer ça rapidement ?",
+        "answer": "Par route : débit de requêtes, taux d’erreur et latence p50, p95 et p99, avec des marqueurs de déploiement. Puis les causes : attente du pool et connexions utilisées, délai de l’event loop, CPU et mémoire par pod, requêtes lentes et CPU de la base, et la latence et les erreurs de chaque dépendance, comme le transporteur."
+      },
+      {
+        "question": "Comment distinguez-vous un goulot d’étranglement dans la base d’un problème sur les serveurs applicatifs ?",
+        "answer": "Les traces les départagent. De longs spans de requêtes SQL, avec un CPU de base élevé, des verrous ou de mauvais plans, désignent la base ; des requêtes rapides mais du temps d’attente avant elles désignent le pool. Un délai de l’event loop ou un CPU de pod qui monte alors que les spans SQL restent rapides désignent l’application."
+      },
+      {
+        "question": "Comment feriez-vous un rollback d’un déploiement suspect de façon sûre et rapide ?",
+        "answer": "Avec le levier le plus rapide : couper le feature flag, ou lancer `kubectl rollout undo deployment/orders-api`. Ce n’est sûr que parce que les migrations restent rétrocompatibles, puisqu’un rollout undo ne touche jamais au schéma. Ensuite je surveille le p99 et les erreurs par version pour confirmer que ça a marché."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "La latence moyenne est le meilleur signal pour un problème de latence soudain.",
+        "why": "Les moyennes masquent la traîne ; p95 et p99 par route montrent ce que subissent les utilisateurs les plus lents.",
+        "twin": {
+          "statement": "Pour un problème de latence soudain, p95 et p99 par route sont de meilleurs signaux que la moyenne.",
+          "why": "Les moyennes masquent la traîne ; les hauts percentiles montrent ce que subissent les utilisateurs les plus lents."
+        }
+      },
+      {
+        "statement": "Ajouter des réplicas de l’API peut aggraver un ralentissement lié à la base.",
+        "why": "Chaque réplica apporte ses propres connexions et requêtes à une base qui est déjà le goulot d’étranglement.",
+        "twin": {
+          "statement": "Ajouter des réplicas de l’API soulage toujours un ralentissement, même quand la base est le goulot d’étranglement.",
+          "why": "Chaque réplica apporte ses propres connexions et requêtes à une base qui est déjà le goulot d’étranglement."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Diagnostiquer un pic de latence, c’est le délimiter, localiser la partie lente avec percentiles et traces, et suivre les preuves jusqu’à la cause, en atténuant d’abord l’impact sur les utilisateurs.",
+      "points": [
+        "On délimite d’abord : quelles routes, quels percentiles, quels utilisateurs, depuis quand, et ce qui a changé à ce moment-là, comme un déploiement, un pic de trafic ou une dépendance.",
+        "On utilise des percentiles, pas des moyennes : le p99 est la latence sous laquelle restent 99 % des requêtes, donc il montre la traîne lente qu’une moyenne masque. Une trace d’une requête lente montre ensuite quel span prend le temps.",
+        "Une attente avant la première requête SQL désigne un pool de connexions saturé. Un délai de l’event loop qui monte (`monitorEventLoopDelay` dans `node:perf_hooks`) signifie que du travail synchrone bloque Node. De longs spans HTTP désignent une dépendance.",
+        "On atténue d’abord par un rollback ou en coupant un flag, puis on corrige la cause racine et on ajoute une alerte. Ajouter des réplicas à un problème lié à la base ajoute des connexions et l’aggrave.",
+        "Si l’API a l’air normale mais que les utilisateurs trouvent la boutique lente, on lit les données terrain des vrais utilisateurs, comme le LCP et l’INP de la bibliothèque `web-vitals`, découpées par page."
+      ],
+      "takeaways": [
+        {
+          "term": "Délimiter",
+          "detail": "Quelles routes, quels percentiles, quels utilisateurs, depuis quand, et ce qui a changé : un déploiement, le trafic, une dépendance."
+        },
+        {
+          "term": "p99",
+          "detail": "La latence sous laquelle restent 99 % des requêtes ; elle montre la traîne lente qu’une moyenne masque."
+        },
+        {
+          "term": "Attente avant la 1re requête",
+          "detail": "Désigne un pool de connexions saturé."
+        },
+        {
+          "term": "`monitorEventLoopDelay`",
+          "detail": "Dans `node:perf_hooks` ; un délai de l’event loop qui monte signifie que du travail synchrone bloque Node."
+        },
+        {
+          "term": "Plus de réplicas",
+          "detail": "Sur un problème lié à la base, ils ajoutent des connexions et l’aggravent. Atténuer plutôt par rollback ou flag."
+        },
+        {
+          "term": "Données terrain",
+          "detail": "Si l’API a l’air normale, lire le LCP et l’INP des vrais utilisateurs avec la bibliothèque `web-vitals`, par page."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Juste après un déploiement, le p99 de `GET /orders/:id` passe de 120 ms à 2 s. Décrivez-moi ce que vous vérifiez, dans l’ordre.",
+        "bridge": "Un saut soudain de la latence de traîne se diagnostique en le délimitant, puis en suivant percentiles et traces jusqu’au span lent, et en atténuant d’abord."
+      },
+      {
+        "question": "Pendant un ralentissement, le premier réflexe d’un collègue est de doubler les réplicas de l’API. Pourquoi ça pourrait ne pas aider, et que feriez-vous d’abord ?",
+        "bridge": "Le même sujet par un réflexe : plus de réplicas peut aggraver un ralentissement lié à la base, donc on délimite et on trouve le span lent avant d’agir."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux résument la dernière minute de latences du checkout pour une alerte à 1 seconde. Laquelle se déclenche quand 2 % des clients attendent 3,2 s ?",
+        "why": "Avec 98 % des checkouts à 120 ms et 2 % à 3,2 s, la moyenne est d’environ 180 ms et l’alerte reste muette, alors que le p99, la latence sous laquelle restent 99 % des requêtes, est de 3,2 s. Les percentiles montrent la traîne lente que ressentent les clients ; la moyenne la masque."
+      }
+    ]
+  },
+  "design-approach": {
+    "topic": "Aborder une épreuve de system design",
+    "question": "Comment abordez-vous une question d’entretien de system design ?",
+    "answer": "J’annonce un plan et je le suis : besoins, estimations, API et modèle de données, conception d’ensemble, approfondissements, compromis. Dans les cinq premières minutes, je pose les questions dont les réponses changent la conception : combien d’utilisateurs et à quel rythme, quelles opérations doivent être rapides, à quel point les données peuvent être périmées, et ce qui ne doit jamais arriver. Puis une estimation rapide, écrite, pour décider s’il me faut un cache, une file ou du sharding. Je dessine la conception la plus simple qui tient les chiffres, j’y fais passer une requête, j’approfondis la partie la plus dure, et je formule chaque choix ainsi : je prends X, ça coûte Y, et si Z comptait plus je prendrais W.",
+    "keyPoints": [
+      "Annoncer le plan ; consacrer les premières minutes aux besoins",
+      "Estimations écrites, chacune menant à une décision",
+      "La conception la plus simple qui tient les chiffres ; suivre une requête",
+      "Approfondir la partie la plus dure ; nommer chaque compromis et son coût"
+    ],
+    "explanation": "L’épreuve note le raisonnement plutôt qu’un schéma final, parce qu’il n’existe pas une seule bonne conception. Les recruteurs guettent des besoins et des chiffres qui guident les choix, un candidat qui mène la conversation, et le coût de chaque choix ; un senior conclut aussi en reliant chaque besoin à la partie de la conception qui y répond.",
+    "example": "Invité à concevoir le checkout de vente flash de l’API Orders, un candidat a d’abord validé les besoins : un million de clients dans la première minute, ne jamais vendre l’unité 10 001, ne jamais débiter deux fois. L’estimation, environ 16 700 tentatives par seconde sur une seule ligne de stock, a montré que la difficulté était la contention, pas le stockage : l’approfondissement a donc porté sur un update conditionnel sur le primaire avec un flag « épuisé » dans Valkey, et le sharding n’est jamais venu sur la table.",
+    "mistakes": [
+      "Dessiner des boîtes avant de s’accorder sur les besoins, si bien que personne ne sait à quoi elles servent",
+      "Réciter des chiffres sans en tirer une décision, comme « donc les fiches produit viennent du CDN »",
+      "Ajouter Kafka, un moteur de recherche et des microservices sans nommer le besoin qui exige chacun"
+    ],
+    "followUps": [
+      {
+        "question": "Comment gérez-vous un besoin qu’on ne vous a pas donné ?",
+        "answer": "J’énonce une hypothèse à voix haute et je choisis un défaut raisonnable, par exemple « je suppose qu’un stock vieux d’une seconde convient sur la fiche produit », et je dis comment la conception changerait si c’était faux. Le recruteur peut corriger, et la conception reste liée à des besoins énoncés."
+      },
+      {
+        "question": "Comment priorisez-vous les approfondissements avec un temps limité ?",
+        "answer": "J’approfondis là où les besoins rendent la conception difficile : la ressource disputée ou la règle « ne doit jamais arriver », comme la survente ou le double débit. Je nomme deux candidats, je demande au recruteur lequel il préfère, et je garde le reste au niveau des boîtes avec une phrase chacun."
+      },
+      {
+        "question": "Comment intégrez-vous la sécurité et le coût dans une conception ?",
+        "answer": "Comme des besoins dès le départ. Sécurité : authentification à l’edge, autorisation par objet, rate limiting, secrets dans un gestionnaire, données personnelles minimisées et chiffrées. Coût : les estimations donnent l’ordre de grandeur, je préfère des services managés dimensionnés à la charge, et je nomme la partie coûteuse, comme un cluster de cache."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une épreuve de system design est notée principalement sur la conformité du schéma final à l’architecture attendue.",
+        "why": "Il n’existe pas une seule bonne conception ; c’est le raisonnement, des besoins et chiffres jusqu’aux compromis, qui est noté.",
+        "twin": {
+          "statement": "Une épreuve de system design est notée principalement sur le raisonnement, des besoins et chiffres jusqu’aux compromis.",
+          "why": "Il n’existe pas une seule bonne conception à reproduire ; c’est le raisonnement qui est noté."
+        }
+      },
+      {
+        "statement": "Une estimation de coin de table ne vaut la peine que si elle peut changer une décision.",
+        "why": "Elle sert à décider par exemple s’il faut un cache, une file ou du sharding ; un chiffre qui ne change rien, c’est du temps perdu.",
+        "twin": {
+          "statement": "Une estimation de coin de table vaut la peine d’être faite en entier même quand aucune décision n’en dépend.",
+          "why": "Elle sert à décider par exemple s’il faut un cache, une file ou du sharding ; un chiffre qui ne change rien, c’est du temps perdu."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une épreuve de system design est une conversation de 45 minutes notée sur le raisonnement, pas sur un unique bon schéma. Un plan fixe te garde sur les rails : clarifier, estimer, concevoir, approfondir, et nommer ce que coûte chaque choix.",
+      "points": [
+        "Une épreuve de system design est une conversation de 45 minutes notée sur le raisonnement : clarifier, estimer, concevoir, approfondir, et nommer ce que coûte chaque choix. Il n’y a pas un seul bon schéma.",
+        "Annonce un plan fixe : besoins, estimations, API et modèle de données, conception d’ensemble, approfondissements, puis compromis et conclusion. Suis le recruteur quand il réoriente, et dis où tu en es.",
+        "Les besoins fonctionnels disent ce que fait le système ; les non fonctionnels disent à quel point il le fait bien : latence, disponibilité, cohérence. Demande ce qui ne doit jamais arriver : ce sera l’approfondissement.",
+        "Les estimations traduisent les besoins en requêtes par seconde et en octets : 1 million de requêtes par jour, c’est environ 12 par seconde. Énonce chaque donnée d’entrée comme une hypothèse et transforme chaque chiffre en décision.",
+        "Formule chaque compromis sur un même modèle : « Je choisis X, qui coûte Y ; si Z comptait plus, je choisirais W. » Conclus en reliant chaque besoin à la partie de la conception qui y répond."
+      ],
+      "takeaways": [
+        {
+          "term": "Le plan",
+          "detail": "Besoins, estimations, API et modèle de données, conception d’ensemble, approfondissements, compromis et conclusion."
+        },
+        {
+          "term": "Fonctionnel ou non fonctionnel",
+          "detail": "Ce que fait le système, ou à quel point il le fait bien : latence, disponibilité, cohérence."
+        },
+        {
+          "term": "Ce qui ne doit jamais arriver",
+          "detail": "À demander tôt : la réponse devient l’approfondissement."
+        },
+        {
+          "term": "Estimations",
+          "detail": "1 million de requêtes par jour, c’est environ 12 par seconde. Énoncer les entrées comme hypothèses ; chaque chiffre mène à une décision."
+        },
+        {
+          "term": "Conception la plus simple",
+          "detail": "Dessiner la conception la plus simple qui tient les chiffres et y faire passer une requête."
+        },
+        {
+          "term": "Phrase de compromis",
+          "detail": "« Je choisis X, qui coûte Y ; si Z comptait plus, je choisirais W. »"
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le recruteur dit « Concevez le checkout d’une vente flash » et attend. Que faites-vous dans les cinq premières minutes, et comment menez-vous le reste de l’épreuve ?",
+        "bridge": "Un énoncé ouvert appelle la méthode du system design : besoins, estimations écrites, la conception la plus simple, un approfondissement et des compromis nommés."
+      },
+      {
+        "question": "Un candidat ouvre une épreuve de conception en dessinant Kafka, Redis et dix microservices. Qu’en penserait le recruteur, et qu’aurait dû faire le candidat ?",
+        "bridge": "Le même sujet par une erreur courante : la conception découle des besoins et des chiffres, commence simple, et énonce chaque choix comme un compromis."
+      }
+    ]
+  },
+  "design-cap": {
+    "topic": "CAP et PACELC",
+    "question": "Qu’est-ce que le théorème CAP, et qu’implique-t-il pour les systèmes que vous concevez ?",
+    "answer": "CAP dit que lorsqu’une partition réseau sépare les réplicas d’un stockage, le système doit choisir entre la cohérence, où chaque lecture renvoie la dernière écriture ou une erreur, et la disponibilité, où chaque nœud qui fonctionne répond, éventuellement avec des données périmées. Sans partition, on peut avoir les deux, donc « en choisir deux sur trois » est un contresens. PACELC ajoute le cas quotidien : sinon, sans partition, on arbitre entre latence et cohérence. En pratique, je choisis par fonctionnalité : prendre la dernière unité de stock lit le primaire PostgreSQL et paie la latence, alors que le stock affiché sur une fiche produit peut venir d’un cache vieux d’une seconde.",
+    "keyPoints": [
+      "Une partition force un choix : cohérence ou disponibilité",
+      "Sans partition : les deux sont possibles ; « deux sur trois » est faux",
+      "PACELC : sinon, latence contre cohérence",
+      "Choisir la cohérence par fonctionnalité, avec un exemple concret"
+    ],
+    "explanation": "Les recruteurs la posent pour voir si tu sais ce que CAP contraint réellement ou si tu répètes le slogan « en choisir deux ». Une réponse senior définit précisément les deux termes, fait intervenir PACELC pour le cas normal, et transforme la théorie en décisions par fonctionnalité.",
+    "example": "La boutique affichait « en stock » depuis un cache en retard d’une seconde, ce qui allait bien, mais une première version laissait aussi `POST /orders` décider à partir de ce cache, et la boutique a survendu une console pendant des soldes. La décision est passée à un update conditionnel sur le primaire PostgreSQL, tandis que les fiches produit continuaient de lire le cache.",
+    "mistakes": [
+      "Dire qu’un système « choisit deux sur trois » en permanence, alors que CAP ne contraint le comportement que pendant une partition",
+      "Choisir un seul niveau de cohérence pour tout un système au lieu de le faire par fonctionnalité",
+      "Décider de l’argent ou du stock depuis un réplica ou un cache parce que les lectures y sont plus rapides"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce que la cohérence à terme, et comment les applications la gèrent-elles ?",
+        "answer": "Les réplicas peuvent diverger un temps mais convergent quand les écritures cessent. Les apps s’en accommodent en lisant sur le primaire les écritures d’un client peu après un changement, en affichant un état en attente comme « paiement en cours » jusqu’à ce que l’événement arrive, en rendant les consommateurs idempotents, et en ne décidant jamais de l’argent ou du stock depuis une copie périmée."
+      },
+      {
+        "question": "En quoi PACELC étend-il CAP ?",
+        "answer": "Le PACELC de Daniel Abadi se lit : s’il y a une Partition, choisir Availability ou Consistency ; Else, choisir Latency ou Consistency. Les partitions sont rares, mais l’arbitrage de latence se paie à chaque requête : attendre un réplica dans une autre région avant d’acquitter une écriture, c’est cohérent et plus lent."
+      },
+      {
+        "question": "Donnez un exemple de système qui choisit CP plutôt qu’AP, et pourquoi.",
+        "answer": "etcd, qui contient l’état du cluster Kubernetes : lors d’une partition, sa doc dit que le côté majoritaire reste disponible et que le côté minoritaire devient indisponible. Deux côtés qui acceptent des écritures donneraient deux états de cluster contradictoires. Notre checkout fait le même choix : sans le primaire, il échoue plutôt que de vendre depuis un réplica."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "CAP dit qu’un système distribué ne peut jamais avoir que deux des trois propriétés : cohérence, disponibilité et tolérance au partitionnement.",
+        "why": "Il ne contraint le comportement que pendant une partition ; sans partition, un système peut être à la fois cohérent et disponible.",
+        "twin": {
+          "statement": "Sans partition réseau, un système distribué peut être à la fois cohérent et disponible.",
+          "why": "CAP ne contraint le comportement que pendant une partition."
+        }
+      },
+      {
+        "statement": "Un stockage qui attend un réplica distant avant d’acquitter chaque écriture échange de la latence contre de la cohérence, même sans partition.",
+        "why": "C’est la branche « Else » de PACELC : chaque écriture paie un aller-retour inter-région pour rester cohérente.",
+        "twin": {
+          "statement": "Un stockage qui attend un réplica distant avant d’acquitter chaque écriture n’ajoute aucune latence en l’absence de partition.",
+          "why": "C’est la branche « Else » de PACELC : chaque écriture paie un aller-retour inter-région pour rester cohérente."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "CAP et PACELC décrivent les compromis d’un stockage de données répliqué : ce qu’il sacrifie pendant une partition réseau, et ce qu’il arbitre sinon à chaque requête. Ils guident le choix des lectures qui doivent être cohérentes.",
+      "points": [
+        "Une partition réseau coupe la communication entre les réplicas d’un stockage. CAP, démontré par Gilbert et Lynch en 2002, dit que pendant une partition un système doit choisir entre cohérence et disponibilité.",
+        "Dans CAP, la cohérence signifie que chaque lecture renvoie la dernière écriture ou une erreur. La disponibilité signifie que chaque requête vers un nœud qui fonctionne reçoit une réponse sans erreur, éventuellement périmée.",
+        "Sans partition, les deux sont possibles, donc « en choisir deux sur trois » est un contresens. PACELC, de Daniel Abadi, ajoute : Else, choisir Latency ou Consistency, un arbitrage payé à chaque requête.",
+        "La cohérence à terme signifie que les réplicas peuvent diverger un moment mais convergent une fois les écritures arrêtées. Les apps s’en accommodent avec la lecture de ses propres écritures sur le primaire, des états en attente et des consommateurs idempotents.",
+        "On choisit par fonctionnalité : vendre la dernière unité se décide sur le primaire et échoue s’il est injoignable ; le stock affiché sur une fiche produit peut venir d’un cache vieux d’une seconde."
+      ],
+      "takeaways": [
+        {
+          "term": "Partition réseau",
+          "detail": "La communication entre réplicas est coupée. CAP, démontré par Gilbert et Lynch en 2002, impose alors un choix."
+        },
+        {
+          "term": "Cohérence (CAP)",
+          "detail": "Chaque lecture renvoie la dernière écriture ou une erreur."
+        },
+        {
+          "term": "Disponibilité (CAP)",
+          "detail": "Chaque requête vers un nœud qui fonctionne reçoit une réponse sans erreur, éventuellement périmée."
+        },
+        {
+          "term": "« Deux sur trois »",
+          "detail": "Un contresens : sans partition, cohérence et disponibilité sont toutes deux possibles."
+        },
+        {
+          "term": "PACELC",
+          "detail": "De Daniel Abadi : sinon, sans partition, choisir latence ou cohérence, un arbitrage payé à chaque requête."
+        },
+        {
+          "term": "Cohérence à terme",
+          "detail": "Les réplicas divergent mais convergent une fois les écritures arrêtées. Choisir par fonctionnalité : la dernière unité se vend sur le primaire."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Pendant des soldes, la boutique a survendu une console parce que `POST /orders` décidait à partir d’un cache en retard d’une seconde sur la base. Qu’est-ce que ça dit de la cohérence, et comment trancheriez-vous ?",
+        "bridge": "Des données périmées là où seule la dernière valeur est sûre, c’est un choix de cohérence fait par fonctionnalité : le versant pratique de CAP et PACELC."
+      },
+      {
+        "question": "Un collègue dit que CAP signifie qu’on ne peut en choisir que deux sur trois, donc on a choisi la disponibilité partout. Qu’est-ce qui ne va pas ?",
+        "bridge": "Le même sujet par son contresens courant : CAP contraint le comportement pendant une partition, PACELC couvre le cas normal, et le choix se fait par fonctionnalité."
+      }
+    ]
+  },
+  "design-rate-limiter": {
+    "topic": "Conception d’un rate limiter",
+    "question": "Comment concevriez-vous un service de rate limiting autonome ?",
+    "answer": "D’abord les besoins : des limites par clé d’API, client ou IP, quelques millisecondes de latence ajoutée au maximum, un comportement correct sur tous les réplicas, et une réponse claire aux clients refusés. J’utiliserais un token bucket, qui autorise une rafale jusqu’à sa capacité puis un débit de remplissage régulier, avec l’état de chaque clé dans Redis ou Valkey. La lecture, le remplissage et l’écriture doivent être atomiques, donc ils tournent dans un seul script Lua qui lit aussi l’horloge de Redis. La gateway l’appelle à chaque requête et répond 429 avec un `Retry-After` arrondi au-dessus. Si Redis tombe, le limiter laisse passer, sauf pour les limites de sécurité comme les tentatives de connexion, qui bloquent.",
+    "keyPoints": [
+      "Besoins : clés, limites, budget de latence, correct sur tous les réplicas",
+      "Token bucket : une rafale jusqu’à la capacité, puis le débit de remplissage",
+      "État partagé dans Redis, mis à jour atomiquement par un script Lua",
+      "429 avec `Retry-After` ; fail open sauf pour les limites de sécurité"
+    ],
+    "explanation": "C’est une question de conception compacte qui teste les algorithmes, les mises à jour atomiques dans un stockage partagé et le comportement en cas de panne. Un senior compare fenêtre fixe, fenêtre glissante et token bucket, repère la race condition entre réplicas, et décide de ce qui se passe quand le limiter lui-même est en panne.",
+    "example": "À l’ouverture des soldes, des scripts envoyaient des milliers de tentatives de checkout par seconde depuis quelques comptes. Un token bucket par client et par IP dans Valkey, exécuté comme un seul script Lua dans le premier middleware de l’API Orders, les a transformées en 429 peu coûteuses ; la première version en mémoire avait laissé passer chaque client dix fois, une fois par réplica.",
+    "mistakes": [
+      "Garder les compteurs dans la mémoire de chaque réplica, si bien que la limite réelle est multipliée par le nombre de réplicas",
+      "Lire le compteur et l’écrire en deux commandes, si bien que deux réplicas prennent tous deux le dernier jeton",
+      "Choisir une fenêtre fixe sans dire qu’un client peut envoyer deux fois la limite autour de la frontière"
+    ],
+    "followUps": [
+      {
+        "question": "Comment ça fonctionnerait sur plusieurs data centers ?",
+        "answer": "Je garde un Redis par région et je donne à chaque région une part de la limite globale, pour qu’une requête n’attende jamais un appel inter-région. Si la limite doit être globale, les régions synchronisent leurs compteurs en asynchrone et acceptent un léger dépassement ; une limite globale exacte imposerait un aller-retour inter-région à chaque requête."
+      },
+      {
+        "question": "Comment l’API doit-elle se dégrader si le stockage Redis tombe ?",
+        "answer": "L’appel à Redis a un timeout court et le limiter laisse passer, avec un log et une alerte, pour qu’une panne du limiter ne fasse pas tomber le checkout. Un bucket en mémoire par pod, à la limite divisée par le nombre de pods, garde une protection approximative en attendant. Les limites de connexion et de réinitialisation de mot de passe, elles, bloquent."
+      },
+      {
+        "question": "Comment appliqueriez-vous des limites différentes aux offres gratuite et payante ?",
+        "answer": "Les limites viennent de l’offre de la clé d’API : chaque offre fixe la capacité et le débit de remplissage du bucket, chargés depuis la configuration, mis en cache et passés au script en arguments. Les réponses indiquent aux clients ce qu’il leur reste, et les quotas à long terme, comme les appels par mois, sont comptés à part des débits par seconde."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un compteur à fenêtre fixe peut laisser un client envoyer jusqu’à deux fois la limite sur un court laps de temps autour de la frontière de la fenêtre.",
+        "why": "Le compteur se remet à zéro à la frontière, donc une rafale complète juste avant et une autre juste après passent toutes les deux.",
+        "twin": {
+          "statement": "Un compteur à fenêtre fixe ne laisse jamais un client dépasser sa limite sur un court laps de temps.",
+          "why": "Le compteur se remet à zéro à la frontière, donc une rafale complète juste avant et une autre juste après passent toutes les deux : jusqu’à deux fois la limite."
+        }
+      },
+      {
+        "statement": "Avec plusieurs réplicas de l’API, un token bucket en mémoire dans chaque réplica fait respecter la limite configurée.",
+        "why": "Chaque réplica compte de son côté, donc un client réparti sur 10 réplicas obtient jusqu’à 10 fois la limite.",
+        "twin": {
+          "statement": "Avec plusieurs réplicas de l’API, un token bucket en mémoire dans chaque réplica laisse un client dépasser la limite configurée.",
+          "why": "Chaque réplica compte de son côté, donc un client réparti sur 10 réplicas obtient jusqu’à 10 fois la limite."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un rate limiter plafonne le nombre de requêtes que chaque clé, comme une clé d’API, un client ou une IP, peut faire dans le temps, et refuse l’excédent à moindre coût. Il doit être rapide et correct sur tous les réplicas.",
+      "points": [
+        "Un rate limiter plafonne le nombre de requêtes que chaque clé (une clé d’API, un client, une IP) peut faire dans le temps, et refuse l’excédent à moindre coût avec un 429 Too Many Requests et un en-tête `Retry-After`.",
+        "Une fenêtre fixe remet un compteur à zéro chaque minute, donc un client peut doubler la limite autour de la frontière. Un compteur à fenêtre glissante pondère la fenêtre précédente pour approcher une limite glissante.",
+        "Un token bucket contient jusqu’à `capacity` jetons et se remplit à débit régulier ; chaque requête en prend un. Il autorise de courtes rafales, et Stripe documente son utilisation.",
+        "Entre réplicas, l’état vit dans un seul Redis ou Valkey, et lecture-remplissage-écriture doit être atomique : un script Lua s’exécute atomiquement, donc deux réplicas ne prennent jamais tous deux le dernier jeton.",
+        "On décide du mode de panne : fail open quand Redis est en panne, pour que le limiter ne puisse pas arrêter la boutique, mais fail closed pour les limites de sécurité comme les tentatives de connexion."
+      ],
+      "takeaways": [
+        {
+          "term": "429 et `Retry-After`",
+          "detail": "La réponse à une requête refusée : 429 Too Many Requests avec un en-tête `Retry-After`, arrondi au-dessus."
+        },
+        {
+          "term": "Fenêtre fixe",
+          "detail": "Remet un compteur à zéro chaque minute, donc un client peut doubler la limite autour de la frontière."
+        },
+        {
+          "term": "Fenêtre glissante",
+          "detail": "Pondère la fenêtre précédente pour approcher une limite glissante."
+        },
+        {
+          "term": "Token bucket",
+          "detail": "Jusqu’à `capacity` jetons, remplis à débit régulier, un par requête : autorise de courtes rafales. Stripe documente son utilisation."
+        },
+        {
+          "term": "Script Lua atomique",
+          "detail": "État dans un seul Redis ou Valkey ; lecture-remplissage-écriture en un script, donc deux réplicas ne prennent jamais le dernier jeton."
+        },
+        {
+          "term": "Mode de panne",
+          "detail": "Fail open quand Redis est en panne, mais fail closed pour les limites de sécurité comme les tentatives de connexion."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "À l’ouverture des soldes, des scripts envoient des milliers de tentatives de checkout par seconde depuis quelques comptes, et la première limite en mémoire a laissé passer chaque client dix fois. Comment concevriez-vous le rate limiting ?",
+        "bridge": "Des rafales abusives et une limite multipliée par les réplicas appellent un rate limiter partagé : un token bucket dans Redis, mis à jour atomiquement."
+      },
+      {
+        "question": "Que doit-il se passer quand le Redis derrière votre rate limiter tombe, et que doit recevoir un client refusé ?",
+        "bridge": "Le même sujet par ses cas limites : les clients refusés reçoivent une 429 avec `Retry-After`, et le limiter laisse passer sauf pour les limites de sécurité comme les tentatives de connexion."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux autorisent 100 requêtes par minute et par clé d’API, avec le compteur dans un Redis partagé par 6 réplicas. Laquelle ne laisse jamais passer de requêtes en trop ?",
+        "why": "`INCR` lit et incrémente en une seule étape atomique, donc deux réplicas n’obtiennent jamais le même compte. Avec `GET` puis `SET`, les réplicas qui lisent 99 au même moment passent tous et écrivent tous 100 : des incréments sont perdus, et une rafale fait passer bien plus de 100 requêtes."
+      }
+    ]
+  },
+  "design-million-users": {
+    "topic": "Concevoir pour un million d’utilisateurs",
+    "question": "Comment concevriez-vous un système pour 1 million d’utilisateurs simultanés ?",
+    "answer": "D’abord je demande ce que veut dire simultané : un million de sessions ouvertes, ce n’est pas un million de requêtes par seconde. Si chaque utilisateur fait une requête toutes les 30 secondes, ça fait environ 33 000 par seconde, plus le pic, et c’est pour ça que je conçois. Le contenu public passe par un CDN. Des réplicas d’API sans état s’autoscalent derrière un load balancer, avec les sessions dans Redis. Les lectures chaudes viennent d’un cache ; PostgreSQL prend les écritures sur un primaire, avec des réplicas en lecture et un pooler ; le travail lent part dans des files. Si les utilisateurs gardent des connexions ouvertes, les sockets se répartissent sur de nombreux pods, avec du pub/sub entre eux. Puis un test de charge trouve le premier goulot d’étranglement.",
+    "keyPoints": [
+      "Clarifier « simultané » : sessions ouvertes ou requêtes par seconde",
+      "Estimer : une requête par 30 s chacun, c’est environ 33 000 par seconde",
+      "CDN, API sans état autoscalée, sessions et données chaudes dans Redis",
+      "Protéger la base ; test de charge pour trouver le premier goulot"
+    ],
+    "explanation": "Le chiffre fait peur exprès : les recruteurs vérifient si tu le transformes en débit de requêtes avant de sortir des outils exotiques. Une réponse senior empile d’abord les composants peu coûteux, protège la base, et prévoit le pic plutôt que la moyenne.",
+    "example": "Avant le Black Friday, la boutique attendait environ un million de clients en même temps sur le site. Les fiches produit venaient du CDN, l’API Orders est passée de 6 à 40 pods derrière PgBouncer, et un test de charge à deux fois la prévision a montré que la ligne de stock du produit phare était le premier goulot d’étranglement, corrigé avant le jour J par un flag « épuisé » dans Valkey.",
+    "mistakes": [
+      "Traiter un million d’utilisateurs simultanés comme un million de requêtes par seconde",
+      "Scaler la couche API sans compter les connexions à la base qu’elle ouvre",
+      "Se fier au seul autoscaler pour un pic connu, alors que les nouveaux pods mettent du temps à démarrer"
+    ],
+    "followUps": [
+      {
+        "question": "Où est le goulot d’étranglement probable, et comment le trouveriez-vous ?",
+        "answer": "En général la base : limites de connexions, ligne chaude ou requête lente, puisque les couches sans état scalent en ajoutant des pods. Je le trouve avec un test de charge au niveau du pic attendu et au-delà, en lisant le p99 par route, les traces, l’attente du pool et le CPU de la base pour voir quel composant sature en premier."
+      },
+      {
+        "question": "Comment géreriez-vous un pic de trafic soudain de x10 ?",
+        "answer": "J’absorbe ce que je peux au niveau du CDN et des caches, je pré-scale pour les événements connus puisque l’autoscaling a du retard, et je protège le cœur avec du rate limiting et une salle d’attente qui fait entrer les utilisateurs à débit fixe. Les fonctionnalités non essentielles comme les recommandations se dégradent en premier, et le travail lent part dans des files."
+      },
+      {
+        "question": "Comment gardez-vous des sessions cohérentes sur des serveurs sans état ?",
+        "answer": "Les serveurs ne gardent rien entre les requêtes : le cookie porte un id de session et la session vit dans Redis, donc n’importe quel réplica peut servir la requête suivante sans sessions sticky. Les tokens signés sont l’alternative, mais ils sont difficiles à révoquer avant leur expiration."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un million d’utilisateurs simultanés signifie que le backend doit traiter un million de requêtes par seconde.",
+        "why": "Les utilisateurs simultanés sont surtout inactifs entre deux actions ; à une requête toutes les 30 secondes chacun, ça fait environ 33 000 par seconde.",
+        "twin": {
+          "statement": "Un million d’utilisateurs simultanés qui font chacun une requête toutes les 30 secondes envoient environ 33 000 requêtes par seconde.",
+          "why": "Les utilisateurs simultanés sont surtout inactifs entre deux actions : un million divisé par 30, c’est environ 33 000."
+        }
+      },
+      {
+        "statement": "Garder les sessions dans un stockage partagé permet à n’importe quel réplica sans état de servir la requête suivante de n’importe quel utilisateur.",
+        "why": "Aucun réplica ne garde la session en mémoire, donc le load balancer peut envoyer chaque requête n’importe où.",
+        "twin": {
+          "statement": "Avec les sessions dans un stockage partagé, chaque utilisateur doit quand même rester collé au réplica qui a créé sa session.",
+          "why": "Aucun réplica ne garde la session en mémoire, donc le load balancer peut envoyer chaque requête n’importe où."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Concevoir pour un million d’utilisateurs commence par traduire les utilisateurs en requêtes par seconde, puis par placer chaque tâche là où elle coûte le moins et protéger la base, qui scale en dernier.",
+      "points": [
+        "Des utilisateurs simultanés ne sont pas des requêtes par seconde : un million d’utilisateurs qui agissent chacun toutes les 30 secondes font environ 33 000 requêtes par seconde. On conçoit pour ce débit et son pic.",
+        "On place chaque tâche là où elle coûte le moins : un CDN pour les pages statiques et publiques, des réplicas d’API sans état qui s’autoscalent derrière un load balancer, sessions et données chaudes dans Redis.",
+        "La base scale en dernier : un pooler comme PgBouncer plafonne les connexions, les réplicas en lecture prennent les lectures, un primaire prend les écritures, et le sharding ne vient que quand les chiffres l’exigent.",
+        "Le travail lent, comme les e-mails ou les exports, part dans des files pour que les requêtes restent courtes. Les connexions ouvertes, s’il y en a, se répartissent sur de nombreux pods, avec du pub/sub pour atteindre le bon.",
+        "On trouve le premier goulot d’étranglement avec un test de charge au-dessus du pic attendu, et on pré-scale pour les événements connus : l’autoscaling réagit, mais les nouveaux pods mettent du temps à démarrer."
+      ],
+      "takeaways": [
+        {
+          "term": "Utilisateurs simultanés ou RPS",
+          "detail": "Un million d’utilisateurs qui agissent toutes les 30 secondes font environ 33 000 requêtes par seconde. Concevoir pour ça et son pic."
+        },
+        {
+          "term": "CDN",
+          "detail": "Sert les pages statiques et publiques."
+        },
+        {
+          "term": "API sans état",
+          "detail": "Les réplicas s’autoscalent derrière un load balancer, avec sessions et données chaudes dans Redis."
+        },
+        {
+          "term": "La base en dernier",
+          "detail": "Un pooler comme PgBouncer plafonne les connexions, réplicas en lecture pour les lectures, un primaire écrit, sharding seulement si nécessaire."
+        },
+        {
+          "term": "Files et connexions ouvertes",
+          "detail": "Le travail lent comme les e-mails part en file ; les sockets se répartissent sur les pods, avec pub/sub pour atteindre le bon."
+        },
+        {
+          "term": "Test de charge et pré-scaling",
+          "detail": "Tester au-dessus du pic attendu ; pré-scaler pour les événements connus, car les nouveaux pods mettent du temps à démarrer."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le marketing attend environ un million de clients en même temps sur la boutique pour le Black Friday. Comment préparez-vous le système, et pour quel chiffre concevez-vous ?",
+        "bridge": "Un million d’utilisateurs simultanés doit d’abord devenir des requêtes par seconde ; viennent ensuite le CDN, une API sans état autoscalée, des caches et une base protégée."
+      },
+      {
+        "question": "Un collègue lit un million d’utilisateurs simultanés comme un million de requêtes par seconde et propose de sharder PostgreSQL. Que lui répondez-vous ?",
+        "bridge": "Le même sujet par son premier piège : les sessions simultanées sont surtout inactives, donc on estime le vrai débit de requêtes avant de choisir l’architecture."
+      }
+    ]
+  },
+  "design-exactly-once": {
+    "topic": "Traitement exactly-once",
+    "question": "Comment garantiriez-vous un traitement exactly-once des messages d’une file ?",
+    "answer": "La livraison exactly-once n’existe pas sur un réseau, donc je construis à la place des effets exactly-once. La file livre au moins une fois : le consommateur n’acquitte qu’après le travail, donc un crash entraîne une relivraison, jamais une perte. Ensuite le consommateur est idempotent. Certains effets sont idempotents par nature, comme passer le statut d’une commande à `paid`. Pour les autres, j’insère l’id du message dans une table des messages traités, dans la même transaction que l’effet, et la clé primaire rejette un doublon. Côté producteur, un outbox transactionnel garantit que l’événement est bien publié. Les messages qui échouent sans cesse partent dans une dead letter queue avec une alerte.",
+    "keyPoints": [
+      "Pas de livraison exactly-once ; construire des effets exactly-once",
+      "At-least-once : n’acquitter qu’après le travail",
+      "Id du message et effet dans une transaction ; la clé rejette les répétitions",
+      "Outbox côté producteur, dead letter queue pour les messages empoisonnés"
+    ],
+    "explanation": "La question vérifie que tu connais les garanties de livraison et que tu refuses la promesse exactly-once sans renoncer à la justesse. Les seniors placent la déduplication dans la même transaction que l’effet et savent quoi faire quand l’effet vit hors de leur base.",
+    "example": "Le service de fidélité consommait `order.paid` depuis SQS et a une fois crédité deux fois les points d’un client : le consommateur a planté après les avoir ajoutés mais avant de supprimer le message. Enregistrer l’id du message dans `processed_messages` dans la même transaction que les points a réglé le problème ; dans le test, trois livraisons laissaient le solde à 42 points, pas 126.",
+    "mistakes": [
+      "Vérifier avec un `SELECT` avant d’insérer, ce qui laisse passer deux livraisons concurrentes",
+      "Enregistrer l’id dans sa propre transaction avant l’effet, si bien qu’un effet échoué n’est jamais relancé",
+      "Acquitter avant le travail, ce qui transforme silencieusement la file en at-most-once"
+    ],
+    "followUps": [
+      {
+        "question": "At-least-once, at-most-once ou exactly-once : quelle est la différence ?",
+        "answer": "At-most-once acquitte avant le travail : pas de doublons, mais un crash perd le message. At-least-once acquitte après : rien n’est perdu, mais des doublons arrivent ; c’est la norme. L’exactly-once n’existe qu’à l’intérieur d’un seul système, comme Kafka entre topics ; vers votre base, on l’obtient avec de l’at-least-once plus de l’idempotence."
+      },
+      {
+        "question": "Comment empêchez-vous le stockage de déduplication de devenir un goulot d’étranglement ?",
+        "answer": "Je le garde à côté de l’effet, dans la même base et le même shard, pour qu’il n’ajoute qu’une insertion indexée à une transaction qui tourne de toute façon. Je ne garde les ids que tant que des relivraisons peuvent arriver, puis je supprime les vieilles lignes par lots, et je préfère les effets naturellement idempotents, comme un upsert par id de commande."
+      },
+      {
+        "question": "Et si le consommateur plante après le traitement mais avant de l’enregistrer ?",
+        "answer": "C’est pour ça que l’id et l’effet sont commités dans une seule transaction : un crash avant le commit annule les deux, et la relivraison traite le message proprement. Quand l’effet est hors de la base, comme un e-mail, je passe l’id du message comme clé d’idempotence au fournisseur, ou j’accepte un doublon rare."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le support exactly-once de Kafka garantit aussi des effets exactly-once dans votre base PostgreSQL.",
+        "why": "Il couvre le lecture-traitement-écriture entre topics Kafka ; les autres systèmes ont besoin de leur propre idempotence.",
+        "twin": {
+          "statement": "Le support exactly-once de Kafka ne couvre pas les effets dans votre base PostgreSQL.",
+          "why": "Il couvre le lecture-traitement-écriture entre topics Kafka ; les autres systèmes ont besoin de leur propre idempotence."
+        }
+      },
+      {
+        "statement": "N’acquitter un message qu’une fois le travail fait donne une livraison at-least-once.",
+        "why": "Un crash avant l’acquittement fait relivrer le message par le broker, donc rien n’est perdu mais des doublons arrivent.",
+        "twin": {
+          "statement": "N’acquitter un message qu’une fois le travail fait donne une livraison at-most-once.",
+          "why": "Un crash avant l’acquittement fait relivrer le message par le broker : rien n’est perdu mais des doublons arrivent, c’est de l’at-least-once."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "La livraison exactly-once n’existe pas sur un réseau, donc les systèmes construisent à la place des effets exactly-once : une livraison at-least-once plus un consommateur idempotent qui n’applique chaque message qu’une fois.",
+      "points": [
+        "At-most-once acquitte avant le travail, donc un crash perd le message. At-least-once acquitte après, donc un crash entraîne une relivraison. Les files comme SQS sont at-least-once.",
+        "La livraison exactly-once n’existe pas vers ta propre base ou un fournisseur d’e-mails ; l’exactly-once de Kafka couvre le traitement entre topics Kafka. On construit à la place des effets exactly-once.",
+        "Un consommateur idempotent donne le même résultat pour une livraison ou cinq. On insère l’id du message et on applique l’effet dans une seule transaction, comme ci-dessous ; la clé primaire rejette les répétitions.",
+        "Ne vérifie pas d’abord avec un `SELECT` : deux livraisons concurrentes ne voient rien toutes les deux. N’enregistre pas l’id dans une transaction séparée : un effet échoué ne serait jamais relancé.",
+        "Un message qui échoue à chaque fois part dans une dead letter queue (DLQ). Elle n’est utile qu’avec une alerte et un runbook pour corriger et rejouer les messages."
+      ],
+      "takeaways": [
+        {
+          "term": "At-most-once",
+          "detail": "Acquitter avant le travail : un crash perd le message."
+        },
+        {
+          "term": "At-least-once",
+          "detail": "Acquitter après le travail : un crash entraîne une relivraison. SQS est at-least-once."
+        },
+        {
+          "term": "Exactly-once de Kafka",
+          "detail": "Couvre le traitement entre topics Kafka, pas ta propre base ni un fournisseur d’e-mails."
+        },
+        {
+          "term": "Consommateur idempotent",
+          "detail": "Insérer l’id du message et appliquer l’effet dans une transaction ; la clé primaire rejette les répétitions."
+        },
+        {
+          "term": "Anti-patterns",
+          "detail": "Un `SELECT` préalable crée une race ; enregistrer l’id dans une transaction séparée empêche de relancer un effet échoué."
+        },
+        {
+          "term": "Dead letter queue",
+          "detail": "Pour les messages qui échouent à chaque fois ; utile seulement avec une alerte et un runbook pour corriger et rejouer."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le service de fidélité a crédité deux fois les points d’un client : il a planté après les avoir ajoutés mais avant de supprimer le message SQS. Comment rendriez-vous le traitement sûr ?",
+        "bridge": "Une relivraison après un crash, c’est la livraison at-least-once : les effets exactly-once viennent d’un consommateur qui enregistre l’id du message avec l’effet."
+      },
+      {
+        "question": "Un collègue dit que l’équipe est passée à un broker à livraison exactly-once, donc les doublons sont réglés. Que lui répondez-vous ?",
+        "bridge": "Le même sujet par une idée reçue : la livraison sur un réseau est at-least-once, donc l’exactly-once se construit en effets, avec de l’idempotence dans le consommateur."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux créditent des points de fidélité pour un message `order.paid` qui peut être livré plus d’une fois. Laquelle les crédite exactement une fois ?",
+        "why": "L’id du message et les points sont commités dans une seule transaction : si `addPoints` échoue, les deux sont annulés et le message relivré est appliqué. Dans l’autre version, l’id est commité seul d’abord ; quand `addPoints` part ensuite en timeout, la relivraison trouve l’id, saute le message comme doublon, et le client ne reçoit jamais ses points."
+      }
+    ]
+  },
+  "design-leaderboard": {
+    "topic": "Classement en temps réel",
+    "question": "Comment concevriez-vous un classement en temps réel pour des millions de joueurs ?",
+    "answer": "Je clarifie quels classements existent, global, hebdomadaire ou par région, à quel point ils doivent être frais, et si les joueurs ont besoin de leur propre rang ou seulement du top 100. Le cœur, c’est un sorted set Redis : les membres sont les ids des joueurs, les scores sont les points, et il reste trié, donc mettre à jour un score avec `ZADD`, lire un rang avec `ZREVRANK` et le top 100 avec `ZRANGE` et `REV` sont tous logarithmiques en nombre de joueurs, plus les lignes renvoyées. PostgreSQL reste la source de vérité : chaque changement de score est commité avec un événement d’outbox, un consommateur l’applique au sorted set, et le set peut toujours être reconstruit depuis la table.",
+    "keyPoints": [
+      "Clarifier les classements, la fraîcheur, top N ou rang personnel",
+      "Sorted set Redis : `ZADD`, `ZREVRANK`, `ZRANGE` avec `REV`",
+      "Opérations en O(log N), donc des millions de joueurs restent rapides",
+      "La base comme source de vérité ; le set alimenté par événements, reconstructible"
+    ],
+    "explanation": "Calculer un rang en SQL sur des millions de lignes qui changent sans arrêt ne tient pas, donc les recruteurs attendent le sorted set et sa complexité. Les seniors traitent aussi les ex aequo, les classements segmentés et ce qui se passe quand Redis perd les données.",
+    "example": "Le jeu de fidélité de la boutique donnait des points pour les achats et les avis, et « ton rang » exécutait `SELECT count(*) FROM players WHERE points > $1` sur 3 millions de lignes, environ une seconde au pic. Un sorted set Redis par classement hebdomadaire, alimenté par l’outbox, répond désormais depuis la mémoire, et un job nocturne compare des échantillons avec PostgreSQL et reconstruit le set s’ils diffèrent.",
+    "mistakes": [
+      "Calculer un rang avec `COUNT(*)` ou `OFFSET` dans la base à chaque affichage de page",
+      "Faire du sorted set la seule copie des scores, si bien que perdre Redis fait perdre le jeu",
+      "Ignorer les ex aequo, si bien que les joueurs à égalité sont classés par leur id"
+    ],
+    "followUps": [
+      {
+        "question": "Comment classeriez-vous des joueurs qui ont le même score ?",
+        "answer": "Redis ordonne les scores égaux par membre, octet par octet, ce qui est arbitraire pour des joueurs. Pour classer plus haut celui qui est arrivé en premier, j’intègre le temps au score : les points fois un milliard, plus un milliard moins les secondes écoulées depuis le début de la saison. Ça reste un entier exact sous 2^53 jusqu’à environ 9 millions de points."
+      },
+      {
+        "question": "Comment segmenteriez-vous les classements par région ou par mode ?",
+        "answer": "Un sorted set par classement, avec le segment dans la clé, comme `lb:weekly:2026-45:fr` ou `lb:mode:duel`. Un changement de score met à jour chaque classement du joueur, dans un seul pipeline ou script Lua. Les clés hebdomadaires reçoivent une expiration une fois archivées, et dans Redis Cluster chaque clé vit sur un shard, donc les classements se répartissent."
+      },
+      {
+        "question": "Comment garderiez-vous la base synchronisée avec le sorted set ?",
+        "answer": "PostgreSQL est la source de vérité : le changement de score et un événement d’outbox sont commités ensemble, et un consommateur l’applique avec `ZADD` et `GT`, qui ne fait qu’augmenter un score, donc un événement répété ou en retard est inoffensif. Un job périodique compare des échantillons, et si Redis est perdu, le set est reconstruit depuis la table."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans un sorted set Redis, les membres de même score sont ordonnés lexicographiquement par membre.",
+        "why": "La doc Redis dit que les scores égaux sont ordonnés par les octets du membre, donc les ex aequo demandent une règle explicite quand l’ordre compte.",
+        "twin": {
+          "statement": "Dans un sorted set Redis, les membres de même score gardent leur ordre d’ajout.",
+          "why": "La doc Redis dit que les scores égaux sont ordonnés lexicographiquement par membre, donc les ex aequo demandent une règle explicite quand l’ordre compte."
+        }
+      },
+      {
+        "statement": "Obtenir le rang d’un joueur dans un sorted set Redis demande de parcourir tous ses membres.",
+        "why": "Un sorted set s’appuie sur une skip list, donc `ZRANK` et `ZREVRANK` s’exécutent en O(log N).",
+        "twin": {
+          "statement": "Obtenir le rang d’un joueur dans un sorted set Redis prend O(log N), sans parcourir les membres.",
+          "why": "Un sorted set s’appuie sur une skip list, donc `ZRANK` et `ZREVRANK` s’exécutent en O(log N)."
+        }
+      },
+      {
+        "statement": "Le score d’un sorted set Redis peut contenir exactement n’importe quel entier 64 bits.",
+        "why": "Les scores sont des doubles 64 bits, exacts seulement pour les entiers entre -(2^53) et 2^53.",
+        "twin": {
+          "statement": "Le score d’un sorted set Redis ne contient exactement les entiers qu’entre -(2^53) et 2^53.",
+          "why": "Les scores sont des doubles 64 bits, donc les entiers plus grands perdent en précision."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un classement en temps réel classe des millions de joueurs et répond vite aux requêtes de top N et de rang personnel. Un sorted set Redis fait le classement, alimenté par des événements venant de la base, qui reste la source de vérité.",
+      "points": [
+        "Un sorted set Redis stocke des membres uniques, chacun avec un score numérique, triés par score. Redis utilise une skip list plus une table de hachage, donc mises à jour et recherches de rang prennent O(log N).",
+        "`ZADD` fixe un score, `ZINCRBY` l’augmente, `ZREVRANK` donne le rang d’un membre à partir du haut en commençant à 0, et `ZRANGE key 0 99 REV WITHSCORES` renvoie le top 100.",
+        "Les scores égaux sont ordonnés par les octets du membre. Pour favoriser celui qui est arrivé en premier, on intègre le temps au score ; les scores sont des doubles, exacts pour les entiers jusqu’à 2^53.",
+        "On utilise un sorted set par classement, par exemple hebdomadaire ou par région, avec le segment dans la clé. Un changement de score met à jour chaque classement du joueur.",
+        "La base reste la source de vérité et on alimente le set par des événements. `ZADD` avec `GT` ne fait qu’augmenter un score, donc un événement en retard ou répété ne peut pas le faire baisser."
+      ],
+      "takeaways": [
+        {
+          "term": "Sorted set",
+          "detail": "Membres uniques avec scores numériques, triés : skip list plus table de hachage, donc mises à jour et rangs en O(log N)."
+        },
+        {
+          "term": "`ZADD` / `ZINCRBY`",
+          "detail": "`ZADD` fixe un score, `ZINCRBY` l’augmente. `ZADD` avec `GT` ne fait qu’augmenter, donc un événement en retard ne baisse rien."
+        },
+        {
+          "term": "`ZREVRANK`",
+          "detail": "Le rang d’un membre à partir du haut, en commençant à 0."
+        },
+        {
+          "term": "`ZRANGE key 0 99 REV WITHSCORES`",
+          "detail": "Renvoie le top 100 avec les scores."
+        },
+        {
+          "term": "Ex aequo",
+          "detail": "Les scores égaux sont ordonnés par les octets du membre ; intégrer le temps au score. Doubles, exacts pour les entiers jusqu’à 2^53."
+        },
+        {
+          "term": "Un set par classement",
+          "detail": "Hebdomadaire ou par région, segment dans la clé. Reconstructible depuis la base, alimenté par des événements d’outbox."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le « ton rang » du jeu de fidélité exécute `SELECT count(*)` sur 3 millions de joueurs et prend environ une seconde au pic. Comment repenseriez-vous le classement ?",
+        "bridge": "Classer vite des millions de joueurs, c’est la conception d’un classement : un sorted set Redis alimenté par des événements, avec la base comme source de vérité."
+      },
+      {
+        "question": "Quelle structure de données utiliseriez-vous pour un classement qui doit renvoyer à la fois le top 100 et le rang de n’importe quel joueur, et que coûte chaque opération ?",
+        "bridge": "Le même sujet par la structure de données : un sorted set garde les membres triés, donc mises à jour, rangs et lectures du top N sont logarithmiques."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux appliquent au classement hebdomadaire les événements de score du joueur 42, et l’événement 1480 arrive en retard. Laquelle ne fait jamais baisser le score ?",
+        "why": "`GT` ne met à jour un membre existant que si le nouveau score est plus grand, et ajoute quand même les nouveaux membres, donc le 1480 en retard est ignoré et le classement garde 1520. Sans lui, `ZADD` garde ce qui arrive en dernier : l’événement en retard ramène le joueur 42 à 1480 et lui coûte son rang jusqu’à l’événement suivant."
+      }
+    ]
+  },
+  "design-dedup": {
+    "topic": "Déduplication et filtres de Bloom",
+    "question": "Comment concevriez-vous la déduplication pour une ingestion à fort volume ?",
+    "answer": "D’abord je demande ce qu’est un doublon et ce que coûte un doublon raté. Si la source envoie un id d’événement, c’est la clé ; sinon je hashe les champs qui définissent l’identité. Puis la fenêtre : les retries arrivent en quelques heures, donc les clés peuvent expirer. Pour une vérification exacte, une contrainte d’unicité là où atterrissent les données, ou `SET` avec `NX` et une expiration dans Redis pour une fenêtre courte. À très fort volume, un filtre de Bloom en mémoire répond « forcément nouveau » pour la plupart des événements avec environ 10 bits chacun, et seuls les « peut-être déjà vus » paient la recherche exacte. Le stockage final reste idempotent sur l’id d’événement.",
+    "keyPoints": [
+      "Définir la clé : l’id d’événement de la source, ou un hash des champs d’identité",
+      "Une fenêtre bornée : les clés expirent au lieu de vivre pour toujours",
+      "Vérification exacte : contrainte d’unicité, ou `SET NX` avec expiration",
+      "Filtre de Bloom devant : « forcément nouveau » ou « peut-être déjà vu »"
+    ],
+    "explanation": "La question teste si tu échanges consciemment exactitude contre mémoire. Les seniors définissent le doublon et la fenêtre avant de choisir une structure, savent qu’un filtre de Bloom a des faux positifs mais pas de faux négatifs, et gardent une vérification exacte partout où un rejet à tort compte.",
+    "example": "La boutique envoie environ 50 millions d’événements de vue et de clic par jour à l’analytics, et les retries mobiles en dupliquaient environ 2 %, gonflant les taux de conversion. Chaque événement porte désormais un id généré par le client ; un filtre de Bloom par jour, environ 60 Mo pour 50 millions d’ids à 1 %, laisse entrer directement la plupart des événements, et les « peut-être déjà vus » sont vérifiés contre les ids du jour dans l’entrepôt, donc aucun événement légitime n’est rejeté.",
+    "mistakes": [
+      "Garder chaque clé pour toujours, si bien que le stockage de déduplication grossit sans limite",
+      "Traiter le « peut-être présent » d’un filtre de Bloom comme un doublon certain là où rejeter un événement légitime compte",
+      "Supprimer d’un filtre de Bloom standard en remettant des bits à zéro, ce qui crée des faux négatifs"
+    ],
+    "followUps": [
+      {
+        "question": "Quel lien y a-t-il entre le taux de faux positifs d’un filtre de Bloom et sa taille ?",
+        "answer": "Avec le nombre optimal de fonctions de hachage, le taux vaut environ e puissance moins (m/n) fois (ln 2) au carré, pour m bits et n éléments. En pratique, environ 9,6 bits par élément donnent 1 % et 14,4 donnent 0,1 %, donc chaque tranche de 4,8 bits en plus par élément le divise par dix. Le surremplir fait vite monter le taux."
+      },
+      {
+        "question": "Un faux positif est-il acceptable pour cette déduplication ?",
+        "answer": "Ça dépend de ce que fait un faux positif. S’il rejette un événement légitime, perdre 1 % des clics peut passer pour de l’analytics approximatif, mais jamais pour des commandes ou des paiements. Donc je traite « peut-être déjà vu » comme « vérifier dans le stockage exact », ce qui fait du filtre de Bloom une pure accélération, sans rejet à tort."
+      },
+      {
+        "question": "Peut-on supprimer des éléments d’un filtre de Bloom, et quelle est l’alternative ?",
+        "answer": "Pas d’un filtre standard : remettre un bit à zéro pourrait effacer d’autres éléments qui le partagent, et créer des faux négatifs. Un counting Bloom filter garde des compteurs au lieu de bits, et un cuckoo filter stocke des empreintes et permet la suppression ; Redis propose `CF.DEL`. Avec une fenêtre de temps, faire tourner un filtre par jour évite les suppressions."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un filtre de Bloom peut déclarer absent un élément qui a pourtant été ajouté.",
+        "why": "Il n’a pas de faux négatifs : ajouter l’élément a mis tous ses bits à 1, donc une recherche répond toujours « peut-être présent ».",
+        "twin": {
+          "statement": "Un filtre de Bloom ne déclare jamais absent un élément une fois qu’il a été ajouté.",
+          "why": "Ajouter l’élément a mis tous ses bits à 1, donc une recherche répond toujours « peut-être présent »."
+        }
+      },
+      {
+        "statement": "Doubler le nombre de bits par élément d’un filtre de Bloom, avec un nombre de hachages réajusté, réduit son taux de faux positifs de bien plus que moitié.",
+        "why": "Le taux baisse exponentiellement avec les bits par élément : environ 1 % à 9,6 bits, environ 0,01 % à 19,2 bits.",
+        "twin": {
+          "statement": "Doubler le nombre de bits par élément d’un filtre de Bloom, avec un nombre de hachages réajusté, ne fait que diviser par deux son taux de faux positifs.",
+          "why": "Le taux baisse exponentiellement avec les bits par élément : environ 1 % à 9,6 bits, environ 0,01 % à 19,2 bits."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "La déduplication écarte les événements déjà traités, en général des retries. Elle demande une clé qui définit un doublon, une fenêtre de temps et une vérification exacte, avec un filtre de Bloom devant à très fort volume.",
+      "points": [
+        "La déduplication commence par la clé : un id envoyé par la source, ou un hash des champs qui définissent l’identité. Puis une fenêtre : les retries arrivent en quelques minutes ou heures, donc les clés peuvent expirer.",
+        "Les vérifications exactes sont une contrainte d’unicité là où atterrissent les données, ou Redis `SET key 1 NX EX 86400`, qui ne réussit que pour le premier écrivain. Les deux coûtent du stockage par clé.",
+        "Un filtre de Bloom est un tableau de bits plus k fonctions de hachage. Un ajout met k bits à 1 ; une recherche dit « forcément absent » si un bit est à 0, sinon « peut-être présent ». Pas de faux négatifs, quelques faux positifs.",
+        "Son taux de faux positifs dépend des bits par élément : environ 9,6 bits pour 1 % et 14,4 bits pour 0,1 %, avec environ 7 et 10 fonctions de hachage. Le remplir au-delà de la taille prévue fait vite monter le taux.",
+        "Les bits sont partagés, donc un filtre de Bloom standard ne peut pas supprimer. Un counting Bloom filter ou un cuckoo filter le peuvent ; faire tourner un filtre par jour évite aussi les suppressions."
+      ],
+      "takeaways": [
+        {
+          "term": "Clé de dédup",
+          "detail": "L’id d’événement envoyé par la source, ou un hash des champs qui définissent l’identité."
+        },
+        {
+          "term": "Fenêtre",
+          "detail": "Les retries arrivent en quelques minutes ou heures, donc les clés peuvent expirer."
+        },
+        {
+          "term": "`SET key 1 NX EX 86400`",
+          "detail": "Ne réussit que pour le premier écrivain sur une journée. Une contrainte d’unicité là où atterrissent les données est l’autre vérification exacte."
+        },
+        {
+          "term": "Filtre de Bloom",
+          "detail": "Tableau de bits plus k hachages : « forcément absent » ou « peut-être présent ». Pas de faux négatifs, quelques faux positifs."
+        },
+        {
+          "term": "Bits par élément",
+          "detail": "Environ 9,6 pour 1 % de faux positifs, 14,4 pour 0,1 %. Remplir au-delà de la taille prévue fait vite monter le taux."
+        },
+        {
+          "term": "Suppressions",
+          "detail": "Un filtre de Bloom standard ne peut pas supprimer ; un counting Bloom filter ou un cuckoo filter le peuvent, sinon un filtre par jour."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Les retries mobiles dupliquent environ 2 % des 50 millions d’événements analytics quotidiens de la boutique, gonflant les taux de conversion. Comment les dédupliqueriez-vous ?",
+        "bridge": "Des doublons à fort volume appellent une conception de déduplication : une clé d’identité, une fenêtre bornée, une vérification exacte et un filtre de Bloom devant."
+      },
+      {
+        "question": "Un collègue propose un index unique sur chaque id d’événement, conservé pour toujours, pour écarter les doublons. Quelles questions poseriez-vous, et que concevriez-vous ?",
+        "bridge": "Le même sujet par ses premières questions : qu’est-ce qui compte comme doublon, combien de temps les retries continuent d’arriver, et comment vérifier à moindre coût à ce volume."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux marquent dans Redis un événement ingéré comme déjà vu ; les retries arrivent en quelques heures. Laquelle garde la mémoire de Redis bornée ?",
+        "why": "`NX` ne laisse que le premier écrivain poser la clé, et `EX 86400` la supprime au bout d’un jour, après la fenêtre de retry, donc Redis garde environ un jour de clés. Sans expiration, chaque clé reste pour toujours : 50 millions d’événements par jour ajoutent 50 millions de clés par jour jusqu’à ce que Redis atteigne `maxmemory`, puis il refuse les écritures ou évince des clés, selon sa politique."
+      }
+    ]
+  },
+  "design-ride-matching": {
+    "topic": "Attribution des chauffeurs",
+    "question": "Comment concevriez-vous l’attribution des chauffeurs pour une app de VTC ?",
+    "answer": "Je clarifie l’échelle et les règles : combien de chauffeurs en ligne, à quelle fréquence ils envoient leur position, en combien de temps une attribution doit se faire. Avec un million de chauffeurs qui envoient une position toutes les 4 secondes, ça fait 250 000 écritures de position par seconde, donc les positions vivent en mémoire, dans un index géospatial comme un geo set Redis par ville, pas dans PostgreSQL. Pour attribuer, je cherche les chauffeurs dans un rayon avec `GEOSEARCH`, je les classe par distance ou temps d’arrivée estimé, et je propose la course au meilleur. La décision clé, c’est que le chauffeur est réservé atomiquement, pour que deux passagers n’obtiennent jamais le même chauffeur, et chaque offre expire.",
+    "keyPoints": [
+      "Estimer les positions : 1 million de chauffeurs toutes les 4 s, c’est 250 000 écritures/s",
+      "Dernières positions en mémoire, un index géo par ville",
+      "Recherche de proximité, classée par distance ou temps d’arrivée",
+      "Réservation atomique du chauffeur ; les offres expirent et passent au suivant"
+    ],
+    "explanation": "La question combine un flux de positions dominé par les écritures et une décision qui doit être exacte, l’attribution. Les seniors séparent les deux : les positions peuvent être périmées de quelques secondes et se perdre, alors que la réservation d’un chauffeur doit être atomique et que chaque offre a besoin d’un timeout.",
+    "example": "Le transporteur de la boutique attribue les commandes livrées le jour même aux coursiers de chaque ville. Les positions arrivent toutes les 4 secondes dans un geo set Valkey par ville, et `GEOSEARCH` dans un rayon de 3 km renvoie les candidats du plus proche au plus loin. Au début, deux commandes ont été proposées au même coursier en même temps ; une réservation avec `SET` et `NX` sur la clé d’offre du coursier a fait passer la seconde commande au coursier suivant.",
+    "mistakes": [
+      "Écrire chaque mise à jour de position dans PostgreSQL, ce qui fait d’un flux qu’on peut perdre la principale charge d’écriture",
+      "Lire les candidats et attribuer sans réservation atomique, si bien que deux requêtes prennent le même chauffeur",
+      "Envoyer une offre sans timeout, si bien qu’un chauffeur muet bloque la course"
+    ],
+    "followUps": [
+      {
+        "question": "Comment empêcheriez-vous que deux passagers soient attribués au même chauffeur ?",
+        "answer": "La réservation est atomique : `SET driver:42:offer ride-7 NX PX 15000` ne réussit que pour une seule course, ou `UPDATE drivers SET status = 'offered' WHERE id = $1 AND status = 'available'` renvoie une ligne à un seul appelant. Le perdant passe au candidat suivant."
+      },
+      {
+        "question": "Comment géreriez-vous un chauffeur qui se déconnecte en pleine attribution ?",
+        "answer": "Le heartbeat du chauffeur rafraîchit une clé avec un TTL court, et l’offre a son propre timeout. Si l’offre expire ou que la clé de présence disparaît, la réservation est libérée et le candidat suivant reçoit la course. Après acceptation, un délai de grâce plus long s’applique avant de réattribuer, et le passager est prévenu."
+      },
+      {
+        "question": "Comment feriez-vous monter en charge les mises à jour de position pour des millions de chauffeurs ?",
+        "answer": "Je sharde par géographie : chaque ville ou région a son propre index géo et ses workers d’attribution, donc une mise à jour ne touche qu’un shard. Seule la dernière position par chauffeur reste en mémoire, l’historique part dans le stockage en asynchrone par lots, et les chauffeurs immobiles peuvent remonter leur position moins souvent."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Les positions des chauffeurs devraient être écrites de façon durable dans la base principale à chaque mise à jour.",
+        "why": "Une position est de toute façon périmée en quelques secondes ; on garde la dernière en mémoire et on archive l’historique en asynchrone.",
+        "twin": {
+          "statement": "Mieux vaut garder les positions des chauffeurs en mémoire, avec leur historique archivé en asynchrone, que les écrire de façon durable à chaque mise à jour.",
+          "why": "Une position est de toute façon périmée en quelques secondes."
+        }
+      },
+      {
+        "statement": "Lire qu’un chauffeur est disponible puis écrire « offered » dans une seconde étape peut attribuer deux fois le chauffeur.",
+        "why": "C’est une race condition check-then-act ; `SET` avec `NX` ou un update conditionnel décide en une seule étape.",
+        "twin": {
+          "statement": "Lire qu’un chauffeur est disponible, puis écrire « offered » dans une seconde étape, ne peut pas attribuer deux fois le chauffeur.",
+          "why": "C’est une race condition check-then-act ; `SET` avec `NX` ou un update conditionnel décide en une seule étape."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’attribution des chauffeurs combine un flux de positions dominé par les écritures, qu’on peut perdre, et une décision qui doit être exacte : quel chauffeur obtient la course. Les positions vivent en mémoire ; la réservation d’un chauffeur est atomique.",
+      "points": [
+        "L’attribution mélange un flux de positions dominé par les écritures, qu’on peut perdre, et une décision qui doit être exacte : quel chauffeur obtient la course.",
+        "On estime le flux : un million de chauffeurs qui envoient une position toutes les 4 secondes, c’est 250 000 écritures par seconde. On garde la dernière position en mémoire, dans un index géospatial par ville.",
+        "Un geo set Redis stocke une longitude et une latitude par membre. `GEOSEARCH key FROMLONLAT lon lat BYRADIUS 3 km ASC COUNT 20` renvoie les 20 chauffeurs les plus proches.",
+        "On réserve le chauffeur choisi atomiquement, avec `SET` et `NX` ou un update conditionnel. Lire puis écrire est une race condition check-then-act qui attribue deux fois les chauffeurs.",
+        "Les offres expirent : si le chauffeur n’accepte pas à temps, ou si sa clé de heartbeat expire, on libère la réservation et on propose la course au candidat suivant."
+      ],
+      "takeaways": [
+        {
+          "term": "Flux de positions",
+          "detail": "Un million de chauffeurs toutes les 4 secondes, c’est 250 000 écritures par seconde : les positions restent en mémoire, pas dans PostgreSQL."
+        },
+        {
+          "term": "Index géo par ville",
+          "detail": "Un geo set Redis stocke longitude et latitude par membre, dernière position seulement."
+        },
+        {
+          "term": "`GEOSEARCH`",
+          "detail": "`GEOSEARCH key FROMLONLAT lon lat BYRADIUS 3 km ASC COUNT 20` renvoie les 20 chauffeurs les plus proches."
+        },
+        {
+          "term": "Classement",
+          "detail": "Classer les candidats par distance ou temps d’arrivée estimé, puis proposer au meilleur."
+        },
+        {
+          "term": "Réservation atomique",
+          "detail": "`SET` avec `NX` ou un update conditionnel. Lire puis écrire est une race check-then-act qui attribue deux fois les chauffeurs."
+        },
+        {
+          "term": "Expiration des offres",
+          "detail": "Pas d’acceptation à temps ou clé de heartbeat expirée : libérer la réservation et proposer au candidat suivant."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le transporteur a proposé deux commandes du jour même au même coursier en même temps, et sa base peine avec les positions des coursiers envoyées toutes les 4 secondes. Comment concevriez-vous l’attribution ?",
+        "bridge": "Des écritures de position fréquentes et un coursier attribué deux fois sont les deux cœurs de l’attribution de courses : un index géo en mémoire et une réservation atomique."
+      },
+      {
+        "question": "Pourquoi ne pas stocker chaque position de chauffeur dans PostgreSQL et attribuer avec une requête du plus proche voisin ? Estimez la charge et expliquez votre conception.",
+        "bridge": "Le même sujet par les estimations : un million de chauffeurs toutes les 4 secondes, c’est 250 000 écritures par seconde, donc les dernières positions vivent dans un index géo en mémoire."
+      }
+    ]
+  },
+  "design-webhooks": {
+    "topic": "Traiter des webhooks tiers",
+    "question": "Comment traiteriez-vous de façon fiable les webhooks de services tiers ?",
+    "answer": "Je sépare la réception du traitement. L’endpoint vérifie la signature sur le corps brut, avec une tolérance sur le timestamp contre les rejeux, stocke l’événement sous une contrainte d’unicité sur son id, et répond 2xx tout de suite. Les fournisseurs relancent tout le reste, souvent pendant des jours, donc l’endpoint doit être rapide et idempotent : un id connu est acquitté et ignoré. Un worker traite ensuite les événements stockés, avec retries, backoff et un état dead letter. L’ordre de livraison n’est pas garanti, donc le handler n’applique un changement que s’il fait avancer l’état, ou récupère l’objet actuel chez le fournisseur, au lieu de supposer un ordre.",
+    "keyPoints": [
+      "Vérifier la signature HMAC sur le corps brut, avec une fenêtre de temps",
+      "Stocker par id d’événement sous contrainte d’unicité, répondre 2xx vite",
+      "Traiter en asynchrone avec retries et un état dead letter",
+      "Ne jamais supposer l’ordre : vérifier l’état ou récupérer l’objet"
+    ],
+    "explanation": "Les webhooks sont l’endroit où les retries d’un tiers rencontrent tes propres pannes, donc les recruteurs vérifient signatures, idempotence et traitement asynchrone. Un senior prévoit aussi les événements dans le désordre et la détection d’un traitement qui prend du retard.",
+    "example": "Le webhook de paiement a un jour envoyé deux e-mails de confirmation : l’API Orders avait traité un événement mais répondu trop lentement, donc le fournisseur l’a relancé. Désormais `POST /webhooks/payments` vérifie la signature, insère le `webhook-id` dans une table inbox et répond 200 en quelques millisecondes, un worker passe la commande en `paid`, et un id répété est acquitté et ignoré.",
+    "mistakes": [
+      "Vérifier la signature sur du JSON resérialisé au lieu du corps brut, si bien que des appels valides échouent",
+      "Faire le travail lent avant de répondre, si bien que le fournisseur part en timeout et relance",
+      "Supposer que les événements arrivent dans l’ordre où ils se sont produits"
+    ],
+    "followUps": [
+      {
+        "question": "Comment vérifieriez-vous l’authenticité d’un webhook ?",
+        "answer": "Le fournisseur signe avec un secret partagé, en général un HMAC-SHA256 sur l’id, le timestamp et le corps brut. Je le recalcule sur les octets bruts, je compare avec `timingSafeEqual`, et je rejette les timestamps décalés de plus de quelques minutes pour stopper les rejeux. Pendant une rotation de secret, j’accepte l’une ou l’autre signature."
+      },
+      {
+        "question": "Comment géreriez-vous des webhooks livrés dans le désordre ?",
+        "answer": "Le handler n’applique une transition que si elle fait avancer la commande, donc un événement plus ancien arrivant après `payment.succeeded` ne change rien. Quand l’ordre des événements compte davantage, je récupère l’objet actuel via l’API du fournisseur et j’agis sur lui plutôt que sur l’instantané de l’événement."
+      },
+      {
+        "question": "Comment surveilleriez-vous si le traitement des webhooks prend du retard ?",
+        "answer": "Je surveille l’âge du plus vieil événement non traité, pas seulement le nombre, plus le débit de traitement, le taux d’erreur et le nombre en dead letter, avec une alerte quand l’âge dépasse quelques minutes. Le dashboard des livraisons échouées du fournisseur montre les problèmes avant même que les événements nous atteignent."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un endpoint de webhook devrait répondre 2xx rapidement et faire le travail lent ensuite.",
+        "why": "Les fournisseurs traitent une réponse lente ou non 2xx comme un échec et relancent, ce qui crée des doublons.",
+        "twin": {
+          "statement": "Un endpoint de webhook devrait terminer tout son travail avant de répondre, même si ça prend plusieurs secondes.",
+          "why": "Les fournisseurs traitent une réponse lente ou non 2xx comme un échec et relancent, ce qui crée des doublons."
+        }
+      },
+      {
+        "statement": "Vérifier la signature sur le corps JSON parsé puis resérialisé vaut autant que sur le corps brut.",
+        "why": "Resérialiser peut changer les octets, par exemple les espaces, donc une signature valide ne correspond plus.",
+        "twin": {
+          "statement": "Une signature de webhook doit être vérifiée sur le corps brut, pas sur du JSON resérialisé.",
+          "why": "Resérialiser peut changer les octets, par exemple les espaces, donc une signature valide ne correspond plus."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un webhook, c’est un fournisseur qui appelle ton endpoint quand quelque chose se passe. Les livraisons sont relancées et sans ordre garanti, donc on vérifie, stocke et acquitte vite, puis on traite à part, de façon idempotente.",
+      "points": [
+        "Un webhook, c’est le fournisseur qui appelle ton endpoint quand quelque chose se passe. Il est livré au moins une fois, relancé après toute réponse non 2xx ou tout timeout, et son ordre d’arrivée n’est pas garanti.",
+        "La signature est un HMAC, un hash à clé avec un secret partagé, sur l’id, le timestamp et le corps brut. On la recalcule sur les octets bruts et on compare en temps constant avec `timingSafeEqual`.",
+        "On rejette les timestamps décalés de plus de quelques minutes, pour stopper les rejeux. On stocke l’événement sous une contrainte d’unicité sur son id et on répond 2xx tout de suite ; un id connu est acquitté et ignoré.",
+        "On traite les événements stockés dans un worker avec retries, backoff et un état dead letter. On n’applique un changement que s’il fait avancer l’état, sinon on récupère l’objet chez le fournisseur.",
+        "On surveille l’âge du plus vieil événement non traité, le taux d’erreur et le nombre en dead letter : l’âge montre que le traitement prend du retard avant que les clients ne le remarquent."
+      ],
+      "takeaways": [
+        {
+          "term": "Garanties de livraison",
+          "detail": "Au moins une fois, relancé après tout non 2xx ou timeout, et sans ordre garanti."
+        },
+        {
+          "term": "Signature HMAC",
+          "detail": "Hash à clé sur l’id, le timestamp et le corps brut. Recalculer sur les octets bruts et comparer avec `timingSafeEqual`."
+        },
+        {
+          "term": "Tolérance sur le timestamp",
+          "detail": "Rejeter les timestamps décalés de plus de quelques minutes, pour stopper les rejeux."
+        },
+        {
+          "term": "Stocker, puis 2xx",
+          "detail": "Contrainte d’unicité sur l’id d’événement, réponse 2xx immédiate ; un id connu est acquitté et ignoré."
+        },
+        {
+          "term": "Worker et ordre",
+          "detail": "Retries, backoff, état dead letter. N’appliquer un changement que s’il fait avancer l’état, sinon récupérer l’objet."
+        },
+        {
+          "term": "Âge du plus vieux non traité",
+          "detail": "Montre le retard du traitement avant que les clients le remarquent ; surveiller aussi taux d’erreur et dead letters."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le fournisseur de paiement a relancé un webhook parce que l’API Orders répondait trop lentement, et le client a reçu deux e-mails de confirmation. Comment repenseriez-vous `POST /webhooks/payments` ?",
+        "bridge": "Des retries après une réponse lente, c’est le problème des webhooks : vérifier, stocker par id d’événement, répondre 2xx vite, et traiter en asynchrone de façon idempotente."
+      },
+      {
+        "question": "Un fournisseur prévient que ses webhooks peuvent arriver dans le désordre et être relancés pendant des jours. Qu’est-ce que ça change dans la façon d’écrire le handler ?",
+        "bridge": "Le même sujet par les garanties de livraison : idempotence par id d’événement, et un handler qui vérifie l’état ou récupère l’objet au lieu de supposer un ordre."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux vérifient la signature HMAC de `POST /webhooks/payments` venant du fournisseur de paiement. Laquelle accepte chaque appel légitime ?",
+        "why": "Le fournisseur a signé exactement les octets qu’il a envoyés. Resérialiser le corps parsé les modifie dès que les espaces, l’ordre des clés ou le format des nombres du fournisseur diffèrent de `JSON.stringify`, comme `{\"amount\": 4999}` avec un espace : le HMAC ne correspond plus, et les vrais événements de paiement sont rejetés et relancés jusqu’à ce que le fournisseur abandonne."
+      }
+    ]
+  }
+}

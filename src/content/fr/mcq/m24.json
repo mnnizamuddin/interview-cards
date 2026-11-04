@@ -1,0 +1,302 @@
+{
+  "m24.q1": {
+    "q": "Un handler de clic de la boutique exécute une boucle de 400 ms. Quand le navigateur peut-il peindre le résultat du clic ?",
+    "options": [
+      "Toutes les 16 ms pendant la boucle, car le rendu suit son propre rythme",
+      "Seulement une fois le handler et les microtâches qu’il a mises en file terminés",
+      "Tout de suite, car la peinture se fait sur le thread du GPU",
+      "À mi-chemin de la boucle, quand le navigateur interrompt la tâche"
+    ],
+    "explain": "Le rendu est une étape de l’event loop sur le thread principal, et il n’a lieu qu’entre deux tâches, une fois la file des microtâches vide. Rien n’interrompt une tâche en cours, donc l’écran reste figé pendant les 400 ms. La fréquence de rafraîchissement fixe quand une occasion de rendu peut arriver, pas si un thread occupé peut être interrompu."
+  },
+  "m24.q2": {
+    "q": "Un développeur de l’équipe Node écrit du code pour la boutique. Quelle affirmation sur l’event loop du navigateur est vraie ?",
+    "options": [
+      "Elle a les mêmes phases que libuv : timers, puis poll pour les I/O, puis check pour setImmediate",
+      "Les callbacks de <code>process.nextTick</code> passent avant ceux des promesses, comme dans Node",
+      "<code>setImmediate</code> est le moyen le plus rapide de rendre la main au rendu",
+      "Ni nextTick ni setImmediate ; après une tâche et ses microtâches, une frame peut être rendue"
+    ],
+    "explain": "Les navigateurs n’ont pas les phases de libuv : une tâche s’exécute, puis toutes les microtâches, puis éventuellement une étape de rendu avec rAF, style, layout et peinture. process.nextTick et setImmediate valent tous deux undefined dans Chromium (vérifié). La règle « nextTick avant les promesses » est propre à Node (M01)."
+  },
+  "m24.q3": {
+    "q": "Qu’est-ce que ce code affiche dans le navigateur ?",
+    "options": [
+      "1 5 3 4 2",
+      "1 5 2 3 4",
+      "1 3 4 5 2",
+      "1 5 4 3 2"
+    ],
+    "explain": "D’abord le code synchrone (1, 5), puis les microtâches dans l’ordre où elles ont été mises en file (3, puis 4), puis la tâche du timer (2). Mesuré dans Chromium, 10 exécutions sur 10. queueMicrotask et un callback .then partagent la même file, donc aucun n’a la priorité sur l’autre."
+  },
+  "m24.q4": {
+    "q": "Du code planifie <code>setTimeout(f, 0)</code> et <code>requestAnimationFrame(g)</code> dans la même tâche. Lequel s’exécute en premier ?",
+    "options": [
+      "<code>f</code>, toujours, car les timers sont des tâches et les frames viennent après les tâches",
+      "<code>g</code>, toujours, car les callbacks d’animation frame ont la plus haute priorité de toutes",
+      "L’un ou l’autre : cela dépend du moment où tombe la prochaine occasion de rendu",
+      "Les deux s’exécutent dans le même point de contrôle des microtâches, dans l’ordre d’appel"
+    ],
+    "explain": "Le timer est une tâche prête presque immédiatement, alors que rAF attend la prochaine occasion de rendu, qui suit le rafraîchissement de l’écran. Mesuré dans Chromium sur 200 démarrages aléatoires : la frame est passée en premier 134 fois et le timer 66 fois. Aucun des deux callbacks n’est une microtâche."
+  },
+  "m24.q5": {
+    "q": "Qu’est-ce qu’une long task, et pourquoi dégrade-t-elle l’INP ?",
+    "options": [
+      "Un fetch de plus d’une seconde ; l’INP compte le temps réseau",
+      "Une tâche de plus de 50 ms ; tant qu’elle tourne, le navigateur ne peut pas peindre la frame suivant une interaction",
+      "Toute tâche de plus de 16 ms, car elle fait toujours sauter une frame, et l’INP compte les frames sautées",
+      "Une tâche qui tourne dans un Web Worker pendant plus de 200 ms"
+    ],
+    "explain": "web.dev définit une long task comme toute tâche de plus de 50 ms. L’INP mesure le temps entre une interaction et la peinture suivante, et une long task sur le thread principal retarde cette peinture ainsi que toute interaction en attente derrière elle. L’attente réseau n’occupe pas le thread principal, et une long task dans un worker ne bloque pas la page."
+  },
+  "m24.q6": {
+    "q": "Pourquoi le <code>yieldToMain()</code> de la boutique préfère-t-il <code>scheduler.yield()</code> à <code>setTimeout(resolve, 0)</code> ?",
+    "options": [
+      "Les deux laissent passer interactions et peinture, mais scheduler.yield() reprend avant les autres tâches en file",
+      "scheduler.yield() exécute la suite de la fonction sur un autre thread",
+      "On ne peut pas faire await sur setTimeout, donc la fonction n’attendrait pas",
+      "scheduler.yield() est une microtâche, donc la fonction reprend plus tôt et le travail finit plus vite"
+    ],
+    "explain": "Les deux créent une nouvelle tâche, donc interactions et rendu peuvent se glisser entre les deux. La suite de scheduler.yield() est prioritaire : mesuré dans Chromium, elle a repris avant un timer mis en file plus tôt, 20 exécutions sur 20, alors qu’une suite via setTimeout part en fin de file. Ce n’est pas une microtâche (une microtâche bloquerait le rendu) ni un autre thread."
+  },
+  "m24.q7": {
+    "q": "Le panneau de recherche vide charge « recherches récentes » et « produits tendance », tous deux optionnels. Avec <code>Promise.all</code>, un échec des tendances vide tout le panneau. Que changes-tu ?",
+    "options": [
+      "Utiliser Promise.race pour afficher le bloc le plus rapide",
+      "Utiliser Promise.any pour que le panneau affiche le premier des deux blocs qui réussit et ignore l’autre",
+      "Envelopper Promise.all dans une boucle de retry jusqu’à ce que les deux réussissent",
+      "Utiliser Promise.allSettled, rendre chaque bloc à partir de son propre résultat et remonter les échecs"
+    ],
+    "explain": "allSettled ne rejette jamais et donne un résultat par entrée, donc chaque bloc optionnel peut retomber sur vide indépendamment, tandis que l’échec est remonté. Promise.any ne renverrait qu’une des deux valeurs, et race renvoie la première promesse réglée, même un échec. Le retry masque la panne et retarde les deux blocs."
+  },
+  "m24.q8": {
+    "q": "Un fetch de recherche a reçu <code>{ signal }</code>, et le code appelle <code>controller.abort()</code> pendant que la réponse est en attente. Que fait la promesse du fetch ?",
+    "options": [
+      "Elle se résout avec une réponse de statut 499",
+      "Elle reste en attente pour toujours, donc l’appelant doit vérifier signal.aborted",
+      "Elle est rejetée avec une DOMException nommée AbortError",
+      "Elle est rejetée avec une TypeError nommée NetworkError"
+    ],
+    "explain": "Mesuré dans Chromium : le fetch a été rejeté avec une DOMException dont le name est AbortError, et le serveur de test a vu la connexion se fermer. Avec AbortSignal.timeout, le name est TimeoutError. 499 est un statut que certains proxies loggent pour un client qui s’est déconnecté ; le navigateur n’invente jamais de réponse."
+  },
+  "m24.q9": {
+    "q": "Pourquoi le handler de recherche naïf peut-il afficher les suggestions pour « ru » alors que le client a tapé « run » ?",
+    "options": [
+      "Les réponses peuvent arriver dans le désordre, et le handler affiche celle qui arrive en dernier",
+      "Le navigateur envoie les requêtes vers un même hôte une par une, dans l’ordre inverse",
+      "fetch met en cache la première réponse de la session et la renvoie pour les requêtes similaires",
+      "React regroupe les mises à jour d’état et garde la première"
+    ],
+    "explain": "Chaque frappe lance une requête, et le serveur peut répondre plus lentement à une requête courte qu’à une plus longue. Reproduit dans Chromium avec « ru » servi en 400 ms et « run » en 100 ms : l’écran a fini sur « ru ». Les navigateurs envoient les requêtes en parallèle, et le bug se produit en JavaScript pur, sans React."
+  },
+  "m24.q10": {
+    "q": "Quelle description correspond à un debounce sur front descendant (trailing) de 300 ms ?",
+    "options": [
+      "Il s’exécute au plus une fois toutes les 300 ms, tant que les appels continuent d’arriver",
+      "Il s’exécute une fois, 300 ms après le dernier appel, avec les arguments de ce dernier appel",
+      "Il exécute le premier appel tout de suite et ignore les autres pour toujours",
+      "Il exécute chaque appel, chacun retardé de 300 ms"
+    ],
+    "explain": "Chaque appel relance l’attente de 300 ms, donc la fonction ne s’exécute qu’après une pause, avec les derniers arguments ; testé avec des fake timers, des appels toutes les 100 ms ne l’ont jamais déclenchée avant qu’ils s’arrêtent. « Au plus une fois toutes les 300 ms tant que les appels arrivent », c’est un throttle."
+  },
+  "m24.q11": {
+    "q": "Une fonction throttlée à 200 ms (leading et trailing) est appelée toutes les 50 ms pendant une seconde, puis les appels s’arrêtent. Combien de fois s’exécute-t-elle ?",
+    "options": [
+      "20 fois, une par appel, puisque deux appels ne se chevauchent jamais",
+      "Une fois, 200 ms après le dernier appel, avec les arguments de cet appel",
+      "5 fois, une à la fin de chaque fenêtre de 200 ms pendant la seconde",
+      "6 fois : à 0 ms, puis à la fin de chaque fenêtre de 200 ms"
+    ],
+    "explain": "L’appel leading s’exécute à 0, et le dernier appel de chaque fenêtre s’exécute à la fin de celle-ci : testé avec les fake timers de Vitest, elle s’est exécutée à 0, 200, 400, 600, 800 et 1 000 ms. S’exécuter une fois après le dernier appel, c’est ce que fait un debounce."
+  },
+  "m24.q12": {
+    "q": "Que peut faire le code dans un Web Worker ?",
+    "options": [
+      "Lire et modifier directement le DOM de la page, mais depuis un thread séparé",
+      "Partager des objets JavaScript avec la page par référence, sans jamais de copie",
+      "Appeler fetch et calculer, et échanger des messages copiés avec la page",
+      "Exécuter seulement du code synchrone, puisqu’il n’a pas d’event loop"
+    ],
+    "explain": "Un worker a son propre thread et sa propre event loop, dispose de fetch et n’a pas de DOM (document y vaut undefined, vérifié dans Chromium). Les messages sont copiés avec l’algorithme de clonage structuré ; seuls les objets transférables comme ArrayBuffer sont déplacés à la place, et même alors rien n’est partagé par référence."
+  },
+  "m24.q13": {
+    "q": "Qu’est-ce que ce code affiche ?",
+    "options": [
+      "A B C E F D",
+      "A F B C E D",
+      "A B F C E D",
+      "A B F E C D"
+    ],
+    "explain": "loadCart s’exécute de façon synchrone jusqu’à son await, donc B s’affiche juste après A. La suite de loadCart (C) a été mise en file comme microtâche avant le callback .then (E), donc C passe avant E, et le timer (D) arrive en dernier. Mesuré dans Chromium, 10 exécutions sur 10. A B C E F D oublie que await suspend toujours, même sur une valeur qui n’est pas une promesse."
+  },
+  "m24.q14": {
+    "q": "Un test unitaire déclenche le bouton « Ajouter au panier » avec <code>button.click()</code>. Le bouton a deux listeners de clic, chacun mettant en file un callback de promesse. Dans quel ordre les logs apparaissent-ils ?",
+    "options": [
+      "listener 1, listener 2, after click(), micro 1, micro 2",
+      "listener 1, micro 1, listener 2, micro 2, after click()",
+      "after click(), listener 1, listener 2, micro 1, micro 2",
+      "listener 1, micro 1, listener 2, micro 2, puis after click() dans une tâche ultérieure"
+    ],
+    "explain": "click() dispatche l’événement de façon synchrone, alors que le code du test est encore sur la pile, donc aucune microtâche ne peut s’exécuter avant la fin de ce script. Mesuré dans Chromium : listener 1, listener 2, after click(), micro 1, micro 2. L’ordre avec micro 1 entre les listeners, c’est ce que produit un vrai clic utilisateur, car chaque listener démarre alors avec une pile vide."
+  },
+  "m24.q15": {
+    "q": "Qu’est-ce que ce code affiche ?",
+    "options": [
+      "a1 a2 b1 b2",
+      "a1 b1 a2 b2",
+      "b1 b2 a1 a2",
+      "a1 b1, puis a2 et b2 dans la tâche suivante"
+    ],
+    "explain": "Au départ, seuls a1 et b1 sont en file. Exécuter a1 résout la promesse du second .then, ce qui met a2 en file derrière b1 ; puis b1 met b2 en file. Les chaînes s’entrelacent donc : a1 b1 a2 b2, mesuré dans Chromium. Tout se passe dans le même point de contrôle des microtâches, sans tâche entre les deux."
+  },
+  "m24.q16": {
+    "q": "Quel est l’ordre des logs, tel que mesuré dans Chromium ?",
+    "options": [
+      "frame, next frame, micro, timeout",
+      "frame, timeout, micro, next frame",
+      "frame, micro, next frame, timeout",
+      "frame, micro, timeout, next frame"
+    ],
+    "explain": "Les microtâches sont vidées juste après chaque callback rAF, donc micro suit frame. Un rAF demandé dans un callback rAF attend la frame suivante, environ un rafraîchissement plus tard, alors que la tâche du timer est prête tout de suite : mesuré 30 fois sur 30 dans Chromium, en headless et dans une fenêtre visible. Le rAF imbriqué ne s’exécute jamais dans la même frame."
+  },
+  "m24.q17": {
+    "q": "Pour corriger le champ de recherche qui rame, un collègue découpe le filtre en tranches avec <code>await Promise.resolve()</code> entre elles. La saisie reste figée. Pourquoi ?",
+    "options": [
+      "Les tranches sont trop grosses : avec 100 entrées par tranche, le navigateur trouverait le temps de peindre",
+      "Promise.resolve() est synchrone, donc await ne fait rien du tout",
+      "Le code après await s’exécute en microtâche, et toutes les microtâches passent avant toute peinture ou interaction",
+      "Chromium désactive la cession de la main dans les handlers d’événements de saisie"
+    ],
+    "explain": "Faire await sur une promesse résolue suspend bien la fonction, mais elle reprend dans une microtâche, et la file des microtâches est vidée entièrement avant tout rendu ou toute tâche suivante. Mesuré dans Chromium : 0 frame peinte pendant 500 ms de travail découpé ainsi. Des tranches plus petites ne changent rien ; il faut une nouvelle tâche, comme scheduler.yield() ou setTimeout."
+  },
+  "m24.q18": {
+    "q": "Le profilage montre que chaque frappe passe environ 300 ms dans <code>index.filter((entry) =&gt; normalizeForSearch(entry.label).includes(needle))</code> sur 200 000 entrées. Que fais-tu en premier ?",
+    "options": [
+      "Normaliser chaque libellé une seule fois au chargement de l’index, et filtrer sur le résultat stocké",
+      "Déplacer le même code dans un Web Worker",
+      "Envelopper le filtre dans useDeferredValue",
+      "Le découper en tranches avec scheduler.yield() et continuer à normaliser chaque libellé à chaque frappe"
+    ],
+    "explain": "L’essentiel des 300 ms est du travail répété : normaliser 200 000 libellés à chaque frappe. Le précalculer a ramené une exécution à 26 ms dans Chromium, sans coût d’architecture. Des tranches ou un worker répéteraient encore ce gaspillage ; ce sont les étapes suivantes si le travail restant est encore trop long."
+  },
+  "m24.q19": {
+    "q": "Que se passe-t-il quand on ajoute le produit en rupture de stock ?",
+    "options": [
+      "Le toast apparaît, car l’erreur est levée dans le bloc try de onAddClick",
+      "La page plante et se recharge",
+      "Le toast apparaît après une microtâche, quand le rejet atteint le catch",
+      "Pas de toast : l’appel renvoie une promesse rejetée, qui n’est pas gérée"
+    ],
+    "explain": "Une fonction async ne lève jamais d’exception à l’endroit de l’appel ; elle renvoie une promesse rejetée. Sans await, le try/catch n’a rien à attraper, et le rejet devient un événement unhandledrejection pendant que la page continue de tourner (mesuré dans Chromium). Le correctif : onAddClick async avec await addToCart(productId)."
+  },
+  "m24.q20": {
+    "q": "Une page produit utilise <code>Promise.all([getReviews(), getStock(), getRecommendations()])</code>. L’appel de stock est rejeté après 10 ms ; les autres prennent 30 et 60 ms. Que se passe-t-il ?",
+    "options": [
+      "Promise.all attend les trois, puis rejette avec une AggregateError",
+      "Elle rejette après environ 10 ms avec l’erreur de stock ; les deux autres appels se terminent quand même",
+      "Elle rejette après environ 10 ms avec l’erreur de stock et annule les deux autres requêtes",
+      "Promise.all se résout avec undefined à la place du résultat de stock"
+    ],
+    "explain": "Promise.all rejette dès qu’une entrée rejette, avec cette raison. Elle reçoit des promesses déjà en cours et ne peut pas les arrêter : mesuré dans Chromium, les deux appels plus lents se sont réglés après le rejet. Les annuler demande un AbortSignal ; AggregateError vient de Promise.any."
+  },
+  "m24.q21": {
+    "q": "Le champ de recherche utilise <code>useQuery</code> avec <code>queryKey: ['product-search', query]</code>, mais la fonction de requête appelle fetch sans le <code>signal</code>. Le client tape vite. Qu’est-ce qui est vrai ?",
+    "options": [
+      "D’anciennes réponses peuvent écraser les suggestions plus récentes à l’écran, comme dans le handler naïf",
+      "TanStack Query annule quand même l’ancien fetch quand la clé change, signal ou pas",
+      "L’écran reste correct, mais les anciennes requêtes ne sont pas annulées",
+      "La requête lève une erreur, car le signal est un paramètre obligatoire"
+    ],
+    "explain": "Chaque clé a sa propre entrée de cache, donc une ancienne réponse est stockée sous l’ancienne clé et ne remplace jamais les données affichées pour la nouvelle. Mais la doc de TanStack Query indique que les requêtes ne sont pas annulées si la fonction de requête n’utilise pas le signal. Mesuré avec le signal passé : passer de « ru » à « run » a annulé la requête « ru »."
+  },
+  "m24.q22": {
+    "q": "Après un refactoring, tous ceux qui tapent vite voient des bandeaux « Search failed ». Quel est le bug ?",
+    "options": [
+      "Avec une raison, fetch rejette avec cette Error, donc la vérification du name la rate",
+      "abort() doit être appelé après la création du nouveau controller",
+      "Une AbortError est une TypeError dans les navigateurs, donc instanceof DOMException vaut false",
+      "Le bandeau s’affiche car l’annulation ferme la connexion avec un statut HTTP d’erreur"
+    ],
+    "explain": "Quand abort() reçoit une raison, fetch rejette avec cette raison : mesuré dans Chromium, le rejet était l’Error passée à abort. La vérification du name échoue donc, et une annulation volontaire s’affiche comme un échec. Sans raison, le rejet est bien une DOMException nommée AbortError ; vérifier le signal (comme le fait la section 6) est donc le test robuste."
+  },
+  "m24.q23": {
+    "q": "Les en-têtes de la réponse pour « ru » sont arrivés et <code>await response.json()</code> est en cours quand la frappe suivante appelle <code>abort()</code> sur le controller de cette requête. Que se passe-t-il ?",
+    "options": [
+      "Rien : une fois fetch résolu, le signal n’est plus consulté",
+      "response.json() se résout, mais avec un objet vide",
+      "Le navigateur finit de lire le corps puis lève une erreur au fetch suivant",
+      "response.json() est rejetée avec une AbortError, car abort couvre aussi le corps"
+    ],
+    "explain": "Le signal reste attaché au corps de la réponse. Mesuré dans Chromium : annuler après la résolution de fetch mais avant la lecture du corps a fait rejeter response.json() avec une AbortError. Ce n’est qu’une fois le corps entièrement lu qu’abort ne change plus rien."
+  },
+  "m24.q24": {
+    "q": "Les suggestions viennent maintenant d’un Web Worker qui répond avec <code>postMessage</code>. D’anciennes réponses écrasent parfois les nouvelles. Quel correctif livrerais-tu ?",
+    "options": [
+      "Passer un AbortSignal à worker.postMessage",
+      "Marquer chaque requête d’un id croissant et n’afficher que la réponse du dernier id",
+      "Terminer le worker et en créer un nouveau à chaque frappe, pour abandonner l’ancien travail",
+      "Envelopper le handler dans un Promise.race avec un timeout"
+    ],
+    "explain": "Un message de worker ne peut pas être annulé, donc le correctif consiste à ignorer les réponses périmées : mesuré dans Chromium, 6 réponses sur 7 ont été écartées par la vérification d’id pendant la saisie. postMessage ne prend pas de signal, et recréer le worker rechargerait son index à chaque frappe. Promise.race ne retient que la première réglée, pas la dernière requête."
+  },
+  "m24.q25": {
+    "q": "Ce handler est censé ignorer les réponses périmées. Qu’est-ce qui ne va pas ?",
+    "options": [
+      "Rien : la vérification d’id empêche la race condition",
+      "++latestId n’est pas atomique, donc deux frappes peuvent obtenir le même id",
+      "La vérification a lieu avant l’await, où elle est toujours vraie",
+      "La fonction doit être synchrone pour que l’id soit capturé"
+    ],
+    "explain": "Juste après l’incrément, requestId est toujours égal à latestId, donc la vérification n’écarte jamais rien. On ne peut détecter qu’une réponse est périmée qu’après l’await, quand des frappes plus récentes ont pu augmenter latestId. JavaScript exécute un callback à la fois sur le thread principal, donc l’incrément ne peut pas être entrelacé."
+  },
+  "m24.q26": {
+    "q": "Dans ce composant, taper r, ru, run rapidement envoie trois recherches. Pourquoi ?",
+    "options": [
+      "Chaque rendu crée une nouvelle fonction debouncée, donc aucun appel n’est fusionné",
+      "setInput annule le timer en attente, donc chaque valeur est envoyée tout de suite",
+      "Le StrictMode de React appelle le handler deux fois",
+      "Le délai du debounce est trop court pour ceux qui tapent vite"
+    ],
+    "explain": "Chaque frappe met à jour le state, le composant est rendu à nouveau et crée un nouveau debounce ; chaque instance reçoit un appel et le déclenche 300 ms plus tard. Mesuré dans jsdom avec React 19.3 : r, ru, run ont tous été envoyés, et avec useMemo seul run l’a été. Un délai plus long ne change rien ; debouncer la valeur avec un effet évite le problème."
+  },
+  "m24.q27": {
+    "q": "Avec le <code>debounce</code> de ce module, une fonction est debouncée avec <code>{ leading: true, trailing: true }</code> et appelée une seule fois. Combien de fois s’exécute-t-elle ?",
+    "options": [
+      "Deux fois : une tout de suite, une après l’attente",
+      "Zéro fois, car les deux fronts s’annulent",
+      "Une fois, après l’attente",
+      "Une fois, au moment de l’appel"
+    ],
+    "explain": "L’appel leading s’exécute tout de suite et ne stocke pas ses arguments, donc à la fin de l’attente il ne reste rien pour le front trailing. Testé avec des fake timers : un appel unique s’est exécuté une fois, et un second appel pendant l’attente a ajouté une exécution trailing. S’exécuter deux fois enverrait une requête en double pour chaque frappe isolée."
+  },
+  "m24.q28": {
+    "q": "La page de résultats charge la page suivante de produits quand le client approche de la fin de la liste. Le code actuel exécute un handler de scroll throttlé qui mesure la dernière carte. Que livrerais-tu à la place ?",
+    "options": [
+      "Un handler de scroll debouncé, pour qu’il ne s’exécute que quand le scroll s’arrête",
+      "Un IntersectionObserver qui surveille un élément sentinelle placé près de la fin de la liste",
+      "Une boucle requestAnimationFrame qui mesure la dernière carte à chaque frame",
+      "Un setInterval qui vérifie la position de scroll toutes les 100 ms"
+    ],
+    "explain": "Détecter qu’un élément devient visible, c’est le rôle d’IntersectionObserver ; MDN cite le scroll infini comme cas d’usage, et aucun code ne tourne sur le thread principal pendant le scroll. Une boucle rAF ou un intervalle mesureraient le layout en permanence, et un debounce chargerait en retard, seulement une fois que le client s’arrête."
+  },
+  "m24.q29": {
+    "q": "Un collègue propose <code>useDeferredValue</code> pour réduire le nombre de requêtes de recherche envoyées à l’API. Que lui réponds-tu ?",
+    "options": [
+      "Bonne idée : React saute les requêtes pour les valeurs intermédiaires tapées par l’utilisateur",
+      "Ça ne marche qu’avec les Server Components",
+      "Il diffère le rendu, pas les requêtes ; debounce plutôt la requête",
+      "Il envoie moins de requêtes, mais seulement sur les appareils lents"
+    ],
+    "explain": "useDeferredValue permet à React de rendre la partie lente avec une valeur plus ancienne pendant que les mises à jour urgentes passent d’abord ; react.dev précise qu’il « n’empêche pas à lui seul les requêtes réseau supplémentaires ». Pour réduire les requêtes, on debounce la requête (ou on la throttle). Les deux se combinent : debounce pour l’API, rendu différé pour une liste lente (M31)."
+  },
+  "m24.q30": {
+    "q": "La première version du worker reçoit l’index de suggestions de 200 000 entrées depuis la page avec <code>worker.postMessage(index)</code> au démarrage. La page a maintenant une long task de 200 ms au chargement. Quel changement corrige cela ?",
+    "options": [
+      "Laisser le worker récupérer l’index lui-même, pour que seuls de petits messages traversent les threads",
+      "Poster l’index depuis une microtâche, pour qu’il ne bloque pas la page pendant le chargement",
+      "Appeler postMessage dans requestAnimationFrame",
+      "Faire un JSON.stringify de l’index avant de le poster, car les chaînes ne sont pas clonées"
+    ],
+    "explain": "postMessage copie les données par clonage structuré sur le thread émetteur : mesuré dans Chromium, poster l’index a bloqué le thread principal environ 200 ms. Le récupérer dans le worker évite que les grosses données traversent les threads. Une microtâche ou un rAF ne font que déplacer la même long task, et le stringify reste du travail sur le thread principal."
+  }
+}

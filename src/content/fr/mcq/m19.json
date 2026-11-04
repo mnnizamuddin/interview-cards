@@ -1,0 +1,302 @@
+{
+  "m19.q1": {
+    "q": "Quelle situation est l’argument le plus fort pour garder le catalogue dans MongoDB plutôt que dans PostgreSQL avec une colonne <code>jsonb</code> ?",
+    "options": [
+      "L’équipe veut éviter d’écrire des migrations pour la table orders",
+      "Les données ont besoin de clés étrangères entre produits, stock et commandes",
+      "Chaque produit est lu comme un tout, ses champs varient selon la catégorie, et les requêtes filtrent sur ces champs",
+      "La page produit doit joindre les produits aux clients à chaque affichage"
+    ],
+    "explain": "MongoDB convient aux enregistrements lus comme un tout dont la forme varie, avec des index classiques sur des champs à l’intérieur des documents. Les clés étrangères et les jointures à chaque affichage sont des arguments pour PostgreSQL, et la table orders contient des données relationnelles qui restent dans PostgreSQL."
+  },
+  "m19.q2": {
+    "q": "Les documents produit embarquent chaque avis dans un tableau. Un produit populaire a 60 000 avis d’environ 300 octets chacun. Que se passe-t-il ?",
+    "options": [
+      "Le document dépasse la limite de 16 Mio, donc l’update qui ajoute un avis est rejeté",
+      "MongoDB déplace automatiquement les avis les plus anciens dans une collection de débordement",
+      "Le document grossit sans limite, mais les lectures restent rapides car seuls les champs nécessaires sont chargés",
+      "Le serveur découpe le document en deux documents avec le même _id"
+    ],
+    "explain": "60 000 × 300 octets font 18 Mo, au-dessus de la limite de 16 Mio (16 777 216 octets) d’un document BSON, donc l’écriture échoue. Rien ne déplace les données automatiquement : c’est le pattern outlier ou subset qui le fait, par conception, dans ton code. Et bien avant ce point, chaque lecture du produit charge tout le tableau."
+  },
+  "m19.q3": {
+    "q": "Laquelle de ces écritures est atomique dans MongoDB sans transaction ?",
+    "options": [
+      "Insérer un avis et mettre à jour son produit en deux appels",
+      "Un <code>updateMany</code> qui marque 500 avis comme publiés",
+      "Deux appels <code>updateOne</code> envoyés avec <code>Promise.all</code>",
+      "Un seul <code>updateOne</code> qui ajoute un aperçu et incrémente deux compteurs dans le même document"
+    ],
+    "explain": "D’après la documentation, une écriture est atomique au niveau d’un seul document, même quand elle modifie plusieurs champs. updateMany est atomique document par document, pas dans son ensemble, et des appels séparés sont des écritures indépendantes, quel que soit leur regroupement côté client."
+  },
+  "m19.q4": {
+    "q": "La page produit affiche les 10 derniers avis. Quelle conception correspond au subset pattern ?",
+    "options": [
+      "Embarquer tous les avis dans le produit et en projeter 10 dans chaque requête",
+      "Embarquer les 10 derniers avis dans le produit et garder tous les avis dans une collection reviews",
+      "Stocker les avis uniquement dans une collection reviews et les joindre avec $lookup à chaque affichage de la page",
+      "Stocker un document par heure d’avis pour chaque produit"
+    ],
+    "explain": "Le subset pattern embarque la petite partie d’un grand ensemble lié que la page affiche et garde l’ensemble complet en référence ; l’exemple du manuel, ce sont justement les avis produit. Projeter 10 éléments d’un tableau embarqué charge et stocke quand même le tableau entier, et regrouper par heure, c’est le bucket pattern."
+  },
+  "m19.q5": {
+    "q": "Un script du back-office, lancé depuis <code>mongosh</code>, écrit <code>stars: \"5\"</code> sous forme de chaîne. Quelle couche le rejette ?",
+    "options": [
+      "Le type TypeScript <code>Collection&lt;ReviewDoc&gt;</code> du service Catalogue",
+      "Le schéma Mongoose du service Catalogue",
+      "Un validator <code>$jsonSchema</code> sur la collection reviews",
+      "L’index unique sur productId et l’id client"
+    ],
+    "explain": "Un validator $jsonSchema s’exécute dans le serveur à chaque insertion et mise à jour, quel que soit le client. Les types TypeScript et les schémas Mongoose ne vérifient que l’application qui les utilise ; la documentation du driver indique que les autres applications et outils contournent la validation Mongoose."
+  },
+  "m19.q6": {
+    "q": "Comment le service Catalogue devrait-il créer son <code>MongoClient</code> ?",
+    "options": [
+      "Une fois par processus au démarrage, partagé par toutes les requêtes, puisque chaque client garde son propre pool de connexions",
+      "Une fois par requête, fermé à la fin de la requête pour libérer la connexion",
+      "Une fois par collection, pour que chaque collection ait son propre pool",
+      "Une fois par requête en base, avec maxPoolSize à 1"
+    ],
+    "explain": "Chaque MongoClient détient un pool de connexions par serveur (maxPoolSize à 100 par défaut), donc un seul client partagé par processus réutilise les connexions. Un client par requête ouvre et ferme sans cesse connexions et pools, ce qui coûte de la latence et des ressources serveur."
+  },
+  "m19.q7": {
+    "q": "La requête filtre <code>productId</code> et <code>status</code> par égalité et <code>stars &gt;= 4</code>, et trie par <code>createdAt</code> décroissant. Quel index suit ESR ?",
+    "options": [
+      "<code>{ stars: 1, productId: 1, status: 1, createdAt: -1 }</code>",
+      "<code>{ productId: 1, status: 1, stars: 1, createdAt: -1 }</code>",
+      "<code>{ createdAt: -1, productId: 1, status: 1, stars: 1 }</code>",
+      "<code>{ productId: 1, status: 1, createdAt: -1, stars: 1 }</code>"
+    ],
+    "explain": "ESR place d’abord les champs d’égalité, puis le champ de tri, puis le champ de plage. Mettre stars avant createdAt (la deuxième option) est l’ordre tentant quand on vient du SQL, mais après une plage les entrées ne sont plus triées par date, donc le serveur ajoute une étape SORT en mémoire."
+  },
+  "m19.q8": {
+    "q": "Les invitations ont un index TTL sur <code>expiresAt</code> avec <code>expireAfterSeconds: 0</code>. Que garantit la documentation ?",
+    "options": [
+      "Chaque invitation est supprimée à la seconde exacte d’expiresAt",
+      "Les invitations sont supprimées après expiresAt, par une tâche de fond qui tourne toutes les 60 secondes, éventuellement plus tard",
+      "Les invitations sont supprimées par chaque secondaire indépendamment",
+      "Les invitations sans champ expiresAt sont supprimées immédiatement"
+    ],
+    "explain": "La tâche TTL tourne toutes les 60 secondes et la documentation précise que la suppression n’est pas immédiate et peut prendre davantage de retard. Elle ne supprime que sur le primaire, les secondaires répliquent les suppressions, et un document sans le champ date indexé n’expire jamais."
+  },
+  "m19.q9": {
+    "q": "Un pipeline commence par <code>$facet</code> et filtre sur <code>productId</code> dans chaque sous-pipeline. Que fait le serveur, d’après la documentation ?",
+    "options": [
+      "Un parcours complet de la collection, parce qu’un $facet en première position n’utilise pas les index",
+      "Un parcours d’index par sous-pipeline sur l’index productId",
+      "Il rejette le pipeline, parce que $facet doit venir en dernier",
+      "Il déplace automatiquement le filtre avant $facet et utilise l’index"
+    ],
+    "explain": "La documentation de $facet indique qu’un $facet placé en premier effectue un COLLSCAN, alors que des étapes antérieures comme $match peuvent utiliser les index. Mets le $match commun avant $facet, comme dans la fonction reviewStats de la section 7."
+  },
+  "m19.q10": {
+    "q": "Le service écrit les avis avec <code>w: 1</code>. Le primaire tombe juste après avoir acquitté un avis, avant qu’un secondaire l’ait copié. Que peut-il se passer ?",
+    "options": [
+      "Rien : w: 1 attend le journal sur chaque membre",
+      "Le nouveau primaire récupère l’avis auprès de l’ancien avant d’accepter des écritures",
+      "L’avis peut subir un rollback et disparaître, alors que le client a été informé qu’il était enregistré",
+      "Le driver renvoie l’avis automatiquement parce que l’acquittement a été perdu"
+    ],
+    "explain": "La documentation du write concern prévient qu’avec w: 1, des données peuvent subir un rollback si le primaire se retire avant que les écritures soient répliquées sur un secondaire. L’acquittement a bien été reçu, il n’y a donc rien à réessayer pour le driver ; w: 'majority' empêche la perte."
+  },
+  "m19.q11": {
+    "q": "Dans <code>session.withTransaction</code>, quelle erreur fait échapper une écriture à la transaction ?",
+    "options": [
+      "Attendre chaque opération l’une après l’autre",
+      "Appeler <code>updateOne</code> sans passer <code>{ session }</code>",
+      "Renvoyer une valeur depuis le callback",
+      "Utiliser le write concern par défaut pour le commit"
+    ],
+    "explain": "Seules les opérations qui reçoivent la session font partie de la transaction ; une opération sans elle s’exécute seule et ne subit pas de rollback. Attendre les opérations une par une, c’est ce qu’exige la documentation du driver, et renvoyer une valeur est autorisé : withTransaction la renvoie."
+  },
+  "m19.q12": {
+    "q": "Quand le processus de synchronisation doit-il enregistrer le resume token d’un événement de changement ?",
+    "options": [
+      "Avant de traiter l’événement, pour qu’un crash ne le fasse jamais traiter deux fois",
+      "Seulement quand le processus s’arrête proprement",
+      "Une fois par jour, avec une resynchronisation complète",
+      "Après que l’événement a été appliqué à l’API Orders, avec une écriture idempotente"
+    ],
+    "explain": "Enregistrer après le traitement donne une livraison at-least-once : un crash rejoue le dernier événement, ce qu’un upsert idempotent absorbe. Enregistrer avant le traitement donne du at-most-once : un crash entre l’enregistrement et l’application perd l’événement pour de bon."
+  },
+  "m19.q13": {
+    "q": "L’onglet des avis est lent. La sortie explain de sa requête affiche ce résumé. Quelle est la meilleure correction ?",
+    "options": [
+      "Remplacer l’index par { productId: 1, status: 1, createdAt: -1, stars: 1 } pour que l’index fournisse l’ordre",
+      "Ajouter allowDiskUse pour que le tri puisse déborder sur disque",
+      "Ajouter un index séparé à champ unique sur createdAt",
+      "Augmenter maxPoolSize pour que plus de requêtes tournent en parallèle"
+    ],
+    "explain": "L’étape SORT révèle un tri en mémoire : avec la plage sur stars avant createdAt, le serveur lit toutes les entrées correspondantes, les trie, et en renvoie 20. L’ordre ESR (le tri avant la plage) permet à l’index de renvoyer les entrées par date et de s’arrêter tôt. Le débordement sur disque ou davantage de connexions ne réduisent pas les 41 200 lectures."
+  },
+  "m19.q14": {
+    "q": "Avec l’index <code>{ productId: 1, status: 1, createdAt: -1, stars: 1 }</code>, quelle requête est couverte ?",
+    "options": [
+      "<code>find({ productId, status: 'published' }, { projection: { stars: 1, createdAt: 1 } })</code>",
+      "<code>find({ productId, status: 'published' }, { projection: { _id: 0, stars: 1, title: 1 } })</code>",
+      "<code>find({ productId, status: 'published' }, { projection: { _id: 0, stars: 1, createdAt: 1 } })</code>",
+      "<code>find({ productId, status: null }, { projection: { _id: 0, stars: 1 } })</code>"
+    ],
+    "explain": "Une requête couverte ne lit et ne renvoie que des champs indexés et exclut _id, que l’index ne contient pas. La première option renvoie _id par défaut, la deuxième renvoie title, absent de l’index, et la documentation exclut des requêtes couvertes les prédicats qui testent null."
+  },
+  "m19.q15": {
+    "q": "L’équipe ajoute un index unique sur <code>giftCode</code> dans <code>reviews</code> ; la plupart des avis n’ont pas de code cadeau. Le deuxième avis sans code échoue avec l’erreur 11000. Pourquoi, et quelle est la correction ?",
+    "options": [
+      "Les index uniques rejettent tout document auquel il manque le champ ; rendre giftCode obligatoire",
+      "Un champ absent est indexé comme null, donc un seul document peut en être dépourvu ; utiliser un index partiel sur les documents où giftCode existe",
+      "L’index a été créé avant les données ; le supprimer et le recréer",
+      "L’erreur 11000 signifie un conflit d’écriture ; réessayer l’insertion"
+    ],
+    "explain": "D’après la documentation, un index unique à champ unique stocke null pour un champ absent, donc un deuxième document sans giftCode duplique ce null. Avec partialFilterExpression: { giftCode: { $exists: true } }, l’unicité ne s’applique qu’aux documents qui ont un code. Le code 11000 est DuplicateKey, pas un conflit d’écriture (112)."
+  },
+  "m19.q16": {
+    "q": "Les produits ont deux champs tableaux, <code>tags</code> et <code>colours</code>. Un collègue crée <code>{ tags: 1, colours: 1 }</code>. Que se passe-t-il ?",
+    "options": [
+      "MongoDB indexe chaque combinaison de tag et de couleur",
+      "L’index est créé mais n’est utilisé que pour les requêtes sur tags",
+      "MongoDB convertit l’index en deux index à champ unique",
+      "C’est refusé : un index multikey composé autorise au plus un champ tableau par document"
+    ],
+    "explain": "La documentation multikey indique que chaque document indexé peut avoir au plus un champ indexé dont la valeur est un tableau : la création échoue si des documents existants ont les deux en tableaux, et les insertions ultérieures qui enfreignent la règle échouent. Indexe les deux champs séparément, ou remodèle les données."
+  },
+  "m19.q17": {
+    "q": "Il existe un index partiel <code>{ createdAt: 1 }</code> avec <code>partialFilterExpression: { status: 'pending' }</code>. L’écran de modération exécute <code>find({ createdAt: { $gte: since } })</code>. L’index est-il utilisé ?",
+    "options": [
+      "Non : la requête n’inclut pas le filtre sur status, donc utiliser l’index pourrait manquer des documents",
+      "Oui : createdAt est le champ indexé",
+      "Oui, mais seulement avec un hint",
+      "Non, parce que les index partiels ne servent que les conditions d’égalité"
+    ],
+    "explain": "La documentation précise que MongoDB n’utilise pas un index partiel quand il pourrait renvoyer un résultat incomplet : la requête doit contenir l’expression de filtre (ou un sous-ensemble de celle-ci). Ajouter status: 'pending' à la requête lui permet d’utiliser l’index. Les index partiels servent très bien les conditions de plage comme $gte."
+  },
+  "m19.q18": {
+    "q": "Un développeur joint les avis aux produits avec <code>$lookup</code> à chaque affichage de la page produit et demande pourquoi la page est lente sous charge. Quelle est la meilleure réponse ?",
+    "options": [
+      "Ajouter allowDiskUse: true au pipeline",
+      "Déplacer le $lookup après un $facet",
+      "Le modèle ignore le pattern d’accès : embarquer le sous-ensemble d’avis que la page affiche au lieu de joindre à chaque affichage",
+      "Remplacer $lookup par populate de Mongoose, qui est toujours plus rapide"
+    ],
+    "explain": "Une jointure sur le chemin de lecture le plus sollicité signifie que les données que la page lit ensemble ne sont pas stockées ensemble ; le subset pattern supprime la jointure. populate exécute des requêtes supplémentaires, que la documentation du driver décrit comme utiles dans certains cas, pas toujours plus rapides, et le débordement sur disque n’aide pas une petite jointure répétée des milliers de fois."
+  },
+  "m19.q19": {
+    "q": "Un rapport liste les produits avec leurs avis : <code>$lookup</code> dans <code>reviews</code> sous le nom <code>reviews</code>, puis <code>{ $unwind: '$reviews' }</code>. Les produits sans avis manquent dans le rapport. Pourquoi ?",
+    "options": [
+      "$lookup renvoie null pour les produits sans avis et $unwind échoue en silence",
+      "Par défaut, $unwind ne produit rien pour un document dont le tableau est vide ; utiliser preserveNullAndEmptyArrays: true",
+      "$lookup ignore les documents locaux sans correspondance, comme une jointure interne",
+      "La limite de 16 Mio a retiré ces produits du résultat"
+    ],
+    "explain": "$lookup est une jointure externe gauche et renvoie un tableau vide quand rien ne correspond. C’est $unwind qui écarte les documents dont le tableau est vide ou absent, parce que preserveNullAndEmptyArrays vaut false par défaut. Mets-le à true pour garder ces produits."
+  },
+  "m19.q20": {
+    "q": "Le résumé des notes est mis à jour avec <code>$inc</code> à chaque avis. Le marketing importe maintenant 2 millions d’avis historiques en une nuit. Que ferais-tu du résumé ?",
+    "options": [
+      "Garder $inc par avis et englober l’import dans une seule transaction",
+      "Supprimer le résumé et calculer la moyenne avec $group à chaque affichage de la page",
+      "Lancer 2 millions d’appels updateOne en parallèle avec Promise.all",
+      "Importer les avis, puis recalculer les résumés une fois avec $group et $merge, le computed pattern en job batch"
+    ],
+    "explain": "Pour un chargement en masse, une seule agrégation qui groupe par produit et fusionne dans products réécrit chaque résumé une fois au lieu de 2 millions de mises à jour de compteur. Une transaction de 2 millions d’écritures se heurte à la limite par défaut d’une minute, et calculer à chaque affichage renonce à l’optimisation de lecture qui est la raison d’être du pattern."
+  },
+  "m19.q21": {
+    "q": "Après avoir publié un avis, le client est redirigé vers la page produit, qui lit avec <code>readPreference: 'secondaryPreferred'</code>. Parfois, le nouvel avis manque. Quelle est la meilleure correction ?",
+    "options": [
+      "Écrire l’avis avec w: 1 pour aller plus vite",
+      "Ajouter un sleep d’une seconde avant la redirection",
+      "Lire depuis le primaire la page qui doit montrer l’écriture du client lui-même, et garder les secondaires pour les rapports",
+      "Utiliser readConcern: 'local' sur le secondaire"
+    ],
+    "explain": "Les secondaires appliquent l’oplog de façon asynchrone, ils peuvent donc être en retard sur le primaire. Les lectures qui doivent voir l’écriture de l’utilisateur lui-même vont au primaire (ou utilisent une session causally consistent). Un sleep ne fait que masquer le retard, et le read concern local lit toujours ce secondaire en retard."
+  },
+  "m19.q22": {
+    "q": "Pendant un failover planifié avec les réglages par défaut du driver, quelle écriture n’est PAS réessayée automatiquement quand elle tombe sur l’élection ?",
+    "options": [
+      "Un <code>updateMany</code> qui dépublie tous les avis d’un produit",
+      "Un <code>insertOne</code> d’un avis",
+      "Un <code>findOneAndUpdate</code> sur un produit",
+      "Un <code>updateOne</code> avec <code>$inc</code> sur un résumé"
+    ],
+    "explain": "Les retryable writes couvrent les opérations sur un seul document (insertOne, updateOne, findOneAndUpdate, deleteOne et similaires) et sont réessayées une fois. updateMany est une écriture multi-documents et n’est pas réessayable, donc le code doit gérer cette erreur lui-même."
+  },
+  "m19.q23": {
+    "q": "Qu’est-ce qui ne va pas dans ce code ?",
+    "options": [
+      "Rien : les deux écritures passent la session et l’e-mail est envoyé après elles",
+      "Les opérations tournent en parallèle dans une même transaction, et l’e-mail peut partir plusieurs fois parce que le callback peut être réexécuté",
+      "withTransaction n’accepte pas de callback async",
+      "insertOne ne peut pas être utilisé dans une transaction"
+    ],
+    "explain": "Le driver Node ne supporte pas les opérations parallèles dans une même transaction (la documentation dit qu’elles provoquent généralement des erreurs serveur), et withTransaction réexécute tout le callback sur une erreur transitoire, donc l’e-mail pourrait partir deux fois. Attends les écritures une par une et envoie l’e-mail après le commit de la transaction."
+  },
+  "m19.q24": {
+    "q": "Un coéquipier veut chaque publication d’avis dans une transaction multi-documents pour que le résumé produit ne soit jamais décalé d’une unité. Les avis montent à 300 par minute les jours de lancement. Que réponds-tu ?",
+    "options": [
+      "D’accord : les transactions coûtent dans MongoDB autant que les écritures sur un seul document",
+      "Refuser complètement les transactions : les transactions MongoDB ne sont pas ACID",
+      "D’accord, et augmenter aussi transactionLifetimeLimitSeconds à une heure par sécurité",
+      "Garder les deux écritures et réparer le résumé dérivé avec un job périodique ; une transaction apporte peu pour des données recalculables"
+    ],
+    "explain": "Le résumé est dérivé des avis, donc un écart rare se répare en le recalculant, sans payer le surcoût documenté des transactions sur le chemin critique. Les transactions MongoDB sont ACID, donc les refuser pour cette raison est faux ; une limite de durée plus longue ne fait que laisser les longues transactions garder des ressources plus longtemps."
+  },
+  "m19.q25": {
+    "q": "Un endpoint Mongoose renvoie 1 000 avis en JSON et les pods consomment trop de mémoire. Quel changement la documentation de Mongoose recommande-t-elle pour ce chemin de lecture ?",
+    "options": [
+      "Appeler populate() sur l’auteur de chaque avis",
+      "Convertir chaque document avec toObject() après l’avoir chargé",
+      "Ajouter .lean() à la requête, pour que Mongoose renvoie des objets simples au lieu de documents complets",
+      "Passer le schéma en strict: false"
+    ],
+    "explain": "lean() saute l’hydratation : pas de suivi des changements, de getters, de virtuals ni de save, et la documentation mesure des objets lean environ 3 fois plus petits en mémoire. toObject() construit quand même d’abord le document complet, et populate ajoute des requêtes et des données au lieu d’en retirer."
+  },
+  "m19.q26": {
+    "q": "La collection <code>reviews</code> est shardée sur <code>{ createdAt: 1 }</code>. Sous le trafic d’un lancement, un shard est à 100 % de CPU pendant que les autres sont inactifs. Pourquoi ?",
+    "options": [
+      "createdAt augmente toujours, donc chaque insertion va dans le chunk qui contient les valeurs les plus hautes, sur un seul shard",
+      "Le balancer est désactivé pendant la journée",
+      "mongos envoie chaque écriture au shard primaire de la base",
+      "Le sharding par plage ne répartit jamais les données ; seul le sharding hashé le fait"
+    ],
+    "explain": "La documentation des shard keys explique qu’avec une clé monotone croissante, toutes les nouvelles insertions sont routées vers le chunk dont la borne supérieure est maxKey, ce qui fait de son shard le goulot d’étranglement en écriture. Le sharding par plage répartit bien les données existantes, mais pas les nouvelles insertions sur une clé monotone."
+  },
+  "m19.q27": {
+    "q": "Tu shardes <code>reviews</code> sur <code>{ _id: 'hashed' }</code>. Les écritures sont maintenant équilibrées. Qu’advient-il de la requête de l’onglet des avis par <code>productId</code> ?",
+    "options": [
+      "Elle est ciblée sur un seul shard, parce que productId est indexé",
+      "Elle est diffusée à tous les shards, parce qu’elle ne contient pas la shard key",
+      "Elle échoue tant que tu n’ajoutes pas productId à la shard key",
+      "Elle est ciblée, parce que les clés hashées supportent toute requête d’égalité"
+    ],
+    "explain": "mongos cible les requêtes qui contiennent la shard key ou un préfixe de celle-ci ; une requête sur productId ne contient ni l’une ni l’autre, c’est donc un scatter-gather vers tous les shards. Avoir un index sur productId sur chaque shard ne dit pas à mongos où se trouvent les documents."
+  },
+  "m19.q28": {
+    "q": "La synchronisation des produits a été arrêtée pendant une semaine. Au redémarrage avec le resume token enregistré, elle échoue avec <code>ChangeStreamHistoryLost</code> (code 286). Que fais-tu ?",
+    "options": [
+      "Réessayer avec le même token jusqu’à ce que l’oplog se remplisse à nouveau",
+      "Ouvrir le stream avec startAfter et le même token",
+      "Ouvrir le stream sans token et accepter la semaine manquante",
+      "Resynchroniser entièrement la copie du catalogue, puis démarrer un nouveau stream, et dimensionner la fenêtre de l’oplog au-delà de la plus longue panne prévisible"
+    ],
+    "explain": "Reprendre exige que l’opération du token soit encore dans l’oplog ; après une semaine, elle a disparu, et aucune option ne la récupère. startAfter n’aide qu’après un événement invalidate. Repartir de zéro sans resynchronisation laisse une semaine de changements manquante : resynchronise, redémarre, et alerte sur l’indisponibilité du watcher."
+  },
+  "m19.q29": {
+    "q": "L’API Orders tourne avec 6 réplicas, et chacun ouvre le même change stream sur <code>products</code> pour mettre à jour sa table PostgreSQL. Quel est le principal problème ?",
+    "options": [
+      "Les change streams n’autorisent qu’un curseur par collection, donc cinq réplicas échouent",
+      "Chaque réplica reçoit un sous-ensemble différent des événements",
+      "Chaque réplica applique chaque changement, donc chaque mise à jour s’exécute 6 fois ; faire tourner un seul watcher à la place",
+      "Les événements ne sont pas commités en majorité quand plusieurs watchers sont ouverts"
+    ],
+    "explain": "Chaque change stream est un curseur indépendant qui reçoit chaque événement correspondant, donc six watchers écrivent chaque changement six fois et se font la course sur le resume token enregistré. Un seul watcher (un processus dédié, ou un réplica élu) avec une destination idempotente est la conception habituelle. Ouvrir plusieurs streams est permis ; ils ne se partagent simplement pas le travail."
+  },
+  "m19.q30": {
+    "q": "La boutique ajoute un programme de fidélité : des points gagnés sur les commandes payées, dépensés au checkout, jamais négatifs, audités par la finance. Où stockerais-tu le registre des points ?",
+    "options": [
+      "Dans PostgreSQL à côté des commandes : c’est relationnel, ça demande des contraintes et des transactions avec la commande, et c’est audité",
+      "Dans MongoDB, embarqué dans chaque document client, parce qu’il est lu avec le client",
+      "Dans MongoDB, un document par client mis à jour avec $inc, parce que les écritures sur un seul document sont atomiques",
+      "Dans le cache Redis, parce que les points sont lus sur chaque page"
+    ],
+    "explain": "Le registre change en même temps que les commandes, a besoin d’une contrainte « jamais négatif » et d’une piste d’audit, et s’écrit dans le même flux que le paiement : c’est le point fort de PostgreSQL, dans la même transaction que la commande. Un $inc atomique n’est pas un registre et ne peut pas partager une transaction avec une commande dans une autre base, et un cache n’est pas une source de vérité."
+  }
+}

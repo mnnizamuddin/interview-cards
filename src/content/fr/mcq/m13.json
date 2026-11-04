@@ -1,0 +1,302 @@
+{
+  "m13.q1": {
+    "q": "Le JSON produit est identique pour tous les clients. Tu veux que le CDN le garde 5 minutes, les navigateurs 1 minute, et que le CDN continue de le servir 10 minutes de plus pendant qu’il le rafraîchit. Quel en-tête ?",
+    "options": [
+      "<code>private, max-age=300, s-maxage=300, stale-while-revalidate=600</code>",
+      "<code>public, max-age=60, s-maxage=300, stale-while-revalidate=600</code>",
+      "<code>no-cache, max-age=60, s-maxage=300, stale-while-revalidate=600</code>",
+      "<code>public, no-store, max-age=60, s-maxage=300, stale-while-revalidate=600</code>"
+    ],
+    "explain": "<code>s-maxage</code> définit la fraîcheur pour les caches partagés comme un CDN et y remplace <code>max-age</code>, tandis que les navigateurs utilisent <code>max-age</code>. <code>stale-while-revalidate</code> permet de servir la copie périmée pendant le rafraîchissement. <code>private</code> interdit au CDN de la stocker, et <code>no-store</code> l’interdit à tous les caches."
+  },
+  "m13.q2": {
+    "q": "Que signifie <code>Cache-Control: no-cache</code> sur une réponse ?",
+    "options": [
+      "Aucun cache, quel qu’il soit, ne peut stocker la réponse ; elle doit être récupérée sur le serveur à chaque fois.",
+      "Seul le navigateur peut la stocker ; un CDN ou un proxy doit transmettre chaque requête au serveur.",
+      "Les caches peuvent la stocker, mais doivent la revalider auprès du serveur avant chaque réutilisation.",
+      "Les caches la stockent mais ne la servent que lorsque le serveur d’origine est en panne ou répond par des erreurs."
+    ],
+    "explain": "D’après MDN, <code>no-cache</code> autorise le stockage mais exige une revalidation avant chaque réutilisation, à laquelle le serveur répond généralement par <code>304 Not Modified</code>. La directive qui interdit le stockage est <code>no-store</code> ; confondre les deux est l’erreur classique. Servir du périmé en cas d’erreur, c’est <code>stale-if-error</code>."
+  },
+  "m13.q3": {
+    "q": "Pourquoi un cache en mémoire du processus placé devant Redis doit-il avoir un TTL court, de quelques secondes plutôt que de quelques minutes ?",
+    "options": [
+      "Parce que lru-cache ne peut pas garder une entrée plus d’une minute, quel que soit le <code>ttl</code> passé.",
+      "Parce qu’avec un TTL long, lru-cache évince d’abord les clés les plus lues pour faire de la place.",
+      "Parce que Redis ferme la connexion des clients qui gardent trop longtemps une copie locale de ses clés.",
+      "Un <code>DEL</code> Redis n’atteint pas les copies des autres réplicas ; seul leur TTL borne la péremption."
+    ],
+    "explain": "Chaque instance Node garde sa propre copie, et le chemin d’écriture ne supprime que la clé Redis. Rien ne prévient les autres réplicas, donc leur TTL (ou une diffusion comme le pub/sub Redis) est la seule borne à la péremption. lru-cache n’a pas de telle limite de durée, et un LRU évince les entrées les moins récemment utilisées, pas les plus chaudes."
+  },
+  "m13.q4": {
+    "q": "Tu démarres un nouveau service Node qui parle à Redis 8. Quel client choisis-tu, en octobre 2026 ?",
+    "options": [
+      "node-redis (le paquet <code>redis</code>), le client que recommande la doc de Redis.",
+      "ioredis, car Redis Inc. le développe désormais plus activement que tout autre client Node.",
+      "kafkajs, car ce même client parle à la fois les protocoles Kafka et Redis.",
+      "iovalkey, car Redis 8 n’accepte que les connexions de clients qui prennent aussi en charge Valkey."
+    ],
+    "explain": "La doc de Redis recommande node-redis pour Node.js, et le README d’ioredis indique que sa maintenance se fait au mieux et que node-redis est recommandé pour les nouveaux projets. iovalkey est un fork d’ioredis qui suit Valkey ; il n’est pas requis pour Redis. kafkajs est un client Kafka."
+  },
+  "m13.q5": {
+    "q": "Un admin change le prix du produit 42, mis en cache en cache-aside. Que doit faire le chemin d’écriture ?",
+    "options": [
+      "Supprimer la clé d’abord, puis mettre à jour la base, pour qu’aucun lecteur ne voie l’ancien prix.",
+      "Mettre à jour la base, puis écrire le nouveau prix dans le cache pour que la lecture suivante soit un hit.",
+      "Mettre à jour la base, puis supprimer la clé une fois la transaction commitée.",
+      "Mettre à jour la base uniquement, et laisser le TTL remplacer l’ancien prix à son expiration."
+    ],
+    "explain": "Supprimer après le commit garantit que la lecture suivante charge la nouvelle ligne. Supprimer avant laisse un lecteur recharger l’ancienne ligne entre-temps et la mettre en cache pour tout un TTL. Écrire la valeur au lieu de supprimer peut laisser en cache la plus ancienne de deux mises à jour concurrentes, et se fier au seul TTL sert l’ancien prix jusqu’à son expiration."
+  },
+  "m13.q6": {
+    "q": "La réponse produit inclut désormais la remise membre du client connecté, et elle est toujours mise en cache sous <code>catalogue:v3:product:42:fr-FR</code>. Que changes-tu ?",
+    "options": [
+      "Baisser le TTL à 10 secondes pour qu’une mauvaise remise ne reste jamais visible longtemps.",
+      "Ne mettre en cache que les données produit partagées, et appliquer la remise à chaque requête après la lecture.",
+      "Ajouter du jitter aléatoire au TTL pour que deux clients lisent rarement la même entrée en cache.",
+      "Déplacer ce cache dans un LRU en mémoire du processus pour que chaque réplica garde sa propre copie de l’entrée."
+    ],
+    "explain": "Des données par utilisateur sous une clé partagée, c’est une fuite de données : le client suivant lit la remise du premier. Garde la clé pour ce qui est identique pour tout le monde et calcule la partie personnelle à chaque requête. Un TTL plus court ou un cache local ne font que raccourcir la fuite ou la répartir autrement ; le jitter change le moment où les clés expirent, pas qui les lit."
+  },
+  "m13.q7": {
+    "q": "Un cache sans request coalescing reçoit 100 lectures concurrentes de la même clé froide, pendant que le chargement de 50 ms depuis la base est en cours. Combien de fois le loader s’exécute-t-il ?",
+    "options": [
+      "Une fois",
+      "Deux fois",
+      "Environ 50 fois",
+      "100 fois"
+    ],
+    "explain": "Chaque lecture qui fait un miss avant que le premier chargement ait stocké une valeur lance son propre chargement. Mesuré sur Node 24 : 100 appels au loader sans coalescing, 1 avec single flight. Cet empilement sur une seule clé qui expire, c’est une cache stampede."
+  },
+  "m13.q8": {
+    "q": "Un nouveau service de détection de fraude doit lire chaque événement <code>order.paid</code> des 7 derniers jours, sans perturber les services qui les consomment déjà. Quel modèle le permet ?",
+    "options": [
+      "Un log comme Kafka, où chaque consumer group lit depuis son propre offset.",
+      "Une file comme SQS : le nouveau service reçoit chaque message que les autres services n’ont pas encore supprimé.",
+      "Une file de jobs comme BullMQ : les jobs terminés sont rejoués quand un nouveau processus worker démarre.",
+      "N’importe quel broker, tant que les consommateurs acquittent chaque message avant de le traiter."
+    ],
+    "explain": "La doc de Kafka indique que les événements ne sont pas supprimés après consommation et sont conservés pendant une durée de rétention propre à chaque topic, donc un nouveau consumer group peut partir du passé. Une file supprime les messages une fois traités, et des consommateurs concurrents se les partagent au lieu de tous les voir. Acquitter avant de traiter donne une livraison at-most-once, pas un rejeu."
+  },
+  "m13.q9": {
+    "q": "Une équipe démarre un service Node qui produit vers Kafka et prévoit d’utiliser kafkajs. Que devrais-tu leur dire ?",
+    "options": [
+      "kafkajs est le client que Confluent maintient et supporte, c’est donc le choix sûr par défaut pour les nouveaux services.",
+      "kafkajs convient tant que le topic a moins de 12 partitions et que les messages restent petits.",
+      "Sa dernière version, 2.2.4, date de février 2023 ; préférer le client compatible KafkaJS de Confluent.",
+      "Node ne peut pas produire directement vers Kafka ; les événements doivent d’abord passer par SQS ou SNS."
+    ],
+    "explain": "npm indique kafkajs 2.2.4, publiée en février 2023, comme dernière version, et son dépôt a une issue ouverte « Looking for maintainers ». Confluent publie @confluentinc/kafka-javascript (1.11.0), construit sur librdkafka, avec une API compatible KafkaJS et un guide de migration. kafkajs n’a jamais été le client de Confluent."
+  },
+  "m13.q10": {
+    "q": "Quel design de consommateur donne un <em>effet</em> exactly-once au-dessus d’une livraison at-least-once ?",
+    "options": [
+      "Acquitter le message avant de le traiter, pour que le broker n’ait jamais de raison de le relivrer.",
+      "Insérer l’id du message et appliquer l’effet dans une seule transaction, pour que la clé primaire rejette les doublons.",
+      "Vérifier avec un <code>SELECT</code> si l’id a été traité, puis appliquer l’effet et insérer l’id.",
+      "Configurer le broker pour une livraison exactly-once, ce qui rend la déduplication inutile dans le consommateur."
+    ],
+    "explain": "La clé primaire décide quelle livraison l’emporte, et la transaction commune fait que l’id et l’effet sont commités ou annulés ensemble (mesuré sur PGlite : un effet en échec n’a laissé aucun id). Acquitter d’abord donne du at-most-once et peut perdre des messages. Le select puis insert laisse deux livraisons concurrentes passer toutes les deux la vérification, et les garanties du broker s’arrêtent au broker."
+  },
+  "m13.q11": {
+    "q": "Le webhook de paiement commite le statut payé de la commande 981, puis publie <code>order.paid</code>. Le réplica est tué entre les deux appels. Quel est le résultat ?",
+    "options": [
+      "Le broker publie l’événement au redémarrage du processus.",
+      "PostgreSQL annule le statut payé car la publication n’a pas eu lieu.",
+      "L’événement est publié deux fois au redémarrage du processus.",
+      "La commande est payée, mais aucun autre service n’en entendra jamais parler."
+    ],
+    "explain": "C’est le problème de la double écriture : deux systèmes et aucune transaction qui les englobe, donc rien ne se souvient qu’une publication était due. L’outbox transactionnel le corrige en commitant l’événement sous forme de ligne dans la même transaction que le statut payé, et en laissant un relais le publier plus tard."
+  },
+  "m13.q12": {
+    "q": "Dans une saga de commande, la commande a été créée et le stock réservé, puis le paiement est refusé. Que doit-il se passer ?",
+    "options": [
+      "Exécuter les compensations en ordre inverse : libérer le stock, puis annuler la commande.",
+      "Annuler la transaction distribuée ouverte au départ sur les trois services.",
+      "Relancer le paiement refusé jusqu’à ce qu’il réussisse, car une saga doit toujours aller jusqu’au bout.",
+      "Laisser la commande en attente et le stock réservé jusqu’à ce qu’un opérateur s’en occupe dans le back-office."
+    ],
+    "explain": "Chaque étape a déjà été commitée dans son propre service, donc il n’y a rien à annuler par rollback : une saga défait les étapes terminées avec des actions de compensation, de la plus récente à la plus ancienne. Une carte refusée est un échec métier, donc la relancer ne sert à rien, et laisser le stock réservé bloque les autres clients."
+  },
+  "m13.q13": {
+    "q": "Après un déploiement, des clients signalent qu’ils voient le panier de quelqu’un d’autre. La route du panier est derrière un CDN et renvoie désormais l’en-tête ci-dessous. Que livres-tu ?",
+    "options": [
+      "Envoyer <code>private, no-store</code> : <code>s-maxage</code> permet au CDN de partager un même panier avec tout le monde.",
+      "Baisser <code>s-maxage</code> à 5 secondes, pour qu’un mauvais panier reste visible beaucoup moins longtemps.",
+      "Ajouter <code>stale-while-revalidate=0</code> pour que le CDN ne serve jamais une copie périmée d’un panier.",
+      "Garder l’en-tête et ajouter l’id utilisateur dans le corps JSON, pour que le client puisse détecter un mauvais panier."
+    ],
+    "explain": "MDN précise que <code>s-maxage</code>, comme <code>public</code>, permet à un cache partagé de stocker la réponse à une requête qui porte <code>Authorization</code>. Les réponses propres à un utilisateur ont besoin de <code>private</code> (pas de stockage partagé) ou de <code>no-store</code>. Un <code>s-maxage</code> plus court fait toujours fuiter les paniers, juste moins longtemps."
+  },
+  "m13.q14": {
+    "q": "Un client ouvre le produit 981 dix secondes avant que l’équipe catalogue le crée. Que voient ensuite les clients, avec ce chemin de lecture ?",
+    "options": [
+      "Le produit immédiatement, car créer une ligne en base contourne complètement le cache.",
+      "Le produit après le prochain déploiement, car chaque déploiement vide l’instance Redis.",
+      "Un « introuvable » pendant jusqu’à un jour : les résultats négatifs ont besoin d’un TTL court.",
+      "Une page d’erreur, car Redis refuse de stocker une valeur JSON dont le champ <code>found</code> est false."
+    ],
+    "explain": "Le résultat négatif est mis en cache pour 86 400 secondes, donc chaque lecture tombe sur l'« introuvable » en cache jusqu’à son expiration. Le cache négatif protège la base des recherches répétées d’id manquants, mais son TTL doit être court (quelques secondes), et une création doit supprimer la clé comme toute autre écriture. Redis stocke n’importe quelle chaîne, et un déploiement ne le vide pas."
+  },
+  "m13.q15": {
+    "q": "Pour obtenir le coalescing gratuitement, un développeur met en cache la promesse du loader. Le premier chargement échoue. Qu’affiche ce code ?",
+    "options": [
+      "<code>db timeout</code>, <code>ok</code>, <code>ok</code>, puis <code>calls 2</code>",
+      "<code>db timeout</code> trois fois, puis <code>calls 1</code>",
+      "<code>db timeout</code>, <code>db timeout</code>, <code>ok</code>, puis <code>calls 3</code>",
+      "Un rejet non géré arrête le processus après la première ligne"
+    ],
+    "explain": "Une promesse en cache met aussi en cache son rejet : la map garde la promesse rejetée et chaque appel suivant reçoit la même erreur sans appeler le loader. Mesuré sur Node 24 : trois « db timeout » et <code>calls 1</code>. Chaque <code>await</code> a un <code>.catch</code>, donc il n’y a pas de rejet non géré. Retire l’entrée en cours quand le chargement se termine et ne stocke que les valeurs réussies."
+  },
+  "m13.q16": {
+    "q": "Un lecteur commence à charger le produit 42 avec une requête de 50 ms. 5 ms plus tard, un admin commite un nouveau prix et supprime la clé. La requête du lecteur avait déjà lu l’ancienne ligne. Que contient le cache ensuite ?",
+    "options": [
+      "Rien du tout, car la suppression a été la dernière opération sur la clé.",
+      "Le nouveau prix, car une suppression force chaque lecteur encore en cours à recharger.",
+      "Une erreur, car Redis rejette un <code>SET</code> sur une clé supprimée pendant le chargement.",
+      "L’ancien prix, jusqu’à l’expiration du TTL : le chargement lent écrit après la suppression."
+    ],
+    "explain": "Le chargement se termine après l’invalidation et écrit ce qu’il a lu avant la mise à jour. Mesuré sur Node 24 avec les mêmes délais : le cache a fini avec l’ancienne valeur. Le TTL borne les dégâts ; un numéro de version dans la clé ou un TTL court sur ces données réduit la fenêtre."
+  },
+  "m13.q17": {
+    "q": "Ton API tourne sur 20 réplicas, chacun avec un single flight en mémoire devant Redis. Une clé chaude expire dans Redis au pic de trafic. Combien de chargements en base cela peut-il provoquer au maximum, et qu’est-ce qui réduit encore ce nombre ?",
+    "options": [
+      "Jusqu’à 20, un par réplica ; un verrou partagé ou du stale-while-revalidate va plus loin.",
+      "Un seul, car le single flight est coordonné entre les réplicas via Redis lui-même.",
+      "Autant que de requêtes, car le single flight ne protège qu’un seul appelant à la fois.",
+      "Aucun, car Redis recharge lui-même les clés expirées depuis la base avant qu’elles soient lues."
+    ],
+    "explain": "Le single flight partage une promesse à l’intérieur d’un seul processus, donc chaque réplica peut lancer un chargement. Pour descendre plus bas, il faut quelque chose de partagé ou quelque chose qui évite le miss : servir la valeur périmée pendant qu’un appelant rafraîchit, rafraîchir en avance avec une probabilité, ou laisser un appelant gagner un verrou Redis. Redis ne charge jamais de données depuis ta base."
+  },
+  "m13.q18": {
+    "q": "Avec XFetch, une valeur a pris 200 ms à calculer et <code>beta = 1</code>. Sur 100 000 lectures, à quelle fréquence une lecture rafraîchit-elle en avance avec 60 s restantes, et avec 50 ms restantes ?",
+    "options": [
+      "Jamais avec 60 s restantes, et à chaque fois dès qu’il ne reste que 50 ms.",
+      "Environ 1 % des lectures avec 60 s restantes, et environ 10 % avec 50 ms restantes.",
+      "Pratiquement jamais avec 60 s restantes, et environ 78 % des lectures avec 50 ms restantes.",
+      "Environ 50 % dans les deux cas, car <code>Math.random()</code> est uniforme."
+    ],
+    "explain": "L’avance <code>-computeMs * ln(random)</code> suit une loi exponentielle, donc la probabilité de rafraîchir vaut environ <code>e^(-remaining / computeMs)</code>. Mesuré : 0,000 avec 60 s restantes, 0,007 avec 1 s, 0,368 avec 200 ms et 0,779 avec 50 ms. Ce n’est jamais certain : c’est pourquoi un seul lecteur, et non tous, rafraîchit généralement en premier."
+  },
+  "m13.q19": {
+    "q": "Chacun des 12 réplicas de l’API garde un lru-cache de 10 minutes devant Redis. Après un changement de prix, le chemin d’écriture supprime la clé Redis. Que voient les clients, et quel est le correctif habituel ?",
+    "options": [
+      "Le nouveau prix immédiatement, car lru-cache s’abonne par défaut aux suppressions du keyspace Redis.",
+      "L’ancien prix pendant jusqu’à 10 minutes ; raccourcir le TTL du L1 ou diffuser les invalidations.",
+      "L’ancien prix jusqu’au prochain déploiement, car les caches en mémoire n’expirent jamais d’eux-mêmes leurs entrées.",
+      "L’ancien prix jusqu’à la fin du TTL Redis, car Redis retarde les suppressions jusqu’à l’expiration de la clé."
+    ],
+    "explain": "Les copies locales ignorent tout du <code>DEL</code> Redis, donc chaque réplica sert sa copie jusqu’à la fin de son propre TTL. Soit tu gardes le TTL du L1 assez court pour que la péremption soit acceptable, soit tu envoies un message d’invalidation à chaque réplica. lru-cache expire bien les entrées selon le TTL, et Redis applique un <code>DEL</code> immédiatement."
+  },
+  "m13.q20": {
+    "q": "Cinq équipes veulent les événements de commande ; chacune consomme à son rythme, et l’équipe analytics doit pouvoir relire les 7 derniers jours après un correctif. Quel design convient le mieux ?",
+    "options": [
+      "Une file BullMQ avec un worker par équipe, chaque worker lisant tous les jobs de la file.",
+      "Un topic SNS diffusé vers une file SQS par équipe, chaque équipe vidant sa propre file.",
+      "Une seule quorum queue RabbitMQ partagée par les cinq équipes, avec un consommateur par équipe.",
+      "Un topic Kafka avec l’id de commande comme clé, et un consumer group par équipe."
+    ],
+    "explain": "Kafka conserve les événements après consommation, chaque consumer group a son propre offset, et reculer un offset rejoue le passé. SNS vers SQS donne à chaque équipe sa propre file et son propre rythme, ce qui conviendrait sans l’exigence de rejeu, mais SQS supprime les messages traités. Une seule file partagée met les équipes en concurrence pour les messages, et une file BullMQ est conçue pour des jobs, pas pour de nombreux consommateurs indépendants."
+  },
+  "m13.q21": {
+    "q": "L’API appelle <code>enqueueConfirmation('o-981')</code>, fait un timeout, et le client relance, donc l’ajout s’exécute deux fois avec <code>jobId: 'confirmation-o-981'</code> alors que le premier job est encore en attente. Combien d’e-mails sont en file ?",
+    "options": [
+      "Deux, car BullMQ met en file chaque appel à <code>add</code>.",
+      "Deux, et le second ajout est rejeté avec une erreur d’id en double.",
+      "Un : un ajout avec un id de job qui existe déjà est ignoré.",
+      "Aucun : les deux ajouts s’annulent mutuellement."
+    ],
+    "explain": "La doc de BullMQ indique qu’ajouter un job avec un id existant fait qu’il « will just be ignored ». Un id construit à partir de la clé métier (l’id de commande) transforme une mise en file relancée en no-op. Une fois le job supprimé, l’id peut être réutilisé ; les id personnalisés ne doivent pas contenir de deux-points."
+  },
+  "m13.q22": {
+    "q": "Un consommateur SQS met 45 secondes à traiter un message, et la file garde le visibility timeout par défaut. Que se passe-t-il ?",
+    "options": [
+      "Après 30 s, le message réapparaît et un second consommateur peut le traiter en parallèle.",
+      "SQS attend que le consommateur ait fini, car le message a déjà été reçu une fois.",
+      "Le message est supprimé après 30 secondes, donc le travail fait par le consommateur est perdu.",
+      "Le message part directement dans la dead letter queue car il a dépassé le timeout."
+    ],
+    "explain": "D’après la doc de SQS, le visibility timeout vaut 30 secondes par défaut et démarre à la livraison du message ; s’il n’est pas supprimé à temps, il redevient visible. Règle le timeout au-dessus du temps de traitement ou prolonge-le avec <code>ChangeMessageVisibility</code>, et garde le consommateur idempotent. La DLQ ne reçoit un message qu’après <code>maxReceiveCount</code> réceptions."
+  },
+  "m13.q23": {
+    "q": "Deux livraisons du même message sont traitées au même moment par ce consommateur. Combien de points le client a-t-il au final ?",
+    "options": [
+      "10 : la seconde livraison voit la ligne de la première et renvoie <code>duplicate</code>.",
+      "20 : les deux vérifications s’exécutent avant l’une ou l’autre insertion, donc les deux livraisons ajoutent les points.",
+      "10 : la seconde insertion dans <code>processed_messages</code> échoue et annule ses points.",
+      "10 : PostgreSQL exécute automatiquement les deux handlers l’un après l’autre."
+    ],
+    "explain": "Mesuré sur PGlite : les deux <code>SELECT</code> se sont exécutés avant l’une ou l’autre insertion, tous deux ont renvoyé <code>processed</code>, et le solde était de 20. Rien n’annule les points, puisque chaque instruction est commitée séparément et que <code>ON CONFLICT DO NOTHING</code> n’échoue pas. Insère l’id d’abord, dans la même transaction que l’effet, et laisse la clé primaire décider."
+  },
+  "m13.q24": {
+    "q": "Un consommateur insère l’id du message dans <code>processed_messages</code> dans sa propre instruction en autocommit, puis applique l’effet dans une transaction séparée. L’effet échoue sur un deadlock. Que se passe-t-il à la relivraison ?",
+    "options": [
+      "Le message est traité normalement, car l’effet en échec a été annulé par sa transaction.",
+      "Le broker détecte que le traitement a échoué et saute le message pour protéger la file.",
+      "L’insertion de l’id est annulée automatiquement, avec l’effet qui a échoué ensuite.",
+      "L’id est déjà enregistré, donc la relivraison est sautée et l’effet est perdu."
+    ],
+    "explain": "L’id a été commité seul avant l’effet, donc le consommateur croit que le travail est fait et le message est perdu pour de bon. Enregistrer l’id et appliquer l’effet doivent être commités ensemble ; mesuré sur PGlite, faire les deux dans une seule transaction n’a laissé aucun id quand l’effet a levé une erreur, et la livraison suivante a réussi."
+  },
+  "m13.q25": {
+    "q": "Le prestataire de paiement a une panne de 2 minutes. 2 000 jobs échouent et réessaient tous après exactement 1 s, 2 s, 4 s, 8 s… Le prestataire se rétablit mais retombe à chaque vague de retries. Que changes-tu ?",
+    "options": [
+      "Augmenter le nombre de tentatives pour que les jobs continuent d’essayer plus longtemps après la panne.",
+      "Raccourcir le délai de base pour que les jobs se terminent plus tôt une fois le prestataire rétabli.",
+      "Ajouter du jitter aléatoire au backoff pour étaler les retries.",
+      "Réessayer immédiatement en boucle jusqu’à ce que le prestataire réponde, pour ne pas perdre de temps."
+    ],
+    "explain": "Un backoff exponentiel sans jitter garde tous les jobs sur le même calendrier, donc les retries frappent le prestataire ensemble. Le jitter rend chaque attente aléatoire ; BullMQ l’expose sous la forme de <code>jitter</code> dans les options de backoff, et l’article de l’AWS Builders' Library en explique l’effet. Plus de tentatives ou des délais plus courts ajoutent de la charge pendant la panne, et une boucle serrée est le pire cas."
+  },
+  "m13.q26": {
+    "q": "Le topic des commandes a 12 partitions et le producteur envoie les événements sans clé. Un consommateur voit parfois <code>order.refunded</code> avant <code>order.paid</code> pour la même commande. Pourquoi, et quel est le correctif ?",
+    "options": [
+      "Kafka ne donne aucune garantie d’ordre, donc le consommateur doit trier les événements par timestamp.",
+      "Sans clé, les événements d’une commande peuvent atterrir dans des partitions différentes ; utiliser l’id de commande comme clé.",
+      "Le consumer group a trop peu de membres ; ajouter un consommateur par partition rétablit l’ordre.",
+      "Le topic doit avoir une seule partition, seul moyen d’obtenir un ordre quelconque dans Kafka."
+    ],
+    "explain": "La doc de Kafka indique que les événements de même clé sont écrits dans la même partition et que chaque partition est lue dans l’ordre d’écriture. Utiliser l’id de commande comme clé garde les événements d’une commande en séquence, tout en conservant le parallélisme des 12 partitions. Une seule partition fonctionnerait aussi mais limiterait le consumer group à un seul consommateur actif ; ajouter des consommateurs ne règle pas l’ordre."
+  },
+  "m13.q27": {
+    "q": "Le relais de l’outbox publie un message, le broker l’acquitte, et le relais plante avant de renseigner <code>published_at</code>. Que se passe-t-il ensuite ?",
+    "options": [
+      "Il republie le message après le redémarrage ; les consommateurs dédupliquent sur l’id.",
+      "Le message est perdu, car le broker l’avait déjà et le relais ne le réessaie jamais.",
+      "Le broker reconnaît l’id de l’outbox et ignore silencieusement la seconde copie du message.",
+      "PostgreSQL annule la commande, puisque sa ligne d’outbox n’a jamais été marquée comme publiée."
+    ],
+    "explain": "La ligne est toujours non publiée, donc le passage suivant la republie : un relais d’outbox est at-least-once par conception. La table des messages traités du consommateur absorbe le doublon. Un broker ne connaît pas tes id d’outbox (la déduplication de SQS FIFO ne couvre qu’une fenêtre de 5 minutes sur les envois), et la commande a été commitée bien avant."
+  },
+  "m13.q28": {
+    "q": "Un relais réserve un lot avec cette requête et publie les lignes dans l’ordre où elles reviennent. Dans quel ordre les événements sont-ils publiés ?",
+    "options": [
+      "Dans l’ordre de <code>created_at</code>, car la sous-requête trie les lignes avant leur mise à jour.",
+      "Dans l’ordre de la clé primaire, car <code>RETURNING</code> suit toujours l’index de clé primaire.",
+      "Dans aucun ordre garanti (mesuré : les plus récentes d’abord) ; retrier dans une requête externe.",
+      "Dans un ordre aléatoire qui change à chaque appel, car <code>SKIP LOCKED</code> mélange les lignes."
+    ],
+    "explain": "L’<code>ORDER BY</code> de la sous-requête décide quelles lignes sont réservées, pas l’ordre dans lequel <code>UPDATE ... RETURNING</code> les renvoie. Mesuré sur PGlite (PostgreSQL 18.6) : les lignes sont revenues des plus récentes aux plus anciennes. Enveloppe l’update dans une CTE et ajoute <code>ORDER BY created_at</code> au <code>SELECT</code> externe. <code>SKIP LOCKED</code> saute seulement les lignes verrouillées par une autre transaction ; il ne mélange rien."
+  },
+  "m13.q29": {
+    "q": "Le connecteur Debezium qui lit l’outbox a été arrêté vendredi. Dimanche, la base primaire manque de disque. Que s’est-il passé ?",
+    "options": [
+      "La table d’outbox a grossi sans limite, car Debezium ne supprime les lignes d’outbox que lorsqu’il tourne.",
+      "Son replication slot a conservé tout le WAL que le connecteur n’avait pas encore lu.",
+      "PostgreSQL a écrit chaque ligne d’outbox deux fois pendant l’absence du connecteur, pour les rejouer plus tard.",
+      "Kafka a renvoyé dans la base les événements de commande qu’il conservait quand le connecteur s’est arrêté."
+    ],
+    "explain": "La doc de PostgreSQL prévient que les replication slots empêchent la suppression du WAL nécessaire même quand rien n’est connecté. Un connecteur CDC arrêté fait donc s’accumuler le WAL sur la primaire : surveille le retard des slots et supprime ceux qui ne servent plus. Debezium ne supprime pas les lignes d’outbox, et Kafka n’écrit jamais dans PostgreSQL."
+  },
+  "m13.q30": {
+    "q": "Dans un workflow de commande Temporal, un développeur appelle le prestataire de paiement avec <code>fetch</code> directement dans la fonction de workflow et utilise <code>Date.now()</code> pour décider quand abandonner. Pourquoi le relecteur refuse-t-il ?",
+    "options": [
+      "Parce que <code>fetch</code> est bien plus lent dans un workflow Temporal que dans un handler Express.",
+      "Parce que Temporal interdit les appels HTTP partout dans une application qui utilise Temporal.",
+      "Parce que <code>Date.now()</code> renvoie de l’UTC alors que les prestataires de paiement attendent le fuseau local.",
+      "Le code de workflow est rejoué et doit être déterministe ; les I/O vont dans les activities."
+    ],
+    "explain": "Temporal reconstruit un workflow en rejouant son historique d’événements, donc la doc exige que le code de workflow prenne les mêmes décisions à historique égal. Un appel réseau direct ou <code>Date.now()</code> peut donner un résultat différent au rejeu. Les appels HTTP vont dans les activities, et Temporal les relance par défaut avec backoff."
+  }
+}

@@ -1,0 +1,302 @@
+{
+  "m35.q1": {
+    "q": "Quel test aurait détecté le bouton Payer resté désactivé après une carte refusée ?",
+    "options": [
+      "Un snapshot du premier rendu du checkout, mis à jour à chaque changement volontaire du markup",
+      "Un test qui vérifie que le state <code>submitted</code> passe à true au clic et à false après un succès",
+      "Un test de composant qui répond 402 à <code>POST /orders</code>, clique sur Payer, puis attend Payer activé",
+      "Un test unitaire qui vérifie que <code>placeOrder</code> lève une erreur typée sur une réponse 402"
+    ],
+    "explain": "Seul ce test atteint le chemin de la carte refusée et vérifie ce que le client peut faire ensuite. Le snapshot enregistre le premier rendu, le test de state vérifie un détail d’implémentation (il passerait avec le bug), et le test unitaire prouve que placeOrder lève une erreur mais ne dit rien du bouton."
+  },
+  "m35.q2": {
+    "q": "Quel comportement du checkout ne peut pas être vérifié de façon fiable dans un test de composant sous jsdom ?",
+    "options": [
+      "L’alerte affichée après une réponse 402, avec le texte que lit le client",
+      "Le récapitulatif de commande qui reste visible pendant que le client fait défiler la page",
+      "Le bouton Payer désactivé pendant que la requête de commande est en cours",
+      "Le nom accessible que le champ d’adresse reçoit de son élément label"
+    ],
+    "explain": "jsdom n’a pas de moteur de layout : mesuré, getBoundingClientRect() renvoyait des zéros et IntersectionObserver était undefined, donc le défilement et le positionnement sticky demandent un vrai navigateur. Les trois autres relèvent de l’état du DOM et des informations d’accessibilité, que jsdom et Testing Library gèrent bien."
+  },
+  "m35.q3": {
+    "q": "Quelle requête un test doit-il utiliser en priorité pour trouver le bouton Payer ?",
+    "options": [
+      "<code>screen.getByTestId('checkout-pay-button')</code>",
+      "<code>container.querySelector('button.btn-primary')</code>",
+      "<code>screen.getByText('Pay', { selector: 'button' })</code>",
+      "<code>screen.getByRole('button', { name: 'Pay' })</code>"
+    ],
+    "explain": "Testing Library place getByRole en premier : il trouve l’élément comme le font les technologies d’assistance, par rôle et nom accessible. getByText avec un sélecteur le trouve aussi, mais lie le test à la balise et saute la vérification du nom accessible ; les test ids sont le dernier recours, et une classe CSS est un détail d’implémentation qui a cassé l’ancienne suite."
+  },
+  "m35.q4": {
+    "q": "Avant que le client clique sur Payer, aucun message d’erreur ne doit s’afficher. Quelle assertion est correcte ?",
+    "options": [
+      "<code>expect(screen.getByRole('alert')).not.toBeInTheDocument()</code>",
+      "<code>expect(screen.getAllByRole('alert')).toHaveLength(0)</code>",
+      "<code>expect(screen.queryByRole('alert')).not.toBeInTheDocument()</code>",
+      "<code>await expect(screen.findByRole('alert')).rejects.toThrow()</code>"
+    ],
+    "explain": "queryBy renvoie null quand rien ne correspond, donc l’assertion négative peut s’exécuter. getBy et getAllBy lèvent une erreur sur zéro résultat avant même d’atteindre expect, donc ces tests échouent. La version findBy fonctionne, mais attend une seconde entière pour rien."
+  },
+  "m35.q5": {
+    "q": "Un input a un handler <code>onChange</code>. Un test exécute <code>fireEvent.change(input, { target: { value: 'mug' } })</code>. Combien de fois le handler s’exécute-t-il ?",
+    "options": [
+      "Une fois, avec la valeur complète « mug »",
+      "Trois fois : « m », « mu », puis « mug »",
+      "Zéro : React ignore les événements change produits par fireEvent",
+      "Quatre fois : une par caractère plus une au blur"
+    ],
+    "explain": "fireEvent déclenche un seul événement change avec la valeur finale (mesuré : un appel avec « mug », aucun keydown). user.type l’appellerait trois fois, c’est pourquoi un test avec fireEvent ne pouvait pas révéler une requête par frappe."
+  },
+  "m35.q6": {
+    "q": "Que fait <code>await screen.findByRole('alert')</code> quand aucune alerte n’apparaît jamais ?",
+    "options": [
+      "Il se résout tout de suite à null, pour que le test puisse vérifier l’absence",
+      "Il lève une erreur de façon synchrone, comme getByRole, avant toute nouvelle tentative",
+      "Il attend jusqu’au timeout du test runner lui-même, 5 s dans Vitest",
+      "Il réessaie, puis rejette après 1 000 ms par défaut"
+    ],
+    "explain": "Les requêtes findBy réessaient jusqu’à ce que l’élément apparaisse ou que leur propre timeout expire : mesuré, la promesse a été rejetée après 1 019 ms avec « Unable to find role=\"alert\" » et le DOM affiché. Renvoyer null, c’est queryBy, et le timeout de 5 s de Vitest ne compte que si quelque chose ne se termine jamais."
+  },
+  "m35.q7": {
+    "q": "Que vérifie <code>await waitFor(() =&gt; {})</code> ?",
+    "options": [
+      "Rien : un callback vide ne lève jamais d’erreur",
+      "Que React a terminé tous ses rendus et effets en attente",
+      "Qu’aucune requête lancée par le composant n’est encore en cours",
+      "Que le DOM n’a plus changé pendant un intervalle de 50 ms"
+    ],
+    "explain": "waitFor se résout dès que son callback cesse de lever une erreur, et un callback vide n’en lève jamais : mesuré, il s’est résolu en 1 ms alors que le statut était encore « loading ». Ce n’est pas un helper « attendre React » ; mets dedans l’assertion que tu attends, ou utilise findBy."
+  },
+  "m35.q8": {
+    "q": "Comment organiser MSW pour les tests de composants de la boutique ?",
+    "options": [
+      "Un nouveau setupServer dans chaque test, qui écoute et se ferme dans ce test, avec seulement les handlers nécessaires",
+      "Un seul serveur, des handlers du cas nominal, <code>server.use</code> par cas d’erreur, <code>resetHandlers</code> après chaque test",
+      "Aucun handler par défaut, et les requêtes non gérées transmises à une API Orders de staging",
+      "Un jeu de handlers par fichier et aucun reset, puisque chaque fichier de test tourne déjà dans son propre worker"
+    ],
+    "explain": "Des handlers du cas nominal par défaut gardent la plupart des tests courts, server.use surcharge un endpoint pour un test, et resetHandlers retire cette surcharge pour qu’elle ne fuie pas dans le test suivant du même fichier. Les fichiers sont isolés les uns des autres, mais les tests d’un même fichier partagent le serveur."
+  },
+  "m35.q9": {
+    "q": "Pourquoi chaque test a-t-il son propre <code>QueryClient</code> ?",
+    "options": [
+      "Un QueryClient ne peut pas être réutilisé après le démontage de son provider, donc le second rendu lève une erreur",
+      "Le StrictMode de React refuse un client créé en dehors de l’arbre de composants",
+      "MSW doit enregistrer ses handlers sur chaque client séparément, sinon les requêtes ne sont pas interceptées",
+      "Le client contient le cache, donc un test pourrait voir des données chargées par un autre test"
+    ],
+    "explain": "Mesuré avec le client partagé de l’app et un staleTime de 60 s : le second test a fait 0 requête et affiché la commande du premier test. Un client par test, construit dans le helper de rendu, supprime ce couplage. Les autres raisons n’existent pas : MSW agit au niveau du réseau, pas par client."
+  },
+  "m35.q10": {
+    "q": "Un test appelle <code>vi.useFakeTimers()</code>, puis <code>userEvent.setup()</code> sans options, puis <code>await user.type(input, '10 rue')</code>. Que se passe-t-il ?",
+    "options": [
+      "Le texte est saisi instantanément, car les fake timers sautent chaque délai",
+      "Le texte est saisi, mais le timer du debounce se déclenche après la première touche",
+      "La saisie se bloque : user-event attend avec setTimeout entre les touches",
+      "Vitest lève une erreur indiquant que user-event ne prend pas en charge les fake timers"
+    ],
+    "explain": "user-event attend entre les frappes avec setTimeout, et les fake timers n’avancent que quand le test les fait avancer : mesuré, pas un seul caractère saisi après 2 s. La doc de user-event indique qu’advanceTimers est nécessaire avec des fake timers : userEvent.setup({ advanceTimers: vi.advanceTimersByTime })."
+  },
+  "m35.q11": {
+    "q": "Quand un hook personnalisé mérite-t-il ses propres tests avec <code>renderHook</code> ?",
+    "options": [
+      "Toujours : chaque hook est une unité, et le tester via un composant masque ses défaillances",
+      "Quand plusieurs composants le partagent et que son contrat comporte de nombreux cas",
+      "Jamais : renderHook a été déprécié avec React 19 et ses utilitaires de test",
+      "Seulement quand le hook n’a pas de state, puisque le state a besoin d’un vrai composant pour le rendu"
+    ],
+    "explain": "Un hook partagé avec son propre contrat mérite des tests directs à ses limites. Un hook écrit pour un seul composant se teste mieux via ce composant, comme la doc de Testing Library conseille de préférer render. renderHook fait partie de @testing-library/react 16, il n’est pas déprécié."
+  },
+  "m35.q12": {
+    "q": "Pourquoi le snapshot du bouton Payer est-il resté vert pendant l’incident, puis a échoué la semaine dernière ?",
+    "options": [
+      "Les snapshots ignorent les attributs booléens comme <code>disabled</code>, mais comparent les espaces",
+      "Le fichier de snapshot n’a jamais été commité, donc chaque run de CI en écrivait un nouveau et passait",
+      "Il ne contenait que le premier rendu, et il compare le markup, classes comprises",
+      "Les sérialiseurs de snapshot ne comprennent que les composants de classe, pas les hooks"
+    ],
+    "explain": "Un snapshot enregistre les états que le test atteint, et celui-ci n’a jamais cliqué sur Payer. Il compare du HTML sérialisé, classes comprises : mesuré, renommer btn-primary a produit un diff alors que rien n’était cassé. Ce duo (rate le bug, échoue au refactoring) est le cas habituel."
+  },
+  "m35.q13": {
+    "q": "Que fait la dernière ligne ?",
+    "options": [
+      "Elle renvoie le second input, car son placeholder devient son nom accessible",
+      "Elle renvoie le premier input, la seule textbox qui ait un label",
+      "Elle lève « Found multiple elements with the role \"textbox\" », car deux inputs correspondent",
+      "Elle lève « Unable to find an accessible element… » : aucune textbox ne s’appelle « Postcode »"
+    ],
+    "explain": "Testing Library calcule un nom accessible vide pour un input qui n’a qu’un placeholder (mesuré : Name \"\"), donc aucune textbox ne s’appelle « Postcode » et getByRole lève une erreur. C’est aussi un vrai bug d’accessibilité : donne un label au champ. « Multiple elements » n’arrive que sans filtre sur le nom."
+  },
+  "m35.q14": {
+    "q": "Pendant que le paiement est en cours, le bouton affiche « Paying… ». Que fait chaque bibliothèque d’une requête sur le nom « Pay » ?",
+    "options": [
+      "Les deux trouvent « Paying… », car les deux comparent les noms comme des sous-chaînes insensibles à la casse",
+      "Testing Library renvoie null ; Playwright compte 1 sauf avec <code>exact: true</code>",
+      "Aucune ne trouve : les deux comparent des noms entiers, sensibles à la casse, sauf indication contraire",
+      "Testing Library trouve « Paying… » ; Playwright renvoie 0 parce qu’il est strict"
+    ],
+    "explain": "Mesuré : le nom en chaîne de Testing Library a été comparé au nom entier, donc queryByRole a renvoyé null, tandis que le count de Playwright valait 1 et passait à 0 avec exact: true. La doc de Playwright indique que les noms de rôle correspondent par défaut à une sous-chaîne insensible à la casse. Supposer que les deux bibliothèques se comportent pareil, c’est comme ça qu’un test E2E passe sur le mauvais bouton."
+  },
+  "m35.q15": {
+    "q": "Quel est le bug de ce test ?",
+    "options": [
+      "waitFor relance le callback, donc Payer est cliqué plusieurs fois",
+      "fireEvent ne peut pas être appelé dans waitFor, donc le callback lève une erreur à chaque fois",
+      "Aucun : le clic s’exécute une fois, et seule l’assertion qui échoue est réessayée",
+      "getByRole dans waitFor ne réessaie jamais, donc le statut n’est lu qu’une fois"
+    ],
+    "explain": "waitFor réessaie le callback à intervalle régulier et à chaque changement du DOM, effets de bord compris : mesuré, Payer a été cliqué 5 fois avant que le statut apparaisse. Clique une fois avant d’attendre, puis attends avec findByRole('status'), ce qui rend aussi un double paiement visible au lieu de le cacher."
+  },
+  "m35.q16": {
+    "q": "Un test affiche « An update to OrderStatus inside a test was not wrapped in act(...) ». Il fait le rendu de la page, attend 100 ms avec setTimeout, puis appelle getByRole. Quel correctif livreriez-vous ?",
+    "options": [
+      "Envelopper le setTimeout dans act() et garder l’attente de 100 ms, comme le demande l’avertissement",
+      "Mocker console.error dans le fichier de setup pour garder les logs de CI propres et lisibles",
+      "Remplacer l’attente et getByRole par <code>findByRole</code> sur l’état final",
+      "Désactiver le flag d’environnement act pour ce fichier, puisque le résultat est correct de toute façon"
+    ],
+    "explain": "findBy attend l’état que l’utilisateur verrait, dans la gestion d’act de Testing Library : mesuré, le même composant n’a produit aucun avertissement avec findByText. Envelopper l’attente garde une estimation de timing lente en local et trop courte en CI, et faire taire l’avertissement ou le flag cache la race condition."
+  },
+  "m35.q17": {
+    "q": "Dans un projet Vitest sans <code>globals: true</code> et sans cleanup dans le fichier de setup, chaque test passe seul, mais le second test d’un fichier échoue avec « Found multiple elements with the role \"button\" ». Pourquoi ?",
+    "options": [
+      "Vitest exécute les tests d’un même fichier en parallèle, donc les deux font leur rendu en même temps",
+      "Le cleanup automatique a besoin d’un afterEach global, donc le DOM du premier test reste",
+      "jsdom ne sait pas démonter les racines React 19, donc chaque rendu s’ajoute à la même page",
+      "React 19 garde chaque racine en vie jusqu’à la fin du fichier de test, par conception"
+    ],
+    "explain": "Testing Library n’enregistre le cleanup que si afterEach est global, comme le dit la doc : mesuré, l’élément du test précédent était encore dans la page. Active globals ou appelle cleanup() dans afterEach. Les tests d’un même fichier Vitest s’exécutent l’un après l’autre, pas en parallèle."
+  },
+  "m35.q18": {
+    "q": "Avec MSW 2 et <code>onUnhandledRequest: 'error'</code>, un nouveau composant appelle <code>GET /cart</code>, qui n’a pas de handler. Que se passe-t-il dans le test ?",
+    "options": [
+      "La requête part sur le vrai réseau, et le test continue avec ce qui revient",
+      "MSW répond par une réponse 200 vide, donc le composant affiche un panier vide",
+      "MSW affiche un avertissement, et le handler du test précédent répond à la requête",
+      "MSW affiche une erreur qui nomme la requête, et le fetch est rejeté"
+    ],
+    "explain": "Mesuré sur MSW 2.15 : « [MSW] Error: intercepted a request without a matching request handler » indiquait la méthode et l’URL, et fetch a été rejeté. Le mock oublié échoue visiblement au lieu d’atteindre le réseau. Dans MSW 3, l’option s’appelle onUnhandledFrame, et l’ancien nom n’est plus lu."
+  },
+  "m35.q19": {
+    "q": "Tu dois vérifier que le bouton affiche « Paying… » et est désactivé pendant que <code>POST /orders</code> est en attente. Quelle approche est déterministe ?",
+    "options": [
+      "Bloquer le handler sur une promesse que le test résout après l’assertion",
+      "Ajouter un délai de 200 ms au handler et vérifier dans les 200 premières ms après le clic",
+      "Mocker <code>useMutation</code> pour qu’il renvoie <code>isPending: true</code> pendant tout le test",
+      "Cliquer sur Payer, attendre 50 ms pour que la requête parte, puis vérifier le bouton"
+    ],
+    "explain": "Une réponse bloquée reste en attente jusqu’à ce que le test la libère, donc l’état en cours se vérifie sans aucun timing (mesuré, puis le statut payé est apparu après la résolution). Un délai ou une attente fait la course contre l’horloge, et mocker useMutation ne teste plus le vrai câblage du composant."
+  },
+  "m35.q20": {
+    "q": "Un composant affiche une alerte quand sa requête échoue. Avec <code>new QueryClient()</code> et un handler qui répond 500, <code>await screen.findByRole('alert')</code> échoue. Pourquoi ?",
+    "options": [
+      "La réponse 500 est mise en cache comme un succès, car son corps est du JSON valide",
+      "findBy ne voit pas les éléments que TanStack Query rend dans un lot ultérieur",
+      "La requête fait d’abord 3 retries, ce qui dépasse le timeout de findBy",
+      "MSW ne prend pas en charge les réponses 500 sous Node, donc la requête reste bloquée"
+    ],
+    "explain": "Par défaut, les requêtes réessaient 3 fois les appels échoués avec un backoff exponentiel : mesuré, findBy a abandonné à 1 000 ms alors que l’alerte est apparue après 7 082 ms et 4 requêtes. Un client de test avec retry: false a affiché l’alerte après 22 ms et 1 requête."
+  },
+  "m35.q21": {
+    "q": "Les deux tests utilisent le <code>queryClient</code> de niveau module de l’app (staleTime 60 s). Le test 1 répond <code>paid</code> à <code>GET /orders/ord_1</code> ; le test 2 le surcharge avec <code>refunded</code>. Combien de requêtes fait le test 2, et qu’affiche-t-il ?",
+    "options": [
+      "Une requête, car le handler a changé ; il affiche « refunded »",
+      "Zéro requête ; il affiche « paid » venant du test 1",
+      "Une requête ; il affiche d’abord « paid », puis « refunded »",
+      "Deux requêtes, car un remontage refait le fetch deux fois en test"
+    ],
+    "explain": "La commande en cache reste fraîche pendant 60 s, donc le second montage l’utilise sans requête : mesuré, 0 requête et « Order ord_1 is paid ». Sans staleTime, elle serait refetchée au montage, c’est pourquoi cette fuite n’apparaît qu’avec certains réglages. Un client par test la supprime."
+  },
+  "m35.q22": {
+    "q": "Pour le composant de statut de commande, un collègue propose un <code>vi.mock</code> du hook <code>useOrder</code> qui renvoie <code>{ data: order }</code>. Quelle conception livreriez-vous ?",
+    "options": [
+      "Le mock du hook, car les tests deviennent synchrones, rapides et indépendants du réseau",
+      "Un <code>vi.fn</code> qui remplace <code>fetch</code> dans chaque test, scripté avec le JSON de la commande",
+      "Un vrai QueryClient par test et des handlers MSW pour la commande",
+      "Uniquement un test E2E, puisque les hooks qui chargent des données ne tournent pas sous jsdom"
+    ],
+    "explain": "Avec MSW et un vrai client, le test exerce l’état de chargement, l’état d’erreur et le cache, là où vivent les bugs, et survit au passage de useQuery à useSuspenseQuery. Le mock du hook saute tout cela et lie les tests à un nom interne ; un mock de fetch, c’est l’erreur « mocker ce qu’on ne possède pas » du M14."
+  },
+  "m35.q23": {
+    "q": "Sous Vitest, ce test atteint le timeout de test de 5 s. Pourquoi ?",
+    "options": [
+      "Testing Library attend un setTimeout(0) qu’il ne fait avancer que sous Jest",
+      "advanceTimers doit valoir vi.runAllTimers, sinon les frappes restantes ne partent jamais",
+      "MSW ne peut pas répondre aux requêtes quand des fake timers sont installés, donc la requête reste bloquée",
+      "act ne peut pas envelopper une fonction async, donc la mise à jour du debounce n’est jamais appliquée"
+    ],
+    "explain": "L’asyncWrapper de Testing Library attend un setTimeout(0) et n’appelle jest.advanceTimersByTime que s’il détecte un global jest ; avec les fake timers de Vitest, ce timer ne se déclenche jamais (mesuré : le test a atteint son timeout). vi.useFakeTimers({ shouldAdvanceTime: true }) l’a corrigé. MSW continuait de répondre dans la version qui passe."
+  },
+  "m35.q24": {
+    "q": "Un scan axe du checkout en CI ne signale aucune violation. Que peux-tu en conclure ?",
+    "options": [
+      "Le checkout respecte WCAG 2.1 AA, puisque ce sont les tags scannés",
+      "Les utilisateurs de lecteur d’écran peuvent aller au bout du checkout",
+      "Aucun travail d’accessibilité n’est nécessaire jusqu’au prochain changement du markup du checkout",
+      "Seulement qu’axe n’a rien trouvé de ce qu’il sait détecter ; les vérifications manuelles restent"
+    ],
+    "explain": "La doc de Playwright indique que les scans automatisés détectent les problèmes courants, comme des attributs manquants ou invalides, alors que beaucoup de problèmes ne se trouvent que par des tests manuels. Zéro violation est un garde-fou utile en CI, pas une déclaration de conformité : l’ordre du focus, des noms qui ont du sens et les parcours demandent des humains."
+  },
+  "m35.q25": {
+    "q": "Que vaut <code>result.current</code> après la dernière ligne, et que se passe-t-il d’autre ?",
+    "options": [
+      "« 10 rue de Rivoli », puisque les 300 ms sont écoulées, sans avertissement",
+      "« 10 r », plus un avertissement act(...) de React",
+      "undefined, car le cleanup a effacé le timer et le state",
+      "Il lève une erreur, car renderHook ne prend pas en charge les fake timers"
+    ],
+    "explain": "Le timer a appelé setDebounced en dehors d’act, donc React n’avait pas rendu la mise à jour quand le test l’a lue : mesuré, result.current valait encore « 10 r » et l’avertissement act était affiché. Envelopper l’avance du temps dans act() a donné « 10 rue de Rivoli »."
+  },
+  "m35.q26": {
+    "q": "La boutique a un snapshot DOM pour chaque composant, et l’équipe les met à jour avec <code>vitest -u</code> sans lire le diff. Quel plan livreriez-vous ?",
+    "options": [
+      "Lancer <code>vitest -u</code> automatiquement en CI, pour que les snapshots ne bloquent plus les merges sur des changements de markup",
+      "Des assertions par rôle pour le comportement, des aria snapshots ou des captures d’écran pour quelques pages",
+      "Tous les garder et ajouter une règle de review : chaque diff de snapshot exige deux approbations avant le merge",
+      "Convertir chaque snapshot en <code>toMatchInlineSnapshot</code>, pour que les reviewers voient le HTML dans le fichier de test"
+    ],
+    "explain": "Les snapshots DOM ratent le comportement qu’ils n’atteignent jamais et échouent sur du markup inoffensif, donc la solution, ce sont d’autres assertions, pas plus de process. Le comportement va dans des tests par rôle, la structure dans des aria snapshots qui ignorent les classes, et le visuel dans quelques captures d’écran. Mettre du gros HTML en inline ne fait que déplacer le bruit dans le fichier de test."
+  },
+  "m35.q27": {
+    "q": "Cette ligne E2E échoue environ une fois sur vingt en CI. Pourquoi, et quel est le correctif ?",
+    "options": [
+      "<code>isEnabled()</code> est déprécié et peu fiable ; lis plutôt <code>getAttribute('disabled')</code>",
+      "L’option <code>exact</code> rend la correspondance des noms flaky avec les polices de la CI ; retire-la",
+      "Les machines de CI sont plus lentes ; augmente le timeout global des tests à 30 s",
+      "Elle lit une seule fois ; utilise <code>await expect(locator).toBeEnabled()</code>"
+    ],
+    "explain": "isEnabled renvoie l’état à cet instant précis, donc un bouton réactivé quelques millisecondes plus tard fait échouer le test sur un runner lent. L’assertion web-first réessaie jusqu’à réussir ou atteindre son timeout (5 s par défaut, mesuré dans la sortie de l’échec). Un timeout global plus long ne change rien à une lecture unique."
+  },
+  "m35.q28": {
+    "q": "Un développeur ajoute <code>await expect(page).toHaveScreenshot('checkout.png')</code>, le lance sur un portable Windows, puis pousse. La CI tourne sous Linux. Que se passe-t-il ?",
+    "options": [
+      "Le run local écrit <code>checkout-win32.png</code> ; la CI n’a pas de référence Linux",
+      "Le premier run passe et écrit une seule référence, partagée ensuite par toutes les plateformes",
+      "Playwright convertit la référence Windows pour chaque plateforme au premier run en CI",
+      "Le test est ignoré en CI avec un avertissement, car la plateforme diffère de celle de la référence"
+    ],
+    "explain": "Mesuré sur Playwright 1.64 : le premier run a échoué avec « A snapshot doesn’t exist … writing actual » et a écrit checkout-win32.png. La plateforme dans le nom signifie qu’un run Linux cherche un autre fichier, et les polices s’affichent différemment de toute façon, donc génère les références dans le même environnement que la CI, par exemple son conteneur."
+  },
+  "m35.q29": {
+    "q": "Avec <code>retries: 2</code>, un test du checkout échoue une fois et passe à son premier retry. Avec <code>failOnFlakyTests</code> désactivé, que rapporte Playwright ?",
+    "options": [
+      "Le test en échec, et le run échoue",
+      "Le test réussi, sans trace de l’échec",
+      "Le test flaky, et le run passe",
+      "Le test ignoré après une tentative échouée"
+    ],
+    "explain": "Mesuré sur Playwright 1.64 : un test qui a échoué puis réussi au retry a été listé comme « 1 flaky » et le run est passé. C’est pourquoi la configuration de CI de la section 11 active failOnFlakyTests : les retries te donnent toujours une trace, mais le test flaky ne se cache plus derrière un build vert."
+  },
+  "m35.q30": {
+    "q": "Un recruteur demande : « Vos tests de composants étaient verts, et pourtant le checkout a cassé deux fois. Que changez-vous en premier ? » Quelle réponse montre un jugement senior ?",
+    "options": [
+      "Relever le seuil de couverture à 90 % en CI, pour que les chemins d’erreur non testés doivent avoir des tests",
+      "Un test de non-régression au niveau utilisateur par incident, au niveau le moins coûteux, et supprimer les tests qui les ont cachés",
+      "Remplacer les tests de composants par des tests E2E Playwright, puisque seul un vrai navigateur montre ce que voient les clients",
+      "Ajouter des snapshots des états d’erreur et de chargement, pour que chaque état du checkout soit couvert la prochaine fois"
+    ],
+    "explain": "Les deux bugs étaient des comportements qu’aucun test n’atteignait : un test de composant avec un 402 et un autre comptant les requêtes sous fake timers les auraient détectés en quelques millisecondes. La couverture compte les lignes exécutées, pas les assertions utiles ; une suite tout E2E est lente et flaky, et un snapshot de plus répète l’erreur initiale."
+  }
+}

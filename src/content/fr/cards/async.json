@@ -1,0 +1,678 @@
+{
+  "async-event-loop": {
+    "topic": "Event loop et ordre des tâches",
+    "question": "Comment fonctionne l’event loop, et dans quel ordre s’exécutent les callbacks de promesses et les timers ?",
+    "answer": "JavaScript tourne sur un seul thread avec une seule pile d’appels. L’attente, que ce soit pour les timers, le réseau ou les événements utilisateur, est gérée par le navigateur ou Node, qui met un callback en file quand il est prêt. L’event loop prend une tâche, comme un callback de timer ou un handler de clic, et l’exécute jusqu’au bout. Ensuite, elle exécute toutes les microtâches : callbacks de promesses, code après un `await` et `queueMicrotask`, jusqu’à ce que cette file soit vide. Ce n’est qu’après que le navigateur peut faire le rendu et prendre la tâche suivante. Donc les callbacks de promesses passent avant un `setTimeout(fn, 0)` mis en file au même moment.",
+    "keyPoints": [
+      "Un thread, une pile d’appels ; chaque tâche s’exécute jusqu’au bout",
+      "Après chaque tâche, toute la file de microtâches est vidée",
+      "Microtâches : callbacks de promesses, code après `await`, `queueMicrotask`",
+      "Le rendu a lieu entre les tâches, après les microtâches"
+    ],
+    "explanation": "C’est la question la plus posée sur le runtime JavaScript, et un extrait « qu’est-ce que ça affiche » suit en général. Les seniors la relient à l’UI : une tâche longue, ou une chaîne de microtâches qui ne finit jamais, bloque le rendu et les saisies.",
+    "example": "Dans la boutique, un spinner « Tri en cours… » n’apparaissait jamais : le code l’affichait, puis triait 20 000 produits de façon synchrone dans la même tâche, et le navigateur ne pouvait pas peindre avant la fin de la tâche. Découper le tri en morceaux et rendre la main au navigateur entre chaque morceau a permis d’afficher le spinner.",
+    "mistakes": [
+      "Dire que `setTimeout(fn, 0)` s’exécute immédiatement",
+      "Croire que les promesses tournent sur un autre thread",
+      "Ignorer que les microtâches passent avant le rendu, si bien qu’une chaîne infinie de microtâches fige la page"
+    ],
+    "followUps": [
+      {
+        "question": "Où se place `requestAnimationFrame` ?",
+        "answer": "Ses callbacks s’exécutent juste avant que le navigateur peigne une frame. Qu’il passe avant ou après un `setTimeout(fn, 0)` mis en file au même moment dépend du moment où la prochaine frame est due."
+      },
+      {
+        "question": "En quoi l’event loop de Node est-elle différente ?",
+        "answer": "Node passe par des phases, comme timers, poll pour les I/O et check, et n’a pas d’étape de rendu. Il ajoute `process.nextTick`, dont les callbacks passent avant ceux des promesses, et `setImmediate`, qui s’exécute dans la phase check."
+      },
+      {
+        "question": "Qu’est-ce qui distingue la file de microtâches de la file de tâches, et laquelle l’emporte ?",
+        "answer": "Les tâches, aussi appelées macrotâches, ce sont les timers, les I/O et les événements ; les microtâches, ce sont les callbacks de promesses, le code après `await` et `queueMicrotask`. Les microtâches sont prioritaires : après chaque tâche, la boucle vide toute la file de microtâches, nouvelles comprises, avant la tâche suivante ou un rendu."
+      },
+      {
+        "question": "Expliquez-moi la sortie d’un extrait qui mélange code synchrone, promesses et `setTimeout`.",
+        "answer": "D’abord tous les logs synchrones, de haut en bas. Puis les microtâches dans l’ordre où elles ont été mises en file, y compris un `.then` ajouté par une autre microtâche. En dernier, les callbacks de `setTimeout`, chacun comme une tâche à part, même un timeout programmé depuis un `.then`."
+      },
+      {
+        "question": "Comment `async`/`await` s’articule-t-il avec l’event loop ?",
+        "answer": "Une fonction async s’exécute de façon synchrone jusqu’à son premier `await`, puis renvoie une promesse en attente à l’appelant. Quand la valeur attendue est réglée, la suite de la fonction est mise en file comme microtâche : elle reprend donc avant tout timer en attente, mais jamais au milieu du code en cours."
+      },
+      {
+        "question": "Dans quel cas utiliseriez-vous un Web Worker ?",
+        "answer": "Quand un travail CPU ne peut pas être découpé assez fin pour rester sous 50 ms, comme parser un gros export CSV ou filtrer 50 000 commandes à chaque frappe. Un worker tourne sur un autre thread, n’a pas de DOM et communique via `postMessage`. Je n’en utilise pas pour les appels réseau : ils attendent déjà sans bloquer."
+      },
+      {
+        "question": "En quoi Node gère-t-il les I/O asynchrones différemment du navigateur ?",
+        "answer": "Dans Node, libuv utilise les API non bloquantes du système pour les sockets réseau, et exécute les appels au système de fichiers, `dns.lookup`, la crypto asynchrone et zlib sur son pool de threads, 4 threads par défaut. Les callbacks reviennent sur l’unique thread JavaScript. Dans le navigateur, c’est le navigateur qui fait les I/O ; la page ne voit que des callbacks et des promesses."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Après chaque tâche, le navigateur n’exécute qu’une seule microtâche avant de faire le rendu.",
+        "why": "Il vide toute la file de microtâches, y compris celles ajoutées en cours de route, avant de pouvoir faire le rendu.",
+        "twin": {
+          "statement": "Après chaque tâche, le navigateur vide toute la file de microtâches avant de pouvoir faire le rendu.",
+          "why": "Les microtâches ajoutées en cours de route s’exécutent aussi, avant que le navigateur fasse le rendu ou prenne la tâche suivante."
+        }
+      },
+      {
+        "statement": "Le code après un `await` s’exécute comme une microtâche.",
+        "why": "La suite de la fonction async reprend comme un job de promesse une fois la valeur attendue réglée.",
+        "twin": {
+          "statement": "Le code après `await Promise.resolve()` s’exécute après un `setTimeout(fn, 0)` mis en file avant lui.",
+          "why": "Il reprend comme une microtâche, qui passe avant la tâche suivante, donc avant ce callback de timer."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "JavaScript exécute ton code sur un seul thread, et l’event loop décide de ce qui passe ensuite : une tâche, puis toutes les microtâches, puis éventuellement un rendu. Cet ordre explique pourquoi les callbacks de promesses passent avant `setTimeout(fn, 0)`.",
+      "points": [
+        "JavaScript exécute ton code sur un seul thread avec une seule pile d’appels. L’attente des timers, du réseau ou des clics est assurée par le navigateur ou Node, qui met un callback en file quand il est prêt.",
+        "Une tâche est une unité de travail prise dans une file, comme un callback de `setTimeout` ou un handler de clic. L’event loop exécute une tâche à la fois, et chaque tâche va jusqu’au bout : rien ne l’interrompt.",
+        "Les microtâches sont de petits jobs mis en file par les promesses : callbacks `.then`, code après un `await` et `queueMicrotask`. Après chaque tâche, la boucle exécute toutes les microtâches, nouvelles comprises, jusqu’à vider la file.",
+        "Le navigateur ne peut peindre qu’après, entre deux tâches ; les callbacks de `requestAnimationFrame` passent juste avant un rendu. Une chaîne infinie de microtâches fige donc la page aussi sûrement qu’une longue boucle.",
+        "Node n’a pas d’étape de rendu : il boucle sur des phases comme timers, poll (I/O) et check (`setImmediate`). Dans un callback, les jobs `process.nextTick` passent avant les callbacks de promesses."
+      ],
+      "takeaways": [
+        {
+          "term": "Pile d’appels",
+          "detail": "Un thread, une pile. Le navigateur ou Node gère l’attente et met un callback en file quand il est prêt."
+        },
+        {
+          "term": "Tâche",
+          "detail": "Une unité de travail, comme un callback de `setTimeout` ou un handler de clic. Elle va jusqu’au bout : rien ne l’interrompt."
+        },
+        {
+          "term": "Microtâches",
+          "detail": "Callbacks `.then`, code après un `await`, `queueMicrotask`. Toutes passent après chaque tâche, nouvelles comprises."
+        },
+        {
+          "term": "Rendu",
+          "detail": "A lieu entre les tâches, après les microtâches. Une chaîne infinie de microtâches fige la page."
+        },
+        {
+          "term": "`requestAnimationFrame`",
+          "detail": "Ses callbacks s’exécutent juste avant un rendu."
+        },
+        {
+          "term": "Node",
+          "detail": "Pas d’étape de rendu : des phases comme timers, poll et check. `process.nextTick` passe avant les callbacks de promesses."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le back-office affiche un bandeau « Recalcul en cours... », puis recalcule 5 000 totaux de commandes dans une longue chaîne de promesses résolues. Le bandeau n’apparaît qu’une fois le travail fini. Pourquoi le navigateur ne le peint-il pas d’abord ?",
+        "bridge": "Le rendu a lieu entre les tâches, une fois la file de microtâches vide. Une longue chaîne de callbacks de promesses garde cette file pleine, donc rien n’est peint."
+      },
+      {
+        "question": "Qu’affiche ce code, et pourquoi : `setTimeout(() => log('timeout'), 0); Promise.resolve().then(() => log('promise')); log('sync');` ?",
+        "bridge": "Le code synchrone passe d’abord, puis toute la file de microtâches, puis la tâche suivante : sync, promise, timeout."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux filtrent 50 000 commandes par lots de 500 pour que le champ de recherche reste réactif. Lequel laisse le navigateur traiter la saisie entre deux lots ?",
+        "why": "`setTimeout` reprend la boucle dans une nouvelle tâche : entre deux lots, le navigateur peut exécuter un handler de touche et peindre. `await Promise.resolve()` reprend comme microtâche, et la file de microtâches est vidée avant toute autre tâche ou rendu : les 100 lots s’exécutent comme une seule longue tâche, et la saisie reste figée jusqu’à la fin."
+      }
+    ]
+  },
+  "async-promises": {
+    "topic": "Les promesses et leurs combinateurs",
+    "question": "Qu’est-ce qu’une Promise, et en quoi `Promise.all`, `allSettled`, `race` et `any` diffèrent-ils ?",
+    "answer": "Une Promise représente une valeur qui sera prête plus tard : elle est en attente, puis tenue ou rejetée, une seule fois. Par rapport aux callbacks, les promesses s’enchaînent avec `.then`, envoient les erreurs vers un seul `.catch` et fonctionnent avec `async` et `await`. Pour en lancer plusieurs à la fois : `Promise.all` les attend toutes et rejette au premier échec ; `allSettled` les attend toutes et rapporte chaque résultat ; `race` se règle comme la première qui se règle, succès ou échec ; `any` est tenue avec le premier succès et ne rejette que si toutes échouent. Je choisis selon ce qu’un échec doit signifier pour l’utilisateur.",
+    "keyPoints": [
+      "En attente, puis tenue ou rejetée, une seule fois",
+      "Enchaînement et un seul `.catch` au lieu de callbacks imbriqués",
+      "`all` échoue vite ; `allSettled` rapporte chaque résultat",
+      "`race` : la première réglée ; `any` : le premier succès"
+    ],
+    "explanation": "C’est sur les combinateurs que les seniors se distinguent : en choisir un est une décision produit sur l’échec partiel. Attends-toi à « maintenant, implémentez `Promise.all` » en suite d’un exercice de code.",
+    "example": "La page produit de la boutique a besoin du produit, de ses avis et des recommandations. Le produit est indispensable, il est donc attendu seul ; avis et recommandations passent par `Promise.allSettled`, si bien qu’un service de recommandations en panne masque un bloc au lieu de casser la page.",
+    "mistakes": [
+      "Croire que `Promise.all` annule les autres requêtes quand l’une échoue : elles continuent de tourner",
+      "Oublier de renvoyer la promesse dans un `.then`, ce qui casse la chaîne",
+      "Confondre `race` et `any`"
+    ],
+    "followUps": [
+      {
+        "question": "Comment implémenteriez-vous `Promise.all` ?",
+        "answer": "Je renvoie une nouvelle promesse. Je garde un tableau de résultats et un compteur ; pour chaque entrée, `Promise.resolve(input).then` stocke la valeur à son index et résout quand le compteur atteint la longueur. Je rejette à la première erreur, et je résous tout de suite avec `[]` pour une entrée vide."
+      },
+      {
+        "question": "Que se passe-t-il pour une promesse rejetée que personne ne gère ?",
+        "answer": "Le navigateur déclenche un événement `unhandledrejection`. Node fait planter le processus par défaut depuis la version 15."
+      },
+      {
+        "question": "Donnez un vrai cas d’usage pour chacun de `all`, `allSettled`, `race` et `any`.",
+        "answer": "`all` quand chaque résultat est indispensable, comme un panier et ses prix. `allSettled` pour des blocs optionnels, comme les avis et les recommandations de la page produit. `race` pour mettre un timeout sur un appel au transporteur. `any` pour prendre le premier miroir d’images qui répond."
+      },
+      {
+        "question": "Quel est le lien entre `async`/`await` et les promesses ?",
+        "answer": "C’est de la syntaxe au-dessus des promesses : une fonction async renvoie toujours une promesse, `return` la tient et `throw` la rejette. `await` met la fonction en pause jusqu’à ce qu’une promesse se règle et la reprend comme microtâche : `try`/`catch` remplace `.catch` et le code se lit de haut en bas."
+      },
+      {
+        "question": "Une erreur est levée au milieu d’une chaîne de `.then`. Que se passe-t-il, et comment la gérez-vous ?",
+        "answer": "La promesse renvoyée est rejetée, donc les callbacks `.then` suivants sont sautés jusqu’au premier `.catch`. Ce `.catch` peut relancer l’erreur, ou renvoyer une valeur de repli, et la chaîne repart tenue à partir de là. Je mets un `.catch` là où je peux vraiment me rétablir, et un à la fin pour remonter l’erreur."
+      },
+      {
+        "question": "`Promise.all` ou `Promise.allSettled` ?",
+        "answer": "`Promise.all` rejette au premier rejet, et je perds les autres résultats. `Promise.allSettled` ne rejette jamais : il attend tout et donne `{ status: 'fulfilled', value }` ou `{ status: 'rejected', reason }` pour chacune. J’utilise `all` quand chaque résultat est indispensable, `allSettled` quand des résultats partiels restent utiles."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Quand une des promesses passées à `Promise.all` est rejetée, les autres opérations sont annulées.",
+        "why": "Les promesses ne s’annulent pas : les autres opérations continuent et leurs résultats sont ignorés. C’est un AbortController qui arrête vraiment une requête.",
+        "twin": {
+          "statement": "Quand une des promesses passées à `Promise.all` est rejetée, les autres opérations continuent de tourner.",
+          "why": "Les promesses ne s’annulent pas : leurs résultats sont simplement ignorés. C’est un AbortController qui arrête vraiment une requête."
+        }
+      },
+      {
+        "statement": "`Promise.any` ne rejette que lorsque toutes ses entrées ont été rejetées.",
+        "why": "Elle rejette alors avec une AggregateError qui contient toutes les raisons.",
+        "twin": {
+          "statement": "`Promise.any` rejette dès qu’une de ses entrées est rejetée.",
+          "why": "Elle attend un succès et ne rejette que lorsque toutes ses entrées ont été rejetées, avec une AggregateError."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une promesse représente un résultat qui arrive plus tard et ne se règle qu’une fois. Ses combinateurs décident de ce que signifie, pour l’utilisateur, un échec parmi plusieurs appels parallèles.",
+      "points": [
+        "Une promesse est un objet pour un résultat qui arrive plus tard. Elle démarre en attente, puis se règle une fois : tenue avec une valeur ou rejetée avec une raison, et elle ne change plus ensuite.",
+        "`.then` renvoie une nouvelle promesse, donc les étapes s’enchaînent ; renvoie la promesse suivante dans `.then`, sinon la chaîne cesse de l’attendre. Un seul `.catch` à la fin gère un rejet venant de n’importe quelle étape précédente.",
+        "`Promise.all` est tenue avec toutes les valeurs, dans l’ordre des entrées, et rejette dès qu’une entrée est rejetée. `Promise.allSettled` attend toujours tout et donne chaque résultat en `fulfilled` avec une valeur ou `rejected` avec une raison.",
+        "`Promise.race` se règle comme la première entrée réglée, même un rejet. `Promise.any` est tenue avec le premier succès et ne rejette que si toutes échouent, avec une `AggregateError` qui contient toutes les raisons.",
+        "Une promesse ne s’annule pas : quand `Promise.all` rejette, les autres requêtes continuent et leurs résultats sont ignorés. C’est un `AbortSignal` qui arrête une requête."
+      ],
+      "takeaways": [
+        {
+          "term": "États",
+          "detail": "En attente, puis tenue avec une valeur ou rejetée avec une raison, une fois ; elle ne change plus ensuite."
+        },
+        {
+          "term": "Chaîne `.then`",
+          "detail": "Renvoie une nouvelle promesse ; renvoie la promesse suivante dedans, et un `.catch` final gère toutes les étapes."
+        },
+        {
+          "term": "`Promise.all`",
+          "detail": "Tenue avec toutes les valeurs dans l’ordre des entrées ; rejette dès qu’une entrée est rejetée."
+        },
+        {
+          "term": "`Promise.allSettled`",
+          "detail": "Attend toujours tout et rapporte chaque résultat en `fulfilled` ou `rejected`."
+        },
+        {
+          "term": "`Promise.race`",
+          "detail": "Se règle comme la première entrée réglée, même un rejet."
+        },
+        {
+          "term": "`Promise.any`",
+          "detail": "Tenue avec le premier succès ; ne rejette que si toutes échouent, avec une `AggregateError`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La page produit de la boutique charge le produit, ses avis et ses recommandations avec `Promise.all`. Quand le service de recommandations est en panne, toute la page affiche une erreur. Que changez-vous ?",
+        "bridge": "`Promise.all` rejette au premier échec ; `allSettled` rapporte chaque résultat, donc la page peut s’afficher sans les parties optionnelles."
+      },
+      {
+        "question": "Vous demandez un devis de livraison à deux transporteurs et voulez la première réponse réussie, en ignorant un transporteur qui échoue vite. Quel combinateur utilisez-vous, et en quoi les quatre diffèrent-ils ?",
+        "bridge": "`Promise.any` est tenue avec le premier succès, alors que `race` se réglerait sur cet échec rapide. Les combinateurs diffèrent par ce que signifie un échec."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux débitent la carte, marquent la commande payée, puis envoient le reçu. Lequel n’envoie le reçu qu’une fois la commande marquée payée ?",
+        "why": "Renvoyer la promesse de `markPaid` fait attendre le `.then` suivant, et un échec atteint le `.catch` de l’appelant. Sans `return`, le callback renvoie `undefined` tout de suite : le reçu part avant que la commande soit marquée payée, et si `markPaid` rejette, personne ne le gère : un rejet non géré, qui fait planter un processus Node."
+      }
+    ]
+  },
+  "async-await": {
+    "topic": "async et await",
+    "question": "Comment fonctionne `async`/`await`, et comment gérez-vous les erreurs et les appels parallèles avec ?",
+    "answer": "Une fonction `async` renvoie toujours une promesse. `await` met cette fonction en pause jusqu’à ce que la promesse se règle, sans bloquer le thread : la suite de la fonction s’exécute plus tard comme microtâche. Un rejet devient une erreur levée, donc je mets un `try`/`catch` autour des appels attendus. Le piège classique, c’est d’attendre des appels indépendants l’un après l’autre, ce qui additionne leurs délais. Quand ils ne dépendent pas les uns des autres, je les lance ensemble et je fais `await Promise.all([...])`. Et chaque promesse doit être attendue ou gérée, sinon ses erreurs se perdent.",
+    "keyPoints": [
+      "`async` renvoie une promesse ; `await` ne met en pause que cette fonction",
+      "Elle reprend comme microtâche ; le thread n’est jamais bloqué",
+      "Les rejets deviennent des erreurs levées : utiliser `try`/`catch`",
+      "Lancer ensemble les appels indépendants et attendre `Promise.all`"
+    ],
+    "explanation": "Les recruteurs vérifient que tu sais que `await` ne bloque pas, et que tu repères le bug de performance des await séquentiels. Les seniors parlent aussi des promesses flottantes et des règles de lint qui les détectent.",
+    "example": "La page commande du back-office attendait le client, puis l’historique des commandes, puis les factures : trois requêtes de 200 ms prenaient 600 ms. Elles ne dépendent pas les unes des autres, donc `await Promise.all([getCustomer(id), getHistory(id), getInvoices(id)])` a ramené la page à environ 200 ms.",
+    "mistakes": [
+      "Utiliser `await` dans `forEach`, qui n’attend pas : utiliser `for...of`, ou `Promise.all` avec `map`",
+      "Oublier un `await`, si bien que l’erreur échappe au `try`/`catch`",
+      "Croire que `await` bloque tout le thread"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi `items.forEach(async (item) => { await save(item); })` n’attend-il pas ?",
+        "answer": "`forEach` ignore les promesses renvoyées par son callback, donc la boucle se termine tout de suite. J’utilise `for...of` pour sauvegarder l’un après l’autre, ou `Promise.all(items.map(save))` pour sauvegarder en parallèle."
+      },
+      {
+        "question": "Comment exécutez-vous au plus 5 requêtes à la fois ?",
+        "answer": "Avec un pool : je lance 5 workers qui prennent chacun l’élément suivant d’une liste partagée jusqu’à ce qu’elle soit vide, ou j’utilise une petite bibliothèque comme `p-limit`."
+      },
+      {
+        "question": "Comment exécuteriez-vous trois appels async en parallèle plutôt qu’en séquence ?",
+        "answer": "Je lance les trois, puis `await Promise.all([getCustomer(id), getHistory(id), getInvoices(id)])` : le total est l’appel le plus lent, pas la somme. Stocker les promesses et attendre chacune les fait aussi se chevaucher, mais un rejet qui arrive avant son `await` n’est pas géré, et Node s’arrête. `Promise.all` évite ça."
+      },
+      {
+        "question": "Que se passe-t-il si vous oubliez d’attendre un appel async ?",
+        "answer": "J’obtiens une promesse en attente au lieu de la valeur, donc `order.status` vaut `undefined`, et les lignes suivantes s’exécutent avant la fin du travail. Un rejet échappe à mon `try`/`catch` et devient un rejet non géré, qui fait planter un processus Node. La règle `no-floating-promises` de typescript-eslint le détecte."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans un bloc `try`, `return await promise` ne se comporte pas comme `return promise`.",
+        "why": "Avec `return await`, un rejet est levé dans le `try` et son `catch` s’exécute ; avec un simple `return`, le `catch` est sauté.",
+        "twin": {
+          "statement": "Dans un bloc `try`, `return promise` et `return await promise` laissent tous deux le `catch` gérer un rejet.",
+          "why": "Seul `return await` lève le rejet dans le `try` ; avec un simple `return`, le `catch` est sauté."
+        }
+      },
+      {
+        "statement": "Une fonction `async` qui renvoie 5 donne à son appelant le nombre 5.",
+        "why": "Elle donne une promesse tenue avec 5 ; l’appelant a besoin de `await` ou `.then` pour la lire.",
+        "twin": {
+          "statement": "Une fonction `async` qui renvoie 5 donne à son appelant une promesse tenue avec 5.",
+          "why": "Une fonction `async` renvoie toujours une promesse ; l’appelant lit la valeur avec `await` ou `.then`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "`async` et `await` permettent d’écrire du code à promesses qui se lit de haut en bas. `await` ne met en pause que la fonction en cours, jamais le thread : les pièges habituels portent donc sur l’ordre et les erreurs perdues.",
+      "points": [
+        "Une fonction `async` renvoie toujours une promesse : renvoyer 5 donne à l’appelant une promesse tenue avec 5, et lever une erreur donne une promesse rejetée.",
+        "`await` ne met en pause que la fonction async en cours jusqu’à ce que la promesse se règle. Le thread continue d’exécuter d’autre code, et la suite de la fonction reprend plus tard comme microtâche.",
+        "Une promesse rejetée fait lever une erreur à `await`, donc `try`/`catch` la gère. Dans un `try`, écris `return await promise` : un simple `return promise` quitte d’abord la fonction, et le `catch` ne voit jamais le rejet.",
+        "Attendre des appels indépendants l’un après l’autre additionne leurs délais. Lance-les ensemble et attends `Promise.all`. Pour plafonner à 5 à la fois, fais tourner 5 workers qui prennent les éléments d’une liste partagée.",
+        "`forEach` ignore les promesses renvoyées par son callback, donc il n’attend pas : utilise `for...of` ou `Promise.all(items.map(fn))`. Une promesse que personne n’attend ni ne gère est une promesse flottante ; les règles de lint la détectent."
+      ],
+      "takeaways": [
+        {
+          "term": "Fonction `async`",
+          "detail": "Renvoie toujours une promesse : une valeur renvoyée la tient, une erreur levée la rejette."
+        },
+        {
+          "term": "`await`",
+          "detail": "Ne met en pause que cette fonction ; la suite reprend plus tard comme microtâche pendant que le thread exécute autre chose."
+        },
+        {
+          "term": "`try`/`catch`",
+          "detail": "Un rejet fait lever une erreur à `await`. Dans un `try`, écris `return await promise`, sinon le `catch` le rate."
+        },
+        {
+          "term": "Await séquentiels",
+          "detail": "Attendre des appels indépendants un par un additionne leurs délais : lance-les ensemble et attends `Promise.all`."
+        },
+        {
+          "term": "`forEach` + `await`",
+          "detail": "`forEach` ignore les promesses renvoyées : utilise `for...of` ou `Promise.all(items.map(fn))`."
+        },
+        {
+          "term": "Promesse flottante",
+          "detail": "Une promesse que personne n’attend ni ne gère perd ses erreurs ; les règles de lint la détectent."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "`GET /orders/:id` prend 450 ms : il attend la commande, puis le client, puis le statut de livraison, trois appels indépendants d’environ 150 ms chacun. Comment réduisez-vous ce temps ?",
+        "bridge": "Attendre des appels indépendants l’un après l’autre additionne leurs délais. Les lancer ensemble et attendre `Promise.all` prend le temps du plus lent."
+      },
+      {
+        "question": "Un collègue dit que `await` bloque le thread jusqu’à ce que la promesse se règle, donc que l’API Orders ne peut pas servir d’autres requêtes pendant ce temps. A-t-il raison ? Comment fonctionne vraiment `async`/`await` ?",
+        "bridge": "`await` ne met en pause que sa propre fonction. Le thread continue d’exécuter d’autre travail, et la fonction reprend plus tard comme microtâche."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux chargent le client, l’historique et les factures pour la page commande ; chaque appel prend 200 ms. Lequel affiche la page plus tôt ?",
+        "why": "Les trois appels ne dépendent pas les uns des autres. `Promise.all` les lance ensemble, donc la page attend le plus lent : environ 200 ms. Attendre chaque appel avant de lancer le suivant additionne les délais : environ 600 ms pour les mêmes données."
+      }
+    ]
+  },
+  "async-abort": {
+    "topic": "Annuler un fetch, réponses périmées",
+    "question": "Comment annulez-vous un `fetch`, et comment évitez-vous d’afficher une réponse périmée ?",
+    "answer": "`fetch` accepte un `AbortSignal` : je crée un `AbortController`, je passe `controller.signal`, et j’appelle `abort()` quand le résultat n’est plus utile. Le fetch est alors rejeté avec une `AbortError`, que j’ignore au lieu d’afficher une erreur. La race condition de la réponse périmée arrive quand une requête plus ancienne et plus lente finit après une plus récente et écrase son résultat. Annuler la requête précédente quand une nouvelle démarre règle le problème. En React, j’annule dans le cleanup de l’effet, ou je laisse une bibliothèque comme TanStack Query s’en charger via les clés de requête.",
+    "keyPoints": [
+      "Un `AbortController` dont le `signal` est passé à `fetch`",
+      "`abort()` rejette le fetch avec une `AbortError` : l’ignorer",
+      "Race périmée : une réponse plus ancienne arrive en dernier et gagne",
+      "Annuler la requête précédente : cleanup de l’effet, ou TanStack Query"
+    ],
+    "explanation": "C’est un vrai signal de senior frontend, posé dans les questions sur les champs de recherche et le chargement de données. Les recruteurs attendent l’annulation et la race condition, plus le pattern de cleanup React.",
+    "example": "Dans la recherche de la boutique, taper « sho » puis « shoes » envoyait deux requêtes ; la réponse lente de « sho » arrivait en dernier et remplaçait les résultats de « shoes ». L’effet de recherche crée maintenant un AbortController par requête et appelle `abort()` dans son cleanup, si bien que seule la dernière requête peut mettre à jour la liste.",
+    "mistakes": [
+      "Afficher un message d’erreur pour une `AbortError`",
+      "Se contenter d’un flag `isMounted` : il masque la mise à jour, mais la requête tourne toujours",
+      "Croire que le debounce seul règle la race condition : il envoie moins de requêtes, mais elles peuvent toujours finir dans le désordre"
+    ],
+    "followUps": [
+      {
+        "question": "Comment ajoutez-vous un timeout à un `fetch` ?",
+        "answer": "Je passe `AbortSignal.timeout(5000)` comme signal ; le fetch est alors rejeté avec une `TimeoutError`. Pour laisser aussi l’utilisateur annuler, je combine les deux signaux avec `AbortSignal.any([...])`."
+      },
+      {
+        "question": "Annuler un `fetch` arrête-t-il le travail sur le serveur ?",
+        "answer": "Pas à lui seul. Le navigateur ferme la requête, mais le serveur ne s’arrête que s’il remarque la connexion fermée et annule son propre travail."
+      },
+      {
+        "question": "Comment annulez-vous un fetch périmé ou démonté avec un AbortController dans un effet ?",
+        "answer": "Je crée le controller dans l’effet, je passe `controller.signal` à `fetch`, et je renvoie `() => controller.abort()`. React exécute ce cleanup avant de relancer l’effet avec une nouvelle valeur et au démontage du composant : l’ancienne requête est annulée dans les deux cas. Dans le `catch`, j’ignore l’`AbortError`."
+      },
+      {
+        "question": "Comment React Query ou SWR gèrent-ils cette race condition ?",
+        "answer": "Ils stockent chaque réponse sous sa clé, comme `['search', query]`, et le composant ne lit que la clé courante : une réponse tardive pour une ancienne clé remplit l’entrée de cache de cette clé, pas l’écran. TanStack Query passe aussi un `AbortSignal` à la fonction de requête, que je transmets à `fetch`."
+      },
+      {
+        "question": "Comment testeriez-vous que le correctif de la race condition fonctionne ?",
+        "answer": "Je mocke l’API avec des réponses que je résous à la main, ou avec MSW et des délais différents. Le test tape « sho », puis « shoes », résout « shoes » d’abord et « sho » en dernier, et vérifie que la liste affiche toujours les résultats de « shoes ». Sans le correctif, ce test échoue, ce qui prouve qu’il couvre la race condition."
+      },
+      {
+        "question": "Pourquoi annuler l’opération est-il plus propre qu’un flag `isMounted` ?",
+        "answer": "Le flag ne fait que masquer le `setState` : la requête tourne toujours, consomme de la bande passante et du temps serveur, et le flag est un state de plus à gérer correctement. Annuler arrête la requête elle-même. React 18 a aussi supprimé l’avertissement sur les composants démontés, parce qu’il se déclenchait surtout là où mettre à jour le state était sans danger."
+      },
+      {
+        "question": "À quoi ressemble le même problème avec `setTimeout` ou `setInterval` ?",
+        "answer": "Un timer lancé dans un effet continue de se déclencher après le démontage, appelle `setState` et garde en vie tout ce que tient sa closure. Le correctif est le même : garder l’id et le nettoyer dans le cleanup, `return () => clearInterval(id)`. Les listeners et les abonnements suivent la même règle."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Appeler `controller.abort()` fait rejeter la promesse du fetch en attente.",
+        "why": "Elle est rejetée avec une DOMException nommée « AbortError », ou avec la raison passée à `abort()`.",
+        "twin": {
+          "statement": "Appeler `controller.abort()` fait résoudre la promesse du fetch en attente avec une réponse vide.",
+          "why": "Elle est rejetée, avec une DOMException nommée « AbortError » ou avec la raison passée à `abort()`."
+        }
+      },
+      {
+        "statement": "Appliquer un debounce sur le champ suffit à éviter les réponses périmées.",
+        "why": "Le debounce envoie moins de requêtes, mais deux requêtes peuvent toujours se terminer dans le désordre.",
+        "twin": {
+          "statement": "Même avec un debounce sur le champ, deux requêtes de recherche peuvent se terminer dans le désordre.",
+          "why": "Le debounce envoie moins de requêtes mais ne les ordonne pas ; annuler la requête précédente, si."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une requête dont le résultat n’est plus utile doit être annulée, sinon une ancienne réponse lente peut arriver en dernier et écraser la nouvelle. `AbortController` est la façon standard d’annuler un `fetch`.",
+      "points": [
+        "Un `AbortController` a un `signal` et une méthode `abort()`. Passe le signal à `fetch` ; appeler `abort()` fait rejeter le fetch en attente avec une `DOMException` nommée `AbortError`.",
+        "Une `AbortError` veut dire que tu as annulé exprès : vérifie `error.name` et ignore-la plutôt que d’afficher un message d’erreur.",
+        "La race condition de la réponse périmée : la requête pour « sho » est plus lente que celle pour « shoes », arrive en dernier et écrase les résultats plus récents. Le debounce envoie moins de requêtes mais ne règle pas l’ordre dans lequel elles finissent.",
+        "En React, crée le controller dans l’effet et appelle `abort()` dans son cleanup, qui s’exécute avant le passage suivant et au démontage. TanStack Query évite la race condition en stockant chaque réponse sous sa clé de requête.",
+        "`AbortSignal.timeout(5000)` annule avec une `TimeoutError`, et `AbortSignal.any([a, b])` combine des signaux. Annuler ferme la requête du navigateur ; le serveur ne s’arrête que s’il le remarque et annule son propre travail."
+      ],
+      "takeaways": [
+        {
+          "term": "`AbortController`",
+          "detail": "A un `signal` et une méthode `abort()` ; passe `controller.signal` à `fetch`."
+        },
+        {
+          "term": "`AbortError`",
+          "detail": "Un fetch en attente est rejeté avec une `DOMException` nommée `AbortError` : vérifie `error.name` et ignore-la."
+        },
+        {
+          "term": "Race de réponse périmée",
+          "detail": "Une requête plus ancienne et plus lente finit en dernier et écrase les résultats récents. Le debounce ne règle pas l’ordre."
+        },
+        {
+          "term": "Effet React",
+          "detail": "Crée le controller dans l’effet et appelle `abort()` dans son cleanup."
+        },
+        {
+          "term": "TanStack Query",
+          "detail": "Évite la race condition en stockant chaque réponse sous sa clé de requête."
+        },
+        {
+          "term": "`AbortSignal.timeout()`",
+          "detail": "Annule avec une `TimeoutError` ; `AbortSignal.any([a, b])` combine des signaux."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, un agent tape vite « dupont » et le tableau affiche parfois les résultats pour « dup ». Le champ de recherche a déjà un debounce. Que se passe-t-il, et comment le corrigez-vous ?",
+        "bridge": "Une race condition de réponse périmée : une requête plus ancienne et plus lente arrive en dernier et écrase le résultat récent. Annuler la requête précédente règle le problème."
+      },
+      {
+        "question": "Comment arrêtez-vous un `fetch` encore en cours quand l’agent quitte le détail de la commande, et que doit faire le code de l’erreur produite ?",
+        "bridge": "C’est l’annulation avec un `AbortController` : `abort()` fait rejeter le fetch avec une `AbortError`, que le code ignore."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux chargent les résultats de recherche quand `query` change. Lequel ne peut jamais afficher les résultats d’une requête plus ancienne ?",
+        "why": "Le cleanup annule la requête précédente avant que l’effet s’exécute pour la nouvelle requête : une réponse lente pour « sho » est rejetée avec une `AbortError`, qui est ignorée. Sans lui, « shoes » peut répondre en premier et « sho » en dernier : `setResults` s’exécute pour les deux, et la liste finit par afficher les résultats de « sho »."
+      }
+    ]
+  },
+  "async-debounce": {
+    "topic": "Debounce et throttle",
+    "question": "Quelle est la différence entre debounce et throttle, et quand utilisez-vous chacun ?",
+    "answer": "Les deux limitent la fréquence d’exécution d’une fonction pendant une rafale d’événements. Le debounce attend que les événements s’arrêtent pendant un délai donné, puis s’exécute une fois : idéal pour la recherche à la frappe, la sauvegarde automatique ou la fin d’un redimensionnement. Le throttle s’exécute au plus une fois par intervalle tant que les événements continuent : idéal pour la position de scroll, le glisser-déposer ou le suivi de la souris. Les deux reposent sur une closure qui garde un timer entre les appels. En React, la fonction avec debounce doit rester la même d’un rendu à l’autre, sinon chaque rendu crée un nouveau timer et rien n’est debouncé.",
+    "keyPoints": [
+      "Debounce : s’exécute une fois, après l’arrêt des événements",
+      "Throttle : au plus une fois par intervalle, pendant la rafale",
+      "Debounce pour la recherche et l’autosave ; throttle pour le scroll et le drag",
+      "Une closure garde le timer ; garder la fonction stable en React"
+    ],
+    "explanation": "Elle est souvent suivie d’un « écrivez-le maintenant » dans un exercice de code. Les recruteurs vérifient que tu sais choisir entre les deux et que tu connais le piège React.",
+    "example": "Le champ de recherche de la boutique applique un debounce de 300 ms aux suggestions : taper « running shoes » envoie une requête au lieu de treize. La liste infinie de commandes du back-office applique un throttle à son handler de scroll, une fois toutes les 200 ms, pour décider s’il faut charger la page suivante.",
+    "mistakes": [
+      "Inverser les deux définitions",
+      "Créer la fonction avec debounce dans le corps du composant, si bien que chaque rendu obtient un nouveau timer",
+      "Oublier d’annuler l’appel en attente au démontage du composant"
+    ],
+    "followUps": [
+      {
+        "question": "Écrivez un debounce simple.",
+        "answer": "Une version simple : `function debounce(fn, ms) { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); }; }`"
+      },
+      {
+        "question": "Que sont les appels leading et trailing ?",
+        "answer": "Un appel leading s’exécute sur le premier événement d’une rafale ; un appel trailing, après le dernier. Le debounce est en général trailing ; le throttle fait souvent les deux, pour ne pas perdre la position finale."
+      },
+      {
+        "question": "Comment nettoyez-vous un debounce ou un throttle dans un `useEffect` React ?",
+        "answer": "L’effet lance le timer et son cleanup le supprime : `const id = setTimeout(() => search(query), 300); return () => clearTimeout(id);`. Le cleanup s’exécute avant le passage suivant et au démontage, donc un appel périmé ne part jamais. Avec le debounce d’une bibliothèque comme lodash, j’appelle son `cancel()` dans le cleanup."
+      },
+      {
+        "question": "Comment gardez-vous une fonction avec debounce stable d’un re-render à l’autre ?",
+        "answer": "Je la crée une fois et je la garde dans une ref, pour que chaque rendu réutilise le même timer. Pour éviter une closure périmée, elle appelle le dernier callback via une seconde ref qu’un effet met à jour. Créée dans le corps du rendu, elle aurait un nouveau timer à chaque rendu et ne debouncerait rien."
+      },
+      {
+        "question": "Debounce ou throttle en pratique ?",
+        "answer": "Debounce quand seule la valeur finale compte : suggestions de recherche, sauvegarde automatique d’une note, validation après la saisie. Throttle quand j’ai besoin de mises à jour régulières pendant la rafale : position de scroll, glisser-déposer, chargement de la page suivante. Pour un travail lié au rendu, comme suivre le pointeur, `requestAnimationFrame` est souvent préférable."
+      },
+      {
+        "question": "Comment écririez-vous un hook `useDebounce` ?",
+        "answer": "Je debounce la valeur : `const debounced = useDebouncedValue(query, 300)`. À l’intérieur, un state contient la valeur debouncée, et un effet sur `[value, delay]` exécute `setTimeout(() => setDebounced(value), delay)` et renvoie `() => clearTimeout(id)`. Chaque changement annule le timer précédent."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une recherche avec debounce envoie une requête toutes les 300 ms tant que l’utilisateur continue de taper.",
+        "why": "Ça, c’est le throttle. Le debounce attend une pause de 300 ms dans la saisie, puis envoie une requête.",
+        "twin": {
+          "statement": "Une recherche avec un debounce de 300 ms attend une pause de 300 ms dans la saisie, puis envoie une requête.",
+          "why": "Envoyer une requête toutes les 300 ms tant que l’utilisateur tape, ce serait du throttle."
+        }
+      },
+      {
+        "statement": "Pour charger plus d’éléments pendant le scroll, le throttle convient en général mieux que le debounce.",
+        "why": "On veut des vérifications régulières pendant le scroll ; le debounce attendrait la fin du scroll.",
+        "twin": {
+          "statement": "Pour charger plus d’éléments pendant le scroll, le debounce convient en général mieux que le throttle.",
+          "why": "Le debounce attendrait la fin du scroll ; le throttle vérifie à intervalles réguliers pendant le scroll."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le debounce et le throttle limitent la fréquence d’exécution d’une fonction pendant une rafale d’événements comme la saisie ou le scroll. Ils diffèrent par le moment où elle s’exécute : après la rafale, ou régulièrement pendant.",
+      "points": [
+        "Les deux limitent la fréquence d’exécution d’une fonction pendant une rafale d’événements, comme la saisie, le scroll ou le redimensionnement.",
+        "Le debounce relance un timer à chaque événement et exécute la fonction une fois, quand les événements se sont arrêtés pendant le délai. Envoyer les suggestions de recherche après 300 ms sans frappe, c’est l’usage classique.",
+        "Le throttle exécute la fonction au plus une fois par intervalle tant que les événements continuent, ce qui donne des mises à jour régulières. Il convient à la position de scroll, au glisser-déposer et au choix du moment où charger la page suivante d’une liste.",
+        "Un appel leading s’exécute sur le premier événement d’une rafale, un appel trailing après le dernier. Le debounce est en général trailing ; le throttle fait souvent les deux pour ne pas perdre la position finale.",
+        "Le timer vit dans une closure : en React, crée la fonction avec debounce une seule fois, avec `useMemo` ou une ref, et annule son appel en attente au démontage. En recréer une à chaque rendu ne debounce rien."
+      ],
+      "takeaways": [
+        {
+          "term": "Debounce",
+          "detail": "Relance un timer à chaque événement et s’exécute une fois quand les événements s’arrêtent pendant le délai."
+        },
+        {
+          "term": "Usages du debounce",
+          "detail": "Suggestions de recherche après 300 ms sans frappe, sauvegarde automatique, fin d’un redimensionnement."
+        },
+        {
+          "term": "Throttle",
+          "detail": "S’exécute au plus une fois par intervalle tant que les événements continuent, pour des mises à jour régulières."
+        },
+        {
+          "term": "Usages du throttle",
+          "detail": "Position de scroll, glisser-déposer, choix du moment où charger la page suivante d’une liste."
+        },
+        {
+          "term": "Leading et trailing",
+          "detail": "Leading s’exécute sur le premier événement, trailing après le dernier. Le throttle fait souvent les deux."
+        },
+        {
+          "term": "En React",
+          "detail": "Le timer vit dans une closure : crée la fonction une fois (`useMemo` ou une ref) et annule-la au démontage."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’autocomplétion de la boutique envoie une requête par frappe : taper « blue mug » déclenche 8 requêtes. Vous voulez une seule requête quand le client fait une pause. Qu’utilisez-vous, et pourquoi pas l’alternative ?",
+        "bridge": "Le debounce s’exécute une fois quand les événements s’arrêtent pendant un délai donné. Le throttle enverrait encore des requêtes à intervalles réguliers pendant la saisie."
+      },
+      {
+        "question": "Dans un composant React, un collègue appelle `debounce(search, 300)` directement dans le corps du composant, et chaque frappe envoie encore une requête. Pourquoi ?",
+        "bridge": "Le debounce repose sur une closure qui garde le timer. Une nouvelle fonction avec debounce à chaque rendu démarre un nouveau timer, donc rien n’est debouncé."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux appliquent un debounce de 300 ms aux suggestions de recherche. Lequel envoie une seule requête quand l’utilisateur tape vite « shoes » ?",
+        "why": "`useMemo` garde une seule fonction avec debounce : son timer survit aux re-renders et chaque frappe annule l’appel en attente, d’où une requête pour « shoes ». Dans le corps du composant, chaque rendu, que chaque frappe déclenche via `setQuery`, crée une nouvelle fonction avec son propre timer : rien n’est annulé, et cinq frappes envoient cinq requêtes."
+      }
+    ]
+  },
+  "async-long-tasks": {
+    "topic": "Tâches longues et page figée",
+    "question": "Pourquoi une page se fige-t-elle pendant un JavaScript lourd, et comment corrigez-vous ça ?",
+    "answer": "Le thread principal exécute le JavaScript, gère les saisies et fait le rendu. Une tâche de plus de 50 ms est une tâche longue : pendant qu’elle tourne, les clics et la frappe attendent et rien ne se redessine, ce qui se voit dans un mauvais score INP. Les correctifs, du moins coûteux au plus coûteux : faire moins de travail, par exemple en mémoïsant ou en virtualisant une longue liste ; découper le travail en morceaux et rendre la main au navigateur entre eux ; marquer les mises à jour non urgentes avec `useTransition` de React ; et déplacer le calcul pur dans un Web Worker, qui tourne sur un autre thread et communique via `postMessage`.",
+    "keyPoints": [
+      "Un seul thread principal pour le JavaScript, les saisies et le rendu",
+      "Une tâche de plus de 50 ms retarde les saisies et dégrade l’INP",
+      "Faire moins, découper et rendre la main, ou `useTransition`",
+      "Des Web Workers pour le calcul pur et lourd"
+    ],
+    "explanation": "Elle relie l’event loop à ce que ressentent les utilisateurs. Un senior doit citer l’INP et le seuil de 50 ms, donner une palette de correctifs, et mesurer avant de sauter sur les Web Workers.",
+    "example": "Le back-office filtrait 50 000 commandes à chaque frappe et la saisie avait une demi-seconde de retard. Marquer la mise à jour de la liste comme transition a gardé le champ réactif, et déplacer le filtre lui-même dans un Web Worker a sorti le travail du thread principal.",
+    "mistakes": [
+      "Sortir un Web Worker en premier : les workers n’ont pas accès au DOM, et copier de grosses données a un coût",
+      "Croire que `async`/`await` rend le travail CPU non bloquant : ça n’aide que pendant l’attente",
+      "Ne pas mesurer d’abord dans le panneau Performance du navigateur"
+    ],
+    "followUps": [
+      {
+        "question": "Que ne peut pas faire un Web Worker ?",
+        "answer": "Il n’a pas accès au DOM, à `window` ni au state React. Il communique avec la page par messages, et les données sont copiées avec l’algorithme de clonage structuré, sauf si on les transfère."
+      },
+      {
+        "question": "Qu’est-ce que l’INP ?",
+        "answer": "Interaction to Next Paint, un Core Web Vital : le délai entre une interaction de l’utilisateur et la frame suivante. 200 ms ou moins, c’est jugé bon."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Mettre une boucle gourmande en CPU dans une fonction `async` l’empêche de bloquer la page.",
+        "why": "La boucle tourne toujours sur le thread principal ; `async` n’aide que pendant l’attente des I/O.",
+        "twin": {
+          "statement": "Une boucle gourmande en CPU dans une fonction `async` bloque toujours la page pendant qu’elle tourne.",
+          "why": "La boucle tourne sur le thread principal ; `async` n’aide que pendant l’attente des I/O."
+        }
+      },
+      {
+        "statement": "Une tâche qui occupe le thread principal plus de 50 ms compte comme une tâche longue.",
+        "why": "50 ms est le seuil utilisé par la Long Tasks API du navigateur et par Lighthouse.",
+        "twin": {
+          "statement": "Une tâche ne compte comme tâche longue que si elle occupe le thread principal plus de 200 ms.",
+          "why": "Le seuil est de 50 ms, celui qu’utilisent la Long Tasks API du navigateur et Lighthouse."
+        }
+      },
+      {
+        "statement": "Un Web Worker peut lire et modifier le DOM directement.",
+        "why": "Les workers n’ont pas accès au DOM ; ils renvoient leurs résultats avec `postMessage`.",
+        "twin": {
+          "statement": "Un Web Worker n’a pas accès au DOM.",
+          "why": "Il tourne sur un autre thread et renvoie ses résultats avec `postMessage`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le thread principal exécute le JavaScript, gère les saisies et fait le rendu : un seul long travail fige donc la page. Découper, différer ou déplacer ce travail garde les interactions rapides.",
+      "points": [
+        "Le thread principal du navigateur exécute le JavaScript, gère les saisies et fait le rendu. Pendant qu’une tâche tourne, les clics et les frappes attendent et rien ne se redessine.",
+        "Une tâche longue occupe le thread principal plus de 50 ms. L’INP (Interaction to Next Paint), un Core Web Vital, mesure le délai entre une interaction et la frame suivante ; 200 ms ou moins, c’est bon.",
+        "`async` n’aide pas pour le travail CPU : une boucle dans une fonction async bloque quand même. Correctifs, du moins coûteux au plus coûteux : faire moins, découper en morceaux et rendre la main entre eux, ou marquer les mises à jour non urgentes avec `useTransition`.",
+        "Un Web Worker exécute du code sur un autre thread. Il n’a ni DOM ni `window`, et les données passent par `postMessage`, copiées sauf si transférées. Réserve-le au calcul pur et lourd, car copier de grosses données prend du temps.",
+        "Mesure d’abord : le panneau Performance des outils de développement du navigateur signale les tâches longues, pour que tu corriges la vraie cause."
+      ],
+      "takeaways": [
+        {
+          "term": "Tâche longue",
+          "detail": "Occupe le thread principal plus de 50 ms : les saisies attendent et rien ne se redessine."
+        },
+        {
+          "term": "INP",
+          "detail": "Interaction to Next Paint, un Core Web Vital : délai entre une interaction et la frame suivante. 200 ms ou moins, c’est bon."
+        },
+        {
+          "term": "`async` ne corrige rien",
+          "detail": "Un travail CPU dans une fonction async bloque quand même le thread."
+        },
+        {
+          "term": "Correctifs, du moins cher",
+          "detail": "Faire moins, découper en morceaux et rendre la main entre eux, ou marquer les mises à jour non urgentes avec `useTransition`."
+        },
+        {
+          "term": "Web Worker",
+          "detail": "Un autre thread sans DOM ; les données passent par `postMessage`, copiées sauf si transférées."
+        },
+        {
+          "term": "Mesurer d’abord",
+          "detail": "Le panneau Performance des outils de développement signale les tâches longues, pour corriger la vraie cause."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, filtrer un tableau de 20 000 commandes fige le champ de filtre environ 400 ms à chaque frappe, et le score INP est mauvais. Où passe le temps, et qu’essaieriez-vous ?",
+        "bridge": "Une tâche longue bloque le thread principal, donc les saisies attendent. Faire moins (virtualiser), découper et rendre la main, utiliser `useTransition`, ou déplacer le travail dans un Web Worker."
+      },
+      {
+        "question": "Un collègue déplace un calcul de prix lourd dans une fonction `async` pour qu’il ne bloque plus la page. Est-ce que ça marche ? Qu’est-ce qui libère vraiment le thread principal ?",
+        "bridge": "`async` n’aide que pendant l’attente ; le travail CPU tourne toujours sur le thread principal. Découper le travail ou un Web Worker le libère."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux envoient l’export CSV de 40 Mo à un Web Worker pour le parser. Lequel évite de le copier sur le thread principal ?",
+        "why": "Mettre le buffer dans la liste de transfert le déplace vers le worker sans copie : ensuite, le `buffer.byteLength` de la page vaut 0. Sans ça, `postMessage` copie les 40 Mo avec l’algorithme de clonage structuré, ce qui coûte du temps sur le thread principal pendant que l’utilisateur attend et garde les données deux fois en mémoire."
+      }
+    ]
+  }
+}

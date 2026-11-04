@@ -1,0 +1,693 @@
+{
+  "test-unit-pricing": {
+    "topic": "Tester unitairement les règles métier",
+    "question": "Qu’est-ce qui fait un bon test unitaire ? Prenez une règle de prix comme exemple.",
+    "answer": "Un bon test unitaire exécute une seule règle pure en mémoire, sans base, réseau ni horloge, donc il est rapide et n’échoue que quand la règle est fausse. Pour les prix, j’écris les cas sous forme de tableau avec `it.each` : chaque ligne est une entrée et son total attendu, et chaque limite a sa ligne, comme un panier pile au seuil de livraison gratuite, une remise qui le fait repasser en dessous, et un arrondi. Le tableau se lit comme la spécification et n’a besoin d’aucune doublure de test. La couverture me dit seulement quelles lignes ont tourné, pas ce qui a été vérifié, donc pour le code qui compte j’utilise le mutation testing pour trouver les comportements qu’aucune assertion ne fixe.",
+    "keyPoints": [
+      "Une règle pure, sans I/O ni horloge : rapide et précise",
+      "Un tableau de cas avec `it.each`, une ligne par limite",
+      "Aucune doublure de test pour de la logique pure",
+      "La couverture est un signal ; le mutation testing vérifie les assertions"
+    ],
+    "explanation": "Les recruteurs posent cette question pour voir si tu sais où les tests unitaires rapportent et si tu raisonnes en cas limites. Les seniors parlent de limites et de force des assertions, et ne traitent pas un pourcentage de couverture comme un objectif.",
+    "example": "L’API Orders calcule le prix d’un panier avec un code promo, et la livraison est gratuite à partir de 50,00 après remise. L’équipe a écrit un tableau `it.each` avec des lignes pour 49,99, pile 50,00, une remise de 10 % qui ramène 55,00 sous le seuil, et une remise arrondie. Un passage de Stryker sur la règle de retry des paiements a ensuite montré deux mutants survivants, à 429 et à 500 : des limites qu’aucun test n’utilisait.",
+    "mistakes": [
+      "Tester des règles pures via la route HTTP ou la base, ce qui est plus lent et masque quel cas a cassé.",
+      "Courir après un objectif de couverture : un test sans assertion augmente la couverture sans rien vérifier.",
+      "Sauter les valeurs limites, qui sont justement là où vivent les bugs de prix."
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce que le mutation testing ?",
+        "answer": "Un outil comme Stryker fait de petits changements dans le code, comme `>=` en `>`, et relance les tests. Si un test échoue, le mutant est tué ; si tous passent, il a survécu, et aucun test ne fixe ce comportement. Les passages sont lents, donc les équipes le lancent sur les fichiers modifiés d’une pull request ou la nuit."
+      },
+      {
+        "question": "La couverture est à 90 % et des bugs arrivent quand même en production. Pourquoi ?",
+        "answer": "La couverture compte les lignes exécutées, pas le comportement vérifié. Je regarde quels bugs sont passés et quel test aurait attrapé chacun, puis je vérifie la force des assertions, par exemple avec du mutation testing sur ce code. Monter le seuil ajoute du coût sans combler le trou."
+      },
+      {
+        "question": "Vitest ou Jest pour un nouveau service TypeScript ?",
+        "answer": "Vitest : en 2026, c’est le choix par défaut pour du TypeScript ESM, il exécute les fichiers `.ts` sans étape de build, en parallèle, avec une API proche de celle de Jest. Jest reste courant dans le code NestJS, où `nest new` donne Vitest aux projets ESM et Jest aux projets CommonJS."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "100 % de couverture de lignes signifie que chaque comportement du code est vérifié par une assertion.",
+        "why": "La couverture dit quelles lignes ont tourné ; un test sans assertion l’augmente aussi.",
+        "twin": {
+          "statement": "Une suite peut atteindre 100 % de couverture de lignes alors que certains comportements ne sont vérifiés par aucune assertion.",
+          "why": "La couverture dit quelles lignes ont tourné ; un test sans assertion l’augmente aussi."
+        }
+      },
+      {
+        "statement": "Un test unitaire d’une fonction de prix pure n’a besoin d’aucun mock.",
+        "why": "Elle n’a aucune dépendance à remplacer : les entrées entrent, le total sort.",
+        "twin": {
+          "statement": "Un test unitaire d’une fonction de prix pure a besoin de mocks pour ses dépendances.",
+          "why": "Une fonction pure n’a aucune dépendance à remplacer : les entrées entrent, le total sort."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les règles métier comme les prix, les remises et les frais de livraison se testent mieux en unitaire : des fonctions pures en mémoire, beaucoup de cas, aucun I/O. Une bonne suite n’échoue que quand la règle est fausse.",
+      "points": [
+        "Un test unitaire exécute une fonction en mémoire, sans base, réseau ni vraie horloge. Il convient aux règles pures avec beaucoup de cas, comme un prix, une remise ou des frais de livraison.",
+        "Écris les cas sous forme de tableau avec `it.each` : chaque ligne est une entrée et son résultat attendu. Donne à chaque limite sa propre ligne : pile au seuil, juste en dessous, et un arrondi.",
+        "La couverture est la part des lignes exécutées pendant les tests. Elle signale les branches non testées, mais un test sans assertion l’augmente aussi : un signal, pas un objectif.",
+        "Le mutation testing (Stryker pour TypeScript) modifie légèrement le code, comme `>=` en `>`, et relance les tests. Un changement qu’aucun test ne remarque est un comportement que rien ne vérifie."
+      ],
+      "takeaways": [
+        {
+          "term": "Règle pure",
+          "detail": "Une fonction en mémoire, sans base, réseau ni vraie horloge : rapide, et sans besoin de doublure de test."
+        },
+        {
+          "term": "`it.each`",
+          "detail": "Écrit les cas sous forme de tableau : chaque ligne, une entrée et son résultat attendu. Ça se lit comme la spécification."
+        },
+        {
+          "term": "Lignes limites",
+          "detail": "Pile au seuil, juste en dessous, et un arrondi, chacun sur sa propre ligne."
+        },
+        {
+          "term": "Couverture",
+          "detail": "La part des lignes exécutées. Un test sans assertion l’augmente aussi : un signal, pas un objectif."
+        },
+        {
+          "term": "Mutation testing (Stryker)",
+          "detail": "Modifie légèrement le code, comme `>=` en `>`, et relance les tests. Un changement non remarqué est un comportement que rien ne vérifie."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un refactoring de la règle de livraison a fait payer la livraison aux paniers de pile 50,00, et tous les tests sont restés verts avec 90 % de couverture. Que manquait-il aux tests ?",
+        "bridge": "Une limite qu’aucun test ne fixait : de bons tests unitaires d’une règle pure utilisent un tableau avec une ligne par limite, et la couverture ne montre pas ce qui est vérifié."
+      },
+      {
+        "question": "Un junior teste la fonction de prix via `POST /orders` avec une base. Pourquoi la testeriez-vous autrement, et à quoi ressemble un bon test unitaire ?",
+        "bridge": "Le même sujet par un test mal placé : une règle pure tourne en mémoire sans I/O, sous forme de tableau de cas, rapide et précise."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux testent la règle « les paniers de 50,00 ou plus sont livrés gratuitement, les autres paient 4,99 ». Quel tableau attrape un `>=` changé en `>` ?",
+        "why": "Les bugs de prix vivent aux limites. Les lignes à 49,99 et à pile 50,00 fixent le seuil : si `subtotal >= 5_000` devient `subtotal > 5_000`, la ligne à 50,00 échoue. L’autre tableau ne teste que des paniers loin du seuil, donc le même changement passe, et les clients à pile 50,00 paient la livraison."
+      }
+    ]
+  },
+  "test-database-integration": {
+    "topic": "Tests d’intégration sur une vraie base",
+    "question": "Comment écrivez-vous des tests d’intégration sur un vrai PostgreSQL, et comment gardez-vous les tests isolés les uns des autres ?",
+    "answer": "J’exécute le vrai SQL sur un vrai PostgreSQL, parce qu’un repository mocké n’exécute jamais la requête et ne peut pas attraper un mauvais `WHERE`. En CI, j’utilise Testcontainers, qui démarre un conteneur PostgreSQL jetable à partir de l’image de production ; en local, PGlite, PostgreSQL compilé en WebAssembly dans le processus Node, donne un retour rapide sans Docker. Démarrer une base est lent, donc je la démarre une fois par passage ou par fichier, j’applique les vraies migrations, et je remets les données à zéro avant chaque test, en général avec `TRUNCATE`. Une transaction par test avec un rollback est plus rapide mais casse quand le code ouvre sa propre transaction. Pour les fichiers en parallèle, chaque worker a sa propre base.",
+    "keyPoints": [
+      "Vrai SQL sur un vrai PostgreSQL, schéma issu des migrations",
+      "Testcontainers en CI, PGlite pour des passages locaux rapides",
+      "Démarrer une fois, remettre les données à zéro avant chaque test",
+      "Une base par worker pour les fichiers en parallèle"
+    ],
+    "explanation": "Cette question sépare les candidats qui ont maintenu une suite de tests de ceux qui mockent tout. Les seniors connaissent les stratégies d’isolation et leurs compromis, ainsi que les limites d’une base dans le processus.",
+    "example": "L’API Orders a déplacé ses tests d’intégration vers un conteneur PostgreSQL 18 démarré une fois par Testcontainers dans un global setup Vitest et migré avec les vraies migrations. Le premier passage a échoué sur une migration qui marchait sur la machine de chaque développeur parce qu’elle reposait sur une extension créée à la main par quelqu’un, un bug qu’un repository mocké n’aurait jamais montré.",
+    "mistakes": [
+      "Démarrer une nouvelle base pour chaque test, ce qui coûte des secondes à chaque fois ; démarre une fois et remets les données à zéro.",
+      "Utiliser un rollback par transaction de test quand le code testé ouvre sa propre transaction ou une deuxième connexion.",
+      "Tester deux checkouts qui se disputent une ligne sur PGlite, qui n’a qu’une seule connexion."
+    ],
+    "followUps": [
+      {
+        "question": "Testcontainers ou PGlite ?",
+        "answer": "Testcontainers fait tourner le vrai serveur à partir de l’image de production, donc les extensions, les connexions multiples et les verrous se comportent comme en production ; il faut Docker et quelques secondes pour démarrer. PGlite tourne dans le processus sans Docker, rapide pour un retour sur le SQL, mais avec une seule connexion et en build WebAssembly."
+      },
+      {
+        "question": "Que montre une vraie base qu’un mock cache ?",
+        "answer": "Le SQL faux, les contraintes manquantes et les détails de types. Avec node-postgres, une colonne `date` revient comme une `Date` JavaScript à minuit dans le fuseau du processus, et une clé en double est rejetée avec le code PostgreSQL 23505, que le repository doit traduire en erreur métier."
+      },
+      {
+        "question": "Comment exécutez-vous des fichiers de tests d’intégration en parallèle ?",
+        "answer": "Chaque worker Vitest a sa propre base ou son propre schéma, nommé d’après `VITEST_POOL_ID`, donc les fichiers ne voient jamais les lignes des autres. Dans un fichier, les tests tournent l’un après l’autre et remettent les données à zéro avant chacun."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une transaction par test avec un rollback isole toujours les tests quand le code testé commite sa propre transaction.",
+        "why": "La stratégie casse dès que le code ouvre sa propre transaction ou prend une deuxième connexion du pool.",
+        "twin": {
+          "statement": "Une transaction par test avec un rollback n’isole plus les tests dès que le code testé commite sa propre transaction.",
+          "why": "La stratégie casse dès que le code ouvre sa propre transaction ou prend une deuxième connexion du pool."
+        }
+      },
+      {
+        "statement": "Avec Testcontainers, les tests d’intégration peuvent tourner sur la même image PostgreSQL que la production.",
+        "why": "Il démarre un vrai serveur dans un conteneur à partir de l’image que tu choisis, par exemple `postgres:18-alpine`.",
+        "twin": {
+          "statement": "Avec Testcontainers, les tests d’intégration ne peuvent pas utiliser la même image PostgreSQL que la production.",
+          "why": "Il démarre un vrai serveur dans un conteneur à partir de l’image que tu choisis, par exemple `postgres:18-alpine`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un test d’intégration exécute le vrai SQL du repository sur un vrai PostgreSQL. Un repository mocké n’exécute jamais la requête, donc seule une vraie base attrape un mauvais `WHERE` ou une contrainte manquante.",
+      "points": [
+        "Un test d’intégration exécute le vrai SQL de ton repository sur un vrai PostgreSQL. Un repository mocké n’exécute jamais la requête, donc il ne peut pas attraper un mauvais `WHERE` ou une contrainte manquante.",
+        "Testcontainers démarre un conteneur PostgreSQL jetable à partir de l’image de production : fidélité totale, Docker nécessaire. PGlite fait tourner PostgreSQL en WebAssembly dans Node : rapide, une seule connexion.",
+        "Démarre la base une fois par passage ou par fichier et applique les vraies migrations, pour qu’elles soient testées aussi. Puis remets les données à zéro avant chaque test, par exemple avec `TRUNCATE`.",
+        "Une transaction par test avec `ROLLBACK` est plus rapide mais casse quand le code ouvre sa propre transaction. Pour les fichiers en parallèle, donne à chaque worker sa propre base."
+      ],
+      "takeaways": [
+        {
+          "term": "Testcontainers",
+          "detail": "Démarre un conteneur PostgreSQL jetable à partir de l’image de production : fidélité totale, Docker nécessaire. Adapté à la CI."
+        },
+        {
+          "term": "PGlite",
+          "detail": "PostgreSQL compilé en WebAssembly dans le processus Node : passages locaux rapides sans Docker, une seule connexion."
+        },
+        {
+          "term": "Vraies migrations",
+          "detail": "Démarrer la base une fois par passage ou par fichier et appliquer les vraies migrations, pour les tester aussi."
+        },
+        {
+          "term": "`TRUNCATE` avant chaque test",
+          "detail": "Remet les données à zéro pour que chaque test parte d’un état connu."
+        },
+        {
+          "term": "Transaction + `ROLLBACK`",
+          "detail": "Remise à zéro plus rapide, mais casse quand le code testé ouvre sa propre transaction."
+        },
+        {
+          "term": "Fichiers en parallèle",
+          "detail": "Donner à chaque worker sa propre base."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Les tests de repository de l’API Orders passent tous avec une base mockée, pourtant une migration a échoué en production parce qu’elle reposait sur une extension créée à la main. Comment testeriez-vous plutôt la couche de données ?",
+        "bridge": "Un bug que seule une vraie base montre : des tests d’intégration sur PostgreSQL avec les vraies migrations, plus une stratégie qui garde les tests isolés."
+      },
+      {
+        "question": "Un collègue enveloppe chaque test dans une transaction annulée par rollback, et les tests d’annulation de commande laissent maintenant des lignes qui cassent d’autres tests. Pourquoi, et comment isoleriez-vous plutôt les tests ?",
+        "bridge": "Le même sujet par une stratégie d’isolation : un rollback par test casse quand le code commite sa propre transaction, donc remets plutôt les données à zéro avant chaque test."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux donnent à chaque test d’un fichier de 40 tests du repository des commandes une base PGlite vide. Quel setup garde le fichier rapide ?",
+        "why": "Démarrer PGlite et appliquer le schéma prenait environ 1,2 s sur un portable, alors qu’un `TRUNCATE` prenait environ 2 ms. Payer le démarrage une fois par fichier et remettre les données à zéro avant chaque test garde 40 tests isolés avec bien moins d’une seconde de setup ; une nouvelle base par test passe environ 48 s rien qu’en setup."
+      }
+    ]
+  },
+  "test-http-in-process": {
+    "topic": "Tester les routes HTTP dans le processus",
+    "question": "Comment testez-vous une route d’API à travers toute sa couche HTTP sans démarrer le serveur sur un port ?",
+    "answer": "Je construis l’app dans une fonction qui n’écoute pas et qui reçoit ses dépendances : repositories, client de paiement, horloge et générateur d’ids. Ensuite, je lui envoie des requêtes sans socket. Fastify a `app.inject()`, qui exécute tout le pipeline, hooks, validation de schéma et sérialisation, et renvoie la réponse. Pour Express, supertest lie une app qui n’écoute pas à un port libre aléatoire, et NestJS fournit un module de test où je remplace un provider. Comme l’horloge, les ids et les données sont fixés, je peux vérifier le body exact, le statut et la ligne stockée, plutôt que des appels internes.",
+    "keyPoints": [
+      "Construire l’app dans une fonction qui n’écoute pas",
+      "Injecter les dépendances : horloge, ids, clients externes",
+      "`inject` de Fastify, supertest, le module de test Nest",
+      "Vérifier statut, body et état stocké, pas les appels internes"
+    ],
+    "explanation": "Les tests de routes apportent l’essentiel de la confiance dans une API Node, et les recruteurs vérifient que tu sais les écrire rapides et stables. Les seniors conçoivent l’app pour ça, avec des dépendances passées en paramètre, et vérifient ce qu’un client voit et ce qui a été stocké.",
+    "example": "Les anciens tests de routes de l’API Orders démarraient le serveur sur le port 3000 et échouaient dès que deux fichiers tournaient en parallèle. L’équipe a construit l’app avec `buildApp(deps)` et envoyé les requêtes avec `app.inject()`, avec une horloge fixe, un faux client de paiement et une factory d’ids, si bien qu’un test de `POST /orders` pouvait attendre le body exact puis relire le stock.",
+    "mistakes": [
+      "Démarrer le serveur sur un port fixe dans les tests, ce qui entre en collision quand les fichiers tournent en parallèle.",
+      "Vérifier des lignes de log ou l’ordre des appels internes, qui changent à chaque refactoring.",
+      "Laisser la route lire la vraie date ou générer des ids aléatoires, si bien que le body attendu ne peut pas être exact."
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce que `inject` exerce que l’appel direct du handler n’exerce pas ?",
+        "answer": "Tout le pipeline Fastify : hooks, validation de schéma et sérialisation. Un body avec `priceCents: 0` sur une route dont le schéma exige au moins 1 reçoit le vrai 400 et son message, ce qui prouve que le schéma est branché."
+      },
+      {
+        "question": "Comment remplacez-vous une dépendance dans un test NestJS ?",
+        "answer": "`Test.createTestingModule()` de `@nestjs/testing`, puis `overrideProvider(token).useValue(value)` remplace ce provider pour toutes les classes qui l’injectent, comme une horloge figée. Ensuite, supertest appelle `app.getHttpServer()`."
+      },
+      {
+        "question": "Pourquoi tester les règles de validation ici plutôt qu’en tests E2E sur la staging ?",
+        "answer": "Chaque règle est une propriété de la route, et un test dans le processus la vérifie en quelques millisecondes sans instabilité réseau. Les tests E2E restent pour ce que seul le système déployé montre, comme le câblage, la configuration et les migrations."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`inject` de Fastify ouvre un port réseau pendant la durée du test.",
+        "why": "Il fait passer la requête dans le pipeline sans socket ; `app.server.listening` reste à `false`.",
+        "twin": {
+          "statement": "`inject` de Fastify exécute une requête sans ouvrir de port réseau.",
+          "why": "Il fait passer la requête dans le pipeline sans socket ; `app.server.listening` reste à `false`."
+        }
+      },
+      {
+        "statement": "supertest peut tester une app Express qui n’écoute pas encore.",
+        "why": "Son README dit qu’il lie l’app à un port libre aléatoire pour le test.",
+        "twin": {
+          "statement": "supertest a besoin que l’app Express écoute sur un port avant qu’un test puisse l’appeler.",
+          "why": "Son README dit qu’il lie une app qui n’écoute pas à un port libre aléatoire pour le test."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "On peut tester les routes HTTP sans ouvrir de socket en construisant l’app dans une fonction qui n’écoute pas et reçoit ses dépendances. Les requêtes exécutent alors tout le pipeline en quelques millisecondes, avec des résultats exacts et prévisibles.",
+      "points": [
+        "Construis l’app dans une fonction qui n’écoute pas, comme `buildApp(deps)`, et passe-lui ses dépendances : repositories, clients externes, une horloge et un générateur d’ids.",
+        "`app.inject()` de Fastify fait passer une requête par les hooks, la validation de schéma et la sérialisation, et renvoie la réponse sans ouvrir de port.",
+        "Pour Express, supertest lie une app qui n’écoute pas à un port libre aléatoire. Les tests NestJS construisent un module de test et remplacent des providers avec `overrideProvider`.",
+        "Fixe chaque entrée, l’horloge, les ids et les données, pour que le body attendu puisse être exact. Vérifie le statut, le body et la ligne stockée, pas les lignes de log ni les appels internes."
+      ],
+      "takeaways": [
+        {
+          "term": "`buildApp(deps)`",
+          "detail": "Construit l’app sans écouter ; reçoit repositories, clients externes, une horloge et un générateur d’ids."
+        },
+        {
+          "term": "`app.inject()` de Fastify",
+          "detail": "Fait passer une requête par les hooks, la validation de schéma et la sérialisation, et renvoie la réponse sans port."
+        },
+        {
+          "term": "supertest (Express)",
+          "detail": "Lie une app qui n’écoute pas à un port libre aléatoire."
+        },
+        {
+          "term": "`overrideProvider` (NestJS)",
+          "detail": "Remplace un provider dans le module de test."
+        },
+        {
+          "term": "Entrées fixées",
+          "detail": "Figer l’horloge, les ids et les données, pour que le body attendu puisse être exact."
+        },
+        {
+          "term": "Quoi vérifier",
+          "detail": "Statut, body et ligne stockée, pas les lignes de log ni les appels internes."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Les tests de routes de l’API Orders démarrent le serveur sur le port 3000 et échouent dès que deux fichiers de tests tournent en parallèle. Comment les restructureriez-vous ?",
+        "bridge": "Des collisions de ports dans les tests mènent aux tests de routes dans le processus : construire l’app sans écouter, injecter ses dépendances, et envoyer les requêtes sans socket."
+      },
+      {
+        "question": "Pourquoi ne pas simplement appeler directement la fonction handler de la route dans un test ? Que perdez-vous, et que feriez-vous à la place ?",
+        "bridge": "Le même sujet par un raccourci : appeler le handler saute les hooks, la validation et la sérialisation, que `inject` ou supertest exercent dans le processus."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux appellent `POST /orders` sur l’app Express dans un test. Lequel tourne sans risque pendant que Vitest exécute d’autres fichiers de tests en parallèle ?",
+        "why": "supertest lie une app qui n’écoute pas à un port éphémère libre, donc les fichiers de tests en parallèle n’entrent jamais en collision. Un port fixe marche seul, mais quand deux fichiers écoutent sur 3000 dans des workers parallèles, le second échoue avec `EADDRINUSE`, et une assertion en échec saute `server.close()`, laissant le port occupé."
+      }
+    ]
+  },
+  "test-flaky": {
+    "topic": "Tests flaky : temps, aléatoire, ordre",
+    "question": "Qu’est-ce qui rend des tests flaky, et comment les rendez-vous déterministes ?",
+    "answer": "Un test flaky passe et échoue sur le même code. Les causes habituelles sont la vraie date, l’aléatoire et l’ordre. Un test qui lit la vraie horloge échoue le dernier jour du mois ou tard le soir à Paris, donc j’injecte une horloge et je la fige, en tests unitaires, d’intégration et E2E. L’aléatoire, comme le jitter des retries, vient d’une source injectée avec une graine, et les ids d’une factory injectée. La dépendance à l’ordre vient d’un état partagé, que je trouve avec un passage mélangé et une graine fixe. Tant qu’un test flaky n’est pas corrigé, il est mis en quarantaine avec un responsable et une échéance, jamais masqué par des retries systématiques.",
+    "keyPoints": [
+      "Injecter et figer l’horloge ; ne jamais lire la vraie date",
+      "Une source aléatoire avec graine et une factory d’ids",
+      "Trouver la dépendance à l’ordre par un passage mélangé avec graine",
+      "Quarantaine avec responsable et échéance, pas de retries systématiques"
+    ],
+    "explanation": "Les suites flaky apprennent aux gens à relancer les builds rouges sans les lire, donc les recruteurs demandent comment tu rétablirais la confiance. Les seniors nomment les causes, conçoivent pour la testabilité plutôt que d’ajouter des sleeps et des retries, et ont une politique pour les tests flaky pas encore corrigés.",
+    "example": "Trois tests de checkout de l’API Orders étaient flaky : un test de code promo échouait le dernier jour de chaque mois, un test de retry de paiement échouait une fois sur dix à cause d’un jitter aléatoire, et un test de stock n’échouait que dans la suite complète. L’équipe a injecté une `FixedClock` dont le `sleep` avance le temps instantanément, un générateur aléatoire avec graine et une factory d’ids, et a trouvé le tableau partagé derrière le troisième avec `--sequence.shuffle` et une graine fixe.",
+    "mistakes": [
+      "Ajouter des retries en CI pour passer le build au vert, ce qui masque le test flaky au lieu de le corriger.",
+      "Utiliser `getDate()` pour un jour métier, ce qui donne le jour local du serveur plutôt que celui que tu voulais.",
+      "Compter sur `vi.useFakeTimers()` pour du code qui attend avec `node:timers/promises`, qu’il ne simule pas."
+    ],
+    "followUps": [
+      {
+        "question": "Quand vous ne pouvez pas injecter d’horloge, que propose Vitest ?",
+        "answer": "`vi.useFakeTimers()` avec `vi.setSystemTime()` fige `Date` et simule `setTimeout`, et `vi.advanceTimersByTime()` fait avancer le temps. Pour une boucle de retry qui fait des await entre les attentes, j’utilise `await vi.advanceTimersByTimeAsync()`. J’appelle `vi.useRealTimers()` dans `afterEach`."
+      },
+      {
+        "question": "Comment reproduisez-vous un test flaky ?",
+        "answer": "Je le lance de nombreuses fois avec `--repeats` de Vitest, et je mélange l’ordre avec `--sequence.shuffle` et un `--sequence.seed` fixe, pour qu’un ordre qui échoue soit reproductible pendant que je supprime l’état partagé."
+      },
+      {
+        "question": "Un test qui vérifie une liste de commandes échoue de temps en temps. Où regardez-vous ?",
+        "answer": "La requête : sans `ORDER BY`, PostgreSQL ne garantit aucun ordre des lignes. Chaque requête dont un test vérifie l’ordre a besoin d’un `ORDER BY` avec un départage, comme l’id."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`vi.useFakeTimers()` simule aussi le `setTimeout` importé de `node:timers/promises`.",
+        "why": "Mesuré sur Vitest 5 : cette attente à base de promesse ne s’est résolue qu’après l’écoulement du temps réel ; ce code a besoin d’une horloge injectée.",
+        "twin": {
+          "statement": "`vi.useFakeTimers()` ne simule pas le `setTimeout` importé de `node:timers/promises`.",
+          "why": "Mesuré sur Vitest 5 : cette attente à base de promesse ne s’est résolue qu’après l’écoulement du temps réel ; ce code a besoin d’une horloge injectée."
+        }
+      },
+      {
+        "statement": "Initialisé avec la même graine, un générateur aléatoire avec graine renvoie la même séquence à chaque passage.",
+        "why": "C’est ce qui permet de vérifier des délais avec jitter dans un test.",
+        "twin": {
+          "statement": "Un générateur aléatoire avec graine renvoie une séquence différente à chaque passage, même avec la même graine.",
+          "why": "La même graine donne toujours la même séquence, et c’est ce qui permet de vérifier des délais avec jitter dans un test."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un test flaky passe et échoue sur le même code, ce qui détruit la confiance dans la suite. Les causes habituelles sont la vraie date, l’aléatoire et l’ordre des tests, et chacune a un remède déterministe.",
+      "points": [
+        "Un test flaky passe et échoue sur le même code. Les causes habituelles sont la vraie date, l’aléatoire et l’ordre dans lequel les tests tournent.",
+        "Injecte l’horloge : le code demande l’heure à un objet `Clock` au lieu d’appeler `new Date()`. Les tests passent une horloge figée dont le `sleep` avance le temps instantanément, donc les retries tournent en microsecondes.",
+        "Injecte aussi l’aléatoire : la production passe `Math.random`, les tests un générateur avec graine qui donne toujours les mêmes nombres. Pareil pour les ids : une factory injectée permet à un test d’attendre `ord_1`.",
+        "La dépendance à l’ordre vient d’un état partagé. Un passage mélangé avec une graine fixe rend l’ordre qui échoue reproductible ; un état neuf dans `beforeEach` et un `ORDER BY` avec départage la soignent.",
+        "Tant qu’un test flaky n’est pas corrigé, mets-le en quarantaine : hors du pipeline bloquant, avec un ticket, un responsable et une échéance. Les retries systématiques ne font que le masquer."
+      ],
+      "takeaways": [
+        {
+          "term": "Horloge injectée",
+          "detail": "Le code interroge une `Clock` au lieu d’appeler `new Date()`. Les tests passent une horloge figée dont le `sleep` avance le temps instantanément."
+        },
+        {
+          "term": "Aléatoire avec graine",
+          "detail": "La production passe `Math.random`, les tests un générateur avec graine qui donne toujours les mêmes nombres, par exemple pour le jitter des retries."
+        },
+        {
+          "term": "Factory d’ids",
+          "detail": "Une factory d’ids injectée permet à un test d’attendre `ord_1`."
+        },
+        {
+          "term": "Passage mélangé avec graine",
+          "detail": "Rend reproductible un échec lié à l’ordre. Remède : état neuf dans `beforeEach`, `ORDER BY` avec départage."
+        },
+        {
+          "term": "Quarantaine",
+          "detail": "Hors du pipeline bloquant, avec un ticket, un responsable et une échéance. Les retries systématiques ne font que masquer le test flaky."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un test de code promo de l’API Orders échoue le dernier jour de chaque mois et passe tous les autres jours, sans changement de code. Que se passe-t-il, et comment le corrigez-vous pour de bon ?",
+        "bridge": "Un échec lié au calendrier signifie que la vraie horloge est dans le test : les tests flaky viennent du temps, de l’aléatoire et de l’ordre, et une horloge figée injectée corrige celui-ci."
+      },
+      {
+        "question": "La réponse de votre équipe aux tests flaky, c’est trois retries automatiques en CI. Qu’est-ce qui ne va pas, et que feriez-vous à la place ?",
+        "bridge": "Le même sujet par une mauvaise politique : les retries masquent les tests flaky ; supprime leurs causes et mets le reste en quarantaine avec un responsable et une échéance."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux signalent les commandes payées non expédiées sous 48 heures, et un test vérifie une commande de fixture. Lequel garde ce test stable dans le temps ?",
+        "why": "Avec l’horloge injectée, le test passe un temps figé, comme `new FixedClock('2027-01-31T09:00:00Z')`, et la réponse ne change jamais. Lire `Date.now()` lie le résultat au jour où le test tourne : une fixture payée « hier » quand le test a été écrit est en retard deux jours plus tard, et le test échoue sans changement de code."
+      }
+    ]
+  },
+  "test-fast-suite": {
+    "topic": "Accélérer une suite de tests lente",
+    "question": "Votre suite de tests backend prend 20 minutes. Que faites-vous ?",
+    "answer": "D’abord je la profile : quels fichiers sont les plus lents, et pourquoi. Souvent, beaucoup de tests E2E vérifient des choses qu’un test moins cher pourrait vérifier, comme des règles de validation lancées une par une contre la staging. Je descends ces cas vers des tests d’intégration dans le processus, qui prennent quelques millisecondes, et je garde une poignée de parcours E2E, comme commander, annuler et rembourser, avec l’horloge du serveur figée. Ensuite, je sépare les tests rapides et lents en projets Vitest, pour que le retour des tests unitaires prenne quelques secondes. J’utilise toute la machine avec des workers en parallèle, chacun avec sa propre base, et quand une machine ne suffit plus, je sharde sur plusieurs jobs de CI et je fusionne les rapports.",
+    "keyPoints": [
+      "Profiler d’abord : les fichiers les plus lents, et pourquoi",
+      "Descendre les cas des tests E2E vers l’intégration",
+      "Séparer tests rapides et lents (projets Vitest)",
+      "Workers en parallèle avec leurs propres bases, puis sharding"
+    ],
+    "explanation": "C’est une relance senior classique, parce que la réponse montre comment tu penses le coût des tests. Les recruteurs veulent un ordre d’actions qui part de la mesure, pas « prendre un plus gros runner de CI » ou « supprimer les tests lents ».",
+    "example": "La suite de l’API Orders prenait 20 minutes, surtout à cause de 40 tests Playwright qui vérifiaient une par une les règles de validation de `POST /orders` contre la staging, le tout sur une seule machine de CI. L’équipe a déplacé ces règles vers des tests `inject`, gardé trois parcours E2E, séparé tests unitaires et d’intégration en projets Vitest, donné à chaque worker sa propre base et shardé le reste sur trois jobs de CI.",
+    "mistakes": [
+      "Acheter une plus grosse machine de CI avant de regarder quels tests sont lents et pourquoi.",
+      "Garder des règles de validation en tests E2E, lents et flaky pour ce qu’un test dans le processus vérifie en quelques millisecondes.",
+      "Lancer les tests en parallèle sur une seule base partagée, si bien qu’ils voient les lignes des autres."
+    ],
+    "followUps": [
+      {
+        "question": "Comment fonctionne le sharding avec Vitest ?",
+        "answer": "Chaque job de CI lance `vitest run --shard=1/3 --reporter=blob`, puis 2/3 et 3/3, et écrit un rapport blob. Un dernier job lance `vitest --merge-reports` pour produire un seul résumé. Playwright documente le même schéma avec son reporter blob et `merge-reports`."
+      },
+      {
+        "question": "Comment obtenez-vous un retour rapide en local ?",
+        "answer": "`vitest related src/pricing.ts` lance seulement les tests qui importent ce fichier, `--changed` lance les tests touchés par les changements non commités, et `vitest run --project unit` lance le projet rapide seul."
+      },
+      {
+        "question": "Comment les tests E2E respectent-ils la règle « jamais la vraie date » ?",
+        "answer": "Le composition root du serveur lit une variable comme `FROZEN_NOW` et passe une horloge fixe au lieu de l’horloge système, et refuse de démarrer si elle est définie en production. `page.clock` de Playwright ne fige le temps que dans une page du navigateur, pas sur le serveur."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Par défaut, Vitest exécute les tests d’un même fichier en parallèle sur ses workers.",
+        "why": "Les fichiers tournent dans des processus workers parallèles ; les tests d’un même fichier tournent l’un après l’autre.",
+        "twin": {
+          "statement": "Par défaut, Vitest exécute les fichiers de tests en parallèle et les tests d’un même fichier l’un après l’autre.",
+          "why": "Les fichiers tournent dans des processus workers parallèles ; dans un fichier, les tests tournent en séquence."
+        }
+      },
+      {
+        "statement": "Dans Vitest, l’option `projects` remplace l’option dépréciée `workspace`.",
+        "why": "La doc de Vitest dit que `workspace` est déprécié depuis la 3.2 et remplacé par `projects`.",
+        "twin": {
+          "statement": "Dans Vitest, l’option `workspace` remplace l’option dépréciée `projects`.",
+          "why": "C’est l’inverse : la doc de Vitest dit que `workspace` est déprécié depuis la 3.2 et remplacé par `projects`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "On accélère une suite lente en mesurant d’abord, puis en déplaçant les vérifications vers le test le moins cher qui les attrape, en séparant tests rapides et lents, et en exploitant le parallélisme avant d’acheter du matériel.",
+      "points": [
+        "Profile avant d’acheter du matériel : trouve les fichiers les plus lents. Souvent, des tests E2E vérifient ce qu’un test moins cher pourrait vérifier, comme des règles de validation lancées une par une contre la staging.",
+        "Descends les cas : une règle de validation est une propriété de la route, vérifiée en quelques millisecondes par un test dans le processus. Garde quelques parcours E2E pour le câblage et la configuration.",
+        "Sépare tests rapides et lents en projets Vitest, chacun avec ses fichiers et ses options, pour que `vitest run --project unit` réponde en quelques secondes.",
+        "Vitest exécute les fichiers dans des processus workers parallèles ; donne à chaque worker sa propre base. Quand une machine ne suffit plus, sharde les fichiers sur plusieurs jobs de CI et fusionne les rapports."
+      ],
+      "takeaways": [
+        {
+          "term": "Profiler d’abord",
+          "detail": "Trouver les fichiers les plus lents, et pourquoi. Souvent, des tests E2E vérifient ce qu’un test moins cher pourrait vérifier."
+        },
+        {
+          "term": "Descendre les cas",
+          "detail": "Une règle de validation est une propriété de la route, vérifiée en quelques millisecondes par un test dans le processus."
+        },
+        {
+          "term": "Peu de parcours E2E",
+          "detail": "En garder une poignée, comme commander, annuler et rembourser, pour le câblage et la configuration."
+        },
+        {
+          "term": "Projets Vitest",
+          "detail": "Séparer tests rapides et lents, chacun avec ses fichiers et options : `vitest run --project unit` répond en quelques secondes."
+        },
+        {
+          "term": "Workers en parallèle",
+          "detail": "Vitest exécute les fichiers dans des processus workers ; donner à chaque worker sa propre base."
+        },
+        {
+          "term": "Sharding",
+          "detail": "Quand une machine ne suffit plus, sharder les fichiers sur plusieurs jobs de CI et fusionner les rapports."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Quarante tests Playwright vérifient une par une les règles de validation de `POST /orders` contre la staging, et la suite prend 20 minutes. Que changeriez-vous, et dans quel ordre ?",
+        "bridge": "Une suite lente se corrige en mesurant d’abord : profiler, descendre les cas des tests E2E vers des tests dans le processus, séparer tests rapides et lents, puis paralléliser et sharder."
+      },
+      {
+        "question": "Les développeurs n’attendent plus la suite de tests, et quelqu’un propose d’acheter un plus gros runner de CI. Pourquoi ne commenceriez-vous pas par là ?",
+        "bridge": "Le même sujet par un réflexe : le matériel vient en dernier, après que le profilage a montré quels tests sont lents et pourquoi, et que des tests moins chers ont repris leurs cas."
+      }
+    ]
+  },
+  "ops-opentelemetry": {
+    "topic": "Instrumentation OpenTelemetry",
+    "question": "Qu’est-ce qu’OpenTelemetry, et comment instrumentez-vous un service Node avec ?",
+    "answer": "OpenTelemetry est un projet de la CNCF qui définit une façon unique et indépendante des fournisseurs de produire traces, métriques et logs, et un protocole, OTLP, pour les envoyer. Mon code et les bibliothèques appellent l’API ; je démarre le SDK une fois par processus, avec des auto-instrumentations qui patchent `http`, `pg` ou `pino` pour que les spans apparaissent sans changer le code. Le SDK doit démarrer avant que l’app charge ces modules, donc il vit dans son propre fichier préchargé avec `--import`, et un service ESM a aussi besoin du loader hook. Il exporte en OTLP vers un Collector, qui regroupe, échantillonne et transmet, donc le backend, Grafana, Datadog ou Honeycomb, devient un choix de déploiement.",
+    "keyPoints": [
+      "Une API, un SDK et un protocole (OTLP) neutres, de la CNCF",
+      "L’auto-instrumentation patche les modules : démarrer le SDK en premier",
+      "Précharger avec `--import` ; un service ESM a besoin du loader hook",
+      "Exporter vers un Collector ; le backend est un choix de déploiement"
+    ],
+    "explanation": "Les recruteurs vérifient que tu sais obtenir des traces sans timers écrits à la main et sans dépendance à un fournisseur. Les seniors savent pourquoi le SDK doit se charger en premier, le piège ESM, et quels signaux sont stables en JavaScript.",
+    "example": "L’API Orders est un service ESM, et après l’ajout d’OpenTelemetry, ses appels `fetch` étaient tracés mais les requêtes entrantes n’avaient pas de spans et les lignes pino n’avaient pas de `trace_id`. Démarrer Node avec le loader hook OTel en plus de `--import ./dist/instrumentation.js` a corrigé les deux, et le déploiement définit `OTEL_SERVICE_NAME` et l’endpoint du Collector, donc la même image tourne dans tous les environnements.",
+    "mistakes": [
+      "Charger l’instrumentation après l’app, si bien que `http` et `pg` sont importés avant de pouvoir être patchés.",
+      "Coder en dur l’exporter d’un fournisseur dans chaque service au lieu d’envoyer de l’OTLP à un Collector.",
+      "Supposer que tous les signaux sont aussi mûrs : en JavaScript, les logs OTel sont encore en développement."
+    ],
+    "followUps": [
+      {
+        "question": "Que fait l’API OpenTelemetry sans SDK ?",
+        "answer": "Rien : un span créé sans SDK a un trace id tout à zéro et `isRecording()` renvoie false. C’est pour ça que les bibliothèques peuvent dépendre de `@opentelemetry/api` sans risque ; l’application décide d’enregistrer ou non en démarrant le SDK."
+      },
+      {
+        "question": "Quels signaux sont stables dans OpenTelemetry pour JavaScript ?",
+        "answer": "En octobre 2026, le site d’OpenTelemetry indique traces et métriques comme stables et les logs comme en développement pour JS. Donc l’API Orders utilise OTel pour les traces, garde pino pour les logs en y ajoutant le trace id, et envoie ses métriques à Prometheus."
+      },
+      {
+        "question": "Que fait le Collector ?",
+        "answer": "C’est un processus séparé, souvent un par nœud Kubernetes ou en sidecar. Il reçoit l’OTLP, regroupe, réessaie, masque et échantillonne, et transmet à un ou plusieurs backends, donc changer de backend ne touche pas aux services."
+      },
+      {
+        "question": "Pourquoi les appels `fetch` étaient-ils tracés même sans le hook ESM ?",
+        "answer": "undici, le client HTTP derrière `fetch`, publie ses requêtes via les diagnostics channels intégrés à Node, donc il n’a besoin d’aucun module patché. Les requêtes `node:http` entrantes et pino, eux, avaient besoin du hook."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "L’auto-instrumentation trace toujours les requêtes `pg` si le SDK démarre après que l’app a chargé `pg`.",
+        "why": "L’instrumentation patche les modules à leur chargement, donc le SDK doit démarrer en premier, préchargé avec `--import`.",
+        "twin": {
+          "statement": "L’auto-instrumentation ne trace les requêtes `pg` que si le SDK démarre avant que l’app charge `pg`.",
+          "why": "L’instrumentation patche les modules à leur chargement, donc le SDK est préchargé avec `--import`."
+        }
+      },
+      {
+        "statement": "Quand les services envoient de l’OTLP à un Collector, le backend d’observabilité peut changer sans toucher à leur code.",
+        "why": "Le Collector décide où vont les données ; les services ne parlent qu’OTLP.",
+        "twin": {
+          "statement": "Quand les services envoient de l’OTLP à un Collector, changer de backend d’observabilité oblige à modifier le code de chaque service.",
+          "why": "Le Collector décide où vont les données ; les services ne parlent qu’OTLP."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "OpenTelemetry est un projet de la CNCF qui offre une façon unique et neutre de produire traces, métriques et logs, et un protocole pour les envoyer, si bien que le backend d’observabilité devient un choix de déploiement.",
+      "points": [
+        "OpenTelemetry (OTel) est un projet de la CNCF avec une API, un SDK et un protocole (OTLP) neutres pour les traces, métriques et logs. Les bibliothèques appellent l’API ; l’app démarre le SDK une fois.",
+        "Les bibliothèques d’instrumentation patchent des modules comme `http`, `pg` et `pino` à leur chargement, pour que les spans apparaissent sans changer le code.",
+        "Donc le SDK doit démarrer avant que l’app les charge : mets-le dans son propre fichier préchargé avec `node --import`. Un service ESM a aussi besoin du loader hook d’OTel, sinon les requêtes entrantes n’ont pas de span.",
+        "L’app exporte en OTLP vers un Collector, qui regroupe, échantillonne et transmet. Le backend (stack Grafana, Datadog, Honeycomb) peut alors changer sans toucher aux services.",
+        "En JavaScript, en octobre 2026, les traces et métriques OTel sont stables et les logs sont encore en développement."
+      ],
+      "takeaways": [
+        {
+          "term": "API ou SDK",
+          "detail": "Les bibliothèques et ton code appellent l’API ; l’app démarre le SDK une fois par processus."
+        },
+        {
+          "term": "OTLP",
+          "detail": "Le protocole OpenTelemetry pour exporter traces, métriques et logs."
+        },
+        {
+          "term": "Auto-instrumentation",
+          "detail": "Patche des modules comme `http`, `pg` et `pino` à leur chargement, pour que les spans apparaissent sans changer le code."
+        },
+        {
+          "term": "`node --import`",
+          "detail": "Précharge le fichier du SDK avant que l’app charge ces modules. Un service ESM a aussi besoin du loader hook."
+        },
+        {
+          "term": "Collector",
+          "detail": "Reçoit l’OTLP, regroupe, échantillonne et transmet, donc Grafana, Datadog ou Honeycomb peuvent changer sans toucher aux services."
+        },
+        {
+          "term": "Statut des signaux en JS",
+          "detail": "En octobre 2026, traces et métriques sont stables ; les logs sont encore en développement."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Après l’ajout d’OpenTelemetry à l’API Orders en ESM, les appels `fetch` sortants apparaissent dans les traces, mais les requêtes entrantes n’ont pas de spans et les lignes pino n’ont pas de `trace_id`. Que manque-t-il ?",
+        "bridge": "Des spans auto-instrumentés manquants renvoient à la façon dont le SDK se charge : il doit démarrer avant que l’app importe les modules, et un service ESM a besoin du loader hook."
+      },
+      {
+        "question": "Chaque service envoie ses traces directement à un fournisseur via le SDK propre à ce fournisseur, et l’équipe veut maintenant en changer. Qu’est-ce qu’OpenTelemetry changerait ?",
+        "bridge": "Le même sujet par la dépendance à un fournisseur : OTel offre une API et un protocole neutres, et un Collector fait du backend un choix de déploiement."
+      }
+    ]
+  },
+  "ops-aws-managed": {
+    "topic": "Services AWS managés pour une API",
+    "question": "Quels services AWS managés mettriez-vous autour d’une API Node, et comment donnez-vous à l’API l’accès à ces services ?",
+    "answer": "Je laisse AWS gérer les parties avec état. PostgreSQL va sur Amazon RDS, qui gère les patchs, les sauvegardes automatiques avec restauration à un instant donné et le failover Multi-AZ. Le cache, c’est ElastiCache for Valkey, le fork open source de Redis. Les événements passent par SNS, diffusés vers une file SQS par consommateur, avec des dead letter queues. Les fichiers vont dans S3 avec des URL présignées, et les secrets dans Secrets Manager, lus à l’exécution, jamais intégrés à l’image. Ensuite, le rôle IAM du service reçoit le moindre privilège : seulement les actions dont il a besoin, sur seulement les ressources qu’il utilise, ce qu’IAM Access Analyzer peut générer à partir de l’activité CloudTrail.",
+    "keyPoints": [
+      "RDS for PostgreSQL : sauvegardes, restauration à un instant donné, Multi-AZ",
+      "ElastiCache for Valkey ; SNS vers SQS avec dead letter queues",
+      "S3 avec URL présignées ; Secrets Manager lu à l’exécution",
+      "Un rôle IAM au moindre privilège par service"
+    ],
+    "explanation": "Les recruteurs veulent voir que tu sais ce qu’un service managé te retire des mains et ce qui reste à ta charge. Les seniors ajoutent le volet IAM : un rôle par service, limité aux ressources exactes, et aucune clé à longue durée de vie.",
+    "example": "Quand l’API Orders est passée de deux VM à AWS, PostgreSQL est allé sur RDS, le cache sur ElastiCache for Valkey, et l’événement `order.paid` sur un topic SNS avec une file SQS par consommateur. Son rôle a reçu trois statements : `sns:Publish` sur le topic order-events, `s3:GetObject` sur le préfixe des exports pour signer les liens de téléchargement, et `secretsmanager:GetSecretValue` sur un seul secret.",
+    "mistakes": [
+      "Croire que managé veut dire que tout est géré : les limites de connexions et la performance des requêtes sur RDS restent à ta charge.",
+      "Accorder `s3:*` ou toutes les ressources au lieu d’une action sur une ressource par statement.",
+      "Mettre les secrets dans l’image ou dans des fichiers d’environnement commités au lieu de les lire à l’exécution."
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi l’API a-t-elle besoin de `s3:GetObject` si elle ne télécharge jamais elle-même les exports ?",
+        "answer": "Une URL présignée porte les permissions de celui qui l’a signée. L’API signe les liens de téléchargement, donc son rôle a besoin de `s3:GetObject` sur ces clés, et de rien de plus large. L’URL est un bearer token : quiconque la détient peut s’en servir jusqu’à son expiration."
+      },
+      {
+        "question": "Quelle est la différence entre une instance RDS Multi-AZ et un cluster Multi-AZ ?",
+        "answer": "Une instance Multi-AZ a un standby qui ne sert aucune lecture ; il est là pour le failover. Un cluster Multi-AZ a deux standbys qui peuvent servir des lectures."
+      },
+      {
+        "question": "Secrets Manager ou Parameter Store ?",
+        "answer": "Secrets Manager stocke et fait tourner les secrets, à 0,40 $ par secret et par mois. Les paramètres standard de Parameter Store, jusqu’à 4 Ko et sans coût supplémentaire, conviennent à la configuration simple. Les deux se lisent à l’exécution, ou se montent comme fichiers avec le Secrets Store CSI Driver."
+      },
+      {
+        "question": "Comment livrez-vous un service Node en production ?",
+        "answer": "Les pull requests lancent lint, vérification de types et tests. Le merge construit une seule image taguée avec le SHA du commit, scannée et poussée dans un registry immuable. Un déploiement avec validation assume un rôle via OIDC, déploie par digest et fait un rollback en cas d’échec. L’infrastructure passe par un plan Terraform relu."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le standby d’une instance RDS for PostgreSQL Multi-AZ sert du trafic de lecture.",
+        "why": "Le standby d’une instance Multi-AZ ne sert aucune lecture ; seul un cluster Multi-AZ a des standbys lisibles.",
+        "twin": {
+          "statement": "Le standby d’une instance RDS for PostgreSQL Multi-AZ ne sert aucun trafic de lecture.",
+          "why": "Il est là pour le failover ; seul un cluster Multi-AZ a des standbys lisibles."
+        }
+      },
+      {
+        "statement": "Une URL S3 présignée ne fonctionne que si son signataire a le droit d’effectuer l’opération qu’elle représente.",
+        "why": "L’URL porte les permissions du signataire, donc le rôle qui signe a besoin, par exemple, de `s3:GetObject`.",
+        "twin": {
+          "statement": "Une URL S3 présignée fonctionne même si son signataire n’a pas le droit d’effectuer l’opération qu’elle représente.",
+          "why": "L’URL porte les permissions du signataire, donc le rôle qui signe a besoin, par exemple, de `s3:GetObject`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Sur AWS, une équipe API laisse des services managés gérer les parties avec état, comme la base, le cache, les files, les fichiers et les secrets, et limite son propre travail au code et à des permissions serrées.",
+      "points": [
+        "Amazon RDS for PostgreSQL gère les patchs, les sauvegardes automatiques avec restauration à un instant donné (rétention jusqu’à 35 jours) et le failover Multi-AZ. Les limites de connexions et les requêtes restent à ta charge.",
+        "ElastiCache for Valkey fait tourner Valkey, le fork open source de Redis. SNS diffuse un événement vers une file SQS par consommateur ; la livraison est at-least-once, donc les consommateurs restent idempotents.",
+        "S3 stocke les fichiers ; une URL présignée permet au navigateur d’envoyer ou de télécharger directement, avec les permissions du signataire. Secrets Manager stocke et fait tourner les secrets, lus à l’exécution.",
+        "Chaque service a son propre rôle IAM au moindre privilège : une action sur une ressource par statement. IAM Access Analyzer peut générer une policy à partir de l’activité enregistrée dans CloudTrail."
+      ],
+      "takeaways": [
+        {
+          "term": "Amazon RDS for PostgreSQL",
+          "detail": "Patchs, sauvegardes automatiques avec restauration à un instant donné (jusqu’à 35 jours) et failover Multi-AZ. Les requêtes restent à ta charge."
+        },
+        {
+          "term": "ElastiCache for Valkey",
+          "detail": "Valkey managé, le fork open source de Redis."
+        },
+        {
+          "term": "SNS vers SQS",
+          "detail": "SNS diffuse un événement vers une file SQS par consommateur, avec dead letter queues. At-least-once : consommateurs idempotents."
+        },
+        {
+          "term": "URL S3 présignée",
+          "detail": "Permet au navigateur d’envoyer ou de télécharger directement, avec les permissions du signataire."
+        },
+        {
+          "term": "Secrets Manager",
+          "detail": "Stocke et fait tourner les secrets, lus à l’exécution, jamais intégrés à l’image."
+        },
+        {
+          "term": "Rôle IAM au moindre privilège",
+          "detail": "Un rôle par service ; IAM Access Analyzer peut générer une policy à partir de l’activité CloudTrail."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’API Orders tourne sur deux VM avec PostgreSQL et Redis à côté et des secrets dans un fichier `.env`, et l’équipe passe ses week-ends sur les patchs et les sauvegardes. En passant sur AWS, que confieriez-vous à AWS ?",
+        "bridge": "Déplacer les parties avec état vers des services managés : RDS, ElastiCache, SNS et SQS, S3 et Secrets Manager, avec un rôle IAM au moindre privilège pour l’API."
+      },
+      {
+        "question": "Un collègue donne au rôle IAM de l’API `s3:*` sur tous les buckets pour éviter les erreurs de permission. Qu’accorderiez-vous à la place, et pourquoi ?",
+        "bridge": "Le même sujet par IAM : le moindre privilège, c’est seulement les actions dont le service a besoin, sur seulement les ressources qu’il utilise."
+      }
+    ]
+  }
+}

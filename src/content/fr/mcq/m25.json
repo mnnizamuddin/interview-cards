@@ -1,0 +1,302 @@
+{
+  "m25.q1": {
+    "q": "La boutique passe de HTTP/2 à HTTP/3. Qu’est-ce qui change dans l’établissement d’une nouvelle connexion ?",
+    "options": [
+      "TCP ouvre toujours la connexion, mais TLS est sauté car QUIC chiffre déjà chaque paquet",
+      "QUIC tourne sur UDP et porte la poignée de main TLS 1.3 : un aller-retour pour la plupart des nouvelles connexions",
+      "La résolution DNS est sautée car l’en-tête Alt-Svc donne déjà au navigateur l’adresse du serveur",
+      "Le navigateur ouvre une connexion par ressource, ce qui supprime le head-of-line blocking entre elles"
+    ],
+    "explain": "La RFC 9001 indique que QUIC porte la poignée de main TLS 1.3 et que la plupart des nouvelles connexions sont « établies et sécurisées en un seul aller-retour ». Alt-Svc annonce seulement que HTTP/3 est disponible ; il ne remplace pas le DNS. HTTP/3 supprime le head-of-line blocking en multiplexant les flux dans QUIC, pas en ouvrant plus de connexions."
+  },
+  "m25.q2": {
+    "q": "Un script classique dans le head de la page produit met 800 ms à arriver. Quelle ressource le navigateur ne commence-t-il <b>pas</b> à télécharger pendant ces 800 ms ?",
+    "options": [
+      "La photo produit dans un <code>&lt;img src&gt;</code> plus bas dans le HTML",
+      "Une feuille de style référencée par un <code>&lt;link rel=\"stylesheet\"&gt;</code> après le script",
+      "Une image de fond déclarée dans un bloc <code>&lt;style&gt;</code> inline",
+      "Un script <code>async</code> référencé plus bas dans le HTML"
+    ],
+    "explain": "Le preload scanner lit le balisage et récupère ce qui a un src ou un href, donc la photo, la feuille de style et le script async partent tôt (la photo a été demandée après 34 ms dans la mesure). Un fond CSS n’est connu qu’une fois les styles appliqués à un élément, ce qui s’est produit après l’exécution du script, vers 840 ms."
+  },
+  "m25.q3": {
+    "q": "Le head d’une page contient une feuille de style qui met 800 ms, et aucun script. Qu’observes-tu ?",
+    "options": [
+      "<code>DOMContentLoaded</code> se déclenche tôt, et la première peinture attend la feuille de style",
+      "<code>DOMContentLoaded</code> et la première peinture attendent tous deux la feuille de style",
+      "La page peint d’abord le contenu sans style, puis repeint quand la feuille de style arrive",
+      "Aucun des deux n’attend : les feuilles de style ne bloquent jamais rien dans les navigateurs modernes"
+    ],
+    "explain": "Mesuré dans Chromium : DOMContentLoaded à 24 ms, première peinture à 872 ms. Le CSS bloque le rendu, pas le parsing. DOMContentLoaded n’attendrait que si un script classique suivait la feuille de style, car ce script attend le CSS. Les navigateurs ne peignent volontairement pas le contenu sans style d’abord : c’est justement ce qu’empêche le blocage du rendu."
+  },
+  "m25.q4": {
+    "q": "Deux scripts <code>defer</code> sont dans le HTML : <code>app.js</code> (arrive après 600 ms), puis <code>product-page.js</code> (arrive après 100 ms). Quand <code>product-page.js</code> s’exécute-t-il ?",
+    "options": [
+      "À 100 ms, dès son arrivée, même si <code>app.js</code> est encore en chargement",
+      "Juste après que le parser a atteint sa balise, avant le parsing du reste du HTML",
+      "Après <code>DOMContentLoaded</code>, dans l’ordre d’arrivée des fichiers depuis le serveur",
+      "Après <code>app.js</code>, une fois le parsing terminé et avant <code>DOMContentLoaded</code>"
+    ],
+    "explain": "Les scripts différés s’exécutent après le parsing, dans l’ordre du document, avant DOMContentLoaded : mesuré, les deux se sont exécutés vers 640 ms, app.js en premier. S’exécuter dès l’arrivée, c’est le comportement d’async. C’est pourquoi un seul script différé lent retarde tous les scripts différés qui le suivent."
+  },
+  "m25.q5": {
+    "q": "La barre « Ajouter au panier » sticky glisse à l’écran. Quelle propriété permet au navigateur de l’animer sans exécuter de layout ?",
+    "options": [
+      "<code>transform: translateY()</code>",
+      "<code>bottom</code>, animé de -60px à 0",
+      "<code>margin-top</code>, animé avec une transition",
+      "<code>height</code>, animé de 0 à 60px"
+    ],
+    "explain": "transform et opacity peuvent être gérés par le compositeur sans layout ni peinture ; mesuré dans Chromium, un changement de transform a provoqué un recalcul de style et aucun layout. bottom, margin-top et height relèvent de la géométrie : chaque changement exécute un layout, et dans une animation cela arrive à chaque frame."
+  },
+  "m25.q6": {
+    "q": "Un listener est posé sur la grille, et le client clique sur l’icône à l’intérieur d’un bouton Ajouter au panier. Dans le listener de la grille, que valent <code>event.target</code> et <code>event.currentTarget</code> ?",
+    "options": [
+      "Les deux sont le bouton",
+      "target est la grille, currentTarget est l’icône",
+      "target est l’icône, currentTarget est la grille",
+      "target est le bouton, currentTarget est le document"
+    ],
+    "explain": "target est l’élément réellement cliqué, le plus profond, ici l’icône. currentTarget est l’élément dont le listener s’exécute, ici la grille. C’est pourquoi la délégation utilise target.closest('button') au lieu de supposer que target est le bouton."
+  },
+  "m25.q7": {
+    "q": "Pourquoi un listener délégué sur la grille fonctionne-t-il aussi pour les cartes chargées après son enregistrement ?",
+    "options": [
+      "Parce que le navigateur copie automatiquement les listeners sur les nouveaux enfants",
+      "Parce que les clics sur les nouvelles cartes remontent jusqu’à l’unique listener de la grille",
+      "Parce que <code>closest()</code> enregistre un listener sur chaque élément correspondant",
+      "Parce que la phase de capture commence à la grille plutôt qu’à window"
+    ],
+    "explain": "Un clic sur n’importe quel descendant remonte à travers ses ancêtres, donc le listener de la grille s’exécute quelle que soit la carte cliquée, y compris une carte insérée plus tard (mesuré). Les navigateurs ne copient jamais les listeners sur les nouveaux éléments, et closest() ne fait que remonter l’arbre ; il n’enregistre rien."
+  },
+  "m25.q8": {
+    "q": "Qu’est-ce qu’un layout synchrone forcé ?",
+    "options": [
+      "Un layout que le navigateur exécute une fois par frame, juste avant la peinture",
+      "Un layout déclenché par une animation CSS qui tourne sur le thread du compositeur au lieu du thread principal",
+      "Un layout causé par une web font qui finit de charger et remplace la police de secours",
+      "Un layout exécuté immédiatement parce qu’un script lit la géométrie après un changement de style"
+    ],
+    "explain": "Lire offsetHeight ou getBoundingClientRect() après un changement de style force le navigateur à calculer le layout tout de suite, au milieu du script. Le layout une fois par frame, c’est le cas normal. Dans la mesure, 500 lectures et écritures entrelacées ont forcé 500 layouts."
+  },
+  "m25.q9": {
+    "q": "Le serveur pose <code>sid=…; HttpOnly</code> et <code>theme=dark</code>. Que renvoie <code>document.cookie</code>, et qu’envoie un fetch vers le même site ?",
+    "options": [
+      "Les deux cookies, et le fetch envoie les deux",
+      "Une chaîne vide, et le fetch envoie seulement <code>theme</code>",
+      "<code>theme=dark</code>, et le fetch envoie seulement <code>theme</code>",
+      "<code>theme=dark</code> ; le fetch envoie les deux"
+    ],
+    "explain": "HttpOnly cache un cookie à JavaScript, pas au réseau : mesuré, document.cookie montrait theme=dark alors que le fetch portait sid et theme. C’est tout l’intérêt de HttpOnly pour une session : le navigateur authentifie toujours les requêtes, et un script injecté ne peut pas lire l’identifiant."
+  },
+  "m25.q10": {
+    "q": "La boutique envoie <code>fetch('https://api.shop.example/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })</code>. Qu’envoie le navigateur en premier ?",
+    "options": [
+      "Le POST, puis une requête OPTIONS seulement si le POST est rejeté",
+      "Un preflight OPTIONS, puis le POST si la réponse l’autorise",
+      "Directement le POST, car POST est une méthode autorisée par CORS (safelisted)",
+      "D’abord une requête HEAD, pour vérifier que l’API Orders est joignable"
+    ],
+    "explain": "application/json ne fait pas partie des trois content types autorisés, donc la requête n’est pas simple et nécessite un preflight ; mesuré, l’API sans en-têtes CORS n’a reçu que l’OPTIONS. POST n’est autorisé qu’avec text/plain, multipart/form-data ou application/x-www-form-urlencoded."
+  },
+  "m25.q11": {
+    "q": "Le HTML est servi avec <code>Cache-Control: no-cache</code> et un <code>ETag</code>. Que se passe-t-il à la visite suivante ?",
+    "options": [
+      "Rien n’est stocké, donc le HTML est entièrement retéléchargé à chaque fois",
+      "La copie stockée est réutilisée directement, sans aucune requête au serveur",
+      "Une requête conditionnelle avec <code>If-None-Match</code>, qui reçoit un 304 si rien n’a changé",
+      "La copie stockée s’affiche tout de suite et est rafraîchie depuis le serveur en arrière-plan"
+    ],
+    "explain": "no-cache autorise le stockage mais exige une revalidation avant chaque réutilisation ; avec un ETag, c’est une requête conditionnelle à laquelle le serveur répond 304 Not Modified. Mesuré : seuls 300 octets d’en-têtes ont été transférés. « Jamais stocké », c’est no-store, et le rafraîchissement en arrière-plan, c’est stale-while-revalidate."
+  },
+  "m25.q12": {
+    "q": "Comment une page apprend-elle qu’elle vient d’être restaurée depuis le back/forward cache ?",
+    "options": [
+      "Un second événement <code>DOMContentLoaded</code> se déclenche sur le document",
+      "Un événement <code>pageshow</code> avec <code>event.persisted</code> égal à <code>true</code>",
+      "Un événement <code>load</code> se déclenche à nouveau, avec un drapeau <code>fromCache</code> à true",
+      "Un événement <code>visibilitychange</code> avec l’état « restored »"
+    ],
+    "explain": "Lors d’une restauration depuis le bfcache, pageshow se déclenche avec persisted à true (web.dev). La page n’est pas rechargée, donc DOMContentLoaded et load ne se déclenchent pas ; aucun des deux n’a de drapeau fromCache, et « restored » n’est pas un état de visibilité."
+  },
+  "m25.q13": {
+    "q": "L’heure d’arrivée de chaque fichier est en commentaire. Dans quel ordre les quatre scripts s’exécutent-ils ?",
+    "options": [
+      "a, b, c, d",
+      "c, d, b, a",
+      "c, b, a, d",
+      "d, c, b, a"
+    ],
+    "explain": "Les scripts async s’exécutent dès leur arrivée : c à 50 ms, b à 500 ms. Le module est différé par défaut, donc il attend la fin du parsing et s’exécute après a, en respectant l’ordre du document avec les scripts defer. Mesuré dans Chromium avec les mêmes délais. « c, d, b, a » traite le module comme async, ce qu’il n’est qu’avec l’attribut async."
+  },
+  "m25.q14": {
+    "q": "Qu’est-ce que ce code logge quand on clique sur le bouton lui-même, dans un Chromium actuel ?",
+    "options": [
+      "capture listener, puis bubble listener",
+      "bubble listener, puis capture listener",
+      "Seulement bubble listener",
+      "Seulement capture listener"
+    ],
+    "explain": "Mesuré dans Chromium 156 : sur la cible, les listeners de capture s’exécutent avant les autres, quel que soit l’ordre d’enregistrement. L’ordre d’enregistrement mettrait le bubble listener en premier, ce qui était l’ancien comportement sur la cible. Les deux s’exécutent toujours, puisqu’aucun n’arrête la propagation."
+  },
+  "m25.q15": {
+    "q": "Après l’ajout d’un script de bandeau de consentement, plus aucun bouton Ajouter au panier ne réagit, alors que leurs listeners sont toujours enregistrés. Quelle est la cause la plus probable ?",
+    "options": [
+      "Le bandeau a mis <code>pointer-events: auto</code> sur le body",
+      "Le bandeau a ajouté sur le document un listener en phase de bubbling qui appelle <code>preventDefault()</code>",
+      "Le bandeau a remplacé <code>EventTarget.prototype.addEventListener</code>",
+      "Le bandeau appelle <code>stopPropagation()</code> dans un listener de capture sur le document"
+    ],
+    "explain": "Un listener de capture sur document s’exécute avant tout listener plus profond dans l’arbre, et stopPropagation() à cet endroit arrête l’événement avant qu’il atteigne les boutons (mesuré). preventDefault() n’annule que l’action par défaut et n’arrête pas les autres listeners, et un listener de bubbling sur document s’exécute de toute façon après les boutons."
+  },
+  "m25.q16": {
+    "q": "Ce code s’exécute à chaque resize pour 500 cartes et a pris 540 à 640 ms dans Chromium sur un portable. Quel changement livrerais-tu en premier ?",
+    "options": [
+      "Envelopper la boucle dans <code>requestIdleCallback</code> pour qu’elle s’exécute quand la page est inactive",
+      "Supprimer le script : la ligne de la grille CSS étire déjà les cartes",
+      "Lire <code>getBoundingClientRect()</code> au lieu de <code>offsetHeight</code>, qui coûte moins cher",
+      "Debouncer le handler de resize pour que la boucle s’exécute au plus toutes les 200 ms"
+    ],
+    "explain": "Chaque itération écrit puis lit, ce qui force un layout par carte. Les éléments de grille s’étirent déjà à la hauteur de la ligne (mesuré : 252 px pour les deux cartes), donc le script ne sert à rien. getBoundingClientRect() force aussi le layout, et le debounce ne fait que rendre plus rare le gel d’une demi-seconde."
+  },
+  "m25.q17": {
+    "q": "La barre sticky doit apparaître quand le bouton principal Ajouter au panier sort de l’écran. Quelle implémentation livrerais-tu ?",
+    "options": [
+      "Un <code>IntersectionObserver</code> sur le bouton principal qui affiche ou masque la barre",
+      "Un listener de scroll qui lit <code>getBoundingClientRect()</code> sur le bouton à chaque fois",
+      "Un listener de scroll, throttlé à 100 ms, qui lit l’<code>offsetTop</code> du bouton",
+      "Un <code>setInterval</code> toutes les 50 ms qui compare <code>scrollY</code> à la position du bouton"
+    ],
+    "explain": "L’observer ne rappelle que quand la visibilité change (mesuré : 2 callbacks pour 10 événements de scroll) et la page ne lit aucune géométrie. Les trois autres lisent le layout à intervalles ; le throttle réduit le coût mais lit toujours la géométrie sur le thread principal pendant le scroll."
+  },
+  "m25.q18": {
+    "q": "Un designer demande que le sélecteur de taille se mette en valeur avec un nouveau <code>background-color</code>. Quelles étapes du pipeline ce changement exécute-t-il ?",
+    "options": [
+      "Style, layout, peinture et composition",
+      "Seulement la composition",
+      "Style, peinture et composition",
+      "Seulement le layout"
+    ],
+    "explain": "Une couleur change des pixels mais pas la géométrie, donc le layout est sauté : mesuré, un changement de fond a provoqué un recalcul de style et aucun layout. La composition seule est réservée à transform et opacity, et le layout ne s’exécute jamais seul sans style avant lui."
+  },
+  "m25.q19": {
+    "q": "La boutique reçoit un access token après la connexion. Un collègue propose de le stocker dans IndexedDB « parce que ce n’est pas localStorage ». Que livrerais-tu à la place ?",
+    "options": [
+      "Garder IndexedDB, mais chiffrer le token avec une clé stockée dans la même base",
+      "Le stocker dans <code>sessionStorage</code>, pour qu’il soit supprimé quand le client ferme l’onglet",
+      "Le stocker dans un cookie non HttpOnly pour que le serveur et la page puissent le lire",
+      "Les tokens restent sur le serveur (BFF) ; le navigateur reçoit un cookie de session <code>HttpOnly</code>"
+    ],
+    "explain": "L’OWASP note qu’une seule XSS peut lire tout le Web Storage et IndexedDB, et qu’une clé de chiffrement stockée au même endroit est lisible aussi. sessionStorage raccourcit la durée de vie mais reste tout aussi lisible par un script injecté. Seul un cookie HttpOnly tient complètement l’identifiant hors de portée de JavaScript (M12)."
+  },
+  "m25.q20": {
+    "q": "Qu’est-ce que ce code affiche ?",
+    "options": [
+      "{ items: 2 } number",
+      "[object Object] string",
+      "Il lève une TypeError dès la première ligne",
+      "{\"items\":2} string"
+    ],
+    "explain": "Le Web Storage ne garde que des chaînes et convertit les valeurs avec String(), donc l’objet devient \"[object Object]\" et 3 devient \"3\" (mesuré). Rien ne lève d’erreur, et rien n’appelle JSON.stringify à ta place : tu dois sérialiser et valider toi-même."
+  },
+  "m25.q21": {
+    "q": "L’onglet A met à jour <code>localStorage.cartCount</code>. Les onglets A et B écoutent tous deux l’événement <code>storage</code>. Quels onglets le reçoivent ?",
+    "options": [
+      "Seulement l’onglet B",
+      "Seulement l’onglet A",
+      "Les deux onglets",
+      "Aucun : l’événement ne concerne que sessionStorage"
+    ],
+    "explain": "L’événement storage se déclenche dans les autres documents de la même origine, pas dans celui qui a fait le changement (mesuré). C’est donc un moyen peu coûteux de synchroniser un badge de panier entre onglets ; l’onglet qui écrit met à jour sa propre UI directement."
+  },
+  "m25.q22": {
+    "q": "Lequel de ces appels cross-origin depuis la boutique part <b>sans</b> preflight ?",
+    "options": [
+      "<code>DELETE /cart/items/42</code> sans corps",
+      "<code>POST /orders</code> avec <code>Content-Type: application/json</code>",
+      "<code>POST /newsletter</code> avec un corps form-urlencoded",
+      "<code>GET /orders/123</code> avec un en-tête <code>Authorization</code>"
+    ],
+    "explain": "Un POST avec un corps form-urlencoded et sans en-tête personnalisé est une requête simple (mesuré : pas d’OPTIONS). DELETE n’est pas une méthode autorisée, application/json n’est pas un content type autorisé, et Authorization n’est pas un en-tête autorisé, donc les trois autres passent par un preflight."
+  },
+  "m25.q23": {
+    "q": "Les logs de l’API Orders montrent des <code>POST /cart/items</code> avec <code>Content-Type: text/plain</code> venant de la boutique, mais la page affiche « Failed to fetch ». Que se passe-t-il ?",
+    "options": [
+      "Le preflight a échoué, puis le navigateur a retenté le POST sans preflight",
+      "Requête simple : elle a été envoyée, mais sans en-têtes CORS la page ne peut pas lire la réponse",
+      "Le navigateur a envoyé le POST, puis l’a annulé avant que le serveur ait fini de répondre",
+      "L’API a rejeté la requête car les corps text/plain ne sont pas acceptés sur cette route"
+    ],
+    "explain": "Une requête simple part sans preflight, et CORS décide seulement si la page peut lire la réponse : mesuré, l’API a reçu le POST alors que fetch rejetait. Les navigateurs ne retentent jamais après un preflight échoué. C’est aussi pourquoi CORS n’est pas une défense contre le CSRF."
+  },
+  "m25.q24": {
+    "q": "L’appel utilise <code>credentials: 'include'</code> et l’API répond <code>Access-Control-Allow-Origin: *</code>. Il échoue. Quel correctif livrerais-tu ?",
+    "options": [
+      "Retirer <code>credentials: 'include'</code> pour que le cookie de session ne soit plus nécessaire à l’appel",
+      "Ajouter <code>Access-Control-Allow-Headers: *</code> à la réponse du preflight",
+      "Mettre <code>mode: 'no-cors'</code> sur le fetch pour que le navigateur saute la vérification CORS",
+      "Renvoyer l’origine exacte avec <code>Allow-Credentials: true</code> et <code>Vary: Origin</code>"
+    ],
+    "explain": "Pour les requêtes avec credentials, le joker est refusé ; l’origine exacte plus Allow-Credentials: true a fonctionné dans la mesure. Vary: Origin empêche un cache partagé de servir la réponse d’une origine à une autre. no-cors renvoie une réponse opaque que la page ne peut pas lire, et retirer les credentials casse la session du panier."
+  },
+  "m25.q25": {
+    "q": "L’API renvoie <code>X-Request-Id</code> sur chaque réponse, mais <code>response.headers.get('x-request-id')</code> renvoie <code>null</code> dans la boutique. Pourquoi ?",
+    "options": [
+      "Il n’est pas autorisé par défaut : l’API doit le lister dans <code>Access-Control-Expose-Headers</code>",
+      "Les en-têtes personnalisés ne sont lisibles que si leur nom commence par <code>Access-Control-</code>",
+      "Le cache de preflight retire les en-têtes personnalisés des réponses auxquelles il s’applique",
+      "<code>Headers.get</code> est sensible à la casse, donc l’appel doit utiliser exactement <code>X-Request-Id</code>"
+    ],
+    "explain": "Les réponses cross-origin n’exposent que les en-têtes autorisés par défaut, sauf si le serveur en nomme d’autres dans Access-Control-Expose-Headers ; mesuré, la valeur est apparue une fois listée. Headers.get est insensible à la casse, et le cache de preflight stocke des permissions, pas des en-têtes de réponse."
+  },
+  "m25.q26": {
+    "q": "Quelle paire d’en-têtes <code>Cache-Control</code> livrerais-tu pour les fichiers JavaScript hashés et pour le HTML de la page produit ?",
+    "options": [
+      "Les deux en <code>max-age=31536000, immutable</code>, et purger le CDN à chaque release",
+      "Les deux en <code>no-store</code>, pour que les clients aient toujours la dernière release",
+      "JavaScript en <code>max-age=31536000, immutable</code> ; HTML en <code>no-cache</code> avec un <code>ETag</code>",
+      "JavaScript en <code>no-cache</code> ; HTML en <code>max-age=31536000, immutable</code>"
+    ],
+    "explain": "Un fichier hashé ne change jamais sous son nom, donc il peut être mis en cache un an ; le HTML garde son URL et doit être revalidé pour récupérer les releases. Mettre le HTML en cache un an laisse les navigateurs pointer vers d’anciens noms de fichiers, et une purge du CDN n’atteint pas les caches des navigateurs. no-store gaspille chaque visite suivante."
+  },
+  "m25.q27": {
+    "q": "À une visite suivante, une image servie sans <code>Cache-Control</code>, sans <code>ETag</code> et sans <code>Last-Modified</code> est entièrement retéléchargée. Pourquoi ?",
+    "options": [
+      "Les images ne sont jamais stockées dans le cache HTTP, seulement dans le cache mémoire",
+      "Ni durée de vie ni validateur : le navigateur ne peut pas la réutiliser",
+      "Le preload scanner contourne toujours le cache HTTP pour gagner du temps",
+      "Le service worker l’a supprimée du cache entre les deux visites"
+    ],
+    "explain": "Mesuré : les fichiers hashés avec max-age n’ont pas été demandés et le HTML a été revalidé avec son ETag, mais l’image n’avait ni durée de vie ni validateur, donc elle a été récupérée en entier. Les images sont mises en cache normalement, et il n’y avait pas de service worker dans ce test."
+  },
+  "m25.q28": {
+    "q": "L’équipe livre un service worker. À la toute première visite, le serveur reçoit toujours chaque requête d’asset. Pourquoi ?",
+    "options": [
+      "Les service workers ne commencent à intercepter qu’après une seconde résolution DNS",
+      "Le cache HTTP répond toujours aux requêtes d’assets avant que le service worker les voie",
+      "Les service workers n’interceptent que les requêtes faites sur des connexions HTTP/3",
+      "La page qui l’enregistre a été chargée avant que le worker existe, donc elle n’est pas contrôlée"
+    ],
+    "explain": "Mesuré : la première visite n’était pas contrôlée, la deuxième l’était, et la troisième n’a envoyé que la requête du HTML. Le worker se place devant le cache HTTP, pas derrière, et il a besoin d’un contexte sécurisé (HTTPS ou localhost), pas d’une version de HTTP donnée."
+  },
+  "m25.q29": {
+    "q": "Après un retour arrière depuis le panier, la page produit affiche « 1 article » alors que le panier est vide. Quel correctif livrerais-tu ?",
+    "options": [
+      "Envoyer <code>Cache-Control: no-store</code> sur la page produit",
+      "Rafraîchir le badge dans un listener <code>DOMContentLoaded</code>",
+      "Le rafraîchir sur <code>pageshow</code> quand <code>persisted</code> vaut true",
+      "Ajouter un listener <code>unload</code> qui remet le badge à zéro"
+    ],
+    "explain": "La page est revenue du bfcache avec son ancien état, et pageshow avec persisted est le point d’accroche pour ce cas. DOMContentLoaded ne se déclenche pas lors d’une restauration. no-store et unload excluraient la page du bfcache (web.dev), échangeant un retour instantané contre un rechargement complet."
+  },
+  "m25.q30": {
+    "q": "Un collègue ajoute des speculation rules qui prérendent chaque lien de la page avec <code>\"eagerness\": \"immediate\"</code>. Quel est le risque principal ?",
+    "options": [
+      "Les speculation rules sont ignorées sauf si une balise <code>link rel=prerender</code> est aussi présente sur la page",
+      "Le prérendu exécute le code de chaque page, donc effets de bord et analytics se déclenchent avant tout clic",
+      "Le navigateur retarde la première peinture de la page courante jusqu’à la fin de chaque prérendu",
+      "Les pages prérendues contournent le cache HTTP, donc chaque asset est téléchargé deux fois"
+    ],
+    "explain": "Un prérendu charge et exécute la page dans un onglet caché, donc il faut exclure les URL à effets de bord et retarder les analytics jusqu’à prerenderingchange (MDN). link rel=prerender est la fonctionnalité Chrome dépréciée que les rules remplacent, pas une condition. Le prérendu se charge dans un onglet caché séparé, pas dans le chemin de rendu de la page courante."
+  }
+}

@@ -1,0 +1,302 @@
+{
+  "m02.q1": {
+    "q": "Pour afficher un total, le checkout a besoin du panier, de la vérification du stock et du devis de livraison. Sans l’un d’eux, il ne peut pas construire de réponse valide. Quel combinateur convient ?",
+    "options": [
+      "<code>Promise.allSettled</code>, puis inspecter chaque statut",
+      "<code>Promise.all</code>, pour que le premier échec fasse échouer la requête",
+      "<code>Promise.any</code>, pour que le service le plus rapide réponde",
+      "<code>Promise.race</code>, pour qu’un service lent ne puisse pas bloquer la requête"
+    ],
+    "explain": "Chaque résultat est requis, donc échouer vite est la bonne sémantique, et c’est ce que fait <code>Promise.all</code>. <code>allSettled</code> marcherait mais attend chaque appel même après que l’un d’eux a rendu la réponse impossible, et tu reconstruirais le fail-fast à la main."
+  },
+  "m02.q2": {
+    "q": "Qu’arrive-t-il à l’appel du devis de livraison ici ?",
+    "options": [
+      "<code>Promise.all</code> l’annule quand <code>checkStock</code> rejette",
+      "Il est mis en pause jusqu’à ce que quelqu’un l’attende à nouveau",
+      "Il continue jusqu’au bout ; <code>Promise.all</code> rejette après environ 30 ms",
+      "Il n’a jamais démarré, car c’est <code>Promise.all</code> qui démarre ses entrées"
+    ],
+    "explain": "Les promesses tournaient déjà avant que <code>Promise.all</code> les voie, et un combinateur ne peut rien annuler. Mesuré sur Node 24 : le rejet est arrivé après environ 37 ms et l’appel lent a quand même fini vers 172 ms. Pour l’arrêter, il faut passer un <code>AbortSignal</code> à l’appel HTTP."
+  },
+  "m02.q3": {
+    "q": "Le job d’e-mails envoie 100 e-mails avec au plus 10 en vol. Un appel sur dix prend 500 ms, les autres 20 ms. Pourquoi un pool est-il plus rapide que <code>Promise.all</code> sur des tranches de 10 ?",
+    "options": [
+      "Un pool lance l’appel suivant dès qu’un slot se libère, alors qu’un lot attend son appel le plus lent avant de lancer le lot suivant",
+      "Un pool exécute plus de 10 appels à la fois quand les appels sont rapides",
+      "Un pool réutilise la même promesse pour plusieurs appels",
+      "Un pool trie les appels pour que les lents passent en premier"
+    ],
+    "explain": "Avec des lots, chaque appel lent garde neuf slots inactifs jusqu’à sa fin. Mesuré : les lots ont pris 5 122 ms et un pool 1 107 ms pour cette charge. Un pool ne dépasse jamais sa limite ; il remplit seulement les slots libres immédiatement."
+  },
+  "m02.q4": {
+    "q": "Tu passes <code>{ concurrency: 20, signal }</code> à <code>pMap</code> mais pas le signal au mapper. Le signal est déclenché pendant l’envoi de 20 e-mails. Qu’arrive-t-il à ces 20 appels ?",
+    "options": [
+      "p-map les annule via son propre controller",
+      "Ils sont retirés de la mémoire immédiatement",
+      "p-map les attend avant de rejeter",
+      "Ils continuent ; p-map se contente de rejeter et d’arrêter de lancer de nouveaux éléments"
+    ],
+    "explain": "La doc de p-map dit que les mappers déjà lancés ne sont pas annulés ; l’option <code>signal</code> contrôle le map, pas tes appels. Pour arrêter les appels HTTP, passe le même signal à chaque appel du mapper. C’est pareil quand <code>stopOnError</code> fait rejeter le map."
+  },
+  "m02.q5": {
+    "q": "Le client de paiement appelle <code>fetch(url, { signal: AbortSignal.timeout(50) })</code> et le prestataire a besoin de 300 ms. Qu’est-ce que tu interceptes ?",
+    "options": [
+      "Une <code>TypeError</code> avec le message <code>fetch failed</code>",
+      "Une <code>DOMException</code> nommée <code>TimeoutError</code>",
+      "Une <code>DOMException</code> nommée <code>AbortError</code>",
+      "Rien : la réponse arrive après 300 ms"
+    ],
+    "explain": "Mesuré sur Node 24 : une <code>DOMException</code> nommée <code>TimeoutError</code>. Un <code>controller.abort()</code> manuel sans raison donne <code>AbortError</code>, donc <code>error.name</code> distingue une deadline d’une annulation. <code>TypeError: fetch failed</code> est la forme d’une panne réseau."
+  },
+  "m02.q6": {
+    "q": "L’API Orders annule un <code>POST</code> vers le prestataire de paiement après l’envoi de la requête. Que garantit l’annulation ?",
+    "options": [
+      "Le prestataire annule tout ce qu’il a commencé",
+      "Le prestataire ne traite jamais la requête",
+      "Ton côté arrête d’attendre et de lire ; le prestataire peut quand même terminer l’opération",
+      "La requête est automatiquement retentée plus tard"
+    ],
+    "explain": "Annuler ferme ton côté de la connexion. Mesuré avec un serveur local : après l’annulation par le client, le handler du serveur est quand même allé jusqu’au bout. C’est pourquoi les écritures ont besoin de clés d’idempotence, et une écriture en timeout est un résultat inconnu, pas un échec."
+  },
+  "m02.q7": {
+    "q": "Un service en aval répond <code>503</code>. Quel appel peut-on retenter automatiquement sans risque ?",
+    "options": [
+      "<code>GET /orders/42</code>",
+      "<code>POST /payments</code> sans clé d’idempotence",
+      "<code>POST /emails/send</code>",
+      "<code>POST /counters/visits/increment</code>"
+    ],
+    "explain": "Un <code>GET</code> est idempotent : le répéter ne change rien. Chaque <code>POST</code> a pu être traité avant le retour de l’erreur, donc un retry pourrait débiter, envoyer ou compter deux fois. On ne peut les retenter sans risque qu’avec une clé d’idempotence que le serveur déduplique."
+  },
+  "m02.q8": {
+    "q": "Pourquoi ajouter du full jitter à un backoff exponentiel ?",
+    "options": [
+      "Il rend chaque retry plus rapide en moyenne qu’un délai fixe",
+      "Il compense l’imprécision de <code>setTimeout</code>",
+      "Il permet à un client de passer un rate limiting en paraissant aléatoire",
+      "Il étale les retries des clients qui ont échoué au même moment"
+    ],
+    "explain": "Sans jitter, chaque client qui a échoué dans la même seconde retente dans la même seconde, encore et encore, et le service qui se rétablit reçoit des vagues synchronisées. Le full jitter choisit un délai aléatoire entre zéro et la valeur du backoff. Il n’aide pas face au rate limiting ; respecter <code>Retry-After</code>, si."
+  },
+  "m02.q9": {
+    "q": "Un générateur asynchrone produit les commandes expédiées des pages 1 à 5 et libère sa connexion dans un bloc <code>finally</code>. Le consommateur fait <code>break</code> en lisant la page 2. Que se passe-t-il ?",
+    "options": [
+      "Les 5 pages sont récupérées, puis <code>finally</code> s’exécute",
+      "Seules 2 pages sont récupérées et <code>finally</code> s’exécute",
+      "Seules 2 pages sont récupérées et <code>finally</code> ne s’exécute jamais",
+      "Le <code>break</code> lève une exception, car le générateur tourne encore"
+    ],
+    "explain": "Un générateur ne s’exécute que lorsque le consommateur demande la valeur suivante, donc la page 3 n’est jamais demandée. <code>break</code> appelle le <code>return()</code> du générateur, qui exécute <code>finally</code> (et libère de la même façon une ressource <code>await using</code>). Mesuré : deux fetchs, puis le nettoyage."
+  },
+  "m02.q10": {
+    "q": "Qu’affiche la dernière ligne ?",
+    "options": [
+      "<code>[1, 2, 3]</code>",
+      "<code>[1]</code>",
+      "<code>[]</code>",
+      "Ça dépend de la vitesse de <code>save</code>"
+    ],
+    "explain": "<code>forEach</code> appelle le callback async et ignore la promesse qu’il renvoie, donc le log s’exécute avant qu’un seul <code>save</code> se termine. Mesuré : <code>[]</code>, puis <code>[1, 2, 3]</code> un instant plus tard. Même un <code>save</code> très rapide se résout après le code synchrone en cours, donc la réponse ne dépend pas du timing."
+  },
+  "m02.q11": {
+    "q": "Une fonction déclare <code>await using first = …</code> puis <code>await using second = …</code>, et lève une exception. Que se passe-t-il sur Node 24.11 ?",
+    "options": [
+      "Rien n’est libéré, car la fonction a levé une exception",
+      "Les deux sont libérés, <code>first</code> puis <code>second</code>",
+      "Seul <code>second</code> est libéré",
+      "Les deux sont libérés, <code>second</code> puis <code>first</code>"
+    ],
+    "explain": "Les ressources déclarées avec <code>using</code> sont libérées à la sortie du bloc, qu’il retourne ou lève une exception, dans l’ordre inverse de déclaration. Mesuré : « release 2 » puis « release 1 », en cas de succès comme d’échec. C’est la même garantie que des <code>try/finally</code> imbriqués, sans l’imbrication."
+  },
+  "m02.q12": {
+    "q": "Deux requêtes de checkout exécutent <code>requestContext.run({ requestId }, handler)</code> en même temps et s’entrelacent à chaque <code>await</code>. Que renvoie <code>getStore()</code> dans chaque handler après un <code>await</code> ?",
+    "options": [
+      "Le contexte de la requête qui a appelé <code>run</code> le plus récemment",
+      "Le contexte de sa propre requête",
+      "<code>undefined</code>, car le contexte est perdu au premier <code>await</code>",
+      "Le contexte de la requête qui a repris en premier"
+    ],
+    "explain": "<code>AsyncLocalStorage</code> suit la chaîne d’appels asynchrone, pas une variable globale, donc chaque continuation voit le contexte du <code>run</code> qui l’a lancée. Vérifié : la requête qui a fini en second a quand même loggé son propre id. Hors de tout <code>run</code>, <code>getStore()</code> renvoie <code>undefined</code>."
+  },
+  "m02.q13": {
+    "q": "La première entrée rejette après 5 ms, la seconde se résout avec <code>'ok'</code> après 10 ms. Que donnent <code>Promise.race</code> et <code>Promise.any</code> ?",
+    "options": [
+      "Les deux se résolvent avec <code>'ok'</code>",
+      "<code>race</code> se résout avec <code>'ok'</code>, <code>any</code> rejette",
+      "<code>race</code> rejette avec <code>boom</code>, <code>any</code> se résout avec <code>'ok'</code>",
+      "Les deux rejettent avec <code>boom</code>"
+    ],
+    "explain": "<code>race</code> suit ce qui se règle en premier, rejet compris. <code>any</code> ignore les rejets jusqu’à ce qu’une entrée soit tenue, et ne rejette avec une <code>AggregateError</code> que si toutes rejettent. Les deux vérifiés sur Node 24."
+  },
+  "m02.q14": {
+    "q": "Le checkout calcule <code>await Promise.race(partners.map(getQuote))</code> pour prendre le premier devis de livraison. Un jour, un feature flag vide <code>partners</code>. Que se passe-t-il ?",
+    "options": [
+      "L’<code>await</code> ne se règle jamais et la requête reste bloquée",
+      "Ça se résout avec <code>undefined</code>",
+      "Ça rejette avec une <code>AggregateError</code>",
+      "Ça lève une <code>TypeError</code> de façon synchrone"
+    ],
+    "explain": "<code>Promise.race([])</code> ne se règle jamais (vérifié : toujours en attente après 20 ms, et elle le restera). À l’inverse, <code>Promise.all([])</code> se résout en <code>[]</code> et <code>Promise.any([])</code> rejette avec une <code>AggregateError</code>. Protège-toi explicitement des entrées vides."
+  },
+  "m02.q15": {
+    "q": "Le job nocturne doit envoyer 10 000 e-mails de confirmation. Le prestataire d’e-mails autorise 20 requêtes concurrentes et répond parfois <code>503</code>. Quelle conception livrerais-tu ?",
+    "options": [
+      "<code>Promise.all</code> sur toutes les commandes, avec un timeout global de 30 minutes",
+      "<code>Promise.all</code> sur des tranches de 20, en retentant toute la tranche quand un appel échoue",
+      "Une boucle <code>for</code> avec <code>await</code>, un appel à la fois, pour ne jamais surcharger le prestataire",
+      "<code>p-map</code> avec <code>concurrency: 20</code>, un timeout par appel et des retries avec jitter sur <code>503</code>, échecs collectés et signalés"
+    ],
+    "explain": "Un pool de 20 correspond à la limite du prestataire, des deadlines par appel et des retries avec jitter gèrent les <code>503</code> transitoires, et collecter les échecs évite qu’une mauvaise adresse fasse échouer 10 000 e-mails. Les appels séquentiels sont sûrs mais 20 fois plus lents que nécessaire, et retenter toute une tranche répète des appels qui ont déjà réussi."
+  },
+  "m02.q16": {
+    "q": "Quel est le bug de ce limiteur ?",
+    "options": [
+      "Une tâche qui rejette ne libère jamais son slot, donc après <code>concurrency</code> échecs plus rien ne démarre",
+      "La file d’attente est LIFO, donc les tâches s’exécutent dans l’ordre inverse",
+      "Il laisse tourner une tâche de plus que <code>concurrency</code>",
+      "Il exécute les tâches séquentiellement, en ignorant <code>concurrency</code>"
+    ],
+    "explain": "Si <code>task()</code> rejette, les lignes après l’<code>await</code> ne s’exécutent jamais, donc <code>active</code> reste incrémenté et personne n’est réveillé. Vérifié : avec une limite de 2 et deux tâches en échec, les tâches suivantes sont restées en attente pour toujours. Libère le slot dans <code>finally</code>."
+  },
+  "m02.q17": {
+    "q": "L’API Orders utilise un pool pg de 10 connexions. Un handler lance <code>Promise.all</code> sur 500 ids de produits, chacun faisant une requête. Que se passe-t-il ?",
+    "options": [
+      "node-postgres ouvre 500 connexions pendant la durée de l’appel",
+      "Les 500 requêtes passent en un seul aller-retour avec la base",
+      "Dix requêtes tournent à la fois et les autres attendent dans la file du pool, ce qui monopolise la requête HTTP et retarde tous les autres handlers qui ont besoin d’une connexion",
+      "Le pool rejette immédiatement les 490 requêtes en trop"
+    ],
+    "explain": "Le pool plafonne les connexions à son <code>max</code> (10 par défaut selon la doc de node-postgres) et met le reste en file. Une seule requête monopolise alors le pool, et les autres attendent derrière. Borne le fan-out sous la taille du pool, ou remplace-le par une seule requête avec <code>WHERE id = ANY($1)</code> (M07)."
+  },
+  "m02.q18": {
+    "q": "Le checkout doit s’arrêter quand le client part <b>ou</b> après 10 secondes, au premier des deux. Que passes-tu à chaque fonction ?",
+    "options": [
+      "Deux signaux séparés, et chaque fonction vérifie les deux",
+      "<code>AbortSignal.any([clientGone.signal, AbortSignal.timeout(10_000)])</code>",
+      "Un <code>Promise.race</code> entre le travail et un timer de 10 secondes",
+      "Un flag partagé <code>cancelled</code> vérifié dans un <code>setInterval</code>"
+    ],
+    "explain": "<code>AbortSignal.any</code> renvoie un seul signal qui s’annule avec la raison de la première entrée annulée. Vérifié : quand l’utilisateur a annulé en premier, le signal combiné portait la raison de l’utilisateur ; quand la deadline est passée en premier, il portait une <code>TimeoutError</code>. Chaque fonction garde un seul paramètre <code>signal</code>."
+  },
+  "m02.q19": {
+    "q": "Un handler fait <code>Promise.race([fetch(url), rejectAfter(2000)])</code> et le timer gagne. Qu’arrive-t-il à la requête HTTP ?",
+    "options": [
+      "Elle est annulée automatiquement car personne ne l’attend",
+      "Elle est mise en file et retentée par undici",
+      "Node logge un avertissement et abandonne le socket",
+      "Elle continue : le socket reste ouvert et la réponse est téléchargée pour personne"
+    ],
+    "explain": "Une race choisit seulement quel résultat tu vois. Mesuré : après la victoire du timer, la requête a quand même atteint le serveur et son corps a été lu plus tard. Sous charge, ces orphelines s’accumulent. <code>fetch(url, { signal: AbortSignal.timeout(2000) })</code> ferme vraiment la requête."
+  },
+  "m02.q20": {
+    "q": "Dans un handler de checkout en <code>node:http</code> pur, quel code annule le travail en aval seulement quand le client se déconnecte avant que la réponse soit complète ?",
+    "options": [
+      "<code>request.on('end', () => controller.abort())</code>",
+      "<code>response.on('finish', () => controller.abort())</code>",
+      "<code>response.on('close', () => { if (!response.writableEnded) { controller.abort(); } })</code>",
+      "<code>setTimeout(() => controller.abort(), 30_000)</code>"
+    ],
+    "explain": "<code>close</code> se déclenche dans les deux cas, après une réponse normale et après une déconnexion ; <code>writableEnded</code> les distingue. Vérifié avec un serveur local : le client est parti après 120 ms et le job s’est arrêté après sa deuxième étape. <code>finish</code> ne se déclenche qu’après une réponse complète, et <code>end</code> appartient au stream du corps de la requête, pas au départ du client."
+  },
+  "m02.q21": {
+    "q": "L’API gateway, l’API Orders et son client HTTP font chacun jusqu’à 4 tentatives (1 + 3 retries) en cas d’échec. Le prestataire de paiement est en panne. Combien d’appels une seule requête client peut-elle lui envoyer ?",
+    "options": [
+      "4",
+      "12",
+      "16",
+      "64"
+    ],
+    "explain": "Les retries se multiplient : chacune des 4 tentatives de la gateway déclenche 4 tentatives de l’API Orders, qui déclenchent chacune 4 tentatives du client, donc 4 × 4 × 4 = 64. C’est pourquoi le livre SRE recommande de ne retenter qu’à une seule couche, et de renvoyer vers le haut un signal « ne pas retenter »."
+  },
+  "m02.q22": {
+    "q": "Ton équipe adopte un retry budget de 10 % par client, comme dans le livre SRE de Google. Qu’est-ce que ça change pendant une panne généralisée ?",
+    "options": [
+      "Chaque requête a au plus 10 % de son timeout pour les retries",
+      "Les retries s’arrêtent dès qu’ils dépassent 10 % des requêtes du client, donc la charge supplémentaire reste vers 1,1× au lieu de près de 3×",
+      "Seules 10 % des requêtes peuvent échouer avant qu’une alerte se déclenche",
+      "Les retries sont retardés de 10 % de plus après chaque tentative"
+    ],
+    "explain": "Le budget est un ratio de retries par rapport aux requêtes par client : au-delà de 10 %, les échecs remontent à l’appelant sans retry. Le livre SRE le combine avec au plus 3 tentatives par requête et dit qu’il réduit l’augmentation à environ 1,1×. Une limite par requête seule permet encore près de 3× la charge quand tout échoue."
+  },
+  "m02.q23": {
+    "q": "Avec cockatiel, la policy des paiements est <code>wrap(retry(…, { maxAttempts: 3 }), circuitBreaker(…), timeout(2_000, TimeoutStrategy.Aggressive))</code>. À quoi s’applique le timeout de 2 secondes ?",
+    "options": [
+      "À chaque tentative, car la première policy de <code>wrap</code> est la plus externe",
+      "Aux trois tentatives ensemble",
+      "Seulement à la première tentative",
+      "Au temps pendant lequel le circuit reste ouvert"
+    ],
+    "explain": "La doc de cockatiel définit <code>wrap(a, b, c)</code> comme <code>a.execute(() => b.execute(() => c.execute(fn)))</code>, donc le timeout est le plus interne et redémarre à chaque tentative. Pour borner toute l’opération, mets aussi un timeout à l’extérieur du retry, ou passe un signal de deadline à <code>execute</code>."
+  },
+  "m02.q24": {
+    "q": "Une revue trouve cette policy autour de <code>createPayment</code>, un <code>POST</code> vers le prestataire de paiement. Quel correctif livrerais-tu ?",
+    "options": [
+      "La garder, et augmenter <code>maxAttempts</code> pour qu’un paiement ne soit jamais perdu",
+      "Envoyer à chaque tentative une clé d’idempotence dérivée de la commande, et ne retenter que les erreurs transitoires",
+      "Supprimer le retry et demander à l’utilisateur de recliquer en cas d’échec",
+      "La remplacer par <code>Promise.any</code> sur cinq appels parallèles"
+    ],
+    "explain": "Retenter toutes les erreurs retente des réponses <code>4xx</code> qui échoueront encore, et retenter un <code>POST</code> non idempotent après un timeout peut débiter deux fois. Une clé d’idempotence stable fait dédupliquer les tentatives par le prestataire, et classer les erreurs réserve les retries aux échecs transitoires. Demander à l’utilisateur de recliquer présente le même risque de double débit."
+  },
+  "m02.q25": {
+    "q": "Combien de temps ça prend, mesuré sur Node 24 ?",
+    "options": [
+      "Environ 150 ms ou plus, car chaque appel de mapping est attendu avant que le suivant démarre",
+      "Environ 50 ms, car les trois appels tournent en parallèle",
+      "Environ 0 ms, car <code>Array.fromAsync</code> n’attend pas le mapper",
+      "Ça lève une exception, car l’entrée n’est pas un itérable asynchrone"
+    ],
+    "explain": "<code>Array.fromAsync</code> attend chaque valeur mappée à tour de rôle. Mesuré : 182 ms. Il accepte les tableaux simples comme les itérables asynchrones. Pour du travail parallèle borné, utilise plutôt <code>p-map</code>."
+  },
+  "m02.q26": {
+    "q": "Dans un module ES sur Node 24, <code>loadOrders</code> se résout après 100 ms et <code>loadInvoices</code> rejette après 10 ms. Que se passe-t-il ?",
+    "options": [
+      "Ça affiche « caught … » après 100 ms",
+      "Le rejet est ignoré silencieusement",
+      "Ça affiche « caught … » après 10 ms",
+      "Le processus se termine avec le code 1 avant que le <code>try</code> s’exécute"
+    ],
+    "explain": "Pendant que le code attend <code>orders</code>, <code>invoices</code> rejette sans qu’aucun handler soit encore attaché. Node le traite comme un rejet non géré et se termine avec le code 1 ; mesuré, rien n’a été affiché. <code>await Promise.all([loadOrders(), loadInvoices()])</code> attache des handlers aux deux, et le même code est intercepté normalement."
+  },
+  "m02.q27": {
+    "q": "<code>fetchDiscount</code> rejette car le service de fidélité est en panne. Que renvoie <code>getDiscount</code> ?",
+    "options": [
+      "Une promesse qui se résout avec <code>NO_DISCOUNT</code>",
+      "Une promesse qui se résout avec <code>undefined</code>",
+      "Une promesse qui rejette avec l’erreur de <code>fetchDiscount</code>",
+      "Ça lève une exception de façon synchrone"
+    ],
+    "explain": "Sans <code>await</code>, la promesse en attente quitte le bloc <code>try</code> avant de se régler, donc le <code>catch</code> ne s’exécute jamais ; vérifié sur Node 24. <code>return await fetchDiscount(customerId)</code> attend à l’intérieur du <code>try</code>, et le repli fonctionne."
+  },
+  "m02.q28": {
+    "q": "Le checkout appelle <code>auditLog.write(event)</code> sans l’attendre, pour garder une réponse rapide. Un collègue propose <code>void auditLog.write(event)</code> pour satisfaire <code>no-floating-promises</code>. Que réponds-tu ?",
+    "options": [
+      "Très bien : <code>void</code> gère le rejet",
+      "Mieux vaut l’attendre, car le fire-and-forget n’est jamais acceptable",
+      "Désactiver la règle pour ce fichier, puisque les écritures d’audit échouent rarement",
+      "<code>void</code> fait taire la règle mais un rejet fait toujours planter le processus ; attache un <code>.catch</code> qui le logge"
+    ],
+    "explain": "La doc de la règle prévient que faire un void sur une promesse ne la gère pas et ne change pas le comportement à l’exécution, et un rejet non géré termine le processus. Un <code>.catch</code> qui logge garde la réponse rapide et rend les échecs visibles. Le fire-and-forget est acceptable quand son échec est géré et que le travail n’est pas critique."
+  },
+  "m02.q29": {
+    "q": "Le repository des commandes intercepte <code>connect ECONNREFUSED</code> et doit relancer une erreur qui dit quelle commande a échoué, sans perdre l’originale. Quelle ligne ?",
+    "options": [
+      "<code>throw new Error('Could not load order ' + orderId + ': ' + String(error))</code>",
+      "<code>throw new Error('Could not load order ' + orderId, { cause: error })</code>",
+      "<code>throw Object.assign(error, { message: 'Could not load order ' + orderId })</code>",
+      "<code>throw new AggregateError([error], 'Could not load order ' + orderId)</code>"
+    ],
+    "explain": "<code>cause</code> garde l’objet d’erreur original, avec sa stack et son code, et Node l’affiche sous une ligne <code>[cause]</code> (vérifié). Concaténer le message perd la stack et le code d’erreur. <code>AggregateError</code> est fait pour plusieurs échecs indépendants, pas pour une seule erreur enveloppée."
+  },
+  "m02.q30": {
+    "q": "Un projet TypeScript 7 a <code>\"lib\": [\"es2025\"]</code> et <code>\"types\": []</code>. Un développeur ajoute <code>await using lease = await leaseClient(pool)</code>. Que se passe-t-il ?",
+    "options": [
+      "Ça compile et s’exécute, puisque <code>using</code> fait partie d’ES2025",
+      "La compilation échoue : <code>AsyncDisposable</code> et <code>Symbol.asyncDispose</code> manquent tant qu’on n’ajoute pas la lib <code>esnext.disposable</code> ou <code>@types/node</code>",
+      "Ça compile, mais Node 24 lève une <code>SyntaxError</code> à l’exécution",
+      "TypeScript 7 ne prend pas du tout en charge <code>await using</code>"
+    ],
+    "explain": "Vérifié avec TypeScript 7.0.2, et à l’identique avec 6.0.3 : avec <code>es2025</code> seul, le compilateur signale qu’il ne trouve pas <code>AsyncDisposable</code> ni <code>Symbol.asyncDispose</code> ; ajouter <code>esnext.disposable</code> (ou <code>esnext</code>, ou les types de Node) corrige le problème. Node 24.11 exécute la syntaxe nativement, donc il n’y a aucun problème à l’exécution."
+  }
+}

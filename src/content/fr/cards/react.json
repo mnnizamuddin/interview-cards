@@ -1,0 +1,1798 @@
+{
+  "react-virtual-dom": {
+    "topic": "Virtual DOM et réconciliation",
+    "question": "Qu’est-ce que le virtual DOM, et comment se compare-t-il à une mise à jour directe du DOM ?",
+    "answer": "Le virtual DOM, c’est l’arbre d’objets JavaScript simples que renvoient mes composants : des éléments React qui décrivent à quoi l’UI doit ressembler. Quand le state change, React rend à nouveau les composants concernés, compare le nouvel arbre au précédent, et dans la phase de commit n’applique que les différences au vrai DOM. Ce n’est pas plus rapide qu’une mise à jour directe bien ciblée ; son intérêt, c’est que je décris le résultat pour n’importe quel state et React calcule les changements minimaux. Le coût, c’est le travail de re-render, que je limite en plaçant bien le state et avec les keys.",
+    "keyPoints": [
+      "Un arbre d’objets simples qui décrit l’UI, renvoyé par les composants",
+      "React compare le nouvel arbre à l’ancien : la réconciliation",
+      "Seules les différences sont appliquées au vrai DOM, au commit",
+      "Pas plus rapide qu’une mise à jour ciblée du DOM : le gain, c’est le code déclaratif"
+    ],
+    "explanation": "Les recruteurs vérifient si tu répètes le mythe du « virtual DOM rapide » ou si tu comprends la différence entre rendu et commit. Une réponse senior dit ce que coûte la comparaison, pourquoi les keys et les types d’éléments la guident, et que des frameworks comme Svelte ou Solid s’en passent en compilant vers des mises à jour directes.",
+    "example": "Dans le back-office, une mise à jour en direct d’une commande re-rendait tout le tableau de 200 commandes, mais le surlignage des React DevTools montrait que le DOM n’avait changé que dans une cellule : la comparaison avait fait son travail. Le coût était dans le rendu, pas dans le DOM, donc l’équipe a déplacé le statut en direct dans le composant de ligne et le temps de rendu par mise à jour est passé d’environ 40 ms à moins de 5 ms.",
+    "mistakes": [
+      "Dire que le virtual DOM est toujours plus rapide que le DOM : une mise à jour directe et ciblée fait moins de travail",
+      "Croire que re-rendre un composant réécrit son DOM : une sortie inchangée n’est pas touchée",
+      "Ignorer qu’un type d’élément ou une key différents à la même position jettent le sous-arbre"
+    ],
+    "followUps": [
+      {
+        "question": "Quelle est la différence entre la phase de rendu et la phase de commit ?",
+        "answer": "Le rendu appelle vos composants pour calculer le nouvel arbre et doit être pur, sans effets de bord. Le commit applique les changements au DOM, puis React exécute les layout effects et, plus tard, les effets."
+      },
+      {
+        "question": "Quelle est la différence entre le rendu et la réconciliation ?",
+        "answer": "Le rendu, c’est React qui appelle mes composants pour obtenir un nouvel arbre d’éléments. La réconciliation, c’est la comparaison de cet arbre avec le précédent pour déterminer ce qui a changé. Les deux ont lieu dans la phase de rendu ; le commit applique ensuite le résultat au DOM."
+      },
+      {
+        "question": "Comment React compare-t-il deux arbres sans une comparaison complète coûteuse ?",
+        "answer": "Il suppose que des éléments de types différents produisent des arbres différents et les remplace, et il associe les enfants des listes par `key`. Ça garde la comparaison à peu près linéaire en nombre d’éléments."
+      },
+      {
+        "question": "Comment la réconciliation décide-t-elle de mettre à jour, d’ajouter ou de supprimer des nœuds du DOM ?",
+        "answer": "Même type à la même position : React garde le nœud et ne met à jour que les props modifiées. Type différent : il supprime l’ancien sous-arbre et en ajoute un nouveau, state compris. Dans une liste, une nouvelle key ajoute un élément, une key absente en supprime un, et une key connue est mise à jour et déplacée si besoin."
+      },
+      {
+        "question": "Comment préserveriez-vous le state lors d’un rendu conditionnel ?",
+        "answer": "Garder le même type de composant à la même position : `{open && <Panel />}` le démonte et perd son state. Soit je le masque en CSS, soit je l’enveloppe dans `<Activity mode=\"hidden\">` (React 19.2), soit je remonte le state dans un parent qui reste monté."
+      },
+      {
+        "question": "Pourquoi une liste a-t-elle besoin d’une `key` unique, et qu’est-ce qui ne va pas avec l’index ?",
+        "answer": "La key permet à React d’associer un élément de liste à sa version précédente, pour que le state et le DOM suivent les bonnes données. Avec l’index, ajouter une commande en tête décale toutes les keys : chaque ligne garde le state de ce qui était à sa position avant, donc une note saisie s’affiche sur la mauvaise commande."
+      },
+      {
+        "question": "Comment des frameworks comme Svelte se passent-ils complètement de virtual DOM ?",
+        "answer": "Svelte compile chaque composant en code qui met à jour exactement les nœuds du DOM qui dépendent d’une valeur modifiée, et Solid suit les valeurs avec des signals à l’exécution. Aucun des deux ne réexécute des composants entiers ni ne compare d’arbre, donc les mises à jour sont fines ; React garde la comparaison et laisse son compilateur réduire le travail de re-render."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Quand un composant fait un re-render, React réécrit tous ses nœuds du DOM.",
+        "why": "React ne commite que les différences entre la nouvelle sortie et la précédente ; les nœuds identiques ne sont pas touchés.",
+        "twin": {
+          "statement": "Quand un composant fait un re-render, React ne touche pas aux nœuds du DOM dont la sortie n’a pas changé.",
+          "why": "React ne commite que les différences entre la nouvelle sortie et la précédente."
+        }
+      },
+      {
+        "statement": "Rendre une `<div>` là où il y avait une `<section>` jette le state des composants qu’elle contient.",
+        "why": "Un type d’élément différent à la même position fait démonter l’ancien sous-arbre par React et en monter un nouveau.",
+        "twin": {
+          "statement": "Rendre une `<div>` là où il y avait une `<section>` garde le state des composants qu’elle contient.",
+          "why": "Un type d’élément différent à la même position fait démonter l’ancien sous-arbre par React, state compris, et en monter un nouveau."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le virtual DOM est l’arbre d’objets simples que renvoient tes composants. React compare chaque nouvel arbre au précédent et n’applique que les différences au vrai DOM, donc tu décris l’UI pour n’importe quel state au lieu de la mettre à jour à la main.",
+      "points": [
+        "Un élément React est un objet JavaScript simple, avec un `type` et des `props`, qui décrit un morceau d’UI. Les composants en renvoient des arbres, et c’est cet arbre qu’on appelle le virtual DOM.",
+        "Dans la phase de rendu, React appelle tes composants pour calculer le nouvel arbre, donc ils doivent être purs. Il compare cet arbre au précédent (réconciliation), puis la phase de commit n’applique que les différences au DOM.",
+        "Deux règles gardent la comparaison rapide : un élément de type différent à la même position remplace tout le sous-arbre, state compris, et les enfants d’une liste sont associés par `key`.",
+        "Re-rendre un composant ne réécrit pas son DOM : si la sortie n’a pas changé, le DOM n’est pas touché. Le coût d’un re-render, c’est l’appel des composants, donc garde le state près de là où il sert.",
+        "Le virtual DOM n’est pas plus rapide qu’une mise à jour directe et bien ciblée du DOM ; son gain, c’est le code déclaratif. Svelte et Solid se passent de la comparaison en compilant les composants vers des mises à jour directes du DOM."
+      ],
+      "takeaways": [
+        {
+          "term": "Élément React",
+          "detail": "Un objet simple avec un `type` et des `props` qui décrit un morceau d’UI. Un arbre de ces objets, c’est le virtual DOM."
+        },
+        {
+          "term": "Phase de rendu",
+          "detail": "React appelle tes composants pour calculer le nouvel arbre, donc ils doivent être purs."
+        },
+        {
+          "term": "Réconciliation",
+          "detail": "React compare le nouvel arbre au précédent pour trouver ce qui a changé."
+        },
+        {
+          "term": "Phase de commit",
+          "detail": "Seules les différences atteignent le vrai DOM ; un composant dont la sortie n’a pas changé ne touche pas au DOM."
+        },
+        {
+          "term": "Type différent, même position",
+          "detail": "Remplace tout le sous-arbre, state compris. Les enfants d’une liste sont associés par `key`."
+        },
+        {
+          "term": "Performance",
+          "detail": "Pas plus rapide qu’une mise à jour directe et bien ciblée du DOM : le gain, c’est le code déclaratif."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un collègue veut retirer React du tableau des commandes en direct du back-office et patcher les lignes avec `document.querySelector`, parce que « le virtual DOM est lent ». Que lui répondez-vous ?",
+        "bridge": "Le compromis du virtual DOM : une mise à jour ciblée du DOM fait moins de travail, mais la comparaison de React te laisse décrire l’UI pour n’importe quel state et ne commite que les changements."
+      },
+      {
+        "question": "Déroulez-moi ce qui se passe entre une mise à jour de state et le changement à l’écran : que compare React, et qu’écrit-il réellement dans le DOM ?",
+        "bridge": "Le même sujet vu comme une séquence : le rendu construit un nouvel arbre d’éléments, la réconciliation le compare au précédent, et le commit n’applique que les différences."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux affichent un panneau de note de commande qui passe en mode édition. Lequel garde ce que l’agent a tapé quand le mode change ?",
+        "why": "Le même type d’élément reste à la même position, donc React garde la `div` et `NoteInput` et ne met à jour que `className`. Alterner entre `section` et `div` change le type à cette position : React démonte tout le sous-arbre et monte un nouveau `NoteInput`, donc la note tapée par l’agent est perdue à chaque bascule."
+      }
+    ]
+  },
+  "react-state-props": {
+    "topic": "State et props",
+    "question": "Quelle est la différence entre state et props en React ?",
+    "answer": "Les props sont les entrées qu’un parent passe à un composant ; le composant les lit et ne doit pas les modifier. Le state, ce sont des données qu’un composant possède et fait évoluer avec son setter, comme `useState`, et le modifier fait rendre ce composant à nouveau par React. Les deux sont des snapshots propres à un rendu. Les données descendent par les props, et un enfant demande un changement en appelant une prop callback. Quand deux composants ont besoin de la même donnée, je remonte le state dans leur parent commun le plus proche, et je ne copie jamais une prop dans le state, sauf si je ne veux que sa valeur initiale.",
+    "keyPoints": [
+      "Les props viennent du parent et sont en lecture seule",
+      "Le state appartient au composant et change via son setter",
+      "Modifier le state déclenche un nouveau rendu ; les deux sont des snapshots par rendu",
+      "Les données partagées remontent dans le parent commun le plus proche"
+    ],
+    "explanation": "Ça a l’air basique, mais les recruteurs guettent la notion de propriétaire : qui peut modifier la donnée. Un senior mentionne le bug classique de la prop copiée dans le state et la règle qui veut qu’on calcule les valeurs dérivées pendant le rendu au lieu de les stocker.",
+    "example": "Le détail de commande du back-office copiait `order.status` des props dans `useState` pour afficher un badge. Après un remboursement, le parent recevait la nouvelle commande de l’API mais le badge affichait toujours `paid`, parce que le state n’avait été initialisé qu’une fois. Lire `order.status` directement dans les props a réglé le problème et supprimé un effet qui essayait de garder les deux synchronisés.",
+    "mistakes": [
+      "Muter un objet prop dans un enfant au lieu de demander au parent via un callback",
+      "Copier une prop dans le state et s’attendre à ce qu’il suive les changements ultérieurs de la prop",
+      "Stocker des valeurs qu’on peut calculer à partir des props ou du state, comme une liste filtrée"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi `console.log(count)` juste après `setCount(count + 1)` affiche-t-il l’ancienne valeur ?",
+        "answer": "Le state est un snapshot du rendu courant : le setter programme un nouveau rendu, et seul ce rendu voit la nouvelle valeur. On utilise la forme fonctionnelle `setCount((c) => c + 1)` quand la mise à jour dépend de la valeur précédente."
+      },
+      {
+        "question": "Quand est-il acceptable d’initialiser un state à partir d’une prop ?",
+        "answer": "Quand la prop n’est qu’une valeur de départ, généralement nommée `initialX` ou `defaultX`. Pour réinitialiser le state quand une identité change, je donne une `key` au composant au lieu de synchroniser avec un effet."
+      },
+      {
+        "question": "Que signifie remonter le state, et quand en avez-vous besoin ?",
+        "answer": "Déplacer le state d’un enfant vers le parent commun le plus proche de tous les composants qui en ont besoin, puis transmettre vers le bas la valeur et un callback setter. Je le fais quand deux frères doivent être d’accord, comme le tableau des commandes et son nombre de lignes sélectionnées."
+      },
+      {
+        "question": "Comment décidez-vous si quelque chose est du state ou se calcule pendant le rendu ?",
+        "answer": "Si ça peut se calculer à partir des props ou du state existant, ce n’est pas du state : les commandes filtrées ou le total d’un panier se calculent au rendu. Le state, c’est seulement ce qui évolue dans le temps et ne peut pas se dériver, comme le texte du filtre. Stocker les deux crée deux sources qui divergent."
+      },
+      {
+        "question": "Quand le prop drilling devient-il un problème, et qu’est-ce qui le règle ?",
+        "answer": "Quand une valeur traverse beaucoup de niveaux qui ne l’utilisent pas : chacun doit la transmettre et les changements touchent tous ces fichiers. J’essaie d’abord la composition, en passant des composants en `children` ; puis Context pour les valeurs qui changent rarement, ou un store avec sélecteurs pour un state partagé souvent mis à jour."
+      },
+      {
+        "question": "Pourquoi trois appels `setCount(count + 1)` n’ajoutent-ils que 1, et pourquoi est-ce un problème de closure ?",
+        "answer": "Le handler est une closure créée pendant un rendu, donc `count` est la constante de ce rendu, disons 0. Chaque appel met en file « passer à 1 » ; la forme updater `setCount((c) => c + 1)` met en file « ajouter 1 » et reçoit la dernière valeur en attente, donc trois appels ajoutent 3."
+      },
+      {
+        "question": "Est-ce que ça arriverait si les trois appels étaient dans des gestionnaires d’événements séparés ?",
+        "answer": "Pas sur des clics séparés : chaque clic exécute un handler issu d’un nouveau rendu avec le nouveau `count`. Mais des handlers déclenchés par le même événement, comme un bouton et son parent sur un même clic qui remonte, partagent le snapshot d’un rendu et sont batchés ensemble, donc le bug revient."
+      },
+      {
+        "question": "Comment testeriez-vous ce bug de stale closure ?",
+        "answer": "Par le comportement : je rends le composant, je clique une fois sur le bouton « +3 » avec `user-event`, et j’attends que l’écran affiche 3. La version basée sur la valeur échoue avec 1. Pour un timer qui tique dans un effet, j’utilise des fake timers, je les avance de trois ticks et j’attends 3."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un composant enfant peut modifier directement ses props pour changer ce qu’affiche son parent.",
+        "why": "Les props sont en lecture seule ; l’enfant appelle un callback passé par le parent, et le parent met à jour son propre state.",
+        "twin": {
+          "statement": "Un composant enfant change ce qu’affiche son parent en appelant un callback que le parent lui a passé en prop.",
+          "why": "Les props sont en lecture seule, donc c’est le parent qui met à jour son propre state dans ce callback."
+        }
+      },
+      {
+        "statement": "Une valeur de state lue dans un gestionnaire d’événements est celle du rendu qui a créé ce gestionnaire.",
+        "why": "Chaque rendu a son propre snapshot du state, et le gestionnaire le capture dans sa closure.",
+        "twin": {
+          "statement": "Une valeur de state lue dans un gestionnaire d’événements contient toujours le dernier state, même après des rendus ultérieurs.",
+          "why": "Chaque rendu a son propre snapshot du state, et le gestionnaire capture celui du rendu qui l’a créé."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les props sont les entrées qu’un parent transmet ; le state, ce sont les données qu’un composant possède et fait évoluer. Savoir qui possède chaque donnée décide où elle vit, comment elle change et ce qui fait un re-render.",
+      "points": [
+        "Les props sont les entrées qu’un parent passe à un enfant, comme des arguments de fonction. L’enfant les lit et ne les modifie jamais.",
+        "Le state, ce sont des données qu’un composant possède, créées avec `useState`. Appeler le setter programme un nouveau rendu de ce composant, qui reçoit la nouvelle valeur.",
+        "Chaque rendu voit un snapshot : dans un handler, `count` garde la valeur du rendu qui a créé le handler, même juste après `setCount`. Utilise `setCount((c) => c + 1)` quand la nouvelle valeur dépend de l’ancienne.",
+        "Les données descendent par les props ; un enfant demande un changement en appelant une prop callback, et le propriétaire met à jour son state. Les données que des frères partagent remontent dans leur parent commun le plus proche.",
+        "`useState(prop)` ne lit la prop qu’au premier rendu, donc les changements suivants sont ignorés. Calcule les valeurs dérivées pendant le rendu, et passe une nouvelle `key` pour réinitialiser le state quand l’élément change."
+      ],
+      "takeaways": [
+        {
+          "term": "Props",
+          "detail": "Entrées venues du parent, comme des arguments de fonction. L’enfant les lit et ne les modifie jamais."
+        },
+        {
+          "term": "State",
+          "detail": "Données que le composant possède, créées avec `useState`. Appeler le setter programme un nouveau rendu."
+        },
+        {
+          "term": "Snapshot",
+          "detail": "Dans un handler, `count` garde la valeur du rendu qui l’a créé, même juste après `setCount`."
+        },
+        {
+          "term": "Fonction updater",
+          "detail": "`setCount((c) => c + 1)` quand la nouvelle valeur dépend de l’ancienne."
+        },
+        {
+          "term": "Prop callback",
+          "detail": "Les données descendent ; un enfant demande un changement en appelant un callback, et le propriétaire met à jour son state."
+        },
+        {
+          "term": "`useState(prop)`",
+          "detail": "Ne lit la prop qu’au premier rendu. Dérive les valeurs pendant le rendu, ou réinitialise avec une nouvelle `key`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, après qu’un agent a changé le statut d’une commande dans le panneau de détail, le tableau des commandes affiche toujours l’ancien statut. Chaque composant garde sa propre copie. Comment corrigez-vous ça ?",
+        "bridge": "Deux composants qui gardent leur propre copie d’une donnée partagée : la solution est de remonter le state dans leur parent commun le plus proche et de le transmettre en props."
+      },
+      {
+        "question": "Un junior demande pourquoi son `OrderRow` ne peut pas simplement faire `props.status = 'paid'`. Comment lui expliquez-vous qui possède quoi entre props et state ?",
+        "bridge": "La différence entre props et state : les props sont l’entrée en lecture seule du parent, le state appartient à un composant, et un enfant demande des changements via une prop callback."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux affichent le badge de statut de la commande que passe le parent. Lequel affiche `refunded` une fois que le parent a reçu la commande remboursée ?",
+        "why": "Lire `order.status` dans les props affiche ce que le parent passe à chaque rendu. `useState(order.status)` ne lit la prop qu’au premier rendu : quand le parent reçoit la commande remboursée, le badge continue d’afficher `paid`. Ne copie une prop dans le state que si c’est une valeur de départ."
+      }
+    ]
+  },
+  "react-use-effect": {
+    "topic": "useEffect, dépendances, cleanup",
+    "question": "Expliquez `useEffect` : que font son tableau de dépendances et sa fonction de cleanup, et quand ne faut-il pas l’utiliser ?",
+    "answer": "`useEffect` synchronise un composant avec quelque chose en dehors de React, comme un WebSocket, un timer ou une API du navigateur. Il s’exécute après le commit ; le tableau de dépendances liste chaque valeur réactive qu’il lit, et React les compare avec `Object.is` pour décider de le relancer. Avant de le relancer et au démontage, React appelle le cleanup que je renvoie, donc je ferme le socket ou j’annule la requête. Je n’utilise pas d’effet pour calculer des données à partir des props ou du state, ce qui relève du rendu, ni pour réagir à un clic, ce qui relève du handler. Le chargement de données passe en général par un framework ou TanStack Query.",
+    "keyPoints": [
+      "Synchronise avec un système externe, s’exécute après le commit",
+      "Dépendances : chaque valeur réactive lue, comparée avec `Object.is`",
+      "Le cleanup s’exécute avant l’exécution suivante et au démontage",
+      "Pas pour les données dérivées ni la logique d’événement : rendu et handlers s’en chargent"
+    ],
+    "explanation": "Les effets causent la plupart des bugs React, donc les recruteurs veulent savoir si tu y recours par réflexe. Une réponse senior cite les règles de « You Might Not Need an Effect », explique pourquoi Strict Mode exécute setup et cleanup deux fois en développement, et gère les race conditions dans les effets de chargement.",
+    "example": "Le back-office ouvrait un WebSocket pour les mises à jour de commandes en direct dans un effet sans cleanup. En développement, le cycle supplémentaire setup-cleanup de Strict Mode a révélé deux sockets, et en production les agents qui changeaient de commande accumulaient les connexions. Renvoyer `() => socket.close()` et lister `orderId` en dépendance a gardé exactement un socket par commande ouverte.",
+    "mistakes": [
+      "Omettre une valeur du tableau de dépendances pour empêcher un effet de se relancer, ce qui crée des valeurs obsolètes",
+      "Utiliser un effet pour copier des props dans le state ou filtrer une liste, ce qui provoque un rendu de plus",
+      "Charger des données dans un effet sans ignorer ni annuler la requête précédente, si bien qu’une ancienne réponse l’emporte"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi mon effet s’exécute-t-il deux fois en développement ?",
+        "answer": "Strict Mode monte, nettoie puis remonte le composant pour vérifier que le cleanup est correct. Ça n’arrive pas en production ; la solution est un vrai cleanup, pas un garde-fou."
+      },
+      {
+        "question": "Comment évitez-vous une race condition quand un effet charge des données ?",
+        "answer": "Dans le cleanup, je positionne un flag `ignore` ou j’appelle `abort()` sur un `AbortController`, pour qu’une réponse concernant un ancien `orderId` ne soit pas écrite dans le state. Une bibliothèque de données comme TanStack Query gère ça pour vous."
+      },
+      {
+        "question": "Quelle est la différence entre l’absence de tableau de dépendances et un tableau vide ?",
+        "answer": "Sans tableau, l’effet s’exécute après chaque rendu. Avec `[]`, il s’exécute une fois après le montage, plus le cycle supplémentaire de Strict Mode en développement, et son cleanup s’exécute au démontage. Un tableau vide n’est correct que si l’effet ne lit ni props ni state."
+      },
+      {
+        "question": "Pourquoi la règle de lint exhaustive-deps compte-t-elle, et la contourneriez-vous un jour ?",
+        "answer": "Une dépendance manquante laisse l’effet avec des valeurs obsolètes d’un ancien rendu, un bug difficile à voir. Je ne la fais pas taire : je déplace le code dans l’effet, j’utilise une fonction updater, ou, depuis React 19.2, `useEffectEvent` pour une valeur que l’effet lit mais à laquelle il ne doit pas réagir."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un effet avec un tableau de dépendances vide s’exécute une fois en développement sous Strict Mode.",
+        "why": "Strict Mode exécute un cycle setup-cleanup supplémentaire en développement, donc le setup s’exécute deux fois.",
+        "twin": {
+          "statement": "Sous Strict Mode en développement, un effet avec un tableau de dépendances vide exécute son setup deux fois.",
+          "why": "Strict Mode ajoute un cycle setup-cleanup supplémentaire en développement."
+        }
+      },
+      {
+        "statement": "La fonction de cleanup s’exécute avant que l’effet se relance avec de nouvelles dépendances.",
+        "why": "React nettoie avec les anciennes valeurs, puis exécute le setup avec les nouvelles.",
+        "twin": {
+          "statement": "Quand les dépendances changent, React exécute d’abord le setup du nouvel effet et l’ancien cleanup ensuite.",
+          "why": "React nettoie d’abord avec les anciennes valeurs, puis exécute le setup avec les nouvelles."
+        }
+      },
+      {
+        "statement": "Filtrer une liste issue des props a sa place dans un `useEffect` qui stocke le résultat dans le state.",
+        "why": "Calcule-le pendant le rendu ; un effet ajoute un rendu avec des données obsolètes et plus de code.",
+        "twin": {
+          "statement": "Filtrer une liste issue des props a sa place dans le rendu, pas dans un `useEffect` qui stocke le résultat dans le state.",
+          "why": "Calculer pendant le rendu évite un rendu de plus avec des données obsolètes et le code en plus."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "`useEffect` synchronise un composant avec quelque chose en dehors de React, comme un WebSocket, un timer ou une API du navigateur. La plupart des bugs d’effets viennent d’une dépendance manquante, d’un cleanup manquant, ou d’un effet utilisé là où le rendu ou un handler suffiraient.",
+      "points": [
+        "Un effet synchronise un composant avec quelque chose en dehors de React : un WebSocket, un timer, une API du navigateur. Il s’exécute après que React a commité les changements dans le DOM.",
+        "Le tableau de dépendances liste chaque valeur réactive que lit l’effet : props, state et valeurs calculées à partir d’eux. React compare chacune avec `Object.is` et relance l’effet quand l’une a changé.",
+        "Le cleanup que tu renvoies s’exécute avant l’exécution suivante, avec les anciennes valeurs, et au démontage. En développement, Strict Mode exécute setup, cleanup puis setup au montage pour prouver que le cleanup fonctionne.",
+        "Aucun effet n’est nécessaire pour calculer des données à partir des props ou du state (fais-le pendant le rendu) ni pour réagir à un clic (fais-le dans le handler). Un tel effet ajoute un rendu avec des données obsolètes.",
+        "Un effet de chargement doit ignorer ou annuler la requête précédente dans son cleanup, sinon une ancienne réponse peut écraser une plus récente. Omettre une dépendance pour éviter les relances laisse l’effet avec des valeurs obsolètes."
+      ],
+      "takeaways": [
+        {
+          "term": "Quand il s’exécute",
+          "detail": "Après que React a commité les changements dans le DOM."
+        },
+        {
+          "term": "Tableau de dépendances",
+          "detail": "Chaque valeur réactive que lit l’effet. React compare chacune avec `Object.is` et relance l’effet en cas de changement."
+        },
+        {
+          "term": "Cleanup",
+          "detail": "S’exécute avant l’exécution suivante, avec les anciennes valeurs, et au démontage."
+        },
+        {
+          "term": "Strict Mode",
+          "detail": "En développement, exécute setup, cleanup puis setup au montage pour prouver que le cleanup fonctionne."
+        },
+        {
+          "term": "Inutile pour",
+          "detail": "Les données dérivées (calcule-les pendant le rendu) ou la réaction à un clic (fais-la dans le handler)."
+        },
+        {
+          "term": "Charger dans un effet",
+          "detail": "Ignore ou annule la requête précédente dans le cleanup, sinon une ancienne réponse peut écraser une plus récente."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, passer d’une commande à l’autre dans le panneau de détail laisse ouvert le WebSocket de la commande précédente, qui reçoit toujours des mises à jour. Le socket est ouvert dans un `useEffect`. Que manque-t-il ?",
+        "bridge": "Le cleanup de `useEffect` : React l’appelle avant de relancer l’effet et au démontage, c’est donc là qu’il faut fermer le socket."
+      },
+      {
+        "question": "Un collègue filtre la liste des commandes issue des props dans un `useEffect` et stocke le résultat dans le state. Que lui dites-vous, et quand un effet est-il le bon outil ?",
+        "bridge": "Quand ne pas utiliser `useEffect` : les données dérivées relèvent du rendu, et les effets servent à se synchroniser avec quelque chose en dehors de React."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux affichent les commandes payées issues de la prop `orders`. Lequel rend les bonnes lignes sans rendu supplémentaire ?",
+        "why": "Calculer la liste pendant le rendu donne les bonnes lignes en un seul rendu. La version avec effet rend d’abord `OrdersTable` avec la liste précédente (vide au montage), la commite, puis met à jour le state et rend à nouveau : deux rendus par changement de `orders`, le premier avec des lignes obsolètes. Les effets servent à se synchroniser avec des systèmes externes, pas aux données dérivées."
+      }
+    ]
+  },
+  "react-controlled-inputs": {
+    "topic": "Champs contrôlés et non contrôlés",
+    "question": "Quelle est la différence entre champs de formulaire contrôlés et non contrôlés en React ?",
+    "answer": "Un champ est contrôlé quand je lui passe `value` et que je mets à jour cette valeur dans `onChange` : le state React est la source de vérité, donc je peux valider ou formater à chaque frappe. Il est non contrôlé quand c’est le DOM qui garde la valeur : je ne passe que `defaultValue` et je lis le résultat à la soumission, via `FormData` ou une ref. Le contrôlé convient aux champs qui pilotent d’autres parties de l’UI, comme une recherche en direct. Le non contrôlé est plus simple, fait moins de rendus, et colle aux actions de formulaire de React 19, qui reçoivent un `FormData`. Pour les gros formulaires, j’utilise React Hook Form, non contrôlé par défaut.",
+    "keyPoints": [
+      "Contrôlé : `value` plus `onChange`, le state est la source de vérité",
+      "Non contrôlé : `defaultValue`, le DOM garde la valeur",
+      "Lire les valeurs non contrôlées à la soumission avec `FormData` ou une ref",
+      "Choisir le contrôlé quand la valeur pilote d’autres parties de l’UI à chaque frappe"
+    ],
+    "explanation": "Ça teste si tu sais qui possède la valeur. Un senior connaît l’avertissement « changing an uncontrolled input to be controlled », sait pourquoi `value={undefined}` le provoque, et que la même idée s’applique à la conception de composants réutilisables.",
+    "example": "Le formulaire de remboursement du back-office utilisait `useState(order.refundReason)`, et l’API omet `refundReason` tant qu’aucun motif n’est défini, donc le champ démarrait non contrôlé et devenait contrôlé à la première frappe, avec un avertissement dans la console. Une chaîne vide par défaut a réglé le problème. Le formulaire de checkout de la boutique est non contrôlé : son action lit l’adresse depuis `FormData`.",
+    "mistakes": [
+      "Passer `value` sans `onChange`, ce qui donne un champ qui revient en arrière à chaque frappe",
+      "Démarrer `value` à `undefined` ou `null`, puis passer à une chaîne",
+      "Modifier `defaultValue` plus tard en s’attendant à ce que le champ se mette à jour"
+    ],
+    "followUps": [
+      {
+        "question": "Comment construiriez-vous un composant de champ réutilisable qui gère les deux modes ?",
+        "answer": "Comme un input natif : si l’appelant passe `value`, je l’utilise et j’appelle `onValueChange` ; sinon, je garde un state interne initialisé depuis `defaultValue`. Le mode est choisi une fois et ne doit pas changer."
+      },
+      {
+        "question": "Pourquoi les bibliothèques de formulaires comme React Hook Form préfèrent-elles les champs non contrôlés ?",
+        "answer": "La saisie ne re-rend pas tout le formulaire, parce que les valeurs vivent dans le DOM et sont lues via des refs. Seuls les champs qui doivent réagir s’abonnent aux changements."
+      },
+      {
+        "question": "Pour un formulaire avec beaucoup de champs, quand choisissez-vous des champs non contrôlés pour la performance ?",
+        "answer": "Des champs contrôlés dont le state est dans le composant formulaire re-rendent tout le formulaire à chaque frappe, ce qui se voit dès qu’il y a des dizaines de champs ou des enfants lourds. Quand aucune autre partie de l’UI ne réagit à chaque frappe, je passe en non contrôlé et je lis les valeurs à la soumission, ou j’utilise React Hook Form."
+      },
+      {
+        "question": "Comment construiriez-vous un champ contrôlé qui applique aussi un debounce à son `onChange` ?",
+        "answer": "Le champ reste contrôlé par un state local pour que chaque frappe s’affiche tout de suite ; je n’applique le debounce qu’à ce qui en dépend. Un hook `useDebouncedValue(query, 300)` pose un timer dans un effet et l’efface dans le cleanup, et la recherche utilise la valeur debouncée. Appliquer le debounce au setter lui-même fait traîner le champ."
+      },
+      {
+        "question": "Comment donnez-vous une valeur de départ à un champ non contrôlé ?",
+        "answer": "Avec `defaultValue`, ou `defaultChecked` pour une case à cocher ou un bouton radio. Il ne fixe la valeur qu’au montage ; pour charger une autre commande dans le formulaire, je change la `key` du formulaire pour qu’il se remonte avec les nouvelles valeurs par défaut."
+      },
+      {
+        "question": "Quand prenez-vous React Hook Form, et comment s’articule-t-il avec les deux modes de champ ?",
+        "answer": "Quand un formulaire a beaucoup de champs, une validation par schéma avec Zod, des messages d’erreur et des tableaux de champs, comme le formulaire d’édition de commande du back-office. Il enregistre les inputs natifs en non contrôlé par défaut, et enveloppe les composants contrôlés, comme un sélecteur de date, avec son `Controller`."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Mettre à jour `defaultValue` après que l’utilisateur a tapé change ce qu’affiche le champ.",
+        "why": "`defaultValue` ne fixe que la valeur initiale ; ensuite, c’est le DOM qui la possède.",
+        "twin": {
+          "statement": "Mettre à jour `defaultValue` après que l’utilisateur a tapé ne change pas ce qu’affiche le champ.",
+          "why": "`defaultValue` ne fixe que la valeur initiale ; ensuite, c’est le DOM qui la possède."
+        }
+      },
+      {
+        "statement": "Un champ avec `value=\"7\"` et sans `onChange` ignore ce que tape l’utilisateur.",
+        "why": "React ramène sans cesse le DOM à la prop `value`, et React avertit que le champ est en lecture seule.",
+        "twin": {
+          "statement": "Un champ avec `value=\"7\"` et sans `onChange` affiche ce que tape l’utilisateur.",
+          "why": "React ramène sans cesse le DOM à la prop `value` et avertit que le champ est en lecture seule."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un champ est contrôlé quand le state React contient sa valeur, et non contrôlé quand c’est le DOM. Ce choix décide où tu valides, à quelle fréquence le formulaire fait un re-render et comment tu lis la valeur à la soumission.",
+      "points": [
+        "Contrôlé : tu passes `value` et tu le mets à jour dans `onChange`. Le state React est la source de vérité, donc tu peux valider ou formater à chaque frappe.",
+        "Non contrôlé : tu ne passes que `defaultValue`, le DOM garde la valeur, et tu la lis à la soumission avec `FormData` ou une ref. `defaultValue` ne fixe que la première valeur ; le modifier ensuite ne fait rien.",
+        "`value` sans `onChange` donne un champ en lecture seule et un avertissement. Un `value` qui démarre à `undefined` puis devient une chaîne passe de non contrôlé à contrôlé, avec un avertissement : démarre avec `''`.",
+        "Les actions de formulaire de React 19 reçoivent un `FormData`, ce qui colle aux champs non contrôlés. React Hook Form s’appuie aussi sur des champs non contrôlés, donc la saisie ne re-rend pas tout le formulaire.",
+        "Un champ réutilisable peut gérer les deux modes, comme un champ natif : contrôlé quand l’appelant passe `value`, sinon un state interne initialisé depuis `defaultValue`. Le mode est choisi une fois et ne change jamais."
+      ],
+      "takeaways": [
+        {
+          "term": "Contrôlé",
+          "detail": "Passer `value` et le mettre à jour dans `onChange` : le state est la source de vérité, donc tu peux valider à chaque frappe."
+        },
+        {
+          "term": "Non contrôlé",
+          "detail": "Passer seulement `defaultValue` ; le DOM garde la valeur et tu la lis à la soumission avec `FormData` ou une ref."
+        },
+        {
+          "term": "`defaultValue`",
+          "detail": "Ne fixe que la première valeur ; le modifier ensuite ne fait rien."
+        },
+        {
+          "term": "`value` sans `onChange`",
+          "detail": "Donne un champ en lecture seule et un avertissement."
+        },
+        {
+          "term": "`value` qui démarre à `undefined`",
+          "detail": "Passe de non contrôlé à contrôlé quand il devient une chaîne, avec un avertissement : démarre avec `''`."
+        },
+        {
+          "term": "Actions de formulaire React 19",
+          "detail": "Elles reçoivent un `FormData` à la soumission, ce qui colle aux champs non contrôlés. React Hook Form s’appuie aussi sur des champs non contrôlés."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le formulaire de remboursement du back-office, le champ montant garde la valeur tapée par l’agent pour la commande précédente, alors que le composant reçoit maintenant le montant de la nouvelle commande en `defaultValue`. Pourquoi ?",
+        "bridge": "Un champ non contrôlé : `defaultValue` ne fixe que la valeur initiale et le DOM la possède ensuite, ce qui est le cœur de la distinction contrôlé / non contrôlé."
+      },
+      {
+        "question": "La boutique a un champ de recherche avec suggestions en direct et un formulaire d’adresse de 12 champs. Quel style de champ choisissez-vous pour chacun, et pourquoi ?",
+        "bridge": "Le choix contrôlé / non contrôlé : contrôlé quand la valeur pilote d’autres parties de l’UI à chaque frappe, non contrôlé pour les gros formulaires lus à la soumission."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux éditent le motif de remboursement, que l’API omet tant qu’aucun n’est défini. Lequel reste contrôlé dès le premier rendu ?",
+        "why": "Une valeur par défaut à `''` donne au champ une `value` de type chaîne dès le départ, donc le state React la possède du début à la fin. Avec `undefined`, React traite le champ comme non contrôlé ; la première frappe pose une chaîne et React avertit « A component is changing an uncontrolled input to be controlled », un changement de propriétaire en pleine édition."
+      }
+    ]
+  },
+  "react-state-libraries": {
+    "topic": "Où vit le state : hooks ou store",
+    "question": "Quand utilisez-vous le state natif de React (`useState`, `useContext`) et quand une bibliothèque de state comme Redux ou Zustand ?",
+    "answer": "Je trie d’abord le state par nature. Les données de l’API sont du server state : un cache, donc j’utilise TanStack Query, qui gère le chargement, le refetch et l’invalidation. Les filtres qu’un lien doit conserver vont dans l’URL. Le state d’UI local reste dans `useState`, remonté quand des frères le partagent. Context sert aux valeurs qui changent rarement, comme le thème ou l’utilisateur courant, parce que chaque lecteur fait un re-render quand la valeur change. J’ajoute Zustand ou Redux Toolkit seulement pour du state client que beaucoup de composants éloignés lisent et mettent à jour souvent, parce qu’ils permettent de s’abonner à une tranche. Une fois le server state dans un cache de requêtes, ce store est en général petit.",
+    "keyPoints": [
+      "Le server state est un cache : TanStack Query, pas un store global",
+      "L’URL pour le state partageable, `useState` pour le state d’UI local",
+      "Context pour les valeurs qui changent rarement ; chaque lecteur fait un re-render",
+      "Un store pour le state client partagé et souvent mis à jour, avec des sélecteurs"
+    ],
+    "explanation": "La question vérifie si tu sais choisir selon le besoin plutôt que par habitude. Les recruteurs guettent la séparation server state / state client, qui a retiré l’essentiel de ce que contenait Redux, et le coût en re-renders de Context.",
+    "example": "Le back-office gardait toutes les commandes dans un store Redux et le rafraîchissait à la main après un remboursement, donc la liste et le détail étaient souvent en désaccord. Passer les commandes dans TanStack Query avec `invalidateQueries` après la mutation de remboursement a supprimé environ 600 lignes de reducers ; il est resté un petit store Zustand pour la disposition des colonnes du tableau.",
+    "mistakes": [
+      "Mettre les données de l’API dans Redux ou Zustand et reconstruire à la main cache, chargement et refetch",
+      "Utiliser un gros Context pour des valeurs qui changent vite, si bien que tout l’arbre fait un re-render",
+      "Ajouter une bibliothèque dès le premier jour, avant qu’il existe le moindre state client partagé"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi un sélecteur Zustand évite-t-il les re-renders que provoque Context ?",
+        "answer": "Un composant abonné avec un sélecteur ne fait un re-render que quand la valeur sélectionnée change. Un lecteur de Context fait un re-render chaque fois que la valeur du provider change, même s’il n’utilise qu’un champ."
+      },
+      {
+        "question": "Où gardez-vous les filtres du tableau des commandes ?",
+        "answer": "Dans la query string, lue et écrite avec `useSearchParams`, pour qu’un rechargement, un lien partagé et le bouton retour les conservent. La clé de requête inclut alors les filtres."
+      },
+      {
+        "question": "Qu’est-ce qui ne va pas quand un state global qui change vite vit dans Context ?",
+        "answer": "Chaque composant qui lit le context fait un re-render à chaque changement, même s’il n’utilise qu’un champ, et une valeur de provider construite comme un nouvel objet à chaque rendu aggrave les choses. Je découpe les contexts selon leur fréquence de changement, je mémoïse la valeur, ou je déplace ce state dans un store avec sélecteurs."
+      },
+      {
+        "question": "En quoi la philosophie de Zustand diffère-t-elle de celle de Redux ?",
+        "answer": "Redux garde un store unique modifié seulement par des actions dispatchées via des reducers purs, ce qui donne une structure stricte, des middlewares et des devtools avec time-travel. Zustand est un petit store à base de hooks : on appelle `set` directement depuis des fonctions du store, sans provider, et on garde autant de petits stores qu’on veut."
+      },
+      {
+        "question": "À quel moment une app qui grandit a-t-elle besoin d’une bibliothèque de state ?",
+        "answer": "Une fois le server state dans TanStack Query et les filtres dans l’URL, quand du state client reste partagé par des composants éloignés et mis à jour souvent, et que remonter le state ou Context commence à causer des re-renders ou des callbacks emmêlés. Pas dès le premier jour : dans le back-office, ce moment a été la disposition des colonnes du tableau."
+      },
+      {
+        "question": "Comment décidez-vous si un state reste local, est remonté, ou devient global ?",
+        "answer": "Il commence local. Quand un deuxième composant en a besoin, je le remonte dans leur parent commun le plus proche. Il ne devient global que quand des parties éloignées de l’app le lisent et le modifient, et que le transmettre devient pénible, comme la disposition des colonnes utilisée par le tableau, l’export et le panneau de réglages."
+      },
+      {
+        "question": "Qu’est-ce que le server state, et pourquoi des bibliothèques comme TanStack Query le traitent-elles à part ?",
+        "answer": "C’est une copie de données possédées par le serveur : d’autres personnes les modifient, donc elles deviennent obsolètes. Il faut du cache, de la déduplication, du refetch en arrière-plan et de l’invalidation après une mutation, ce qu’un store client n’apporte pas. TanStack Query gère tout ça par clé de requête, donc je ne copie pas les données de l’API dans un store."
+      },
+      {
+        "question": "Comment migreriez-vous vers TanStack Query une app qui stocke les données de l’API dans Redux ?",
+        "answer": "Un endpoint à la fois : je remplace le thunk et sa slice par un hook `useQuery` derrière la même API de composant, je transforme les écritures en mutations qui invalident leurs clés, puis je supprime le reducer. Le state purement client reste dans Redux, qui se réduit en général à une petite slice."
+      },
+      {
+        "question": "Quel est le risque de stocker un state dérivé au lieu de le calculer ?",
+        "answer": "Deux sources de vérité qui divergent : le total ou la liste filtrée stockés doivent être mis à jour par chaque chemin de code qui modifie leurs entrées, et un seul chemin oublié affiche des données obsolètes. Les calculer pendant le rendu est toujours juste ; j’ajoute `useMemo` ou un sélecteur seulement si c’est lent de façon mesurable."
+      },
+      {
+        "question": "Que coûte un state qui change souvent dans un store global ?",
+        "answer": "Chaque mise à jour notifie tous les abonnés et exécute leurs sélecteurs, et les composants dont la tranche sélectionnée a changé font un re-render loin de l’endroit du changement. Des frappes ou un état de survol dans un store remplissent aussi les devtools de bruit et couplent des écrans sans rapport. Le state d’UI rapide et local a sa place dans `useState`."
+      },
+      {
+        "question": "Racontez-moi une fois où vous avez déplacé du state de global à local, ou l’inverse.",
+        "answer": "Dans le back-office, le brouillon du formulaire de remboursement vivait dans Redux, donc chaque frappe passait par le store et un ancien brouillon réapparaissait sur la commande suivante. Je l’ai déplacé dans le `useState` de la modale, avec l’id de commande comme key. La saisie est devenue plus légère, le bug a disparu, et j’ai appris à commencer en local."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Context est un outil de gestion de state qui ne re-rend que les composants qui lisent le champ modifié.",
+        "why": "Chaque composant qui lit le context fait un re-render quand la valeur du provider change.",
+        "twin": {
+          "statement": "Chaque composant qui lit un context fait un re-render quand la valeur du provider change, quel que soit le champ qu’il utilise.",
+          "why": "Context n’a pas d’abonnement par champ ; un store permet aux composants de s’abonner à une tranche."
+        }
+      },
+      {
+        "statement": "TanStack Query peut remplacer l’essentiel d’un store Redux qui ne fait que mettre en cache des réponses d’API.",
+        "why": "C’est un cache de server state avec déduplication, refetch et invalidation intégrés.",
+        "twin": {
+          "statement": "Un store Redux qui ne fait que mettre en cache des réponses d’API doit rester dans Redux ; TanStack Query ne peut pas le remplacer.",
+          "why": "TanStack Query est un cache de server state avec déduplication, refetch et invalidation intégrés, donc il remplace l’essentiel d’un tel store."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Choisir où vit le state commence par le trier par nature : données d’API, state d’URL, state d’UI local ou state client partagé. Chaque nature a sa place naturelle, et la bonne retire l’essentiel de ce que contenaient les stores globaux.",
+      "points": [
+        "Trie d’abord le state par nature. Le server state, ce sont les données de l’API, une copie qui peut devenir obsolète. Le state client n’existe que dans le navigateur, comme un panneau ouvert ou la disposition des colonnes d’un tableau.",
+        "Le server state va dans un cache de requêtes comme TanStack Query, qui gère chargement, déduplication, refetch et invalidation après une mutation. Ça retire l’essentiel de ce que contenaient les stores globaux.",
+        "Le state qu’un lien doit conserver, comme les filtres du tableau des commandes, va dans la query string de l’URL. Le state d’UI local reste dans `useState`, remonté dans le parent commun le plus proche quand des frères le partagent.",
+        "Context transmet une valeur vers le bas sans props, mais chaque composant qui la lit fait un re-render quand la valeur du provider change. Il convient aux valeurs qui changent rarement : thème, utilisateur courant, locale.",
+        "Un store comme Zustand ou Redux Toolkit convient au state client que beaucoup de composants éloignés lisent et mettent à jour souvent. Chaque composant s’abonne avec un sélecteur et ne fait un re-render que quand sa valeur sélectionnée change."
+      ],
+      "takeaways": [
+        {
+          "term": "Server state",
+          "detail": "Une copie des données de l’API qui peut devenir obsolète : garde-la dans un cache de requêtes comme TanStack Query."
+        },
+        {
+          "term": "Query string de l’URL",
+          "detail": "Pour le state qu’un lien doit conserver, comme les filtres du tableau des commandes."
+        },
+        {
+          "term": "`useState`",
+          "detail": "Pour le state d’UI local, remonté dans le parent commun le plus proche quand des frères le partagent."
+        },
+        {
+          "term": "Context",
+          "detail": "Pour les valeurs qui changent rarement comme le thème, l’utilisateur courant ou la locale : chaque lecteur fait un re-render quand la valeur change."
+        },
+        {
+          "term": "Zustand, Redux Toolkit",
+          "detail": "Pour le state client que beaucoup de composants éloignés lisent et mettent à jour souvent. Un sélecteur ne re-rend que si sa tranche change."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le back-office garde les commandes de l’API, les filtres du tableau, le thème et un flag de modale ouverte dans un seul store Redux, et chaque chargement demande des flags de loading écrits à la main. Comment réorganiseriez-vous ce state ?",
+        "bridge": "Trier le state par nature : le server state dans un cache de requêtes, les filtres dans l’URL, le state d’UI local dans `useState`, les valeurs rares dans Context, et un store seulement pour ce qui reste."
+      },
+      {
+        "question": "Un collègue veut un gros Context contenant l’utilisateur courant, le panier et les compteurs de commandes en direct, « comme ça, pas besoin de bibliothèque ». Quand Context suffit-il, et quand ajoutez-vous Zustand ou Redux ?",
+        "bridge": "State natif contre store : Context re-rend chaque lecteur à chaque changement, donc il convient aux valeurs qui changent rarement ; un store avec sélecteurs convient au state partagé souvent mis à jour."
+      }
+    ]
+  },
+  "react-keys": {
+    "topic": "Keys dans les listes",
+    "question": "Qu’est-ce que la prop `key`, et pourquoi compte-t-elle quand on rend des listes ?",
+    "answer": "Une `key` indique à React quel élément d’une liste est lequel d’un rendu à l’autre. React associe anciens et nouveaux enfants par key, donc il peut déplacer, insérer ou supprimer des éléments et garder le state et le DOM de chacun attachés aux bonnes données. La key doit être stable et unique parmi les frères, typiquement l’id en base comme `order.id`. Utiliser l’index du tableau casse dès que la liste est réordonnée, filtrée ou qu’on ajoute en tête : le state et les valeurs saisies restent à une position et finissent sur le mauvais élément. Je change aussi une key exprès pour réinitialiser le state d’un composant.",
+    "keyPoints": [
+      "Identifie chaque élément d’un rendu à l’autre pour que React les associe",
+      "Stable et unique parmi les frères : utiliser l’id de la donnée",
+      "Les keys par index cassent au réordonnancement, filtre ou ajout : le state se déplace",
+      "Changer une key remonte le composant et réinitialise son state"
+    ],
+    "explanation": "Les recruteurs veulent le mécanisme, pas « ça enlève le warning ». Une bonne réponse explique que le state est lié à une position et une key, et donne le vrai bug que causent les keys par index.",
+    "example": "Dans le back-office, chaque ligne de commande avait un champ « note » et utilisait l’index du tableau comme key. Quand une mise à jour en direct ajoutait une nouvelle commande en tête, chaque note saisie restait à sa position pendant que les commandes descendaient, donc elle s’affichait sur la nouvelle commande au lieu de la sienne. Passer à `key={order.id}` a gardé chaque note avec sa commande.",
+    "mistakes": [
+      "Utiliser l’index comme key pour une liste qu’on peut trier, filtrer ou compléter en tête",
+      "Générer des keys avec `Math.random()` ou `crypto.randomUUID()` pendant le rendu, ce qui remonte chaque élément",
+      "Croire que les keys doivent être uniques dans toute l’app : seulement parmi les frères"
+    ],
+    "followUps": [
+      {
+        "question": "Quand l’index est-il acceptable comme key ?",
+        "answer": "Quand la liste est statique : jamais réordonnée, filtrée ni complétée, et que les éléments n’ont pas de state. Une liste en lecture seule de liens de footer en est un exemple."
+      },
+      {
+        "question": "Comment réinitialisez-vous un formulaire quand l’utilisateur ouvre une autre commande ?",
+        "answer": "Je le rends avec `key={orderId}` : une nouvelle key fait démonter l’ancien formulaire par React et en monter un neuf, sans effet nécessaire."
+      },
+      {
+        "question": "Quels bugs et ralentissements cause une key instable ?",
+        "answer": "Une key qui change à chaque rendu, comme `Math.random()`, remonte chaque élément : texte saisi, focus et scroll sont perdus, les effets se relancent et le DOM est reconstruit. Une key par index sur une liste qui change garde le DOM mais attache le state au mauvais élément."
+      },
+      {
+        "question": "Comment choisissez-vous les keys pour des éléments chargés depuis une API ?",
+        "answer": "J’utilise l’id que renvoie l’API, comme `order.id`, ou une combinaison comme `orderId` et `productId` pour les lignes de commande. Si les données n’ont pas d’id, j’en ajoute un à l’arrivée de la réponse, jamais pendant le rendu."
+      },
+      {
+        "question": "Comment vérifieriez-vous dans les DevTools que les keys rendent la réconciliation efficace ?",
+        "answer": "L’onglet Components des React DevTools montre la key de chaque ligne. Ensuite j’enregistre une mise à jour en direct dans le Profiler : avec des keys stables, ajouter une commande en tête monte une seule nouvelle ligne et les lignes mémoïsées ne sont pas rendues ; avec des keys aléatoires, chaque ligne se remonte et leurs effets se relancent."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Les keys n’ont besoin d’être uniques que parmi les frères d’une même liste.",
+        "why": "React compare les keys au sein des enfants d’un même parent ; deux listes peuvent réutiliser les mêmes keys.",
+        "twin": {
+          "statement": "Les keys doivent être uniques dans toute la page, pas seulement parmi les frères d’une liste.",
+          "why": "React compare les keys au sein des enfants d’un même parent, donc deux listes peuvent réutiliser les mêmes keys."
+        }
+      },
+      {
+        "statement": "Une key générée avec `Math.random()` pendant le rendu convient tant qu’elle est unique.",
+        "why": "Elle change à chaque rendu, donc React remonte chaque élément et perd son state et son DOM.",
+        "twin": {
+          "statement": "Une key générée avec `Math.random()` pendant le rendu fait remonter chaque élément par React à chaque rendu.",
+          "why": "Elle change à chaque rendu, donc React traite chaque élément comme nouveau et perd son state et son DOM."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une `key` indique à React quel élément de liste est lequel d’un rendu à l’autre. Des keys stables gardent le state et le DOM de chaque élément attachés aux bonnes données quand la liste est réordonnée, filtrée ou s’allonge.",
+      "points": [
+        "React associe les enfants d’une liste d’un rendu à l’autre par leur `key`. Ça lui permet de déplacer, insérer ou supprimer des éléments tandis que le state et le DOM de chacun restent attachés aux bonnes données.",
+        "Une key doit être stable et unique parmi ses frères, en général l’id en base comme `order.id`. Deux listes différentes peuvent réutiliser les mêmes keys.",
+        "Avec l’index comme key, le state appartient à une position. Ajoute une commande en tête et la note saisie dans la première ligne reste dans la première ligne, qui affiche maintenant une autre commande. L’index ne convient qu’aux listes statiques sans state.",
+        "Une key créée avec `Math.random()` ou `crypto.randomUUID()` pendant le rendu change à chaque fois, donc React remonte chaque élément et perd son state et son DOM.",
+        "Changer une key exprès remonte le composant avec un state neuf : `<RefundForm key={orderId} />` réinitialise le formulaire quand l’agent ouvre une autre commande, sans effet nécessaire."
+      ],
+      "takeaways": [
+        {
+          "term": "Association par key",
+          "detail": "React associe anciens et nouveaux enfants par key, donc il peut déplacer, insérer ou supprimer des éléments."
+        },
+        {
+          "term": "Bonne key",
+          "detail": "Stable et unique parmi les frères, en général l’id en base comme `order.id`."
+        },
+        {
+          "term": "Index comme key",
+          "detail": "Le state appartient à une position : réordonne, filtre ou ajoute en tête et il finit sur le mauvais élément."
+        },
+        {
+          "term": "Key aléatoire",
+          "detail": "`Math.random()` ou `crypto.randomUUID()` pendant le rendu change à chaque fois, donc chaque élément se remonte."
+        },
+        {
+          "term": "Portée de l’unicité",
+          "detail": "Seulement parmi les frères : deux listes différentes peuvent réutiliser les mêmes keys."
+        },
+        {
+          "term": "Réinitialiser avec une key",
+          "detail": "`<RefundForm key={orderId} />` se remonte avec un state neuf quand la key change, sans effet nécessaire."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, un agent tape une note dans la première ligne du tableau des commandes ; une mise à jour en direct ajoute une nouvelle commande en tête et la note se retrouve sur une autre commande. Qu’est-ce qui ne va pas ?",
+        "bridge": "Les keys par index : le state reste à une position, donc un ajout en tête le décale sur la mauvaise commande. Une key stable comme `order.id` garde le state avec sa donnée."
+      },
+      {
+        "question": "Comment réinitialiseriez-vous complètement le formulaire de remboursement quand l’agent ouvre une autre commande, sans vider chaque champ à la main ?",
+        "bridge": "L’autre usage de `key` : la changer exprès remonte le composant, donc `key={order.id}` donne au formulaire un state neuf."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux rendent des lignes de commande où les agents tapent une note, et les mises à jour en direct ajoutent des commandes en tête. Lequel garde chaque note sur sa commande ?",
+        "why": "Avec `key={order.id}`, React associe chaque ligne à sa commande, donc la note saisie et son champ suivent la commande. Avec l’index, une commande ajoutée en tête prend la key 0 : React réutilise la première ligne, son state et son champ pour la nouvelle commande, donc la note tapée pour la commande A s’affiche maintenant sur la nouvelle commande et la ligne de A est vide."
+      }
+    ]
+  },
+  "react-memoization": {
+    "topic": "memo, useMemo et useCallback",
+    "question": "Qu’est-ce que la mémoïsation en React, et en quoi `React.memo`, `useMemo` et `useCallback` diffèrent-ils ?",
+    "answer": "La mémoïsation, c’est réutiliser un résultat précédent quand les entrées n’ont pas changé. `React.memo` enveloppe un composant et saute son rendu quand ses props sont superficiellement égales à la fois précédente. `useMemo` met en cache une valeur calculée et `useCallback` une fonction d’un rendu à l’autre, surtout pour qu’un enfant mémoïsé ou une dépendance d’effet reçoive la même référence. Je mesure d’abord avec le Profiler. Depuis React Compiler 1.0, stable depuis octobre 2025, le compilateur ajoute ce cache au build, donc dans du nouveau code je ne garde ces hooks que comme échappatoires. Ça ne rend pas bon marché une entrée qui a changé.",
+    "keyPoints": [
+      "`memo` saute un rendu quand les props sont superficiellement égales",
+      "`useMemo` met en cache une valeur, `useCallback` une fonction",
+      "Ils comptent pour l’égalité référentielle : enfants mémoïsés, dépendances",
+      "React Compiler mémoïse automatiquement au build ; mesurer d’abord"
+    ],
+    "explanation": "Les recruteurs vérifient que tu sais que ces outils ne sautent du travail que si les références restent stables, et que tu mesures avant de les ajouter. En 2026, ils attendent aussi que tu saches ce que fait et ne fait pas le React Compiler.",
+    "example": "Le tableau des commandes du back-office enveloppait chaque ligne dans `memo`, mais le parent passait `onOpen={() => open(id)}`, une nouvelle fonction à chaque rendu, donc les 200 lignes étaient quand même rendues à chaque frappe dans le filtre. Activer le React Compiler sur ce dossier a mis en cache le callback et les lignes ; le Profiler ne montrait plus que les lignes modifiées en train d’être rendues.",
+    "mistakes": [
+      "Envelopper un enfant dans `memo` tout en lui passant un nouvel objet ou une nouvelle fonction fléchée à chaque rendu",
+      "Ajouter `useMemo` partout sans mesurer, ce qui ajoute du coût et du bruit",
+      "Croire que le React Compiler rend rapide un filtrage lent quand son entrée change à chaque frappe"
+    ],
+    "followUps": [
+      {
+        "question": "`useMemo` est-il encore nécessaire avec le React Compiler ?",
+        "answer": "Dans du nouveau code, rarement : le compilateur s’en charge, et react.dev garde `useMemo` et `useCallback` comme échappatoires, par exemple pour une dépendance d’effet. Dans le code existant, on les laisse en place ou on ne les retire qu’avec des tests."
+      },
+      {
+        "question": "Qu’est-ce que le compilateur laisse de côté ?",
+        "answer": "Le code qui enfreint les règles de React, comme muter des props ou lire des refs pendant le rendu, et certaines bibliothèques incompatibles. Il compile le reste, donc les règles ESLint de `eslint-plugin-react-hooks` passent en premier."
+      },
+      {
+        "question": "Quand `React.memo` échoue-t-il à sauter un rendu ?",
+        "answer": "Quand une prop est une nouvelle référence à chaque rendu : un objet inline, une fonction fléchée, ou du JSX passé en `children`. Un composant mémoïsé est aussi rendu quand son propre state change ou qu’un context qu’il lit change."
+      },
+      {
+        "question": "Comment trouvez-vous où la mémoïsation vaut le coup, au lieu de deviner ?",
+        "answer": "J’enregistre l’interaction lente avec le Profiler des React DevTools, avec « Record why each component rendered » coché, et je cherche dans le flame graph les composants qui sont rendus souvent, prennent du temps et reçoivent des props égales. Je corrige ceux-là, puis j’enregistre à nouveau pour comparer."
+      },
+      {
+        "question": "Que coûte la mémoïsation, même quand elle fonctionne ?",
+        "answer": "De la mémoire pour garder la valeur en cache, une comparaison des dépendances à chaque rendu, et plus de code à lire. De mauvaises dépendances donnent des valeurs obsolètes, et un memo dont les entrées changent à chaque fois paie la comparaison et rend quand même."
+      },
+      {
+        "question": "Quelle est la différence entre mémoïser une valeur et mémoïser un composant ?",
+        "answer": "`useMemo` met en cache un résultat dans un composant, donc un calcul lourd ou une référence d’objet est réutilisé entre ses rendus. `memo` enveloppe un composant entier et saute son rendu quand ses props sont égales. Ils travaillent souvent ensemble : `useMemo` garde la prop stable pour que `memo` puisse sauter le rendu."
+      },
+      {
+        "question": "Comment mesurez-vous si un calcul est assez coûteux pour justifier `useMemo` ?",
+        "answer": "Je l’entoure de `console.time` et `console.timeEnd`, je répète l’interaction avec le CPU bridé, idéalement sur un build de production. react.dev suggère de mémoïser quand le total atteint environ 1 ms ou plus. `useMemo` n’accélère jamais le premier rendu, seulement les suivants."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`useCallback(fn, deps)` équivaut à `useMemo(() => fn, deps)`.",
+        "why": "Les deux renvoient la même référence de fonction tant qu’aucune dépendance ne change.",
+        "twin": {
+          "statement": "`useCallback(fn, deps)` renvoie une nouvelle fonction à chaque rendu, contrairement à `useMemo(() => fn, deps)`.",
+          "why": "Les deux renvoient la même référence de fonction tant qu’aucune dépendance ne change, donc ils sont équivalents."
+        }
+      },
+      {
+        "statement": "`React.memo` compare les props en profondeur, donc un nouvel objet au même contenu ne déclenche pas de rendu.",
+        "why": "Il compare chaque prop avec `Object.is`, donc un nouvel objet est un changement.",
+        "twin": {
+          "statement": "`React.memo` compare les props superficiellement, donc un nouvel objet au même contenu déclenche un rendu.",
+          "why": "Il compare chaque prop avec `Object.is`, et un nouvel objet est une référence différente."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "La mémoïsation réutilise un résultat précédent quand les entrées n’ont pas changé. En React, elle saute des rendus et garde les références stables, et depuis React Compiler 1.0 le build peut l’ajouter pour toi.",
+      "points": [
+        "La mémoïsation réutilise un résultat précédent quand les entrées n’ont pas changé. React compare les entrées avec `Object.is`, par référence, donc un nouvel objet ou une nouvelle fonction fléchée compte comme un changement, même avec le même contenu.",
+        "`memo(Component)` saute le rendu du composant quand chaque prop est égale à la fois précédente, une comparaison superficielle. Un seul nouvel objet ou callback en prop, et il est rendu quand même.",
+        "`useMemo` met en cache une valeur et `useCallback` une fonction, jusqu’à ce qu’une dépendance change ; `useCallback(fn, deps)` équivaut à `useMemo(() => fn, deps)`. Leur usage principal : des références stables pour les enfants mémoïsés et les effets.",
+        "React Compiler, stable depuis la version 1.0 en octobre 2025, ajoute cette mémoïsation au build et laisse de côté le code qui enfreint les règles de React. react.dev garde `useMemo` et `useCallback` comme échappatoires.",
+        "La mémoïsation ne saute du travail que si les entrées restent les mêmes ; elle ne rend pas moins cher une entrée qui a changé. Mesure avec le Profiler des React DevTools avant et après."
+      ],
+      "takeaways": [
+        {
+          "term": "`Object.is`",
+          "detail": "Les entrées sont comparées par référence : un nouvel objet ou une nouvelle fonction fléchée compte comme un changement, même avec le même contenu."
+        },
+        {
+          "term": "`memo(Component)`",
+          "detail": "Saute le rendu quand chaque prop est superficiellement égale à la fois précédente."
+        },
+        {
+          "term": "`useMemo`",
+          "detail": "Met en cache une valeur jusqu’à ce qu’une dépendance change."
+        },
+        {
+          "term": "`useCallback`",
+          "detail": "Met en cache une fonction : `useCallback(fn, deps)` équivaut à `useMemo(() => fn, deps)`."
+        },
+        {
+          "term": "React Compiler",
+          "detail": "Stable depuis la 1.0 en octobre 2025, il ajoute la mémoïsation au build ; les hooks deviennent des échappatoires."
+        },
+        {
+          "term": "Le Profiler d’abord",
+          "detail": "La mémoïsation ne rend pas moins chère une entrée qui a changé. Mesure avant et après."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le back-office enveloppe `OrderRow` dans `React.memo`, et pourtant le Profiler montre chaque ligne rendue quand un filtre change. Le parent passe `style={{ padding: 8 }}` et un `onRefund` inline. Pourquoi ?",
+        "bridge": "`memo` compare les props avec `Object.is`, donc de nouveaux objets et de nouvelles fonctions à chaque rendu le mettent en échec ; c’est pour ça qu’existent `useMemo` et `useCallback`."
+      },
+      {
+        "question": "Dans un nouveau projet avec le React Compiler activé, un collègue ajoute `useMemo` et `useCallback` partout « par sécurité ». Que lui dites-vous ?",
+        "bridge": "La mémoïsation à l’ère du compilateur : il ajoute le cache au build, donc les hooks manuels deviennent des échappatoires, et la mesure passe en premier."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux rendent 200 `OrderRow` mémoïsées et ouvrent la commande cliquée. Lequel évite de re-rendre chaque ligne à chaque clic ?",
+        "why": "`useCallback` renvoie la même fonction à chaque rendu, donc `memo` voit des props égales et saute les 200 lignes quand `openId` change. La fonction fléchée inline est une nouvelle fonction à chaque rendu : `memo` la compare avec `Object.is`, voit un changement, et les 200 lignes sont rendues à nouveau à chaque clic, pour rien."
+      }
+    ]
+  },
+  "react-long-lists": {
+    "topic": "Rendre des milliers de lignes",
+    "question": "Comment rendriez-vous efficacement une liste de milliers d’éléments ?",
+    "answer": "D’abord je me demande si l’utilisateur a besoin de milliers de lignes à la fois : une pagination côté serveur avec des filtres est plus simple et envoie moins de données. S’il fait vraiment défiler une longue liste, je la virtualise avec TanStack Virtual, qui ne rend que les lignes visibles plus un petit overscan, dans un conteneur aussi haut que la liste complète. Ensuite je garde chaque rendu bon marché : keys stables, lignes qui ne se re-rendent que quand leurs propres données changent, et `useDeferredValue` pour que la saisie dans un filtre reste réactive. Virtualiser a un coût : la recherche dans la page rate les lignes cachées, et l’accessibilité demande `aria-rowcount`.",
+    "keyPoints": [
+      "Questionner le besoin d’abord : pagination et filtrage côté serveur",
+      "Virtualiser : ne rendre que les lignes visibles plus l’overscan",
+      "Keys stables et lignes qui sautent les données inchangées",
+      "Garder la saisie réactive avec `useDeferredValue` ou une transition",
+      "Connaître les coûts : recherche dans la page, restauration du scroll, nombre de lignes ARIA"
+    ],
+    "explanation": "Une réponse senior commence par la question produit et le volume de données, pas par une bibliothèque. Les recruteurs écoutent ensuite comment fonctionne la virtualisation, ses compromis, et comment tu mesurerais le gain.",
+    "example": "La page des commandes du back-office rendait 5 000 lignes, et son montage prenait entre 0,6 et 3,6 secondes sous Chromium. Virtualiser avec `useVirtualizer` a ramené le rendu à environ 40 lignes, monté en moins de 30 ms, et chaque frappe dans le filtre s’affichait en environ 25 ms. L’équipe a ajouté `aria-rowcount` et `aria-rowindex` pour que les lecteurs d’écran annoncent toujours la taille réelle.",
+    "mistakes": [
+      "Sortir la virtualisation avant de se demander si une pagination suffirait",
+      "Oublier une `key` stable, si bien que le défilement remonte les lignes et perd leur state",
+      "Croire que `memo` seul règle le problème : 5 000 lignes de DOM restent lentes à monter et à mettre en page"
+    ],
+    "followUps": [
+      {
+        "question": "Comment virtualisez-vous des lignes de hauteurs différentes ?",
+        "answer": "On donne une taille estimée et on laisse la bibliothèque mesurer chaque ligne rendue, avec `measureElement` dans TanStack Virtual. Estimer large évite les sauts pendant le défilement."
+      },
+      {
+        "question": "`useTransition` rend-il le filtrage plus rapide ?",
+        "answer": "Non : il marque la mise à jour comme interruptible pour que la saisie reste réactive, mais le travail coûte toujours autant. C’est rendre moins de lignes qui le rend plus rapide."
+      },
+      {
+        "question": "Au-delà de la virtualisation, qu’optimiseriez-vous sur une page chargée en données ?",
+        "answer": "Filtrer, trier et paginer côté serveur, et ne demander à l’API que les colonnes affichées. Garder les lignes légères avec des keys stables et des lignes mémoïsées, garder la saisie réactive avec `useDeferredValue`, et sortir le travail client lourd du thread principal ou le découper en petits morceaux."
+      },
+      {
+        "question": "Comment combinez-vous un scroll infini avec une liste virtualisée ?",
+        "answer": "Je charge les pages avec `useInfiniteQuery` de TanStack Query, je les aplatis en un seul tableau, et je donne au virtualizer une ligne de plus pour un loader tant que `hasNextPage` est vrai. Quand le dernier index visible atteint le nombre chargé, j’appelle `fetchNextPage`, avec une pagination par curseur côté API."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Avec la virtualisation, la recherche dans la page du navigateur peut trouver des lignes hors de la zone visible.",
+        "why": "Les lignes hors de la fenêtre ne sont pas dans le DOM, donc le navigateur ne peut pas les trouver.",
+        "twin": {
+          "statement": "Avec la virtualisation, la recherche dans la page du navigateur ne peut pas trouver les lignes hors de la zone visible.",
+          "why": "Les lignes hors de la fenêtre ne sont pas dans le DOM, donc le navigateur n’a rien à trouver."
+        }
+      },
+      {
+        "statement": "Une liste virtualisée garde une barre de défilement correcte en dimensionnant un conteneur à la hauteur de la liste complète.",
+        "why": "Le conteneur a la hauteur totale, et les lignes visibles sont positionnées à l’intérieur.",
+        "twin": {
+          "statement": "Une liste virtualisée dimensionne sa barre de défilement sur les seules lignes rendues, pas sur la liste complète.",
+          "why": "Un conteneur a la hauteur de la liste complète, donc la barre de défilement correspond à toute la liste."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Rendre des milliers de lignes d’un coup rend une page lente à afficher et à utiliser pour la saisie. La réponse se fait par étapes : questionner le besoin, virtualiser la liste, puis garder le rendu de chaque ligne bon marché.",
+      "points": [
+        "Demande-toi d’abord si quelqu’un a besoin de milliers de lignes à la fois. La pagination et le filtrage côté serveur envoient moins de données et gardent la page simple.",
+        "La virtualisation (ou windowing) ne rend que les lignes visibles plus quelques-unes en plus, l’overscan. Un conteneur aussi haut que la liste complète garde la barre de défilement juste, et les lignes visibles sont positionnées à l’intérieur.",
+        "`useVirtualizer` de TanStack Virtual fait les calculs. Pour des lignes de hauteurs différentes, donne une taille estimée et laisse-le mesurer chaque ligne rendue avec `measureElement`.",
+        "Garde chaque rendu bon marché : keys stables, lignes qui sautent le rendu quand leurs données n’ont pas changé, et `useDeferredValue` ou `useTransition` pour que la saisie dans un filtre reste réactive. Ils ne réduisent pas le travail.",
+        "Les coûts : la recherche dans la page ne voit pas les lignes hors du DOM, la position de défilement doit être restaurée, et les lecteurs d’écran ont besoin de `aria-rowcount` et `aria-rowindex` pour connaître la taille réelle."
+      ],
+      "takeaways": [
+        {
+          "term": "Pagination",
+          "detail": "La pagination et le filtrage côté serveur envoient moins de données et gardent la page simple."
+        },
+        {
+          "term": "Virtualisation",
+          "detail": "Ne rend que les lignes visibles plus quelques-unes (l’overscan) dans un conteneur aussi haut que la liste complète."
+        },
+        {
+          "term": "`useVirtualizer`",
+          "detail": "Le hook de TanStack Virtual. Pour des lignes de hauteur variable, donne une taille estimée et mesure avec `measureElement`."
+        },
+        {
+          "term": "`useDeferredValue`",
+          "detail": "Garde la saisie dans un filtre réactive, comme `useTransition`. Il ne réduit pas le travail."
+        },
+        {
+          "term": "Coûts",
+          "detail": "La recherche dans la page rate les lignes hors du DOM, la position de défilement doit être restaurée, les lecteurs d’écran ont besoin de `aria-rowcount`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Les agents du support veulent faire défiler 20 000 commandes dans le tableau du back-office ; tout rendre fige l’onglet pendant plusieurs secondes et la saisie dans le filtre rame. Que faites-vous ?",
+        "bridge": "Rendre des milliers de lignes : questionner le besoin d’abord, puis virtualiser pour que seules les lignes visibles existent, et garder le filtre réactif avec `useDeferredValue`."
+      },
+      {
+        "question": "Après que vous avez virtualisé le tableau des commandes, les agents se plaignent que Ctrl+F ne trouve plus une commande plus bas. Quels compromis apporte la virtualisation ?",
+        "bridge": "Les coûts de la virtualisation : les lignes hors de la fenêtre ne sont pas dans le DOM, donc la recherche dans la page les rate, et l’accessibilité demande des nombres de lignes ARIA."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux rendent les 5 000 commandes dans une zone de défilement de 600 px avec des lignes de 40 px. Lequel reste rapide à monter et à mettre à jour ?",
+        "why": "Le windowing ne rend que les lignes visibles plus l’overscan, environ 25 sur 5 000, dans un conteneur aussi haut que la liste complète, donc la barre de défilement reste juste. L’autre version monte les 5 000 lignes : des milliers de nœuds DOM à créer et à mettre en page, et chaque mise à jour de la liste les rend toutes à nouveau."
+      }
+    ]
+  },
+  "react-data-binding": {
+    "topic": "Data binding unidirectionnel et bidirectionnel",
+    "question": "Quelle est la différence entre data binding unidirectionnel et bidirectionnel, et lequel React utilise-t-il ?",
+    "answer": "Avec le binding unidirectionnel, les données circulent dans un seul sens : du state vers la vue. La vue ne réécrit jamais d’elle-même ; une action de l’utilisateur appelle un handler qui met à jour le state, et la vue est rendue à nouveau. Avec le binding bidirectionnel, le framework synchronise automatiquement un champ et une variable dans les deux sens, comme `[(ngModel)]` d’Angular ou `v-model` de Vue. React est unidirectionnel : les props descendent, et un champ contrôlé a besoin de `value` plus d’un `onChange` explicite. C’est un peu plus de code, mais chaque changement passe par un seul endroit, ce qui rend les bugs plus faciles à tracer.",
+    "keyPoints": [
+      "Unidirectionnel : le state pilote la vue, les changements passent par des handlers",
+      "Bidirectionnel : le framework synchronise champ et variable dans les deux sens",
+      "React est unidirectionnel : props vers le bas, callbacks vers le haut",
+      "Un champ contrôlé, c’est du binding unidirectionnel écrit explicitement"
+    ],
+    "explanation": "Ça vérifie que tu comprends le flux de données de React et que tu sais le comparer à d’autres frameworks sans dogmatisme. Une bonne réponse explique pourquoi des mises à jour explicites rendent le flux de données prévisible.",
+    "example": "Dans le checkout de la boutique, le champ code postal est contrôlé : `onChange` met la valeur en majuscules et vérifie le format avant de mettre à jour le state, donc l’estimation de livraison correspond toujours à ce qui est affiché. Avec un binding bidirectionnel automatique, le formatage aurait demandé un watcher sur la variable.",
+    "mistakes": [
+      "Dire que React a du binding bidirectionnel parce que les champs se mettent à jour pendant la saisie : c’est le handler qui le fait",
+      "Croire que le binding unidirectionnel empêche un enfant de changer quoi que ce soit : il appelle une prop callback"
+    ],
+    "followUps": [
+      {
+        "question": "Le `v-model` de Vue est-il vraiment du binding bidirectionnel ?",
+        "answer": "C’est du sucre syntaxique : sur un composant, il se traduit par une prop `modelValue` et un événement `update:modelValue`, donc le flux de données en dessous reste props vers le bas et événements vers le haut."
+      },
+      {
+        "question": "Comment un enfant profondément imbriqué met-il à jour des données possédées haut dans l’arbre ?",
+        "answer": "Via un callback transmis vers le bas, un context qui expose une fonction de mise à jour, ou un store. Dans tous les cas, le propriétaire modifie le state et la vue est rendue à nouveau."
+      },
+      {
+        "question": "Qu’apporte le flux de données unidirectionnel quand l’app grandit ?",
+        "answer": "Chaque valeur a un seul propriétaire et ne change que via son setter ou un handler, donc quand le statut de la commande est faux, je trouve l’unique endroit qui l’écrit. Avec une synchronisation bidirectionnelle automatique, n’importe quel champ peut modifier des données partagées, et les mises à jour peuvent s’enchaîner de façon difficile à tracer."
+      },
+      {
+        "question": "Quel lien entre le flux unidirectionnel de React et Flux ou Redux ?",
+        "answer": "Flux a appliqué la même idée à toute l’app : les vues dispatchent des actions, un store met à jour le state, et les vues se rendent à partir de lui. Redux en est la version la plus connue, avec un store unique et des reducers purs, donc la règle props vers le bas, callbacks vers le haut de React s’étend au state global."
+      },
+      {
+        "question": "Peut-on avoir du binding bidirectionnel en React ?",
+        "answer": "On peut le simuler : un champ contrôlé avec `value` et `onChange`, souvent enveloppé dans un petit hook comme `useField` qui renvoie les deux pour qu’on les étale sur le champ. Ça ressemble à du bidirectionnel, mais la mise à jour passe toujours explicitement par le setter."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "En React, taper dans un champ qui a une prop `value` met à jour le state automatiquement.",
+        "why": "Le state ne change que si `onChange` appelle le setter ; sinon le champ revient en arrière.",
+        "twin": {
+          "statement": "En React, taper dans un champ qui a une prop `value` ne change le state que si `onChange` appelle le setter.",
+          "why": "React ne réécrit rien de lui-même ; sans le setter, le champ revient en arrière."
+        }
+      },
+      {
+        "statement": "En React, un enfant demande un changement en appelant une fonction que son parent lui a passée en prop.",
+        "why": "C’est la moitié « callbacks vers le haut » du flux de données unidirectionnel.",
+        "twin": {
+          "statement": "En React, un enfant modifie les données de son parent en écrivant dans les props qu’il a reçues.",
+          "why": "Les props sont en lecture seule ; l’enfant appelle une fonction passée par son parent, la moitié « callbacks vers le haut » du flux unidirectionnel."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le data binding relie les données de ton code à ce qu’affiche l’écran. React fait un binding unidirectionnel, du state vers la vue, donc chaque changement passe par un handler que tu peux tracer.",
+      "points": [
+        "Le data binding relie les données de ton code à ce qu’affiche l’écran. Avec le binding unidirectionnel, les données vont du state vers la vue, et la vue ne réécrit jamais d’elle-même.",
+        "Avec le binding bidirectionnel, le framework synchronise automatiquement un champ de formulaire et une variable dans les deux sens, comme `[(ngModel)]` d’Angular ou `v-model` de Vue.",
+        "React est unidirectionnel : les props descendent, et un enfant demande un changement en appelant une prop callback. Un champ contrôlé, c’est du binding unidirectionnel écrit en entier : `value` vient du state, `onChange` appelle le setter.",
+        "Taper dans un champ qui a `value` ne change rien si `onChange` ne met pas à jour le state. Cette étape explicite est l’endroit où tu formates ou valides, et chaque changement passe par un seul endroit traçable.",
+        "Sur un composant, `v-model` de Vue est un raccourci pour une prop `modelValue` plus un événement `update:modelValue`, donc en dessous c’est toujours props vers le bas et événements vers le haut."
+      ],
+      "takeaways": [
+        {
+          "term": "Binding unidirectionnel",
+          "detail": "Les données vont du state vers la vue ; la vue ne réécrit jamais d’elle-même."
+        },
+        {
+          "term": "Binding bidirectionnel",
+          "detail": "Le framework synchronise un champ et une variable dans les deux sens, comme `[(ngModel)]` d’Angular ou `v-model` de Vue."
+        },
+        {
+          "term": "React",
+          "detail": "Unidirectionnel : les props descendent, et un enfant demande un changement via une prop callback."
+        },
+        {
+          "term": "Champ contrôlé",
+          "detail": "Du binding unidirectionnel écrit en entier : `value` vient du state, `onChange` appelle le setter."
+        },
+        {
+          "term": "`v-model` sur un composant",
+          "detail": "Raccourci pour une prop `modelValue` plus un événement `update:modelValue` : toujours props vers le bas, événements vers le haut."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un développeur venu d’Angular écrit `<input value={email} />` dans le checkout de la boutique et signale que le champ « est figé ». Quelle notion lui manque-t-il ?",
+        "bridge": "Le binding unidirectionnel de React : la valeur va du state vers la vue, et seul un `onChange` explicite qui appelle le setter la réécrit."
+      },
+      {
+        "question": "En quoi le `v-model` de Vue diffère-t-il de ce que vous écrivez en React pour le même champ, et que gagne React avec son approche ?",
+        "bridge": "Binding bidirectionnel contre unidirectionnel : `v-model` synchronise automatiquement dans les deux sens ; React demande `value` plus `onChange`, mais chaque changement passe par un seul endroit."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux laissent un champ enfant éditer la note de livraison d’une commande que le parent possède et prévisualise. Lequel met à jour le champ et l’aperçu ?",
+        "why": "Flux unidirectionnel : l’enfant demande au propriétaire via `onNoteChange`, le parent met à jour son state, et le champ et l’aperçu affichent la nouvelle note. Écrire dans `order.note` modifie un objet que React ne surveille pas : rien n’est re-rendu, le champ contrôlé revient à l’ancienne valeur à chaque frappe, et l’aperçu ne change jamais."
+      }
+    ]
+  },
+  "react-testing": {
+    "topic": "Tester des composants React",
+    "question": "Comment testeriez-vous un composant React ?",
+    "answer": "Je teste le comportement tel que l’utilisateur le voit, pas les détails d’implémentation. Avec Vitest et React Testing Library, je rends le composant, je trouve les éléments par rôle et nom accessible, et j’interagis avec `user-event`, qui simule une vraie saisie et de vrais clics. Pour l’UI asynchrone, j’attends avec les requêtes `findBy`. Je mocke le réseau avec MSW au niveau HTTP, donc le composant, ses hooks de données et TanStack Query tournent pour de vrai. J’évite les assertions sur le state, les hooks ou les snapshots. Le parcours de checkout lui-même a quelques tests end-to-end avec Playwright.",
+    "keyPoints": [
+      "Tester le comportement comme un utilisateur, pas le state ni l’interne",
+      "Chercher par rôle et nom ; interagir avec `user-event`",
+      "Attendre l’UI asynchrone avec `findBy`",
+      "Mocker le réseau avec MSW, pas les hooks de données",
+      "Garder quelques parcours critiques en end-to-end avec Playwright"
+    ],
+    "explanation": "Les recruteurs veulent savoir si tes tests survivent à un refactoring. Une réponse senior explique la priorité des requêtes, pourquoi les mocks au niveau réseau valent mieux que les mocks de modules, et comment tests unitaires, d’intégration et end-to-end se répartissent le travail.",
+    "example": "La modale de remboursement du back-office avait des tests qui vérifiaient le state interne et cassaient à chaque refactoring. Ils ont été réécrits pour taper un montant, cliquer sur « Refund » par son rôle et son nom, et attendre « Refund sent », avec MSW qui répond à `POST /orders/:id/refunds`. Une réécriture ultérieure de la bibliothèque de formulaires n’a modifié aucun test.",
+    "mistakes": [
+      "Chercher d’abord par nom de classe ou test id au lieu de par rôle et nom accessible",
+      "Mocker le module du hook de chargement, si bien que les vrais chemins de chargement et d’erreur ne sont jamais testés",
+      "Utiliser `fireEvent` pour la saisie, ce qui saute les événements de focus et de clavier qu’envoie `user-event`"
+    ],
+    "followUps": [
+      {
+        "question": "Comment testez-vous un composant qui utilise TanStack Query ?",
+        "answer": "Je le rends dans un `QueryClientProvider` neuf pour chaque test, avec les retries désactivés, et je laisse MSW répondre aux requêtes. Un client partagé ferait fuiter des données en cache d’un test à l’autre."
+      },
+      {
+        "question": "Quand utilisez-vous `waitFor` plutôt qu’une requête `findBy` ?",
+        "answer": "`findBy` attend qu’un élément apparaisse et couvre la plupart des cas. `waitFor` sert aux autres assertions qui deviennent vraies plus tard, comme un mock qui a été appelé, et ne doit contenir aucun effet de bord."
+      },
+      {
+        "question": "Pourquoi React Testing Library vous éloigne-t-il du state interne ?",
+        "answer": "L’utilisateur et le métier ne s’intéressent qu’à ce qui est à l’écran et à ce qui est envoyé. Les tests sur le state ou les hooks cassent à chaque refactoring et peuvent passer alors que l’UI est cassée ; les tests par rôles et texte survivent à une réécriture et attrapent de vraies régressions."
+      },
+      {
+        "question": "Comment testez-vous les états chargement, erreur, vide et succès d’un composant qui utilise TanStack Query ?",
+        "answer": "Un test par état, chacun avec un `QueryClient` neuf sans retries et son propre handler MSW : une réponse retardée pour voir le spinner, une 500 pour trouver l’alerte d’erreur, un tableau vide pour « No orders », de vraies données pour les lignes. Chacun vérifie ce que voit l’utilisateur, avec des requêtes `findBy`."
+      },
+      {
+        "question": "Comment testez-vous un composant qui appelle une API ?",
+        "answer": "MSW répond à la requête, le test rend le composant, puis attend le résultat avec une requête `findBy`. Pour le chemin d’erreur, je surcharge le handler dans ce test avec `server.use` pour renvoyer une 500 et je vérifie que le message d’erreur apparaît."
+      },
+      {
+        "question": "Quelle est la différence entre `getBy`, `queryBy` et `findBy` ?",
+        "answer": "`getBy` renvoie l’élément ou lève une erreur tout de suite s’il manque. `queryBy` renvoie `null` à la place, donc je l’utilise pour vérifier qu’un élément est absent. `findBy` renvoie une promesse qui réessaie jusqu’à ce que l’élément apparaisse ou qu’un timeout expire, pour l’UI asynchrone. Les trois lèvent une erreur quand plusieurs éléments correspondent."
+      },
+      {
+        "question": "Quelle est la différence entre le shallow rendering et le rendu complet ?",
+        "answer": "Le shallow rendering rend un seul niveau et laisse les composants enfants non rendus, donc il teste la structure, pas le comportement. React Testing Library rend l’arbre complet dans un DOM comme jsdom. React 19 a supprimé `react-test-renderer/shallow` et recommande Testing Library."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`user-event` simule toute la séquence d’événements navigateur que déclenche un vrai utilisateur, contrairement à un simple `fireEvent`.",
+        "why": "Il envoie les événements de focus, de clavier et de saisie dans l’ordre, donc le comportement colle davantage à un vrai navigateur.",
+        "twin": {
+          "statement": "`user-event` déclenche un seul événement par action, exactement comme `fireEvent`.",
+          "why": "Il envoie les événements de focus, de clavier et de saisie que déclenche un vrai utilisateur, dans l’ordre."
+        }
+      },
+      {
+        "statement": "MSW fonctionne en remplaçant tes hooks de chargement de données par des mocks.",
+        "why": "Il intercepte les requêtes au niveau réseau, donc tes hooks et ton code de fetch tournent sans modification.",
+        "twin": {
+          "statement": "MSW intercepte les requêtes au niveau réseau, donc tes hooks de chargement de données tournent sans modification.",
+          "why": "Il ne remplace pas les hooks ; il répond aux requêtes HTTP qu’ils envoient."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "De bons tests React vérifient le comportement tel que l’utilisateur le voit : rendre, trouver les éléments, interagir, vérifier l’écran. Les tests qui lisent le state ou les hooks cassent à chaque refactoring.",
+      "points": [
+        "Teste le comportement tel que l’utilisateur le voit : rendre, trouver les éléments, interagir, vérifier ce qui est à l’écran. Les tests qui lisent le state ou les hooks cassent à chaque refactoring.",
+        "Avec React Testing Library, cherche d’abord par rôle et nom accessible, comme `getByRole('button', { name: 'Refund' })`. Les test ids sont un dernier recours.",
+        "`user-event` simule un vrai utilisateur, en envoyant focus, clavier et saisie dans l’ordre ; `fireEvent` déclenche un seul événement. Attends l’UI asynchrone avec les requêtes `findBy`, et utilise `waitFor` pour les autres assertions tardives.",
+        "Mocke le réseau, pas tes hooks : MSW (Mock Service Worker) intercepte les requêtes HTTP, donc ton code de fetch et TanStack Query tournent pour de vrai. Donne à chaque test un `QueryClient` neuf avec les retries désactivés.",
+        "Répartis le travail : beaucoup de tests de composants avec Vitest, et quelques tests end-to-end avec Playwright pour les parcours critiques comme le checkout."
+      ],
+      "takeaways": [
+        {
+          "term": "Chercher par rôle",
+          "detail": "Chercher d’abord par rôle et nom accessible : `getByRole('button', { name: 'Refund' })`. Les test ids sont un dernier recours."
+        },
+        {
+          "term": "`user-event`",
+          "detail": "Simule un vrai utilisateur avec focus, clavier et saisie dans l’ordre ; `fireEvent` déclenche un seul événement."
+        },
+        {
+          "term": "`findBy` et `waitFor`",
+          "detail": "Les requêtes `findBy` attendent l’UI asynchrone ; `waitFor` couvre les autres assertions tardives."
+        },
+        {
+          "term": "MSW",
+          "detail": "Mocke les requêtes HTTP, donc le code de fetch et TanStack Query tournent pour de vrai. Un `QueryClient` neuf par test, retries désactivés."
+        },
+        {
+          "term": "Playwright",
+          "detail": "Quelques tests end-to-end pour les parcours critiques comme le checkout ; beaucoup de tests de composants avec Vitest."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Après un refactoring du formulaire de checkout qui n’a changé aucun comportement, 40 tests échouent parce qu’ils vérifient le state interne et des snapshots. Comment écririez-vous ces tests à la place ?",
+        "bridge": "Tester comme un utilisateur : chercher par rôle et nom, interagir avec `user-event`, et vérifier ce qu’affiche l’écran, pour que les refactorings ne cassent pas les tests."
+      },
+      {
+        "question": "Un collègue mocke le hook `useOrders` dans chaque test de composant. Quel est l’inconvénient, et que mockeriez-vous à la place ?",
+        "bridge": "Où mocker : MSW intercepte au niveau HTTP, donc le composant, ses hooks de données et TanStack Query tournent pour de vrai."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux vérifient que la modale de remboursement affiche « Refund sent » une fois que l’API mockée a répondu. Quel test passe ?",
+        "why": "`findByText` renvoie une promesse qui réessaie jusqu’à ce que le texte apparaisse, donc le test attend la réponse. `getByText` regarde une seule fois, juste après le clic, avant l’arrivée de la réponse : il lève « Unable to find an element with the text: Refund sent » et le test échoue alors que la modale fonctionne."
+      }
+    ]
+  },
+  "react-hooks": {
+    "topic": "Hooks et règles des hooks",
+    "question": "Que sont les hooks React, pourquoi ont-ils été introduits, et pourquoi doivent-ils s’exécuter dans le même ordre à chaque rendu ?",
+    "answer": "Les hooks sont des fonctions dont le nom commence par `use` et qui permettent à un composant fonction d’utiliser les fonctionnalités de React : le state avec `useState`, les effets, le context, les refs. Ils sont arrivés avec React 16.8 pour que les composants fonctions puissent remplacer les classes, et pour partager de la logique avec state via des hooks custom au lieu de composants wrappers. La règle : ne les appeler qu’au premier niveau d’un composant ou d’un hook custom, jamais dans une condition, une boucle ou après un return anticipé. React ne connaît pas les hooks par leur nom : il associe chaque appel à son state stocké par ordre d’appel, donc l’ordre ne doit jamais changer. Le plugin de lint fait respecter ça.",
+    "keyPoints": [
+      "Des fonctions commençant par `use` qui donnent state et effets aux composants",
+      "Ajoutés en 16.8 pour partager la logique sans classes ni composants wrappers",
+      "Premier niveau seulement : ni condition, ni boucle, ni return anticipé avant un hook",
+      "React associe chaque hook à son state par ordre d’appel",
+      "`eslint-plugin-react-hooks` fait respecter les règles"
+    ],
+    "explanation": "Beaucoup de candidats récitent la règle ; les recruteurs veulent la raison derrière. Une réponse senior explique le mécanisme d’ordre d’appel, montre comment rendre un effet conditionnel sans enfreindre la règle, et traite les hooks custom comme l’unité de réutilisation.",
+    "example": "Dans le back-office, quelqu’un a ajouté `if (!order) return <Spinner />` au détail de commande, au-dessus d’un `useState` pour la note de remboursement. Le premier rendu avait un hook de moins, et quand la commande est arrivée, React a levé « Rendered more hooks than during the previous render ». Déplacer le return anticipé sous tous les hooks a réglé le problème, et passer la règle de lint `rules-of-hooks` en erreur l’a empêché de revenir.",
+    "mistakes": [
+      "Faire un return anticipé au-dessus d’un hook, si bien que le nombre de hooks change d’un rendu à l’autre",
+      "Envelopper `useEffect` dans un `if` au lieu de mettre la condition dans l’effet",
+      "Croire que deux composants qui utilisent le même hook custom partagent son state : chaque appel a le sien"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi ne peut-on pas appeler les hooks de façon conditionnelle ?",
+        "answer": "React garde le state des hooks d’un composant dans une liste et associe les appels par position. Si une condition saute un appel, chaque hook suivant récupérerait le state de son voisin, donc React détecte le changement et lève une erreur, par exemple « Rendered fewer hooks than expected »."
+      },
+      {
+        "question": "Comment construiriez-vous un hook custom pour une valeur de champ debouncée ?",
+        "answer": "`useDebouncedValue(value, delay)` garde la valeur debouncée dans un state. Un effet sur `[value, delay]` pose un timeout qui copie la valeur et renvoie `clearTimeout` comme cleanup, donc chaque frappe annule le timer précédent et la recherche part une fois la saisie en pause."
+      },
+      {
+        "question": "Comment appliquez-vous un effet de façon conditionnelle sans appeler un hook de façon conditionnelle ?",
+        "answer": "J’appelle toujours `useEffect` et je mets la condition dedans : `if (!orderId) return;` en première ligne, avec `orderId` dans les dépendances. Le hook garde sa place dans l’ordre ; seul son corps décide de ne rien faire."
+      },
+      {
+        "question": "Que vérifie `eslint-plugin-react-hooks` ?",
+        "answer": "`rules-of-hooks` vérifie que les hooks sont appelés au premier niveau des composants et des fonctions `use`, et `exhaustive-deps` vérifie que les tableaux de dépendances listent chaque valeur réactive. Depuis React Compiler 1.0, le preset recommandé contient aussi des règles qui s’appuient sur le compilateur, comme `refs` et `purity`."
+      },
+      {
+        "question": "Pourquoi les hooks custom peuvent-ils appeler des hooks, mais pas les fonctions ordinaires ?",
+        "answer": "Un hook custom est lui-même appelé au premier niveau d’un composant, donc ses hooks gardent une place fixe dans l’ordre de ce composant. Une fonction ordinaire peut être appelée dans une condition ou une boucle, et le linter ne peut pas le savoir. Le préfixe `use` est le contrat qui dit que les règles s’appliquent."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Deux composants qui appellent le même hook custom partagent son state.",
+        "why": "Un hook custom partage de la logique ; chaque appel crée son propre state.",
+        "twin": {
+          "statement": "Deux composants qui appellent le même hook custom ont chacun leur propre state.",
+          "why": "Un hook custom partage de la logique ; chaque appel crée son propre state."
+        }
+      },
+      {
+        "statement": "React distingue les hooks par l’ordre dans lequel ils sont appelés pendant le rendu.",
+        "why": "Les hooks n’ont pas de nom pour React ; leur state est associé par position d’appel.",
+        "twin": {
+          "statement": "React distingue les hooks par le nom des variables dans lesquelles leurs résultats sont stockés.",
+          "why": "Les hooks n’ont pas de nom pour React ; leur state est associé par ordre d’appel."
+        }
+      },
+      {
+        "statement": "Mettre `useEffect` dans `if (orderId)` est une façon correcte de sauter l’effet quand aucune commande n’est sélectionnée.",
+        "why": "Ça casse l’ordre d’appel ; appelle le hook à chaque fois et mets la condition dedans.",
+        "twin": {
+          "statement": "Pour sauter un effet quand aucune commande n’est sélectionnée, on appelle `useEffect` à chaque fois et on met la vérification `if (orderId)` dedans.",
+          "why": "Le hook garde sa position d’appel, et la condition décide seulement de ce que fait l’effet."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les hooks sont des fonctions `use` qui donnent aux composants fonctions state, effets, context et refs. Ils viennent avec une règle stricte, les appeler au premier niveau, parce que React associe chaque appel à son state par ordre.",
+      "points": [
+        "Un hook est une fonction dont le nom commence par `use` et qui permet à un composant fonction d’utiliser les fonctionnalités de React : `useState` pour le state, `useEffect` pour les effets, `useContext`, `useRef`.",
+        "Les hooks sont arrivés avec React 16.8. Ils permettent aux composants fonctions de remplacer les classes, et les hooks custom partagent de la logique avec state sans composants wrappers. Un hook custom partage de la logique, pas du state.",
+        "React stocke le state des hooks d’un composant dans l’ordre et associe chaque appel par position. Donc n’appelle les hooks qu’au premier niveau : jamais dans une condition, une boucle, ni après un return anticipé.",
+        "Pour n’exécuter un effet que parfois, appelle `useEffect` à chaque fois et mets la condition dedans. Les returns anticipés viennent après le dernier hook.",
+        "`eslint-plugin-react-hooks` le vérifie : `rules-of-hooks` pour l’endroit où les hooks sont appelés, `exhaustive-deps` pour les tableaux de dépendances."
+      ],
+      "takeaways": [
+        {
+          "term": "Hook",
+          "detail": "Une fonction dont le nom commence par `use` : `useState`, `useEffect`, `useContext`, `useRef`."
+        },
+        {
+          "term": "React 16.8",
+          "detail": "La version qui a ajouté les hooks, pour que les composants fonctions puissent remplacer les classes."
+        },
+        {
+          "term": "Hook custom",
+          "detail": "Partage de la logique avec state sans composants wrappers. Il partage de la logique, pas du state."
+        },
+        {
+          "term": "Ordre d’appel",
+          "detail": "React stocke le state des hooks d’un composant dans l’ordre et associe chaque appel par position."
+        },
+        {
+          "term": "Premier niveau seulement",
+          "detail": "Jamais dans une condition, une boucle ou après un return anticipé. Mets la condition dans le `useEffect`."
+        },
+        {
+          "term": "`eslint-plugin-react-hooks`",
+          "detail": "`rules-of-hooks` vérifie où les hooks sont appelés, `exhaustive-deps` vérifie les tableaux de dépendances."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, désélectionner la commande fait planter le panneau avec « Rendered fewer hooks than expected ». Le composant fait un return anticipé quand aucune commande n’est sélectionnée, avant un `useEffect`. Pourquoi ?",
+        "bridge": "Les règles des hooks : React associe les hooks à leur state par ordre d’appel, donc un return anticipé avant un hook change cet ordre d’un rendu à l’autre."
+      },
+      {
+        "question": "Les composants classes avaient déjà du state et des méthodes de cycle de vie. Pourquoi React a-t-il ajouté les hooks en 16.8 ?",
+        "bridge": "L’origine des hooks : permettre aux composants fonctions de remplacer les classes, et partager de la logique avec state via des hooks custom au lieu de composants wrappers."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux affichent le détail d’une commande avec une note de remboursement, en chargeant d’abord la commande. Lequel continue de s’afficher une fois la commande arrivée ?",
+        "why": "Tous les hooks s’exécutent avant le return anticipé, donc chaque rendu appelle les mêmes hooks dans le même ordre. Dans l’autre version, le rendu de chargement saute `useState` et le suivant l’appelle : React associe les hooks par ordre d’appel et lève « Rendered more hooks than during the previous render ». La règle de lint `rules-of-hooks` le signale."
+      }
+    ]
+  },
+  "react-lifecycle": {
+    "topic": "Cycle de vie d’un composant avec les hooks",
+    "question": "Expliquez le cycle de vie d’un composant avec les hooks : dans quel ordre s’exécutent montage, mise à jour et démontage ?",
+    "answer": "Un composant se monte, se met à jour et se démonte, et avec les hooks je l’exprime comme de la synchronisation. Au montage, React rend, commite le DOM, attache les refs, exécute les layout effects avant que le navigateur ne peigne, puis exécute les effets, enfants avant parents. À la mise à jour, il rend et commite à nouveau, et pour chaque effet dont les dépendances ont changé, il exécute l’ancien cleanup puis le nouveau setup. Au démontage, il exécute tous les cleanups restants. En gros, un effet avec `[]` et son cleanup remplacent `componentDidMount` et `componentWillUnmount`, et les dépendances remplacent `componentDidUpdate`. En développement, Strict Mode ajoute un cycle setup-cleanup supplémentaire au montage.",
+    "keyPoints": [
+      "Montage : rendu, commit, refs, layout effects, peinture, effets",
+      "Les effets de l’enfant s’exécutent avant ceux du parent",
+      "Mise à jour : l’ancien cleanup d’abord, puis le nouveau setup",
+      "Le démontage exécute tous les cleanups restants",
+      "Penser synchronisation, pas méthodes de cycle de vie"
+    ],
+    "explanation": "Les recruteurs vérifient que tu sais faire correspondre les cycles de vie des classes aux hooks, mais aussi aller au-delà de cette correspondance. Une réponse senior donne l’ordre exact, sait que seuls les layout effects s’exécutent avant la peinture, et explique comment cet ordre aide à trouver les fuites et les stale closures.",
+    "example": "Les agents signalaient que le back-office ralentissait au bout d’une heure, et le BFF comptait une douzaine de streams de statut en direct ouverts par agent. Logger « connect » dans le setup de l’effet et « disconnect » dans son cleanup a montré qu’aucune déconnexion n’avait lieu quand le filtre de statut changeait : l’effet ne renvoyait rien. Renvoyer la fonction de fermeture du stream a ramené le compte à un stream par écran ouvert.",
+    "mistakes": [
+      "Traiter `useEffect(fn, [])` exactement comme `componentDidMount` et oublier le cleanup",
+      "Croire que chaque effet s’exécute avant la peinture du navigateur : seuls les layout effects le font",
+      "Sauter la première exécution avec une ref `isFirst`, ce que Strict Mode met en échec en développement"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qu’une stale closure, et comment se produit-elle avec `useEffect` ?",
+        "answer": "Une closure garde les valeurs du rendu qui l’a créée. Un effet avec `[]` qui lance `setInterval(() => setSeconds(seconds + 1), 1000)` lit pour toujours le `seconds` du premier rendu, donc il affiche 1. La solution : l’updater `setSeconds((s) => s + 1)` ou les bonnes dépendances."
+      },
+      {
+        "question": "Comment exécuteriez-vous une logique seulement lors des mises à jour, comme `componentDidUpdate` ?",
+        "answer": "D’abord je vérifie si elle n’a pas sa place dans l’événement qui a causé le changement. Sinon, je garde la valeur précédente dans une ref initialisée avec la valeur courante et je compare dans l’effet. Un flag `isFirst` casse en développement, parce que Strict Mode exécute le setup deux fois au montage."
+      },
+      {
+        "question": "Comment utiliseriez-vous cet ordre pour déboguer une fuite due à un abonnement non nettoyé ?",
+        "answer": "Je logge dans chaque setup et chaque cleanup : chaque « connect » doit être suivi d’un « disconnect » quand une dépendance change et au démontage. Le cycle supplémentaire de Strict Mode révèle tout de suite un cleanup manquant en développement, et l’onglet Network confirme les connexions qui restent ouvertes."
+      },
+      {
+        "question": "Quelle est la différence de timing entre `useEffect` et `useLayoutEffect` ?",
+        "answer": "Les deux s’exécutent après que React a mis à jour le DOM. `useLayoutEffect` s’exécute avant que le navigateur ne peigne, et le state modifié dedans est aussi appliqué avant la peinture, donc je l’utilise pour mesurer, comme faire basculer un menu au-dessus de sa ligne. `useEffect` s’exécute en général après la peinture et ne la bloque pas, donc c’est le choix par défaut."
+      },
+      {
+        "question": "Comment vérifieriez-vous l’ordre des effets avec des logs ou les DevTools ?",
+        "answer": "J’ajoute un log dans le rendu, le setup et le cleanup d’un parent et d’un enfant, puis je monte, mets à jour et démonte, avec et sans Strict Mode. Les logs montrent les effets de l’enfant avant ceux du parent et les cleanups avant les setups ; le Profiler des React DevTools montre à quel commit appartient chaque rendu."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Au montage, le `useEffect` d’un enfant s’exécute avant le `useEffect` de son parent.",
+        "why": "React exécute les effets en partant des feuilles, donc les enfants terminent leurs effets en premier.",
+        "twin": {
+          "statement": "Au montage, le `useEffect` d’un parent s’exécute avant le `useEffect` de ses enfants.",
+          "why": "React exécute les effets en partant des feuilles, donc les enfants exécutent les leurs en premier."
+        }
+      },
+      {
+        "statement": "`useEffect` s’exécute toujours avant que le navigateur ne peigne le nouveau DOM.",
+        "why": "Seul `useLayoutEffect` est garanti de s’exécuter avant la peinture ; `useEffect` s’exécute en général après.",
+        "twin": {
+          "statement": "`useEffect` s’exécute en général après que le navigateur a peint le nouveau DOM.",
+          "why": "Seul `useLayoutEffect` est garanti de s’exécuter avant la peinture."
+        }
+      },
+      {
+        "statement": "Quand une dépendance change, React exécute d’abord le nouveau setup et l’ancien cleanup ensuite.",
+        "why": "Le cleanup avec les anciennes valeurs s’exécute d’abord, puis le setup avec les nouvelles.",
+        "twin": {
+          "statement": "Quand une dépendance change, React exécute d’abord l’ancien cleanup, puis le nouveau setup.",
+          "why": "Le cleanup utilise les anciennes valeurs, puis le setup s’exécute avec les nouvelles."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un composant se monte, se met à jour et se démonte. Avec les hooks, on le pense comme de la synchronisation : un effet démarre une synchronisation avec quelque chose en dehors de React, et son cleanup l’arrête.",
+      "points": [
+        "Un composant se monte, se met à jour et se démonte. Avec les hooks, on l’exprime par des effets : du code qui démarre une synchronisation avec quelque chose en dehors de React et renvoie un cleanup qui l’arrête.",
+        "Montage : React rend le parent puis les enfants, commite le DOM, attache les refs, exécute les layout effects (enfants d’abord), laisse le navigateur peindre, puis exécute les effets, enfants d’abord.",
+        "Mise à jour : React rend et commite à nouveau. Pour chaque effet dont les dépendances ont changé, il exécute le cleanup avec les anciennes valeurs, puis le setup avec les nouvelles.",
+        "Le démontage exécute tous les cleanups restants. En développement, Strict Mode ajoute un cycle setup, cleanup, setup juste après le montage, donc un cleanup manquant se voit tout de suite.",
+        "Un callback créé pendant un rendu garde les valeurs de ce rendu. Un callback qui vit longtemps, comme un interval posé une seule fois, lit des valeurs obsolètes : une stale closure. Les fonctions updater l’évitent."
+      ],
+      "takeaways": [
+        {
+          "term": "Montage",
+          "detail": "Rendu, commit du DOM, attache des refs, layout effects, peinture, puis effets. Les effets s’exécutent dans les enfants avant les parents."
+        },
+        {
+          "term": "Mise à jour",
+          "detail": "Pour chaque effet dont les dépendances ont changé : le cleanup avec les anciennes valeurs, puis le setup avec les nouvelles."
+        },
+        {
+          "term": "Démontage",
+          "detail": "Exécute tous les cleanups restants."
+        },
+        {
+          "term": "Strict Mode",
+          "detail": "En développement, ajoute un cycle setup, cleanup, setup après le montage, donc un cleanup manquant se voit tout de suite."
+        },
+        {
+          "term": "Équivalents en classe",
+          "detail": "Un effet avec `[]` et son cleanup remplacent en gros `componentDidMount` et `componentWillUnmount`."
+        },
+        {
+          "term": "Stale closure",
+          "detail": "Un callback qui vit longtemps, comme un interval posé une seule fois, continue de lire les valeurs de son rendu. Les fonctions updater l’évitent."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, `OrdersPage` s’abonne aux mises à jour en direct dans un `useEffect`, et chaque enfant `OrderRow` s’enregistre auprès de cet abonnement dans son propre `useEffect` au montage, mais ne trouve rien auprès de quoi s’enregistrer. Pourquoi ?",
+        "bridge": "L’ordre des effets au montage : les effets des enfants s’exécutent avant ceux de leur parent, donc chaque ligne s’exécute avant que la page se soit abonnée."
+      },
+      {
+        "question": "Comment `componentDidMount`, `componentDidUpdate` et `componentWillUnmount` se traduisent-ils en hooks, et où cette correspondance atteint-elle ses limites ?",
+        "bridge": "Le cycle de vie avec les hooks : un effet avec `[]` et son cleanup couvrent en gros le montage et le démontage, les dépendances couvrent les mises à jour, mais les effets sont de la synchronisation."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux affichent combien de secondes un agent a passé sur la commande ouverte. Quel compteur continue de compter ?",
+        "why": "L’updater `(s) => s + 1` reçoit la dernière valeur à chaque tick. L’interval est créé une seule fois, après le premier rendu, donc son callback est une stale closure sur le `seconds` de ce rendu, 0 : chaque tick met 1, et le compteur reste bloqué à « 1 s »."
+      }
+    ]
+  },
+  "react-class-vs-function": {
+    "topic": "Composants fonctions et classes",
+    "question": "Quelle est la différence entre composants fonctions et composants classes ?",
+    "answer": "Un composant classe étend `React.Component`, garde son state dans `this.state`, le modifie avec `this.setState`, et répartit les effets de bord dans des méthodes de cycle de vie comme `componentDidMount` et `componentDidUpdate`. Un composant fonction prend des props, renvoie du JSX, et utilise des hooks pour le state, les effets et le context. React supporte toujours les classes, mais react.dev recommande les fonctions pour le nouveau code : elles sont plus courtes, n’ont pas de bugs de binding de `this`, regroupent le code par préoccupation plutôt que par cycle de vie, et partagent la logique via des hooks custom. Deux choses demandent encore une classe : les error boundaries, que je prends dans `react-error-boundary`, et le rare `getSnapshotBeforeUpdate`.",
+    "keyPoints": [
+      "Classe : `this.state`, `setState` et méthodes de cycle de vie",
+      "Fonction : props en entrée, JSX en sortie, hooks pour state et effets",
+      "Fonctions recommandées pour le nouveau code ; classes toujours supportées",
+      "Les error boundaries demandent encore une classe ou `react-error-boundary`"
+    ],
+    "explanation": "C’est une question d’héritage que les recruteurs posent encore pour voir si tu sais lire et migrer du code ancien. Une bonne réponse évite de dire que les classes sont dépréciées et cite ce que seules les classes savent encore faire.",
+    "example": "L’historique de commande du back-office était une classe qui chargeait dans `componentDidMount` et oubliait de comparer `prevProps.orderId` dans `componentDidUpdate`, donc changer de commande affichait l’ancien historique. La réécrire en fonction avec une requête TanStack Query indexée par `orderId` a supprimé la comparaison et le bug, et divisé le fichier par deux.",
+    "mistakes": [
+      "Dire que les composants classes sont dépréciés ou supprimés : React les supporte toujours",
+      "Affirmer que les hooks couvrent tout : les error boundaries demandent encore une classe",
+      "Porter chaque méthode de cycle de vie dans son propre effet au lieu de regrouper par préoccupation"
+    ],
+    "followUps": [
+      {
+        "question": "Comment convertiriez-vous un composant classe simple en composant fonction avec des hooks ?",
+        "answer": "Chaque morceau de `this.state` devient un `useState`, `this.props.x` devient une prop déstructurée, et le code de montage, de mise à jour et de démontage d’une même préoccupation devient un seul `useEffect` avec des dépendances et un cleanup. Les méthodes deviennent des fonctions simples, donc le binding de `this` disparaît."
+      },
+      {
+        "question": "Les composants classes savent-ils faire des choses que les hooks ne savent pas faire, ou l’inverse ?",
+        "answer": "Seules les classes peuvent être des error boundaries, avec `getDerivedStateFromError` et `componentDidCatch`, ou utiliser `getSnapshotBeforeUpdate`. On ne peut pas appeler de hooks dans une classe, donc les classes n’ont pas accès aux hooks custom ni aux hooks récents comme `useSyncExternalStore` ou `useTransition`."
+      },
+      {
+        "question": "Pourquoi React a-t-il introduit les hooks alors que les classes avaient déjà du state ?",
+        "answer": "Les classes rendaient la logique avec state difficile à réutiliser sans higher-order components ni render props, répartissaient une même préoccupation sur plusieurs méthodes de cycle de vie, et `this` embrouillait les gens comme les outils. Les hooks, dans React 16.8, ont répondu à ces trois problèmes."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Les composants classes ne fonctionnent plus en React 19.",
+        "why": "React les supporte toujours ; react.dev recommande seulement les fonctions pour le nouveau code.",
+        "twin": {
+          "statement": "Les composants classes fonctionnent toujours en React 19.",
+          "why": "React les supporte toujours ; react.dev recommande seulement les fonctions pour le nouveau code."
+        }
+      },
+      {
+        "statement": "On ne peut pas écrire une error boundary comme composant fonction avec des hooks seuls.",
+        "why": "Il n’existe pas de hook pour `getDerivedStateFromError` ni `componentDidCatch`, donc il faut une classe ou un package.",
+        "twin": {
+          "statement": "On peut écrire une error boundary comme composant fonction avec des hooks seuls.",
+          "why": "Il n’existe pas de hook pour `getDerivedStateFromError` ni `componentDidCatch`, donc il faut une classe ou un package."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les composants React s’écrivent en classes ou en fonctions. Les fonctions avec hooks sont le style recommandé pour le nouveau code ; les classes restent supportées, et deux fonctionnalités en demandent encore une.",
+      "points": [
+        "Un composant classe étend `React.Component` : state dans `this.state`, mises à jour avec `this.setState`, effets de bord dans des méthodes de cycle de vie comme `componentDidMount` et `componentWillUnmount`.",
+        "Un composant fonction prend des props et renvoie du JSX. Les hooks lui donnent le state avec `useState`, les effets avec `useEffect`, le context et les refs, sans `this`.",
+        "react.dev recommande les fonctions pour le nouveau code ; les classes restent supportées. Les hooks regroupent le code par préoccupation, un effet par système externe, au lieu de le répartir sur des méthodes de cycle de vie.",
+        "Deux fonctionnalités demandent encore une classe : les error boundaries (`getDerivedStateFromError`, `componentDidCatch`), en général prises dans le package `react-error-boundary`, et le rare `getSnapshotBeforeUpdate`."
+      ],
+      "takeaways": [
+        {
+          "term": "Composant classe",
+          "detail": "Étend `React.Component` : state dans `this.state`, mises à jour avec `this.setState`."
+        },
+        {
+          "term": "Méthodes de cycle de vie",
+          "detail": "`componentDidMount`, `componentDidUpdate` et `componentWillUnmount` contiennent les effets de bord d’une classe."
+        },
+        {
+          "term": "Composant fonction",
+          "detail": "Prend des props, renvoie du JSX, et utilise des hooks pour state, effets, context et refs, sans `this`."
+        },
+        {
+          "term": "Regrouper par préoccupation",
+          "detail": "Les hooks regroupent le code par préoccupation, un effet par système externe, pas par méthode de cycle de vie."
+        },
+        {
+          "term": "Error boundary",
+          "detail": "Toujours une classe (`getDerivedStateFromError`, `componentDidCatch`), en général prise dans `react-error-boundary`."
+        },
+        {
+          "term": "`getSnapshotBeforeUpdate`",
+          "detail": "L’autre fonctionnalité rare qui demande encore une classe."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Vous rejoignez une équipe dont le back-office a encore 30 composants classes, et un collègue veut tous les convertir avant de passer à React 19. Que conseillez-vous, et qu’est-ce qui doit rester une classe ?",
+        "bridge": "Composants classes contre fonctions : les classes fonctionnent toujours, les fonctions sont recommandées pour le nouveau code, et les error boundaries demandent encore une classe ou un package."
+      },
+      {
+        "question": "Expliquez à un junior comment state et effets de bord s’organisent dans un composant classe comparé à un composant fonction.",
+        "bridge": "La même comparaison vue de l’intérieur : `this.state` et méthodes de cycle de vie contre hooks, qui regroupent le code par préoccupation plutôt que par cycle de vie."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux composants classes remboursent la commande au clic sur le bouton. Lequel fonctionne quand un agent clique ?",
+        "why": "Une fonction fléchée dans un champ de classe garde `this` lié à l’instance. Une méthode simple passée en `onClick={this.handleClick}` est appelée sans son instance, donc `this` vaut `undefined` et le clic lève « Cannot read properties of undefined (reading 'props') » : pas de remboursement. Les composants fonctions n’ont pas de `this` à perdre."
+      }
+    ]
+  },
+  "react-jsx": {
+    "topic": "JSX",
+    "question": "Qu’est-ce que JSX, et comment est-il converti en JavaScript ?",
+    "answer": "JSX est une extension de syntaxe qui me permet d’écrire du balisage dans du JavaScript. Les navigateurs ne savent pas l’exécuter, donc un compilateur, TypeScript, Babel ou celui de Vite, transforme chaque balise en appel de fonction qui renvoie un élément React : un objet simple avec un type, des props et une key, pas un nœud DOM. Avec le nouveau transform, depuis React 17, le compilateur importe lui-même `jsx` depuis `react/jsx-runtime`, donc je n’importe plus React juste pour le JSX ; l’ancien transform appelait `React.createElement`. Comme c’est du JavaScript, les attributs sont des props en camelCase comme `className` et `onClick`, et les expressions vont entre accolades.",
+    "keyPoints": [
+      "Une extension de syntaxe pour du balisage dans du JavaScript, pas du HTML",
+      "Compilé en appels de fonction qui renvoient des objets éléments simples",
+      "Le nouveau transform importe `react/jsx-runtime` : pas besoin d’importer React",
+      "Expressions dans `{}` ; props en camelCase comme `className`"
+    ],
+    "explanation": "Ça vérifie que tu vois JSX comme une syntaxe pour des appels de fonction, ce qui explique ses règles : une seule racine, des expressions seulement, `className`. Une réponse senior sait ce que produit le compilateur et comment l’option `jsx` de `tsconfig.json` choisit le transform.",
+    "example": "Quand le back-office est passé d’une vieille config Babel à Vite, `tsconfig.json` est passé à `\"jsx\": \"react-jsx\"`. La ligne `import React from 'react'` en tête d’environ 300 fichiers est devenue inutile et a été supprimée avec un codemod, et le bundle ne dépendait plus de la présence de `React` dans la portée.",
+    "mistakes": [
+      "Écrire des attributs HTML comme `class` et `for` au lieu de `className` et `htmlFor`",
+      "Mettre une instruction comme `if` entre accolades : seules les expressions y ont leur place, donc on utilise un ternaire ou `&&`",
+      "Croire que chaque fichier avec du JSX doit importer React, ce qui n’était vrai qu’avec l’ancien transform"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi JSX utilise-t-il `className` au lieu de `class` ?",
+        "answer": "Les attributs JSX deviennent des clés d’un objet JavaScript, et `class` est un mot réservé en JavaScript, donc React utilise `className`, d’après le nom de la propriété DOM. Pour la même raison, `for` devient `htmlFor`."
+      },
+      {
+        "question": "Ancien et nouveau transform JSX : faut-il encore importer React ?",
+        "answer": "L’ancien transform compilait `<div />` en `React.createElement('div')`, donc React devait être dans la portée. Le nouveau transform, depuis React 17, fait ajouter par le compilateur un import depuis `react/jsx-runtime`, donc un fichier n’a pas besoin d’importer React pour le JSX ; j’importe quand même les hooks."
+      },
+      {
+        "question": "Comment intégrez-vous une expression JavaScript dans du JSX ?",
+        "answer": "Entre accolades, comme enfant ou comme valeur d’attribut : `{order.total}`, `className={status}`, `{lines.map(...)}`. Seules les expressions y ont leur place, donc j’utilise un ternaire ou `&&` au lieu de `if`, et des doubles accolades pour un objet, comme `style={{ color: 'red' }}`."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Avec le nouveau transform JSX, un fichier doit faire `import React from 'react'` pour utiliser du JSX.",
+        "why": "Le compilateur ajoute lui-même l’import depuis `react/jsx-runtime`.",
+        "twin": {
+          "statement": "Avec le nouveau transform JSX, le compilateur ajoute lui-même l’import depuis `react/jsx-runtime`.",
+          "why": "Un fichier n’a plus besoin de `import React from 'react'` juste pour utiliser du JSX."
+        }
+      },
+      {
+        "statement": "Une balise JSX s’évalue en un objet JavaScript simple qui décrit l’UI, pas en un nœud DOM.",
+        "why": "Elle renvoie un élément React ; React crée ou met à jour les nœuds DOM plus tard, au commit.",
+        "twin": {
+          "statement": "Une balise JSX s’évalue en un nœud DOM que React insère ensuite dans la page.",
+          "why": "Elle renvoie un élément React, un objet simple ; React crée ou met à jour les nœuds DOM plus tard, au commit."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "JSX est une extension de syntaxe pour écrire du balisage dans du JavaScript. Un compilateur transforme chaque balise en appel de fonction qui renvoie un objet simple, c’est pourquoi ses attributs suivent les règles de JavaScript.",
+      "points": [
+        "JSX est une extension de syntaxe pour écrire du balisage dans du JavaScript. Les navigateurs ne savent pas l’exécuter : un compilateur comme TypeScript, Babel ou celui de Vite transforme chaque balise en appel de fonction.",
+        "Depuis React 17, le nouveau transform compile une balise en appel `jsx()` et importe `jsx` depuis `react/jsx-runtime` pour toi. L’ancien transform appelait `React.createElement`, donc React devait être dans la portée.",
+        "L’appel renvoie un élément React : un objet simple avec un `type`, des `props` et une `key`, pas un nœud DOM. React transforme les éléments en DOM plus tard, au commit.",
+        "Les attributs deviennent des clés d’objet, donc ils suivent le nommage JavaScript : `className` (`class` est réservé), `htmlFor`, `onClick`. `aria-*` et `data-*` gardent leurs tirets.",
+        "Les accolades contiennent n’importe quelle expression JavaScript : `{order.total}`, `{lines.map(...)}`, un ternaire. Les instructions comme `if` n’y ont pas leur place."
+      ],
+      "takeaways": [
+        {
+          "term": "Compilateur",
+          "detail": "TypeScript, Babel ou celui de Vite transforme chaque balise en appel de fonction : les navigateurs ne savent pas exécuter JSX."
+        },
+        {
+          "term": "Nouveau transform",
+          "detail": "Depuis React 17, une balise se compile en `jsx()` importé depuis `react/jsx-runtime` : pas besoin d’importer React."
+        },
+        {
+          "term": "Ancien transform",
+          "detail": "Appelait `React.createElement`, donc React devait être dans la portée."
+        },
+        {
+          "term": "Élément React",
+          "detail": "Un objet simple avec un `type`, des `props` et une `key`, pas un nœud DOM."
+        },
+        {
+          "term": "`className`, `htmlFor`",
+          "detail": "Les attributs suivent le nommage JavaScript (`class` est réservé). `aria-*` et `data-*` gardent leurs tirets."
+        },
+        {
+          "term": "Accolades",
+          "detail": "Contiennent n’importe quelle expression, comme un ternaire ou `lines.map(...)`. Les instructions comme `if` n’y ont pas leur place."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un collègue logge une balise JSX dans le back-office, en s’attendant à un nœud DOM sur lequel appeler `.focus()`, et obtient un objet simple à la place. Qu’a-t-il obtenu, et pourquoi ?",
+        "bridge": "Ce en quoi JSX se compile : un appel de fonction qui renvoie un élément React, un objet simple ; React crée les nœuds DOM plus tard, au commit."
+      },
+      {
+        "question": "Pourquoi les anciens fichiers React commencent-ils par `import React from 'react'` même quand ils n’utilisent jamais `React`, et pourquoi les fichiers récents n’en ont-ils pas besoin ?",
+        "bridge": "Le transform JSX : l’ancien compilait les balises en `React.createElement` ; le nouveau, depuis React 17, importe lui-même depuis `react/jsx-runtime`."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux affichent les lignes de la commande, ou rien quand la commande n’en a pas. Lequel rend une section vide pour une commande vide ?",
+        "why": "`a && b` donne `a` quand `a` est falsy. `lines.length > 0` vaut alors `false`, que React ne rend pas. `lines.length` vaut alors `0`, et React rend les nombres, donc une commande vide affiche un « 0 » isolé dans la section."
+      }
+    ]
+  },
+  "react-fragments": {
+    "topic": "Fragments",
+    "question": "Qu’est-ce qu’un Fragment React, et pourquoi l’utiliser plutôt qu’une `div` englobante ?",
+    "answer": "Un Fragment regroupe plusieurs éléments sans ajouter de nœud au DOM. Un composant renvoie un seul élément, et englober des éléments frères dans une `div` ajoute un vrai nœud qui peut tout casser : un parent flex ou grid met en page la div au lieu des enfants, et une `div` dans un `tbody` ou un `ul`, c’est du HTML invalide. J’écris en général la forme courte `<>...</>`. Elle n’accepte aucun attribut, donc quand un `map` renvoie plusieurs frères par élément, j’importe `Fragment` et j’écris `<Fragment key={line.id}>`. Comme il n’y a pas de nœud, il n’y a rien à styler, et englober un enfant dans un seul Fragment ne réinitialise pas son state.",
+    "keyPoints": [
+      "Regroupe des enfants sans ajouter de nœud au DOM",
+      "Évite les div qui cassent flex, grid, tableaux et listes",
+      "La forme courte `<>` ne prend pas de key : `<Fragment key>` dans les listes",
+      "Pas de nœud, donc rien à styler ni de handler à attacher"
+    ],
+    "explanation": "C’est une question rapide qui montre si tu penses au DOM et au CSS que produisent tes composants. Les recruteurs attendent le Fragment avec key dans les listes et l’imbrication HTML valide.",
+    "example": "Dans le détail de commande du back-office, chaque ligne de commande rendait deux lignes de tableau, la ligne et ses détails dépliables, englobées dans une `div`. React avertissait qu’une `div` ne peut pas être enfant d’un `tbody`, et les colonnes étaient décalées. Remplacer la `div` par `<Fragment key={line.id}>` a réglé les deux problèmes.",
+    "mistakes": [
+      "Vouloir mettre une `key` sur la forme courte `<>`, qui n’accepte aucun attribut",
+      "Ajouter des `div` englobantes qui cassent les layouts flex ou grid et le balisage des tableaux ou des listes",
+      "S’attendre à pouvoir styler un Fragment ou lui attacher un gestionnaire d’événement"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce que la forme courte du Fragment, et quelle limite a-t-elle ?",
+        "answer": "`<>...</>` est la forme courte de `<Fragment>...</Fragment>`. Elle n’accepte aucun attribut, donc elle ne peut pas recevoir de `key`."
+      },
+      {
+        "question": "Quand avez-vous besoin de la syntaxe complète du Fragment ?",
+        "answer": "Quand le Fragment a besoin d’une `key`, typiquement quand un `map` renvoie plusieurs frères par élément, comme une paire `dt` et `dd` par ligne de commande. J’importe alors `Fragment` depuis `react` et j’écris `<Fragment key={line.id}>`."
+      },
+      {
+        "question": "Un Fragment a-t-il un effet au-delà de la structure du DOM ?",
+        "answer": "Presque pas : il ne rend rien, donc on ne peut pas y attacher de styles ni de handlers, et le CSS voit directement les enfants. Un point subtil : passer de `<Child />` à `<><Child /></>` conserve le state de l’enfant, alors que l’englober dans une `div` le réinitialise, parce que le type d’élément à cette position a changé."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Remplacer `<Child />` par `<><Child /></>` réinitialise le state de `Child`.",
+        "why": "React conserve le state à travers un niveau de Fragment ; une `div` englobante le réinitialiserait.",
+        "twin": {
+          "statement": "Remplacer `<Child />` par `<><Child /></>` conserve le state de `Child`.",
+          "why": "React conserve le state à travers un niveau de Fragment ; une `div` englobante le réinitialiserait."
+        }
+      },
+      {
+        "statement": "La forme courte `<>...</>` ne peut pas recevoir de `key`.",
+        "why": "Elle n’accepte aucun attribut ; un Fragment avec key demande la syntaxe complète `<Fragment key>`.",
+        "twin": {
+          "statement": "La forme courte `<>...</>` accepte une `key`, comme la syntaxe complète `<Fragment>`.",
+          "why": "Elle n’accepte aucun attribut ; un Fragment avec key demande `<Fragment key>`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un Fragment regroupe plusieurs éléments sans ajouter de nœud au DOM. Il évite les div englobantes qui cassent les layouts flex et grid ou produisent du HTML invalide dans les tableaux et les listes.",
+      "points": [
+        "Un composant renvoie un seul élément. Un Fragment regroupe plusieurs frères en un seul, sans ajouter aucun nœud au DOM.",
+        "Une `div` englobante est un vrai nœud : un parent flex ou grid met en page la div au lieu des enfants, et une `div` dans un `tbody` ou un `ul` est du HTML invalide.",
+        "La forme courte `<>...</>` n’accepte aucun attribut. Quand tu as besoin d’une `key`, comme dans une liste, importe `Fragment` et écris `<Fragment key={item.id}>`.",
+        "Sans nœud DOM, il n’y a rien à styler ni de handler à attacher. Englober un enfant dans un niveau de Fragment conserve son state ; l’englober dans une `div` le réinitialise."
+      ],
+      "takeaways": [
+        {
+          "term": "`div` englobante",
+          "detail": "Un vrai nœud : un parent flex ou grid met en page la div au lieu des enfants."
+        },
+        {
+          "term": "HTML invalide",
+          "detail": "Une `div` dans un `tbody` ou un `ul` est invalide ; un Fragment n’ajoute aucun nœud."
+        },
+        {
+          "term": "`<>...</>`",
+          "detail": "La forme courte n’accepte aucun attribut, donc pas de `key`."
+        },
+        {
+          "term": "`<Fragment key>`",
+          "detail": "Importe `Fragment` quand un `map` renvoie plusieurs frères par élément : `<Fragment key={item.id}>`."
+        },
+        {
+          "term": "Pas de nœud DOM",
+          "detail": "Rien à styler ni de handler à attacher."
+        },
+        {
+          "term": "State",
+          "detail": "Un niveau de Fragment autour d’un enfant conserve son state ; l’englober dans une `div` le réinitialise."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, un composant `OrderLines` englobe ses lignes `<tr>` dans une `<div>` à l’intérieur du `<tbody>` du tableau, et la mise en page du tableau casse. Comment corrigez-vous ça ?",
+        "bridge": "Les Fragments regroupent des frères sans ajouter de nœud DOM : les lignes restent enfants directs du `tbody` et le balisage reste valide."
+      },
+      {
+        "question": "Quand un `map` renvoie un libellé et une valeur pour chaque ligne de commande, pourquoi ne pouvez-vous pas utiliser `<>...</>`, et qu’écrivez-vous à la place ?",
+        "bridge": "Le Fragment avec key : la forme courte ne prend aucun attribut, donc un élément de liste fait de frères demande `<Fragment key={line.id}>`."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux rendent chaque ligne de commande en deux lignes de tableau, la ligne et ses détails. Lequel produit un balisage de tableau valide ?",
+        "why": "Un Fragment avec key regroupe les deux lignes sans ajouter de nœud, donc le `tbody` ne contient que des éléments `tr`. La `div` est un vrai nœud : React avertit « In HTML, <div> cannot be a child of <tbody> » et qu’un `tr` ne peut pas être dans une `div`, ce qui casse aussi l’hydratation du HTML rendu côté serveur, et les colonnes du tableau ne sont plus alignées."
+      }
+    ]
+  },
+  "react-use-ref": {
+    "topic": "useRef",
+    "question": "Qu’est-ce que `useRef`, et quels sont ses deux usages principaux ?",
+    "answer": "`useRef(initial)` renvoie un objet mutable, `{ current }`, qui reste le même à chaque rendu, et modifier `current` ne déclenche pas de re-render. Premier usage : garder un nœud DOM. Je passe la ref à l’attribut `ref` d’un élément, et après le commit, `current` est le nœud, donc je peux donner le focus à un input ou le mesurer. Second usage : garder une valeur que l’écran n’affiche pas, comme un id de timer ou un `AbortController`. Je lis et j’écris les refs dans les effets et les handlers, pas pendant le rendu ; une valeur affichée à l’écran va dans le state. En React 19, un composant fonction reçoit `ref` comme une prop ordinaire.",
+    "keyPoints": [
+      "Le même objet `{ current }` à chaque rendu",
+      "Écrire `current` ne déclenche pas de rendu",
+      "Usage 1 : un nœud DOM, renseigné après le commit",
+      "Usage 2 : des valeurs non affichées, comme des id de timer ; l’affiché va dans le state",
+      "On la lit et l’écrit dans les effets et les handlers, pas pendant le rendu"
+    ],
+    "explanation": "La question distingue les refs du state. Une réponse senior ajoute la règle qui interdit de lire une ref pendant le rendu, `ref` comme prop en React 19, et les cas où un handle impératif se justifie.",
+    "example": "Dans le back-office, le raccourci `/` donne le focus au champ de recherche des commandes. `SearchInput` reçoit `ref` comme prop, à la manière de React 19, et la passe à son `<input>`, et un listener keydown dans un effet appelle `inputRef.current?.focus()`. Le debounce de la recherche garde son id de timer dans une autre ref, donc la saisie planifie des recherches sans rendus supplémentaires.",
+    "mistakes": [
+      "Stocker dans une ref une valeur affichée à l’écran et se demander pourquoi l’UI ne se met pas à jour",
+      "Lire `ref.current` pendant le rendu, ce qui fait dépendre la sortie de données mutables",
+      "Utiliser une ref DOM pendant le premier rendu, avant que React ait attaché le nœud"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi modifier `ref.current` ne déclenche-t-il pas de re-render, et quand est-ce utile ?",
+        "answer": "Une ref est un objet ordinaire que React ne surveille pas, contrairement au state modifié via un setter. Ça convient aux valeurs qui doivent survivre aux rendus sans en provoquer : un id d’intervalle à nettoyer plus tard, un `AbortController`, ou un flag indiquant qu’une requête est déjà en cours."
+      },
+      {
+        "question": "Comment conserveriez-vous la valeur précédente d’une prop ou d’un state avec une ref ?",
+        "answer": "Dans un effet : je compare `prev.current` à la nouvelle valeur, puis j’écris `prev.current = value`. Le `usePrevious` classique qui renvoie la ref pendant le rendu lit une ref dans le rendu, ce que les règles de lint signalent ; quand la valeur précédente change la sortie, react.dev la garde plutôt dans le state."
+      },
+      {
+        "question": "Quelle est la différence entre `useRef` et `createRef` dans un composant fonction ?",
+        "answer": "`createRef` renvoie un nouvel objet `{ current: null }` à chaque appel, donc dans le corps d’une fonction il crée une nouvelle ref à chaque rendu ; il est fait pour les champs de classe. `useRef` renvoie le même objet pendant toute la vie du composant, c’est donc celui à utiliser dans les fonctions."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Modifier `ref.current` fait de nouveau rendre le composant.",
+        "why": "React ne suit pas les refs ; seule une mise à jour de state, dans le composant, un parent ou un context qu’il lit, planifie un rendu.",
+        "twin": {
+          "statement": "Modifier `ref.current` ne fait pas de nouveau rendre le composant.",
+          "why": "React ne suit pas les refs ; seule une mise à jour de state, dans le composant, un parent ou un context qu’il lit, planifie un rendu."
+        }
+      },
+      {
+        "statement": "Dans un composant fonction, `useRef` renvoie le même objet à chaque rendu, alors que `createRef` en renvoie un nouveau.",
+        "why": "`useRef` est stocké avec le composant ; `createRef` est une simple factory rappelée à chaque rendu.",
+        "twin": {
+          "statement": "Dans un composant fonction, `useRef` et `createRef` renvoient tous les deux un nouvel objet à chaque rendu.",
+          "why": "`useRef` est stocké avec le composant et renvoie le même objet ; seul `createRef` en crée un nouveau à chaque appel."
+        }
+      },
+      {
+        "statement": "Une ref passée à un `<input>` contient déjà le nœud DOM pendant le premier rendu du composant.",
+        "why": "React renseigne `current` pendant le commit, une fois le rendu terminé.",
+        "twin": {
+          "statement": "Une ref passée à un `<input>` ne contient pas encore le nœud DOM pendant le premier rendu du composant.",
+          "why": "React renseigne `current` pendant le commit, une fois le rendu terminé."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "`useRef` donne à un composant une boîte mutable, `{ current }`, qui survit aux rendus sans en provoquer. Elle garde des nœuds DOM et des valeurs que l’écran n’affiche pas, comme des id de timer.",
+      "points": [
+        "`useRef(initial)` renvoie un objet `{ current }` que React conserve pendant toute la vie du composant. Écrire dans `current` ne déclenche pas de re-render, car React ne le suit pas.",
+        "Premier usage : un nœud DOM. Passe la ref à l’attribut `ref` d’un élément ; après le commit, `current` est le nœud, donc un effet ou un handler peut appeler `focus()` ou le mesurer.",
+        "Second usage : une valeur que l’écran n’affiche pas, comme un id de timer ou un `AbortController`. Une valeur affichée va dans le state.",
+        "Lis et écris les refs dans les effets et les handlers, pas pendant le rendu, sauf pour les initialiser. En React 19, `ref` est une prop ordinaire des composants fonction, donc `forwardRef` n’est plus nécessaire.",
+        "`createRef` renvoie un nouvel objet à chaque appel, il convient donc aux champs de classe ; dans un composant fonction, utilise `useRef`."
+      ],
+      "takeaways": [
+        {
+          "term": "`{ current }`",
+          "detail": "Le même objet pendant toute la vie du composant."
+        },
+        {
+          "term": "Pas de re-render",
+          "detail": "Écrire `current` ne déclenche pas de rendu : React ne le suit pas."
+        },
+        {
+          "term": "Ref DOM",
+          "detail": "Passe-la à l’attribut `ref` d’un élément ; après le commit, `current` est le nœud."
+        },
+        {
+          "term": "Valeurs non affichées",
+          "detail": "Des id de timer ou un `AbortController`. Une valeur affichée à l’écran va dans le state."
+        },
+        {
+          "term": "Quand utiliser `current`",
+          "detail": "Lis-le et écris-le dans les effets et les handlers, pas pendant le rendu, sauf pour l’initialiser."
+        },
+        {
+          "term": "React 19",
+          "detail": "`ref` est une prop ordinaire des composants fonction, donc `forwardRef` n’est plus nécessaire."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, l’id d’un timer d’actualisation automatique est stocké dans une variable `let` du composant quand l’agent clique sur « Auto-refresh », et le nettoyage au démontage trouve `undefined`. Où cet id devrait-il vivre ?",
+        "bridge": "`useRef` pour les valeurs que l’écran n’affiche pas : le même objet ref survit à chaque rendu, et écrire `current` ne déclenche pas de rendu, contrairement au state."
+      },
+      {
+        "question": "Un collègue stocke l’ouverture du panneau de remboursement dans une ref « pour éviter les re-renders », et le panneau ne s’ouvre jamais. À quoi servent les refs, et qu’est-ce qui va dans le state ?",
+        "bridge": "Les deux usages de `useRef`, nœuds DOM et valeurs non affichées ; une valeur affichée à l’écran doit être du state, car écrire une ref ne déclenche pas de rendu."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux comptent combien de fois un agent a relancé le webhook de paiement et l’affichent sur le bouton. Lequel met le libellé à jour ?",
+        "why": "Le compteur est affiché à l’écran, donc il va dans le state : `setRetries` planifie un rendu et le libellé affiche le nouveau compte. Écrire `retries.current` modifie un objet que React ne suit pas, donc rien ne se re-rend et après trois clics le bouton affiche toujours « Retry (0) ». Les refs servent aux valeurs que l’écran n’affiche pas."
+      }
+    ]
+  }
+}

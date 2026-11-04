@@ -1,0 +1,302 @@
+{
+  "m10.q1": {
+    "q": "Le prix allemand d’un produit passe de 4 900 à 5 900 centimes. Les commandes allemandes du mois dernier doivent toujours afficher 4 900. Comment modéliser <code>order_lines</code> ?",
+    "options": [
+      "Seulement une clé étrangère vers <code>product_prices</code>, et une jointure pour lire le prix",
+      "Stocker le prix unitaire et le nom du produit sur la ligne au moment de la commande",
+      "Garder une vue <code>price_history</code> calculée à partir des prix du jour",
+      "Stocker le prix sur la ligne et le garder synchronisé avec <code>product_prices</code> via un trigger"
+    ],
+    "explain": "Le prix au moment de la commande est un fait différent du prix du jour, donc il est stocké sur la ligne comme un instantané. Une clé étrangère seule, ou un trigger qui suit le catalogue, réécrirait l’historique des commandes déjà passées."
+  },
+  "m10.q2": {
+    "q": "Sur 1 million de lignes, pourquoi l’index de clé primaire sur <code>uuidv7()</code> était-il plus petit que celui sur <code>uuidv4()</code> (30 Mo contre 38 Mo) ?",
+    "options": [
+      "Les valeurs UUIDv7 sont stockées sur 12 octets au lieu de 16, parce que la partie horodatage est compactée",
+      "PostgreSQL compresse les valeurs UUIDv7 dans les index B-tree",
+      "Les nouvelles valeurs se trient après les anciennes, donc elles sont ajoutées à la fin au lieu de faire scinder des pages",
+      "Les index UUIDv7 sont construits comme des index hash, qui stockent un hash de 4 octets de chaque clé"
+    ],
+    "explain": "Les deux font 16 octets (<code>pg_column_size</code> a renvoyé 16). Les 48 premiers bits d’un v7 sont un horodatage en millisecondes, donc les inserts arrivent dans l’ordre comme une séquence ; les clés v4 aléatoires atterrissent n’importe où et laissent des pages scindées à moitié vides."
+  },
+  "m10.q3": {
+    "q": "Des numéros de commande comme <code>DE-2026-000042</code> sont imprimés sur les factures, et chaque pays numérote ses commandes sur sa propre séquence. Où doit vivre le numéro ?",
+    "options": [
+      "Dans une colonne <code>number</code> avec <code>UNIQUE (country_code, number)</code>, à côté d’une clé primaire technique",
+      "Ce doit être la clé primaire de <code>orders</code>",
+      "Dans une colonne <code>number</code> avec <code>UNIQUE (number)</code>",
+      "Généré uniquement par l’application, sans contrainte, parce que c’est une valeur d’affichage"
+    ],
+    "explain": "Une clé naturelle est gardée unique par une contrainte, tandis que les clés étrangères pointent vers une clé technique stable. Un <code>UNIQUE (number)</code> global interdirait à la France et à l’Allemagne d’avoir toutes deux une commande 42, et l’absence totale de contrainte laisse entrer des doublons en cas de concurrence."
+  },
+  "m10.q4": {
+    "q": "Avec la session en UTC, que renvoie <code>SELECT '2026-10-29 10:00:00+02'::timestamp</code> ?",
+    "options": [
+      "<code>2026-10-29 08:00:00</code>, converti en UTC",
+      "Une erreur, parce que <code>timestamp</code> n’accepte pas de décalage",
+      "<code>2026-10-29 10:00:00+02</code>, avec le décalage conservé",
+      "<code>2026-10-29 10:00:00</code>, le décalage ignoré en silence"
+    ],
+    "explain": "Mesuré : un <code>timestamp</code> simple abandonne le décalage sans erreur. La conversion en <code>08:00:00+00</code>, c’est ce que fait <code>timestamptz</code>, c’est pourquoi les instants doivent toujours être stockés en <code>timestamptz</code>."
+  },
+  "m10.q5": {
+    "q": "Les statuts de commande sont un enum PostgreSQL. Le produit veut supprimer la valeur obsolète <code>awaiting_transfer</code>. Que se passe-t-il avec <code>ALTER TYPE order_status DROP VALUE 'awaiting_transfer'</code> ?",
+    "options": [
+      "Ça marche si aucune ligne n’utilise la valeur",
+      "Ça échoue avec <code>0A000 dropping an enum value is not implemented</code>",
+      "Ça marche mais réécrit toutes les tables qui ont une colonne de ce type",
+      "Ça échoue seulement dans une transaction"
+    ],
+    "explain": "Mesuré sur PostgreSQL 18.6 : la suppression d’une valeur d’enum n’est pas implémentée du tout, il faudrait donc recréer le type. Ce coût explique pourquoi un <code>CHECK</code> ou une table de référence est généralement le meilleur choix pour un ensemble qui évolue."
+  },
+  "m10.q6": {
+    "q": "Un insert viole la contrainte d’exclusion qui interdit des prix qui se chevauchent pour un même produit et un même pays. Quel SQLSTATE porte l’erreur ?",
+    "options": [
+      "<code>23P01</code>",
+      "<code>23505</code>",
+      "<code>23514</code>",
+      "<code>23503</code>"
+    ],
+    "explain": "Mesuré : <code>23P01 conflicting key value violates exclusion constraint</code>, suivi du nom de la contrainte. <code>23505</code> est une violation d’unicité, <code>23514</code> un check et <code>23503</code> une clé étrangère ; un handler traduit généralement 23505 et 23P01 en 409."
+  },
+  "m10.q7": {
+    "q": "<code>orders.customer_id REFERENCES customers (id)</code> n’a pas de clause <code>ON DELETE</code>. Tu supprimes un client qui a encore des commandes. Que se passe-t-il ?",
+    "options": [
+      "Les commandes sont supprimées aussi",
+      "Les commandes restent, avec <code>customer_id</code> mis à NULL automatiquement",
+      "Ça échoue avec <code>23503</code>, parce que le défaut est <code>NO ACTION</code>",
+      "Ça échoue avec <code>23001</code>, parce que le défaut est <code>RESTRICT</code>"
+    ],
+    "explain": "Mesuré : la suppression a échoué avec <code>23503</code> et un détail disant que la clé « is still referenced » depuis la table enfant. <code>23001</code>, c’est ce que renvoie un <code>RESTRICT</code> explicite ; la cascade ou la mise à NULL n’ont lieu que si on les demande."
+  },
+  "m10.q8": {
+    "q": "Les clients sont supprimés logiquement avec <code>deleted_at</code>. Un e-mail doit être unique parmi les comptes actifs d’une marque, et un client qui a fermé son compte doit pouvoir se réinscrire. Quelle définition fait ça ?",
+    "options": [
+      "<code>UNIQUE (tenant_id, email, deleted_at)</code>, pour que les lignes supprimées n’entrent plus en collision avec les actives",
+      "<code>UNIQUE (tenant_id, email)</code>",
+      "Un <code>SELECT</code> avant chaque <code>INSERT</code> dans le handler d’inscription, dans une transaction",
+      "<code>CREATE UNIQUE INDEX … ON customers (tenant_id, lower(email)) WHERE deleted_at IS NULL</code>"
+    ],
+    "explain": "L’index unique partiel ne couvre que les lignes actives (mesuré : la réinscription a réussi, un second compte actif a échoué avec <code>23505</code>). Ajouter <code>deleted_at</code> à un UNIQUE a l’air juste mais laisse entrer deux doublons actifs, parce que leurs NULL ne sont pas égaux ; un SELECT-puis-INSERT a une race condition."
+  },
+  "m10.q9": {
+    "q": "Tu actives la row-level security avec une policy par tenant sur <code>orders</code>, puis tu testes avec le rôle propriétaire de la table : il voit toujours les commandes de toutes les marques. Pourquoi ?",
+    "options": [
+      "La policy a besoin d’une clause <code>WITH CHECK</code> avant de s’appliquer aux requêtes <code>SELECT</code>",
+      "Le propriétaire de la table contourne les policies sauf si la table a <code>FORCE ROW LEVEL SECURITY</code>",
+      "La RLS ne s’applique qu’à <code>INSERT</code> et <code>UPDATE</code>",
+      "La policy est mise en cache par connexion, donc elle ne s’applique qu’après une reconnexion"
+    ],
+    "explain": "Mesuré : le rôle propriétaire voyait 3 lignes, et 2 après <code>FORCE ROW LEVEL SECURITY</code>. <code>WITH CHECK</code> régit les lignes qu’on peut écrire ; <code>USING</code> filtre déjà les lectures. Les superusers contournent même <code>FORCE</code>, donc l’API utilise un rôle dédié non propriétaire."
+  },
+  "m10.q10": {
+    "q": "Quel champ d’un webhook de paiement doit devenir une vraie colonne plutôt que rester dans le <code>jsonb</code> ?",
+    "options": [
+      "Un objet imbriqué qu’on affiche seulement dans la page de détail d’événement de l’admin",
+      "Le corps brut complet, gardé pour rejouer l’événement",
+      "Le type d’événement, utilisé dans chaque requête qui liste et filtre les événements",
+      "Des métadonnées optionnelles que quelques prestataires envoient"
+    ],
+    "explain": "Les champs sur lesquels on filtre méritent une colonne : elle a un type, des contraintes et des statistiques pour le planner (mesuré : un filtre sur un champ JSON était estimé à 100 lignes pour 200 réelles, la colonne à exactement 200). Les données stockées et renvoyées en bloc, c’est là que JSONB est bon."
+  },
+  "m10.q11": {
+    "q": "Un développeur modifie un fichier de migration Flyway déjà exécuté en production, pour corriger une faute dans un commentaire. Que se passe-t-il au prochain déploiement ?",
+    "options": [
+      "<code>validate</code> échoue : le checksum du fichier ne correspond plus à celui enregistré",
+      "Flyway réexécute la migration modifiée",
+      "Rien : les commentaires sont ignorés lors de la comparaison des fichiers",
+      "Flyway n’applique que la différence entre le fichier modifié et celui appliqué"
+    ],
+    "explain": "Flyway stocke un checksum (CRC32 pour les fichiers SQL) de chaque migration appliquée, et sa documentation dit que la validation échoue sur une différence de checksum. Tout changement compte, commentaires compris, c’est pourquoi on ne modifie jamais une migration appliquée : on en ajoute une nouvelle."
+  },
+  "m10.q12": {
+    "q": "Sur PostgreSQL 18, quelle instruction réécrit la table <code>orders</code> de 50 millions de lignes ?",
+    "options": [
+      "<code>ADD COLUMN note text</code>",
+      "<code>ADD COLUMN currency text NOT NULL DEFAULT 'EUR'</code>",
+      "<code>ADD COLUMN created_at timestamptz DEFAULT now()</code>",
+      "<code>ADD COLUMN public_id uuid DEFAULT uuidv7()</code>"
+    ],
+    "explain": "Mesuré avec le file node de la table : un défaut volatile doit être calculé par ligne, donc la table est réécrite sous ACCESS EXCLUSIVE. Une constante, ou <code>now()</code> évalué une fois par instruction, est stockée dans le catalogue, ce qui évite la réécriture depuis PostgreSQL 11."
+  },
+  "m10.q13": {
+    "q": "L’API expose dans les liens de parrainage des ids clients générés avec <code>uuidv7()</code>. Une revue de confidentialité soulève une inquiétude. Laquelle est réelle ?",
+    "options": [
+      "N’importe qui peut deviner l’id du client suivant à partir de l’actuel",
+      "Les ids UUIDv7 peuvent entrer en collision entre serveurs, donc un client pourrait voir le compte d’un autre",
+      "L’id révèle quand le compte a été créé, à la milliseconde près",
+      "L’id contient l’adresse MAC du serveur"
+    ],
+    "explain": "Les 48 premiers bits d’un v7 sont son heure de création en millisecondes, et <code>uuid_extract_timestamp</code> l’a renvoyée exactement (il renvoie NULL pour un v4). Les bits restants sont aléatoires, donc les ids ne sont pas devinables ; l’adresse MAC, c’était UUIDv1."
+  },
+  "m10.q14": {
+    "q": "Un import du CSV produits du fournisseur allemand mappe une colonne avec un cast explicite. Que renvoie cette requête quand la valeur source est <code>'abcdef'</code> ?",
+    "options": [
+      "<code>abcde</code>, tronqué en silence",
+      "Une erreur <code>22001 value too long for type character varying(5)</code>",
+      "<code>abcdef</code>, parce que le cast n’est qu’une indication",
+      "Une erreur <code>23514</code> qui nomme une contrainte check"
+    ],
+    "explain": "Mesuré, et documenté : un cast explicite en <code>varchar(n)</code> tronque sans erreur. L’erreur <code>22001</code> ne survient que quand une valeur trop longue est stockée dans la colonne sans cast. Une colonne <code>text</code> avec un <code>CHECK</code> nommé ne tronque jamais."
+  },
+  "m10.q15": {
+    "q": "La première version de <code>orders</code> stocke <code>total</code> en euros en <code>double precision</code>, et la finance signale des totaux faux d’un centime. La boutique vend maintenant aussi en livres et en francs suisses. Quel design cible livreriez-vous ?",
+    "options": [
+      "Garder <code>double precision</code> et arrondir dans chaque rapport",
+      "<code>total_cents bigint</code> plus une colonne <code>currency</code>, avec des calculs en entiers en TypeScript",
+      "Le type PostgreSQL <code>money</code>, conçu pour les montants et qui arrondit au centime",
+      "<code>real</code> : moins de chiffres signifie moins d’erreurs d’arrondi sur les petits montants"
+    ],
+    "explain": "Les flottants binaires ne peuvent pas représenter la plupart des montants décimaux (<code>0.1 + 0.2</code> a renvoyé <code>0.30000000000000004</code>). Les unités mineures entières sont exactes ; <code>numeric</code> serait aussi correct. Le type <code>money</code> dépend de <code>lc_monetary</code> et ne stocke aucune devise."
+  },
+  "m10.q16": {
+    "q": "Que laisse ce script dans la table ?",
+    "options": [
+      "Les deux instructions échouent avec <code>23505</code>",
+      "Quatre lignes : UNIQUE ne compare jamais les valeurs NULL, dans aucune des colonnes",
+      "L’instruction 1 échoue, l’instruction 2 réussit",
+      "Deux lignes : l’instruction 1 réussit, l’instruction 2 échoue avec <code>23505</code>"
+    ],
+    "explain": "Mesuré : un <code>UNIQUE</code> simple traite les NULL comme distincts, donc la colonne <code>a</code> a accepté deux NULL ; <code>NULLS NOT DISTINCT</code> sur <code>b</code> a rejeté le second NULL avec <code>Key (b)=(null) already exists</code>, et toute la seconde instruction a été annulée."
+  },
+  "m10.q17": {
+    "q": "Deux admins enregistrent au même moment un prix allemand pour le même produit. Le service d’admin vérifie les périodes de validité qui se chevauchent avec un <code>SELECT</code> avant l’insertion. Parfois, les deux passent. Quel correctif livreriez-vous ?",
+    "options": [
+      "Ajouter un index unique sur <code>(product_id, country_code, valid_during)</code>",
+      "Rejouer le <code>SELECT</code> deux fois avant l’insertion",
+      "Une contrainte d’exclusion sur <code>(product_id WITH =, country_code WITH =, valid_during WITH &amp;&amp;)</code>",
+      "Exécuter la vérification et l’insertion dans une transaction <code>READ COMMITTED</code> avec un retry"
+    ],
+    "explain": "La contrainte d’exclusion est vérifiée par Postgres de façon atomique pour chaque écrivain (mesuré : un insert qui chevauchait a échoué avec <code>23P01</code>). Un index unique sur la plage ne rejette que les plages identiques, pas celles qui se chevauchent, et vérifier-puis-insérer a une race condition au niveau d’isolation par défaut (M09)."
+  },
+  "m10.q18": {
+    "q": "Une clé étrangère est déclarée <code>DEFERRABLE INITIALLY DEFERRED</code>. Dans une transaction, tu supprimes la ligne parente, puis ses lignes enfants, puis tu valides. Avec quelle action <code>ON DELETE</code> ça réussit ?",
+    "options": [
+      "<code>NO ACTION</code> : la vérification attend le commit, quand il ne reste plus d’enfant",
+      "<code>RESTRICT</code> : c’est la variante différable de <code>NO ACTION</code>",
+      "Les deux : le report s’applique à toutes les actions",
+      "Aucune : supprimer un parent référencé échoue toujours immédiatement, différé ou non"
+    ],
+    "explain": "Mesuré : avec <code>NO ACTION</code> différé, la transaction a été validée. <code>RESTRICT</code> est vérifié immédiatement et n’est jamais différé, c’est la seule vraie différence entre les deux refus."
+  },
+  "m10.q19": {
+    "q": "Un job de nettoyage supprime les comptes clients qui n’ont jamais commandé, et chaque suppression ralentit à mesure que <code>orders</code> grossit. Chaque table a une clé primaire, et <code>orders.customer_id REFERENCES customers (id)</code>. Qu’est-ce qui manque ?",
+    "options": [
+      "Un index unique sur <code>customers.id</code>",
+      "Un index sur <code>orders.customer_id</code>, que Postgres ne crée jamais pour toi",
+      "<code>ON DELETE CASCADE</code>, qui fait passer la vérification de référence par un index",
+      "Un <code>ANALYZE</code> sur <code>customers</code>"
+    ],
+    "explain": "Mesuré : après la création d’une clé étrangère, <code>pg_indexes</code> ne montrait que la clé primaire de la table. Le côté référencé est déjà indexé par sa clé primaire ; chaque suppression d’un client doit chercher les commandes qui le référencent, ce qui demande un index sur <code>customer_id</code>."
+  },
+  "m10.q20": {
+    "q": "Le trigger d’audit sur <code>product_prices</code> stocke <code>current_setting('app.user_id', true)</code> comme auteur. Un import de prix nocturne, sur une connexion où une transaction précédente avait défini <code>app.user_id</code> en local, met à jour des prix sans le définir. Qu’est-ce qui est enregistré comme auteur ?",
+    "options": [
+      "NULL, parce que le second argument renvoie NULL pour un réglage absent",
+      "L’id utilisateur de la transaction précédente",
+      "La mise à jour échoue avec <code>42704 unrecognized configuration parameter</code>",
+      "Une chaîne vide"
+    ],
+    "explain": "Mesuré : une fois une valeur locale à une transaction terminée, le réglage existe toujours sur cette connexion et se relit comme <code>''</code>, donc le log a enregistré un auteur vide. NULL n’est renvoyé que si le réglage n’a jamais été défini ; enveloppe-le dans <code>nullif(…, '')</code>."
+  },
+  "m10.q21": {
+    "q": "Le rôle de l’API <code>app_user</code> exécute ceci sur une connexion neuve, avec la policy RLS <code>USING (tenant_id = current_setting('app.tenant_id')::bigint)</code> sur <code>orders</code>. Que se passe-t-il ?",
+    "options": [
+      "Elle renvoie le nombre de toutes les commandes",
+      "Elle renvoie 0",
+      "Elle échoue avec <code>42704 unrecognized configuration parameter \"app.tenant_id\"</code>",
+      "Elle renvoie le nombre pour le tenant défini le plus récemment par une autre session sur le serveur"
+    ],
+    "explain": "Mesuré : sans la forme à deux arguments, <code>current_setting</code> lève une erreur quand le réglage n’existe pas, donc la requête échoue en position fermée. Renvoyer 0 demanderait <code>current_setting(…, true)</code>, qui donne NULL et ne correspond à aucune ligne."
+  },
+  "m10.q22": {
+    "q": "Comment rendre impossible, au niveau du schéma, qu’une ligne de commande du tenant 2 pointe vers une commande du tenant 1 ?",
+    "options": [
+      "Un <code>UNIQUE (tenant_id, id)</code> sur orders, et des lignes qui référencent <code>orders (tenant_id, id)</code>",
+      "Ajouter un <code>CHECK (tenant_id = order_id)</code> sur les lignes",
+      "Utiliser des UUID pour les ids de commande, pour qu’aucun tenant ne puisse deviner un id appartenant à un autre tenant",
+      "Ajouter un index sur <code>order_lines (tenant_id, order_id)</code>"
+    ],
+    "explain": "Une clé étrangère composite porte le tenant dans la référence (mesuré : l’insert inter-tenants a échoué avec <code>23503 … Key (tenant_id, order_id)=(2, 1) is not present</code>). Des ids non devinables réduisent le risque mais n’arrêtent pas un bug qui copie le mauvais id ; un index n’impose rien."
+  },
+  "m10.q23": {
+    "q": "Le groupe prévoit d’héberger des boutiques en marque blanche pour 5 000 petits marchands sur l’API Orders, chacun étant un tenant, et livre des changements de schéma chaque semaine. Un collègue propose un schéma PostgreSQL par tenant « pour l’isolation ». Que répondez-vous ?",
+    "options": [
+      "D’accord : les schémas ne coûtent rien et isolent complètement les données",
+      "Des tables partagées avec <code>tenant_id</code> et la RLS ; un schéma par tenant, c’est 5 000 exécutions de migration par semaine",
+      "Préférer une base par tenant, plus simple à exploiter que des milliers de schémas",
+      "D’accord, mais seulement si chaque schéma a son propre pool de connexions"
+    ],
+    "explain": "Un schéma par tenant exécute chaque migration une fois par schéma, 5 000 fois par semaine ici, et fait grossir le catalogue avec chaque schéma ; il convient à un petit nombre de gros tenants. Une base par tenant est la plus coûteuse à exploiter et se réserve à l’isolation contractuelle ou à la résidence des données."
+  },
+  "m10.q24": {
+    "q": "Sur PostgreSQL 18, tu promeus un champ JSON très utilisé puis tu l’indexes. La seconde instruction échoue. Pourquoi, et que ferais-tu ?",
+    "options": [
+      "<code>-&gt;&gt;</code> n’est pas immuable ; utiliser <code>-&gt;</code> à la place",
+      "Les colonnes générées ne peuvent pas référencer du <code>jsonb</code> ; copier le champ dans une colonne simple avec un trigger",
+      "La colonne doit être <code>NOT NULL</code> avant de pouvoir être indexée",
+      "Les colonnes générées sont virtuelles par défaut dans PostgreSQL 18 ; indexer plutôt l’expression"
+    ],
+    "explain": "Mesuré : la colonne a été créée en virtuelle et l’index a échoué avec <code>0A000 indexes on virtual generated columns are not supported</code>. Un index d’expression sur <code>(payload -&gt;&gt; 'kind')</code> marche sans toucher à la table ; une colonne <code>STORED</code> marcherait aussi mais réécrit la table quand on l’ajoute."
+  },
+  "m10.q25": {
+    "q": "Une migration node-pg-migrate ne contient que <code>CREATE INDEX CONCURRENTLY</code> sur <code>orders</code>. Le déploiement échoue avec <code>25001</code>. Quel est le correctif ?",
+    "options": [
+      "Retirer <code>CONCURRENTLY</code> : dans une migration, le verrou d’écriture compte peu",
+      "Envelopper l’instruction dans un <code>BEGIN</code> / <code>COMMIT</code> explicite",
+      "Appeler <code>pgm.noTransaction()</code> et supprimer d’abord tout index invalide restant",
+      "Exécuter la migration avec un rôle superuser"
+    ],
+    "explain": "node-pg-migrate exécute par défaut les migrations en attente dans une seule transaction, et <code>CREATE INDEX CONCURRENTLY</code> a échoué avec <code>25001 cannot run inside a transaction block</code>. Un <code>CREATE INDEX</code> simple bloquerait les écritures pendant toute la construction ; un changement de rôle n’affecte pas les transactions."
+  },
+  "m10.q26": {
+    "q": "Tu as besoin d’un <code>public_id uuid</code> rempli pour chaque ligne de la table <code>orders</code> en service, sans verrou long. Quelle séquence livrerais-tu ?",
+    "options": [
+      "<code>ADD COLUMN public_id uuid</code>, puis <code>SET DEFAULT uuidv7()</code>, puis un backfill par lots",
+      "<code>ADD COLUMN public_id uuid NOT NULL DEFAULT uuidv7()</code> en une seule instruction, lancée la nuit quand le trafic est faible",
+      "<code>ADD COLUMN public_id uuid DEFAULT uuidv7()</code> avec <code>lock_timeout</code> défini",
+      "<code>ADD COLUMN public_id uuid GENERATED ALWAYS AS (uuidv7()) STORED</code>"
+    ],
+    "explain": "Mesuré : ajouter la colonne puis définir le défaut n’a provoqué aucune réécriture, les nouvelles lignes ont reçu un id, les lignes existantes sont restées à NULL pour le backfill. Un défaut volatile dans <code>ADD COLUMN</code> réécrit la table sous ACCESS EXCLUSIVE, et <code>lock_timeout</code> ne limite que l’attente du verrou, pas la réécriture."
+  },
+  "m10.q27": {
+    "q": "Après un backfill complet, comment rendre <code>orders.total_cents</code> NOT NULL sur la table très sollicitée de 50 millions de lignes ?",
+    "options": [
+      "<code>ALTER COLUMN total_cents SET NOT NULL</code> avec <code>lock_timeout = '3s'</code>",
+      "<code>ADD CONSTRAINT … CHECK (total_cents IS NOT NULL) NOT VALID</code>, <code>VALIDATE CONSTRAINT</code>, puis <code>SET NOT NULL</code>",
+      "<code>CREATE INDEX CONCURRENTLY</code> sur <code>total_cents</code>, puis <code>SET NOT NULL</code>",
+      "<code>ALTER COLUMN total_cents SET DEFAULT 0</code>, qui transforme les NULL existants en zéros et interdit les nouveaux"
+    ],
+    "explain": "La validation parcourt la table sous SHARE UPDATE EXCLUSIVE, donc lectures et écritures continuent, et le <code>SET NOT NULL</code> final a indiqué que les contraintes existantes prouvent que la colonne n’a pas de NULL au lieu de parcourir la table. Un <code>SET NOT NULL</code> simple parcourt la table sous ACCESS EXCLUSIVE ; <code>lock_timeout</code> borne l’attente, pas le parcours."
+  },
+  "m10.q28": {
+    "q": "Une migration exécute <code>ALTER TABLE orders ADD COLUMN note text</code>, un changement qui ne touche que le catalogue. Pourtant, l’API ne répond plus pendant deux minutes. Que s’est-il le plus probablement passé ?",
+    "options": [
+      "L’ajout de la colonne a réécrit la table",
+      "La nouvelle colonne a invalidé tous les index de la table",
+      "L’outil de migration a tenu son advisory lock pendant deux minutes, bloquant les propres requêtes de l’application",
+      "L’ALTER a fait la queue derrière une transaction longue, et chaque requête sur la table a fait la queue derrière l’ALTER"
+    ],
+    "explain": "Une demande de verrou en attente bloque aussi les demandes conflictuelles suivantes (la doc PostgreSQL parle de soft block, devant dans la file d’attente). Le correctif est <code>SET lock_timeout</code> dans les migrations, dont le défaut est 0 (attente infinie), plus un retry. L’ajout d’une colonne nullable n’a montré aucune réécriture à la mesure."
+  },
+  "m10.q29": {
+    "q": "Un backfill choisit chaque lot avec la première requête. À mi-parcours, il est beaucoup plus lent qu’au début. Qu’est-ce qui l’explique ?",
+    "options": [
+      "Le filtre <code>IS NULL</code> ne peut utiliser aucun index, donc chaque lot lit toute la table depuis le disque",
+      "Les lignes mises à jour sont encore verrouillées par les lots précédents, donc la requête les attend",
+      "Elle reparcourt chaque ligne déjà remplie : 1 182 buffers contre 10 pour la requête keyset",
+      "<code>LIMIT</code> force un tri de toute la table"
+    ],
+    "explain": "Mesuré avec 90 000 lignes traitées sur 100 000 : le plan utilisait l’index de clé primaire mais affichait <code>Rows Removed by Filter: 90000</code> et 1 182 buffers ; la version keyset en lisait 10. Chaque lot est plus lent, donc le coût total croît avec le carré de la taille de la table."
+  },
+  "m10.q30": {
+    "q": "Pour le lancement au Royaume-Uni, tu dois renommer <code>orders.zip_code</code> en <code>orders.postal_code</code>, avec des déploiements progressifs. Quel plan est sûr ?",
+    "options": [
+      "<code>RENAME COLUMN</code> dans la migration, et déployer le code qui utilise <code>postal_code</code> dans la même release",
+      "Ajouter <code>postal_code</code>, le synchroniser et le remplir, basculer les lectures puis les écritures, supprimer <code>zip_code</code> plus tard",
+      "Créer une vue nommée <code>orders</code> qui expose les deux noms, puis renommer la table",
+      "<code>RENAME COLUMN</code> la nuit, quand aucune ancienne instance ne tourne"
+    ],
+    "explain": "Pendant un déploiement progressif, les anciennes instances interrogent encore <code>zip_code</code>, donc un renommage instantané les casse même si le renommage lui-même est rapide. Expand / migrate / contract garde chaque schéma intermédiaire compatible avec les deux versions ; compter sur une fenêtre de nuit, c’est une interruption de service mieux placée dans le temps."
+  }
+}

@@ -1,0 +1,302 @@
+{
+  "m27.q1": {
+    "q": "Le back-office rend <code>&lt;p&gt;{review.body}&lt;/p&gt;</code>, et le corps vaut <code>&lt;img src=x onerror=\"steal()\"&gt;</code>. Que produit React 19 ?",
+    "options": [
+      "Un élément <code>&lt;img&gt;</code> dont le <code>onerror</code> s’exécute quand l’image ne se charge pas",
+      "Une erreur de rendu, car React refuse le texte qui contient du HTML",
+      "Le payload sous forme de texte dans le paragraphe, avec <code>&lt;</code> encodé",
+      "Un élément <code>&lt;img&gt;</code> dont React a retiré l’attribut <code>onerror</code> avant insertion"
+    ],
+    "explain": "Une valeur entre accolades est du texte : react-dom/server l’a encodée en <code>&amp;lt;img … onerror=&amp;quot;…</code>, et react-dom/client a inséré un nœud texte (mesuré avec 19.3.1). React ne retire pas d’attributs du HTML utilisateur, car il ne le parse jamais comme du HTML ; ce serait le travail d’un sanitiser."
+  },
+  "m27.q2": {
+    "q": "Un client enregistre un avis contenant un payload de script, qui s’exécute plus tard dans le navigateur de chaque agent qui ouvre la commande. De quel type de XSS s’agit-il ?",
+    "options": [
+      "XSS stockée",
+      "XSS réfléchie",
+      "XSS basée sur le DOM uniquement",
+      "Clickjacking"
+    ],
+    "explain": "Le payload est enregistré sur le serveur et servi plus tard à d’autres utilisateurs : c’est une XSS stockée. Une XSS réfléchie voyage dans la requête (un paramètre d’URL) et revient dans la réponse immédiate. Le sink se trouve ici dans le front, mais ce qui définit le type, c’est l’endroit où vit le payload."
+  },
+  "m27.q3": {
+    "q": "React 19.3 rend <code>&lt;a href=\"javascript:alert(1)\"&gt;site&lt;/a&gt;</code>. Qu’y a-t-il dans le DOM ?",
+    "options": [
+      "Le même href ; React se contente d’un avertissement dans les builds de développement",
+      "Une ancre sans aucun attribut href",
+      "Rien : le rendu lève une erreur et le composant ne se monte pas",
+      "Un href que React remplace par une URL javascript: qui lève une erreur"
+    ],
+    "explain": "React 19 remplace l’URL par <code>javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')</code>, dans les builds de développement comme de production de react-dom 19.3.1 (mesuré côté serveur et dans Chromium, où cliquer sur le lien a levé l’erreur au lieu d’exécuter le code). Rien n’est retiré, et le rendu n’échoue pas."
+  },
+  "m27.q4": {
+    "q": "Lequel de ces cas n’est <b>pas</b> couvert par l’encodage automatique de React ?",
+    "options": [
+      "Une chaîne rendue comme enfant : <code>{review.body}</code>",
+      "La valeur <code>__html</code> de <code>dangerouslySetInnerHTML</code>",
+      "Une chaîne dans un attribut <code>title</code>",
+      "Une chaîne dans un attribut <code>data-review-id</code> sur la carte"
+    ],
+    "explain": "<code>dangerouslySetInnerHTML</code> est la porte de sortie explicite : sa chaîne est insérée comme HTML, telle quelle (mesuré : le <code>&lt;img onerror&gt;</code> est ressorti intact). Les enfants texte et les valeurs d’attributs sont encodés, c’est pourquoi les trois autres sont sûrs."
+  },
+  "m27.q5": {
+    "q": "Le produit tient à ce que les avis gardent gras, italique et listes. Quelle technique rend sûr le rendu de ce HTML ?",
+    "options": [
+      "La sanitisation par liste blanche, juste avant le sink HTML",
+      "La validation par expression régulière à la frontière de l’API, avant l’enregistrement",
+      "L’encodage en sortie de tout l’avis avant le rendu",
+      "Une Content Security Policy, sans aucun changement de code"
+    ],
+    "explain": "Seul un sanitiser garde la mise en forme autorisée tout en retirant le reste. Encoder tout l’avis afficherait les balises comme du texte, ce qui va contre l’exigence, et la validation ne peut pas décider de ce qu’est un HTML sûr dans tous les contextes. La CSP est une seconde couche, pas le correctif."
+  },
+  "m27.q6": {
+    "q": "Pourquoi l’équipe sanitise-t-elle les avis dans le composant qui les rend, plutôt qu’une seule fois avant l’enregistrement ?",
+    "options": [
+      "Parce que DOMPurify ne tourne pas dans Node, donc l’API ne pourrait pas l’appeler avant l’enregistrement",
+      "Parce que stocker du HTML sanitisé casse les index de la base",
+      "Parce que la sûreté dépend de la chaîne finale au sink, et que des modifications ultérieures peuvent l’annuler",
+      "Parce que sanitiser deux fois encoderait le texte deux fois"
+    ],
+    "explain": "Le README de DOMPurify prévient que modifier le HTML après sanitisation peut l’annuler, et la liste blanche peut changer après le stockage des données. Sanitiser au sink vérifie la chaîne exacte qui arrive au navigateur. DOMPurify tourne bien dans Node, avec une window jsdom."
+  },
+  "m27.q7": {
+    "q": "Une page est servie avec <code>Content-Security-Policy: script-src 'nonce-abc123'</code>. Lesquels de ces scripts s’exécutent ?",
+    "options": [
+      "Les trois : la politique ne s’applique qu’aux scripts externes",
+      "Le script avec nonce et le handler onerror",
+      "Aucun : un nonce ne fonctionne que dans une balise meta",
+      "Seulement le script avec nonce"
+    ],
+    "explain": "Mesuré dans Chromium : le script inline et le handler d’événement inline ont tous deux été bloqués (« Executing inline event handler violates… »), et seul le script avec nonce s’est exécuté. C’est exactement pourquoi une CSP aurait arrêté le payload <code>onerror</code> de l’avis."
+  },
+  "m27.q8": {
+    "q": "Que change <code>'strict-dynamic'</code> dans une politique basée sur des nonces ?",
+    "options": [
+      "Il laisse les scripts inline s’exécuter sans nonce, tant que c’est le parser qui les a insérés",
+      "Les scripts chargés par un script avec nonce sont de confiance ; les listes d’hôtes sont ignorées",
+      "Il force chaque script à se charger en async",
+      "Il restreint les scripts à l’origine de la page"
+    ],
+    "explain": "MDN : la confiance accordée par un nonce ou un hash se propage aux scripts que ce script racine charge, et les listes blanches ou <code>'self'</code> sont ignorées. Mesuré : un script ajouté par le loader avec nonce s’est exécuté, alors qu’un script inséré par le parser depuis un hôte listé a été bloqué."
+  },
+  "m27.q9": {
+    "q": "Le back-office envoie <code>require-trusted-types-for 'script'</code>. Que se passe-t-il sur <code>element.innerHTML = '&lt;b&gt;x&lt;/b&gt;'</code> ?",
+    "options": [
+      "Ça fonctionne, et le navigateur logge un avertissement Trusted Types dans la console",
+      "L’affectation est ignorée silencieusement",
+      "Elle lève une TypeError : le document exige du TrustedHTML",
+      "Le navigateur sanitise la chaîne automatiquement"
+    ],
+    "explain": "Mesuré dans Chromium : « TypeError: Failed to set the 'innerHTML' property on 'Element': This document requires 'TrustedHTML' assignment. » Le navigateur ne sanitise pas ; c’est toi qui fournis une policy qui le fait. Un avertissement sans blocage, c’est ce que donne l’en-tête report-only."
+  },
+  "m27.q10": {
+    "q": "Une XSS s’exécute sur la boutique. Compare un refresh token dans <code>localStorage</code> avec une session tenue derrière un cookie <code>HttpOnly</code> par un BFF.",
+    "options": [
+      "Le token peut être copié et rejoué ailleurs ; le cookie ne peut pas être lu",
+      "Les deux sont aussi exposés : un script injecté peut lire le cookie comme le token",
+      "Les deux sont sûrs : la same-origin policy tient les scripts à l’écart des deux",
+      "Le cookie est pire, car fetch l’envoie à n’importe quel site que le script appelle"
+    ],
+    "explain": "Le Web Storage est lisible par n’importe quel script de l’origine, donc le token part avec l’attaquant. <code>HttpOnly</code> interdit de lire le cookie, mais le navigateur l’attache quand même aux requêtes de la page infectée, donc la prévention de la XSS reste prioritaire. Et fetch n’attache un cookie qu’aux requêtes vers l’hôte qui l’a posé, pas à n’importe quel site appelé par le script."
+  },
+  "m27.q11": {
+    "q": "Que contrôle CORS ?",
+    "options": [
+      "Si le serveur accepte et exécute une requête venant d’une autre origine",
+      "Si le navigateur attache les cookies à une requête",
+      "Si l’appelant est autorisé à effectuer l’action",
+      "Si un script d’une autre origine peut lire la réponse"
+    ],
+    "explain": "CORS assouplit la same-origin policy sur la lecture. Dans toutes les mesures de la section 7, le serveur a reçu et exécuté la requête quelle que soit l’Origin. L’attachement des cookies relève de SameSite, et l’autorisation du serveur."
+  },
+  "m27.q12": {
+    "q": "Le <code>.env</code> d’une app Vite contient <code>VITE_PAYMENT_SECRET=sk_live_oops</code>, utilisé dans le code client. Que fait <code>vite build</code> de cette valeur ?",
+    "options": [
+      "Il refuse de builder car la valeur ressemble à un secret",
+      "Il intègre la valeur en clair dans le bundle JavaScript",
+      "Il chiffre la valeur avec une clé propre au build que seule la page peut lire",
+      "Il n’expose la valeur que dans le serveur de développement"
+    ],
+    "explain": "Mesuré avec Vite 8.3.4 : le bundle contenait <code>'sk_live_oops'</code> en littéral de chaîne, alors qu’une variable sans préfixe est devenue <code>void 0</code>. La doc de Vite dit que les variables <code>VITE_*</code> ne doivent pas contenir d’informations sensibles comme des clés d’API."
+  },
+  "m27.q13": {
+    "q": "Une page de recherche rendue côté serveur embarque la requête pour l’hydratation. L’URL est <code>?q=&lt;/script&gt;&lt;script&gt;steal()&lt;/script&gt;</code>. Que se passe-t-il dans le navigateur ?",
+    "options": [
+      "La requête ferme l’élément script trop tôt et le script de l’attaquant s’exécute",
+      "JSON.stringify échappe les chevrons, donc la requête reste une chaîne inoffensive",
+      "React encode le __html d’un élément script, donc rien ne s’exécute",
+      "Le navigateur parse d’abord le JSON, donc la requête reste une chaîne"
+    ],
+    "explain": "Le parser HTML termine un élément script au premier <code>&lt;/script&gt;</code>, avant tout parsing JavaScript, et JSON.stringify n’échappe pas <code>&lt;</code>. Mesuré dans Chromium : le script injecté s’est exécuté et <code>window.__SEARCH__</code> n’a jamais été défini. Remplacer <code>&lt;</code> par <code>\\u003c</code> a corrigé le problème."
+  },
+  "m27.q14": {
+    "q": "Les avis ont une URL optionnelle de « vidéo de déballage » rendue avec <code>&lt;a href={videoUrl}&gt;</code>. Quel correctif livrerais-tu ?",
+    "options": [
+      "L’envelopper dans <code>encodeURIComponent(videoUrl)</code> avant de la passer à href",
+      "Rien : React 19 bloque déjà les URL dangereuses",
+      "La parser avec <code>URL</code> et n’autoriser que <code>https:</code> et <code>http:</code>",
+      "Retirer la sous-chaîne <code>javascript:</code> avec un replace"
+    ],
+    "explain": "Parser et filtrer le protocole par liste blanche rejette <code>javascript:</code> quelles que soient la casse, les espaces ou les tabulations, ainsi que les URL <code>data:</code> (mesuré sur Node 24). React ne bloque que <code>javascript:</code>, donc <code>data:</code> passe ; encodeURIComponent casse les URL valides ; et un replace de sous-chaîne rate <code>java\\tscript:</code>."
+  },
+  "m27.q15": {
+    "q": "Un collègue propose de sanitiser le HTML des avis avec <code>html.replace(/&lt;script[\\s\\S]*?&lt;\\/script&gt;/gi, '')</code>. Pourquoi le refuses-tu ?",
+    "options": [
+      "Les expressions régulières sont trop lentes pour des avis de 5 000 caractères",
+      "Les payloads n’ont pas besoin de balise script : handlers onerror et URL javascript: passent une liste noire",
+      "C’est inutile, car les navigateurs n’exécutent jamais le HTML inséré avec innerHTML",
+      "Les expressions régulières ne savent pas matcher les caractères Unicode"
+    ],
+    "explain": "Les scripts insérés avec innerHTML ne s’exécutent pas, c’est précisément pourquoi les attaquants utilisent <code>&lt;img onerror&gt;</code> et consorts. Une liste noire doit prévoir chaque vecteur ; un sanitiser par liste blanche comme DOMPurify ne garde que des éléments et attributs connus comme sûrs. La troisième option est à moitié vraie et dangereuse : le reste du HTML inséré ainsi exécute bien ses handlers."
+  },
+  "m27.q16": {
+    "q": "La boutique n’a jamais eu de CSP et charge plusieurs scripts tiers. Que livres-tu en premier ?",
+    "options": [
+      "Une CSP stricte appliquée pour 10 % des utilisateurs, puis pour tous une semaine plus tard",
+      "Une politique appliquée avec <code>'unsafe-inline'</code> pour que rien ne casse",
+      "Une CSP dans une balise meta, pour éviter de toucher au serveur",
+      "La politique stricte en Report-Only avec un endpoint de rapport, puis l’appliquer"
+    ],
+    "explain": "Report-only laisse tout s’exécuter et remonte chaque violation (mesuré : Chromium a envoyé en POST un <code>application/csp-report</code> avec <code>\"disposition\":\"report\"</code>). Même appliquée à 10 %, elle casse de vrais checkouts, et <code>'unsafe-inline'</code> sans nonce abandonne la protection principale contre les scripts inline injectés."
+  },
+  "m27.q17": {
+    "q": "Quels scripts s’exécutent sous <code>script-src 'nonce-r4nd' 'strict-dynamic' https://cdn.shop.example</code> ?",
+    "options": [
+      "loader.js et chat.js ; widget.js est bloqué",
+      "Les trois : l’hôte du CDN est listé dans la politique, donc ses scripts sont autorisés",
+      "Seulement loader.js",
+      "loader.js et widget.js ; chat.js est bloqué"
+    ],
+    "explain": "Avec <code>'strict-dynamic'</code>, le loader avec nonce est de confiance, tout comme les scripts qu’il crée, tandis que les listes blanches d’hôtes sont ignorées. Mesuré dans Chromium : le script ajouté s’est exécuté, et le script inséré par le parser depuis l’hôte listé a été bloqué avec « host-based allowlisting is disabled »."
+  },
+  "m27.q18": {
+    "q": "Les pages produit de la boutique sont générées statiquement avec ISR. L’équipe ajoute une CSP à base de nonces dans <code>proxy.ts</code>. Que doit-elle accepter ?",
+    "options": [
+      "Rien ne change : Next.js écrit un nonce neuf dans chaque page statique au moment du build",
+      "Les nonces ne fonctionnent qu’avec le serveur de développement",
+      "Le rendu dynamique : plus de génération statique, d’ISR ni de cache CDN du HTML",
+      "Next.js génère un nonce par build et le réutilise"
+    ],
+    "explain": "Le guide CSP de Next.js dit que les nonces exigent le rendu dynamique : une page statique est construite quand aucune requête n’existe, donc elle ne peut pas porter un nonce par requête, et le Partial Prerendering est incompatible. Un nonce réutilisé d’une réponse à l’autre serait devinable. Pour les pages statiques, le guide propose l’option SRI expérimentale."
+  },
+  "m27.q19": {
+    "q": "Le back-office applique Trusted Types et tourne sous React 19.3.1. Un développeur écrit <code>&lt;div dangerouslySetInnerHTML={{ __html: '&lt;b&gt;x&lt;/b&gt;' }} /&gt;</code>. Que se passe-t-il ?",
+    "options": [
+      "React sanitise la chaîne car Trusted Types est activé",
+      "React convertit lui-même la chaîne en TrustedHTML",
+      "Ça s’affiche, car React écrit le HTML via une API hors du champ de Trusted Types",
+      "Le commit lève une TypeError, remontée à onUncaughtError ; rien ne s’affiche"
+    ],
+    "explain": "Mesuré dans Chromium : la racine est restée vide et <code>onUncaughtError</code> a reçu « This document requires 'TrustedHTML' assignment ». Depuis 19.3, React transmet les valeurs telles quelles, donc une simple chaîne atteint le sink et est refusée ; seul un objet issu d’une policy est accepté."
+  },
+  "m27.q20": {
+    "q": "La CSP indique <code>require-trusted-types-for 'script'; trusted-types review-html</code>. Une bibliothèque appelle le code ci-dessous. Que se passe-t-il ?",
+    "options": [
+      "Elle est créée : la directive limite seulement le nombre de policies qu’une page peut créer",
+      "createPolicy lève une erreur, car le nom n’est pas listé dans trusted-types",
+      "Elle est créée, mais le navigateur rejette sa sortie",
+      "Elle est créée en mode report-only"
+    ],
+    "explain": "Mesuré dans Chromium : « Policy \"passthrough\" disallowed ». Lister les noms de policies, c’est ce qui empêche une bibliothèque d’ajouter une policy qui renvoie son entrée inchangée, ce qui ruinerait l’application de la règle. Relis chaque policy listée comme du code de sécurité."
+  },
+  "m27.q21": {
+    "q": "Un agent se connecte ; le BFF pose un cookie <b>sans</b> attribut SameSite. Trente secondes plus tard, l’agent ouvre une page sur <code>evil.example</code> qui soumet automatiquement un formulaire en POST au back-office. Que fait Chromium ?",
+    "options": [
+      "Il l’envoie : Lax par défaut autorise encore un POST de premier niveau pendant 2 minutes",
+      "Il le retient : sans l’attribut, Chromium applique SameSite=Strict à chaque requête",
+      "Il envoie le cookie : sans l’attribut, Chromium applique None",
+      "Il rejette le cookie à la connexion car il n’a pas d’attribut SameSite"
+    ],
+    "explain": "Mesuré : le cookie a été envoyé sur le POST cross-site juste après la connexion, et plus après 125 secondes, quand Lax pur s’appliquait. Un défaut Lax avec cette exception de 2 minutes, c’est pourquoi on définit SameSite explicitement. Chromium traite l’attribut absent comme Lax, pas None."
+  },
+  "m27.q22": {
+    "q": "Une XSS s’exécute sur <code>www.shop.example</code>. Elle appelle <code>fetch('https://backoffice.shop.example/api/me', { credentials: 'include' })</code>, et le cookie du back-office est <code>SameSite=Strict</code>. Le cookie est-il envoyé ?",
+    "options": [
+      "Non : Strict bloque toute requête cross-origin",
+      "Non : les cookies HttpOnly ne sont jamais envoyés par fetch",
+      "Oui : les deux hôtes sont le même site, donc SameSite ne s’applique pas",
+      "Seulement si le back-office répond au preflight avec des en-têtes CORS qui l’autorisent"
+    ],
+    "explain": "SameSite compare des sites (<code>shop.example</code>), pas des origines. Mesuré : le cookie Strict a été attaché, et le serveur l’a reçu même sans envoyer d’en-têtes CORS ; CORS a seulement décidé si le script pouvait lire la réponse. C’est pourquoi le BFF rejette <code>Sec-Fetch-Site: same-site</code> sur les changements d’état."
+  },
+  "m27.q23": {
+    "q": "En code review, tu trouves ce réglage du BFF, et le cookie de session est <code>SameSite=None; Secure</code>. Quel est l’impact ?",
+    "options": [
+      "Aucun : SameSite=None bloque quand même les requêtes cross-site",
+      "N’importe quel site visité par l’agent peut lire les réponses de l’API destinées à l’agent",
+      "Aucun : les navigateurs refusent d’honorer une origine renvoyée en écho quand des credentials sont inclus",
+      "Seules les requêtes avec preflight sont concernées"
+    ],
+    "explain": "Mesuré : un script sur <code>evil.example</code> a appelé <code>/api/me</code> avec credentials et lu le JSON, cookie compris. Renvoyer l’Origin en écho avec credentials autorise toutes les origines à lire ; utilise une liste blanche exacte, ou pas de CORS du tout pour une SPA same-origin. SameSite=None est précisément le réglage qui autorise l’envoi cross-site."
+  },
+  "m27.q24": {
+    "q": "Une API répond <code>Access-Control-Allow-Origin: *</code>. Un script d’une autre origine l’appelle avec <code>credentials: 'include'</code>. Que se passe-t-il ?",
+    "options": [
+      "Ça fonctionne : les cookies sont envoyés et la réponse est lisible",
+      "Le navigateur retire les cookies et laisse le script lire la réponse",
+      "Le serveur ne reçoit rien : le navigateur annule la requête",
+      "Le navigateur masque la réponse : * n’est pas autorisé avec credentials"
+    ],
+    "explain": "Mesuré dans Chromium : fetch a rejeté avec « Failed to fetch » et la console indiquait que l’en-tête « must not be the wildcard '*' when the request’s credentials mode is 'include' ». La requête elle-même a bien atteint le serveur (mesuré) ; seule la lecture a été bloquée, donc cette mauvaise configuration échoue de façon sûre mais casse la fonctionnalité."
+  },
+  "m27.q25": {
+    "q": "Le cookie du BFF est <code>SameSite=None</code>. Quelle requête depuis <code>evil.example</code> atteint <code>POST /orders/ord_a1/refund</code> avec le cookie, sans preflight ?",
+    "options": [
+      "<code>fetch(url, { method: 'POST', mode: 'no-cors', credentials: 'include', body: '{\"amountCents\":999}' })</code>",
+      "<code>fetch(url, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' } })</code>",
+      "<code>fetch(url, { method: 'POST', credentials: 'include', headers: { 'x-requested-by': 'backoffice' } })</code>",
+      "<code>fetch(url, { method: 'PUT', credentials: 'include', body: '{\"amountCents\":999}' })</code>"
+    ],
+    "explain": "Un POST no-cors avec un corps en chaîne part en <code>text/plain</code>, une requête « simple », donc sans preflight (mesuré : le serveur a vu le POST avec le cookie). Le JSON, les en-têtes personnalisés et PUT déclenchent un preflight OPTIONS, et comme le BFF n’a rien approuvé, la vraie requête n’est jamais partie. C’est pourquoi le BFF exige <code>application/json</code>."
+  },
+  "m27.q26": {
+    "q": "Avec le garde-fou <code>isAllowedStateChange</code> de la section 7, que renvoie cet appel ?",
+    "options": [
+      "true, car les requêtes same-site viennent d’un des sous-domaines de la boutique",
+      "true, car un corps JSON ne peut pas être forgé en cross-site",
+      "false : seul same-origin passe quand Sec-Fetch-Site est présent",
+      "Il lève une erreur, car l’origine n’est pas dans la liste blanche"
+    ],
+    "explain": "Le garde-fou n’accepte un changement d’état que si <code>Sec-Fetch-Site</code> vaut <code>same-origin</code>, et ne se rabat sur la liste d’Origin que si l’en-tête est absent (exécuté sur Node 24 : false). Accepter same-site permettrait à une XSS sur la boutique de déclencher des remboursements via le back-office."
+  },
+  "m27.q27": {
+    "q": "Dans la boutique, un Client Component appelle un helper qui lit <code>process.env.SEARCH_ADMIN_KEY</code> (sans préfixe). Le helper n’importe pas <code>server-only</code>. Que se passe-t-il dans le navigateur ?",
+    "options": [
+      "La clé d’admin est intégrée au bundle client sous forme de littéral de chaîne en clair",
+      "Le build échoue avec une erreur d’environnement",
+      "Next.js récupère la valeur depuis le serveur à l’exécution",
+      "La référence est remplacée par une chaîne vide, donc l’appel échoue"
+    ],
+    "explain": "Doc de Next.js : seules les variables <code>NEXT_PUBLIC_</code> sont incluses dans le bundle client, et les autres sont remplacées par une chaîne vide. Rien ne fuit, mais le bug est silencieux ; importer <code>server-only</code> dans le helper le transforme en erreur au build."
+  },
+  "m27.q28": {
+    "q": "Une ancienne page du back-office envoie <code>X-Frame-Options: DENY</code> et <code>Content-Security-Policy: frame-ancestors *</code>. Un site d’une autre origine l’affiche dans une iframe. Que fait Chromium ?",
+    "options": [
+      "Il l’affiche : frame-ancestors l’emporte sur X-Frame-Options",
+      "Il la bloque : X-Frame-Options gagne toujours",
+      "Il la bloque : l’affichage en iframe n’est autorisé que si les deux en-têtes s’accordent pour l’autoriser",
+      "Il ne l’affiche que pour des parents de même origine"
+    ],
+    "explain": "Mesuré dans Chromium : la page s’est chargée dans l’iframe de l’autre origine. Quand <code>frame-ancestors</code> est présent, X-Frame-Options est ignoré, donc une CSP permissive annule silencieusement un X-Frame-Options strict. Règle les deux de façon cohérente."
+  },
+  "m27.q29": {
+    "q": "Quel est le bug de ce listener du checkout ?",
+    "options": [
+      "Il ne devrait vérifier qu’event.source, car la chaîne d’origine peut être usurpée",
+      "<code>includes</code> accepte des origines comme <code>https://pay.example.evil.example</code>",
+      "event.origin vaut toujours « null » pour les messages venant d’iframes",
+      "Les données de postMessage sont toujours une chaîne, donc event.data.type vaut toujours undefined"
+    ],
+    "explain": "L’origine est fixée par le navigateur et ne peut pas être usurpée, mais un test de sous-chaîne accepte tout hôte contenant le texte. Compare avec <code>!==</code> à l’origine exacte, vérifie aussi <code>event.source</code>, et valide les données avec un schéma. Mesuré : le message d’une iframe cross-origin est arrivé sous forme d’objet, avec une origine comme <code>https://pay.example</code>."
+  },
+  "m27.q30": {
+    "q": "Une page charge <code>&lt;script src=\"https://cdn.reviews-widget.example/widget.js\" integrity=\"sha384-…\"&gt;</code> sans attribut <code>crossorigin</code>. Le CDN envoie bien <code>Access-Control-Allow-Origin: *</code>. Que se passe-t-il ?",
+    "options": [
+      "Le script s’exécute, et son intégrité est vérifiée",
+      "Le script s’exécute, mais la vérification d’intégrité est sautée faute de CORS",
+      "Bloqué : l’intégrité exige une requête CORS, donc crossorigin est obligatoire",
+      "Le script s’exécute, avec seulement un avertissement dans la console"
+    ],
+    "explain": "Mesuré dans Chromium : « the resource requires the request to be CORS enabled to check the integrity, and it is not. The resource has been blocked. » L’en-tête du CDN ne suffit pas ; la balise doit demander CORS avec <code>crossorigin=\"anonymous\"</code>. Les navigateurs échouent en mode fermé plutôt que d’exécuter un fichier non vérifié."
+  }
+}

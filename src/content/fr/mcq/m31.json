@@ -1,0 +1,302 @@
+{
+  "m31.q1": {
+    "q": "Le Profiler montre que <code>OrderRow</code> s’est rendu 5 000 fois pendant une seule frappe. Comment faire pour que React DevTools t’indique pourquoi chaque ligne s’est rendue ?",
+    "options": [
+      "Envelopper chaque ligne dans <code>&lt;StrictMode&gt;</code>, qui logue la cause de chaque rendu",
+      "Cocher « Record why each component rendered while profiling », puis enregistrer à nouveau",
+      "Loguer les props dans la ligne et les comparer à la main",
+      "Passer à un build de production, où le Profiler nomme la cause de chaque commit"
+    ],
+    "explain": "Le réglage du Profiler « Record why each component rendered while profiling » ajoute une section « Why did this render? » au composant sélectionné, avec des raisons comme « The parent component rendered. » ou « Props changed: ». StrictMode ne fait qu’appeler deux fois les fonctions de rendu pour révéler le code impur ; il n’explique rien sur les causes."
+  },
+  "m31.q2": {
+    "q": "Lequel de ces événements ne provoque <b>pas</b>, à lui seul, le rendu d’un composant ?",
+    "options": [
+      "Son composant parent s’est rendu, avec des props identiques",
+      "Un contexte que le composant lit a reçu une nouvelle valeur",
+      "Un objet passé en prop a été muté sur place",
+      "Un hook personnalisé qu’il appelle a mis à jour une variable de state qu’il contient"
+    ],
+    "explain": "React rend un composant quand son state (y compris celui d’un hook) change, quand son parent se rend, ou quand un contexte qu’il lit change. Muter un objet ne prévient absolument pas React, c’est pourquoi la mutation mène à une UI périmée. « Le parent s’est rendu » est la mauvaise réponse tentante, mais c’est justement la cause par défaut : React rend tous les enfants d’un composant qui se rend."
+  },
+  "m31.q3": {
+    "q": "La page garde <code>isColumnMenuOpen</code> dans <code>OrdersPage</code>, qui rend aussi le tableau de 5 000 lignes. Quel est le changement le moins coûteux pour que le tableau ne se rende plus à l’ouverture du menu ?",
+    "options": [
+      "Déplacer le state d’ouverture dans un composant <code>ColumnMenu</code>",
+      "Envelopper <code>setColumnMenuOpen</code> dans <code>useCallback</code> pour que le tableau reçoive un setter stable",
+      "Stocker plutôt le state d’ouverture dans une ref",
+      "Envelopper <code>OrdersPage</code> dans <code>memo</code> pour que ses enfants sautent le rendu"
+    ],
+    "explain": "Avec le state dans <code>ColumnMenu</code>, le basculer ne rend que le menu, et <code>OrdersPage</code> n’a plus de state qui re-rendrait le tableau : pas besoin de mémoïsation. Envelopper <code>OrdersPage</code> dans <code>memo</code> est la réponse tentante, mais <code>memo</code> ne saute que les rendus causés par le parent, jamais ceux dus au state du composant lui-même ; et une ref ne mettrait pas du tout l’UI à jour."
+  },
+  "m31.q4": {
+    "q": "Comment <code>memo</code> décide-t-il de sauter un rendu ?",
+    "options": [
+      "Il compare en profondeur les anciennes et les nouvelles props, récursivement",
+      "Il compare le résultat du dernier rendu avec le nouveau",
+      "Il saute quand le parent s’est rendu pour une raison sans rapport avec cet enfant",
+      "Il compare chaque prop avec <code>Object.is</code> et saute quand toutes sont égales"
+    ],
+    "explain": "Par défaut, <code>memo</code> compare chaque prop avec <code>Object.is</code>, une comparaison superficielle : des primitives égales correspondent, mais deux objets différents au même contenu, non. React ne compare jamais les props en profondeur par défaut, et comparer le résultat du rendu exigerait de rendre, ce que <code>memo</code> cherche justement à éviter."
+  },
+  "m31.q5": {
+    "q": "<code>OrderSummary</code> est peu coûteux ; <code>MemoPanel</code> est enveloppé dans <code>memo</code>. Chaque frappe rend <code>OrdersPage</code>. <code>MemoPanel</code> se rend-il ?",
+    "options": [
+      "Non : aucune de ses props ne dépend de <code>query</code>",
+      "Non : <code>memo</code> exclut <code>children</code> de sa comparaison, puisque ce ne sont que des éléments",
+      "Oui : <code>children</code> est un nouvel objet élément à chaque rendu",
+      "Seulement en développement, à cause de StrictMode"
+    ],
+    "explain": "Le JSX crée un nouvel objet élément à chaque rendu, et <code>children</code> est une prop ordinaire, donc <code>Object.is</code> voit un changement à chaque fois : mesuré sur React 19.3.1, le wrapper mémoïsé et son enfant se sont rendus après une frappe. React n’a aucun cas particulier qui ignore <code>children</code> ; mémoïse l’élément ou laisse le compilateur le faire."
+  },
+  "m31.q6": {
+    "q": "Les lignes sont mémoïsées et ont l’index du tableau pour key. Une nouvelle commande arrive et est insérée en tête des 5 000 commandes. Combien de lignes existantes se rendent ?",
+    "options": [
+      "Toutes : chaque index contient désormais une commande différente",
+      "Aucune : une ligne mémoïsée ne se rend que quand son propre objet commande change",
+      "Seulement la dernière ligne",
+      "Une : React détecte l’insertion et décale les lignes existantes"
+    ],
+    "explain": "Avec <code>key={index}</code>, la ligne en position 0 reçoit maintenant la nouvelle commande, celle en position 1 l’ancienne première commande, et ainsi de suite : la prop <code>order</code> de chaque ligne a changé. Mesuré sur React 19.3.1 : 5 001 rendus avec des keys par index, 1 avec <code>key={order.id}</code>. React ne peut pas détecter une insertion sans keys stables."
+  },
+  "m31.q7": {
+    "q": "Chaque ligne mémoïsée appelle <code>useContext(BackOfficeContext)</code> pour lire <code>selectedOrderId</code>. La valeur du provider contient aussi <code>query</code>. Qu’arrive-t-il aux lignes à chaque frappe ?",
+    "options": [
+      "Rien : <code>memo</code> bloque les rendus tant que les props de la ligne sont inchangées",
+      "Seules les lignes correspondant à la nouvelle requête se rendent",
+      "Chaque ligne se rend, mais React saute son commit, donc cela ne coûte rien",
+      "Toutes les lignes se rendent : c’est le cas de tout lecteur d’un contexte qui a changé"
+    ],
+    "explain": "Quand la valeur du provider change, React re-rend chaque composant qui lit ce contexte, et react.dev indique que <code>memo</code> ne l’empêche pas. Mesuré : 5 000 rendus de lignes par frappe, jusqu’à ce que la requête soit déplacée dans son propre contexte. Un rendu n’est pas gratuit simplement parce que le DOM ne change pas."
+  },
+  "m31.q8": {
+    "q": "Que fait le React Compiler ?",
+    "options": [
+      "À l’exécution, il saute les composants dont les props n’ont pas changé",
+      "Au build, il ajoute de la mémoïsation aux composants et aux hooks",
+      "Il transforme les rendus lents en transitions",
+      "À l’exécution, il compare les props en profondeur à la place de <code>memo</code>, qui devient inutile"
+    ],
+    "explain": "Le compilateur est un plugin Babel exécuté au build qui réécrit les composants et les hooks pour mettre en cache valeurs, callbacks et JSX, l’équivalent de <code>memo</code>, <code>useMemo</code> et <code>useCallback</code>, même de façon conditionnelle. Il ne change pas les priorités des mises à jour, et rien en lui ne compare les props en profondeur à l’exécution."
+  },
+  "m31.q9": {
+    "q": "La page passe <code>useDeferredValue(query)</code> à <code>FilteredOrdersTable</code>, qui n’est <b>pas</b> enveloppé dans <code>memo</code>. Combien de fois le tableau se rend-il pour une frappe ?",
+    "options": [
+      "Une fois, avec la nouvelle requête, après que l’input a été peint",
+      "Une fois, avec l’ancienne requête uniquement",
+      "Deux fois : avec l’ancienne requête, puis avec la nouvelle",
+      "Zéro fois tant que l’utilisateur n’a pas fini de taper, comme avec un debounce"
+    ],
+    "explain": "Le rendu urgent rend le parent, et sans <code>memo</code> le tableau se rend aussi, avec l’ancienne valeur différée ; puis le rendu en arrière-plan s’exécute avec la nouvelle valeur. Mesuré sur React 19.3.1 : 2 rendus sans <code>memo</code>, 1 avec. C’est pourquoi react.dev dit que l’optimisation exige <code>memo</code>."
+  },
+  "m31.q10": {
+    "q": "Que fait <code>startTransition(fn)</code> de <code>fn</code> ?",
+    "options": [
+      "Il exécute <code>fn</code> dans un Web Worker",
+      "Il planifie <code>fn</code> pour plus tard, quand le navigateur signale qu’il est inactif",
+      "Il exécute <code>fn</code> par tranches de 5 ms, en rendant la main entre les tranches",
+      "Il appelle <code>fn</code> tout de suite et diffère les mises à jour de state faites dedans"
+    ],
+    "explain": "react.dev indique que la fonction est appelée immédiatement ; seules les mises à jour de state planifiées de façon synchrone pendant son exécution deviennent des transitions. Le calcul dans <code>fn</code> s’exécute donc tout de suite sur le thread principal (mesuré : 152 à 160 ms par frappe avec un calcul de 150 ms à l’intérieur). Le découpage s’applique au rendu, entre les composants, pas à ton callback."
+  },
+  "m31.q11": {
+    "q": "Lequel est un vrai coût de la virtualisation du tableau des commandes ?",
+    "options": [
+      "La recherche dans la page ne trouve pas les commandes dont les lignes ne sont pas rendues",
+      "Chaque ligne doit être enveloppée dans <code>memo</code>, sinon la virtualisation n’a aucun effet",
+      "La liste doit être triée sur le serveur",
+      "Seules les hauteurs de ligne fixes sont prises en charge, donc les lignes longues sont tronquées"
+    ],
+    "explain": "Une liste virtualisée ne rend que les lignes visibles, donc le reste n’est pas dans le DOM, et la recherche dans la page, l’impression et « tout sélectionner » ne voient que ce qui est rendu. TanStack Virtual gère les hauteurs variables avec <code>measureElement</code>, et fonctionne sans <code>memo</code> car il ne rend que quelques dizaines de lignes."
+  },
+  "m31.q12": {
+    "q": "L’onglet Remboursements est enveloppé dans <code>&lt;Activity mode=\"hidden\"&gt;</code> pendant que l’agent consulte l’Historique. Qu’est-ce qui est vrai pour l’onglet masqué ?",
+    "options": [
+      "Il est démonté : son state est perdu et ses effets sont nettoyés",
+      "Son DOM est masqué, ses effets détruits, son state conservé",
+      "Ses effets continuent de tourner mais il ne se re-rend plus",
+      "Son DOM est supprimé et son state est sauvegardé dans le sessionStorage jusqu’à son affichage"
+    ],
+    "explain": "Une Activity masquée conserve le state et le DOM des enfants, masque le DOM avec <code>display: none</code> et détruit leurs effets ; la réafficher restaure le state et recrée les effets (mesuré sur React 19.3.1). Démonter, c’est ce que fait le rendu conditionnel, et c’est la cause de la note de remboursement perdue."
+  },
+  "m31.q13": {
+    "q": "Un recruteur montre ce code : « <code>OrderRow</code> est mémoïsé, pourtant le Profiler montre toutes les lignes qui se rendent à chaque frappe, avec 'Props changed: (onOpen)'. Quelle correction mettriez-vous en production ? »",
+    "options": [
+      "Donner à <code>memo</code> une comparaison personnalisée qui ignore <code>onOpen</code>, puisqu’il navigue toujours",
+      "Retirer <code>memo</code> : il ne peut pas fonctionner avec des props callback",
+      "Comparer en profondeur chaque prop dans une comparaison personnalisée",
+      "Créer <code>onOpen</code> une seule fois avec <code>useCallback</code>, ou activer le compilateur"
+    ],
+    "explain": "La fonction fléchée inline est une nouvelle fonction à chaque rendu, donc <code>Object.is</code> voit une prop modifiée. Une fonction stable issue de <code>useCallback</code> corrige le problème, et le compilateur la mettrait en cache automatiquement. Ignorer <code>onOpen</code> dans une comparaison personnalisée est le raccourci tentant, mais react.dev prévient que la ligne continuerait alors d’appeler un handler périmé d’un rendu plus ancien."
+  },
+  "m31.q14": {
+    "q": "Les lignes sont mémoïsées et le handler stable. Une commande passe de <code>paid</code> à <code>shipped</code> via cette mise à jour en direct. Que voit l’agent ?",
+    "options": [
+      "La ligne passe à <code>shipped</code>, car le tableau est une nouvelle référence",
+      "Toutes les lignes se rendent à nouveau",
+      "La ligne affiche toujours <code>paid</code> : <code>memo</code> voit le même objet commande",
+      "React lève une erreur en développement, car le state a été muté sur place"
+    ],
+    "explain": "Le tableau se rend car le tableau de données est nouveau, mais chaque ligne reçoit le même objet <code>order</code> qu’avant, muté sur place, donc <code>memo</code> les saute toutes : mesuré, 0 rendu de ligne et un badge périmé. React ne détecte pas la mutation et ne lève rien. La correction consiste à remplacer la commande modifiée par <code>{ ...order, status }</code>."
+  },
+  "m31.q15": {
+    "q": "Après chaque changement de route, tous les composants qui lisent <code>AuthContext</code> se rendent, alors que l’utilisateur n’a pas changé. Quelle est la cause la plus probable ?",
+    "options": [
+      "La valeur est un nouvel objet à chaque rendu de <code>App</code>",
+      "<code>setCurrentUser</code> change d’identité à chaque rendu, ce qui change la valeur",
+      "Appeler <code>trackPage</code> pendant le rendu réinitialise le contexte",
+      "Les lecteurs d’un contexte se re-rendent toujours lors d’une navigation"
+    ],
+    "explain": "<code>App</code> se rend à chaque changement de route et crée un nouvel objet <code>{ currentUser, setCurrentUser }</code> ; <code>Object.is</code> voit une valeur différente et chaque lecteur se rend. L’envelopper dans <code>useMemo</code> avec <code>[currentUser]</code> corrige le problème, comme le montre react.dev. Les setters de state sont stables, ils ne sont donc pas la cause."
+  },
+  "m31.q16": {
+    "q": "Dans un back-office Redux, la barre d’outils des commandes se re-rend après chaque action dispatchée, même les actions liées aux notifications. Son code est ci-dessous. Où est le bug ?",
+    "options": [
+      "React-Redux ne permet pas de déstructurer le résultat d’un sélecteur",
+      "Le sélecteur renvoie un nouvel objet à chaque fois, comparé avec <code>===</code>",
+      "<code>useSelector</code> se re-rend à chaque action par conception, quoi que renvoie le sélecteur",
+      "La barre d’outils devrait lire le store avec <code>useContext</code>"
+    ],
+    "explain": "<code>useSelector</code> exécute le sélecteur après chaque action dispatchée et déclenche un re-render quand le résultat n’est pas <code>===</code> au précédent ; un nouveau littéral objet est toujours différent. Sélectionne chaque champ séparément, utilise un sélecteur mémoïsé (Reselect) ou passe <code>shallowEqual</code>. Il ne se re-rend pas à chaque action quand le résultat est stable."
+  },
+  "m31.q17": {
+    "q": "Que se passe-t-il quand ce hook est utilisé dans une ligne, sous React 19 ?",
+    "options": [
+      "Cela fonctionne, et la ligne ne se rend que quand <code>isSelected</code> passe d’une valeur à l’autre",
+      "Cela fonctionne, mais toutes les lignes se rendent à chaque changement du store",
+      "Le typage échoue : <code>getSnapshot</code> doit renvoyer une primitive",
+      "React avertit que le snapshot devrait être mis en cache, puis lève une erreur"
+    ],
+    "explain": "<code>getSnapshot</code> doit renvoyer la même valeur tant que le store n’a pas changé ; un nouvel objet à chaque appel ressemble à un changement à chaque fois. Mesuré sur React 19.3.1 : l’erreur « The result of getSnapshot should be cached to avoid an infinite loop », puis « Maximum update depth exceeded ». Les objets sont autorisés s’ils sont mis en cache ; renvoyer le booléen lui-même est la correction simple."
+  },
+  "m31.q18": {
+    "q": "Ton équipe active le React Compiler dans une app existante pleine de <code>useMemo</code> et de <code>useCallback</code>. Un collègue ouvre une PR qui les supprime tous « puisque le compilateur le fait maintenant ». Que réponds-tu ?",
+    "options": [
+      "Approuver : le compilateur ignore la mémoïsation manuelle, donc ces hooks sont du code mort",
+      "Refuser : le compilateur a besoin de la mémoïsation manuelle pour fonctionner",
+      "Les garder, ou les retirer avec des tests : la suppression peut changer le résultat",
+      "Approuver, avec <code>'use no memo'</code> dans chaque fichier modifié"
+    ],
+    "explain": "react.dev recommande de laisser en place la mémoïsation existante, car la retirer peut changer le résultat de la compilation, ou de la retirer prudemment avec des tests ; les effets qui dépendent d’une valeur mémoïsée sont le risque habituel. Le compilateur n’ignore pas les hooks manuels, et n’en a pas besoin non plus ; dans du nouveau code, il est la norme et les hooks sont des échappatoires."
+  },
+  "m31.q19": {
+    "q": "Tu introduis le React Compiler dans le back-office, une grosse app Vite aux tests inégaux. Quel plan défendrais-tu ?",
+    "options": [
+      "L’activer partout avec <code>^1.0.0</code>, livrer, et corriger ce que signalent les agents",
+      "Le lint d’abord, puis compiler une partie de l’app, avec une version épinglée exactement",
+      "Retirer d’abord tous les <code>useMemo</code>, puis l’activer partout d’un coup",
+      "Attendre : le compilateur est encore expérimental"
+    ],
+    "explain": "C’est le déploiement que décrit react.dev : la config <code>recommended</code> d’eslint-plugin-react-hooks fait remonter les violations des Rules of React, l’adoption progressive limite les dégâts possibles, et une version exacte évite les changements de comportement silencieux sans bonne couverture de tests. Le compilateur est stable depuis la 1.0 (7 octobre 2025), donc attendre n’est pas justifié."
+  },
+  "m31.q20": {
+    "q": "Le lint signale sur le tableau virtualisé : « Compilation Skipped: Use of incompatible library » sur <code>useVirtualizer</code>. Qu’est-ce que cela signifie ?",
+    "options": [
+      "Le build échoue tant que l’appel n’est pas retiré",
+      "TanStack Virtual ne fonctionne pas avec React 19, donc le tableau casse à l’exécution",
+      "Le compilateur mémoïse quand même le composant et avertit dans le navigateur à l’exécution",
+      "Le compilateur laisse ce composant non mémoïsé, pour éviter une UI périmée"
+    ],
+    "explain": "Le message est un avertissement : le compilateur renonce à mémoïser ce composant pour éviter une UI périmée, car <code>useVirtualizer()</code> renvoie des fonctions qui ne peuvent pas être mémoïsées sans risque (mesuré avec eslint-plugin-react-hooks 7.1.1). Le composant fonctionne toujours comme du React classique ; seule la mémoïsation automatique est perdue à cet endroit. TanStack Table et le <code>watch</code> de React Hook Form sont sur la même liste."
+  },
+  "m31.q21": {
+    "q": "Le compilateur est activé et le badge ✨ s’affiche sur <code>OrdersTable</code>, pourtant chaque frappe prend encore plus de 100 ms. Le tableau filtre 5 000 commandes selon <code>query</code>. Pourquoi ?",
+    "options": [
+      "Une nouvelle requête est une nouvelle entrée : le filtre doit s’exécuter à nouveau",
+      "Le compilateur n’optimise que les builds de développement, pas la production",
+      "Le compilateur ne mémoïse jamais le résultat de <code>Array.prototype.filter</code>",
+      "Le compilateur désactive le rendu concurrent"
+    ],
+    "explain": "La mémoïsation met en cache les résultats pour des entrées inchangées ; une nouvelle requête est une nouvelle entrée, donc la partie coûteuse s’exécute quand même. C’est le problème « un seul rendu est trop lent », qui se résout en différant (<code>useDeferredValue</code>), en rendant moins (virtualisation) ou en calculant moins. Le compilateur cible les builds de production, et react.dev le montre en train de mémoïser des calculs faits pendant le rendu, comme ce filtre."
+  },
+  "m31.q22": {
+    "q": "Pour corriger le filtre qui rame, un collègue écrit ceci. Qu’est-ce qui ne va pas ?",
+    "options": [
+      "<code>isPending</code> n’est jamais lu, donc React ignore la transition",
+      "Rien : react.dev recommande ce pattern pour les champs de recherche",
+      "La valeur propre de l’input ne doit pas être dans une transition",
+      "<code>startTransition</code> doit être importé depuis react-dom, pas récupéré du hook"
+    ],
+    "explain": "Un input doit se mettre à jour de façon synchrone avec son événement change, et les transitions sont non bloquantes, donc react.dev indique qu’elles ne peuvent pas contrôler des champs texte. Garde <code>query</code> urgent et, soit mets à jour un second state <code>tableQuery</code> dans la transition, soit passe <code>useDeferredValue(query)</code> à un tableau mémoïsé. Lire <code>isPending</code> est facultatif."
+  },
+  "m31.q23": {
+    "q": "Le back-office a deux recherches : le filtrage des 5 000 commandes déjà en mémoire, et une recherche de clients qui appelle <code>GET /customers?q=</code>. Qu’utiliserais-tu pour chacune ?",
+    "options": [
+      "<code>useDeferredValue</code> pour les deux : différer la valeur limite aussi les appels réseau",
+      "Une valeur différée pour le filtre, un debounce pour l’API",
+      "Un debounce de 300 ms pour les deux, pour garder un seul pattern",
+      "Une transition pour l’appel d’API, rien pour le filtre"
+    ],
+    "explain": "Le rendu différé n’a pas de délai fixe et peut être interrompu, ce qui convient au travail de rendu ; il ne réduit pas le nombre de requêtes. react.dev note que le debounce reste utile pour le travail hors rendu comme les appels réseau. Un debounce sur le filtre en mémoire ne fait que repousser le moment où le rendu bloque la frappe."
+  },
+  "m31.q24": {
+    "q": "« Pourquoi envelopper un calcul coûteux dans startTransition fige-t-il encore la saisie ? » Choisis la meilleure réponse.",
+    "options": [
+      "Les transitions ne fonctionnent qu’avec <code>useTransition</code>, pas avec la fonction autonome",
+      "Les deux mises à jour sont regroupées en un seul rendu urgent",
+      "React traite comme urgente toute mise à jour faite dans un handler d’événement",
+      "Le callback s’exécute tout de suite, donc <code>rankOrders</code> s’exécute pendant la frappe"
+    ],
+    "explain": "React appelle le callback immédiatement, donc le calcul de 150 ms s’exécute dans le handler d’événement avant que le navigateur puisse peindre ; mesuré dans Chromium, chaque frappe prenait 152 à 160 ms. Le <code>startTransition</code> autonome marque les mises à jour exactement comme celui du hook, sans <code>isPending</code>. Déplace le travail dans le rendu sous une valeur différée, réduis-le ou déplace-le dans un worker."
+  },
+  "m31.q25": {
+    "q": "Les deux versions font 150 ms de travail par mise à jour dans un rendu différé : la version A dans le <code>useMemo</code> d’un seul composant, la version B répartie sur 50 petits composants de 3 ms chacun. Comment se comportait la saisie dans Chromium ?",
+    "options": [
+      "Les deux étaient fluides : un rendu différé ne bloque jamais la saisie",
+      "Les deux bloquaient la saisie environ 150 ms par frappe, puisque le travail total est le même",
+      "A retardait les frappes ; B les gardait toutes sous 16 ms",
+      "B était pire : 50 composants coûtent plus qu’un seul"
+    ],
+    "explain": "React vérifie s’il doit rendre la main entre les composants, jamais à l’intérieur d’un composant, donc A est un seul bloc de 150 ms : mesuré, des long tasks de 150 ms et des frappes retardées jusqu’à environ 100 ms. B donne à React 50 points où rendre la main, et aucune frappe n’a dépassé 16 ms. Différer n’aide que si le travail est divisible."
+  },
+  "m31.q26": {
+    "q": "Le produit demande « les 50 000 commandes de l’année dans un seul tableau, rapide ». Que proposerais-tu en premier ?",
+    "options": [
+      "La pagination côté serveur d’abord ; virtualiser seulement si un long défilement est nécessaire",
+      "Rendre les 50 000 lignes avec le React Compiler, qui saute les lignes inchangées",
+      "Rendre toutes les lignes dans une seule transition",
+      "Charger toutes les lignes et masquer en CSS celles hors de l’écran"
+    ],
+    "explain": "Le coût du rendu croît avec le nombre de lignes dans le DOM : mesuré, 5 000 lignes mettaient 0,6 à 3,6 s à se monter, contre moins de 30 ms pour une fenêtre de 40 lignes. La pagination réduit aussi les données envoyées ; la virtualisation est la réponse quand une longue liste défilante est un vrai besoin. Le compilateur et les transitions ne réduisent pas le travail de rendu des lignes qui changent."
+  },
+  "m31.q27": {
+    "q": "Une revue d’accessibilité du tableau virtualisé des commandes indique qu’un lecteur d’écran annonce « tableau de 30 lignes ». Que manque-t-il ?",
+    "options": [
+      "<code>aria-busy</code> sur le tableau pendant que l’agent fait défiler",
+      "<code>aria-rowcount</code> sur le tableau et <code>aria-rowindex</code> sur les lignes",
+      "Un <code>tabindex</code> sur chaque ligne rendue pour qu’elle puisse être comptée",
+      "Rien : les lecteurs d’écran ne peuvent pas annoncer la taille d’une liste virtualisée"
+    ],
+    "explain": "MDN indique que <code>aria-rowcount</code> est nécessaire quand toutes les lignes ne sont pas dans le DOM, pour donner la taille réelle du tableau, et chaque ligne rendue porte alors sa position avec <code>aria-rowindex</code>. Sans eux, les technologies d’assistance ne comptent que les lignes rendues. <code>aria-busy</code> signale des mises à jour en cours, pas la taille."
+  },
+  "m31.q28": {
+    "q": "Où placerais-tu les boundaries Suspense sur la page de détail de commande (en-tête, lignes, onglet remboursements, onglet historique) ?",
+    "options": [
+      "Autour de chaque composant qui charge quelque chose, pour que chaque morceau apparaisse dès que possible",
+      "Une seule boundary autour de toute l’app",
+      "Là où le design prévoit des états de chargement : le panneau, l’onglet chargé en lazy",
+      "Aucune : Suspense ne fonctionne qu’avec les Server Components"
+    ],
+    "explain": "Tout ce qui est dans une même boundary apparaît ensemble, donc les boundaries encodent la séquence de chargement ; react.dev déconseille une boundary autour de chaque composant et suggère de suivre les états de chargement prévus par les designers. Une seule boundary pour tout fait attendre la page sur sa partie la plus lente. Suspense fonctionne aussi côté client avec <code>lazy</code> et <code>use</code>."
+  },
+  "m31.q29": {
+    "q": "Cliquer sur l’onglet Remboursements, dont le code n’est pas encore chargé, remplace tout le panneau par un skeleton. Avec <code>startTransition(() =&gt; setTab('refunds'))</code> au lieu d’un simple <code>setTab</code>, que se passe-t-il ?",
+    "options": [
+      "Détails reste à l’écran, avec <code>isPending</code> à true jusqu’à ce que Remboursements soit prêt",
+      "Le skeleton s’affiche toujours, mais moins longtemps car le code se charge en parallèle",
+      "L’onglet Remboursements s’affiche vide, puis se remplit",
+      "React lève une erreur : <code>lazy</code> ne peut pas charger dans une transition"
+    ],
+    "explain": "Une transition dit à React de ne pas masquer par un fallback du contenu déjà affiché : il garde l’onglet Détails et signale <code>isPending</code>. Mesuré sur React 19.3.1 : le changement simple affichait le fallback, la transition gardait Détails avec <code>isPending</code> à true, puis affichait le formulaire à l’arrivée du code. Les transitions n’accélèrent pas le chargement."
+  },
+  "m31.q30": {
+    "q": "L’onglet Historique s’abonne aux événements de commande en direct dans un effet, et est enveloppé dans <code>&lt;Activity&gt;</code>. Qu’advient-il de l’abonnement pendant que l’onglet est masqué ?",
+    "options": [
+      "Il continue de tourner, et l’onglet masqué se met à jour en temps réel",
+      "Il continue de tourner, mais React met les événements en tampon jusqu’à ce que l’onglet soit de nouveau visible",
+      "Il est annulé, et le state de l’onglet est réinitialisé à l’affichage",
+      "Le cleanup s’exécute au masquage, l’effet se réexécute à l’affichage, le state est conservé"
+    ],
+    "explain": "Masquer une Activity détruit les effets de ses enfants, ce qui exécute leurs cleanups, et la réafficher les recrée ; le state est conservé tout du long (mesuré sur React 19.3.1). L’abonnement s’arrête donc pendant le masquage, et l’effet doit recharger les données ou se réabonner à l’affichage. Le state n’est pas réinitialisé : c’est la différence avec le rendu conditionnel."
+  }
+}

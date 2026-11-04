@@ -1,0 +1,302 @@
+{
+  "m22.q1": {
+    "q": "Le recruteur annonce que la prochaine étape est « une épreuve technique ». Que dois-tu faire en premier ?",
+    "options": [
+      "Passer la semaine sur des exercices d’algorithmique, puisque toute épreuve technique est façon LeetCode",
+      "Demander au recruteur le format de cette épreuve et du reste du processus",
+      "Supposer que c’est du system design, l’épreuve que contiennent la plupart des processus senior",
+      "Préparer tous les sujets à égalité pour qu’aucun format ne puisse te surprendre"
+    ],
+    "explain": "Les formats varient énormément d’une entreprise parisienne à l’autre : live coding en TDD, test de 2 heures, test technique à la maison de 3 jours avec une revue, bug bash, épreuve de design. Demander est normal et te dit quoi préparer. Les épreuves d’algorithmique restent la norme dans la big tech et chez Datadog, mais la plupart des processus évaluent d’autres compétences."
+  },
+  "m22.q2": {
+    "q": "Lors de l’entretien avec le recruteur, on te demande tes prétentions salariales pour un poste de backend senior à Paris. Quelle réponse est la meilleure ?",
+    "options": [
+      "« Ce qui vous semble juste pour le poste ; je vous fais confiance pour faire une bonne offre. »",
+      "« Mon salaire actuel plus 10 pour cent, c’est l’augmentation habituelle quand on change de poste. »",
+      "« D’après mes recherches sur les postes de backend senior à Paris, de X à Y brut annuel fixe. Quelle est votre fourchette ? »",
+      "« Un seul chiffre précis, un peu sous le marché, pour que l’entreprise voie un recrutement sans risque et me garde dans le processus. »"
+    ],
+    "explain": "Une fourchette étayée, exprimée en brut annuel fixe, ancre la discussion sur le marché et le niveau du poste, et demander le budget te donne de l’information en retour. Un chiffre bas pour rester dans le processus est difficile à remonter ensuite, et « ce qui vous semble juste » laisse l’autre partie poser l’ancre."
+  },
+  "m22.q3": {
+    "q": "Pourquoi <code>decideCancellation(order, now)</code> prend-elle l’instant courant en paramètre ?",
+    "options": [
+      "Pour que les tests puissent passer un instant fixe et ne dépendent jamais de la date à laquelle ils tournent",
+      "Parce que <code>Date.now()</code> n’est pas disponible quand Node retire les types TypeScript au démarrage",
+      "Pour rendre la fonction plus rapide en évitant un appel système",
+      "Parce que <code>node:test</code> refuse les tests qui lisent l’horloge"
+    ],
+    "explain": "Passer now en paramètre fait de la règle une fonction pure : les tests utilisent un PLACED_AT fixe et des minutes après lui, donc ils donnent le même résultat n’importe quel jour. Date.now() fonctionne très bien avec le type stripping et node:test n’a pas de telle règle ; la raison est la testabilité, pas la vitesse."
+  },
+  "m22.q4": {
+    "q": "Qu’apporte la ligne <code>const unhandled: never = order.status;</code> dans la branche <code>default</code> ?",
+    "options": [
+      "Elle lève une exception à l’exécution dès que la fonction est appelée",
+      "Elle convertit le statut en chaîne pour le message d’erreur",
+      "Elle accélère le switch en indiquant à V8 que la branche est inatteignable",
+      "Une erreur de compilation quand un nouveau statut est ajouté sans être géré"
+    ],
+    "explain": "Si chaque membre de l’union est géré, le type restant dans default est never et l’affectation compile. Ajouter 'refunded' sans case a fait signaler par TypeScript 6.0.3 qu’il n’est pas assignable à never. La ligne n’a aucun effet sur la vitesse, et elle ne lève une exception que si une valeur inattendue arrive à l’exécution."
+  },
+  "m22.q5": {
+    "q": "Que met-on dans la section « Compromis » du README d’un test technique à la maison ?",
+    "options": [
+      "La liste des bibliothèques utilisées, avec leurs versions",
+      "Chaque choix de conception, ce qu’il coûte, et quand tu le changerais",
+      "Une excuse pour chaque fonctionnalité que tu n’as pas eu le temps de construire, avec la raison",
+      "La spécification complète copiée depuis l’énoncé"
+    ],
+    "explain": "Les relecteurs choisissent leurs questions parmi tes compromis, donc les écrire sous forme de choix, coût et condition te permet de choisir le terrain de la soutenance. Les fonctionnalités manquantes vont dans une liste factuelle « avec un jour de plus », pas dans des excuses ; les versions vont dans la ligne de la stack."
+  },
+  "m22.q6": {
+    "q": "Dans l’épreuve de code review, dans quel ordre dois-tu lire et commenter la pull request ?",
+    "options": [
+      "Sécurité et intégrité des données, puis gestion des échecs, puis concurrence, puis style",
+      "Le nommage et le style d’abord, puisque ce sont les gains les plus rapides et qu’ils donnent le ton de la review",
+      "De haut en bas, en commentant chaque ligne dans l’ordre où l’auteur l’a écrite",
+      "Les tests d’abord, et le code lui-même seulement si les tests semblent incomplets ou faux"
+    ],
+    "explain": "Lire par niveau de risque garantit que les bugs qui cassent la production (une injection, une deadline manquante, une race) sont soulevés en premier, quel que soit le temps restant. Une lecture ligne par ligne consacre l’épreuve à ce qui vient en premier dans le fichier, souvent le style, et un test du cas nominal qui passe en dit peu sur ces bugs."
+  },
+  "m22.q7": {
+    "q": "Dans les Conventional Comments, que signifie la décoration <code>(blocking)</code> sur un commentaire ?",
+    "options": [
+      "Le relecteur va bloquer l’auteur sur l’outil de chat jusqu’à la correction",
+      "Le commentaire est un nitpick sur la mise en forme",
+      "Le changement ne devrait pas être accepté tant que le commentaire n’est pas résolu",
+      "Le commentaire peut être ignoré sauf si le changement est mineur"
+    ],
+    "explain": "La page des Conventional Comments définit blocking comme un commentaire qui doit empêcher l’acceptation du changement tant qu’il n’est pas résolu. « Ignorable sauf si le changement est mineur », c’est le sens de (if-minor), et nitpick est un label, pas une décoration."
+  },
+  "m22.q8": {
+    "q": "Dans un bug bash, un test du checkout échoue dans un dépôt que tu n’as jamais vu. Quelle est la première étape de la méthode ?",
+    "options": [
+      "Lire toute la codebase pour la comprendre avant de toucher à quoi que ce soit",
+      "Réécrire la fonction appelée par le test, puisqu’elle est probablement fausse",
+      "Demander au recruteur où est le bug",
+      "Le reproduire en lançant uniquement ce test, puis lire l’erreur en entier"
+    ],
+    "explain": "Reproduire de façon isolée (avec --test-name-pattern ou vitest -t) donne une boucle rapide, et l’erreur complète (message, valeurs actuelle et attendue, première frame de la stack dans le dépôt) pointe généralement vers l’hypothèse. Lire toute la codebase gaspille l’épreuve, et réécrire avant de comprendre, c’est justement le tâtonnement que l’épreuve sanctionne."
+  },
+  "m22.q9": {
+    "q": "Pendant <code>git bisect run ./check.sh</code>, le script se termine avec le code 125 sur un commit. Que fait git ?",
+    "options": [
+      "Il marque le commit comme mauvais, comme pour tout code de sortie non nul",
+      "Il saute ce commit car impossible à tester et continue",
+      "Il interrompt le bisect, parce que 125 est hors de la plage des mauvais commits",
+      "Il marque le commit comme bon et passe au milieu suivant"
+    ],
+    "explain": "La documentation de git réserve 125 à « ne peut pas être testé » : le commit est sauté. Les codes de 1 à 127 autres que 125 signifient mauvais, 0 signifie bon, et tout autre code (128 et au-delà) interrompt le bisect."
+  },
+  "m22.q10": {
+    "q": "Dans une épreuve où un assistant IA est autorisé, qu’évalue principalement le recruteur ?",
+    "options": [
+      "Comment tu diriges l’assistant et comment tu vérifies ce qu’il produit",
+      "À quelle vitesse l’assistant produit du code qui marche, comparé aux autres candidats",
+      "Si tu termines la tâche sans jamais utiliser l’assistant",
+      "La brièveté de tes prompts"
+    ],
+    "explain": "Dans ces épreuves (Canva depuis 2025, Meta depuis octobre 2025), le candidat est jugé sur sa façon de diriger et de vérifier l’IA : contexte précis, lecture de chaque ligne, exécution des tests, décisions visibles. La vitesse de l’outil n’est pas ta compétence, et refuser l’assistant passe à côté de ce que mesure l’épreuve."
+  },
+  "m22.q11": {
+    "q": "Dans une réponse STAR, où doit aller l’essentiel du temps ?",
+    "options": [
+      "La Situation, pour que le recruteur comprenne pleinement le contexte",
+      "Le Résultat, avec autant de chiffres que possible",
+      "L’Action : ce que tu as fait toi-même, dit avec « je »",
+      "La Tâche, pour montrer l’importance de ta responsabilité"
+    ],
+    "explain": "Le recruteur évalue ton comportement, qui se trouve dans les actions que tu as menées : elles doivent donc être le cœur d’une histoire de deux minutes, à la première personne. Une situation trop longue est l’erreur courante : deux phrases de contexte suffisent."
+  },
+  "m22.q12": {
+    "q": "À la fin de l’épreuve de live coding, quelle question posée à l’ingénieur est la plus utile ?",
+    "options": [
+      "« Est-ce que j’ai réussi cette épreuve, et comment je m’en suis sorti par rapport aux autres ? »",
+      "« Combien de jours de télétravail par semaine a l’équipe ? »",
+      "« Pourriez-vous me dire ce que fait l’entreprise, et qui sont ses principaux clients ? »",
+      "« Quel a été votre dernier incident de production, et qu’est-ce qui a changé après ? »"
+    ],
+    "explain": "Un ingénieur peut y répondre depuis son expérience, et la réponse te dit comment fonctionnent vraiment les incidents, l’astreinte et le suivi. La politique de télétravail relève du recruteur, demander ce que fait l’entreprise montre un manque de préparation, et « Est-ce que j’ai réussi ? » met le recruteur dans une position délicate sans te donner d’information."
+  },
+  "m22.q13": {
+    "q": "Pendant le live coding, le recruteur dit : « Les prix sont en euros, utilise simplement des nombres à virgule flottante. » Quelle est la meilleure réaction ?",
+    "options": [
+      "Acquiescer : les nombres JavaScript sont exacts jusqu’à deux décimales, ce qui suffit pour des prix",
+      "Proposer des centimes entiers, montrer pourquoi les flottants sont inexacts, puis suivre son choix",
+      "Refuser de continuer tant qu’une bibliothèque décimale n’est pas installée dans l’éditeur partagé",
+      "Utiliser des flottants, et arrondir avec <code>toFixed(2)</code> après chaque opération pour garder des montants exacts"
+    ],
+    "explain": "La ligne affiche 0.30000000000000004 sur Node 24 : les flottants binaires ne peuvent pas représenter la plupart des fractions décimales. Proposer des centimes entiers, avec la raison, montre du jugement, et suivre ensuite le recruteur fait avancer l’épreuve. Arrondir à chaque étape masque l’erreur et accumule les décisions d’arrondi ; refuser de continuer n’est pas de la collaboration."
+  },
+  "m22.q14": {
+    "q": "Vous avez convenu que la 30e minute est incluse. Tes tests couvrent pour l’instant 10 minutes après la commande (acceptée) et 45 minutes après (refusée). Quel test devrais-tu ajouter ensuite ?",
+    "options": [
+      "Un test à 20 minutes, pour avoir un cas accepté de plus",
+      "Un test qui vérifie le texte du message d’erreur",
+      "Un test à exactement 30 minutes et un à une milliseconde après",
+      "Un test qui lit la vraie horloge, pour vérifier en conditions réelles"
+    ],
+    "explain": "Les bugs se trouvent à la limite : &gt; contre &gt;= ne change le résultat qu’à exactement 30 minutes, donc ce cas et l’instant juste après fixent la règle. Un autre cas à 20 minutes passe avec l’une ou l’autre comparaison, et un test qui lit la vraie horloge dépend du moment où il tourne."
+  },
+  "m22.q15": {
+    "q": "Le projet tourne avec <code>node src/server.ts</code> sur Node 24, et la CI lance <code>tsc --noEmit</code>. Un collègue ajoute <code>'refunded'</code> à <code>OrderStatus</code> sans nouveau case dans <code>decideCancellation</code>, dont la branche default affecte le statut à <code>never</code>. Que se passe-t-il ?",
+    "options": [
+      "Node l’exécute, puisqu’il ne vérifie jamais les types ; la vérification de types de la CI échoue sur la ligne never",
+      "Node refuse de démarrer, avec une erreur de type sur la ligne never",
+      "Les deux réussissent : TypeScript élargit never pour inclure le nouveau statut",
+      "La vérification de types de la CI passe, et la fonction ne lève une exception que lorsqu’une commande remboursée arrive en production"
+    ],
+    "explain": "Vérifié : le fichier modifié a tourné sous node avec le code de sortie 0, alors que TypeScript 6.0.3 a signalé « Type '\"refunded\"' is not assignable to type 'never' ». Node ne fait qu’effacer les types sans jamais les vérifier, c’est pourquoi la vérification de types doit rester dans la CI. L’exception à l’exécution n’arrive que si personne n’a lancé la vérification de types."
+  },
+  "m22.q16": {
+    "q": "Lors de la soutenance de ton test à la maison, un relecteur montre ce code : « Deux clients achètent la dernière unité au même moment. Que se passe-t-il ? » Quelle est la meilleure réponse ?",
+    "options": [
+      "Rien de grave : l’UPDATE est atomique, donc la deuxième requête attend la première puis échoue",
+      "Englober les deux requêtes dans une transaction règle le problème, parce qu’une transaction isole les deux requêtes",
+      "Une seule peut passer, parce que PostgreSQL verrouille la ligne pendant le SELECT",
+      "Les deux peuvent voir une unité et la vendre ; j’utiliserais un seul UPDATE conditionnel et je vérifierais le nombre de lignes"
+    ],
+    "explain": "Un SELECT simple ne prend aucun verrou de ligne, donc les deux requêtes peuvent lire une unité avant que l’une ou l’autre ne mette à jour ; l’UPDATE est atomique mais rien ne revérifie la quantité. Une transaction au niveau par défaut Read Committed laisse passer la même race (M09). L’UPDATE conditionnel fait de la vérification et de l’écriture une seule instruction, et un nombre de lignes affectées à 0 signifie rupture de stock."
+  },
+  "m22.q17": {
+    "q": "L’énoncé d’un test à la maison dit « environ 4 heures de travail » et te laisse 3 jours. Que dois-tu livrer ?",
+    "options": [
+      "Tout ce que tu peux construire en 3 jours, pour te démarquer nettement des autres candidats",
+      "Le parcours principal bien fait en environ 4 heures, avec des tests et un README qui nomme ce qui est laissé de côté",
+      "Une version minimale sans tests, puisque les tests n’étaient pas mentionnés",
+      "Une architecture microservices complète, pour montrer des compétences de conception senior"
+    ],
+    "explain": "Respecter l’effort attendu montre que tu sais cadrer, et le README transforme les omissions en décisions que les relecteurs peuvent discuter. Trois jours de travail rendent la comparaison injuste à lire et donnent aux relecteurs plus de surface à questionner ; sauter les tests ou sur-architecturer passent tous deux à côté de ce que vérifie la revue."
+  },
+  "m22.q18": {
+    "q": "La table <code>orders</code> contient trois commandes. Que renvoie cette requête quand <code>orderId</code> vaut <code>x' OR '1'='1</code> ?",
+    "options": [
+      "Aucune ligne, parce qu’aucune commande n’a cet id",
+      "Une erreur, parce que les guillemets ne sont pas équilibrés",
+      "Les trois commandes, parce que la condition devient toujours vraie",
+      "Seulement la première commande, parce qu’un WHERE sur id renvoie au plus une ligne"
+    ],
+    "explain": "Le SQL devient WHERE id = 'x' OR '1'='1', qui est vrai pour chaque ligne : exécuté sur PostgreSQL 18.6, il a renvoyé les 3 commandes, alors que la même valeur passée en $1 n’en a renvoyé aucune. Les guillemets s’équilibrent parce que la valeur injectée les ferme et les rouvre, et c’est exactement comme ça que fonctionne l’injection."
+  },
+  "m22.q19": {
+    "q": "Dans la PR, la requête de réassort n’a pas d’<code>await</code>. Un jour, cette requête échoue avec une erreur de deadlock. Avec les flags par défaut de Node 24 et sans handler de rejet, que se passe-t-il ?",
+    "options": [
+      "Elle a déjà renvoyé un succès ; le rejet n’est pas géré et le processus se termine avec le code 1",
+      "La fonction attend quand même la requête, parce que chaque promesse dans une fonction async est attendue",
+      "L’erreur est ignorée en silence et le stock reste faux",
+      "Le try/catch de l’appelant reçoit l’erreur de deadlock"
+    ],
+    "explain": "Sans await, la fonction rend la main avant que la requête aboutisse, donc l’appelant voit un succès et son try/catch ne voit jamais l’erreur. Mesuré sur Node 24 : le handler a rendu la main, puis le rejet non géré a fait planter le processus avec le code de sortie 1, emportant avec lui les autres requêtes en cours. Elle n’est pas ignorée non plus : depuis Node 15, un rejet non géré est levé comme une exception non attrapée."
+  },
+  "m22.q20": {
+    "q": "Deux demandes d’annulation de la commande 1042 arrivent au même moment, sur deux réplicas. Le code lit le statut, rembourse s’il vaut <code>paid</code>, puis passe à <code>cancelled</code>. Quelle correction demanderais-tu ?",
+    "options": [
+      "Une Map en mémoire des ids de commandes en cours d’annulation, vérifiée par le handler avant le remboursement",
+      "Un délai de 500 ms avant le remboursement, pour que la première requête ait le temps de finir sa mise à jour",
+      "Un index unique sur orders.status, pour que deux lignes ne puissent pas changer d’état ensemble",
+      "Un UPDATE … WHERE status = 'paid' RETURNING conditionnel, et un remboursement seulement si une ligne revient"
+    ],
+    "explain": "L’UPDATE conditionnel fait décider la base de la requête qui gagne : dans un essai rapide, deux appels concurrents « vérifier puis agir » ont remboursé deux fois, et l’UPDATE conditionnel une seule. Une Map en mémoire ne protège qu’un processus, et ici les requêtes sont sur deux réplicas ; un délai ne fait que réduire la fenêtre."
+  },
+  "m22.q21": {
+    "q": "Quel commentaire de review sur le bug d’injection est le meilleur ?",
+    "options": [
+      "« C’est faux, corrige-le avant que je regarde le reste de la pull request. »",
+      "« issue (blocking) : orderId est concaténé dans le SQL, donc les appelants peuvent injecter du SQL. Passe-le en $1. »",
+      "« nitpick (non-blocking) : peut-être utiliser un paramètre ici au lieu de construire la chaîne SQL à la main ? »",
+      "« Pourquoi écrire du SQL comme ça en 2026 ? On a des paramètres depuis des années. »"
+    ],
+    "explain": "Il énonce le problème, sa gravité, la preuve et la correction, au format Conventional Comments. Étiqueter un bug de sécurité comme nitpick dit à l’auteur que c’est facultatif, soit l’inverse de la vérité, et les deux autres commentaires ne donnent ni raison ni piste pour avancer."
+  },
+  "m22.q22": {
+    "q": "Tu demandes un <code>AbortSignal.timeout(3_000)</code> sur l’appel de remboursement et un retry en cas de timeout. Que doit avoir le retry en plus ?",
+    "options": [
+      "Un timeout plus long à chaque nouvelle tentative, pour que la dernière ait toujours le temps de réussir",
+      "Rien : un appel qui a expiré n’a jamais atteint le prestataire",
+      "La même clé d’idempotence à chaque tentative, pour que le prestataire ne rembourse qu’une fois",
+      "Un nouvel id de paiement à chaque tentative, pour que le prestataire ne rejette pas les doublons"
+    ],
+    "explain": "Un timeout te dit seulement que tu as arrêté d’attendre : le prestataire a peut-être traité le premier remboursement. Envoyer la même clé d’idempotence à chaque tentative lui permet de reconnaître le retry et de répondre avec le premier résultat (M02). Un nouvel id par tentative, c’est précisément comme ça qu’un client se fait rembourser deux fois."
+  },
+  "m22.q23": {
+    "q": "Ce test d’intégration contre PostgreSQL échoue avec <code>'4500499' !== 4999</code>. Quelle est la cause ?",
+    "options": [
+      "sum() est un bigint, que node-postgres renvoie sous forme de chaîne, donc + concatène",
+      "Le panier a une deuxième ligne à 499 centimes que la fixture du test a oublié de retirer",
+      "TypeScript a compilé + en concaténation de chaînes à cause du type générique de query",
+      "PostgreSQL a renvoyé la somme en euros, pas en centimes"
+    ],
+    "explain": "Sur PostgreSQL 18.6, pg_typeof de la somme vaut bigint, et le README de pg-types indique que node-postgres renvoie les résultats int8 sous forme de chaînes. '4500' + 499 donne '4500499'. TypeScript n’émet aucun code pour + : le générique de query est une assertion non vérifiée, donc le type disait number alors que la valeur était une chaîne."
+  },
+  "m22.q24": {
+    "q": "Un test de l’export « commandes triées par total » échoue. Qu’affiche cette ligne ?",
+    "options": [
+      "[ 999, 1200, 4500 ]",
+      "[ 4500, 1200, 999 ]",
+      "[ 1200, 999, 4500 ]",
+      "[ 1200, 4500, 999 ]"
+    ],
+    "explain": "Sans comparateur, sort convertit les valeurs en chaînes et les compare dans l’ordre UTF-16, donc « 999 » vient après « 4500 » (vérifié sur Node 24). Passe un comparateur : toSorted((a, b) =&gt; a - b) a affiché [ 999, 1200, 4500 ] et laisse le tableau d’origine intact."
+  },
+  "m22.q25": {
+    "q": "<code>paymentStatus()</code> prend environ 300 ms et <code>deliveryEta()</code> environ 600 ms ; aucune n’a besoin du résultat de l’autre. Combien de temps prend ce handler, et quelle est la correction ?",
+    "options": [
+      "Environ 600 ms déjà, parce que Node lance les await en parallèle par défaut",
+      "Environ 900 ms ; avec Promise.all sur les deux appels, on descend à environ 600 ms",
+      "Environ 900 ms, et on ne peut rien y faire sans worker threads",
+      "Environ 300 ms, parce que le second await démarre pendant que le premier est encore en attente"
+    ],
+    "explain": "Chaque await attend avant que l’appel suivant démarre, donc les temps s’additionnent : mesuré sur Node 24 avec des timers, 911 ms en séquentiel et 604 ms avec Promise.all, qui lance les deux appels et attend le plus lent. Attendre des I/O ne demande aucun worker thread."
+  },
+  "m22.q26": {
+    "q": "Dans le bug bash, seul <code>GET /orders/:id</code> est lent. La trace montre 850 ms dans un seul span SQL ; les autres routes et les métriques de l’event loop sont normales. Que fais-tu ensuite ?",
+    "options": [
+      "Ajouter des réplicas de l’API",
+      "Prendre un profil CPU du processus Node",
+      "Lancer EXPLAIN ANALYZE sur cette requête et lire son plan",
+      "Ajouter un cache devant la route avant d’enquêter plus loin"
+    ],
+    "explain": "La mesure pointe déjà une requête, donc l’étape suivante est son plan, qui montre un parcours séquentiel ou une mauvaise jointure (M08). Un profil CPU est l’outil quand toutes les routes sont lentes et que l’event loop est occupée (M01), ce qui n’est pas le cas ; un cache ou des réplicas masquent la cause sans la trouver."
+  },
+  "m22.q27": {
+    "q": "L’assistant a écrit ceci pour réessayer un remboursement qui part en timeout. Sur Node 24, que se passe-t-il quand la deadline de 3 secondes se déclenche ?",
+    "options": [
+      "C’est une TimeoutError, donc la branche est sautée et l’erreur est relancée",
+      "L’erreur s’appelle AbortError, comme pour tout signal annulé, donc le retry est planifié",
+      "fetch se résout avec une réponse 408, donc le bloc catch ne s’exécute jamais",
+      "L’erreur est une Error simple avec le code ETIMEDOUT, donc la branche est sautée"
+    ],
+    "explain": "Mesuré contre un serveur local lent : fetch a rejeté avec une DOMException dont le nom est TimeoutError. AbortError est le nom pour un controller.abort() manuel, c’est pourquoi cette vérification semble plausible. La correction teste TimeoutError, avec un test qui simule un prestataire lent."
+  },
+  "m22.q28": {
+    "q": "Le VP demande : « Comment l’IA a-t-elle changé votre façon de construire, et où ne lui faites-vous pas confiance ? » Quelle réponse est la plus solide ?",
+    "options": [
+      "« Je n’utilise pas du tout d’outils d’IA : je préfère comprendre chaque ligne que j’écris, et ça garde mes compétences affûtées. »",
+      "« Elle écrit maintenant l’essentiel de mon code, ce qui me rend bien plus rapide qu’avant ; je relis surtout les pull requests qu’elle ouvre. »",
+      "« L’IA est surestimée pour le backend, donc j’évite de m’appuyer dessus sauf pour écrire de la documentation. »",
+      "« Le boilerplate et les premiers jets ; je vérifie chaque diff avec des tests et la doc, et je m’en méfie sur la concurrence et la sécurité. »"
+    ],
+    "explain": "Elle est précise sur ce qui est délégué, comment c’est vérifié et où s’arrête la confiance ; dans l’épreuve elle-même, ajoute un vrai bug que tu as repéré comme preuve. Dans l’étude du marché, 23 % des offres parisiennes attendent un usage quotidien des outils de code IA, donc les refuser passe pour une lacune, et « elle écrit l’essentiel de mon code » sans méthode de vérification, c’est ce qui inquiète les recruteurs."
+  },
+  "m22.q29": {
+    "q": "Le CEO te demande en une phrase : « Rends le checkout plus rapide. » Que fais-tu avant d’écrire la moindre ligne de code ?",
+    "options": [
+      "Commencer à optimiser la requête SQL la plus lente que tu connais déjà dans le checkout",
+      "Ajouter un cache devant le checkout pour que le CEO voie des résultats rapides",
+      "Demander ce que « plus rapide » veut dire, mesurer la situation de départ, et convenir d’un objectif",
+      "Planifier une réécriture du checkout dans un framework plus rapide comme Fastify"
+    ],
+    "explain": "« Plus rapide » peut vouloir dire latence serveur, chargement de la page, moins d’étapes ou meilleure conversion, et chacun mène à un travail différent. Clarifier l’objectif, mesurer la situation de départ et s’accorder sur le succès, c’est ce que la question cherche à entendre. Commencer par la requête que tu connais déjà résout un problème que personne n’a confirmé."
+  },
+  "m22.q30": {
+    "q": "À 10 minutes de la fin du live coding, tu te rends compte que ta conception ne peut pas gérer une exigence que le recruteur vient d’ajouter. Que fais-tu ?",
+    "options": [
+      "Continuer à taper en silence et essayer de finir la conception d’origine avant la fin du temps imparti",
+      "Le dire, expliquer le changement que tu ferais, et finir la partie clé avec les tests au vert",
+      "Repartir de zéro avec une réécriture complète, puisqu’une mauvaise conception est pire que rien",
+      "Soutenir que la nouvelle exigence sort du cadre d’un exercice de 90 minutes"
+    ],
+    "explain": "Nommer le problème, la correction et son coût, puis prioriser, montre exactement le jugement que l’épreuve évalue, et des tests au vert protègent ce qui fonctionne. Une réécriture en 10 minutes ne laisse généralement rien qui marche, et taper en silence cache justement le raisonnement que le recruteur veut entendre."
+  }
+}

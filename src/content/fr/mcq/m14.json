@@ -1,0 +1,302 @@
+{
+  "m14.q1": {
+    "q": "Le SQL de réservation de stock comparait les quantités dans le mauvais sens, et chaque test du checkout utilisait un repository mocké. Quel test aurait détecté le bug au moindre coût ?",
+    "options": [
+      "Un test unitaire du checkout avec un mock plus strict de <code>reserve</code>",
+      "Un test d’intégration du repository sur un vrai PostgreSQL",
+      "Un test E2E qui achète la dernière unité via l’API publique en staging",
+      "Un test snapshot de la chaîne SQL"
+    ],
+    "explain": "Seul un test qui exécute le SQL sur un vrai PostgreSQL peut voir qu’il refuse la dernière unité, et avec PGlite ou Testcontainers il tourne en quelques millisecondes par test. Un mock plus strict n’exécute toujours pas le SQL, et un snapshot prouve seulement que la chaîne n’a pas changé, pas qu’elle est juste."
+  },
+  "m14.q2": {
+    "q": "Dans <code>POST /orders</code>, quel morceau de code est le meilleur candidat pour de simples tests unitaires ?",
+    "options": [
+      "Le handler de route qui valide le corps et appelle les repositories",
+      "L’instruction SQL qui réserve le stock",
+      "La fonction qui calcule le total du panier avec les remises et la livraison gratuite",
+      "La composition root qui branche les vraies dépendances"
+    ],
+    "explain": "Une règle pure avec de nombreux cas limites (exactement 50,00, une remise qui fait passer sous le seuil, un arrondi), c’est exactement ce que les tests unitaires font bien : un tableau d’entrées et de sorties, pas de doublures, des microsecondes. Le handler et le SQL sont de la glue dont les bugs n’apparaissent qu’avec le vrai framework et la vraie base, donc ils relèvent des tests d’intégration."
+  },
+  "m14.q3": {
+    "q": "Le code du checkout a 92 % de couverture de lignes. Que t’apprend ce chiffre ?",
+    "options": [
+      "Quelles lignes ont été exécutées pendant les tests, pas si un test a vérifié leur résultat",
+      "Que 92 % des bugs possibles seraient détectés par la suite",
+      "Que 92 % des tests contiennent au moins une assertion",
+      "Que le code est prêt à livrer, puisqu’il dépasse le seuil habituel de 80 %"
+    ],
+    "explain": "La couverture enregistre les lignes exécutées ; un test sans assertion la fait monter tout autant qu’un bon test. C’est pourquoi c’est un signal pour trouver des branches non testées, pas un objectif. Le mutation testing est l’outil qui mesure si les assertions détectent les changements."
+  },
+  "m14.q4": {
+    "q": "Quelle affirmation sur NestJS 12 et les test runners correspond à ses release notes ?",
+    "options": [
+      "Chaque projet existant est migré de Jest vers Vitest par <code>nest upgrade</code>",
+      "<code>nest new</code> donne Vitest aux nouveaux projets ESM, tandis que les projets CommonJS gardent Jest",
+      "Jest n’est plus pris en charge par <code>@nestjs/testing</code>",
+      "Vitest n’est pris en charge que pour les projets NestJS qui utilisent Fastify"
+    ],
+    "explain": "Les release notes de NestJS 12 indiquent que les projets ESM reçoivent Vitest et que les projets CommonJS continuent avec Jest, et que la mise à jour ne migre volontairement pas un projet vers ESM ou Vitest. Tu continueras donc à croiser Jest dans les codebases NestJS ; <code>@nestjs/testing</code> fonctionne avec les deux runners."
+  },
+  "m14.q5": {
+    "q": "Sur PGlite (PostgreSQL 18.6), le repository des codes promo exécute <code>SELECT ends_on FROM promo_codes</code> sur une colonne <code>date</code> contenant 2027-01-31. Que contient la ligne ?",
+    "options": [
+      "La chaîne <code>'2027-01-31'</code>",
+      "Un nombre de jours depuis 1970",
+      "Un <code>Temporal.PlainDate</code>",
+      "Une <code>Date</code> JavaScript à minuit UTC ce jour-là"
+    ],
+    "explain": "Mesuré : un objet <code>Date</code>, <code>2027-01-31T00:00:00.000Z</code>. Sélectionner <code>ends_on::text</code> renvoie la simple chaîne du jour. Un fake ou un mock qui stocke des chaînes masquerait cet écart, ce qui est une raison de tester le repository sur une vraie base."
+  },
+  "m14.q6": {
+    "q": "Quelle stratégie d’isolation des tests casse quand le code testé ouvre sa propre transaction ou prend une seconde connexion dans le pool ?",
+    "options": [
+      "Vider les tables (TRUNCATE) avant chaque test",
+      "Envelopper chaque test dans une transaction annulée ensuite",
+      "Créer chaque base de test à partir d’un template",
+      "Donner à chaque worker sa propre base"
+    ],
+    "explain": "L’astuce du rollback ne fonctionne que si chaque instruction du test s’exécute dans l’unique transaction ouverte par le test, sur une seule connexion. Du code qui commite sa propre transaction ou utilise une autre connexion y échappe. Vider les tables avant chaque test n’a pas cette contrainte, pour quelques millisecondes de plus."
+  },
+  "m14.q7": {
+    "q": "Que fait <code>app.inject()</code> de Fastify dans un test de <code>POST /orders</code> ?",
+    "options": [
+      "Il fait passer la requête par tout le pipeline Fastify, validation et sérialisation comprises, sans ouvrir de port",
+      "Il appelle directement la fonction du handler de route, en sautant les hooks et les schémas",
+      "Il démarre le serveur sur un port aléatoire et envoie une vraie requête HTTP",
+      "Il remplace le handler de route par un mock que le test contrôle"
+    ],
+    "explain": "Mesuré : <code>app.server.listening</code> est resté à false pendant l’inject, et un corps qui violait le schéma de la route (<code>priceCents: 0</code> alors que le minimum est 1) a été rejeté avec 400, donc la validation s’est exécutée. Démarrer un vrai serveur sur un port, c’est ce que fait supertest avec une app Express, pas inject."
+  },
+  "m14.q8": {
+    "q": "Dans un test NestJS, qu’obtient <code>Test.createTestingModule({ imports: [CheckoutModule] }).overrideProvider(CLOCK).useValue(fixedClock)</code> ?",
+    "options": [
+      "Il crée un second provider <code>CLOCK</code> que seul le test peut lire",
+      "Il mocke chaque méthode de chaque provider du module",
+      "Il remplace le provider enregistré sous <code>CLOCK</code>, donc chaque classe qui l’injecte reçoit l’horloge figée",
+      "Il change l’horloge uniquement pour le controller, pas pour les services"
+    ],
+    "explain": "Le module de test est compilé avec la surcharge, donc l’injecteur de Nest fournit la valeur figée à chaque consommateur de ce token. Mesuré avec NestJS 12.3.2 : le service et le controller ont tous deux vu la date figée. Rien d’autre n’est mocké dans le module."
+  },
+  "m14.q9": {
+    "q": "Un repository de commandes en mémoire, adossé à une <code>Map</code>, qui stocke, filtre et trie réellement les commandes, est quel type de doublure de test ?",
+    "options": [
+      "Un stub",
+      "Un spy",
+      "Un mock",
+      "Un fake"
+    ],
+    "explain": "Un fake est une implémentation qui fonctionne mais prend un raccourci, ici la mémoire au lieu de PostgreSQL. Un stub ne renvoie que des réponses toutes faites, un spy enregistre les appels, et un mock est vérifié par rapport aux appels attendus."
+  },
+  "m14.q10": {
+    "q": "Pourquoi tester l’adapter <code>PaymentsClient</code> avec MSW plutôt qu’avec un <code>vi.fn()</code> qui remplace <code>fetch</code> ?",
+    "options": [
+      "Parce que <code>vi.fn()</code> ne peut pas renvoyer de promesse",
+      "Parce que MSW envoie les requêtes au vrai service de paiement dans une sandbox",
+      "Parce qu’avec MSW, le vrai <code>fetch</code>, la construction de l’URL, les en-têtes et le parsing JSON s’exécutent tous ; seule la réponse réseau est simulée",
+      "Parce que MSW rend le test indépendant des codes de statut HTTP"
+    ],
+    "explain": "MSW intercepte au niveau réseau, donc toute la gestion des requêtes et réponses de l’adapter est exercée. Un <code>vi.fn()</code> à la place de <code>fetch</code> ne vérifie que les appels que tu t’attendais à faire. MSW ne contacte jamais le vrai service : les requêtes non gérées produisent un avertissement ou un échec selon <code>onUnhandledFrame</code>."
+  },
+  "m14.q11": {
+    "q": "Un test du checkout vérifie qu’un code promo s’applique encore le dernier jour, le 31 janvier. Comment le test doit-il décider ce qu’est « aujourd’hui » ?",
+    "options": [
+      "Passer au checkout une horloge figée à un instant choisi, comme <code>new FixedClock('2027-01-31T06:00:00Z')</code>",
+      "Utiliser <code>new Date()</code> et en déduire les valeurs attendues dans le test",
+      "N’exécuter le test que les jours du mois pour lesquels il a été écrit",
+      "Lire <code>process.env.TZ</code> et ajuster les dates attendues"
+    ],
+    "explain": "Une horloge injectée et figée rend le scénario explicite et le résultat identique quelle que soit la date. Calculer l’attendu à partir de <code>new Date()</code> duplique la logique testée et change quand même de comportement en fin de mois ou un 29 février, justement quand les bugs de date apparaissent."
+  },
+  "m14.q12": {
+    "q": "Que fait Vitest 5.0.5 de ce test, où <code>charge(true)</code> rejette avec le message <code>card declined</code> ?",
+    "options": [
+      "Il passe",
+      "Il passe avec un avertissement sur l’await manquant",
+      "Il fait un timeout après 5 secondes",
+      "Il échoue, car la promesse de l’assertion n’a pas été attendue"
+    ],
+    "explain": "Mesuré : il échoue avec « Promise returned by expect(actual).rejects.toThrow(expected) was not awaited », même si le rejet correspond. Écris <code>await expect(charge(true)).rejects.toThrow('card declined')</code> dans un test <code>async</code>."
+  },
+  "m14.q13": {
+    "q": "Avec les fake timers activés, cette boucle de retry de paiement est lancée et le test appelle la version synchrone <code>vi.advanceTimersByTime(3000)</code>, puis laisse s’exécuter une microtâche. Combien de tentatives ont eu lieu ?",
+    "options": [
+      "Trois",
+      "Une",
+      "Deux",
+      "Zéro"
+    ],
+    "explain": "Mesuré : une tentative. L’avance synchrone ne déclenche que les timers qui existent à ce moment ; la seconde attente est créée plus tard, une fois les promesses résolues, donc elle n’a jamais été avancée. <code>await vi.advanceTimersByTimeAsync(3000)</code> laisse les promesses se résoudre entre les timers et a exécuté les trois tentatives."
+  },
+  "m14.q14": {
+    "q": "Une bibliothèque attend avec <code>await setTimeout(200)</code> importé de <code>node:timers/promises</code>. Le test active <code>vi.useFakeTimers()</code> et appelle <code>await vi.advanceTimersByTimeAsync(200)</code>. Que se passe-t-il ?",
+    "options": [
+      "L’attente se résout immédiatement, comme n’importe quel timer simulé",
+      "Vitest lève une erreur car le timer n’est pas pris en charge",
+      "L’attente est toujours en cours ; elle ne se résout qu’après 200 ms de temps réel",
+      "L’attente se résout et <code>Date</code> avance de 200 ms"
+    ],
+    "explain": "Mesuré sur Vitest 5.0.5 : <code>node:timers/promises</code> n’était pas simulé, donc avancer le faux temps ne l’a pas résolu, et il s’est résolu une fois le temps réel écoulé. C’est une bonne raison d’injecter une horloge avec une méthode <code>sleep</code> plutôt que de compter sur les fake timers."
+  },
+  "m14.q15": {
+    "q": "Un bug fait réussir <code>charge()</code> alors qu’il devrait rejeter. Que rapporte ce test ?",
+    "options": [
+      "Il passe, car l’<code>expect</code> dans le <code>catch</code> ne s’exécute jamais",
+      "Il échoue avec « expected PaymentDeclinedError »",
+      "Il échoue avec un rejet non géré",
+      "Il fait un timeout en attendant le rejet"
+    ],
+    "explain": "Mesuré : vert avec zéro assertion exécutée. Ajouter <code>expect.assertions(1)</code> l’a fait échouer avec « expected number of assertions to be 1, but got 0 » ; plus simple encore : <code>await expect(charge(declinedCard)).rejects.toBeInstanceOf(PaymentDeclinedError)</code>."
+  },
+  "m14.q16": {
+    "q": "Tous les tests d’un fichier passent, mais un test a lancé une fonction async sans l’attendre, et cette fonction a levé une erreur 10 ms plus tard. Que fait <code>vitest run</code> ?",
+    "options": [
+      "Il affiche tout en vert et sort avec le code 0, puisqu’aucun test n’a échoué",
+      "Il fait échouer le test qui a lancé la fonction",
+      "Il reste bloqué jusqu’au timeout, puis sort avec le code 0",
+      "Il affiche les tests comme réussis, imprime une erreur non gérée et sort avec le code 1"
+    ],
+    "explain": "Mesuré : « Tests 2 passed », puis « Vitest caught 1 unhandled error during the test run », « Errors 1 error », et le code de sortie 1. Vitest ne peut pas toujours savoir quel test l’a provoquée, donc il n’en marque aucun comme échoué, mais l’exécution est rouge. Corrige la promesse flottante ; en production, elle ferait planter le processus."
+  },
+  "m14.q17": {
+    "q": "En CI, les tests d’intégration du checkout tournent dans des processus workers parallèles sur une seule base PostgreSQL partagée, et échouent aléatoirement avec des lignes inattendues. Quel correctif livrerais-tu ?",
+    "options": [
+      "Désactiver le parallélisme pour toute la suite",
+      "Ajouter <code>--retry 2</code> au projet d’intégration",
+      "Donner à chaque worker sa propre base ou son propre schéma, nommé d’après <code>VITEST_POOL_ID</code>, et le réinitialiser à chaque test",
+      "Faire insérer à chaque test des lignes avec des id aléatoires"
+    ],
+    "explain": "Les échecs viennent de fichiers qui voient les lignes les uns des autres. Une base par worker supprime le partage et garde le parallélisme ; Vitest définit <code>VITEST_POOL_ID</code> dans chaque worker (mesuré). Des id aléatoires cassent quand même tout test qui liste ou compte des lignes, et les retries ne font que masquer la race condition."
+  },
+  "m14.q18": {
+    "q": "Tu veux tester que deux checkouts en concurrence pour le dernier mug, utilisant tous deux <code>SELECT … FOR UPDATE</code>, ne réussissent jamais tous les deux. Sur quelle base testes-tu ?",
+    "options": [
+      "PGlite, car c’est PostgreSQL 18 et il démarre sans Docker",
+      "Un vrai serveur PostgreSQL démarré avec Testcontainers, avec deux connexions",
+      "Un fake en mémoire qui imite les verrous de ligne avec un <code>Set</code>",
+      "Un repository mocké qui renvoie des lignes différentes à chaque appelant"
+    ],
+    "explain": "Le test a besoin de deux sessions concurrentes qui se disputent un verrou de ligne. PGlite exécute une seule connexion dans le processus, donc il ne peut pas montrer ce comportement, et un fake ou un mock ne fait qu’encoder ce que tu crois que font les verrous. Un vrai serveur dans un conteneur, si."
+  },
+  "m14.q19": {
+    "q": "Un test du checkout vérifie <code>expect(orders.update).toHaveBeenCalledWith('ord_1', { status: 'paid' })</code>. Un refactoring fusionne deux mises à jour en un seul appel et le comportement reste correct. Qu’est-ce que cela t’apprend sur le test ?",
+    "options": [
+      "Il fige l’implémentation : il échoue sur un refactoring inoffensif et passerait avec un SQL faux ; vérifier l’état stocké serait mieux",
+      "C’est un bon test : les tests d’interaction doivent échouer à chaque changement des appels",
+      "Il est correct, car <code>toHaveBeenCalledWith</code> ne compare que le premier argument",
+      "Il passerait après le refactoring, car Vitest compare les appels de façon souple"
+    ],
+    "explain": "Un mock vérifie la conversation, pas le résultat, donc il casse quand la conversation change et reste vert quand le vrai <code>UPDATE</code> est faux. Relire la commande depuis un fake ou depuis PostgreSQL teste le comportement lui-même. <code>toHaveBeenCalledWith</code> compare tous les arguments."
+  },
+  "m14.q20": {
+    "q": "Après la mise à jour de MSW de 2.x vers 3.0.3, le setup appelle toujours <code>server.listen({ onUnhandledRequest: 'error' })</code>. Un test appelle maintenant une URL sans handler. Que se passe-t-il ?",
+    "options": [
+      "MSW lève une erreur à <code>listen()</code> à cause d’une option inconnue",
+      "La requête échoue avec une erreur MSW, comme en v2",
+      "MSW renvoie une réponse 200 vide",
+      "MSW n’affiche qu’un avertissement, car l’option a été renommée <code>onUnhandledFrame</code> et l’ancien nom est ignoré"
+    ],
+    "explain": "Mesuré sur MSW 3.0.3 : avec l’ancienne option, l’exécution a affiché « [MSW] Warning » (le défaut) et la requête est partie sur le réseau ; avec <code>onUnhandledFrame: 'error'</code>, elle a affiché « [MSW] Error ». Les release notes de la v3 mentionnent ce renommage."
+  },
+  "m14.q21": {
+    "q": "L’équipe paiements renomme <code>id</code> en <code>chargeId</code> dans la réponse de paiement. Tes handlers MSW renvoient toujours <code>id</code>. Qu’est-ce qui arrêterait cela avant que l’un ou l’autre côté ne déploie ?",
+    "options": [
+      "Plus de tests unitaires de <code>PaymentsClient</code> avec MSW",
+      "Une exécution E2E nocturne dans un environnement de staging partagé",
+      "Un test consommateur Pact dont le service de paiement vérifie le fichier pact dans son pipeline, conditionné par <code>can-i-deploy</code>",
+      "Générer des types TypeScript à partir de tes propres handlers MSW"
+    ],
+    "explain": "Tes handlers MSW n’encodent que ce que tu crois, donc ils restent verts. Le fichier pact enregistre que tu lis <code>id</code> ; la vérification du provider le rejoue sur son vrai code et échoue sur le renommage, et <code>can-i-deploy</code> bloque la release. Une exécution E2E en staging ne le détecterait qu’après un déploiement."
+  },
+  "m14.q22": {
+    "q": "L’API Orders expose aussi une API partenaires publique, utilisée par des dizaines de marketplaces que tu ne connais pas. Quelle approche de vérification de contrat convient le mieux ?",
+    "options": [
+      "Des tests Pact consumer-driven, en demandant à chaque marketplace d’envoyer un fichier pact",
+      "Publier un document OpenAPI, valider les réponses contre lui dans tes tests, et relire les changements pour repérer ceux qui cassent la compatibilité",
+      "Mocker le client de chaque marketplace dans ta propre suite de tests",
+      "S’appuyer sur des tests E2E contre ton API de production"
+    ],
+    "explain": "Les contrats consumer-driven exigent des consommateurs qui écrivent et partagent des fichiers pact, ce que des partenaires externes inconnus ne feront pas. Un document OpenAPI publié, vérifié par le provider à chaque changement, est le contrat pragmatique. Pact convient à quelques services internes dont les équipes coopèrent, comme commandes et paiements."
+  },
+  "m14.q23": {
+    "q": "Un test E2E du checkout attend que la nouvelle commande soit datée du 2027-01-31. Comment le garder indépendant de la date réelle ?",
+    "options": [
+      "Démarrer le serveur avec une horloge figée issue de la configuration de test (par exemple <code>FROZEN_NOW</code>), que la composition root refuse en production",
+      "Utiliser <code>page.clock.setFixedTime</code> de Playwright dans le test",
+      "Calculer la date attendue dans le test à partir de <code>new Date()</code>",
+      "N’exécuter la suite E2E que le 31 janvier"
+    ],
+    "explain": "La date est décidée sur le serveur, donc c’est l’horloge du serveur qui doit être figée ; la composition root lit le réglage et passe une horloge figée. Le <code>page.clock</code> de Playwright ne change le temps que dans une page de navigateur, et un test d’API n’a aucune page."
+  },
+  "m14.q24": {
+    "q": "Une équipe couvre les 40 règles de validation de <code>POST /orders</code> avec des tests E2E Playwright sur le staging. Que conseillerais-tu ?",
+    "options": [
+      "Les garder : les tests E2E sont les seuls à prouver que les règles fonctionnent",
+      "Les garder, mais piloter un navigateur au lieu de la fixture request",
+      "Remplacer les tests E2E par des mocks du handler de route",
+      "Garder un test E2E du parcours et tester les 40 règles en tests d’intégration avec <code>inject</code>"
+    ],
+    "explain": "Chaque règle est une propriété de la route, qu’un test d’intégration dans le processus vérifie en quelques millisecondes et sans instabilité réseau. Les tests E2E sont réservés à une poignée de parcours critiques à travers le système déployé. Mocker le handler ne testerait rien des règles."
+  },
+  "m14.q25": {
+    "q": "Un test de stock passe seul et n’échoue que quand toute la suite tourne. Quelle première étape trouve la cause le plus vite ?",
+    "options": [
+      "Ajouter <code>--retry 3</code> en CI",
+      "Exécuter la suite avec <code>--sequence.shuffle</code> et des seeds fixes pour trouver un ordre qui échoue, puis chercher l’état partagé",
+      "Augmenter le timeout du test",
+      "Exécuter le fichier avec <code>--maxWorkers 1</code>"
+    ],
+    "explain": "Le symptôme indique une dépendance à l’ordre. Mesuré : deux tests partageant un tableau au niveau du module ont échoué avec les seeds 1 à 3 et réussi avec les seeds 4 à 6 ; une seed fixe rend le mauvais ordre reproductible pendant que tu supprimes l’état partagé. Les retries et les timeouts ne font que le masquer."
+  },
+  "m14.q26": {
+    "q": "Un test du checkout échoue environ une fois sur cinquante exécutions en CI et personne n’a encore trouvé pourquoi. Quelle politique défendrais-tu ?",
+    "options": [
+      "Activer <code>--retry 3</code> pour toute la suite afin que les builds restent verts",
+      "Supprimer le test immédiatement",
+      "Le sortir du pipeline bloquant avec un ticket, un responsable et une échéance, puis corriger la cause racine ou le supprimer",
+      "Le garder bloquant pour que tout le monde ressente la douleur"
+    ],
+    "explain": "Une quarantaine garde la confiance dans le pipeline sans perdre le test, et le responsable et l’échéance l’empêchent de devenir un test ignoré en silence. Des retries généralisés masquent aussi tous les autres tests flaky, et le laisser bloquant habitue les gens à relancer les builds rouges par réflexe."
+  },
+  "m14.q27": {
+    "q": "Stryker fait muter <code>isRetryable</code>, la règle de retry du paiement. Avec seulement ces deux tests, quel mutant survit ?",
+    "options": [
+      "<code>status &gt;= 500</code> changé en <code>status &lt; 500</code>",
+      "L’expression entière changée en <code>true</code>",
+      "<code>||</code> changé en <code>&amp;&amp;</code>",
+      "<code>status &gt;= 500</code> changé en <code>status &gt; 500</code>"
+    ],
+    "explain": "Mesuré avec Stryker 10.1.1 : <code>&gt; 500</code> a survécu, car aucun test n’utilise exactement 500, donc 503 et 402 donnent les mêmes résultats. Les trois autres mutants changent la réponse pour 503 ou pour 402, donc un test échoue et ils sont tués. Ajouter des cas pour 500 et 429 tue les survivants."
+  },
+  "m14.q28": {
+    "q": "La suite Vitest prend encore 20 minutes sur une seule machine de CI, après l’allègement des tests E2E et la correction des fichiers les plus lents. Quelle est l’étape suivante ?",
+    "options": [
+      "La répartir sur des jobs parallèles avec <code>--shard=i/n</code> et <code>--reporter=blob</code>, puis fusionner les rapports",
+      "Relever le seuil de couverture pour avoir besoin de moins de tests",
+      "Déplacer les tests d’intégration dans une exécution nocturne que personne ne surveille",
+      "Exécuter chaque fichier de test avec <code>--sequence.shuffle</code>"
+    ],
+    "explain": "Le sharding répartit les fichiers de test sur plusieurs machines, et les rapports blob sont fusionnés avec <code>vitest --merge-reports</code> en un seul résultat. Déplacer des tests dans une exécution nocturne non surveillée leur fait perdre leur valeur, et les seuils de couverture ne changent pas la durée d’exécution."
+  },
+  "m14.q29": {
+    "q": "Un recruteur dit : « Nous avons 90 % de couverture et des bugs arrivent quand même en production. » Quelle est la meilleure première réponse ?",
+    "options": [
+      "Relever le seuil à 100 % pour que chaque ligne soit testée",
+      "Regarder quels bugs se sont échappés et quel test aurait détecté chacun ; puis vérifier la solidité des assertions, par exemple avec du mutation testing sur ce code",
+      "Ajouter des tests E2E pour chaque fonctionnalité",
+      "Passer de Jest à Vitest"
+    ],
+    "explain": "La couverture compte les lignes exécutées, pas le comportement vérifié, donc l’étape suivante consiste à apprendre des bugs échappés et à mesurer si les tests vérifient vraiment quelque chose. Plus de couverture ou plus de tests E2E ajoutent du coût sans cibler le manque, et le runner n’est pas en cause."
+  },
+  "m14.q30": {
+    "q": "Quel setup donne le plus de confiance par minute pour <code>POST /orders</code>, qui valide le corps, calcule le prix du panier, réserve le stock et insère une commande ?",
+    "options": [
+      "Un test unitaire du handler avec les repositories, le client de paiement et l’objet requête tous mockés",
+      "Un test Playwright sur le staging pour chaque cas",
+      "Fastify <code>inject</code> sur <code>buildApp</code> avec un vrai PostgreSQL (PGlite ou Testcontainers), une horloge figée et une factory d’id",
+      "Un test qui démarre le serveur sur le port 3000 et l’appelle avec <code>fetch</code>"
+    ],
+    "explain": "Inject exécute la validation, le handler et la sérialisation ; la vraie base vérifie le SQL ; l’horloge figée et les id rendent le corps attendu exact. Mesuré : environ 2,9 ms par requête avec PGlite. Les mocks sautent les parties qui cassent, l’E2E en staging est lent et instable, et un port fixe entre en collision lors des exécutions parallèles."
+  }
+}

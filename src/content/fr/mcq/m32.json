@@ -1,0 +1,302 @@
+{
+  "m32.q1": {
+    "q": "Dans le back-office, lequel de ces états est du <b>server state</b> ?",
+    "options": [
+      "Le fait que la fenêtre de remboursement soit ouverte",
+      "Le statut de la commande <code>ord_42</code>",
+      "Le filtre de statut du tableau des commandes",
+      "Le montant qu’un agent saisit dans le formulaire de remboursement"
+    ],
+    "explain": "Le statut de la commande appartient au serveur et peut changer pendant que la page est ouverte (un autre agent rembourse la commande), donc le client n’en détient qu’un cache. Le filtre de statut est tentant parce qu’il parle de statuts, mais c’est l’agent qui le choisit : c’est de l’état d’URL."
+  },
+  "m32.q2": {
+    "q": "Le tableau des commandes écrit son filtre de statut avec <code>setSearchParams(next, { replace: true })</code>. Que change <code>replace</code> ?",
+    "options": [
+      "Il remplace toute la query string, donc les autres paramètres comme le curseur sont perdus",
+      "Il recharge les données de la route depuis le serveur au lieu de réutiliser le cache",
+      "Il garde le filtre en mémoire et laisse la barre d’adresse inchangée jusqu’à la prochaine navigation",
+      "Il réécrit l’entrée courante de l’historique au lieu d’en ajouter une nouvelle"
+    ],
+    "explain": "Mesuré avec React Router 7.18.4 : avec replace, la longueur de l’historique n’a pas augmenté ; sans, chaque changement ajoutait une entrée. Les paramètres conservés dépendent du URLSearchParams que tu construis, pas de replace ; le hook de la leçon recopie volontairement les précédents."
+  },
+  "m32.q3": {
+    "q": "Deux composants se montent en même temps et appellent tous deux <code>useQuery</code> avec la clé <code>['orders', 'list', { status: 'paid' }]</code>. Combien de requêtes atteignent le serveur ?",
+    "options": [
+      "Une : même clé, une seule entrée de cache, une requête partagée",
+      "Deux : chaque appel à useQuery possède son fetch et sa copie des données",
+      "Deux, sauf si staleTime est supérieur à 0, ce qui active la déduplication",
+      "Aucune tant qu’un des composants n’appelle pas refetch() explicitement"
+    ],
+    "explain": "Mesuré avec MSW : une requête. Des composants avec la même query key partagent une entrée de cache, et une requête déjà en cours est réutilisée. staleTime détermine si un montage ultérieur relance le fetch, pas si des requêtes simultanées sont dédupliquées."
+  },
+  "m32.q4": {
+    "q": "Quelle est la différence entre <code>staleTime</code> et <code>gcTime</code> ?",
+    "options": [
+      "staleTime est le timeout de la requête ; gcTime est le délai entre deux retries",
+      "C’est le même réglage, renommé entre TanStack Query v4 et v5",
+      "staleTime : combien de temps les données restent fraîches ; gcTime : combien de temps les données inutilisées sont gardées",
+      "staleTime s’applique aux queries affichées à l’écran ; gcTime s’applique aux mutations"
+    ],
+    "explain": "Les données fraîches sont servies sans requête ; après staleTime, elles sont rechargées sur des déclencheurs comme le montage ou le focus. gcTime (5 minutes par défaut) est la durée pendant laquelle une entrée qu’aucun composant n’utilise est gardée avant d’être supprimée. gcTime s’appelait cacheTime en v4, mais staleTime est un réglage différent."
+  },
+  "m32.q5": {
+    "q": "Après un remboursement, le hook appelle <code>invalidateQueries({ queryKey: ['orders'] })</code>. Une liste <code>refunded</code> est dans le cache mais pas à l’écran. Que lui arrive-t-il ?",
+    "options": [
+      "Elle est supprimée du cache, et la prochaine visite repart d’un spinner",
+      "Elle est marquée stale et sera rechargée quand un composant l’utilisera à nouveau",
+      "Elle est rechargée immédiatement, en parallèle des queries affichées",
+      "Rien : la clé ['orders'] n’invalide qu’une correspondance exacte"
+    ],
+    "explain": "Mesuré : la liste et le détail affichés ont été rechargés aussitôt, tandis que la liste refunded inactive a seulement été marquée invalidée. La correspondance par préfixe est le comportement par défaut, donc ['orders'] la cible bien ; elle n’a simplement aucun observateur pour lequel recharger."
+  },
+  "m32.q6": {
+    "q": "Qu’est-ce qu’un waterfall de requêtes ?",
+    "options": [
+      "Des requêtes lancées l’une après l’autre alors qu’elles ne dépendaient pas les unes des autres",
+      "Une requête échouée retentée plusieurs fois avec un backoff exponentiel jusqu’à ce qu’elle réussisse",
+      "Plusieurs composants qui envoient la même requête au même moment",
+      "Une longue liste chargée page par page, chaque page attendant son curseur"
+    ],
+    "explain": "Dans le détail de commande, la requête des remboursements attendait celle de la commande uniquement parce que RefundList se rendait après le chargement de la commande : environ 300 ms au lieu de 130 ms avec 100 ms par requête (mesuré). Les requêtes simultanées en double sont un autre problème, résolu par la déduplication."
+  },
+  "m32.q7": {
+    "q": "Dans le toggle de priorité optimiste, pourquoi <code>onMutate</code> renvoie-t-il <code>{ previous }</code> ?",
+    "options": [
+      "TanStack Query exige qu’onMutate renvoie les variables qu’il a reçues",
+      "Pour envoyer la valeur précédente au serveur afin qu’il détecte les conflits",
+      "Pour permettre à la mutation d’être retentée automatiquement avec la valeur précédente",
+      "Pour qu’onError puisse restaurer le snapshot si le serveur refuse"
+    ],
+    "explain": "Ce que renvoie onMutate arrive à onError et onSettled ; le snapshot est ce qui permet au rollback de restaurer le cache. Mesuré avec un 409 : le toggle a affiché true, puis de nouveau false. Le serveur ne voit jamais cet objet."
+  },
+  "m32.q8": {
+    "q": "Un Context de panier a pour valeur <code>{ items, addItem }</code>. Les fiches produit le lisent seulement pour obtenir <code>addItem</code>. Qu’arrive-t-il aux fiches quand un article est ajouté ?",
+    "options": [
+      "Rien : elles ne lisent pas items, donc React les saute",
+      "Seule la fiche cliquée se re-rend, parce qu’elle a appelé addItem",
+      "Toutes se re-rendent, car la valeur du Context est un nouvel objet",
+      "Elles ne se re-rendent que si elles ne sont pas enveloppées dans memo"
+    ],
+    "explain": "Tout composant qui lit un Context se re-rend quand sa valeur change selon Object.is, quel que soit le champ utilisé. Mesuré : un ajout a re-rendu les 20 fiches. memo n’aide pas, car un changement de Context le contourne ; séparer les actions dans leur propre Context stable, si (zéro rendu de fiche)."
+  },
+  "m32.q9": {
+    "q": "Quelle séquence correspond au flux de données Redux ?",
+    "options": [
+      "Dispatch, les reducers calculent le nouveau state, les abonnés sont notifiés, les sélecteurs se réexécutent",
+      "Les composants écrivent directement dans le store, puis les reducers valident et loguent le changement",
+      "Les sélecteurs récupèrent les données, puis les dispatchent aux reducers pour qu’ils les stockent",
+      "Les reducers appellent l’API, puis dispatchent une action avec la réponse"
+    ],
+    "explain": "Les actions décrivent ce qui s’est passé, les reducers calculent le state suivant sans effet de bord, et useSelector se réexécute après chaque action dispatchée, en déclenchant un re-render si la référence est nouvelle. Les reducers n’appellent jamais d’API : le travail async a lieu avant le dispatch (un thunk ou RTK Query)."
+  },
+  "m32.q10": {
+    "q": "Avec <code>useActionState(placeOrder, initialState)</code> sur un formulaire, que reçoit <code>placeOrder</code> ?",
+    "options": [
+      "L’événement submit, sur lequel il doit appeler preventDefault",
+      "Le state précédent d’abord, puis le FormData du formulaire",
+      "Seulement le FormData",
+      "Le nouveau state et une fonction setState"
+    ],
+    "explain": "La doc : l’action reçoit d’abord le state précédent (ou initial), puis le payload, qui pour un formulaire est un FormData. Une fonction passée directement à la prop action d’un formulaire reçoit le FormData seul ; useActionState ajoute le state devant, donc une fonction déplacée de l’un à l’autre doit changer ses paramètres."
+  },
+  "m32.q11": {
+    "q": "Un agent ajoute une note avec <code>useOptimistic</code> et l’enregistrement échoue. Le code intercepte l’erreur et ne met pas à jour <code>notes</code>. Qu’affiche la liste une fois l’Action terminée ?",
+    "options": [
+      "La note, marquée « envoi en cours », jusqu’au rechargement de la page",
+      "La note, car le state optimiste est gardé jusqu’à ce qu’il soit remplacé",
+      "Une liste vide",
+      "Les notes telles qu’elles étaient avant, sans celle qui a échoué"
+    ],
+    "explain": "Le state optimiste n’est rendu que pendant l’exécution d’une Action ; ensuite, React affiche la vraie valeur, qui n’a jamais changé. Mesuré : la note a disparu et le message d’erreur s’est affiché. Rien à annuler à la main, contrairement aux écritures dans le cache de la section 6."
+  },
+  "m32.q12": {
+    "q": "Pourquoi React Hook Form provoque-t-il moins de re-renders qu’un formulaire fait d’inputs contrôlés ?",
+    "options": [
+      "Il regroupe chaque frappe en un seul rendu par frame d’animation",
+      "Il s’appuie sur le React Compiler pour sauter les rendus des champs inchangés",
+      "Ses inputs sont non contrôlés par défaut, lus via des refs",
+      "Il ne valide que côté serveur, donc le client ne se re-rend jamais"
+    ],
+    "explain": "React Hook Form enregistre des inputs natifs non contrôlés via des refs, donc, d’après sa FAQ, taper ne demande pas de re-rendre tout le formulaire. Un input contrôlé stocke chaque frappe dans le state React, ce qui re-rend le composant qui possède ce state."
+  },
+  "m32.q13": {
+    "q": "Le tableau des commandes utilise les options par défaut. Un agent l’ouvre, va sur une commande pendant deux minutes, puis revient. Que voit-il ?",
+    "options": [
+      "Les lignes en cache tout de suite, pendant qu’un refetch en arrière-plan les met à jour",
+      "Un spinner : les données ont été supprimées au démontage du tableau",
+      "Les lignes en cache, et aucune requête, car les données sont toujours en mémoire",
+      "Une erreur jusqu’à ce qu’il recharge"
+    ],
+    "explain": "Deux minutes restent dans le gcTime de 5 minutes, donc l’entrée est toujours en cache et s’affiche tout de suite ; avec un staleTime de 0, elle est stale, donc le remontage relance un fetch en arrière-plan. Mesuré : le texte en cache au premier affichage et une seconde requête. « Aucune requête » exigerait un staleTime de plus de deux minutes."
+  },
+  "m32.q14": {
+    "q": "Une ligne fait un prefetch au survol ; la page de détail se monte ensuite. Les deux utilisent la même clé. Combien de requêtes de détail sont envoyées ?",
+    "options": [
+      "Une : le prefetch a rempli le cache, donc la page le lit sans requête",
+      "Une, et la page affiche un spinner jusqu’à ce que le prefetch se résolve une seconde fois",
+      "Deux : le staleTime de la page est 0, donc les données en cache sont stale au montage",
+      "Zéro pour la page : useQuery ne fait jamais de fetch quand le cache a des données"
+    ],
+    "explain": "Mesuré : deux requêtes avec un staleTime de 0 sur la page, une quand les deux utilisaient 60 s. La fraîcheur est jugée selon le staleTime propre à l’observateur. Le cache était rempli, donc la page s’affiche tout de suite, mais elle recharge. Partage une même factory queryOptions pour que les deux côtés soient d’accord."
+  },
+  "m32.q15": {
+    "q": "Quel changement supprime le waterfall dans ce détail de commande ?",
+    "options": [
+      "Envelopper RefundList dans memo pour qu’il se rende avant l’arrivée de la commande",
+      "Appeler aussi la query des remboursements dans OrderDetailPage, avant le return anticipé",
+      "Mettre staleTime: Infinity sur la query de la commande pour qu’elle ne bloque jamais la page",
+      "Récupérer les remboursements dans un useEffect de RefundList pour les lancer plus tôt"
+    ],
+    "explain": "La requête des remboursements n’attend que parce que RefundList est rendu après l’arrivée de la commande. Appeler useQuery pour les remboursements dans le parent (résultat ignoré, notifyOnChangeProps: []) la lance tout de suite ; RefundList lit la même entrée de cache. Mesuré : environ 130 ms au lieu de 300 ms avec 100 ms par requête."
+  },
+  "m32.q16": {
+    "q": "Après un remboursement, le bouton se réactive alors que le tableau affiche encore <code>paid</code> un instant. Quel changement garde la mutation en attente jusqu’à l’arrivée des données fraîches ?",
+    "options": [
+      "Appeler refetchQueries au lieu d’invalidateQueries, qui se contente de marquer les données stale",
+      "Déplacer l’invalidation dans onSettled, qui s’exécute après la mise à jour du cache",
+      "Ajouter retry: 3 à la mutation pour qu’elle attende que le serveur soit cohérent",
+      "Renvoyer la promesse d’invalidateQueries dans onSuccess"
+    ],
+    "explain": "Les accolades jettent la promesse, donc la mutation réussit dès que le POST réussit. La doc dit que renvoyer la promesse depuis onSuccess garde la mutation en attente jusqu’à ce qu’elle se termine, ici jusqu’à la fin du refetch. refetchQueries a le même problème si sa promesse est elle aussi perdue."
+  },
+  "m32.q17": {
+    "q": "Un agent active puis désactive la priorité, à 60 ms d’intervalle. Chaque onSettled invalide la commande. Le toggle affiche on, off, <b>on</b>, off. Qu’est-ce qui cause la troisième valeur ?",
+    "options": [
+      "Le refetch de la première modification est arrivé alors que le second PATCH était encore en cours",
+      "onError a ramené la seconde modification au snapshot pris par la première",
+      "React a regroupé les deux écritures optimistes dans le cache et les a appliquées dans l’ordre inverse",
+      "Le serveur a appliqué les deux requêtes PATCH dans le désordre et enregistré la mauvaise valeur"
+    ],
+    "explain": "Mesuré : la première mutation s’est terminée, a invalidé, et son refetch est arrivé alors que le second PATCH était encore en cours, donc le serveur disait encore true. La correction : n’invalider que quand isMutating pour cette clé vaut 1 (la mutation courante), et annuler les queries dans onMutate. Rien n’a échoué, donc aucun rollback ne s’est exécuté."
+  },
+  "m32.q18": {
+    "q": "Pourquoi le hook optimiste appelle-t-il <code>cancelQueries</code> sur la commande avant d’écrire dans le cache ?",
+    "options": [
+      "Pour éviter que la mutation elle-même soit envoyée deux fois par un double clic",
+      "Parce que setQueryData lève une erreur pendant que la même query est en cours de fetch",
+      "Pour qu’un refetch déjà en cours ne puisse pas écraser la valeur optimiste",
+      "Pour libérer la mémoire utilisée par les anciennes données avant d’écrire la nouvelle valeur"
+    ],
+    "explain": "Un refetch lancé avant le clic transporte l’ancien état du serveur ; s’il se résout après setQueryData, le toggle revient en arrière. L’annuler supprime cette fenêtre. setQueryData ne lève pas d’erreur pendant un fetch, et c’est justement pour ça que la race condition existe."
+  },
+  "m32.q19": {
+    "q": "Un coéquipier dit : « On n’a pas besoin de TanStack Query, on charge les commandes une fois dans un provider de Context. » Quel argument est le plus solide ?",
+    "options": [
+      "Un Context ne peut contenir que des valeurs primitives et des fonctions stables, pas des tableaux d’objets",
+      "Le Context ne fait ni cache, ni déduplication, ni expiration, ni invalidation : il faudrait le reconstruire",
+      "Le Context est déprécié dans React 19 au profit du hook use et des stores",
+      "Les valeurs d’un Context ne peuvent pas être lues depuis des hooks personnalisés, seulement depuis des composants"
+    ],
+    "explain": "Le Context ne fait que transmettre une valeur dans l’arbre ; chaque aspect du server state (fraîcheur, partage des requêtes, invalidation après écriture, annulation) serait écrit à la main. Il convient bien aux valeurs client qui changent rarement. React 19 n’a pas déprécié le Context ; il a ajouté la syntaxe de provider &lt;Context value&gt;."
+  },
+  "m32.q20": {
+    "q": "Ce composant du back-office se re-rend à chaque frappe dans un champ de recherche sans rapport (le texte de recherche est dans Redux). Pourquoi ?",
+    "options": [
+      "Le reducer de recherche mute par erreur la slice de sélection à chaque frappe",
+      "useSelector re-rend le composant après chaque action, quoi qu’il renvoie",
+      "Déstructurer le résultat abonne le composant à tout le store",
+      "Le sélecteur construit un nouvel objet à chaque appel, et la vérification se fait avec ==="
+    ],
+    "explain": "useSelector se réexécute après chaque action dispatchée mais ne déclenche un re-render que quand le résultat est une nouvelle référence, et un littéral objet en est toujours une. Sélectionne chaque valeur séparément, passe shallowEqual ou mémoïse. La deuxième option est la demi-vérité tentante : le sélecteur se réexécute à chaque fois, le rendu n’a pas à le faire."
+  },
+  "m32.q21": {
+    "q": "Un store de panier Zustand est lu par un badge avec <code>useCartStore((state) => state.lines.length)</code>. Une action « ajouter à la liste d’envies » du même store ne modifie que <code>state.wishlist</code>. Le badge se re-rend-il ?",
+    "options": [
+      "Non : la longueur sélectionnée est inchangée, et Zustand la compare avec ===",
+      "Oui : chaque appel à set re-rend tous les composants abonnés au store",
+      "Oui, sauf si le store est créé dans un provider à la racine de l’app",
+      "Non, car Zustand ne re-rend les composants que lors d’une navigation entre routes"
+    ],
+    "explain": "Le README de Zustand indique qu’il détecte les changements par égalité stricte sur la valeur sélectionnée. Une primitive comme une longueur reste égale, donc pas de re-render. Un sélecteur qui construit un nouvel objet provoquerait un re-render à chaque fois ; useShallow est alors la correction. Zustand n’a pas besoin de provider."
+  },
+  "m32.q22": {
+    "q": "Pourquoi le bouton n’affiche-t-il jamais « Placing your order… » ?",
+    "options": [
+      "useFormStatus ne fonctionne qu’avec les Server Functions, pas avec les actions client",
+      "Il ne lit qu’un formulaire rendu par un parent : déplace le bouton dans un enfant",
+      "L’action doit d’abord être enveloppée dans startTransition pour signaler son statut",
+      "Le bouton a besoin d’une prop formAction au lieu de type=\"submit\" pour être suivi"
+    ],
+    "explain": "Mesuré : pending restait à false dans le composant qui rend le formulaire et passait à true dans un enfant. La doc indique que le hook ne renseigne que sur un formulaire parent. Il fonctionne avec n’importe quelle fonction d’action, pas seulement les Server Functions."
+  },
+  "m32.q23": {
+    "q": "Un formulaire de checkout utilise <code>useActionState</code> et ne désactive <b>pas</b> son bouton. Le client double-clique. Que se passe-t-il ?",
+    "options": [
+      "React ignore la seconde soumission tant que la première est en attente",
+      "La seconde soumission annule la première requête et seule la seconde commande est envoyée",
+      "Les deux s’exécutent, l’une après l’autre : React les met en file, donc deux commandes sont envoyées",
+      "Les deux s’exécutent en parallèle, et le serveur garde la requête qui se termine en premier"
+    ],
+    "explain": "Mesuré : deux clics, deux appels de l’action, le second démarrant à la fin du premier (la doc : les appels sont mis en file et exécutés séquentiellement). Rien n’est annulé ni ignoré. Désactive le bouton avec useFormStatus et envoie la même clé d’idempotence pour que le serveur réponde à un doublon avec la première commande."
+  },
+  "m32.q24": {
+    "q": "L’action de checkout intercepte un 503 et renvoie <code>{ error }</code>. Le client voit l’erreur, et le champ e-mail est maintenant vide. Pourquoi ?",
+    "options": [
+      "React réinitialise les champs non contrôlés après l’action, même avec un state d’erreur",
+      "La réponse 503 a dit au navigateur d’effacer ses données de saisie automatique pour tout le formulaire",
+      "useActionState remonte le formulaire avec des champs neufs à chaque nouveau state",
+      "L’input e-mail a perdu son attribut name quand l’erreur a été rendue"
+    ],
+    "explain": "La doc dit que les champs non contrôlés sont réinitialisés après la réussite de l’action, et une action qui retourne normalement a réussi. Mesuré : le champ était vide après une erreur renvoyée, et gardait l’e-mail avec defaultValue={state.email}. Le formulaire n’est pas remonté ; les champs sont remis à leurs valeurs par défaut."
+  },
+  "m32.q25": {
+    "q": "Après un enregistrement réussi, la liste de notes affiche brièvement la nouvelle note en double : une fois enregistrée, une fois « envoi en cours ». Quelle est la correction ?",
+    "options": [
+      "Appeler addOptimisticNote après l’await, une fois que le serveur a répondu",
+      "Envelopper dans startTransition le setNotes qui suit l’await",
+      "Donner à la note optimiste la même key que la note enregistrée pour que React les fusionne",
+      "Remplacer useOptimistic par useState et retirer la note à la main en cas de succès"
+    ],
+    "explain": "Les mises à jour après un await ne font pas encore partie de l’Action (react.dev documente cette limite), donc setNotes a déclenché un rendu alors que la note optimiste était encore appliquée. Mesuré : une frame en double sans startTransition, aucune avec. Déplacer l’appel optimiste après l’await supprimerait le retour instantané."
+  },
+  "m32.q26": {
+    "q": "Le formulaire de remboursement convertit les euros en centimes avec <code>values.amountEuros * 100</code>. Un agent saisit 19.99. Que reçoit l’API ?",
+    "options": [
+      "1999, car multiplier par 100 décale exactement la virgule",
+      "1998, car JavaScript tronque la partie décimale quand il multiplie",
+      "1998.9999999999998 : arrondir avec Math.round avant l’envoi",
+      "19.99, car un input de type number envoie sa valeur telle qu’elle a été saisie"
+    ],
+    "explain": "Mesuré dans Node : 19.99 * 100 vaut 1998.9999999999998, car 19.99 n’a pas de représentation binaire exacte. Tronquer donnerait 1998, un centime de moins. Math.round(19.99 * 100) donne 1999."
+  },
+  "m32.q27": {
+    "q": "Un agent filtre le tableau des commandes sur <code>shipped</code> alors qu’il est en page 4 (un curseur dans l’URL). La nouvelle liste affiche des lignes qui ne correspondent pas, ou une erreur. Où est le bug ?",
+    "options": [
+      "La query key n’inclut pas les filtres, donc l’ancienne page est servie",
+      "L’ancien curseur a été gardé, mais il appartient à la liste filtrée précédente",
+      "Le statut devrait vivre dans useState, qui se met à jour plus vite que l’URL",
+      "React Router met en cache les search params précédents pour la route courante"
+    ],
+    "explain": "Un curseur keyset (M05) encode une position dans une liste donnée ; réutilisé avec un autre filtre, il ne pointe vers rien de pertinent, et l’API peut le rejeter. Le hook de la section 2 supprime le curseur à chaque changement de filtre. Un filtre absent de la clé afficherait des lignes périmées, pas des pages incohérentes."
+  },
+  "m32.q28": {
+    "q": "Le panier vit dans un <code>useState</code> du composant de page produit, qui rend directement l’en-tête, le panneau de filtres et 20 fiches. Un article est ajouté. Qu’est-ce qui se re-rend ?",
+    "options": [
+      "Seulement l’en-tête, car c’est le seul composant qui affiche le nombre",
+      "L’en-tête et la fiche cliquée, car ils ont pris part à l’événement",
+      "Rien tant que le panier n’est pas enregistré sur le serveur et que la réponse n’est pas arrivée",
+      "La page et tout ce qu’elle rend, fiches et panneau de filtres compris"
+    ],
+    "explain": "Un changement de state re-rend son composant et, par défaut, chaque enfant qu’il rend. Mesuré : 20 fiches et le panneau de filtres se sont re-rendus. Déplacer le panier dans un provider qui reçoit la page en children, avec les actions séparées, a réduit cela au badge."
+  },
+  "m32.q29": {
+    "q": "« Mes commandes » utilise <code>useInfiniteQuery</code> et le client a chargé 5 pages. Après l’annulation d’une commande, le code invalide la query. Que se passe-t-il ?",
+    "options": [
+      "Seule la première page est rechargée, et les quatre autres pages sont abandonnées",
+      "Les 5 pages sont rechargées à la suite, chaque curseur venant de la page précédente",
+      "Les 5 pages sont rechargées en parallèle, une requête par curseur stocké",
+      "Rien : les infinite queries ne sont jamais ciblées par les appels à invalidateQueries"
+    ],
+    "explain": "Mesuré avec deux pages chargées : le refetch a demandé la page 1, puis la page 2, à la suite, puisque le second curseur vient de la première réponse. Avec beaucoup de pages, cela fait une chaîne lente ; maxPages limite le nombre de pages conservées."
+  },
+  "m32.q30": {
+    "q": "Un coéquipier propose un store Zustand avec <code>orders</code> et une action <code>loadOrders()</code>, appelée au démarrage de l’app, « pour que chaque écran ait les commandes ». Que répondriez-vous en code review ?",
+    "options": [
+      "Non : les commandes sont du server state ; utiliser TanStack Query et son cache partagé",
+      "Oui, mais avec Redux Toolkit à la place, car c’est le standard pour le state global",
+      "Oui, à condition que le store soit persisté dans le localStorage entre les visites",
+      "Non : mettre les commandes dans un provider de Context pour qu’elles ne se chargent qu’une fois"
+    ],
+    "explain": "Un store client détiendrait une seconde copie des données serveur, sans notion de données périmées, de déduplication ni d’invalidation : encore le bug du statut périmé. Redux Toolkit ou le Context changent le conteneur, pas le problème. Si la codebase est déjà sur Redux, RTK Query y est l’équivalent de TanStack Query."
+  }
+}

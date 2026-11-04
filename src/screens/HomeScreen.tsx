@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Topic } from '../content/catalog.ts';
 import type { Unit } from '../content/types.ts';
+import { useLanguage } from '../i18n/index.ts';
 import { countHandled, HANDLED_FOR_MS, toCurrentProgress, topicStatus, type Progress, type TopicStatus } from '../play/progress.ts';
 import { weakTopicIds } from '../play/review.ts';
 import { Button } from '../ui/Button.tsx';
@@ -56,6 +57,7 @@ export function HomeScreen({
   onReset: () => void;
 }) {
   const { t } = useTranslation();
+  const language = useLanguage();
   const handled = countHandled(topics.map((topic) => topic.id), progress, now);
   const share = percent(handled, topics.length);
   const weakSpots = weakTopicIds(
@@ -138,7 +140,7 @@ export function HomeScreen({
                         className="flex w-full items-center gap-3 rounded-2xl bg-surface px-4 py-3 text-left"
                       >
                         <span className={`size-2.5 shrink-0 rounded-full ${STATUS_DOTS[status]}`} aria-hidden />
-                        <span className="flex-1 text-[0.95rem] font-semibold">{topic.topic}</span>
+                        <span className="flex-1 text-[0.95rem] font-semibold">{language === 'fr' ? (topic.topicFr ?? topic.topic) : topic.topic}</span>
                         <span className="shrink-0 text-xs font-bold uppercase text-muted">{t(`home.status.${status}`)}</span>
                       </button>
                     </li>

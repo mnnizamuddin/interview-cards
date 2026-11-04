@@ -1,0 +1,302 @@
+{
+  "m01.q1": {
+    "q": "Une API de commandes traite 2 000 requêtes concurrentes, qui attendent surtout PostgreSQL. Qu’utilise Node pendant que ces requêtes attendent ?",
+    "options": [
+      "Un thread par requête, pris dans un grand pool interne",
+      "Le thread pool de libuv, un de ses 4 threads par requête SQL",
+      "Les API de sockets asynchrones du système d’exploitation ; le thread principal n’exécute un callback que lorsque des données arrivent",
+      "Une event loop séparée par connexion ouverte"
+    ],
+    "explain": "Les connexions à la base sont des sockets réseau, et libuv les surveille via epoll, kqueue ou IOCP sans thread par connexion. Le thread principal n’exécute un callback que lorsqu’un socket a des données. Le thread pool est la réponse tentante, mais il sert fs, dns.lookup, la crypto asynchrone et zlib, pas les sockets : avec seulement 4 threads, il ne pourrait pas tenir 2 000 requêtes en attente."
+  },
+  "m01.q2": {
+    "q": "Dans quelle phase de l’event loop les callbacks de <code>setImmediate</code> s’exécutent-ils ?",
+    "options": [
+      "La phase timers, juste après les timeouts arrivés à échéance",
+      "La phase check, juste après la phase poll",
+      "La phase poll, avec les callbacks d’I/O",
+      "Avant le démarrage de la boucle, comme process.nextTick"
+    ],
+    "explain": "Les callbacks de setImmediate ont leur propre phase, check, qui vient juste après poll. C’est pour ça que « immediate » veut en réalité dire « après ce tour d’I/O ». process.nextTick n’est pas du tout une phase : sa file est vidée après chaque callback."
+  },
+  "m01.q3": {
+    "q": "Ce fichier est en CommonJS (<code>order.cjs</code>). Qu’affiche-t-il ?",
+    "options": [
+      "A F D E, puis B et C",
+      "A F E D B C, toujours dans cet ordre",
+      "A E D F B C",
+      "A F E D, puis B et C dans un ordre non garanti"
+    ],
+    "explain": "Le code synchrone s’exécute d’abord (A, F), puis la file nextTick (E), puis les microtâches des promesses (D). Depuis le module principal, le fait que le timer de 1 ms soit échu quand la boucle atteint pour la première fois timers dépend du temps de démarrage : mesuré sur Node 24, C est passé en premier dans 26 exécutions sur 30. A F D E est l’ordre des modules ES, pas celui de CommonJS."
+  },
+  "m01.q4": {
+    "q": "Dans le callback de <code>fs.readFile</code>, tu planifies <code>setTimeout(f, 0)</code> et <code>setImmediate(g)</code>. Lequel s’exécute en premier ?",
+    "options": [
+      "<code>g</code>, à chaque fois, car la phase check vient juste après poll",
+      "<code>f</code>, à chaque fois, car son délai est le plus court",
+      "L’un ou l’autre, selon la charge de la machine",
+      "<code>f</code>, car les timers passent toujours avant check"
+    ],
+    "explain": "Le callback de readFile s’exécute dans la phase poll. La phase suivante est check, donc setImmediate s’exécute avant que la boucle revienne à timers (10 exécutions sur 10 mesurées). La réponse « dans n’importe quel ordre » n’est vraie qu’au niveau supérieur du module principal."
+  },
+  "m01.q5": {
+    "q": "Laquelle de ces opérations attend un thread du thread pool de libuv ?",
+    "options": [
+      "Lire le corps d’une requête HTTP entrante",
+      "Une requête envoyée sur une connexion PostgreSQL ouverte",
+      "Un callback <code>setTimeout(fn, 100)</code>",
+      "<code>fs.promises.readFile('./invoice.pdf')</code>"
+    ],
+    "explain": "Les appels au système de fichiers, en style callback ou promesse, s’exécutent sur le thread pool car il n’existe pas d’API de fichiers asynchrone portable. Les corps de requête et les requêtes SQL passent par des sockets, qui utilisent les API asynchrones de l’OS, et les timers vivent dans la boucle elle-même."
+  },
+  "m01.q6": {
+    "q": "Qu’est-ce qui est vrai sur la taille du thread pool de libuv ?",
+    "options": [
+      "Elle est égale au nombre de cœurs CPU, détecté au démarrage",
+      "Elle vaut 4 par défaut et se règle avec la variable d’environnement UV_THREADPOOL_SIZE au démarrage du processus",
+      "Elle grandit à la demande jusqu’à 1024 threads",
+      "Elle vaut 4 par worker thread, donc chaque worker apporte son propre pool"
+    ],
+    "explain": "La valeur par défaut est 4 quel que soit le nombre de cœurs, et UV_THREADPOOL_SIZE (maximum 1024) la change au démarrage. La documentation de libuv indique que le pool est global et partagé entre toutes les event loops, donc les worker threads le partagent au lieu d’apporter le leur."
+  },
+  "m01.q7": {
+    "q": "Un handler passe 600 ms de CPU à construire un rapport. Un collègue rend la fonction de construction <code>async</code>. Qu’est-ce qui change pour les autres requêtes du même processus ?",
+    "options": [
+      "Rien : les 600 ms tournent toujours sur le thread principal et les bloquent toujours",
+      "Elles ne sont plus bloquées, car les fonctions async s’exécutent sur le thread pool",
+      "Elles ne sont bloquées que moitié moins longtemps, car await découpe le travail",
+      "Elles ne sont plus bloquées, car V8 exécute les fonctions async sur un autre cœur"
+    ],
+    "explain": "Une fonction async s’exécute de façon synchrone jusqu’à son premier await, et une boucle CPU n’a rien à attendre, donc le travail reste sur le thread principal. Mesuré sur Node 24 : un timer de 10 ms s’est déclenché après environ 400 ms pendant qu’une fonction async sans await calculait. Le thread pool n’exécute jamais ton JavaScript."
+  },
+  "m01.q8": {
+    "q": "Un endpoint rapproche 20 000 commandes de 20 000 paiements avec un <code>find</code> imbriqué et bloque la boucle pendant 3 secondes. Que faut-il essayer en premier ?",
+    "options": [
+      "Déplacer le rapprochement dans un pool de worker threads",
+      "Monter UV_THREADPOOL_SIZE à 16",
+      "Indexer les paiements dans une Map pour que chaque recherche soit en temps constant",
+      "Mettre le rapprochement dans une file BullMQ et répondre 202"
+    ],
+    "explain": "Un find imbriqué est quadratique : 400 millions de comparaisons. Une recherche dans une Map le rend linéaire et supprime généralement le problème, sans aucun coût opérationnel. Des workers ou une file ne feraient que déplacer ailleurs 3 secondes de travail évitable, et le thread pool n’exécute jamais de JavaScript."
+  },
+  "m01.q9": {
+    "q": "Ton équipe fait tourner une API Node sur Kubernetes et a besoin de plus de débit. Quelle est la configuration habituelle en 2026 ?",
+    "options": [
+      "Un conteneur qui fait tourner PM2 en mode cluster avec un processus par cœur",
+      "Un processus Node par conteneur, et plus de réplicas mis à l’échelle par Kubernetes",
+      "Un conteneur avec le module cluster, plus un worker thread par requête",
+      "Un seul gros pod avec UV_THREADPOOL_SIZE monté au nombre de cœurs"
+    ],
+    "explain": "Avec un processus par conteneur, Kubernetes redémarre les processus plantés, répartit le trafic et voit chaque processus dans ses métriques. PM2 ou cluster dans le conteneur dupliquent ce travail et cachent les plantages à l’orchestrateur ; ils relèvent des anciens déploiements sur VM."
+  },
+  "m01.q10": {
+    "q": "Que t’apprend <code>performance.eventLoopUtilization()</code> ?",
+    "options": [
+      "La part du temps que la boucle a passée à exécuter des callbacks plutôt qu’à attendre, entre 0 et 1",
+      "Le retard en millisecondes du dernier timer déclenché",
+      "L’utilisation CPU de tout le processus, thread pool compris",
+      "Le nombre de callbacks en attente dans la file poll"
+    ],
+    "explain": "L’ELU est la fraction du temps où la boucle était occupée. Mesuré sur Node 24 : 0,02 au repos et 0,96 avec un travail CPU constant. Le retard des timers est l’autre métrique, l’event loop delay, fournie par monitorEventLoopDelay."
+  },
+  "m01.q11": {
+    "q": "Sur Node 24 avec les flags par défaut, une promesse est rejetée et aucun code ne la gère. Que se passe-t-il ?",
+    "options": [
+      "Un avertissement est affiché et le processus continue",
+      "Le rejet est ignoré silencieusement",
+      "Le rejet est retenté au tour suivant de la boucle",
+      "L’erreur est affichée et le processus se termine avec le code 1"
+    ],
+    "explain": "Depuis Node 15, le mode par défaut est --unhandled-rejections=throw : le rejet est levé comme une exception non interceptée, et sans handler le processus se termine avec le code 1 (vérifié sur Node 24). Afficher un avertissement et continuer était le comportement avant Node 15."
+  },
+  "m01.q12": {
+    "q": "Tu lances <code>node src/status.ts</code> sur Node 24, et le fichier déclare <code>enum OrderStatus { Paid, Open }</code>. Que se passe-t-il ?",
+    "options": [
+      "Ça s’exécute : Node compile l’enum avec le compilateur TypeScript",
+      "Ça s’exécute, mais les erreurs de type ailleurs dans le fichier sont signalées d’abord",
+      "Ça échoue avec ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX, car enum nécessite de la génération de code",
+      "Ça échoue car Node exige un tsconfig.json pour exécuter du TypeScript"
+    ],
+    "explain": "Node ne fait que retirer les types effaçables ; un enum produit du JavaScript, donc ça échoue avec ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX (vérifié sur Node 24.11). Node ne vérifie jamais les types et ignore tsconfig.json, donc aucun des deux autres modes d’échec n’existe. Utilise plutôt un objet as const ou un type union."
+  },
+  "m01.q13": {
+    "q": "Les six mêmes lignes sont enregistrées dans <code>order.mjs</code>, un module ES. Qu’affiche-t-il ?",
+    "options": [
+      "A F E D, puis B et C dans n’importe quel ordre",
+      "A F D E, puis B et C dans n’importe quel ordre",
+      "A F D E B C, toujours",
+      "A D E F, puis B et C dans n’importe quel ordre"
+    ],
+    "explain": "Le corps d’un module ES est évalué dans un job de promesse, donc la file des microtâches (D) est vidée avant que Node atteigne la file nextTick (E). Mesuré sur Node 24 : A F D E à chaque fois, avec B et C dans n’importe quel ordre (7 et 3 sur 10). A F E D est l’ordre de CommonJS."
+  },
+  "m01.q14": {
+    "q": "Dans un module ES, un handler de requête exécute ce code. Dans quel ordre les deux lignes s’affichent-elles ?",
+    "options": [
+      "promise, puis nextTick, car le fichier est un module ES",
+      "N’importe quel ordre, selon la charge",
+      "nextTick, puis promise",
+      "Seulement nextTick : la promesse est abandonnée quand la réponse se termine"
+    ],
+    "explain": "Dans n’importe quel callback, Node vide la file nextTick avant la file des microtâches, dans les deux systèmes de modules. L’ordre promesse d’abord ne s’applique qu’au corps de premier niveau d’un module ES, lui-même exécuté comme un job de promesse (vérifié sur Node 24 avec les mêmes appels dans un callback de timer)."
+  },
+  "m01.q15": {
+    "q": "Le job ci-dessous prend environ 2,7 secondes. Combien de fois <code>tick</code> s’affiche-t-il ?",
+    "options": [
+      "Environ 27, une toutes les 100 ms",
+      "Environ 100, une par morceau",
+      "Ça dépend du nombre de cœurs CPU",
+      "Zéro"
+    ],
+    "explain": "Après await Promise.resolve(), la fonction reprend dans une microtâche, et les microtâches sont vidées avant que la boucle avance, donc la phase timers n’est jamais atteinte avant la fin du job, moment où l’intervalle est déjà effacé. Mesuré sur Node 24 : 0 tick, contre 24 avec await setImmediate() de node:timers/promises."
+  },
+  "m01.q16": {
+    "q": "Dans quel ordre les lignes s’affichent-elles ?",
+    "options": [
+      "timer, sync done, sum done",
+      "sync done, timer, sum done",
+      "sync done, sum done, timer",
+      "sum done, sync done, timer"
+    ],
+    "explain": "sumUpTo n’a pas d’await, donc toute la boucle s’exécute de façon synchrone avant que sync done soit loggé. Son résultat est livré dans une microtâche, qui s’exécute avant que la boucle atteigne la phase timers, donc sum done passe avant le timer, qui s’est déclenché en retard (environ 400 ms au lieu de 10, mesuré). « async » ne veut jamais dire « sur un autre thread »."
+  },
+  "m01.q17": {
+    "q": "Sur un serveur 16 cœurs avec les réglages par défaut, tu lances 8 appels <code>crypto.pbkdf2</code> en même temps, chacun demandant environ 250 ms de CPU. Quand le dernier se termine-t-il ?",
+    "options": [
+      "Après environ 250 ms : il y a assez de cœurs pour les huit",
+      "Après environ 500 ms : ils s’exécutent en deux vagues de quatre",
+      "Après environ 2 secondes : ils s’exécutent un par un sur le thread principal",
+      "Après environ 250 ms, mais le thread principal est bloqué pendant ce temps"
+    ],
+    "explain": "pbkdf2 asynchrone s’exécute sur le pool de libuv, qui a 4 threads quel que soit le nombre de cœurs, donc huit jobs passent en deux vagues (mesuré sur Node 24 : quatre ont fini ensemble, les quatre autres environ une durée de hash plus tard). Avec UV_THREADPOOL_SIZE=8, les huit ont fini ensemble. Le thread principal reste libre tout du long."
+  },
+  "m01.q18": {
+    "q": "Pendant les pics de connexion (hachage asynchrone des mots de passe), les appels à une API partenaire par nom d’hôte deviennent lents, alors que le CPU est à 40 %. Le partenaire dit que sa latence est normale. Quelle est la cause la plus probable ?",
+    "options": [
+      "Les hashs bloquent le thread principal, donc les réponses sont lues en retard",
+      "L’API partenaire te fait du rate limiting pendant tes pics",
+      "fetch ouvre un nouveau thread par appel et l’OS manque de threads",
+      "fetch résout le nom d’hôte avec dns.lookup, qui fait la queue sur le thread pool derrière les hashs"
+    ],
+    "explain": "pbkdf2 ou scrypt asynchrones occupent les 4 threads du pool, et dns.lookup, utilisé par défaut par fetch et http.request, attend l’un d’eux. Mesuré sur Node 24 : avec le pool occupé, fetch vers localhost attendait les hashs alors que fetch vers 127.0.0.1 répondait tout de suite. Le thread principal n’est pas bloqué, puisque le hachage asynchrone tourne sur le pool."
+  },
+  "m01.q19": {
+    "q": "Un import nocturne lance <code>Promise.all</code> sur 1 000 appels <code>fs.promises.readFile</code> avec les réglages par défaut. Que se passe-t-il vraiment ?",
+    "options": [
+      "L’OS lit les 1 000 fichiers en parallèle via son API de fichiers asynchrone",
+      "Au plus 4 lectures tournent en même temps sur le thread pool ; les autres attendent dans sa file",
+      "Elles s’exécutent l’une après l’autre sur le thread principal",
+      "Node démarre 1 000 threads, un par lecture"
+    ],
+    "explain": "Les appels au système de fichiers utilisent le pool de libuv, 4 threads par défaut, donc 996 demandes font la queue derrière les quatre premières. Cette file retarde aussi dns.lookup et la crypto asynchrone pour le reste du processus, c’est pourquoi on borne soi-même la concurrence (par exemple 10 à 20 fichiers à la fois) au lieu de tout lancer."
+  },
+  "m01.q20": {
+    "q": "Un endpoint de webhook appelle <code>JSON.parse</code> sur des corps de 150 Mo et bloque la boucle environ 2 secondes à chaque fois. Quel correctif aide vraiment ?",
+    "options": [
+      "Découper le parsing en morceaux avec await setImmediate() entre eux",
+      "Différer le parsing avec process.nextTick",
+      "Limiter la taille du corps, et parser les gros payloads hors du thread principal ou avec un parser en streaming",
+      "Déplacer le parsing dans une fonction async"
+    ],
+    "explain": "JSON.parse est un appel synchrone indivisible, donc on ne peut pas le découper de l’extérieur, et nextTick ou async ne font que le retarder sur le même thread. Une limite de taille protège la boucle, et un parser en streaming ou un worker gère les payloads légitimement gros. Demande-toi aussi pourquoi un webhook envoie 150 Mo."
+  },
+  "m01.q21": {
+    "q": "Chaque fois qu’un client télécharge un gros export CSV, toute l’API ralentit pendant plusieurs secondes. Les exports prennent environ 4 secondes de CPU et ne doivent pas être perdus si un pod redémarre. Quelle conception livrerais-tu ?",
+    "options": [
+      "Mettre un job d’export en file, répondre 202 Accepted, et laisser un service worker dédié écrire le fichier dans l’object storage",
+      "Exécuter l’export dans un worker Piscina à l’intérieur du processus de l’API et streamer le résultat",
+      "Ajouter des réplicas jusqu’à ce que le ralentissement ne se remarque plus",
+      "Rendre la fonction d’export async et ajouter un await entre les lignes"
+    ],
+    "explain": "Des secondes de travail qui doivent survivre à un redémarrage, c’est le cas d’usage d’une file et d’un service worker séparé. Un worker Piscina débloquerait la boucle, mais le job meurt avec le pod et dispute le CPU du pod de l’API. Les réplicas ne font qu’étaler la douleur, et un await entre les lignes avec des microtâches ne rend pas la main à la boucle."
+  },
+  "m01.q22": {
+    "q": "Que se passe-t-il quand ce code s’exécute ?",
+    "options": [
+      "Le worker meurt silencieusement et le thread principal affiche « main still alive »",
+      "Le thread principal reçoit l’erreur comme un message normal",
+      "Node redémarre le worker automatiquement",
+      "L’erreur est émise comme événement 'error' sur le Worker ; sans listener, tout le processus se termine avec le code 1"
+    ],
+    "explain": "Une erreur non interceptée termine le worker et est émise comme 'error' sur l’objet Worker, et un événement 'error' sans listener lève une exception. Mesuré sur Node 24 : le processus s’est terminé avec le code 1 avant le déclenchement du timer. Un pool de workers doit écouter 'error', rejeter le job et remplacer le worker ; Piscina le fait pour toi."
+  },
+  "m01.q23": {
+    "q": "Le profilage montre que chaque requête utilise environ 25 ms de CPU sur le thread principal. L’équipe produit attend 600 requêtes par seconde au pic. Quel est le nombre minimum de réplicas mono-processus, avant marge ?",
+    "options": [
+      "15",
+      "4, car chaque réplica gère beaucoup de connexions concurrentes",
+      "25",
+      "1, si UV_THREADPOOL_SIZE est monté à 64"
+    ],
+    "explain": "Un thread principal donne au plus 1000 / 25 = 40 requêtes par seconde, donc 600 requêtes par seconde exigent au moins 600 / 40 = 15 réplicas, avant marge. Les connexions ouvertes coûtent peu mais le temps CPU non, et le thread pool n’exécute jamais tes handlers de requête."
+  },
+  "m01.q24": {
+    "q": "Sur un service au repos, <code>monitorEventLoopDelay()</code> avec les options par défaut rapporte un minimum d’environ 10,5 ms (après division par 1e6). Qu’est-ce que ça t’apprend ?",
+    "options": [
+      "La boucle est bloquée environ 10 ms à chaque tour",
+      "La valeur inclut l’intervalle d’échantillonnage de 10 ms, donc le vrai retard est d’environ 0,5 ms",
+      "L’histogramme est en microsecondes, donc le retard est d’environ 10 µs",
+      "Le garbage collector met le processus en pause toutes les 10 ms"
+    ],
+    "explain": "Chaque échantillon est l’écart complet entre deux ticks d’un timer qui se déclenche toutes les resolution millisecondes (10 par défaut) ; le code source de Node enregistre cet écart avec RecordDelta. Il faut donc soustraire la résolution : environ 0,5 ms de vrai retard. Les valeurs sont en nanosecondes, pas en microsecondes."
+  },
+  "m01.q25": {
+    "q": "Au pic, les dashboards montrent une event loop utilization à 0,97, un event loop delay p99 à 450 ms, toutes les routes lentes en même temps, et une latence PostgreSQL stable. Que fais-tu en premier ?",
+    "options": [
+      "Ajouter des réplicas en lecture à PostgreSQL",
+      "Monter UV_THREADPOOL_SIZE à 32",
+      "Enregistrer un profil CPU pour trouver la fonction chaude sur le thread principal",
+      "Augmenter le timeout keep-alive du serveur HTTP"
+    ],
+    "explain": "Une ELU proche de 1 avec un retard élevé, toutes les routes lentes et une base stable, c’est la signature d’un JavaScript CPU-bound sur le thread principal. Un profil CPU (node --cpu-prof, ou l’inspecteur sur un canary) désigne la fonction à corriger. La base n’est pas le goulot d’étranglement, et le thread pool n’exécute pas de JavaScript."
+  },
+  "m01.q26": {
+    "q": "En code review, tu trouves ce handler. Quel est le problème ?",
+    "options": [
+      "Il continue de servir depuis un état inconnu ; il devrait logger au niveau fatal et quitter pour que l’orchestrateur redémarre le processus",
+      "Il devrait aussi intercepter les rejets non gérés, puis continuer de servir",
+      "logger.error est trop lent ; console.error suffirait",
+      "Il doit être enregistré dans chaque handler de requête pour fonctionner"
+    ],
+    "explain": "La documentation de Node dit qu’il n’est pas sûr de reprendre le fonctionnement normal après uncaughtException : connexions, verrous ou état à moitié écrit peuvent être cassés. Logge (le fatal de pino flushe de façon synchrone), quitte avec le code 1, et laisse Kubernetes redémarrer le pod. Ajouter un handler de rejets qui continue lui aussi, c’est faire deux fois la même erreur."
+  },
+  "m01.q27": {
+    "q": "Un script d’import de données est lancé avec <code>node --permission --allow-fs-read=./data import.ts</code> sur Node 24. Quelle affirmation est vraie ?",
+    "options": [
+      "Il peut lire ./data mais ne peut pas non plus ouvrir de connexions réseau",
+      "C’est un sandbox : même des dépendances malveillantes ne peuvent pas en sortir",
+      "Il peut lire ./data, ne peut ni lire d’autres dossiers ni lancer de processus, et peut toujours appeler fetch",
+      "Le flag est expérimental dans Node 24 et ignoré en production"
+    ],
+    "explain": "Le modèle de permissions restreint le système de fichiers, les processus enfants, les worker threads, les addons et WASI ; dans Node 24, il ne restreint pas l’accès réseau (un fetch a réussi dans notre test). La documentation le décrit comme une « ceinture de sécurité » pour du code de confiance, pas une protection contre du code malveillant. Il est stable depuis 23.5 et 22.13."
+  },
+  "m01.q28": {
+    "q": "Un développeur lance un service avec <code>PORT=9000 node --env-file=.env server.ts</code>, et <code>.env</code> contient <code>PORT=3000</code>. Que vaut <code>process.env.PORT</code> ?",
+    "options": [
+      "\"3000\", car le fichier est chargé en dernier",
+      "\"9000\", car une variable déjà définie dans l’environnement est prioritaire",
+      "Node se termine avec une erreur car la variable est définie deux fois",
+      "\"3000,9000\", car Node concatène les deux valeurs"
+    ],
+    "explain": "La documentation de Node indique que lorsqu’une variable est définie à la fois dans l’environnement et dans le fichier, l’environnement l’emporte, et une exécution sur Node 24 a affiché 9000. C’est le bon comportement pour les conteneurs : la vraie configuration d’environnement écrase le fichier local."
+  },
+  "m01.q29": {
+    "q": "Un collègue propose de faire tourner PM2 en mode cluster avec 8 processus dans chaque pod Kubernetes « pour utiliser tous les cœurs ». Quelle est l’objection la plus forte ?",
+    "options": [
+      "PM2 ne peut pas exécuter de fichiers TypeScript",
+      "Le module cluster ne marche pas sous Linux",
+      "Les processus d’un cluster ne peuvent pas partager le port d’écoute",
+      "Ça cache les plantages et la consommation de ressources par processus à Kubernetes, qui redémarre et met déjà à l’échelle des pods mono-processus"
+    ],
+    "explain": "Kubernetes redémarre, répartit la charge et met à l’échelle les conteneurs, et il ne peut bien le faire que s’il voit chaque processus. Un gestionnaire de processus dans le pod redémarre les plantages de son côté, brouille les métriques et rend les limites de ressources plus difficiles à régler. Partager le port, c’est exactement ce que fait cluster, donc cette option est fausse."
+  },
+  "m01.q30": {
+    "q": "La génération de PDF en JavaScript pur prend 800 ms de CPU par document et ralentit toutes les autres requêtes. Un coéquipier propose de monter UV_THREADPOOL_SIZE à 16. Que réponds-tu ?",
+    "options": [
+      "Bonne idée : 16 threads rendront 16 PDF en parallèle",
+      "Ça n’aidera pas : le thread pool exécute des opérations natives, pas ton JavaScript ; utilise un pool de workers comme Piscina ou une file de jobs",
+      "Ça n’aidera que si on marque aussi le générateur async",
+      "Ça aidera, mais seulement sur des machines d’au moins 16 cœurs"
+    ],
+    "explain": "Le pool de libuv exécute fs, dns.lookup, la crypto asynchrone et zlib, jamais ton JavaScript, donc les 800 ms tournent toujours sur le thread principal. Un pool de workers déplace le travail vers des threads qui ont leur propre event loop ; une file le sort de la requête. Rendre la fonction async la laisse sur le thread principal."
+  }
+}

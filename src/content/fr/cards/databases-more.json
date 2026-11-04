@@ -1,0 +1,1162 @@
+{
+  "db-planner-ignores-index": {
+    "topic": "Pourquoi le planificateur ignore un index",
+    "question": "Vous avez créé un index, mais `EXPLAIN` montre toujours un parcours séquentiel. Pourquoi PostgreSQL pourrait-il l’ignorer ?",
+    "answer": "Le planificateur choisit le plan le moins cher d’après ses estimations, donc je vérifie d’abord s’il a raison d’ignorer l’index : si la condition garde une grande part des lignes, comme un statut que 85 % des commandes ont, lire la table dans l’ordre bat les sauts dans l’index. Ensuite je regarde les estimations : les statistiques viennent d’un échantillon collecté par `ANALYZE`, et après un chargement massif elles sont périmées. Puis la requête elle-même : une fonction ou un cast sur la colonne, comme `lower(email)` ou `created_at::date`, ou un littéral d’un autre type comme `id = 42.0`, rend un index simple inutilisable. Je corrige avec un index sur expression ou en réécrivant la condition.",
+    "keyPoints": [
+      "Faible sélectivité : un parcours séquentiel est vraiment moins cher",
+      "Les estimations viennent de statistiques échantillonnées ; `ANALYZE` après un chargement massif",
+      "Une fonction ou un cast sur la colonne la cache à l’index",
+      "Corriger avec un index sur expression ou une condition réécrite"
+    ],
+    "explanation": "La question vérifie si le candidat comprend que le planificateur est fondé sur les coûts, pas sur des règles. Un senior se demande d’abord si l’index doit vraiment gagner, compare lignes estimées et lignes réelles dans `EXPLAIN ANALYZE`, et connaît les causes côté requête qui rendent un index inutilisable.",
+    "example": "Le filtre « commandes passées un jour donné » du back-office exécutait `WHERE created_at::date = $1` et parcourait les 400 000 commandes, alors que `created_at` avait un index. Le réécrire en intervalle semi-ouvert, `created_at >= $1 AND created_at < $1 + 1 day`, l’a transformé en index scan et le filtre est passé de 180 ms à 3 ms.",
+    "mistakes": [
+      "Forcer l’index (ou désactiver les parcours séquentiels) au lieu de chercher pourquoi le planificateur l’a refusé",
+      "Indexer une colonne avec peu de valeurs distinctes, comme `status`, et s’attendre à ce que chaque valeur l’utilise",
+      "Oublier `ANALYZE` après un backfill ou un import massif, si bien que le planificateur travaille sur de vieilles statistiques"
+    ],
+    "followUps": [
+      {
+        "question": "Comment repérez-vous de mauvaises estimations dans un plan ?",
+        "answer": "Je lance `EXPLAIN (ANALYZE, BUFFERS)` et je compare, sur chaque nœud, les `rows=` estimées aux lignes réelles. Un écart de dix fois ou plus signale des statistiques périmées, une condition que le planificateur ne sait pas estimer ou des colonnes corrélées, et l’erreur remonte jusqu’aux choix de jointure."
+      },
+      {
+        "question": "Qu’est-ce que des colonnes corrélées, et comment aidez-vous le planificateur avec elles ?",
+        "answer": "Le planificateur suppose que les conditions sur des colonnes différentes sont indépendantes et multiplie leurs sélectivités. Quand l’une détermine l’autre, comme la ville et le pays, il sous-estime. `CREATE STATISTICS ... (dependencies) ON city, country` suivi d’un `ANALYZE` lui apprend le lien."
+      },
+      {
+        "question": "Quand baisseriez-vous `random_page_cost` ?",
+        "answer": "Sa valeur par défaut de 4 suppose qu’une lecture aléatoire de page coûte quatre lectures séquentielles, comme sur des disques à plateaux. Sur du SSD, la lecture aléatoire coûte à peine plus, donc la baisser fait gagner les plans par index plus souvent. Je la change après avoir mesuré de vraies requêtes, pas par réflexe."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "S’il existe un index sur `status`, PostgreSQL l’utilise pour chaque requête `WHERE status = ...`.",
+        "why": "Pour une valeur que la plupart des lignes ont, un parcours séquentiel est moins cher, donc le planificateur ignore l’index à juste titre.",
+        "twin": {
+          "statement": "Avec un index sur `status`, PostgreSQL peut à juste titre choisir un parcours séquentiel pour un statut que la plupart des lignes ont.",
+          "why": "Quand une condition garde une grande part des lignes, lire la table dans l’ordre coûte moins cher que sauter d’un point à l’autre via l’index."
+        }
+      },
+      {
+        "statement": "Un index B-tree sur `email` ne peut pas servir `WHERE lower(email) = $1`.",
+        "why": "L’index stocke les valeurs de `email`, pas `lower(email)` ; il faut un index sur l’expression `lower(email)`.",
+        "twin": {
+          "statement": "Un index B-tree sur `email` sert `WHERE lower(email) = $1`.",
+          "why": "L’index stocke les valeurs de `email`, pas `lower(email)` ; il faut un index sur l’expression `lower(email)`."
+        }
+      },
+      {
+        "statement": "Sur une clé primaire `bigint`, `WHERE id = 42.0` utilise quand même l’index de clé primaire.",
+        "why": "PostgreSQL convertit la colonne en `numeric` pour comparer, et un cast sur la colonne rend l’index inutilisable.",
+        "twin": {
+          "statement": "Sur une clé primaire `bigint`, `WHERE id = 42.0` ne peut pas utiliser l’index de clé primaire pour trouver la ligne.",
+          "why": "PostgreSQL convertit la colonne en `numeric` pour comparer, et un cast sur la colonne ne laisse à l’index aucune condition vers laquelle sauter."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le planificateur de PostgreSQL choisit le plan qu’il estime le moins cher, donc il ignore parfois un index que tu as créé. La cause : un choix correct, des estimations périmées, ou une requête qui cache la colonne.",
+      "points": [
+        "Le planificateur estime le coût de chaque plan possible et prend le moins cher. Ignorer un index est souvent juste : quand une condition garde une grande part des lignes, lire la table dans l’ordre coûte moins.",
+        "La sélectivité, la part des lignes qu’une condition garde, est estimée à partir des statistiques : un échantillon de chaque colonne que `ANALYZE` stocke dans `pg_stats`. Après un chargement massif, elles sont périmées : lance `ANALYZE` toi-même.",
+        "Une fonction ou un cast sur la colonne indexée la cache à un index simple : `lower(email)`, `created_at::date`, ou `id = 42.0` sur un `bigint`, qui convertit `id` en `numeric`.",
+        "Corrige côté requête avec un index sur expression comme `(lower(email))`, ou réécris la condition pour comparer la colonne nue, par exemple un intervalle de dates au lieu d’un cast.",
+        "Le planificateur multiplie les sélectivités des conditions sur des colonnes différentes. Pour des colonnes dépendantes comme la ville et le pays, `CREATE STATISTICS ... (dependencies)` corrige l’estimation."
+      ],
+      "takeaways": [
+        {
+          "term": "Sélectivité",
+          "detail": "La part des lignes qu’une condition garde. Quand elle est grande, un parcours séquentiel est vraiment moins cher."
+        },
+        {
+          "term": "`ANALYZE`",
+          "detail": "Échantillonne chaque colonne dans `pg_stats` ; lance-le toi-même après un chargement massif."
+        },
+        {
+          "term": "Fonction ou cast",
+          "detail": "`lower(email)`, `created_at::date` ou `id = 42.0` sur un `bigint` cache la colonne à un index simple."
+        },
+        {
+          "term": "Index sur expression",
+          "detail": "Un index sur `(lower(email))` sert les conditions sur cette même expression."
+        },
+        {
+          "term": "Condition réécrite",
+          "detail": "Comparer la colonne nue, par exemple un intervalle de dates au lieu d’un cast."
+        },
+        {
+          "term": "`CREATE STATISTICS`",
+          "detail": "Avec `(dependencies)`, corrige les estimations pour des colonnes liées comme la ville et le pays."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La connexion cherche les clients avec `WHERE lower(email) = $1`. Il y a un index sur `email`, pourtant le plan montre un parcours séquentiel sur 2 millions de clients. Pourquoi ?",
+        "bridge": "Une fonction sur la colonne la cache à un index simple ; un index sur l’expression `lower(email)` correspond à la condition."
+      },
+      {
+        "question": "Un collègue dit que le planificateur « ignore les index sans raison » depuis un import massif de 5 millions de commandes. Que vérifieriez-vous ?",
+        "bridge": "Le planificateur se fie à des statistiques échantillonnées, périmées après un chargement massif tant qu’`ANALYZE` n’a pas tourné, et il a peut-être aussi raison qu’un parcours est moins cher."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux filtrent le back-office par jour de commande, et `created_at` a un index B-tree. Laquelle peut l’utiliser ?",
+        "why": "Comparer la colonne nue à un intervalle semi-ouvert permet à PostgreSQL d’utiliser l’index : un Index Scan qui lit 32 pages sur 400 000 commandes. Le cast cache `created_at` à son index, donc l’autre version parcourt toute la table et écarte 398 560 lignes avec un filtre : 6 558 pages."
+      }
+    ]
+  },
+  "db-index-types": {
+    "topic": "Index GIN, trigrammes et BRIN",
+    "question": "Au-delà du B-tree, quels types d’index PostgreSQL connaissez-vous, et quand utiliseriez-vous GIN ou BRIN ?",
+    "answer": "Un B-tree trie des valeurs entières, ce qui sert l’égalité, les intervalles et le tri, donc c’est mon choix par défaut. GIN, l’index inversé généralisé, indexe les éléments à l’intérieur d’une valeur : les clés d’un document JSONB, les éléments d’un tableau, les mots pour la recherche plein texte, ou les trigrammes avec l’extension `pg_trgm`, qui rend `ILIKE '%desk%'` rapide. Il sert des opérateurs comme `@>`, pas des expressions quelconques. BRIN ne stocke que le minimum et le maximum de chaque plage de blocs, donc il est minuscule mais grossier : il convient aux énormes tables en ajout seul dont l’ordre physique suit la colonne, comme des événements par date. GiST couvre les intervalles et la géométrie, y compris les contraintes d’exclusion.",
+    "keyPoints": [
+      "B-tree : valeurs entières triées, le choix par défaut",
+      "GIN : éléments à l’intérieur d’une valeur (JSONB, tableaux, texte, trigrammes)",
+      "GIN sert des opérateurs comme `@>`, pas des expressions `->>`",
+      "BRIN : min/max minuscule par plage de blocs, pour des données ordonnées en ajout seul"
+    ],
+    "explanation": "Les recruteurs s’en servent pour voir si un candidat sait associer une forme de requête à un index au lieu d’ajouter des B-tree partout. Un senior connaît les pièges : l’opérateur que l’index sert, la longueur minimale de motif pour les trigrammes, et le fait que BRIN ne marche que si l’ordre physique suit la colonne.",
+    "example": "La recherche produits de la boutique utilisait `name ILIKE '%walnut desk%'` et parcourait toute la table des produits à chaque frappe, malgré un B-tree sur `name`. Un index GIN avec `gin_trgm_ops` l’a transformée en bitmap index scan qui lisait 60 pages au lieu de la table. Les recherches de deux lettres parcourent toujours la table, donc l’autocomplétion attend trois caractères.",
+    "mistakes": [
+      "Attendre d’un B-tree qu’il serve `LIKE '%term%'` avec un joker en tête",
+      "Écrire un filtre JSONB avec `->>` et attendre d’un index GIN qu’il le serve ; utiliser `@>`",
+      "Mettre un BRIN sur une colonne sans ordre physique, comme `customer_id`"
+    ],
+    "followUps": [
+      {
+        "question": "Que change la classe d’opérateurs `jsonb_path_ops` ?",
+        "answer": "Elle construit un index GIN plus petit qui sert la contenance, `@>`, et les opérateurs de chemin JSON, mais pas les opérateurs d’existence de clé comme `?`, que sert la classe par défaut `jsonb_ops`. Je prends `jsonb_path_ops` quand les requêtes sont des filtres de contenance."
+      },
+      {
+        "question": "Recherche par trigrammes ou recherche plein texte : comment choisissez-vous ?",
+        "answer": "Les trigrammes trouvent n’importe quelle sous-chaîne et tolèrent les mots partiels, ce qui convient aux noms et aux SKU. La recherche plein texte avec `to_tsvector` et un index GIN trouve des mots avec racinisation, donc « desks » trouve « desk », ce qui convient aux descriptions. Aucune ne remplace un moteur de recherche pour le classement et la tolérance aux fautes à grande échelle."
+      },
+      {
+        "question": "Pourquoi BRIN est-il « avec perte » ?",
+        "answer": "Il sait seulement qu’une plage de blocs peut contenir des correspondances, donc PostgreSQL lit chaque ligne de ces plages et revérifie la condition. Il est des centaines de fois plus petit qu’un B-tree mais lit plus de pages, un bon compromis pour des requêtes par fenêtre temporelle sur une très grosse table."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un index GIN sur `metadata` avec `jsonb_path_ops` sert `WHERE metadata->>'fraud_review' = 'true'`.",
+        "why": "GIN sert des opérateurs comme `@>` ; l’expression `->>` n’est pas indexée, donc la requête reste un parcours séquentiel.",
+        "twin": {
+          "statement": "Un index GIN sur `metadata` avec `jsonb_path_ops` peut servir `metadata @> '{\"fraud_review\": true}'`, mais pas `metadata->>'fraud_review' = 'true'`.",
+          "why": "GIN sert des opérateurs comme `@>` ; l’expression `->>` n’est pas indexée, donc cette requête reste un parcours séquentiel."
+        }
+      },
+      {
+        "statement": "Un index BRIN n’est utile que si l’ordre physique de la table suit la colonne indexée.",
+        "why": "Il stocke le min et le max par plage de blocs, ce qui ne restreint rien si les valeurs sont dispersées dans tous les blocs.",
+        "twin": {
+          "statement": "Un index BRIN aide même quand les valeurs indexées sont dispersées dans tous les blocs de la table.",
+          "why": "Il stocke le min et le max par plage de blocs, ce qui ne restreint rien si chaque bloc contient des valeurs de toute l’étendue."
+        }
+      },
+      {
+        "statement": "Un index B-tree sur `name` accélère `name ILIKE '%desk%'`.",
+        "why": "Un joker en tête ne donne à l’arbre trié aucun préfixe vers lequel sauter ; il faut un index GIN à trigrammes.",
+        "twin": {
+          "statement": "Un simple index B-tree sur `name` ne peut pas accélérer `name ILIKE '%desk%'`.",
+          "why": "Un joker en tête ne donne à l’arbre trié aucun préfixe vers lequel sauter ; il faut un index GIN à trigrammes."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le B-tree est l’index par défaut de PostgreSQL, mais d’autres types répondent à d’autres questions : chercher à l’intérieur des valeurs, faire de la correspondance floue sur du texte, ou gérer d’énormes tables en ajout seul. Chacun se choisit avec `USING` dans `CREATE INDEX`.",
+      "points": [
+        "Un B-tree trie des valeurs entières. Il sert `=`, les intervalles, `IN` et `ORDER BY`, et reste le choix par défaut. Les autres types d’index répondent à d’autres questions et se choisissent avec `USING` dans `CREATE INDEX`.",
+        "GIN, l’index inversé généralisé, indexe chaque élément à l’intérieur d’une valeur : clés et valeurs JSONB, éléments de tableau, mots. Il sert des opérateurs comme `@>` (contient), pas des expressions comme `->>`.",
+        "L’extension `pg_trgm` découpe le texte en trigrammes, des groupes de trois caractères consécutifs. Un index GIN dessus sert `ILIKE '%desk%'` ; un terme de moins de trois caractères n’en profite pas.",
+        "BRIN, l’index par plages de blocs, stocke le min et le max de chaque plage de pages. Minuscule et grossier, il n’aide que si l’ordre physique suit la colonne, comme `created_at` dans une table en ajout seul.",
+        "GiST indexe des formes et des intervalles qui se chevauchent : géométrie, plus proche voisin, et contraintes d’exclusion qui interdisent les périodes qui se chevauchent."
+      ],
+      "takeaways": [
+        {
+          "term": "B-tree",
+          "detail": "Trie des valeurs entières : sert `=`, les intervalles, `IN` et `ORDER BY`."
+        },
+        {
+          "term": "GIN",
+          "detail": "Indexe chaque élément à l’intérieur d’une valeur : clés et valeurs JSONB, éléments de tableau, mots."
+        },
+        {
+          "term": "Opérateurs GIN",
+          "detail": "Sert des opérateurs comme `@>` (contient), pas des expressions comme `->>`."
+        },
+        {
+          "term": "`pg_trgm`",
+          "detail": "Des trigrammes sous un index GIN rendent `ILIKE '%desk%'` rapide ; un terme de moins de trois caractères n’en profite pas."
+        },
+        {
+          "term": "BRIN",
+          "detail": "Min et max par plage de pages : minuscule et grossier, utile seulement si l’ordre physique suit la colonne."
+        },
+        {
+          "term": "GiST",
+          "detail": "Formes et intervalles qui se chevauchent : géométrie, plus proche voisin, contraintes d’exclusion."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La recherche produits exécute `WHERE name ILIKE '%desk%'` sur 300 000 produits et prend 400 ms, malgré un index B-tree sur `name`. Quel index ajouteriez-vous ?",
+        "bridge": "Un joker en tête ne donne à un B-tree aucun préfixe vers lequel sauter ; un index GIN avec les trigrammes de `pg_trgm` sert `ILIKE '%desk%'`."
+      },
+      {
+        "question": "Quel index mettriez-vous sur une énorme table `order_events` en ajout seul, interrogée par plage de dates, et qu’est-ce qui le rend adapté ?",
+        "bridge": "BRIN ne stocke que le min et le max par plage de blocs : minuscule, et efficace quand l’ordre physique suit la colonne, comme pour des événements écrits dans l’ordre chronologique."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux cherchent les commandes signalées pour revue de fraude, avec un index GIN sur `metadata` en `jsonb_path_ops`. Laquelle l’utilise ?",
+        "why": "Un index GIN sert des opérateurs comme `@>` (contient) : le plan est un Bitmap Index Scan, environ 800 pages pour 800 correspondances sur 400 000 commandes. L’expression `->>` n’est pas quelque chose que l’index GIN stocke, donc l’autre version lit les 6 558 pages de la table avec un filtre."
+      }
+    ]
+  },
+  "db-skip-locked": {
+    "topic": "SKIP LOCKED et verrous consultatifs",
+    "question": "Plusieurs réplicas traitent une table de jobs dans PostgreSQL. Comment empêchez-vous deux d’entre eux de prendre le même job, et comment exécutez-vous un job nocturne une seule fois ?",
+    "answer": "Pour la file, je réclame les lignes avec `SELECT ... FOR UPDATE SKIP LOCKED` : chaque worker verrouille les plus anciennes lignes en attente que personne d’autre ne tient et saute silencieusement celles qui sont verrouillées, donc les workers n’attendent jamais et n’entrent jamais en collision. Je les passe à `running` dans la même instruction et je prends un lot avec `LIMIT`. Pour les jobs lents, je commite la réclamation tout de suite avec un bail, une date `locked_until`, donc les handlers doivent être idempotents. Pour « exécuter une seule fois », il n’y a pas de ligne à verrouiller, donc j’utilise `pg_try_advisory_xact_lock(key)` : un réplica obtient `true`, les autres `false` immédiatement, et le commit ou le rollback le libère, même si le pod meurt.",
+    "keyPoints": [
+      "`FOR UPDATE SKIP LOCKED` saute les lignes qu’un autre worker tient",
+      "Réclamer et marquer en une instruction ; lot avec `LIMIT`",
+      "Jobs lents : commit avec un bail, handlers idempotents",
+      "`pg_try_advisory_xact_lock` pour un job qui tourne une seule fois"
+    ],
+    "explanation": "Toute API à plusieurs réplicas rencontre du travail en arrière-plan, et les recruteurs veulent entendre une coordination par la base plutôt qu’un flag en mémoire. Un senior parle de baux et d’idempotence pour les jobs lents, et explique pourquoi les verrous consultatifs de session cassent derrière un pooler en mode transaction.",
+    "example": "L’API Orders générait des exports CSV depuis une table de jobs, et avec trois réplicas le même export était parfois construit deux fois. Réclamer avec `FOR UPDATE SKIP LOCKED` et un bail de 10 minutes a mis fin aux doublons, et le rapprochement nocturne des paiements est passé derrière `pg_try_advisory_xact_lock`, donc un seul pod l’exécute à 02:00.",
+    "mistakes": [
+      "Sélectionner une ligne en attente, puis la mettre à jour dans une seconde instruction sans verrou, si bien que deux workers la réclament",
+      "Garder la transaction de réclamation ouverte pendant un job lent, ce qui monopolise une connexion et bloque le vacuum",
+      "Utiliser `pg_advisory_lock` au niveau session derrière PgBouncer en mode transaction, où la transaction suivante peut tourner sur une autre connexion"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi ne pas utiliser `SKIP LOCKED` pour les lectures ordinaires ?",
+        "answer": "Il écarte silencieusement les lignes verrouillées, donc il donne une vue incohérente des données. La documentation le réserve aux tables de type file où n’importe quelle ligne libre fait l’affaire ; un rapport ou une lecture d’API doit voir toutes les lignes."
+      },
+      {
+        "question": "Pourquoi préférer le verrou consultatif de niveau transaction à `pg_advisory_lock` ?",
+        "answer": "Le verrou de session ignore les transactions : un rollback ne le libère pas, il est réentrant donc chaque acquisition demande son propre déverrouillage, et il casse derrière un pooler en mode transaction. La variante `xact` se termine avec la transaction."
+      },
+      {
+        "question": "Quand passeriez-vous d’une file PostgreSQL à un broker ?",
+        "answer": "Une file en table est simple et transactionnelle, et des bibliothèques comme pg-boss et Graphile Worker ajoutent retries et planification par-dessus `SKIP LOCKED`. Je passe à SQS ou Kafka quand le débit, la diffusion vers de nombreux consommateurs ou le rejeu comptent plus qu’une seule base."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Avec `FOR UPDATE SKIP LOCKED`, un worker attend les lignes qu’une autre transaction a verrouillées.",
+        "why": "Il écarte ces lignes et renvoie les suivantes qui sont libres, et c’est tout l’intérêt pour une file.",
+        "twin": {
+          "statement": "Avec `FOR UPDATE SKIP LOCKED`, un worker écarte les lignes qu’une autre transaction a verrouillées et renvoie les suivantes qui sont libres.",
+          "why": "Il n’attend jamais ces lignes, et c’est tout l’intérêt pour une file."
+        }
+      },
+      {
+        "statement": "Si le pod qui tient `pg_try_advisory_xact_lock` meurt, le verrou est libéré quand sa connexion se ferme.",
+        "why": "Quand la connexion tombe, PostgreSQL termine la session et annule sa transaction, ce qui libère le verrou.",
+        "twin": {
+          "statement": "Si le pod qui tient `pg_try_advisory_xact_lock` meurt, le verrou reste tenu jusqu’à ce qu’un opérateur le libère.",
+          "why": "Quand la connexion tombe, PostgreSQL termine la session et annule sa transaction, ce qui libère le verrou."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Avec plusieurs réplicas, deux workers ne doivent jamais prendre le même job, et une tâche nocturne ne doit tourner qu’une fois. `SKIP LOCKED` et les verrous consultatifs de PostgreSQL règlent les deux sans service supplémentaire.",
+      "points": [
+        "Une lecture avec verrou attend normalement les lignes qu’une autre transaction tient. `SKIP LOCKED` écarte silencieusement ces lignes, donc plusieurs workers peuvent chacun réclamer des lignes différentes d’une table de file sans attendre.",
+        "Réclame et marque en une instruction : un `UPDATE` dont la sous-requête choisit les lignes en attente `FOR UPDATE SKIP LOCKED` avec un `LIMIT`. Une transaction ne saute pas ses propres verrous, donc prends un lot d’un coup.",
+        "Pour un travail lent, commite la réclamation avec un bail (`locked_until`) et laisse les workers reprendre les baux expirés. Un job peut alors tourner deux fois, donc les handlers doivent être idempotents.",
+        "Un verrou consultatif (advisory lock) est un verrou sur un nombre que ton application choisit. `pg_try_advisory_xact_lock(key)` renvoie `true` ou `false` immédiatement et se libère au commit ou au rollback.",
+        "Évite `pg_advisory_lock` au niveau session : un rollback ne le libère pas, et il casse derrière un pooler en mode transaction."
+      ],
+      "takeaways": [
+        {
+          "term": "`FOR UPDATE SKIP LOCKED`",
+          "detail": "Écarte les lignes qu’une autre transaction tient, donc les workers réclament des lignes différentes sans attendre."
+        },
+        {
+          "term": "Réclamer et marquer",
+          "detail": "Un seul `UPDATE` dont la sous-requête choisit les lignes en attente `FOR UPDATE SKIP LOCKED` avec un `LIMIT`."
+        },
+        {
+          "term": "Bail (`locked_until`)",
+          "detail": "Pour les jobs lents, commiter la réclamation et reprendre les baux expirés ; les handlers doivent être idempotents."
+        },
+        {
+          "term": "Verrou consultatif",
+          "detail": "Un verrou sur un nombre que ton application choisit : aucune ligne nécessaire."
+        },
+        {
+          "term": "`pg_try_advisory_xact_lock`",
+          "detail": "Renvoie `true` ou `false` immédiatement, et se libère au commit ou au rollback."
+        },
+        {
+          "term": "`pg_advisory_lock`",
+          "detail": "Niveau session : un rollback ne le libère pas, et il casse derrière un pooler en mode transaction."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Trois réplicas de l’API envoient les e-mails `order.paid` depuis une table de jobs, et certains clients reçoivent l’e-mail deux fois. Les workers lisent les lignes en attente avec un simple `SELECT`, puis les marquent `running`. Que changeriez-vous ?",
+        "bridge": "Deux workers ont réclamé les mêmes lignes. `FOR UPDATE SKIP LOCKED`, en réclamant et marquant en une instruction, confie chaque ligne à un seul worker."
+      },
+      {
+        "question": "Comment vous assurez-vous que l’export CSV nocturne ne tourne que sur un des six réplicas de l’API, alors qu’il n’y a aucune ligne à verrouiller ?",
+        "bridge": "Un verrou consultatif verrouille une clé au lieu d’une ligne : `pg_try_advisory_xact_lock` renvoie `true` à un réplica et `false` aux autres."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux laissent un worker réclamer le plus ancien job en attente, avec trois réplicas qui interrogent la table. Laquelle ne donne jamais le même job à deux workers ?",
+        "why": "Avec `FOR UPDATE SKIP LOCKED`, chaque worker verrouille la ligne qu’il choisit et les autres la sautent, donc trois workers réclament trois jobs différents sans attendre. Sans, deux workers choisissent le même id ; le second attend le premier verrou, puis met à jour ce job lui aussi, puisque le `WHERE` externe ne vérifie que l’id, et l’export CSV est construit deux fois."
+      }
+    ]
+  },
+  "db-column-types-constraints": {
+    "topic": "Types de colonnes et contraintes",
+    "question": "Quels types de colonnes choisissez-vous pour l’argent, les instants et les chaînes, et quelles règles imposez-vous avec des contraintes ?",
+    "answer": "Les types évitent des classes entières de bugs. L’argent n’est jamais un flottant : je stocke des unités mineures entières, `total_cents bigint` plus une `currency`, ou du `numeric`. Les instants sont en `timestamptz`, qui stocke un instant absolu ; un simple `timestamp` perd silencieusement le décalage. Les chaînes sont en `text` avec un `CHECK` nommé, puisque `varchar(n)` n’est pas plus rapide. Ensuite, toute règle qu’un autre écrivain ou une race condition pourrait casser va dans une contrainte : `NOT NULL`, `CHECK`, `UNIQUE`, clés étrangères avec un `ON DELETE` réfléchi, et contraintes d’exclusion pour les périodes qui se chevauchent. L’API valide quand même d’abord pour des messages clairs, et traduit les codes SQLSTATE comme `23505` en 409.",
+    "keyPoints": [
+      "L’argent en centimes entiers plus une devise, ou `numeric` ; jamais de flottant",
+      "`timestamptz` pour les instants ; `timestamp` perd le décalage",
+      "`text` avec un `CHECK` nommé plutôt que `varchar(n)`",
+      "Les contraintes protègent chaque écrivain ; traduire SQLSTATE en 409/422"
+    ],
+    "explanation": "La question montre si un candidat traite la base comme une garantie ou comme un stockage passif. Un senior explique pourquoi une règle vérifiée seulement dans l’API casse face aux scripts et aux race conditions, et transforme les erreurs de contrainte en réponses d’API précises grâce au code et au nom de la contrainte.",
+    "example": "Un script d’import et une correction manuelle en psql ont créé deux prix allemands qui se chevauchaient pour un même produit, et le checkout en choisissait un au hasard. Une contrainte d’exclusion sur `(product_id, country_code, valid_during)` rejette désormais tout chevauchement avec `23P01`, et l’API traduit ce code en 409 « un prix existe déjà pour cette période ».",
+    "mistakes": [
+      "Stocker des montants en `double precision`, si bien que `0.1 + 0.2` ne vaut pas `0.3` et que les totaux dérivent d’un centime",
+      "Utiliser un simple `timestamp` pour les dates de commande et perdre le décalage des commandes venues d’autres pays",
+      "Reconnaître les erreurs de base sur le texte du message au lieu du code SQLSTATE et du nom de la contrainte"
+    ],
+    "followUps": [
+      {
+        "question": "Type enum, contrainte `CHECK` ou table de référence pour un statut de commande ?",
+        "answer": "Un enum ne peut pas supprimer une valeur, et les nouvelles valeurs ne sont pas utilisables dans la transaction qui les ajoute, donc je le garde pour des ensembles vraiment figés. `text` avec `CHECK (status IN (...))` est mon choix par défaut pour un statut porté par le code ; une table de référence convient aux valeurs qui portent des données ou que des admins gèrent."
+      },
+      {
+        "question": "Qu’est-ce qu’une contrainte d’exclusion ?",
+        "answer": "Elle généralise `UNIQUE` à n’importe quel opérateur : pas deux lignes où ces colonnes se comparent à vrai, par exemple même produit, même pays et périodes `tstzrange` qui se chevauchent avec `&&`. Elle est appliquée par un index GiST, avec `btree_gist` pour les colonnes en `=` simple."
+      },
+      {
+        "question": "PostgreSQL indexe-t-il les colonnes de clé étrangère pour vous ?",
+        "answer": "Non : il exige un index sur la clé référencée, pas sur la colonne qui référence. J’indexe `orders.customer_id` moi-même, sinon chaque suppression d’un client parcourt les commandes pour vérifier les références, et les jointures ralentissent."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`timestamp with time zone` stocke le fuseau horaire de la valeur qu’on lui a donnée.",
+        "why": "Il convertit l’entrée en UTC et stocke un instant absolu ; il l’affiche dans le `TimeZone` de la session.",
+        "twin": {
+          "statement": "`timestamp with time zone` stocke un instant absolu et ne garde pas le fuseau horaire qu’on lui a donné.",
+          "why": "Il convertit l’entrée en UTC et l’affiche dans le `TimeZone` de la session."
+        }
+      },
+      {
+        "statement": "Une simple colonne `UNIQUE` accepte deux lignes avec NULL.",
+        "why": "Les NULL ne sont pas égaux entre eux ; `UNIQUE NULLS NOT DISTINCT` rejette le second.",
+        "twin": {
+          "statement": "Une simple colonne `UNIQUE` rejette une seconde ligne avec NULL.",
+          "why": "Les NULL ne sont pas égaux entre eux, donc les deux lignes sont acceptées ; `UNIQUE NULLS NOT DISTINCT` rejette la seconde."
+        }
+      },
+      {
+        "statement": "Dans PostgreSQL, `varchar(255)` est plus performant que `text`.",
+        "why": "La documentation indique qu’il n’y a aucune différence de performance ; un `CHECK` exprime la vraie règle.",
+        "twin": {
+          "statement": "Dans PostgreSQL, `varchar(255)` n’est pas plus performant que `text`.",
+          "why": "La documentation indique qu’il n’y a aucune différence de performance ; un `CHECK` exprime la vraie règle."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les types de colonnes et les contraintes permettent à la base de rejeter des classes entières de bugs, quel que soit l’écrivain. Les choix classiques : l’argent, les instants et les chaînes, puis les règles que tout écrivain doit respecter.",
+      "points": [
+        "L’argent n’est jamais un flottant : `0.1 + 0.2` donne `0.30000000000000004` en `float8`. Stocke des unités mineures entières (`total_cents bigint`) plus une `currency`, ou du `numeric(12, 2)`.",
+        "`timestamptz` convertit l’entrée en UTC et stocke un instant, affiché dans le fuseau de la session. Un simple `timestamp` perd silencieusement tout décalage. Utilise `date` pour les jours calendaires.",
+        "Utilise `text` avec un `CHECK` nommé pour les chaînes : c’est aussi rapide que `varchar(n)`, et un cast explicite en `varchar(5)` tronque silencieusement alors qu’un `CHECK` ne le fait jamais.",
+        "Une contrainte est une règle que PostgreSQL vérifie à chaque écriture, quel que soit l’écrivain : `NOT NULL`, `CHECK`, `UNIQUE`, clés étrangères, et `EXCLUDE` pour les périodes qui se chevauchent. Indexe toi-même les colonnes de clé étrangère.",
+        "Les violations portent un code SQLSTATE et le nom de la contrainte : `23505` unicité, `23503` clé étrangère, `23514` check, `23P01` exclusion. Traduis-les en 409 ou 422."
+      ],
+      "takeaways": [
+        {
+          "term": "Argent",
+          "detail": "Jamais un flottant : centimes entiers (`total_cents bigint`) plus une `currency`, ou `numeric(12, 2)`."
+        },
+        {
+          "term": "`timestamptz`",
+          "detail": "Stocke un instant, affiché dans le fuseau de la session. Un simple `timestamp` perd le décalage ; `date` sert aux jours."
+        },
+        {
+          "term": "`text` avec un `CHECK` nommé",
+          "detail": "Aussi rapide que `varchar(n)`, et ne tronque jamais silencieusement comme le fait un cast en `varchar(5)`."
+        },
+        {
+          "term": "Contraintes",
+          "detail": "`NOT NULL`, `CHECK`, `UNIQUE`, clés étrangères et `EXCLUDE`, vérifiées à chaque écriture. Indexe toi-même les clés étrangères."
+        },
+        {
+          "term": "Codes SQLSTATE",
+          "detail": "`23505` unicité, `23503` clé étrangère, `23514` check, `23P01` exclusion."
+        },
+        {
+          "term": "Correspondance côté API",
+          "detail": "Valider d’abord pour des messages clairs, puis traduire les violations en 409 ou 422."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’export comptable affiche un total de commande de 0,30000000000000004 € pour deux articles à 0,10 € et 0,20 €. La colonne est en `double precision`. Que changeriez-vous, et à quels autres types de colonnes faites-vous attention ?",
+        "bridge": "L’argent n’est jamais un flottant : unités mineures entières plus une devise, ou `numeric`. Les types de colonnes évitent des classes entières de bugs, comme `timestamptz` pour les instants."
+      },
+      {
+        "question": "Un collègue dit que l’API valide déjà tout, donc que les tables n’ont besoin d’aucune contrainte `CHECK` ou `UNIQUE`. Que répondez-vous ?",
+        "bridge": "Les contraintes protègent chaque écrivain, scripts et race conditions compris ; l’API valide d’abord seulement pour des messages clairs, puis traduit les codes SQLSTATE en 409 ou 422."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux stockent le prix unitaire d’une ligne de commande. Quelle colonne garde les totaux de facture exacts ?",
+        "why": "Les centimes entiers s’additionnent exactement : 10 + 20 font 30. Un `double precision` ne peut pas représenter 0,1 exactement, donc dans PostgreSQL deux lignes à 0,10 et 0,20 font 0,30000000000000004 ; les totaux dérivent d’un centime et ne correspondent plus au prestataire de paiement."
+      }
+    ]
+  },
+  "db-multi-tenancy": {
+    "topic": "Multi-tenant et row-level security",
+    "question": "Comment concevriez-vous une base de données multi-tenant, et comment empêchez-vous un tenant de voir les données d’un autre ?",
+    "answer": "Il y a trois modèles : des tables partagées avec une colonne `tenant_id`, un schéma par tenant, ou une base par tenant. L’isolation augmente à chaque fois, et le coût aussi : chaque migration et chaque pool se multiplient. Par défaut je prends les tables partagées, puis j’ajoute des filets de sécurité pour qu’un `WHERE tenant_id` oublié ne soit pas une fuite. Des clés étrangères composites sur `(tenant_id, id)` empêchent une ligne de pointer vers la ligne d’un autre tenant. La row-level security ajoute une policy à chaque requête sur la table, en lisant le tenant dans un paramètre local à la transaction. L’API se connecte avec un rôle qui ne possède aucune table, parce que les propriétaires et les superusers contournent les policies.",
+    "keyPoints": [
+      "Tables partagées, schéma ou base par tenant : isolation contre coût",
+      "Clés étrangères composites sur `(tenant_id, id)`",
+      "La policy RLS lit un paramètre de tenant local à la transaction",
+      "Le rôle de l’API ne possède aucune table : propriétaires et superusers contournent la RLS"
+    ],
+    "explanation": "Tout SaaS B2B pose la question, et une fuite entre tenants est un incident grave. Les recruteurs attendent un choix par défaut argumenté, une défense en profondeur dans la base, et les pièges concrets de la RLS : connexions en pool et rôles qui contournent les policies.",
+    "example": "L’API Orders sert plusieurs marques depuis des tables partagées, et un filtre manquant a un jour montré les commandes d’une marque à une autre. L’équipe a activé la RLS sur les commandes avec une policy sur `current_setting('app.tenant_id')`, défini par transaction, et a connecté l’API avec un rôle dédié. Une requête ultérieure qui oubliait le filtre n’a renvoyé que les lignes de la marque courante.",
+    "mistakes": [
+      "Tester la RLS en tant que propriétaire de la table ou superuser et conclure qu’elle ne marche pas",
+      "Définir le tenant au niveau de la session, si bien qu’une connexion du pool l’emporte dans la requête d’un autre tenant",
+      "Choisir une base par tenant par défaut, puis gérer des centaines de migrations et de pools"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi le paramètre de tenant doit-il être local à la transaction ?",
+        "answer": "Les connexions sont en pool, donc un paramètre de session suivrait la connexion jusqu’à la requête suivante, peut-être celle d’un autre tenant. `set_config('app.tenant_id', $1, true)` dure jusqu’au commit ou au rollback, donc la connexion revient propre."
+      },
+      {
+        "question": "Que se passe-t-il si le code oublie de définir le tenant ?",
+        "answer": "La policy lit `current_setting('app.tenant_id')`, qui lève une erreur sur une connexion neuve et échoue sur la chaîne vide laissée par une transaction précédente. La RLS échoue donc en mode fermé : un paramètre oublié est une erreur, pas une fuite."
+      },
+      {
+        "question": "Quand choisiriez-vous une base par tenant ?",
+        "answer": "Pour une poignée de clients grands comptes avec une isolation contractuelle, des sauvegardes séparées ou une résidence des données dans une région donnée. Le coût, c’est N bases à migrer, surveiller et connecter, donc c’est une exception délibérée."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le propriétaire de la table contourne la row-level security, sauf si la table a `FORCE ROW LEVEL SECURITY`.",
+        "why": "Par défaut, les policies ne s’appliquent pas au propriétaire ; `FORCE` les lui applique aussi, alors que les superusers les contournent toujours.",
+        "twin": {
+          "statement": "Les policies de row-level security s’appliquent par défaut au propriétaire de la table.",
+          "why": "Le propriétaire les contourne sauf si la table a `FORCE ROW LEVEL SECURITY`, et les superusers les contournent même dans ce cas."
+        }
+      },
+      {
+        "statement": "Une policy RLS `FOR ALL` avec seulement une clause `USING` rejette aussi l’insertion de lignes pour un autre tenant.",
+        "why": "Sans `WITH CHECK`, PostgreSQL applique aussi l’expression `USING` aux nouvelles lignes ; un `WITH CHECK` séparé fixe une règle différente pour les écritures.",
+        "twin": {
+          "statement": "Une policy RLS `FOR ALL` avec seulement une clause `USING` permet d’insérer des lignes pour un autre tenant.",
+          "why": "Sans `WITH CHECK`, PostgreSQL applique aussi l’expression `USING` aux nouvelles lignes, donc l’insertion échoue sur une violation de policy."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une base multi-tenant sert de nombreuses organisations clientes depuis un seul système. Le choix de conception porte sur leur isolation, et le vrai travail consiste à garantir qu’un filtre oublié ne devienne pas une fuite de données.",
+      "points": [
+        "Un tenant est une organisation cliente qui partage le système. Modèles : tables partagées avec `tenant_id` (par défaut), un schéma par tenant ou une base par tenant, chacun plus isolé et plus coûteux à exploiter.",
+        "Une clé étrangère composite sur `(tenant_id, order_id)` qui référence `orders (tenant_id, id)` empêche une ligne de commande de pointer vers la commande d’un autre tenant. La cible a besoin de `UNIQUE (tenant_id, id)`.",
+        "La row-level security (RLS) attache une policy que PostgreSQL ajoute à chaque requête. `USING` filtre les lignes visibles ; `WITH CHECK` valide les lignes écrites, et sans lui c’est `USING` qui les vérifie.",
+        "Le tenant vient d’un paramètre local à la transaction, `set_config('app.tenant_id', $1, true)`, donc une connexion du pool ne l’emporte jamais dans une autre requête. Un paramètre manquant est une erreur, pas une fuite.",
+        "Les superusers, les rôles avec `BYPASSRLS` et le propriétaire de la table passent outre les policies (`FORCE` couvre le propriétaire). Fais tourner l’API avec un rôle qui ne possède aucune table."
+      ],
+      "takeaways": [
+        {
+          "term": "Trois modèles",
+          "detail": "Tables partagées avec `tenant_id`, un schéma par tenant, une base par tenant : plus d’isolation, plus de coût."
+        },
+        {
+          "term": "Clé étrangère composite",
+          "detail": "`(tenant_id, order_id)` qui référence `orders (tenant_id, id)` bloque les liens entre tenants ; exige `UNIQUE (tenant_id, id)`."
+        },
+        {
+          "term": "Row-level security",
+          "detail": "Une policy ajoutée à chaque requête : `USING` filtre les lignes visibles, `WITH CHECK` valide les lignes écrites."
+        },
+        {
+          "term": "`set_config(..., true)`",
+          "detail": "Un paramètre de tenant local à la transaction, donc une connexion du pool ne l’emporte jamais dans une autre requête."
+        },
+        {
+          "term": "Contournement de la RLS",
+          "detail": "Les superusers, les rôles `BYPASSRLS` et le propriétaire de la table passent outre les policies ; `FORCE` couvre le propriétaire."
+        },
+        {
+          "term": "Rôle de l’API",
+          "detail": "Ne possède aucune table, donc les policies s’appliquent toujours."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La boutique héberge désormais plusieurs marchands dans des tables partagées. Un agent d’un marchand a vu la commande d’un autre marchand parce qu’une requête oubliait `WHERE tenant_id`. Quels filets de sécurité ajouteriez-vous ?",
+        "bridge": "Les tables partagées ont besoin de garde-fous au-delà de chaque requête : des policies de row-level security qui lisent le tenant, et des clés étrangères composites sur `(tenant_id, id)`."
+      },
+      {
+        "question": "Vous avez activé la row-level security sur `orders`, mais l’API voit toujours les lignes de tous les tenants. Quelle est la cause probable ?",
+        "bridge": "Les propriétaires de tables et les superusers contournent par défaut les policies RLS, donc l’API doit se connecter avec un rôle qui ne possède aucune table."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux définissent la marque pour la policy RLS au début d’une requête, sur une connexion du pool. Laquelle ne peut pas déborder sur la requête suivante ?",
+        "why": "Avec `true`, le paramètre est local à la transaction : après `COMMIT` il se relit vide, donc une requête qui oublie de le définir obtient une erreur, pas des données. Avec `false`, il dure toute la session, donc la connexion du pool porte encore la marque 42 dans la requête suivante, qui voit alors les commandes de la marque 42."
+      }
+    ]
+  },
+  "db-soft-delete-audit": {
+    "topic": "Soft delete et piste d’audit",
+    "question": "Utiliseriez-vous le soft delete ? Et comment gardez-vous une piste d’audit de qui a modifié quoi ?",
+    "answer": "Le soft delete marque une ligne avec `deleted_at` au lieu de la supprimer. Ça coûte plus cher qu’il n’y paraît : chaque lecture doit la filtrer, idéalement dans une seule vue ou policy ; les règles d’unicité demandent un index unique partiel sur les lignes vivantes ; les clés étrangères voient toujours la ligne ; et ce n’est pas un effacement, donc les données personnelles doivent quand même être supprimées ou anonymisées. Quand « supprimé » est un état métier, j’utilise un `status` ; pour annuler des erreurs ou garder des preuves, je supprime pour de vrai et j’audite. Pour l’audit, j’utilise un trigger, qui attrape chaque écrivain, psql compris, et stocke l’ancienne et la nouvelle ligne en JSONB avec l’auteur lu dans un paramètre local à la transaction.",
+    "keyPoints": [
+      "Chaque lecture filtre `deleted_at`, dans une seule vue ou policy",
+      "Index unique partiel pour qu’un e-mail supprimé puisse se réinscrire",
+      "Le soft delete n’est pas un effacement RGPD",
+      "Audit par trigger : attrape chaque écrivain, ancienne et nouvelle ligne"
+    ],
+    "explanation": "C’est une question de conception sans réponse unique, donc les recruteurs écoutent les coûts cachés et les alternatives. Un senior distingue l’annulation, l’état métier, la conservation légale et l’effacement, et sait qu’un audit écrit dans le code applicatif rate les écritures qui le contournent.",
+    "example": "Le support ne pouvait pas rouvrir de comptes : une cliente qui avait fermé le sien était refusée à l’inscription parce que `UNIQUE (email)` voyait encore la ligne supprimée en soft delete. Un index unique partiel sur `(tenant_id, lower(email)) WHERE deleted_at IS NULL` a réglé le problème, et un trigger sur `product_prices` a plus tard montré à l’auditeur l’ancien et le nouveau prix d’une correction faite à la main.",
+    "mistakes": [
+      "Oublier `WHERE deleted_at IS NULL` dans une requête et afficher des données supprimées",
+      "Garder une contrainte `UNIQUE` simple, si bien qu’un client supprimé ne peut jamais se réinscrire avec le même e-mail",
+      "Écrire l’audit dans la couche service et rater les scripts et les corrections manuelles"
+    ],
+    "followUps": [
+      {
+        "question": "Comment traitez-vous une demande d’effacement RGPD quand la finance doit garder les commandes pendant des années ?",
+        "answer": "Je supprime ou j’anonymise les champs personnels de la ligne client et je garde les commandes, qui pointent alors vers un client anonyme. Un simple flag `deleted_at` garde les données personnelles, et il faut aussi traiter le journal d’audit, puisqu’il contient lui aussi des données personnelles."
+      },
+      {
+        "question": "Que coûte un trigger d’audit, et quelle est l’alternative ?",
+        "answer": "Chaque écriture auditée devient deux écritures dans la même transaction, et le journal grossit sans fin, donc je prévois une rétention ou je le partitionne par mois. Pour de nombreuses tables, la capture de changements (CDC) depuis le write-ahead log, avec Debezium par exemple, garde le chemin d’écriture propre au prix d’une infrastructure en plus."
+      },
+      {
+        "question": "Pourquoi utiliser `nullif(current_setting('app.user_id', true), '')` dans le trigger ?",
+        "answer": "Dès qu’une transaction précédente sur la même connexion du pool a défini la valeur localement, elle se relit comme une chaîne vide, pas NULL. Sans `nullif`, le journal enregistrerait un auteur vide pour les écritures qui n’en définissent pas."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une clé étrangère refuse de référencer un client supprimé en soft delete.",
+        "why": "Pour la base, la ligne existe toujours ; seules tes requêtes savent ce que signifie `deleted_at`.",
+        "twin": {
+          "statement": "Une clé étrangère accepte toujours une référence vers un client supprimé en soft delete.",
+          "why": "Pour la base, la ligne existe toujours ; seules tes requêtes savent ce que signifie `deleted_at`."
+        }
+      },
+      {
+        "statement": "Une piste d’audit par trigger enregistre aussi les modifications faites à la main dans psql.",
+        "why": "Le trigger s’exécute dans PostgreSQL à chaque écriture, quel que soit le client qui l’a émise.",
+        "twin": {
+          "statement": "Une piste d’audit par trigger rate les modifications faites à la main dans psql.",
+          "why": "Le trigger s’exécute dans PostgreSQL à chaque écriture, quel que soit le client qui l’a émise."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le soft delete marque des lignes comme supprimées au lieu de les retirer, et une piste d’audit enregistre qui a modifié quoi. Les deux semblent simples mais coûtent quelque chose dans chaque requête, index et règle de confidentialité.",
+      "points": [
+        "Le soft delete marque une ligne comme supprimée (`deleted_at timestamptz`) au lieu de la retirer. Chaque lecture doit alors la filtrer ; une vue ou une policy de row-level security met le filtre en un seul endroit.",
+        "Un index unique partiel, un index avec une clause `WHERE`, impose l’unicité parmi les lignes vivantes uniquement, donc l’e-mail d’un compte fermé peut se réinscrire.",
+        "Les clés étrangères ignorent le flag, et ce n’est pas un effacement : les données personnelles doivent quand même être supprimées ou anonymisées. Un vrai état métier, comme une commande annulée, va dans une colonne `status`.",
+        "Une piste d’audit enregistre qui a modifié quoi et quand. Un trigger attrape chaque écrivain, corrections manuelles comprises, et `to_jsonb(OLD)` et `to_jsonb(NEW)` stockent les deux versions.",
+        "Coûts : deux écritures par écriture auditée, un journal qui grossit sans fin, et des données personnelles dedans. La capture de changements depuis le write-ahead log est l’alternative pour de nombreuses tables."
+      ],
+      "takeaways": [
+        {
+          "term": "`deleted_at`",
+          "detail": "Chaque lecture doit le filtrer ; une vue ou une policy de row-level security met le filtre en un seul endroit."
+        },
+        {
+          "term": "Index unique partiel",
+          "detail": "Unique parmi les lignes vivantes uniquement, donc l’e-mail d’un compte fermé peut se réinscrire."
+        },
+        {
+          "term": "Pas un effacement",
+          "detail": "Les clés étrangères ignorent le flag, et les données personnelles doivent quand même être supprimées ou anonymisées."
+        },
+        {
+          "term": "Colonne `status`",
+          "detail": "Là où va un vrai état métier, comme une commande annulée."
+        },
+        {
+          "term": "Trigger d’audit",
+          "detail": "Attrape chaque écrivain, corrections manuelles comprises ; `to_jsonb(OLD)` et `to_jsonb(NEW)` stockent les deux versions."
+        },
+        {
+          "term": "Coûts de l’audit",
+          "detail": "Deux écritures par écriture auditée, un journal qui grossit sans fin, des données personnelles dedans. La CDC est l’alternative."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Une cliente a fermé son compte, puis a voulu se réinscrire avec le même e-mail et a reçu « e-mail déjà utilisé ». Les comptes sont supprimés en soft delete avec `deleted_at`. Qu’est-ce qui ne va pas ?",
+        "bridge": "Une règle d’unicité sur l’e-mail voit encore la ligne supprimée en soft delete ; un index unique partiel sur les lignes vivantes permet à l’e-mail de se réinscrire."
+      },
+      {
+        "question": "Une cliente demande l’effacement de ses données personnelles, et l’équipe répond « c’est fait, on a renseigné `deleted_at` ». Est-ce fait ?",
+        "bridge": "Le soft delete ne fait que marquer la ligne, ce n’est donc pas un effacement : les données personnelles doivent encore être supprimées ou anonymisées."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux imposent un compte par e-mail avec des clients supprimés en soft delete. Laquelle permet à un compte fermé de se réinscrire ?",
+        "why": "L’index unique partiel ne couvre que les lignes vivantes, donc une fois que Dana a fermé son compte, une nouvelle inscription avec son e-mail est acceptée. L’index unique simple voit encore la ligne supprimée en soft delete et rejette l’inscription avec `23505`, donc le support ne peut pas rouvrir le compte."
+      }
+    ]
+  },
+  "db-jsonb": {
+    "topic": "Colonnes JSONB",
+    "question": "Quand stockez-vous des données dans une colonne JSONB, et quand s’agit-il d’une table manquante ?",
+    "answer": "JSONB stocke un document JSON analysé sous forme binaire, donc il ne garde ni l’ordre des clés ni les clés en double, et les index GIN peuvent chercher dedans. Je l’utilise pour des données stockées et renvoyées en entier : payloads bruts des webhooks des prestataires de paiement, attributs optionnels clairsemés, paramètres par prestataire. C’est une table manquante quand je filtre, joins, trie ou agrège sur ses champs, ou quand ils portent des règles : dans un document, il n’y a ni types, ni `NOT NULL`, ni clés étrangères, ni statistiques par champ, donc les estimations se trompent. Quand un champ devient très sollicité, je le promeus en colonne ou je l’indexe avec un index sur expression.",
+    "keyPoints": [
+      "Forme binaire analysée : pas d’ordre des clés, le dernier doublon gagne",
+      "Adapté aux documents stockés et renvoyés en entier",
+      "Les champs interrogés ou contraints vont dans des colonnes",
+      "Ni types, ni clés étrangères, ni statistiques dans un document"
+    ],
+    "explanation": "On abuse facilement de JSONB, et les recruteurs veulent voir où un candidat place la limite entre souplesse et schéma. Un senior cite les garanties perdues et les statistiques du planificateur, et explique comment promouvoir un champ plus tard.",
+    "example": "Le webhook de paiement stocke l’événement de chaque prestataire dans `webhook_events.payload jsonb`, avec `provider` et `event_type` en vraies colonnes puisque toutes les requêtes filtrent dessus. Quand la finance a commencé à faire des rapports sur les montants payés, un index sur l’expression `((payload #>> '{data,object,amount_paid}')::bigint)` a servi le rapport sans modifier la table.",
+    "mistakes": [
+      "Cacher dans du JSONB un champ sur lequel les requêtes filtrent et font des jointures, puis lutter contre des plans lents",
+      "Comparer `payload->>'amount'` à un nombre sans cast : `->>` renvoie du texte",
+      "Choisir `json` au lieu de `jsonb` sans raison, comme garder les octets exacts pour vérifier une signature"
+    ],
+    "followUps": [
+      {
+        "question": "Quelle est la différence entre `->` et `->>` ?",
+        "answer": "`->` renvoie une valeur `jsonb`, donc on peut continuer à naviguer ; `->>` renvoie du `text`, prêt à être comparé à des chaînes. Pour comparer des nombres, je convertis le texte, par exemple `(payload->>'amount')::bigint`."
+      },
+      {
+        "question": "Comment indexez-vous un champ JSONB qui devient très sollicité ?",
+        "answer": "Un index sur expression portant sur la valeur extraite, convertie dans son type, l’indexe sans toucher à la table. Un index GIN sert les filtres de contenance avec `@>`. Sur PostgreSQL 18, une colonne générée est virtuelle par défaut et ne peut pas être indexée ; une colonne `STORED` le peut, mais réécrit la table."
+      },
+      {
+        "question": "Comment gardez-vous le contenu JSONB valide ?",
+        "answer": "Dans la base, un `CHECK` comme `jsonb_typeof(payload) = 'object'` rejette la mauvaise forme. Côté Node, le driver renvoie un objet non typé, donc je le valide avec un schéma Zod à la lecture, comme n’importe quelle autre entrée."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`jsonb` garde les clés d’un document dans l’ordre où elles ont été écrites.",
+        "why": "Il stocke une forme décomposée : les clés sont réordonnées et seul le dernier doublon est gardé ; `json` garde le texte.",
+        "twin": {
+          "statement": "`jsonb` ne garde pas l’ordre dans lequel les clés d’un document ont été écrites.",
+          "why": "Il stocke une forme décomposée : les clés sont réordonnées et seul le dernier doublon est gardé ; `json` garde le texte."
+        }
+      },
+      {
+        "statement": "L’opérateur `->>` renvoie du `text`.",
+        "why": "Il extrait la valeur en texte, donc les nombres doivent être convertis avant une comparaison numérique.",
+        "twin": {
+          "statement": "L’opérateur `->>` renvoie du `jsonb`.",
+          "why": "Il renvoie du `text`, donc les nombres doivent être convertis avant une comparaison numérique ; c’est `->` qui renvoie du `jsonb`."
+        }
+      },
+      {
+        "statement": "Une clé étrangère peut référencer une valeur stockée dans un document `jsonb`.",
+        "why": "Les clés étrangères n’acceptent que de vraies colonnes, l’une des raisons pour lesquelles les données référencées vont dans des colonnes.",
+        "twin": {
+          "statement": "Une clé étrangère ne peut pas référencer une valeur stockée dans un document `jsonb`.",
+          "why": "Les clés étrangères n’acceptent que de vraies colonnes, l’une des raisons pour lesquelles les données référencées vont dans des colonnes."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une colonne JSONB stocke un document JSON analysé que PostgreSQL peut indexer et fouiller. Elle convient aux données gardées et renvoyées en entier ; les champs que tu interroges ou contrains vont dans de vraies colonnes.",
+      "points": [
+        "`jsonb` stocke un document JSON analysé sous forme binaire : clés réordonnées, seul le dernier doublon gardé. Le simple `json` garde le texte exact, utile quand l’ordre des clés ou les octets exacts comptent, comme pour vérifier une signature.",
+        "Utilise JSONB pour des données stockées et renvoyées en entier : payloads bruts des prestataires, attributs optionnels clairsemés, paramètres. Garde à côté, en vraies colonnes, les champs que tu interroges.",
+        "Dans un document, il n’y a ni types, ni `NOT NULL`, ni clés étrangères, et le planificateur ne garde aucune statistique par champ. Un champ interrogé ou contraint est une colonne manquante.",
+        "`->` renvoie du `jsonb`, `->>` et `#>>` renvoient du `text`, et `@>` teste la contenance, l’opérateur que sert un index GIN. Convertis le texte extrait avant de comparer des nombres.",
+        "Promeus un champ très sollicité avec un index sur l’expression de la valeur extraite. Sur PostgreSQL 18, les colonnes générées sont virtuelles par défaut et ne peuvent pas être indexées."
+      ],
+      "takeaways": [
+        {
+          "term": "`jsonb`",
+          "detail": "Forme binaire analysée : clés réordonnées, seul le dernier doublon gardé."
+        },
+        {
+          "term": "`json`",
+          "detail": "Garde le texte exact, utile quand l’ordre des clés ou les octets exacts comptent, comme pour vérifier une signature."
+        },
+        {
+          "term": "Bon usage",
+          "detail": "Payloads bruts des prestataires, attributs optionnels clairsemés, paramètres : stockés et renvoyés en entier."
+        },
+        {
+          "term": "Colonne manquante",
+          "detail": "Dans un document : ni types, ni `NOT NULL`, ni clés étrangères, ni statistiques par champ."
+        },
+        {
+          "term": "Opérateurs",
+          "detail": "`->` renvoie du `jsonb`, `->>` et `#>>` du `text`, `@>` teste la contenance et est servi par GIN."
+        },
+        {
+          "term": "Champ très sollicité",
+          "detail": "Le promouvoir avec un index sur expression. Sur PostgreSQL 18, les colonnes générées sont virtuelles par défaut et non indexables."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le back-office filtre les commandes sur `metadata->>'channel'` et trie sur `metadata->>'priority'` ; ces requêtes ralentissent de plus en plus et leurs estimations de lignes sont très fausses. Que changeriez-vous ?",
+        "bridge": "Les champs sur lesquels on filtre ou trie vont dans des colonnes : un document n’a ni types ni statistiques par champ. Ce JSONB contient une colonne manquante."
+      },
+      {
+        "question": "Quand une colonne JSONB est-elle le bon choix ? Donnez un exemple tiré de l’intégration de paiement.",
+        "bridge": "JSONB convient aux données stockées et renvoyées en entier, comme un payload brut de webhook, pas aux champs qu’on interroge, joint ou contraint."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux listent les plus gros paiements à partir des payloads bruts des webhooks. Laquelle les trie par montant ?",
+        "why": "`->>` renvoie du `text`, donc la valeur doit être convertie avant une comparaison ou un tri numérique. Triées comme du texte, les chaînes se comparent caractère par caractère : '900' passe avant '4500', qui passe avant '12000', et le plus gros paiement sort du haut du classement."
+      }
+    ]
+  },
+  "db-migration-tooling": {
+    "topic": "Fichiers et outils de migration",
+    "question": "Comment gérez-vous les migrations de base de données en équipe, de leur écriture à leur exécution en production ?",
+    "answer": "Une migration est un fichier versionné qui fait avancer le schéma d’un pas ; l’outil enregistre dans une table les fichiers déjà exécutés, donc chaque environnement n’applique que les nouveaux. Je les traite comme du code : dans le dépôt, relues avec le changement applicatif, lintées, et exécutées sur un vrai PostgreSQL en CI. Un seul exécutant les applique, une étape de CI/CD ou un Job Kubernetes, avant que le nouveau code démarre, jamais chaque instance de l’API au démarrage. Je ne modifie jamais une migration qui a tourné dans un environnement partagé, et je corrige en avant avec une nouvelle plutôt que de compter sur les migrations down, puisqu’une colonne supprimée ne peut pas revenir.",
+    "keyPoints": [
+      "Fichiers versionnés ; une table enregistre ceux qui ont tourné",
+      "Relues avec le code, lintées, testées en CI",
+      "Un seul exécutant avant le nouveau code, pas chaque instance",
+      "Ne jamais modifier une migration appliquée ; corriger en avant"
+    ],
+    "explanation": "Les recruteurs vérifient que les changements de schéma suivent la même discipline que le code. Un senior cite les modes de défaillance : deux instances qui migrent en même temps, un fichier modifié qui diverge entre environnements, et des instructions comme `CREATE INDEX CONCURRENTLY` qui ne peuvent pas tourner dans une transaction.",
+    "example": "L’API Orders exécutait les migrations Prisma au démarrage du conteneur, et lors d’un déploiement à trois réplicas, deux d’entre eux se sont disputé le même fichier. L’équipe a déplacé `prisma migrate deploy` dans un Job Kubernetes qui tourne avant le rollout, et a ajouté une étape de lint Squawk qui signale désormais en review les index créés sans `CONCURRENTLY`.",
+    "mistakes": [
+      "Laisser chaque instance de l’API exécuter les migrations au démarrage",
+      "Modifier une migration qui a déjà tourné en staging au lieu d’en écrire une nouvelle",
+      "Compter sur une migration down pour restaurer des données qu’une migration up a supprimées"
+    ],
+    "followUps": [
+      {
+        "question": "Quels outils avez-vous utilisés, et en quoi diffèrent-ils ?",
+        "answer": "Prisma Migrate et Drizzle Kit génèrent le SQL à partir du schéma de l’ORM ; node-pg-migrate exécute des migrations écrites à la main pour des projets Kysely ou `pg` brut ; Atlas planifie les migrations à partir d’un schéma déclaré et les linte ; Flyway exécute des fichiers SQL versionnés vérifiés par checksum. Je prends celui qui correspond à la couche de données."
+      },
+      {
+        "question": "Pourquoi `CREATE INDEX CONCURRENTLY` demande-t-il un traitement particulier dans une migration ?",
+        "answer": "Il refuse de tourner dans une transaction, et beaucoup d’outils enveloppent les migrations dans une transaction, donc la migration doit s’en exclure, comme avec `pgm.noTransaction()` dans node-pg-migrate. Une construction concurrente ratée laisse un index invalide, donc la migration le supprime d’abord pour pouvoir être relancée sans risque."
+      },
+      {
+        "question": "Qu’attrape un linter de migrations ?",
+        "answer": "Les instructions qui verrouillent ou cassent une table en production : un index sans `CONCURRENTLY`, une contrainte ajoutée sans `NOT VALID`, une colonne renommée ou un type changé qui casse le code en cours d’exécution, et un `lock_timeout` manquant. Squawk les signale en CI avant la review."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`CREATE INDEX CONCURRENTLY` ne peut pas tourner dans un bloc de transaction.",
+        "why": "PostgreSQL le refuse dans une transaction, donc la migration doit s’exécuter en dehors.",
+        "twin": {
+          "statement": "`CREATE INDEX CONCURRENTLY` peut tourner dans un bloc de transaction, comme toute autre instruction de migration.",
+          "why": "PostgreSQL le refuse dans une transaction, donc cette migration doit s’exécuter en dehors."
+        }
+      },
+      {
+        "statement": "Une petite correction dans une migration déjà exécutée en production est sans risque tant que le SQL reste équivalent.",
+        "why": "Les outils suivent les fichiers appliqués, Flyway échoue à la validation sur un checksum modifié, et les environnements divergent ; écris une nouvelle migration.",
+        "twin": {
+          "statement": "Même une correction équivalente d’une migration déjà exécutée en production va dans une nouvelle migration.",
+          "why": "Les outils suivent les fichiers appliqués, Flyway échoue à la validation sur un checksum modifié, et les environnements divergent."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les migrations sont des fichiers versionnés qui font avancer le schéma pas à pas, suivis par une table dans chaque base. Les traiter comme du code et les exécuter une seule fois, avant le nouveau code, sécurise les déploiements.",
+      "points": [
+        "Une migration est un fichier versionné qui modifie le schéma, et parfois les données, d’un pas. L’outil enregistre les fichiers appliqués dans une table, donc chaque environnement n’exécute que les nouveaux.",
+        "Les migrations sont du code : dans le dépôt, relues avec le changement applicatif, exécutées sur un vrai PostgreSQL en CI, et lintées (Squawk signale les instructions qui verrouillent ou cassent).",
+        "Un seul exécutant les applique avant que le nouveau code démarre : une étape de CI/CD ou un Job Kubernetes, jamais chaque instance de l’API au démarrage. La plupart des outils prennent un verrou pour que deux exécutants n’appliquent pas le même fichier.",
+        "Ne modifie jamais une migration qui a tourné dans un environnement partagé ; corrige en avant avec une nouvelle. Une migration down ne restaure pas les données d’une colonne supprimée, donc garde chaque étape rétrocompatible.",
+        "Certaines instructions refusent une transaction, comme `CREATE INDEX CONCURRENTLY` : cette migration s’exclut de la transaction de l’outil et supprime un éventuel index invalide restant avant de réessayer."
+      ],
+      "takeaways": [
+        {
+          "term": "Table des migrations",
+          "detail": "Enregistre les fichiers exécutés, donc chaque environnement n’applique que les nouveaux."
+        },
+        {
+          "term": "Traitées comme du code",
+          "detail": "Dans le dépôt, relues avec le changement, exécutées sur un vrai PostgreSQL en CI, lintées avec Squawk."
+        },
+        {
+          "term": "Un seul exécutant",
+          "detail": "Une étape de CI/CD ou un Job Kubernetes avant que le nouveau code démarre, jamais chaque instance au démarrage."
+        },
+        {
+          "term": "Verrou de l’exécutant",
+          "detail": "La plupart des outils prennent un verrou, donc deux exécutants n’appliquent pas le même fichier ; le `migrate()` de Drizzle, non."
+        },
+        {
+          "term": "Corriger en avant",
+          "detail": "Ne jamais modifier une migration exécutée dans un environnement partagé ; une migration down ne restaure pas une colonne supprimée."
+        },
+        {
+          "term": "Migrations sans transaction",
+          "detail": "Pour `CREATE INDEX CONCURRENTLY` : sortir de la transaction de l’outil, supprimer un index invalide restant avant de réessayer."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Après un déploiement sur 8 pods, les logs montrent que la même migration a démarré 8 fois et que deux pods ont planté sur « relation already exists ». Comment les migrations devraient-elles tourner ?",
+        "bridge": "Un seul exécutant applique les migrations avant que le nouveau code démarre, une étape de CI/CD ou un Job Kubernetes, jamais chaque instance de l’API au démarrage."
+      },
+      {
+        "question": "Un collègue a modifié une migration qui avait déjà tourné en staging, pour corriger une faute de frappe. Pourquoi est-ce un problème, et que faites-vous à la place ?",
+        "bridge": "L’outil enregistre les fichiers appliqués, donc un fichier modifié ne retourne jamais et les environnements divergent ; corrige en avant avec une nouvelle migration."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux migrations node-pg-migrate ajoutent un index à la table des commandes en production. Laquelle s’exécute ?",
+        "why": "L’outil enveloppe chaque migration dans une transaction sauf si elle s’en exclut, et PostgreSQL y refuse une construction concurrente : « CREATE INDEX CONCURRENTLY cannot run inside a transaction block ». `pgm.noTransaction()` s’en exclut, donc l’index se construit sans bloquer les écritures ; l’autre version échoue au déploiement."
+      }
+    ]
+  },
+  "db-transactions-node": {
+    "topic": "Transactions dans du code Node",
+    "question": "Comment exécutez-vous correctement une transaction de base de données depuis Node, et qu’est-ce qui se passe mal quand on la gère à la main ?",
+    "answer": "Une transaction vit sur une seule connexion, donc je prends un client du pool, j’envoie `BEGIN`, j’exécute toutes les requêtes sur ce client, puis `COMMIT`, ou `ROLLBACK` à la moindre erreur, et je libère le client dans un `finally`. À la main, deux choses cassent : un rollback manquant laisse la connexion en transaction avortée, donc la requête suivante échoue avec `25P02`, et une libération manquante fait fuir des connexions jusqu’à vider le pool. Donc je l’enveloppe dans un helper à callback, ou j’utilise celui de l’ORM, comme `db.transaction` de Drizzle. Dedans, chaque requête doit utiliser `tx`, jamais `pool.query`, et rien de lent, comme un appel HTTP, ne tourne à l’intérieur.",
+    "keyPoints": [
+      "Un seul client : `BEGIN`, requêtes, `COMMIT` ou `ROLLBACK`",
+      "Libérer dans `finally` ; une fuite vide le pool",
+      "Helper à callback ; chaque requête utilise `tx`, pas `pool.query`",
+      "Aucun appel HTTP ni travail lent dans la transaction"
+    ],
+    "explanation": "C’est une source fréquente d’incidents en production, et les recruteurs attendent une vision au niveau de la connexion. Un senior explique les défaillances `25P02` et les fuites, comment `tx` traverse les couches, et pourquoi une transaction qui enveloppe un appel de paiement affame le pool.",
+    "example": "Pendant les soldes, les requêtes de checkout restaient bloquées et `pg_stat_activity` montrait des dizaines de sessions « idle in transaction » : `POST /orders` appelait le prestataire de paiement dans la transaction en tenant des verrous sur les lignes de stock. Sortir l’appel de paiement, pour que la transaction ne fasse que réserver le stock et enregistrer le résultat, a vidé la file d’attente du pool, et `idle_in_transaction_session_timeout` est devenu le filet de sécurité.",
+    "mistakes": [
+      "Appeler `pool.query('BEGIN')` puis d’autres `pool.query`, qui peuvent chacun tourner sur une connexion différente",
+      "Libérer le client sans rollback après une erreur, ce qui passe une transaction avortée à la requête suivante",
+      "Appeler une API externe dans la transaction, en tenant une connexion et des verrous de ligne pendant des secondes"
+    ],
+    "followUps": [
+      {
+        "question": "Comment la transaction atteint-elle les repositories dans une base de code en couches ?",
+        "answer": "Soit je passe `tx` en paramètre, ce qui est facile à lire et à tester, soit je le transporte dans `AsyncLocalStorage`, et les repositories appellent un `currentDb()` qui renvoie la transaction ouverte ou le pool. Je choisis un seul style par base de code."
+      },
+      {
+        "question": "À quoi sert un savepoint ?",
+        "answer": "Après une erreur SQL, toute la transaction est avortée. Un savepoint est un marqueur à l’intérieur vers lequel on revient sans perdre le travail externe, donc un travail interne qui peut échouer seul ne fait pas tout échouer. Drizzle en ouvre un pour un `tx.transaction` imbriqué."
+      },
+      {
+        "question": "L’API est lente, le CPU de la base est bas, le nombre de requêtes en attente du pool augmente. Que vérifiez-vous ?",
+        "answer": "Des connexions tenues alors qu’aucun SQL ne tourne : des sessions « idle in transaction » dans `pg_stat_activity`, dues à un appel HTTP dans une transaction ou à un commit ou une libération manquants. Je corrige ce chemin de code et je définis `idle_in_transaction_session_timeout`, plutôt que d’agrandir le pool."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Après `pool.query('BEGIN')`, les appels `pool.query` suivants s’exécutent dans cette transaction.",
+        "why": "`pool.query` prend n’importe quelle connexion libre à chaque appel, donc les instructions peuvent atterrir sur des connexions différentes.",
+        "twin": {
+          "statement": "Après `pool.query('BEGIN')`, les appels `pool.query` suivants peuvent atterrir sur d’autres connexions, hors de cette transaction.",
+          "why": "`pool.query` prend n’importe quelle connexion libre à chaque appel ; une transaction a besoin d’un seul client réservé."
+        }
+      },
+      {
+        "statement": "Après une erreur dans une transaction, PostgreSQL rejette les instructions suivantes sur cette connexion jusqu’au `ROLLBACK`.",
+        "why": "La transaction est avortée et chaque commande échoue avec `25P02` jusqu’à la fin du bloc de transaction.",
+        "twin": {
+          "statement": "Après une erreur dans une transaction, PostgreSQL continue d’exécuter normalement les instructions suivantes sur cette connexion.",
+          "why": "La transaction est avortée et chaque commande échoue avec `25P02` jusqu’à la fin du bloc de transaction."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une transaction vit sur une seule connexion à la base, donc le code Node doit exécuter toutes ses requêtes sur le même client du pool. À la main, on fait facilement fuir des connexions ou on les laisse en transaction avortée.",
+      "points": [
+        "Une transaction vit sur une seule connexion. Réserve un client avec `pool.connect()`, exécute dessus `BEGIN`, chaque requête et `COMMIT`, et `ROLLBACK` à la moindre erreur.",
+        "Libère le client dans `finally`. Une libération manquante fait fuir une connexion ; un rollback manquant la laisse avortée, et la requête suivante échoue avec `25P02`.",
+        "Utilise un helper à callback : il commite quand ta fonction se résout et annule quand elle lève une erreur. Drizzle, Kysely et Prisma en proposent un ; chaque requête à l’intérieur doit utiliser son `tx`.",
+        "Garde les transactions courtes : un appel HTTP, un e-mail ou un upload à l’intérieur tient la connexion et ses verrous de ligne, et apparaît comme « idle in transaction ».",
+        "Un savepoint permet à un travail interne d’échouer sans avorter la transaction externe. Réessayer après un échec de sérialisation ou un deadlock, c’est relancer tout le callback."
+      ],
+      "takeaways": [
+        {
+          "term": "`pool.connect()`",
+          "detail": "Réserve un client ; exécute dessus `BEGIN`, chaque requête et `COMMIT`, et `ROLLBACK` à la moindre erreur."
+        },
+        {
+          "term": "Libérer dans `finally`",
+          "detail": "Une libération manquante fait fuir une connexion, jusqu’à vider le pool."
+        },
+        {
+          "term": "`25P02`",
+          "detail": "Ce que reçoit la requête suivante sur une connexion qu’un rollback manquant a laissée avortée."
+        },
+        {
+          "term": "Helper à callback",
+          "detail": "Commite quand ta fonction se résout, annule quand elle lève une erreur. Chaque requête à l’intérieur utilise son `tx`."
+        },
+        {
+          "term": "« idle in transaction »",
+          "detail": "Un appel HTTP ou un upload à l’intérieur tient la connexion et ses verrous de ligne : garde les transactions courtes."
+        },
+        {
+          "term": "Savepoint",
+          "detail": "Permet à un travail interne d’échouer sans avorter la transaction externe. Un retry relance tout le callback."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Après un checkout raté, chaque requête suivante sur certains pods de l’API échoue avec « current transaction is aborted, commands ignored until end of transaction block ». Qu’est-ce qui ne va pas dans le code de transaction ?",
+        "bridge": "Un `ROLLBACK` manquant a laissé une connexion du pool dans une transaction avortée (`25P02`) ; le helper doit annuler en cas d’erreur et libérer dans `finally`."
+      },
+      {
+        "question": "Pourquoi ne peut-on pas exécuter `pool.query('BEGIN')` suivi d’autres appels `pool.query` comme une transaction avec node-postgres ?",
+        "bridge": "Une transaction vit sur une seule connexion, et `pool.query` prend n’importe quelle connexion libre à chaque appel ; réserve un client et exécute toutes les requêtes dessus."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux réservent du stock et créent une commande dans une transaction avec node-postgres. Laquelle est vraiment une transaction ?",
+        "why": "Une transaction vit sur une seule connexion, donc chaque instruction s’exécute sur le client réservé avec `pool.connect()`, libéré dans `finally`. `pool.query` prend n’importe quelle connexion libre à chaque appel : le `BEGIN` peut atterrir sur une connexion et les insertions sur d’autres, qui commitent aussitôt, et une connexion laissée dans une transaction ouverte retourne au pool."
+      }
+    ]
+  },
+  "db-timeouts": {
+    "topic": "Timeouts de base de données",
+    "question": "Quels timeouts définissez-vous entre une API Node et PostgreSQL, et où ?",
+    "answer": "Les timeouts d’instruction, de verrou et d’inactivité de PostgreSQL sont désactivés par défaut, donc un incident devient un blocage au lieu d’une erreur. Je définis `statement_timeout` contre une requête qui s’emballe, `lock_timeout` pour une instruction qui attend un verrou, et `idle_in_transaction_session_timeout` pour une transaction que le code a oublié de terminer. Je les pose sur le rôle de l’API avec `ALTER ROLE`, pas dans `postgresql.conf`, pour que les migrations et l’administration gardent les leurs, et je les relève avec `SET LOCAL` pour un long export. Côté client, le timeout de connexion du pool arrête l’attente d’une connexion. Les timeouts client ne font qu’arrêter l’attente ; le serveur continue de travailler, donc je les couple à `statement_timeout`.",
+    "keyPoints": [
+      "Timeouts d’instruction et de verrou désactivés par défaut : les incidents bloquent",
+      "`statement_timeout`, `lock_timeout`, timeout idle in transaction",
+      "Définis sur le rôle de l’API ; `SET LOCAL` pour les exceptions",
+      "Les timeouts client arrêtent l’attente, pas le travail du serveur"
+    ],
+    "explanation": "La question sépare les candidats qui ont fait tourner une base sous charge des autres. Un senior sait quelle couche protège chaque timeout, déduit les valeurs du budget de latence, et sait qu’annuler côté client n’arrête pas la requête.",
+    "example": "Pendant un incident, chaque chemin lent restait bloqué, parce que rien n’avait de limite. L’équipe a défini `statement_timeout = '5s'`, `lock_timeout = '2s'` et `idle_in_transaction_session_timeout = '30s'` sur le rôle `orders_api`, et un timeout de connexion sur le pool. L’incident suivant est apparu sous forme d’erreurs `57014` rapides sur un seul endpoint, et l’export CSV nocturne relève sa limite avec `SET LOCAL`.",
+    "mistakes": [
+      "Définir les timeouts dans `postgresql.conf`, ce qui tue aussi les migrations et les sessions d’administration",
+      "Se fier à un timeout de requête côté client et supposer que le serveur a arrêté la requête",
+      "Mettre `lock_timeout` plus haut que `statement_timeout`, où il ne peut jamais se déclencher"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi `idle_in_transaction_session_timeout` compte-t-il au-delà des verrous ?",
+        "answer": "Une transaction ouverte empêche aussi le vacuum de supprimer les versions mortes des lignes, donc une transaction oubliée fait gonfler les tables. Le timeout termine la session, ce qui libère la connexion, les verrous et le vacuum."
+      },
+      {
+        "question": "Comment donnez-vous une limite plus longue à un job sans qu’elle déborde sur les autres requêtes ?",
+        "answer": "`SET LOCAL statement_timeout = '5min'` dans la transaction du job. Il prend fin au commit ou au rollback, donc la connexion du pool revient avec la valeur par défaut du rôle pour la requête suivante."
+      },
+      {
+        "question": "Comment choisissez-vous les valeurs ?",
+        "answer": "À partir du budget de latence : un endpoint qui doit répondre en 2 secondes ne peut pas laisser une requête tourner 30 secondes. `lock_timeout` reste plus court que `statement_timeout`, et les jobs longs ont des exceptions explicites plutôt qu’une valeur par défaut élevée."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`statement_timeout` est désactivé par défaut dans PostgreSQL.",
+        "why": "Sa valeur par défaut est `0`, ce qui signifie aucune limite ; c’est aussi le cas de `lock_timeout` et du timeout idle in transaction.",
+        "twin": {
+          "statement": "Le `statement_timeout` par défaut de PostgreSQL est de 30 secondes.",
+          "why": "Sa valeur par défaut est `0`, ce qui signifie aucune limite ; c’est aussi le cas de `lock_timeout` et du timeout idle in transaction."
+        }
+      },
+      {
+        "statement": "Quand le `query_timeout` de `pg` se déclenche, la requête s’arrête aussi sur le serveur.",
+        "why": "Il ne fait que rejeter la promesse du client ; le serveur continue d’exécuter l’instruction sauf si `statement_timeout` ou une annulation l’arrête.",
+        "twin": {
+          "statement": "Quand le `query_timeout` de `pg` se déclenche, le serveur continue d’exécuter la requête.",
+          "why": "Il ne fait que rejeter la promesse du client ; c’est `statement_timeout` ou une annulation qui arrête l’instruction."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les timeouts d’instruction, de verrou et d’inactivité de PostgreSQL sont tous désactivés par défaut, donc une requête qui s’emballe ou une transaction oubliée devient un blocage au lieu d’une erreur. Des timeouts côté serveur et côté client transforment les incidents en échecs rapides.",
+      "points": [
+        "`statement_timeout` annule toute instruction qui tourne trop longtemps (`57014`). `lock_timeout` fait échouer une instruction qui attend trop longtemps un verrou (`55P03`).",
+        "`idle_in_transaction_session_timeout` termine une session inactive dans une transaction ouverte, qui tient des verrous et bloque le vacuum. `transaction_timeout` (PostgreSQL 17+) limite une transaction entière.",
+        "Tous valent `0`, désactivé, par défaut. Définis-les sur le rôle de l’application avec `ALTER ROLE`, pour qu’ils s’appliquent à chaque session via n’importe quel pooler, et relève-les par transaction avec `SET LOCAL`.",
+        "Les timeouts client sont une autre couche : le timeout de connexion du pool et le `query_timeout` de `pg` arrêtent ton attente, mais le serveur continue de travailler, donc couple-les à `statement_timeout`."
+      ],
+      "takeaways": [
+        {
+          "term": "`statement_timeout`",
+          "detail": "Annule toute instruction qui tourne trop longtemps (`57014`)."
+        },
+        {
+          "term": "`lock_timeout`",
+          "detail": "Fait échouer une instruction qui attend trop longtemps un verrou (`55P03`)."
+        },
+        {
+          "term": "Timeout idle in transaction",
+          "detail": "`idle_in_transaction_session_timeout` termine une session inactive dans une transaction ouverte, qui tient des verrous et bloque le vacuum."
+        },
+        {
+          "term": "`transaction_timeout`",
+          "detail": "PostgreSQL 17+ : limite une transaction entière."
+        },
+        {
+          "term": "`ALTER ROLE`",
+          "detail": "Les définir sur le rôle de l’API, pour qu’ils s’appliquent via n’importe quel pooler ; les relever par transaction avec `SET LOCAL`."
+        },
+        {
+          "term": "Timeouts client",
+          "detail": "Le timeout de connexion du pool et `query_timeout` arrêtent ton attente, pas le serveur : couple-les à `statement_timeout`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Pendant un incident, une requête de rapport emballée a tenu des verrous pendant 20 minutes, et l’API Orders est restée bloquée au lieu de renvoyer des erreurs. Quels paramètres manquaient ?",
+        "bridge": "Les timeouts d’instruction et de verrou de PostgreSQL sont désactivés par défaut ; `statement_timeout` et `lock_timeout` sur le rôle de l’API transforment un blocage en erreur."
+      },
+      {
+        "question": "Le client `pg` abandonne après 5 secondes, donc un collègue dit que PostgreSQL n’a pas besoin de `statement_timeout`. Que répondez-vous ?",
+        "bridge": "Les timeouts client ne font qu’arrêter l’attente ; le serveur continue d’exécuter l’instruction sauf si `statement_timeout` ou une annulation l’arrête."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux relèvent le timeout d’instruction pour l’export CSV nocturne sur une connexion du pool. Laquelle garde la limite de 5 s pour les autres requêtes ?",
+        "why": "`SET LOCAL` prend fin avec la transaction, donc après `COMMIT` la connexion revient à la valeur par défaut du rôle. Un simple `SET` dans une transaction dure toute la session une fois commité : la connexion du pool garde 5 minutes, et la requête d’API suivante sur cette connexion perd sa protection de 5 secondes."
+      }
+    ]
+  },
+  "db-type-mapping": {
+    "topic": "Types PostgreSQL vers JavaScript",
+    "question": "Quels pièges rencontrez-vous quand des valeurs PostgreSQL arrivent en JavaScript, et comment les gérez-vous ?",
+    "answer": "Le driver doit faire entrer les types SQL dans ceux de JavaScript. Avec `pg`, `bigint`, donc `count(*)`, et `numeric` reviennent en chaînes, parce qu’un nombre JavaScript n’est exact que jusqu’à 2 puissance 53 moins 1 et que les décimaux perdraient en précision ; donc `count + 1` peut donner `'31'`. `timestamptz` devient un `Date` au bon instant, mais un `date` devient minuit heure locale, ce qui est la veille en UTC à Paris. Je décide la conversion une seule fois, en bordure : un type parser, un cast SQL comme `count(*)::int`, ou un mode de colonne de l’ORM, et je garde l’argent exact et les jours calendaires en chaînes.",
+    "keyPoints": [
+      "`bigint`, `count(*)` et `numeric` arrivent en chaînes",
+      "Les nombres ne sont exacts que jusqu’à 2^53 − 1",
+      "`date` devient minuit heure locale : décalé d’un jour en UTC",
+      "Décider la conversion une fois : type parser, cast ou mode ORM"
+    ],
+    "explanation": "Ces bugs n’apparaissent qu’avec de vraies données, donc les recruteurs s’en servent pour repérer une expérience concrète. Un senior explique pourquoi le driver a choisi des chaînes, centralise la conversion, et connaît les effets de bord, comme `JSON.stringify` qui refuse un `BigInt`.",
+    "example": "Le rapport quotidien du back-office affichait « 31 commandes » pour 3 commandes, parce que `count(*)` revenait sous la forme de la chaîne `'3'` et que le code ajoutait 1, et les dates de livraison avaient un jour d’avance. L’équipe a converti les comptages avec `::int` en SQL et défini un type parser `pg` qui garde les valeurs `date` en chaînes `YYYY-MM-DD`.",
+    "mistakes": [
+      "Convertir un id `bigint` avec `Number()` et perdre silencieusement en précision au-delà de 2^53 − 1",
+      "Faire des calculs monétaires sur des valeurs `numeric` converties en nombres JavaScript",
+      "Laisser une colonne `date` devenir un objet `Date` et livrer des bugs de décalage d’un jour"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qui casse si vous convertissez les colonnes `bigint` en `BigInt` JavaScript ?",
+        "answer": "`JSON.stringify` lève « Do not know how to serialize a BigInt », donc la couche API doit convertir, en général en chaîne pour les ids. Pour de petits comptages, un cast SQL avec `::int` est plus simple."
+      },
+      {
+        "question": "Comment les ORM gèrent-ils ces types ?",
+        "answer": "Ils rendent le choix explicite. Les colonnes Drizzle prennent un `mode`, comme `bigint('id', { mode: 'number' })` ou `numeric` en `'string'`. Prisma renvoie les champs `BigInt` en `bigint` et les champs `Decimal` en objets Decimal.js."
+      },
+      {
+        "question": "Comment traitez-vous une valeur `jsonb` lue par le driver ?",
+        "answer": "Le driver la convertit en objet, mais sa forme n’est pas vérifiée, donc je la traite comme `unknown` et je la valide avec un schéma Zod à la lecture, comme n’importe quelle autre entrée."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "node-postgres renvoie `count(*)` sous forme de nombre JavaScript.",
+        "why": "`count(*)` est un `bigint`, que `pg` renvoie en chaîne pour ne pas perdre de précision.",
+        "twin": {
+          "statement": "node-postgres renvoie `count(*)` sous forme de chaîne.",
+          "why": "`count(*)` est un `bigint`, que `pg` renvoie en chaîne pour ne pas perdre de précision."
+        }
+      },
+      {
+        "statement": "`Number('9007199254740993')` renvoie exactement 9007199254740993.",
+        "why": "La valeur dépasse `Number.MAX_SAFE_INTEGER`, donc elle est arrondie à 9007199254740992.",
+        "twin": {
+          "statement": "`Number('9007199254740993')` donne 9007199254740992.",
+          "why": "La valeur dépasse `Number.MAX_SAFE_INTEGER`, donc elle est arrondie au nombre le plus proche qu’un double peut représenter."
+        }
+      },
+      {
+        "statement": "`pg` renvoie une valeur `timestamptz` sous forme de `Date` au bon instant.",
+        "why": "La valeur est un instant absolu, donc le `Date` désigne le même moment quel que soit le fuseau horaire du processus.",
+        "twin": {
+          "statement": "`pg` renvoie une valeur `timestamptz` sous forme de `Date` décalé du fuseau horaire du processus.",
+          "why": "La valeur est un instant absolu, donc le `Date` désigne le même moment quel que soit le fuseau horaire du processus."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le driver doit faire entrer les types PostgreSQL dans ceux de JavaScript, et certains n’entrent pas proprement. Les grands entiers, les décimaux et les dates sont là où apparaissent les bugs silencieux.",
+      "points": [
+        "Un nombre JavaScript n’est exact que jusqu’à 2^53 − 1 (`Number.MAX_SAFE_INTEGER`). Donc `pg` renvoie `bigint`, y compris `count(*)`, et `numeric` en chaînes : `'3' + 1` donne `'31'`.",
+        "`timestamptz` devient un `Date` au bon instant. Un simple `timestamp` est lu dans l’heure locale du processus Node, et un `date` comme minuit heure locale, soit la veille en UTC à l’est de Greenwich.",
+        "Décide la conversion une seule fois, en bordure : un type parser `pg` pour tout le processus, un cast SQL comme `count(*)::int`, ou un mode de colonne de l’ORM.",
+        "Garde l’argent en centimes entiers ou en chaîne décimale et calcule avec une bibliothèque décimale ; garde les jours calendaires en chaînes `YYYY-MM-DD`. `JSON.stringify` lève une erreur sur un `BigInt`."
+      ],
+      "takeaways": [
+        {
+          "term": "`Number.MAX_SAFE_INTEGER`",
+          "detail": "2^53 − 1 : au-delà, un nombre JavaScript n’est plus exact."
+        },
+        {
+          "term": "`bigint`, `count(*)`, `numeric`",
+          "detail": "`pg` les renvoie en chaînes, donc `'3' + 1` donne `'31'`."
+        },
+        {
+          "term": "`timestamptz`",
+          "detail": "Devient un `Date` au bon instant."
+        },
+        {
+          "term": "`date` et `timestamp`",
+          "detail": "Lus dans l’heure locale de Node : un `date` devient minuit heure locale, la veille en UTC à l’est de Greenwich."
+        },
+        {
+          "term": "Conversion en bordure",
+          "detail": "La décider une fois : un type parser `pg`, un cast SQL comme `count(*)::int`, ou un mode de colonne de l’ORM."
+        },
+        {
+          "term": "Argent et jours",
+          "detail": "Centimes entiers ou chaînes décimales avec une bibliothèque décimale ; jours en `YYYY-MM-DD`. `JSON.stringify` lève une erreur sur un `BigInt`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Des clients à Paris voient leur date de livraison un jour trop tôt dans le JSON de l’API. La colonne est un `date`, lu avec `pg`. Pourquoi ?",
+        "bridge": "`pg` transforme un `date` en `Date` à minuit heure locale, soit la veille en UTC à Paris ; les jours calendaires sont plus sûrs en chaînes."
+      },
+      {
+        "question": "Pourquoi node-postgres renvoie-t-il les valeurs `bigint` et `numeric` en chaînes, et comment les gérez-vous ?",
+        "bridge": "Les nombres JavaScript ne sont exacts que jusqu’à 2^53 − 1 et les décimaux perdent en précision, donc `pg` renvoie des chaînes ; décide la conversion une fois, en bordure."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux ajoutent le nombre de commandes du jour lu via node-postgres aux commandes encore en file en mémoire. Laquelle renvoie un nombre ?",
+        "why": "`count(*)` est un `bigint`, que `pg` renvoie en chaîne pour ne pas perdre de précision. Converti en `int` en SQL, il arrive en nombre : 3 + 1 font 4. Sans le cast, `'3' + 1` concatène, et le rapport affiche « 31 commandes »."
+      }
+    ]
+  }
+}

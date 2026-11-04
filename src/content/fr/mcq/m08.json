@@ -1,0 +1,302 @@
+{
+  "m08.q1": {
+    "q": "Un nœud de plan affiche <code>Buffers: shared hit=3 read=4762</code>. Qu’est-ce que ça t’apprend ?",
+    "options": [
+      "4 765 lignes ont été lues au total : 3 via une recherche d’index et 4 762 directement dans le heap de la table",
+      "4 765 pages de 8 ko : 3 trouvées dans la mémoire de PostgreSQL, 4 762 demandées à l’OS ou au disque",
+      "Le nœud s’est exécuté 3 fois sur le cache partagé et 4 762 fois sur le disque, une fois par ligne",
+      "3 lignes correspondaient au filtre, et 4 762 lignes ont été lues puis écartées par le filtre"
+    ],
+    "explain": "Les buffers comptent des pages de 8 ko, pas des lignes : les pages <code>hit</code> ont été trouvées dans la mémoire partagée de PostgreSQL, les pages <code>read</code> ont dû être demandées. Les lignes écartées apparaissent sur une autre ligne, <code>Rows Removed by Filter</code>. Depuis PostgreSQL 18, <code>EXPLAIN ANALYZE</code> affiche ces chiffres par défaut."
+  },
+  "m08.q2": {
+    "q": "Pour examiner le job lent de nettoyage des sessions de connexion, tu lances <code>EXPLAIN ANALYZE DELETE FROM sessions WHERE expires_at &lt; now()</code> en production. Que se passe-t-il ?",
+    "options": [
+      "Seulement le plan avec les estimations, parce qu’ANALYZE passe en mode lecture seule pour les écritures comme DELETE",
+      "Une erreur : ANALYZE n’est autorisé qu’avec SELECT, donc il faut d’abord réécrire le DELETE en SELECT",
+      "Le plan est affiché et les lignes sont réellement supprimées : ANALYZE exécute l’instruction",
+      "Les lignes ne sont supprimées qu’après un COMMIT explicite"
+    ],
+    "explain": "<code>ANALYZE</code> exécute l’instruction pour la mesurer. Mesuré sur PostgreSQL 18.6 : <code>EXPLAIN ANALYZE DELETE</code> a supprimé les 100 lignes ; dans <code>BEGIN</code> … <code>ROLLBACK</code>, elles sont revenues. Sans transaction explicite, l’instruction est en autocommit, donc pas besoin de <code>COMMIT</code> pour faire les dégâts."
+  },
+  "m08.q3": {
+    "q": "Après la création d’un index sur <code>orders (customer_id, created_at)</code>, le plan de la requête « mes commandes » (<code>WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 20</code>) n’a plus de nœud Sort. Pourquoi ?",
+    "options": [
+      "L’index garde les entrées de chaque client dans l’ordre des dates, lues à l’envers pour DESC",
+      "PostgreSQL met en cache le résultat trié de l’appel précédent et le réutilise tant que la table ne change pas",
+      "Avec LIMIT 20, le tri est si petit qu’EXPLAIN le masque dans la sortie du plan",
+      "La table elle-même est stockée triée par created_at, parce que les lignes ont été insérées dans l’ordre des dates"
+    ],
+    "explain": "Un B-tree garde ses entrées triées et ses pages feuilles chaînées, donc il peut renvoyer les lignes dans l’ordre de l’index, à l’endroit ou à l’envers (mesuré : <code>Index Scan Backward</code>, 23 pages). La table n’est pas triée par client : les commandes d’un client sont réparties sur 40 pages différentes. Un tri exécuté est toujours affiché, aussi petit soit-il."
+  },
+  "m08.q4": {
+    "q": "Quelle mise à jour peut être une mise à jour HOT, qui n’écrit aucune entrée d’index ?",
+    "options": [
+      "Toute mise à jour d’une colonne indexée, tant que la page a encore assez d’espace libre pour la nouvelle version",
+      "Toute mise à jour sur une table avec le <code>fillfactor = 100</code> par défaut, puisque ses pages sont remplies efficacement",
+      "Une mise à jour d’une colonne non indexée, quand la nouvelle version de la ligne tient dans la même page",
+      "Toute mise à jour faite dans une transaction explicite"
+    ],
+    "explain": "HOT exige les deux conditions : aucune colonne indexée modifiée, et de la place dans la page pour la nouvelle version. Mesuré avec <code>fillfactor = 90</code> : 2 000 mises à jour HOT sur 2 000 pour <code>total_cents</code>, non indexée, 0 pour <code>status</code>, indexée ; avec le <code>fillfactor = 100</code> par défaut, les pages pleines ont donné 0 mise à jour HOT."
+  },
+  "m08.q5": {
+    "q": "Le seul index secondaire sur <code>orders</code> est <code>(customer_id, created_at)</code>. Quelle requête ne peut pas l’utiliser pour sauter directement à ses lignes ?",
+    "options": [
+      "<code>WHERE customer_id = $1</code>",
+      "<code>WHERE customer_id = $1 AND created_at &gt;= $2</code>",
+      "<code>WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 20</code>",
+      "<code>WHERE created_at &gt;= $1 AND created_at &lt; $2</code>"
+    ],
+    "explain": "Règle du préfixe gauche : l’index est trié d’abord par client, donc une journée de commandes est répartie sur les 10 000 sections client. Mesuré : un <code>Index Only Scan</code> sur tout l’index (1 539 pages, <code>Index Searches: 1</code>), sans saut. Les trois autres requêtes contraignent la première colonne."
+  },
+  "m08.q6": {
+    "q": "PostgreSQL 18 ajoute le skip scan sur les B-tree. Quand aide-t-il vraiment ?",
+    "options": [
+      "Quand la requête saute une première colonne qui a peu de valeurs distinctes",
+      "Quand la première colonne est unique, pour que chaque saut dans l’index trouve exactement une ligne",
+      "Toujours : l’ordre des colonnes dans les index composites n’a plus aucune importance depuis PostgreSQL 18",
+      "Seulement pour les Index Only Scans sur des index couvrants construits avec une clause <code>INCLUDE</code>"
+    ],
+    "explain": "Le skip scan redescend dans l’index pour chaque valeur distincte de la première colonne. Mesuré : avec <code>(status, created_at)</code> (4 statuts), une requête sur la date seule a montré <code>Index Searches: 9</code> et lu 60 pages ; avec <code>(customer_id, created_at)</code> (10 000 clients), aucun saut. Il sauve une première colonne à faible cardinalité ; il ne rend pas l’ordre des colonnes indifférent."
+  },
+  "m08.q7": {
+    "q": "Un plan affiche <code>Index Only Scan</code> avec <code>Heap Fetches: 5000</code> pour 5 000 lignes. Que se passe-t-il ?",
+    "options": [
+      "Il manque à l’index une colonne que la requête lit",
+      "Les pages ne sont pas encore all-visible dans la visibility map ; un VACUUM règle le problème",
+      "L’index est corrompu, et PostgreSQL se rabat sur la table pour lire chaque ligne en sécurité",
+      "Les statistiques sont périmées, donc le planner a estimé un mauvais nombre de lignes pour ce scan"
+    ],
+    "explain": "Mesuré sur une table de 100 000 lignes : juste après l’insertion de 5 000 lignes, <code>Heap Fetches: 5000</code> ; après <code>VACUUM</code>, <code>Heap Fetches: 0</code>. Une colonne manquante donnerait un simple Index Scan, pas un Index Only Scan. La visibility map est maintenue par l'(auto)vacuum."
+  },
+  "m08.q8": {
+    "q": "<code>customers</code> a un index sur <code>email</code>. Pourquoi <code>WHERE lower(email) = lower($1)</code> fait-il encore un Seq Scan ?",
+    "options": [
+      "La table est trop petite : avec 10 000 lignes, le planner ne se donne jamais la peine d’utiliser un index",
+      "Les paramètres de requête comme <code>$1</code> empêchent PostgreSQL d’utiliser les index sur les colonnes texte",
+      "Les index B-tree ne peuvent pas stocker de valeurs texte de plus de quelques caractères, comme des adresses e-mail",
+      "L’index stocke <code>email</code>, pas <code>lower(email)</code> ; il faut indexer l’expression elle-même"
+    ],
+    "explain": "Mesuré : l’index simple servait <code>email = $1</code>, mais la comparaison avec <code>lower()</code> a écarté 9 999 lignes sur 10 000 dans un Seq Scan. Un index sur <code>(lower(email))</code> a donné un Index Scan, et le rendre <code>UNIQUE</code> a rejeté <code>USER42@example.com</code> avec l’erreur 23505."
+  },
+  "m08.q9": {
+    "q": "Un champ de recherche produit envoie <code>name ILIKE '%walnut office desk%'</code>. Quel index évite à PostgreSQL de lire toute la table ?",
+    "options": [
+      "Un index B-tree sur <code>name</code>, qui sert aussi <code>ILIKE</code> quand le motif est assez long",
+      "Un index GIN sur <code>name</code> avec <code>gin_trgm_ops</code> (pg_trgm)",
+      "Un index BRIN sur <code>name</code>",
+      "Un index B-tree sur <code>lower(name)</code>, qui rend la comparaison insensible à la casse"
+    ],
+    "explain": "Un B-tree ne peut pas servir un motif qui commence par un joker : mesuré, le plan est resté un Seq Scan avec un B-tree sur <code>name</code>. L’index GIN trigramme a trouvé les 25 produits en 60 pages au lieu de 161. BRIN demande une colonne qui suit l’ordre physique de la table, ce que les noms ne font pas."
+  },
+  "m08.q10": {
+    "q": "Avec un index sur <code>status</code>, <code>WHERE status = 'delivered'</code> (85 % des lignes) s’exécute en Seq Scan. Pourquoi ?",
+    "options": [
+      "L’index est invalide après sa construction et doit être reconstruit avec REINDEX avant que le planner l’utilise",
+      "Le planner n’utilise jamais d’index sur une colonne texte avec si peu de valeurs distinctes, seulement sur des nombres",
+      "Lire 85 % de la table via l’index coûte plus cher que de la lire d’un bout à l’autre",
+      "La table n’a jamais été analysée après la construction de l’index"
+    ],
+    "explain": "Mesuré sur le même index : <code>pending</code> (1 %) et <code>shipped</code> (10 %) utilisaient un Bitmap Index Scan, <code>delivered</code> (85 %) un Seq Scan. Le planner compte une lecture de page aléatoire 4 fois plus cher qu’une lecture séquentielle (<code>random_page_cost = 4</code>). Ce sont justement des statistiques fraîches qui lui ont dit que 85 % des lignes correspondent."
+  },
+  "m08.q11": {
+    "q": "Le CPU de la base est élevé après une mise en production. Où regardes-tu d’abord pour trouver les instructions qui coûtent le plus ?",
+    "options": [
+      "<code>auto_explain</code>, pour lire le plan de chaque instruction",
+      "<code>pg_stat_user_indexes</code>",
+      "Lancer <code>EXPLAIN ANALYZE</code> sur chaque requête de la base de code",
+      "<code>pg_stat_statements</code>, trié par <code>total_exec_time</code>"
+    ],
+    "explain": "<code>pg_stat_statements</code> agrège chaque instruction normalisée avec son nombre d’appels et son temps total, donc une requête peu coûteuse appelée 50 000 fois apparaît à côté d’un rapport lent. <code>auto_explain</code> te donne ensuite le plan de l’instruction coupable ; c’est la deuxième étape, pas la première."
+  },
+  "m08.q12": {
+    "q": "Pourquoi l’équipe ne doit-elle pas lancer un simple <code>CREATE INDEX</code> sur la table <code>orders</code> de production ?",
+    "options": [
+      "Il verrouille la table en lecture et en écriture jusqu’à la fin de la construction, donc même la page échoue",
+      "Il réécrit toute la table, ce qui double sa taille sur disque pendant la construction",
+      "Chaque INSERT, UPDATE et DELETE sur la table attend la fin de la construction, alors que les lectures continuent",
+      "Il ne peut pas s’exécuter pendant que l’autovacuum travaille sur la table, donc il échoue au hasard en production"
+    ],
+    "explain": "La documentation de CREATE INDEX dit qu’une construction simple verrouille la table en écriture pendant toute la construction, tandis que les autres transactions peuvent encore la lire ; mesuré, <code>pg_locks</code> a montré un <code>ShareLock</code>, qui entre en conflit avec le verrou que prend chaque écriture. Les lectures ne sont pas bloquées, c’est la mauvaise réponse tentante : la panne vient des inserts du checkout qui s’accumulent. <code>CREATE INDEX CONCURRENTLY</code> l’évite."
+  },
+  "m08.q13": {
+    "q": "Dans ce plan de jointure, combien de lignes le scan des articles a-t-il renvoyées au total ?",
+    "options": [
+      "2,45",
+      "20",
+      "22,45",
+      "49"
+    ],
+    "explain": "<code>actual rows</code> est une moyenne par boucle : 2,45 lignes × 20 boucles = 49, ce qui correspond au <code>actual rows=49.00</code> du <code>Nested Loop</code> lui-même (mesuré sur les articles des 20 commandes de la page). Lire 2,45 comme le total est l’erreur classique ; PostgreSQL 18 affiche les décimales justement parce que le chiffre est une moyenne."
+  },
+  "m08.q14": {
+    "q": "Juste après un import nocturne, une ligne de plan indique <code>Bitmap Heap Scan on orders (cost=48.86..5185.21 rows=4186 …) (actual rows=34000.00 loops=1)</code>. Que soupçonnes-tu d’abord ?",
+    "options": [
+      "Des statistiques périmées : l’estimation est 8 fois trop basse ; lancer <code>ANALYZE orders</code>",
+      "Un index manquant sur <code>status</code>",
+      "Trop peu de <code>work_mem</code> : le bitmap est devenu lossy et le planner a perdu la trace des lignes",
+      "Un verrou tenu par le job d’import, qui a fait attendre le scan et relire deux fois les pages de la table"
+    ],
+    "explain": "C’est le plan mesuré après l’insertion de 30 000 commandes en attente sans analyse ; après <code>ANALYZE orders</code>, l’estimation est devenue <code>rows=33841</code>. Un index est déjà utilisé ici (Bitmap Heap Scan), et ni la mémoire ni les verrous ne changent une estimation de lignes. L’autovacuum ne réanalyse qu’après une modification d’environ 10 % de la table, donc les jobs de masse doivent lancer l’analyse eux-mêmes."
+  },
+  "m08.q15": {
+    "q": "Un collègue a créé un index sur <code>(created_at, customer_id)</code>. Le plan de la requête « mes commandes » affiche <code>Index Scan Backward</code>, <code>Index Cond: (customer_id = 4242)</code> et aucun Sort. L’index est-il bon ?",
+    "options": [
+      "Oui : Index Scan, bonne Index Cond, pas de Sort, donc il est optimal",
+      "Oui, s’il est déclaré avec <code>created_at DESC</code>",
+      "Non : il passera en Seq Scan quand la table grossira",
+      "Non : il parcourt les dates et vérifie le client entrée par entrée, 767 pages contre 23"
+    ],
+    "explain": "Une colonne qui n’est pas en tête peut apparaître dans l’Index Cond, mais elle est vérifiée entrée par entrée au lieu de servir à sauter. Le nom du nœud le cache ; les buffers (767 mesurés contre 23 avec <code>(customer_id, created_at)</code>) et le coût le révèlent, et le travail grossit avec la table. Un B-tree se lit aussi bien à l’envers, donc DESC ne change rien."
+  },
+  "m08.q16": {
+    "q": "Le tableau de bord de préparation des commandes exécute <code>WHERE status = $1 AND created_at &gt;= $2 ORDER BY created_at LIMIT 50</code> pour chaque statut. Quel index unique crées-tu ?",
+    "options": [
+      "<code>(created_at, status)</code>",
+      "<code>(status, created_at)</code>",
+      "Deux index, <code>(status)</code> et <code>(created_at)</code>",
+      "<code>(created_at) INCLUDE (status)</code>"
+    ],
+    "explain": "La colonne d’égalité d’abord, puis la colonne de plage et de tri : l’index saute à un statut, puis lit ses lignes déjà dans l’ordre des dates, et <code>LIMIT 50</code> s’arrête tôt. Avec <code>created_at</code> en premier, le statut est vérifié entrée par entrée. Un index partiel conviendrait pour un seul statut, mais ce tableau de bord interroge tous les statuts."
+  },
+  "m08.q17": {
+    "q": "<code>orders</code> a à la fois <code>(customer_id)</code> et <code>(customer_id, created_at)</code>, aucun des deux unique. En code review, que proposes-tu ?",
+    "options": [
+      "Garder les deux : l’index à une colonne est toujours plus rapide pour l’égalité, le composite pour le tri",
+      "Supprimer le composite : il est plus lent pour l’égalité",
+      "Supprimer <code>(customer_id)</code> : le composite sert ses requêtes, et les écritures paient pour les deux",
+      "Remplacer les deux par <code>(created_at, customer_id)</code>, qui sert aussi les filtres sur la date"
+    ],
+    "explain": "Par la règle du préfixe gauche, <code>WHERE customer_id = $1</code> peut utiliser le composite. Mesuré : après 10 appels de la requête « mes commandes », <code>idx_scan</code> valait 10 pour le composite et 0 pour <code>orders_customer_idx</code>. Inverser les colonnes casserait au contraire la recherche par client."
+  },
+  "m08.q18": {
+    "q": "Un worker interroge <code>WHERE status = 'pending' ORDER BY created_at LIMIT 50</code> ; les commandes en attente font 1 % d’une grosse table très sollicitée. Quel index livres-tu ?",
+    "options": [
+      "<code>(status)</code>, puis un tri en mémoire des lignes en attente",
+      "<code>(status, created_at)</code> sur toute la table",
+      "<code>(created_at) WHERE status = 'pending'</code>",
+      "<code>(created_at)</code>, lu à partir de la commande la plus ancienne"
+    ],
+    "explain": "L’index partiel ne stocke que les lignes en attente, déjà dans l’ordre des dates : mesuré 104 ko contre 15 Mo pour <code>(status, created_at)</code>, avec un Index Scan, pas de Sort et 52 pages. Les inserts de commandes terminées ne le touchent jamais. <code>(status, created_at)</code> marche aussi, pour 150 fois la taille et avec un coût d’écriture sur chaque commande."
+  },
+  "m08.q19": {
+    "q": "Ce rapport quotidien fait un Seq Scan alors qu’<code>orders</code> a un index sur <code>created_at</code>. Quel correctif livres-tu ?",
+    "options": [
+      "Comparer la colonne nue à une plage semi-ouverte : <code>created_at &gt;= $1 AND created_at &lt; $2</code>",
+      "Créer un index sur <code>(created_at::date)</code>",
+      "Lancer d’abord <code>SET enable_seqscan = off</code>",
+      "Lancer <code>ANALYZE orders</code>"
+    ],
+    "explain": "L’index stocke <code>created_at</code>, pas la date calculée. Mesuré : la version avec cast a parcouru 400 000 lignes, la plage semi-ouverte a lu 6 pages. Un index sur <code>(created_at::date)</code> est refusé (erreur 42P17 : le cast d’un timestamptz dépend du réglage de fuseau horaire, donc il n’est pas immuable), et désactiver les Seq Scans est une bidouille de session, pas un correctif."
+  },
+  "m08.q20": {
+    "q": "Les clients sont supprimés logiquement (<code>deleted_at</code> est renseigné). Règle : un seul compte actif par e-mail, quelle que soit la casse, et un client supprimé peut se réinscrire. Quel index l’impose ?",
+    "options": [
+      "<code>UNIQUE (email)</code>, plus une vérification dans le service d’inscription",
+      "<code>UNIQUE (lower(email))</code> sur toutes les lignes, actives ou supprimées",
+      "<code>UNIQUE (lower(email), deleted_at)</code>, pour que les lignes supprimées diffèrent",
+      "<code>UNIQUE (lower(email)) WHERE deleted_at IS NULL</code>"
+    ],
+    "explain": "L’index unique partiel ne couvre que les lignes actives. Mesuré : avec un <code>Ada@Example.com</code> supprimé, l’insertion de <code>ada@example.com</code> a été acceptée et un second <code>ADA@example.com</code> actif a échoué avec 23505. Ajouter <code>deleted_at</code> à la clé échoue en silence : les lignes actives y ont toutes NULL, et les NULL comptent comme distincts par défaut, donc les doublons actifs passent."
+  },
+  "m08.q21": {
+    "q": "<code>orders</code> a <code>USING gin (metadata jsonb_path_ops)</code>, et pourtant cette requête est un Seq Scan. Que changes-tu ?",
+    "options": [
+      "Lancer <code>ANALYZE orders</code> : un index GIN tout juste créé est ignoré tant qu’il n’a pas de statistiques",
+      "Écrire le filtre sous la forme <code>metadata @&gt; '{\"fraud_review\": true}'</code>",
+      "Le remplacer par un index BRIN sur <code>metadata</code>",
+      "Stocker le flag sous forme de chaîne, parce que les index GIN ne peuvent pas indexer les booléens dans du JSON"
+    ],
+    "explain": "GIN sert des opérateurs comme <code>@&gt;</code>, pas l’expression <code>-&gt;&gt;</code>. Mesuré : la forme <code>-&gt;&gt;</code> a fait un Seq Scan écartant 399 920 lignes, alors que <code>@&gt;</code> a utilisé un Bitmap Index Scan qui lisait 2 pages d’index pour les 80 commandes signalées. Les statistiques étaient fraîches dans les deux cas."
+  },
+  "m08.q22": {
+    "q": "Une table <code>events</code> en append-only reçoit 50 millions de lignes par jour, toujours interrogée par fenêtre de temps sur <code>created_at</code>, et l’espace disque est serré. Quel index choisis-tu ?",
+    "options": [
+      "Un index BRIN sur <code>created_at</code>",
+      "Un index B-tree sur <code>created_at</code>",
+      "Un index GIN sur <code>created_at</code>",
+      "Un index BRIN sur <code>user_id</code>"
+    ],
+    "explain": "Les lignes arrivent dans l’ordre chronologique, donc <code>created_at</code> suit l’ordre physique et chaque plage de blocs a un minimum et un maximum resserrés. Mesuré sur 400 000 commandes : BRIN 24 ko contre 8 792 ko pour un B-tree, au prix de plus de pages lues par requête (133 contre 13). Un BRIN sur une colonne dispersée est inutile (corrélation 0,007 pour <code>customer_id</code>)."
+  },
+  "m08.q23": {
+    "q": "Pour <code>WHERE country = 'FR' AND city = 'Lyon'</code>, le planner estime 31 lignes ; il y en a 250. Les statistiques sont fraîches. Qu’est-ce qui corrige l’estimation ?",
+    "options": [
+      "Relancer <code>ANALYZE customers</code>",
+      "Monter <code>default_statistics_target</code> à 1000 pour affiner les statistiques des deux colonnes",
+      "Créer un index sur <code>(country, city)</code> pour que le planner puisse compter les lignes correspondantes",
+      "<code>CREATE STATISTICS … (dependencies) ON city, country</code>, puis <code>ANALYZE</code>"
+    ],
+    "explain": "Le planner multiplie 1/8 par 1/40 parce qu’il suppose les colonnes indépendantes, et des statistiques par colonne, aussi précises soient-elles, ne peuvent pas lui dire qu’une ville détermine son pays. Mesuré : après <code>CREATE STATISTICS</code> et <code>ANALYZE</code>, l’estimation est devenue exactement 250. Un index change le chemin d’accès, pas cette estimation."
+  },
+  "m08.q24": {
+    "q": "Tu actives <code>auto_explain</code> avec <code>log_min_duration = 500ms</code> et <code>log_analyze = on</code> sur un serveur très sollicité. À quoi dois-tu faire attention ?",
+    "options": [
+      "Le surcoût : <code>log_analyze</code> chronomètre chaque instruction, loggée ou non",
+      "L’espace disque dans <code>pg_stat_statements</code>, où auto_explain stocke chaque plan qu’il capture",
+      "Chaque instruction s’exécute désormais deux fois, une pour renvoyer ses lignes et une pour produire son plan",
+      "Rien : les instructions de moins de 500 ms ne sont touchées en aucune façon par auto_explain"
+    ],
+    "explain": "La documentation prévient que <code>log_analyze</code> instrumente chaque instruction, qu’elle finisse loggée ou non, et que cela peut beaucoup dégrader les performances ; <code>auto_explain.log_timing = off</code> et <code>auto_explain.sample_rate</code> limitent l’effet. Les plans vont dans le log du serveur, pas dans <code>pg_stat_statements</code>, et l’instruction s’exécute une fois."
+  },
+  "m08.q25": {
+    "q": "Sur le primaire, <code>pg_stat_user_indexes.idx_scan</code> vaut 0 depuis trois semaines pour <code>orders_status_idx</code>. Que fais-tu ?",
+    "options": [
+      "Le supprimer tout de suite avec un simple <code>DROP INDEX</code>",
+      "Vérifier les réplicas, un cycle métier complet et les contraintes, puis <code>DROP INDEX CONCURRENTLY</code>",
+      "Ignorer le compteur : <code>idx_scan</code> ne compte que les Index Only Scans, jamais les index scans simples",
+      "Lancer d’abord <code>REINDEX</code>, parce qu’un compteur à zéro signifie souvent que l’index est corrompu"
+    ],
+    "explain": "Chaque serveur a ses propres compteurs, donc un réplica de reporting peut utiliser un index que le primaire ne touche jamais, et un job de fin de mois n’a peut-être pas encore tourné. <code>idx_scan</code> compte chaque scan de l’index, de tout type. Supprimer sur une table en service ne doit pas prendre de verrou bloquant les écritures, d’où <code>CONCURRENTLY</code>."
+  },
+  "m08.q26": {
+    "q": "Un job nocturne supprime les commandes en attente expirées qui n’ont jamais reçu d’articles, et il ralentit chaque semaine. <code>pg_stat_user_tables.seq_scan</code> pour <code>order_items</code> augmente de un par commande supprimée. Que livres-tu ?",
+    "options": [
+      "Un index sur <code>orders (status, created_at)</code>, pour que le job trouve plus vite les commandes à supprimer",
+      "Un index sur <code>order_items (order_id)</code> : chaque suppression vérifie qu’aucun article ne référence la commande",
+      "Lancer <code>ANALYZE order_items</code>, pour que la vérification de clé étrangère passe sur l’index de clé primaire",
+      "Monter <code>work_mem</code>, pour que les vérifications de clé étrangère du job soient plutôt hachées en mémoire"
+    ],
+    "explain": "<code>REFERENCES</code> ne crée aucun index, et avant de supprimer une commande, PostgreSQL vérifie qu’aucun article ne la référence encore. Mesuré : supprimer 10 commandes sans index sur <code>order_items (order_id)</code> a lancé 10 scans séquentiels de la table d’un million de lignes ; avec l’index, aucun. Un index sur <code>orders</code> aide à trouver les lignes à supprimer, pas la vérification sur l’autre table, et la clé primaire de <code>order_items</code> porte sur <code>id</code>."
+  },
+  "m08.q27": {
+    "q": "Un product manager demande un index sur chaque colonne filtrable dans le back-office, « par sécurité ». Que réponds-tu ?",
+    "options": [
+      "Chaque index ralentit chaque insert et beaucoup d’updates et ajoute du WAL : n’en ajouter un que pour une requête mesurée",
+      "D’accord : PostgreSQL ne maintient un index qu’une fois qu’une requête l’a utilisé, donc ceux qui ne servent pas ne coûtent rien",
+      "D’accord, tant que ce sont des index à une colonne, qui ne coûtent presque rien en écriture",
+      "D’accord, à condition que la table utilise <code>fillfactor = 90</code>, qui fait de chaque update une mise à jour HOT"
+    ],
+    "explain": "Chaque index est maintenu à chaque écriture, utilisé ou non. Mesuré sur 100 000 inserts : 18,6 Mo de WAL sans index secondaire, 59,9 Mo avec quatre, et l’index à une colonne <code>(status)</code> ajoutait à lui seul environ 7 Mo. Un dixième libre dans chaque page n’aide pas un update de colonne indexée : mesuré à <code>fillfactor = 90</code>, 0 des 2 000 updates de <code>status</code> étaient HOT."
+  },
+  "m08.q28": {
+    "q": "<code>CREATE INDEX CONCURRENTLY</code> sur <code>orders</code> n’avance plus depuis 20 minutes, et une requête de rapport financier tourne depuis une heure. Que fait le plus probablement la construction ?",
+    "options": [
+      "Elle tient un verrou qui bloque les écritures, comme un CREATE INDEX simple, jusqu’à la fin du rapport",
+      "Elle trie tout l’index en mémoire avant d’écrire sa première page sur disque",
+      "Elle attend que les transactions plus anciennes qu’elle, comme le rapport en cours, se terminent",
+      "Elle réessaie en boucle après un deadlock avec l’autovacuum sur la même table"
+    ],
+    "explain": "La documentation de CREATE INDEX dit qu’une construction concurrente doit attendre la fin des transactions existantes qui pourraient modifier ou utiliser l’index, avant chacun de ses deux scans et, après le second, celle des transactions dont le snapshot est antérieur. Les écritures continuent pendant cette attente : une construction concurrente ne prend pas le verrou bloquant les écritures d’une construction simple. Vérifie donc les transactions longues avant de lancer une construction."
+  },
+  "m08.q29": {
+    "q": "Ton outil de migration exécute chaque fichier dans <code>BEGIN</code> … <code>COMMIT</code>. Un fichier contient <code>CREATE INDEX CONCURRENTLY orders_status_idx ON orders (status)</code>. Que se passe-t-il ?",
+    "options": [
+      "L’index est construit en concurrent comme demandé, simplement plus lentement à cause de la transaction englobante",
+      "Il échoue avec l’erreur 25001 : il ne peut pas s’exécuter dans un bloc de transaction",
+      "PostgreSQL le construit silencieusement sans CONCURRENTLY, en bloquant les écritures pendant toute la construction",
+      "L’index est créé mais laissé invalide"
+    ],
+    "explain": "Mesuré sur PostgreSQL 18.6 : erreur 25001 dans un bloc de transaction. Une construction concurrente exécute plusieurs transactions à elle, donc elle doit tourner hors de toute transaction ; configure l’outil pour exécuter cette migration sans transaction. Un index invalide, c’est ce que laisse une construction concurrente qui a échoué, pas cette erreur."
+  },
+  "m08.q30": {
+    "q": "<code>CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS coupons_code_lower_key …</code> a échoué sur un doublon. Tu supprimes le doublon et relances la même migration. Résultat ?",
+    "options": [
+      "L’index est construit et impose l’unicité",
+      "Une erreur : le nom existe déjà",
+      "Un notice « already exists, skipping » ; l’index reste invalide et n’impose rien",
+      "L’index devient valide tout seul"
+    ],
+    "explain": "Mesuré : <code>indisvalid = false</code> après l’échec, le notice à la relance, toujours invalide, et un insert en double est passé. <code>IF NOT EXISTS</code> ne vérifie que le nom. Vérifie <code>pg_index.indisvalid</code> après chaque construction concurrente, et rattrape avec <code>DROP INDEX CONCURRENTLY</code> et une nouvelle construction."
+  }
+}

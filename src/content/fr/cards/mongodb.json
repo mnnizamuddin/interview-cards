@@ -1,0 +1,756 @@
+{
+  "mongo-schema-patterns": {
+    "topic": "Patterns de schéma MongoDB",
+    "question": "Une page produit dans MongoDB a besoin des derniers avis, de la note moyenne et du nom des auteurs. Comment la modélisez-vous sans jointure à chaque affichage ?",
+    "answer": "Je modélise à partir des lectures, avec les patterns de schéma de MongoDB, qui copient ou précalculent les données à l’écriture pour que la page lise un seul document. Le pattern subset embarque seulement les 10 derniers avis dans le produit et les garde tous dans une collection `reviews`. Le pattern computed stocke un résumé des notes, le nombre d’avis et le total des étoiles, mis à jour à chaque avis, et la moyenne se calcule à la lecture. L’extended reference copie le nom affiché de l’auteur dans chaque avis, à côté de l’id client. Le coût : des écritures en plus et des copies qui peuvent devenir périmées, donc je copie des champs qui changent rarement.",
+    "keyPoints": [
+      "Subset : embarquer les quelques éléments affichés, référencer le reste",
+      "Computed : stocker des compteurs et des totaux mis à jour à l’écriture",
+      "Extended reference : copier les quelques champs affichés",
+      "Compromis : écritures en plus et copies périmées contre des pages en une lecture"
+    ],
+    "explanation": "Les recruteurs s’en servent pour voir si tu raisonnes en patterns d’accès plutôt que de normaliser par réflexe. Un senior nomme les patterns, garde les tableaux bornés et dit ce que coûte chaque copie : qui la met à jour, et à quel point elle peut être périmée.",
+    "example": "Le service Catalogue embarquait tous les avis dans leur produit, et les 60 000 avis de la nouvelle console ont fait dépasser au document la limite de 16 Mio. L’équipe a déplacé les avis dans leur propre collection et gardé les 10 derniers en subset embarqué, plus un `ratingSummary` avec le nombre d’avis et le total des étoiles : la page produit est restée une seule lecture par `_id`, et sa taille a cessé de grossir.",
+    "mistakes": [
+      "Embarquer un tableau non borné comme tous les avis, ce qui ralentit chaque lecture et finit par atteindre la limite de 16 Mio par document.",
+      "Stocker une moyenne arrondie qui dérive ; stocke le nombre et le total, et divise à la lecture.",
+      "Copier des champs qui changent souvent dans une extended reference, ce qui laisse des copies périmées partout."
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce que le pattern attribute ?",
+        "answer": "Les champs qui varient selon la catégorie deviennent un tableau de paires clé/valeur, `attributes: [{ k: 'storageGb', v: 1000 }]`. Un seul index composé sur `attributes.k` et `attributes.v` sert alors un filtre sur n’importe quel attribut, interrogé avec `$elemMatch`."
+      },
+      {
+        "question": "Que sont les patterns bucket et outlier ?",
+        "answer": "Le bucket regroupe une longue série en documents de N éléments, par exemple un par heure de relevés de capteur ; les collections time series l’appliquent pour toi. L’outlier garde la forme habituelle pour la plupart des documents et déplace ailleurs l’excédent de quelques documents énormes."
+      },
+      {
+        "question": "Comment gardez-vous les copies à jour ?",
+        "answer": "Le résumé et le subset changent dans le même `updateOne` que chaque nouvel avis, avec `$inc` et `$push`, et un job périodique peut reconstruire le résumé avec `$group` et `$merge`. Pour une extended reference, je mets à jour les copies quand la source change, ou j’accepte qu’elles soient périmées pour des champs qui changent rarement."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Le pattern subset n’embarque qu’une partie des éléments liés dans le parent et garde l’ensemble complet dans sa propre collection.",
+        "why": "La page lit les quelques éléments embarqués dans un seul document ; la liste complète reste référencée.",
+        "twin": {
+          "statement": "Le pattern subset embarque tous les éléments liés dans le document parent.",
+          "why": "Il n’embarque que les quelques éléments affichés, comme les 10 derniers avis, et garde l’ensemble complet dans sa propre collection."
+        }
+      },
+      {
+        "statement": "Une valeur stockée avec le pattern computed ne peut jamais être périmée.",
+        "why": "Mise à jour par un job périodique, elle est en retard jusqu’à la prochaine exécution ; même mise à jour à chaque écriture, un crash entre deux écritures peut la fausser.",
+        "twin": {
+          "statement": "Une valeur stockée avec le pattern computed peut être périmée.",
+          "why": "Mise à jour par un job périodique, elle est en retard jusqu’à la prochaine exécution ; même mise à jour à chaque écriture, un crash entre deux écritures peut la fausser."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les patterns de schéma MongoDB copient ou précalculent des données à l’écriture pour qu’une lecture fréquente ne touche qu’un document. On les choisit à partir des écrans et de leurs requêtes, en échangeant des écritures en plus contre des pages rapides.",
+      "points": [
+        "Les patterns de schéma MongoDB copient ou précalculent des données à l’écriture pour qu’une lecture fréquente ne touche qu’un document. On les choisit à partir des écrans et de leurs requêtes.",
+        "Subset : embarquer seulement la partie d’un grand ensemble lié que la page affiche, comme les 10 derniers avis, et garder l’ensemble complet dans sa propre collection.",
+        "Computed : stocker une valeur dérivée d’autres documents, comme un nombre d’avis et un total d’étoiles, mise à jour à chaque écriture ou par un job périodique. Convient quand les lectures dépassent de loin les écritures.",
+        "Extended reference : à côté d’une référence, copier les quelques champs affichés, comme le nom de l’auteur. Les copies restent périmées jusqu’à leur mise à jour, donc copie des champs qui changent rarement.",
+        "Attribute : transformer les champs propres à une catégorie en tableau de paires `{ k, v }`, pour qu’un seul index serve tous les attributs. Chaque pattern échange du travail d’écriture et des données périmées contre des lectures rapides."
+      ],
+      "takeaways": [
+        {
+          "term": "Subset",
+          "detail": "Embarquer seulement ce que la page affiche, comme les 10 derniers avis, et garder l’ensemble complet dans sa propre collection."
+        },
+        {
+          "term": "Computed",
+          "detail": "Stocker des valeurs dérivées, comme un nombre d’avis et un total d’étoiles, mises à jour à chaque écriture ou par un job périodique."
+        },
+        {
+          "term": "Extended reference",
+          "detail": "À côté d’une référence, copier les quelques champs affichés, comme le nom de l’auteur."
+        },
+        {
+          "term": "Attribute",
+          "detail": "Transformer les champs propres à une catégorie en tableau de paires `{ k, v }`, pour qu’un seul index serve tous les attributs."
+        },
+        {
+          "term": "Compromis",
+          "detail": "Des écritures en plus et des copies périmées jusqu’à leur mise à jour : copie des champs qui changent rarement."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La page produit charge le produit, puis ses 2 000 avis, puis le nom de chaque auteur, et met 600 ms en pic. Comment remodèleriez-vous les données ?",
+        "bridge": "Modéliser à partir des lectures : embarquer les derniers avis (subset), stocker les totaux de notes (computed), copier les noms d’auteurs (extended reference)."
+      },
+      {
+        "question": "Un collègue craint que copier le nom de l’auteur dans chaque avis le rende vite périmé. Quand cette copie est-elle acceptable, et que coûte-t-elle ?",
+        "bridge": "Les patterns de schéma échangent des écritures en plus et des copies parfois périmées contre des pages en une lecture : on ne copie que des champs qui changent rarement."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux ajoutent un nouvel avis au document de la page produit. Laquelle empêche le document de grossir indéfiniment ?",
+        "why": "Le pattern subset ne garde que les 10 aperçus les plus récents : `$position: 0` place le nouveau en tête et `$slice: 10` coupe le reste, tandis que la liste complète vit dans `reviews`. Un simple `$push` agrandit le tableau à chaque avis : chaque lecture de la page les charge tous, et un produit populaire finit par atteindre la limite de 16 Mio par document."
+      }
+    ]
+  },
+  "mongo-driver-validation": {
+    "topic": "Driver MongoDB, Mongoose, validation",
+    "question": "Utiliseriez-vous le driver MongoDB officiel ou Mongoose dans un service Node, et comment vous assurez-vous que les données d’une collection sont valides ?",
+    "answer": "Le driver officiel `mongodb` donne des collections typées avec `Collection<T>` ; je crée un seul `MongoClient` par process et je le partage, car chaque client garde un pool de connexions. Mongoose est un ODM : schémas, casting, validation, hooks et `populate`, utile quand l’équipe veut des modèles. Mais les types TypeScript et la validation Mongoose ne vérifient que notre propre code ; un script ou un autre service les contourne. Donc pour les champs qui alimentent de l’argent ou des statistiques, j’ajoute un validateur `$jsonSchema` à la collection : le serveur vérifie chaque insert et chaque update, quel que soit l’auteur, et rejette les documents invalides avec l’erreur 121.",
+    "keyPoints": [
+      "Un seul `MongoClient` partagé par process, collections typées",
+      "Mongoose ajoute schémas, casting et hooks, dans une seule app",
+      "Un validateur `$jsonSchema` vérifie chaque écriture dans le serveur",
+      "Valider les champs critiques côté serveur, quel que soit l’auteur"
+    ],
+    "explanation": "La question vérifie si « sans schéma » te rend négligent. Les recruteurs écoutent où le schéma est vraiment appliqué : les types et les ODM protègent une base de code, le validateur serveur protège les données de tous les écrivains. Savoir ajouter un validateur à une collection existante et sale est un signal senior.",
+    "example": "Un script du back-office a inséré 3 000 avis avec `stars: \"5\"` en chaîne, ce qui a cassé les moyennes, alors que les types du service Catalogue étaient corrects. L’équipe a ajouté un validateur `$jsonSchema` avec `bsonType: 'number'` et une plage de 1 à 5 sur `stars`, avec `validationLevel: 'moderate'` pendant le nettoyage, et l’insert invalide suivant a échoué avec le code 121 au lieu de corrompre les statistiques.",
+    "mistakes": [
+      "Créer un `MongoClient` par requête, ce qui ouvre un nouveau pool à chaque fois ; crée-en un au démarrage et partage-le.",
+      "Compter uniquement sur la validation Mongoose : les scripts, le shell et les autres services la contournent.",
+      "Faire confiance aux types de `Collection<T>` pour les filtres en notation pointée, qui ne sont pas vérifiés par défaut."
+    ],
+    "followUps": [
+      {
+        "question": "Que fait `.lean()` dans Mongoose ?",
+        "answer": "Il renvoie des objets simples au lieu de documents Mongoose complets. D’après la doc Mongoose, ils sont environ 3 fois plus petits en mémoire, donc je l’utilise sur les chemins de lecture qui ne font que renvoyer des données et n’appellent jamais `save()`."
+      },
+      {
+        "question": "Comment ajoutez-vous un validateur à une collection qui contient déjà des documents invalides ?",
+        "answer": "Avec `collMod` et `validationLevel: 'moderate'` : les inserts et les updates de documents valides sont vérifiés, tandis que les anciens documents invalides peuvent encore être mis à jour pendant le nettoyage. `validationAction: 'warn'` se contente de logger au lieu de rejeter."
+      },
+      {
+        "question": "La mise à jour de la liste d’aperçus et des compteurs du produit est-elle atomique ?",
+        "answer": "Oui quand c’est un seul `updateOne` : `$push` avec `$each`, `$position: 0` et `$slice: 10`, plus `$inc` sur les compteurs, modifient un seul document de façon atomique. Insérer l’avis puis mettre à jour le produit, ce sont deux écritures, qui ne sont pas atomiques ensemble."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un schéma Mongoose rejette les documents invalides écrits depuis le shell `mongosh`.",
+        "why": "La validation Mongoose ne tourne que dans l’application qui l’utilise ; seul un validateur côté serveur voit tous les écrivains.",
+        "twin": {
+          "statement": "Un schéma Mongoose ne vérifie pas les documents écrits depuis le shell `mongosh`.",
+          "why": "La validation Mongoose ne tourne que dans l’application qui l’utilise ; seul un validateur côté serveur voit tous les écrivains."
+        }
+      },
+      {
+        "statement": "Un validateur `$jsonSchema` avec les réglages par défaut rejette les inserts et les updates invalides.",
+        "why": "Les valeurs par défaut sont `validationLevel: 'strict'` et `validationAction: 'error'`.",
+        "twin": {
+          "statement": "Un validateur `$jsonSchema` avec les réglages par défaut ne fait que logger un avertissement pour les documents invalides.",
+          "why": "Les valeurs par défaut sont `validationLevel: 'strict'` et `validationAction: 'error'`, donc les inserts et les updates invalides sont rejetés."
+        }
+      },
+      {
+        "statement": "Un service Node devrait créer un nouveau `MongoClient` pour chaque requête HTTP.",
+        "why": "Chaque client garde son propre pool de connexions ; crée-en un par process au démarrage et partage-le.",
+        "twin": {
+          "statement": "Un service Node devrait créer un seul `MongoClient` par process et le partager entre les requêtes.",
+          "why": "Chaque client garde son propre pool de connexions, donc un client par requête multiplie les connexions."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un service Node parle à MongoDB via le driver officiel ou via Mongoose. Dans les deux cas, seul un validateur dans le serveur vérifie chaque écriture, quel qu’en soit l’auteur.",
+      "points": [
+        "Le driver officiel est le package `mongodb`. Crée un seul `MongoClient` par process au démarrage et partage-le : chaque client garde un pool de connexions, `maxPoolSize` 100 par défaut.",
+        "`db.collection<ReviewDoc>('reviews')` type ton code à la compilation seulement. Les filtres en notation pointée ne sont pas vérifiés par défaut, et les autres écrivains ne sont pas vérifiés du tout.",
+        "Mongoose est un ODM (l’équivalent document d’un ORM) : schémas, casting, validation, hooks et `populate()`. Sa validation ne tourne que dans l’app qui l’utilise.",
+        "Un validateur `$jsonSchema` tourne dans le serveur à chaque insert et update, quel que soit l’auteur. Une écriture rejetée échoue avec `DocumentValidationFailure`, code 121.",
+        "Pour une collection existante, `collMod` ajoute le validateur ; `validationLevel: 'moderate'` permet de mettre à jour les anciens documents invalides pendant un nettoyage."
+      ],
+      "takeaways": [
+        {
+          "term": "`MongoClient`",
+          "detail": "Un par process, partagé : chaque client garde un pool de connexions, `maxPoolSize` 100 par défaut."
+        },
+        {
+          "term": "`Collection<T>`",
+          "detail": "Type ton code à la compilation seulement ; les filtres en notation pointée ne sont pas vérifiés par défaut."
+        },
+        {
+          "term": "Mongoose",
+          "detail": "Un ODM : schémas, casting, validation, hooks et `populate()`, appliqués seulement dans l’app qui l’utilise."
+        },
+        {
+          "term": "Validateur `$jsonSchema`",
+          "detail": "Tourne dans le serveur à chaque insert et update ; une écriture rejetée échoue avec le code 121."
+        },
+        {
+          "term": "`collMod`",
+          "detail": "Ajoute un validateur à une collection existante ; `validationLevel: 'moderate'` permet de mettre à jour les anciens documents invalides."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Mongoose rejette les avis à 7 étoiles, et pourtant les statistiques de notes en contiennent. Un script d’import de données écrit dans la même collection. Comment vous assurez-vous que chaque avis est valide ?",
+        "bridge": "La validation Mongoose ne tourne que dans l’app qui l’utilise ; un validateur `$jsonSchema` sur la collection vérifie tous les écrivains dans le serveur."
+      },
+      {
+        "question": "Driver officiel `mongodb` ou Mongoose : quand choisiriez-vous l’un ou l’autre dans un service Node ?",
+        "bridge": "Le driver donne des collections typées sur un client partagé ; Mongoose ajoute modèles, casting, validation et hooks, mais seulement dans sa propre app."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux servent `GET /products/:sku` depuis MongoDB dans le service Node. Laquelle utilise correctement les connexions ?",
+        "why": "Un seul `MongoClient` par process, créé au démarrage et partagé, garde un pool de connexions que chaque requête réutilise. Créer un client par requête ouvre un nouveau pool et de nouvelles connexions à chaque fois, et ce handler ne les ferme jamais : sous charge, les connexions s’accumulent sur le serveur."
+      }
+    ]
+  },
+  "mongo-indexes": {
+    "topic": "Index MongoDB et règle ESR",
+    "question": "Comment concevez-vous un index composé dans MongoDB, et quels autres types d’index utilisez-vous ?",
+    "answer": "J’ordonne un index composé selon la règle ESR : d’abord les champs d’égalité, puis le champ de tri, puis les champs de plage. Pour les avis publiés d’un produit avec au moins 4 étoiles, du plus récent au plus ancien, ça donne `{ productId, status, createdAt, stars }` : les entrées sortent déjà triées, donc pas d’étape `SORT` en mémoire. Je vérifie avec `explain('executionStats')` : un `IXSCAN`, pas de `SORT`, et des clés examinées proches de `nReturned`. Au-delà, un index sur un tableau est automatiquement multikey, un index unique impose un avis par client, un index partiel ne couvre que les avis en attente, et un index TTL supprime les documents expirés.",
+    "keyPoints": [
+      "ESR : Égalité, puis Tri (Sort), puis Plage (Range)",
+      "Un index composé ne sert que ses préfixes",
+      "`explain` : `IXSCAN`, pas de `SORT`, examinés proches des renvoyés",
+      "Index multikey, unique, partiels et TTL pour des besoins précis"
+    ],
+    "explanation": "C’est sur les index que se joue la performance MongoDB, et les recruteurs veulent un ordre de champs justifié, pas deviné. Un senior prouve ses choix avec `explain`, sait que `$ne` et `$regex` comptent comme des plages, et utilise les index uniques et partiels pour imposer des règles et garder les index petits.",
+    "example": "L’onglet des avis, `GET /products/:id/reviews?minStars=4`, prenait des secondes sur 2 millions d’avis : le plan était un `COLLSCAN` suivi d’un `SORT`. Un index `{ productId: 1, status: 1, createdAt: -1, stars: 1 }` dans l’ordre ESR a supprimé les deux. Un index unique sur `{ productId, 'author.customerId' }` a ensuite transformé un second avis du même client en erreur 11000, que l’API traduit en `409 Conflict`.",
+    "mistakes": [
+      "Mettre le champ de plage avant le champ de tri, ce qui force une étape `SORT` en mémoire.",
+      "Combiner des conditions sur un même élément de tableau sans `$elemMatch`, si bien que chaque condition peut matcher un élément différent.",
+      "Lancer `explain('executionStats')` à la légère sur une requête lourde en production : il exécute le plan gagnant jusqu’au bout."
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qu’une requête couverte ?",
+        "answer": "Une requête servie par l’index seul, sans charger les documents. Chaque champ interrogé et renvoyé doit être dans l’index, la projection doit exclure `_id` avec `_id: 0` sauf si l’index le contient, et aucun champ renvoyé ne peut être un tableau. Dans `explain`, l’`IXSCAN` n’est pas sous un `FETCH`."
+      },
+      {
+        "question": "Comment fonctionne un index TTL ?",
+        "answer": "C’est un index sur un seul champ date avec `expireAfterSeconds` ; une tâche de fond supprime les documents expirés toutes les 60 secondes, donc la suppression arrive en retard, jamais en avance. Avec `expireAfterSeconds: 0`, chaque document expire à la date stockée dans le champ."
+      },
+      {
+        "question": "Pourquoi un index unique peut-il rejeter un document sans le champ indexé ?",
+        "answer": "Un champ absent est indexé comme `null`, donc un seul document peut ne pas l’avoir. Un filtre partiel qui limite l’index aux documents qui ont le champ évite ça."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un index sur `{ productId: 1, status: 1, createdAt: -1 }` peut servir une requête sur `status` seul.",
+        "why": "Un index composé sert ses préfixes ; `status` seul n’est pas un préfixe.",
+        "twin": {
+          "statement": "Un index sur `{ productId: 1, status: 1, createdAt: -1 }` ne peut pas servir une requête sur `status` seul.",
+          "why": "Un index composé sert ses préfixes, et `status` seul n’est pas un préfixe."
+        }
+      },
+      {
+        "statement": "Dans la règle ESR, `$ne` et `$regex` comptent comme des conditions de plage.",
+        "why": "La doc les traite comme des scans bornés, comme `$gte`, donc ils viennent après le champ de tri.",
+        "twin": {
+          "statement": "Dans la règle ESR, `$ne` et `$regex` comptent comme des conditions d’égalité.",
+          "why": "La doc les traite comme des conditions de plage, comme `$gte`, donc ils viennent après le champ de tri."
+        }
+      },
+      {
+        "statement": "Un index TTL supprime un document à la seconde exacte où il expire.",
+        "why": "Une tâche de fond tourne toutes les 60 secondes, donc la suppression arrive en retard, jamais en avance.",
+        "twin": {
+          "statement": "Un index TTL peut supprimer un document un certain temps après son expiration, jamais avant.",
+          "why": "Une tâche de fond tourne toutes les 60 secondes, donc la suppression arrive en retard, jamais en avance."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les index MongoDB décident si une requête lit quelques entrées ou toute la collection. Dans un index composé, l’ordre des champs décide quels filtres et quels tris il peut servir.",
+      "points": [
+        "Un index composé liste plusieurs champs et sert les requêtes sur n’importe quel préfixe : `{ a, b, c }` sert `a`, `a + b` et `a + b + c`, pas `b` seul. L’ordre des champs décide aussi s’il peut trier.",
+        "Règle ESR : les champs d’Égalité d’abord, puis le champ de tri (Sort), puis les champs de plage (Range : `$gte`, mais aussi `$ne`, `$nin`, `$regex`). Les entrées sortent alors triées, sans tri en mémoire.",
+        "`explain('executionStats')` montre les étapes (`COLLSCAN`, `IXSCAN`, `FETCH`, `SORT`) et les compteurs. Plan sain : pas de `SORT`, clés et documents examinés proches de `nReturned`.",
+        "Un index sur un champ tableau est multikey : une entrée par élément. Applique deux conditions au même élément avec `$elemMatch`. Un document peut contenir au plus un tableau parmi les champs indexés.",
+        "Unique rejette les doublons (erreur 11000). Partiel n’indexe que les documents qui matchent un filtre. TTL supprime les documents après une date, vérifiée toutes les 60 secondes. Text permet la recherche par mots."
+      ],
+      "takeaways": [
+        {
+          "term": "Règle des préfixes",
+          "detail": "`{ a, b, c }` sert `a`, `a + b` et `a + b + c`, pas `b` seul."
+        },
+        {
+          "term": "ESR",
+          "detail": "Les champs d’égalité d’abord, puis le champ de tri, puis les champs de plage, pour que les entrées sortent déjà triées."
+        },
+        {
+          "term": "Champs de plage",
+          "detail": "`$gte`, mais aussi `$ne`, `$nin` et `$regex`, viennent en dernier dans ESR."
+        },
+        {
+          "term": "`explain('executionStats')`",
+          "detail": "Plan sain : un `IXSCAN`, pas de `SORT`, et des clés et documents examinés proches de `nReturned`."
+        },
+        {
+          "term": "Multikey",
+          "detail": "Un index sur un tableau a une entrée par élément ; utilise `$elemMatch` pour deux conditions sur un même élément."
+        },
+        {
+          "term": "Unique, partiel, TTL",
+          "detail": "Unique rejette les doublons (11000), partiel indexe un sous-ensemble filtré, TTL supprime après une date, vérifiée toutes les 60 s."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La requête des avis publiés d’un produit avec 4 étoiles ou plus, du plus récent au plus ancien, utilise un index, mais `explain` montre une étape `SORT` et 20 000 clés examinées pour 20 renvoyées. Que changeriez-vous ?",
+        "bridge": "L’ordre de l’index composé : égalité, puis tri, puis champs de plage (ESR), pour que les entrées sortent déjà triées et que peu de clés soient examinées."
+      },
+      {
+        "question": "Chaque client peut publier un avis par produit, et les avis en attente ne sont qu’une infime part de la collection. Quels types d’index répondent à ces besoins ?",
+        "bridge": "Au-delà des index composés : un index unique impose un avis par client, et un index partiel ne couvre que les avis en attente."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux index servent les avis publiés d’un produit avec `stars >= 4`, du plus récent au plus ancien. Lequel évite un tri en mémoire ?",
+        "why": "En suivant ESR, champs d’égalité, puis champ de tri, puis champ de plage, les entrées qui matchent sortent de l’index déjà triées par `createdAt` : le plan n’a pas d’étape `SORT` et `limit(20)` s’arrête tôt. Avec la plage avant le tri, les entrées sont d’abord triées par étoiles, donc MongoDB doit trier tous les résultats en mémoire."
+      }
+    ]
+  },
+  "mongo-aggregation": {
+    "topic": "Pipeline d’agrégation MongoDB",
+    "question": "Qu’est-ce que le pipeline d’agrégation de MongoDB, et comment calculeriez-vous des statistiques d’avis avec ?",
+    "answer": "Un pipeline est un tableau d’étapes, chacune transformant les documents produits par la précédente, comme une requête SQL construite pas à pas. `$match` filtre, `$group` regroupe avec des accumulateurs comme `$sum` et `$avg`, `$project` remodèle, `$unwind` émet un document par élément de tableau, `$lookup` est une jointure externe gauche, et `$facet` exécute plusieurs sous-pipelines sur la même entrée. Pour l’histogramme des étoiles et la moyenne d’un produit, je mets d’abord un `$match` sur le produit pour qu’il utilise un index, puis un `$facet` avec deux étapes `$group`, ce qui renvoie les deux en un seul aller-retour. Je garde `$lookup` pour les rapports, pas pour les lectures de pages fréquentes.",
+    "keyPoints": [
+      "Un tableau d’étapes, chacune alimentant la suivante",
+      "`$match` en premier, pour qu’il puisse utiliser un index",
+      "`$group` avec des accumulateurs ; `$facet` pour plusieurs résultats",
+      "`$lookup` est une jointure externe gauche : rapports, pas lectures fréquentes"
+    ],
+    "explanation": "Les recruteurs attendent que tu traduises un besoin de reporting en étapes et que tu saches ce qui rend un pipeline rapide ou le fait échouer. Un senior parle de l’ordre des étapes, de la limite mémoire par étape et du document résultat de 16 Mio, et explique pourquoi un `$lookup` à chaque affichage de page signale un problème de modélisation.",
+    "example": "L’en-tête de l’onglet des avis avait besoin d’un histogramme des étoiles et de la moyenne d’un produit. Un seul pipeline, `$match` sur `productId` et `status` avec l’index existant des avis, puis `$facet` avec un `$group` pour l’histogramme et un `$group` pour le résumé, a remplacé deux requêtes. Le rapport hebdomadaire par catégorie regroupait les avis par produit avant son `$lookup` sur `products`, donc il faisait une jointure par produit au lieu d’une par avis.",
+    "mistakes": [
+      "Mettre `$facet` en premier : d’après la doc, il fait alors un scan de collection, car seules les étapes qui le précèdent peuvent utiliser des index.",
+      "Lancer `$lookup` sur chaque avis avant de regrouper, au lieu de regrouper d’abord et de faire une jointure par groupe.",
+      "Oublier que `$unwind` écarte par défaut les documents dont le tableau est vide ou absent."
+    ],
+    "followUps": [
+      {
+        "question": "Quelles limites un pipeline a-t-il ?",
+        "answer": "Chaque étape peut utiliser 100 Mo de mémoire, le débordement sur disque étant régi par `allowDiskUse`. Un document résultat fait au plus 16 Mio, ce qui compte pour `$facet` puisqu’il renvoie un seul document, et un pipeline a au plus 1 000 étapes."
+      },
+      {
+        "question": "Puisque `$lookup` existe, pourquoi ne pas tout normaliser ?",
+        "answer": "Parce qu’un `$lookup` à chaque affichage de page ignore le pattern d’accès : pour les lectures fréquentes, j’embarque, j’utilise un subset ou une extended reference. Je garde `$lookup` pour les rapports et les écrans du back-office, avec une jointure sur un champ indexé."
+      },
+      {
+        "question": "Comment stockez-vous des résultats d’agrégation pour des lectures ultérieures ?",
+        "answer": "Un job périodique termine le pipeline par `$merge`, qui écrit les résultats dans une collection, par exemple les résumés de notes du pattern computed. Les lectures tombent alors sur des documents précalculés."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`$lookup` effectue une jointure externe gauche avec une autre collection de la même base.",
+        "why": "Les documents sans correspondance sont conservés, avec un tableau vide dans le champ `as`.",
+        "twin": {
+          "statement": "`$lookup` écarte les documents qui n’ont pas de correspondance dans l’autre collection, comme une jointure interne.",
+          "why": "C’est une jointure externe gauche : les documents sans correspondance sont conservés, avec un tableau vide dans le champ `as`."
+        }
+      },
+      {
+        "statement": "Une étape `$facet` peut renvoyer plus de 16 Mio parce qu’elle découpe sa sortie en plusieurs documents.",
+        "why": "Elle renvoie un seul document, qui doit rester sous la limite de 16 Mio par document.",
+        "twin": {
+          "statement": "Une étape `$facet` renvoie un seul document, donc toute sa sortie doit tenir dans 16 Mio.",
+          "why": "Elle ne découpe pas sa sortie ; la limite de 16 Mio par document s’applique à cet unique document."
+        }
+      },
+      {
+        "statement": "`$facet` placé en première étape d’un pipeline utilise un index.",
+        "why": "D’après la doc, il fait un scan de collection ; place un `$match` avant pour que cette étape puisse utiliser un index.",
+        "twin": {
+          "statement": "Un `$facet` placé en première étape d’un pipeline fait un scan de collection.",
+          "why": "D’après la doc, il n’utilise pas d’index ; place un `$match` avant pour que cette étape puisse en utiliser un."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le pipeline d’agrégation, c’est la façon dont MongoDB filtre, regroupe, remodèle et joint les données dans le serveur. C’est un tableau d’étapes, chacune alimentant la suivante, comme une requête SQL écrite pas à pas.",
+      "points": [
+        "Un pipeline d’agrégation est un tableau d’étapes. Chaque étape transforme les documents produits par la précédente, comme une requête SQL écrite pas à pas.",
+        "`$match` filtre, et utilise un index quand il vient en premier. `$group` regroupe par clé avec des accumulateurs comme `$sum` et `$avg`. `$project` remodèle ; `$unwind` émet un document par élément de tableau.",
+        "`$lookup` est une jointure externe gauche avec une autre collection de la même base. Regroupe avant de joindre, et garde-le hors des lectures de pages fréquentes.",
+        "`$facet` exécute plusieurs sous-pipelines sur la même entrée et renvoie un seul document : son résultat doit rester sous 16 Mio, et il ne peut pas déborder sur disque.",
+        "Limites : 100 Mo de mémoire par étape (le débordement est régi par `allowDiskUse`), 16 Mio par document résultat, au plus 1 000 étapes."
+      ],
+      "takeaways": [
+        {
+          "term": "`$match`",
+          "detail": "Filtre les documents, et utilise un index quand il vient en premier."
+        },
+        {
+          "term": "`$group`",
+          "detail": "Regroupe par clé avec des accumulateurs comme `$sum` et `$avg`."
+        },
+        {
+          "term": "`$project` et `$unwind`",
+          "detail": "`$project` remodèle les documents ; `$unwind` émet un document par élément de tableau."
+        },
+        {
+          "term": "`$lookup`",
+          "detail": "Une jointure externe gauche avec une collection de la même base : pour les rapports, pas les lectures de pages fréquentes."
+        },
+        {
+          "term": "`$facet`",
+          "detail": "Plusieurs sous-pipelines sur la même entrée, un seul document résultat sous 16 Mio, pas de débordement sur disque."
+        },
+        {
+          "term": "Limites",
+          "detail": "100 Mo de mémoire par étape (`allowDiskUse` régit le débordement), 16 Mio par document résultat, 1 000 étapes."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La page produit lance deux agrégations sur tous les avis, une pour l’histogramme des étoiles et une pour la moyenne, et chacune scanne la collection. Comment obtiendriez-vous les deux en un seul aller-retour indexé ?",
+        "bridge": "`$match` sur le produit en premier pour pouvoir utiliser un index, puis un `$facet` avec deux étapes `$group` renvoie les deux résultats dans un seul document."
+      },
+      {
+        "question": "Expliquez le pipeline d’agrégation à un junior qui connaît SQL : quelles étapes jouent le rôle de `WHERE`, `GROUP BY` et `LEFT JOIN` ?",
+        "bridge": "Un pipeline est une chaîne d’étapes : `$match` filtre comme `WHERE`, `$group` agrège, et `$lookup` est une jointure externe gauche."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux comptent les avis publiés par produit pour le rapport hebdomadaire, avec le nom du produit. Quel pipeline fait le moins de jointures ?",
+        "why": "Regrouper d’abord réduit les avis à un document par produit, donc `$lookup` s’exécute une fois par produit. Joindre avant le `$group` fait un lookup par avis : sur 2 millions d’avis, 2 millions de lookups dans `products` pour produire le même rapport."
+      }
+    ]
+  },
+  "mongo-replication": {
+    "topic": "Write concern et read concern MongoDB",
+    "question": "Que signifient write concern et read concern dans un replica set MongoDB, et quels réglages utilisez-vous ?",
+    "answer": "Un replica set a un primaire qui prend toutes les écritures et des secondaires qui rejouent son oplog ; si le primaire est perdu, ils en élisent un nouveau, et les écritures attendent pendant ce temps. Le write concern dit quand une écriture est acquittée : `w: 1` dès que le primaire l’a, ce qui peut être annulé par un rollback après un failover, ou `w: 'majority'`, le défaut habituel, dès qu’une majorité l’a de façon durable. Le read concern dit ce qu’une lecture peut renvoyer : `local` par défaut, ou `majority` pour des données qui ne peuvent pas être annulées. La read preference choisit le membre, et les secondaires peuvent être en retard. Je garde `majority` et les retryable writes, et je ne lis sur les secondaires que pour les rapports.",
+    "keyPoints": [
+      "Un primaire prend les écritures ; les secondaires rejouent son oplog",
+      "`w: 1` peut être annulé au failover ; `w: 'majority'` y survit",
+      "Read concern : la durabilité des données qu’une lecture renvoie",
+      "La read preference choisit le membre ; les secondaires peuvent être en retard"
+    ],
+    "explanation": "Les recruteurs veulent voir que la durabilité est un choix qui a un coût, pas un acquis. Un senior explique comment une écriture acquittée peut quand même être perdue, garde les défauts protecteurs, et distingue le read concern (quelle durabilité) de la read preference (quel serveur répond).",
+    "example": "Pendant une maintenance cloud, le primaire du catalogue a redémarré : les dépôts d’avis ont échoué pendant une dizaine de secondes, et deux avis dont les clients avaient reçu la confirmation ont disparu. La chaîne de connexion contenait `w=1&retryWrites=false`, les deux « pour la vitesse ». Les retirer a rétabli `w: 'majority'` et les retryable writes, et le rapport hebdomadaire est passé en `secondaryPreferred` avec un read concern `majority`.",
+    "mistakes": [
+      "Régler `w: 1` « pour la vitesse » sur des données dont on a dit à l’utilisateur qu’elles étaient enregistrées ; des écritures acquittées peuvent être annulées au failover.",
+      "Désactiver les retryable writes, ce qui transforme chaque élection en écritures échouées pour les clients.",
+      "Lire sur des secondaires dans un flux où l’on relit sa propre écriture, où le retard de réplication affiche des données périmées."
+    ],
+    "followUps": [
+      {
+        "question": "Que sont les retryable writes ?",
+        "answer": "Activées par défaut dans les drivers actuels : une écriture sur un seul document est rejouée une fois après une erreur réseau ou quand aucun primaire n’est trouvé, et le driver attend un nouveau primaire jusqu’à `serverSelectionTimeoutMS`. Les écritures `updateMany` et `w: 0` ne sont pas rejouées."
+      },
+      {
+        "question": "Quelle est la différence entre read concern et read preference ?",
+        "answer": "Le read concern porte sur la durabilité : `majority` ne renvoie que des données acquittées par une majorité, qui ne peuvent pas être annulées. La read preference porte sur le membre qui répond : le primaire par défaut, ou un secondaire qui peut être en retard."
+      },
+      {
+        "question": "Quand `w: 1` est-il acceptable ?",
+        "answer": "Pour des données que je peux me permettre de perdre, comme des logs de debug ou des compteurs de vues, où un rare rollback après un failover ne compte pas. Tout ce dont un client a reçu la confirmation d’enregistrement garde `w: 'majority'`."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une écriture acquittée avec `w: 1` peut être perdue si le primaire tombe avant qu’un secondaire l’ait copiée.",
+        "why": "La doc prévient que ces écritures peuvent être annulées quand le primaire cède sa place ; les écritures `majority` survivent à un failover.",
+        "twin": {
+          "statement": "Une écriture acquittée avec `w: 1` survit à une panne du primaire même si aucun secondaire ne l’a copiée.",
+          "why": "Ces écritures peuvent être annulées quand le primaire cède sa place ; les écritures `majority` survivent à un failover."
+        }
+      },
+      {
+        "statement": "Le read concern `'majority'` signifie qu’une majorité de membres répondent ensemble à la lecture.",
+        "why": "Il limite les données que la lecture peut renvoyer aux données acquittées par une majorité ; le membre qui répond est fixé par la read preference.",
+        "twin": {
+          "statement": "Le read concern `'majority'` limite une lecture aux données acquittées par une majorité, tandis que la read preference décide quel membre répond.",
+          "why": "Il porte sur la durabilité des données renvoyées, pas sur le nombre de membres qui participent à la lecture."
+        }
+      },
+      {
+        "statement": "Les retryable writes rejouent aussi automatiquement les opérations `updateMany`.",
+        "why": "Seules les écritures sur un seul document sont rejouables ; les écritures `updateMany` et `w: 0` ne sont pas rejouées.",
+        "twin": {
+          "statement": "Les retryable writes ne rejouent pas les opérations `updateMany`.",
+          "why": "Seules les écritures sur un seul document sont rejouables ; les écritures `updateMany` et `w: 0` ne sont pas rejouées."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un replica set MongoDB garde des copies des données sur plusieurs serveurs pour le failover. Write concern, read concern et read preference décident de la durabilité et de la fraîcheur de chaque opération.",
+      "points": [
+        "Un replica set est un groupe de serveurs avec les mêmes données. Le primaire prend toutes les écritures ; les secondaires rejouent son oplog, le journal des opérations. Si le primaire est perdu, ils en élisent un nouveau.",
+        "Une élection démarre par défaut après 10 secondes sans primaire ; d’après la doc, la médiane ne devrait pas dépasser 12 secondes, et aucune écriture n’est traitée tant qu’elle n’est pas terminée.",
+        "Write concern : quand une écriture est acquittée. `w: 1` dès que le primaire l’a, ce qui peut être annulé au failover ; `w: 'majority'`, le défaut habituel, dès qu’une majorité l’a de façon durable.",
+        "Read concern : ce qu’une lecture peut renvoyer. `local` (par défaut) renvoie les dernières données, qui peuvent être annulées ; `majority` seulement celles qui ne peuvent pas l’être ; `snapshot` sert dans les transactions.",
+        "Read preference : quel membre répond. Le primaire par défaut ; un secondaire peut être en retard, donc utilise-le pour les rapports, jamais pour relire ta propre écriture."
+      ],
+      "takeaways": [
+        {
+          "term": "Replica set",
+          "detail": "Un primaire prend toutes les écritures ; les secondaires rejouent son oplog et élisent un nouveau primaire s’il est perdu."
+        },
+        {
+          "term": "Élection",
+          "detail": "Démarre par défaut après 10 secondes sans primaire ; aucune écriture n’est traitée tant qu’elle n’est pas terminée."
+        },
+        {
+          "term": "`w: 1`",
+          "detail": "Acquittée dès que le primaire a l’écriture, qui peut être annulée après un failover."
+        },
+        {
+          "term": "`w: 'majority'`",
+          "detail": "Le défaut habituel : acquittée dès qu’une majorité a l’écriture de façon durable."
+        },
+        {
+          "term": "Read concern",
+          "detail": "`local` (par défaut) peut renvoyer des données qui seront annulées, `majority` non ; `snapshot` sert aux transactions."
+        },
+        {
+          "term": "Read preference",
+          "detail": "Le primaire par défaut. Un secondaire peut être en retard : pour les rapports, jamais pour relire ta propre écriture."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Après un failover du primaire, quelques avis dont les clients avaient vu la confirmation ont disparu. Les écritures utilisaient `w: 1`. Que s’est-il passé, et quel réglage l’évite ?",
+        "bridge": "Une écriture acquittée par le primaire seul peut être annulée s’il tombe avant qu’un secondaire l’ait copiée ; `w: 'majority'` survit à un failover."
+      },
+      {
+        "question": "Quelle est la différence entre read concern et read preference dans MongoDB ?",
+        "bridge": "Le read concern décide à quel point les données renvoyées par une lecture doivent être durables ; la read preference choisit le membre qui répond, et les secondaires peuvent être en retard."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux connectent le service catalogue à son replica set. Laquelle garde les avis enregistrés en sécurité lors d’un failover ?",
+        "why": "Les défauts conservent `w: 'majority'` et les retryable writes : un avis est acquitté dès qu’une majorité le détient, et une écriture touchée par une élection est rejouée une fois. Avec `w=1`, une écriture acquittée par le primaire seul peut être annulée s’il bascule, et sans retries chaque élection fait échouer les écritures en cours."
+      }
+    ]
+  },
+  "mongo-transactions": {
+    "topic": "Transactions MongoDB",
+    "question": "MongoDB gère-t-il les transactions multi-documents, et quand les éviteriez-vous ?",
+    "answer": "Oui : les transactions ACID multi-documents existent sur les replica sets depuis la 4.0 et sur les clusters shardés depuis la 4.2. Dans le driver Node, j’utilise `session.withTransaction`, je passe la session à chaque opération et je les attends une par une ; il rejoue le callback sur les erreurs transitoires, donc le callback ne doit pas envoyer d’e-mails. Mais elles coûtent plus cher que les écritures sur un seul document : une limite d’une minute par défaut, des aborts sur conflit d’écriture, des lectures sur le primaire. Donc je mets d’abord dans un seul document ce qui doit changer ensemble, ce qui est atomique. Pour les données dérivées comme les compteurs, j’accepte deux écritures plus un job de réparation, et je garde les transactions pour les vrais invariants entre documents.",
+    "keyPoints": [
+      "Oui, depuis la 4.0 sur les replica sets et la 4.2 sur les clusters shardés",
+      "`withTransaction`, la session sur chaque opération, pas d’effets de bord",
+      "Coûts : limite d’une minute, aborts sur conflit d’écriture, écritures plus lentes",
+      "Préférer l’atomicité d’un document ou des données dérivées réparables"
+    ],
+    "explanation": "Le piège, c’est de répondre seulement « oui ». Les recruteurs attendent l’ordre de préférence que le manuel MongoDB lui-même énonce : d’abord la conception du schéma, les transactions pour les vrais invariants. Un senior connaît aussi les détails du driver qui causent des bugs, comme une session oubliée ou des opérations lancées en parallèle.",
+    "example": "Publier un avis faisait deux écritures, l’insert de l’avis et la mise à jour du résumé du produit, et un pod tué entre les deux laissait un avis non compté. Un coéquipier a proposé une transaction ; l’équipe a gardé les deux écritures simples, puisque le résumé est une donnée dérivée, et a ajouté un job nocturne qui recalcule `ratingSummary` avec `$group` et `$merge`. Un crash coûte désormais quelques heures de compteurs légèrement faux, sans transaction sur le chemin critique.",
+    "mistakes": [
+      "Oublier `{ session }` sur une opération, qui s’exécute alors hors de la transaction et n’est pas annulée.",
+      "Lancer les opérations d’une même transaction en parallèle avec `Promise.all` ; la doc du driver l’interdit.",
+      "Envoyer des e-mails ou appeler d’autres services dans le callback, qui peut s’exécuter plusieurs fois."
+    ],
+    "followUps": [
+      {
+        "question": "Où stockeriez-vous un registre de points de fidélité, dans MongoDB ou dans PostgreSQL ?",
+        "answer": "Dans PostgreSQL, à côté des commandes : les points ne doivent jamais devenir négatifs, la finance les audite, et ils changent dans le même flux que le paiement, donc ils ont leur place dans la transaction de la commande, avec des contraintes. Un `$inc` atomique dans une autre base ne peut pas partager cette transaction."
+      },
+      {
+        "question": "Que rejoue `withTransaction` ?",
+        "answer": "Le callback entier sur une `TransientTransactionError`, et le commit sur un `UnknownTransactionCommitResult`. C’est pour ça que le callback doit pouvoir s’exécuter plusieurs fois sans danger."
+      },
+      {
+        "question": "Quelles limites ont les transactions MongoDB ?",
+        "answer": "Par défaut, une transaction doit se terminer en une minute (`transactionLifetimeLimitSeconds`), sinon elle est annulée. Elle attend au plus 5 ms pour un verrou, une écriture concurrente sur le même document l’annule avec un conflit d’écriture, et ses lectures passent par le primaire."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un update sur un seul document qui modifie plusieurs champs est atomique sans transaction.",
+        "why": "Une écriture sur un document est atomique, c’est la principale raison de garder dans un seul document ce qui change ensemble.",
+        "twin": {
+          "statement": "Un update qui modifie plusieurs champs d’un document a besoin d’une transaction pour être atomique.",
+          "why": "Une écriture sur un document est atomique en elle-même, c’est la principale raison de garder dans un seul document ce qui change ensemble."
+        }
+      },
+      {
+        "statement": "Une opération du callback de `withTransaction` à laquelle on ne passe pas la session est quand même annulée avec la transaction.",
+        "why": "Sans `{ session }`, elle s’exécute hors de la transaction et reste commitée même si la transaction est annulée.",
+        "twin": {
+          "statement": "Une opération du callback de `withTransaction` à laquelle on ne passe pas la session reste commitée si la transaction est annulée.",
+          "why": "Sans `{ session }`, elle s’exécute hors de la transaction."
+        }
+      },
+      {
+        "statement": "Le manuel MongoDB présente les transactions multi-documents comme un substitut à une bonne conception de schéma.",
+        "why": "Il dit le contraire : une transaction distribuée coûte en général plus cher que des écritures sur un seul document et ne doit pas remplacer la conception du schéma.",
+        "twin": {
+          "statement": "Le manuel MongoDB dit que les transactions multi-documents ne doivent pas remplacer une bonne conception de schéma.",
+          "why": "Il note qu’une transaction distribuée coûte en général plus cher que des écritures sur un seul document."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "MongoDB gère les transactions ACID multi-documents, mais elles coûtent plus cher que les écritures sur un seul document. Une bonne conception n’y recourt qu’en dernier, après l’atomicité d’un document.",
+      "points": [
+        "Une écriture sur un document est atomique, même sur plusieurs champs. Mettre dans un seul document ce qui doit changer ensemble est le premier moyen d’éviter une transaction.",
+        "Les transactions ACID multi-documents existent sur les replica sets depuis la 4.0 et sur les clusters shardés depuis la 4.2. Dans le driver, `session.withTransaction(callback)` en démarre une, l’exécute et la commite.",
+        "Passe `{ session }` à chaque opération et attends-les une par une. Le callback est rejoué sur les erreurs transitoires, donc il ne doit pas envoyer d’e-mails ni appeler d’autres services.",
+        "Coûts d’après la doc : annulée après une minute par défaut, après 5 ms d’attente d’un verrou, ou sur un conflit d’écriture ; les lectures passent par le primaire ; plus lente que des écritures sur un seul document.",
+        "Ordre de préférence : l’atomicité d’un document, puis des données dérivées réparées par un job, puis une transaction courte pour un vrai invariant entre documents."
+      ],
+      "takeaways": [
+        {
+          "term": "Écriture sur un document",
+          "detail": "Atomique, même sur plusieurs champs : mets dans un seul document ce qui doit changer ensemble."
+        },
+        {
+          "term": "Versions",
+          "detail": "Replica sets depuis la 4.0, clusters shardés depuis la 4.2."
+        },
+        {
+          "term": "`withTransaction`",
+          "detail": "Démarre, exécute et commite ; rejoue le callback sur les erreurs transitoires, donc pas d’e-mails ni d’appels externes dedans."
+        },
+        {
+          "term": "`{ session }`",
+          "detail": "À passer à chaque opération, et attendre les opérations une par une."
+        },
+        {
+          "term": "Coûts",
+          "detail": "Annulée après une minute par défaut, après 5 ms d’attente d’un verrou, ou sur un conflit d’écriture ; lectures sur le primaire."
+        },
+        {
+          "term": "Ordre de préférence",
+          "detail": "L’atomicité d’un document, puis des données dérivées réparées par un job, puis une transaction courte."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Passer une commande dans MongoDB écrit le document de commande et décrémente le stock sur trois documents produit. Un crash entre les écritures a laissé un stock faux. Qu’utiliseriez-vous, et qu’est-ce que le code doit éviter ?",
+        "bridge": "Un invariant entre documents demande une transaction multi-documents : `session.withTransaction`, la session sur chaque opération, aucun effet de bord dans le callback."
+      },
+      {
+        "question": "Un collègue veut envelopper chaque écriture MongoDB dans une transaction « par sécurité ». Que répondez-vous ?",
+        "bridge": "Les transactions coûtent plus cher que les écritures sur un seul document, donc l’atomicité d’un document ou des données dérivées réparables passent en premier."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux insèrent un avis et mettent à jour le résumé du produit dans une transaction. Laquelle annule les deux en cas d’abort ?",
+        "why": "Chaque opération qui reçoit `{ session }` appartient à la transaction, donc un abort annule les deux. Le `updateOne` sans session s’exécute hors de la transaction : il reste commité quand la transaction est annulée, et comme `withTransaction` peut relancer le callback sur une erreur transitoire, le résumé peut être compté deux fois."
+      }
+    ]
+  },
+  "mongo-change-streams": {
+    "topic": "Change streams MongoDB",
+    "question": "Comment garderiez-vous un autre service synchronisé avec une collection MongoDB en quasi temps réel ?",
+    "answer": "J’utiliserais un change stream : `collection.watch()` s’abonne aux changements de la collection, et je le lis avec `for await`. Il faut un replica set ou un cluster shardé, et il ne remonte que les changements commités par une majorité, donc un événement n’est jamais annulé. Chaque événement a un resume token dans son `_id` ; je le sauvegarde après le traitement et je le passe en `resumeAfter` au redémarrage. Ça donne une livraison at-least-once, donc le consommateur doit être idempotent, par exemple un upsert par SKU. Avec `fullDocument: 'updateLookup'`, les événements d’update portent le document courant. Je fais tourner un seul watcher, et s’il reste arrêté plus longtemps que la fenêtre de l’oplog, il faut une resynchronisation complète.",
+    "keyPoints": [
+      "`watch()` diffuse les changements commités par une majorité",
+      "Sauvegarder le resume token après traitement ; `resumeAfter` au redémarrage",
+      "Livraison at-least-once : le consommateur doit être idempotent",
+      "Arrêté au-delà de la fenêtre de l’oplog : resynchronisation complète"
+    ],
+    "explanation": "Les recruteurs testent si tu sais construire une synchronisation fiable, pas seulement appeler `watch()`. Un senior sauvegarde le token après l’écriture, rend la cible idempotente, fait tourner un seul watcher, et distingue un change stream (réplication de données) d’un événement métier publié via un outbox.",
+    "example": "L’API Orders copiait les noms de produits et le flag `sellable` avec un job nocturne, donc un produit retiré pouvait encore être commandé pendant des heures. Un seul watcher sur `products` avec `fullDocument: 'updateLookup'` fait maintenant un upsert de chaque changement par SKU dans la table et le cache de l’API Orders, en sauvegardant le resume token après chaque écriture : un produit renommé affiche son nouveau nom en quelques secondes.",
+    "mistakes": [
+      "Sauvegarder le resume token avant d’appliquer le changement : un crash perd l’événement ; sauvegarde-le après, et rends l’écriture idempotente.",
+      "Faire tourner un watcher dans chaque réplica de l’API, si bien que chaque réplica applique chaque changement.",
+      "Utiliser les change streams comme événements métier entre services ; publie ceux-là délibérément, par exemple via un outbox."
+    ],
+    "followUps": [
+      {
+        "question": "Que se passe-t-il si le watcher reste arrêté longtemps ?",
+        "answer": "Un token n’est utile que tant que l’oplog contient encore son opération. Au-delà de la fenêtre de l’oplog, la reprise échoue avec `ChangeStreamHistoryLost`, code 286, et le consommateur a besoin d’une resynchronisation complète avant de surveiller à nouveau."
+      },
+      {
+        "question": "Que contient un événement d’update par défaut ?",
+        "answer": "Les champs modifiés et la clé du document, pas le document entier. Avec `fullDocument: 'updateLookup'`, il porte aussi la version courante du document commitée par une majorité, que la cible peut upserter telle quelle."
+      },
+      {
+        "question": "Quand utilisez-vous `startAfter` plutôt que `resumeAfter` ?",
+        "answer": "Après un événement invalidate, par exemple quand la collection surveillée a été supprimée : `resumeAfter` ne peut pas continuer au-delà, alors que `startAfter` démarre un nouveau stream après ce token."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un change stream peut livrer un changement qui sera annulé plus tard.",
+        "why": "Il ne remonte que les changements écrits par une majorité de membres, qui ne peuvent pas être annulés.",
+        "twin": {
+          "statement": "Un change stream ne livre que des changements qui ne peuvent plus être annulés.",
+          "why": "Il remonte les changements écrits par une majorité de membres, qui ne peuvent pas être annulés."
+        }
+      },
+      {
+        "statement": "Sauvegarder le resume token après le traitement de chaque événement donne une livraison at-least-once.",
+        "why": "Un crash après l’écriture mais avant la sauvegarde rejoue cet événement, donc le consommateur doit être idempotent.",
+        "twin": {
+          "statement": "Sauvegarder le resume token après le traitement de chaque événement donne une livraison exactly-once.",
+          "why": "Un crash après l’écriture mais avant la sauvegarde rejoue cet événement : la livraison est at-least-once, donc le consommateur doit être idempotent."
+        }
+      },
+      {
+        "statement": "Les change streams fonctionnent sur un serveur MongoDB standalone.",
+        "why": "Ils nécessitent un replica set ou un cluster shardé.",
+        "twin": {
+          "statement": "Les change streams nécessitent un replica set ou un cluster shardé ; un serveur standalone ne peut pas en ouvrir.",
+          "why": "Les change streams ne sont disponibles que sur les replica sets et les clusters shardés."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un change stream permet à un service de s’abonner aux changements MongoDB en quasi temps réel. Avec des resume tokens sauvegardés et un consommateur idempotent, il garde un autre système synchronisé.",
+      "points": [
+        "Un change stream s’abonne aux changements d’une collection, d’une base ou d’un déploiement. Il nécessite un replica set ou un cluster shardé et ne remonte que les changements commités par une majorité.",
+        "Dans le driver Node, `collection.watch(pipeline, options)` renvoie un stream qu’on lit avec `for await`. Les événements d’update ne portent que les changements, sauf avec `fullDocument: 'updateLookup'`.",
+        "Le `_id` de chaque événement est un resume token. Sauvegarde-le après le traitement et passe-le en `resumeAfter` au redémarrage : la livraison est at-least-once, donc le consommateur doit être idempotent.",
+        "Fais tourner un seul watcher, pas un par réplica de l’API. Un watcher arrêté plus longtemps que la fenêtre de l’oplog ne peut pas reprendre (code 286) et a besoin d’une resynchronisation complète.",
+        "Un change stream dit qu’un document a changé ; ce n’est pas un événement métier. Publie délibérément les contrats comme `order.paid`, par exemple via un outbox."
+      ],
+      "takeaways": [
+        {
+          "term": "`watch()`",
+          "detail": "Diffuse les changements d’une collection, d’une base ou d’un déploiement ; se lit avec `for await`."
+        },
+        {
+          "term": "Prérequis",
+          "detail": "Un replica set ou un cluster shardé ; seuls les changements commités par une majorité sont remontés."
+        },
+        {
+          "term": "`fullDocument: 'updateLookup'`",
+          "detail": "Les événements d’update portent alors le document courant, pas seulement les changements."
+        },
+        {
+          "term": "Resume token",
+          "detail": "Le `_id` de chaque événement : sauvegarde-le après le traitement, et passe-le en `resumeAfter` au redémarrage."
+        },
+        {
+          "term": "At-least-once",
+          "detail": "Les événements peuvent se répéter, donc le consommateur doit être idempotent, comme un upsert par SKU."
+        },
+        {
+          "term": "Fenêtre de l’oplog",
+          "detail": "Un watcher arrêté plus longtemps ne peut pas reprendre (code 286) et doit tout resynchroniser. Un seul watcher, pas un par réplica."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le service de recherche doit refléter en quelques secondes les changements de prix faits dans MongoDB, et ne doit en manquer aucun après un redémarrage. Comment construiriez-vous la synchronisation ?",
+        "bridge": "Un change stream avec un resume token sauvegardé donne une livraison quasi temps réel et at-least-once ; le consommateur fait un upsert par SKU pour rester idempotent."
+      },
+      {
+        "question": "Votre consommateur de change stream est resté arrêté un long week-end et ne peut plus reprendre. Pourquoi, et que faites-vous ?",
+        "bridge": "Reprendre exige que la position du token soit encore dans l’oplog ; arrêté au-delà de la fenêtre de l’oplog, le stream ne peut pas reprendre et la cible a besoin d’une resynchronisation complète."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux synchronisent les changements de produits dans l’API Orders et sauvegardent le resume token. Laquelle ne perd jamais un changement après un crash ?",
+        "why": "Sauvegarder le token après l’écriture donne une livraison at-least-once : un crash entre les deux rejoue l’événement au redémarrage, et l’upsert idempotent l’absorbe. Le sauvegarder d’abord signifie qu’un crash avant `sink.apply` reprend après cet événement : le changement n’est jamais appliqué et l’API Orders garde l’ancien nom ou l’ancien flag `sellable`."
+      }
+    ]
+  }
+}

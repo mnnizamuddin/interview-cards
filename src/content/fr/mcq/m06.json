@@ -1,0 +1,302 @@
+{
+  "m06.q1": {
+    "q": "Quel est le lien entre NestJS, Express et Fastify ?",
+    "options": [
+      "Il les remplace par son propre serveur HTTP écrit en TypeScript",
+      "C’est un plugin qu’on enregistre dans une app Express ou Fastify",
+      "Il ajoute des modules, un conteneur DI et des points d’extension sur la requête, et tourne sur Express ou Fastify via un adaptateur",
+      "Il ne marche qu’avec Express ; Fastify a besoin d’un framework séparé"
+    ],
+    "explain": "NestJS est un framework applicatif : il apporte la structure et délègue le HTTP à un adaptateur (<code>@nestjs/platform-express</code> par défaut, <code>@nestjs/platform-fastify</code> sur demande). Ce n’est pas un plugin de ces frameworks, et l’adaptateur Fastify est officiel."
+  },
+  "m06.q2": {
+    "q": "Où doit vivre la règle « seule une commande payée peut être annulée » ?",
+    "options": [
+      "Dans le use case, qui lève une erreur métier que la couche HTTP traduit en 409",
+      "Dans le contrôleur, à côté du code de statut qu’elle produit",
+      "Dans le repository, uniquement comme condition de la requête UPDATE",
+      "Dans un guard, pour que le handler ne s’exécute jamais pour les commandes non payées"
+    ],
+    "explain": "Les règles métier appartiennent au use case, pour que chaque appelant (contrôleur, consommateur de file, test) les applique. Un guard sert à l’authentification et à l’autorisation, pas à l’état métier ; un update conditionnel peut renforcer la règle, mais la règle et son erreur appartiennent au use case."
+  },
+  "m06.q3": {
+    "q": "En ports et adaptateurs, qu’est-ce qu’un port ?",
+    "options": [
+      "Le port TCP sur lequel écoute le serveur HTTP",
+      "Une interface déclarée par le cœur (par exemple <code>OrderRepository</code>) qui décrit ce dont il a besoin de l’extérieur",
+      "Une classe qui implémente une requête en base",
+      "Un module Nest qui exporte un service"
+    ],
+    "explain": "Un port appartient au cœur applicatif et nomme une capacité dont il a besoin ; des adaptateurs comme un repository Postgres l’implémentent. La classe qui contient le SQL est l’adaptateur, pas le port, c’est pourquoi le cœur n’importe jamais de driver."
+  },
+  "m06.q4": {
+    "q": "Qu’est-ce qu’une composition root ?",
+    "options": [
+      "Le module racine que toute app NestJS doit déclarer",
+      "Une classe de base que tous les services étendent pour recevoir leurs dépendances",
+      "Un registre global que n’importe quel fichier peut interroger pour obtenir une dépendance",
+      "L’unique endroit, exécuté une fois au démarrage, qui crée les adaptateurs concrets et les passe au code qui en a besoin"
+    ],
+    "explain": "La composition root construit explicitement le graphe d’objets, par exemple <code>buildApp(config)</code> qui crée le pool, le repository et le use case. Un registre global interrogé de partout, c’est le pattern service locator, qui cache les dépendances au lieu de les passer."
+  },
+  "m06.q5": {
+    "q": "Un service Nest a besoin d’un <code>OrderRepository</code>, qui est une interface TypeScript. Pourquoi lui faut-il <code>@Inject(ORDER_REPOSITORY)</code> ?",
+    "options": [
+      "Les interfaces n’existent pas à l’exécution, donc Nest ne peut pas les résoudre depuis le type du paramètre et a besoin d’un token",
+      "Parce que <code>@Inject</code> rend le provider request-scoped",
+      "Parce que sans lui, Nest ne peut injecter que des classes du même module",
+      "Parce que le décorateur transforme l’interface en classe abstraite"
+    ],
+    "explain": "Nest lit les types des paramètres du constructeur enregistrés par <code>emitDecoratorMetadata</code> ; une interface est effacée par le compilateur, donc il n’y a rien à chercher. Un token Symbol ou chaîne enregistré avec <code>{ provide: TOKEN, useClass: … }</code> comble le manque. <code>@Inject</code> n’a aucun effet sur le scope."
+  },
+  "m06.q6": {
+    "q": "Quel est le scope par défaut d’un provider Nest ?",
+    "options": [
+      "Une instance par requête",
+      "Une instance par module qui l’importe",
+      "Une instance pour toute l’application (singleton)",
+      "Une nouvelle instance pour chaque consommateur (transient)"
+    ],
+    "explain": "Les providers sont des singletons sauf déclaration contraire. <code>Scope.REQUEST</code> et <code>Scope.TRANSIENT</code> sont optionnels, et le scope requête se propage à tous les consommateurs, c’est pourquoi on préfère des singletons avec un stockage de contexte."
+  },
+  "m06.q7": {
+    "q": "Dans quel ordre s’exécutent ces éléments pour une requête réussie dans NestJS ?",
+    "options": [
+      "Middleware, pipe, guard, interceptor, handler",
+      "Middleware, guard, interceptor, pipe, handler",
+      "Guard, middleware, pipe, interceptor, handler",
+      "Middleware, interceptor, guard, pipe, handler"
+    ],
+    "explain": "La doc Nest et une mesure sur Nest 12.3.2 concordent : middleware, guards, interceptors (avant), pipes, puis le handler, puis les interceptors au retour. Les guards passent avant les pipes, donc une requête non authentifiée est rejetée avant que son corps soit validé."
+  },
+  "m06.q8": {
+    "q": "Sur Nest 12, comment valider le corps d’une requête avec un schéma Zod sans librairie supplémentaire ?",
+    "options": [
+      "Appeler <code>schema.parse(body)</code> dans chaque handler",
+      "Envelopper le schéma avec <code>createZodDto</code> et utiliser <code>ValidationPipe</code>",
+      "Ajouter des décorateurs class-validator générés depuis le schéma",
+      "Écrire <code>@Body({ schema: CreateOrderSchema })</code> et enregistrer <code>StandardSchemaValidationPipe</code>"
+    ],
+    "explain": "Nest 12 accepte toute librairie Standard Schema sur <code>@Body</code>, <code>@Query</code> et <code>@Param</code>, et <code>StandardSchemaValidationPipe</code> valide ces paramètres. <code>createZodDto</code> vient de la librairie séparée nestjs-zod et va avec son propre <code>ZodValidationPipe</code>, pas avec le <code>ValidationPipe</code> de class-validator."
+  },
+  "m06.q9": {
+    "q": "Dans l’ancien <code>server.ts</code> Express 5, une route async lève une erreur après un <code>await</code>, et un gestionnaire d’erreurs à quatre paramètres est enregistré en dernier. Que se passe-t-il ?",
+    "options": [
+      "Le process plante avec une unhandled rejection",
+      "La requête reste bloquée jusqu’au timeout du client",
+      "Express envoie sa page HTML 500 par défaut",
+      "L’erreur atteint le gestionnaire d’erreurs, qui répond avec la réponse correspondante"
+    ],
+    "explain": "Express 5 passe une promesse rejetée par un handler à <code>next(err)</code>. Mesuré sur Express 5.3.0 : l’erreur de cette route a atteint le gestionnaire, qui a répondu un 404 Problem Details. Le blocage ou le crash se produisait en Express 4 sans wrapper comme <code>express-async-errors</code>."
+  },
+  "m06.q10": {
+    "q": "Le schéma de config lit <code>FEATURE_REFUNDS: z.coerce.boolean()</code> et l’environnement contient <code>FEATURE_REFUNDS=false</code>. Quelle est la valeur ?",
+    "options": [
+      "<code>true</code>, parce que toute chaîne non vide est truthy",
+      "<code>false</code>",
+      "Une erreur de validation au démarrage",
+      "<code>undefined</code>, donc la valeur par défaut s’applique"
+    ],
+    "explain": "Mesuré sur Zod 4.6.7 : <code>z.coerce.boolean().parse('false')</code> renvoie <code>true</code>, puisque la coercition fait <code>Boolean('false')</code>. <code>z.stringbool()</code> lit « false », « 0 », « no » et « off » comme faux et rejette les mots inconnus."
+  },
+  "m06.q11": {
+    "q": "Qu’apporte <code>AsyncLocalStorage.run(store, fn)</code> à un service ?",
+    "options": [
+      "Un cache partagé par toutes les requêtes pendant toute la vie du process",
+      "L’accès à <code>store</code> depuis tout code lancé par <code>fn</code>, à travers les <code>await</code>, et depuis rien d’autre",
+      "Un nouveau worker thread avec sa propre copie de <code>store</code>",
+      "Un moyen de rendre un provider Nest request-scoped"
+    ],
+    "explain": "Le store suit le travail asynchrone lancé dans <code>run</code>, donc chaque requête voit son propre request id même quand beaucoup s’entrelacent. Il n’est pas partagé entre requêtes (ce serait une variable de module), et c’est ce qui permet au code Nest d’éviter le scope requête (nestjs-cls repose dessus)."
+  },
+  "m06.q12": {
+    "q": "Un pod Kubernetes reçoit <code>SIGTERM</code>. Que doit faire le service en premier ?",
+    "options": [
+      "Fermer le pool de la base pour qu’aucune nouvelle requête ne démarre",
+      "Appeler <code>process.exit(0)</code> ; Kubernetes relance le travail ailleurs",
+      "Arrêter d’écouter immédiatement pour qu’aucune requête n’arrive après le signal",
+      "Continuer à servir en faisant échouer la readiness probe, et attendre quelques secondes que le retrait des endpoints se propage"
+    ],
+    "explain": "Kubernetes retire le pod des endpoints en même temps qu’il envoie <code>SIGTERM</code>, donc de nouvelles requêtes peuvent encore arriver brièvement ; fermer le listener tout de suite les transforme en erreurs. Fermer le pool d’abord casse les requêtes encore en cours."
+  },
+  "m06.q13": {
+    "q": "En plus de l’API Orders, l’équipe doit livrer un petit endpoint pour le transporteur qui tourne comme Cloudflare Worker et aussi, en développement local, sur Node. Quel framework convient le mieux ?",
+    "options": [
+      "NestJS avec l’adaptateur Fastify",
+      "Express 5",
+      "Hono, construit sur les Request et Response des standards Web, qui tourne sur Workers et sur Node",
+      "Fastify 5 avec son mode serverless"
+    ],
+    "explain": "La documentation de Hono liste Cloudflare Workers, Deno, Bun, AWS Lambda et Node (via son adaptateur Node) parce qu’il n’utilise que les standards Web. Express et Fastify reposent sur le module <code>http</code> de Node, et NestJS ajoute un build et un conteneur lourds dont une petite fonction edge n’a pas besoin."
+  },
+  "m06.q14": {
+    "q": "Une app NestJS enregistre un guard, un interceptor, un pipe et un exception filter globaux qui loggent chacun leur nom. <code>OrdersService.get</code> lève <code>OrderNotFoundError</code>, que le filter traite. Qu’est-ce qui est loggé ?",
+    "options": [
+      "middleware > guard > interceptor:before > pipe > handler > service > interceptor:error > filter",
+      "middleware > guard > pipe > interceptor:before > handler > service > filter > interceptor:error",
+      "middleware > interceptor:before > guard > pipe > handler > service > filter",
+      "middleware > guard > interceptor:before > pipe > handler > service > filter"
+    ],
+    "explain": "Mesuré sur Nest 12.3.2 avec l’adaptateur Fastify : l’interceptor enveloppe le handler sous forme de flux RxJS, donc il voit l’erreur avant que le filter la transforme en réponse. La dernière option, tentante, oublie que les interceptors sont aussi sur le chemin de l’erreur, ce qui compte quand un interceptor transforme ou logge les erreurs."
+  },
+  "m06.q15": {
+    "q": "Un provider singleton <code>TenantContext</code> est passé en <code>Scope.REQUEST</code> pour porter le tenant courant. <code>OrdersController</code> l’injecte. Qu’arrive-t-il au contrôleur ?",
+    "options": [
+      "Rien : les contrôleurs sont toujours des singletons",
+      "Il est reconstruit à chaque requête, comme tous les providers de la chaîne qui dépendent de <code>TenantContext</code>",
+      "Nest refuse de démarrer parce que les contrôleurs ne peuvent pas dépendre de providers request-scoped",
+      "Il garde l’instance créée pour la première requête"
+    ],
+    "explain": "Le scope requête remonte la chaîne d’injection (doc Nest). Mesuré sur Nest 12.3.2 : un contrôleur injectant un provider request-scoped a été construit deux fois pour deux requêtes. Stocker le tenant avec nestjs-cls garde tout en singleton."
+  },
+  "m06.q16": {
+    "q": "Un service Fastify 5 n’a pas de <code>setErrorHandler</code>. Un handler échoue avec <code>new Error('connect ECONNREFUSED 10.0.3.7:5432')</code>. Que reçoit le client ?",
+    "options": [
+      "Un 500 dont le corps JSON contient <code>\"message\":\"connect ECONNREFUSED 10.0.3.7:5432\"</code>",
+      "Un 500 avec seulement un message générique « Internal Server Error »",
+      "Un 502 Bad Gateway, puisque la base est injoignable",
+      "La connexion est réinitialisée sans réponse"
+    ],
+    "explain": "Mesuré sur Fastify 5.12.7 : <code>{\"statusCode\":500,\"error\":\"Internal Server Error\",\"message\":\"connect ECONNREFUSED 10.0.3.7:5432\"}</code>. Le corps générique, c’est ce que fait NestJS par défaut, pas Fastify ; il faut un gestionnaire d’erreurs personnalisé qui passe par <code>toProblem</code> et logge les détails."
+  },
+  "m06.q17": {
+    "q": "Un service Fastify 5 appelle <code>await app.close()</code> sur <code>SIGTERM</code>. Une requête est en cours sur une connexion keep-alive et se termine 300 ms plus tard. Réglages par défaut. Quand <code>close()</code> se résout-il ?",
+    "options": [
+      "Juste après l’envoi de la réponse en cours",
+      "Immédiatement : <code>close()</code> détruit toutes les connexions",
+      "Jamais, jusqu’à ce que Kubernetes envoie <code>SIGKILL</code>",
+      "Environ 72 secondes plus tard, quand la connexion keep-alive inactive arrive à son timeout"
+    ],
+    "explain": "Mesuré sur Fastify 5.12.7 : <code>close()</code> s’est résolu après 73 s, parce que la connexion est restée ouverte après sa réponse jusqu’au <code>keepAliveTimeout</code> de 72 000 ms de Fastify. Envoyer <code>Connection: close</code> sur les réponses pendant l’arrêt l’a ramené à 41 ms ; dans Kubernetes, la période de grâce de 30 s se serait d’abord terminée par un <code>SIGKILL</code>."
+  },
+  "m06.q18": {
+    "q": "Quel correctif livreriez-vous pour que les requêtes en cours sur des connexions keep-alive ne retardent plus l’arrêt, sans les couper ?",
+    "options": [
+      "Appeler <code>server.closeAllConnections()</code> dès que <code>SIGTERM</code> arrive",
+      "Mettre <code>keepAliveTimeout: 0</code> pendant toute la vie du serveur",
+      "Envoyer <code>Connection: close</code> sur les réponses écrites une fois l’arrêt commencé, et garder une deadline qui détruit les restes",
+      "Monter <code>terminationGracePeriodSeconds</code> à 120 secondes"
+    ],
+    "explain": "Le client ferme la connexion après sa réponse, donc le serveur se ferme dès que la dernière requête se termine (25 ms sur Express, 41 ms sur Fastify, mesuré), et la deadline couvre une requête bloquée. <code>closeAllConnections()</code> tout de suite tue les requêtes qu’on voulait terminer, et désactiver le keep-alive coûte une nouvelle connexion par requête en fonctionnement normal."
+  },
+  "m06.q19": {
+    "q": "Un développeur essaie de lancer un service Nest sans build, avec le type stripping de Node 24 : <code>node src/main.ts</code>. Que se passe-t-il ?",
+    "options": [
+      "Ça tourne, mais l’injection de dépendances échoue à la première requête",
+      "Le parsing échoue : le type stripping n’exécute pas les décorateurs, donc le @ est une erreur de syntaxe",
+      "Ça tourne normalement : Node 24 supporte nativement les décorateurs",
+      "Ça ne tourne que si <code>reflect-metadata</code> est importé en premier"
+    ],
+    "explain": "Mesuré sur Node 24.11 : <code>SyntaxError: Invalid or unexpected token</code> sur <code>@Injectable()</code>. Nest a aussi besoin de <code>emitDecoratorMetadata</code>, que seul un compilateur (tsc ou SWC) peut produire, donc les projets Nest gardent une étape de build ; <code>reflect-metadata</code> ne peut rien pour un fichier qui ne se parse pas."
+  },
+  "m06.q20": {
+    "q": "La config utilise <code>@nestjs/config</code> avec <code>PORT: z.coerce.number().int().default(3000)</code>. Le déploiement définit <code>PORT=</code> (vide). Quelle valeur renvoie <code>config.get('PORT')</code> ?",
+    "options": [
+      "3000, parce que la variable est vide",
+      "L’app refuse de démarrer : une chaîne vide n’est pas un nombre",
+      "<code>NaN</code>, et <code>listen</code> lève une erreur",
+      "0, donc le serveur écouterait sur un port libre aléatoire"
+    ],
+    "explain": "Mesuré avec @nestjs/config 12.0.1 et Zod 4.6.7 : <code>0</code>. <code>Number('')</code> vaut 0 et <code>.default</code> ne s’applique qu’à <code>undefined</code>. Retire les valeurs vides avant la validation (une petite fonction <code>validate</code>) pour qu’une variable vide compte comme absente."
+  },
+  "m06.q21": {
+    "q": "Une app NestJS 12 n’a pas d’exception filter personnalisé. Un service lève <code>new Error('connect ECONNREFUSED 10.0.3.7:5432')</code>. Que reçoit le client ?",
+    "options": [
+      "Un 500 avec le message d’erreur d’origine dans le corps",
+      "Un 500 avec <code>{\"statusCode\":500,\"message\":\"Internal server error\"}</code>",
+      "Un 500 avec un corps <code>application/problem+json</code>",
+      "Un 503, parce que l’erreur ressemble à un échec de connexion"
+    ],
+    "explain": "Mesuré sur Nest 12.3.2 (adaptateur Fastify) : le filter intégré de Nest répond à toute exception non reconnue avec ce corps générique. Il ne fait pas fuiter le message, mais ce n’est pas non plus du Problem Details, donc un filter global <code>@Catch()</code> qui appelle <code>toProblem</code> reste le moyen d’avoir un seul format."
+  },
+  "m06.q22": {
+    "q": "Une app Nest a un <code>ProblemFilter</code> global et un filter au niveau contrôleur <code>@Catch(OrderNotFoundError)</code>. Le contrôleur lève <code>OrderNotFoundError</code>. Quels filters s’exécutent ?",
+    "options": [
+      "Seulement le filter du contrôleur : le filter correspondant le plus proche la traite et les exceptions ne passent pas d’un filter à l’autre",
+      "Les deux, le contrôleur d’abord, puis le global",
+      "Les deux, le global d’abord, puis le contrôleur",
+      "Seulement le filter global, parce que les filters globaux gagnent toujours"
+    ],
+    "explain": "La doc Nest : les filters sont vérifiés de la route au contrôleur puis au global, et une exception traitée n’est pas transmise à un autre filter. Un filter de contrôleur qui répond autrement contourne donc silencieusement le mapping Problem Details global, une bonne raison de garder un seul filter global."
+  },
+  "m06.q23": {
+    "q": "Les routes back-office de l’API Orders ne font que lister, créer et modifier des zones de livraison, sans règle métier. Un collègue propose des ports, des adaptateurs et un use case par opération. Que répondez-vous ?",
+    "options": [
+      "D’accord : tout service doit suivre l’architecture hexagonale pour être testable",
+      "D’accord, et aussi le découper en trois microservices pour rester propre",
+      "Refuser toute séparation en couches et mettre le SQL dans les handlers de route",
+      "Garder un contrôleur fin au-dessus d’un repository ; introduire use cases et ports quand des règles ou des systèmes externes apparaissent"
+    ],
+    "explain": "Les ports sont rentables là où il y a des règles à tester sans base ou des systèmes externes à remplacer. Pour du CRUD simple, ils ajoutent des fichiers sans protéger quoi que ce soit ; la séparation en couches garde quand même le SQL hors des contrôleurs, pour pouvoir ajouter des règles plus tard sans réécriture."
+  },
+  "m06.q24": {
+    "q": "Une équipe de 12 personnes veut découper son monolithe de commandes enchevêtré en quatre microservices pour régler le couplage. Que proposeriez-vous d’abord ?",
+    "options": [
+      "Découper maintenant : des déployables séparés imposent des frontières propres",
+      "Un monolithe modulaire : des modules avec leurs propres tables et une petite API publique, des frontières vérifiées en CI, et une extraction plus tard seulement pour une raison de scaling, de déploiement ou d’ownership",
+      "Déplacer tout le code partagé dans un seul package <code>common</code> utilisé par tous les modules",
+      "Mettre chaque module dans son propre dépôt pour rendre les imports impossibles"
+    ],
+    "explain": "Découper du code enchevêtré produit des services enchevêtrés, plus des pannes réseau et des transactions distribuées. D’abord les frontières, vérifiées par une règle de lint comme <code>@nx/enforce-module-boundaries</code> ou dependency-cruiser, puis l’extraction quand un module a vraiment besoin de scaler ou d’être déployé séparément ; un gros package <code>common</code> recrée le couplage."
+  },
+  "m06.q25": {
+    "q": "L’API Orders vit maintenant dans un monorepo de 30 packages avec six équipes. La CI prend 40 minutes, et les équipes importent sans cesse les internes des autres. Quel outillage règle les deux problèmes ?",
+    "options": [
+      "Les workspaces pnpm seuls, avec <code>pnpm -r test</code>",
+      "Un seul <code>tsconfig.json</code> racine avec des alias de chemins",
+      "Nx : les commandes affected et le cache pour le temps de CI, et la règle de frontières de modules avec des tags de projet pour les imports",
+      "Découper en 30 dépôts publiés sur un registre privé"
+    ],
+    "explain": "Nx met en cache et n’exécute que les tâches affectées, et <code>@nx/enforce-module-boundaries</code> avec <code>depConstraints</code> fait échouer le lint quand un projet en importe un qu’il n’a pas le droit d’importer. Les workspaces pnpm seuls lient les packages mais ne cachent ni n’imposent rien ; Turborepo couvrirait le cache mais pas la règle de frontières."
+  },
+  "m06.q26": {
+    "q": "Un Dockerfile contient <code>ENV STRIPE_API_KEY=sk_live_…</code> « parce que le registre est privé ». Quel est le problème, et le correctif ?",
+    "options": [
+      "Pas de problème : un registre privé protège l’image",
+      "La variable n’est visible qu’au build, donc l’app ne peut pas la lire",
+      "Seulement la taille : les secrets devraient être compressés",
+      "La clé persiste dans l’image pour tous ceux qui peuvent la puller ; l’injecter à l’exécution depuis un gestionnaire de secrets et faire tourner la clé qui a fuité"
+    ],
+    "explain": "La doc Docker dit que les arguments de build et les variables d’environnement sont inadaptés aux secrets parce qu’ils persistent dans l’image finale. Toute personne ayant accès en pull, chaque cache et chaque copie de l’image détient maintenant une clé live, donc il faut la faire tourner, puis la fournir à l’exécution via la plateforme."
+  },
+  "m06.q27": {
+    "q": "Quel est le bug de ce middleware de request id sous un vrai trafic ?",
+    "options": [
+      "Aucun, parce que Node exécute le JavaScript sur un seul thread",
+      "Les requêtes concurrentes écrasent la variable partagée, donc les logs écrits après un <code>await</code> portent l’id d’une autre requête ; utiliser AsyncLocalStorage",
+      "<code>randomUUID</code> est trop lent pour être appelé à chaque requête",
+      "Le middleware doit être enregistré après les routes"
+    ],
+    "explain": "Un seul thread ne veut pas dire une requête à la fois : pendant que la requête A attend la base, la requête B exécute le middleware et écrase la variable. <code>AsyncLocalStorage.run</code> donne à chaque requête son propre store à travers les await (mesuré avec un <code>mixin</code> pino)."
+  },
+  "m06.q28": {
+    "q": "Une app Nest sur l’adaptateur Fastify marche bien en local, mais dans son conteneur Docker toutes les requêtes venant de l’extérieur échouent à se connecter. <code>main.ts</code> appelle <code>await app.listen(3000)</code>. Cause probable ?",
+    "options": [
+      "Fastify écoute sur localhost par défaut ; écouter sur <code>0.0.0.0</code> dans le conteneur",
+      "L’adaptateur Fastify a besoin de <code>enableShutdownHooks()</code> pour accepter des connexions",
+      "Le port 3000 est réservé dans les conteneurs Docker",
+      "Nest a besoin de l’adaptateur Express dans les conteneurs"
+    ],
+    "explain": "La doc Nest de l’adaptateur Fastify : Fastify n’écoute que sur localhost par défaut, donc passe <code>'0.0.0.0'</code> pour accepter les connexions d’autres hôtes, ce qui inclut le mapping de ports de Docker. Les shutdown hooks ne concernent que les signaux, et rien ne réserve le port 3000."
+  },
+  "m06.q29": {
+    "q": "Dans une app NestJS 12 avec <code>enableShutdownHooks()</code>, où fermez-vous le pool PostgreSQL, et où faites-vous échouer la readiness ?",
+    "options": [
+      "Les deux dans <code>onModuleDestroy</code>, qui s’exécute après la fermeture du serveur",
+      "Le pool dans <code>beforeApplicationShutdown</code>, la readiness dans <code>onApplicationShutdown</code>",
+      "Faire échouer la readiness et attendre dans <code>beforeApplicationShutdown</code> (le serveur sert encore) ; fermer le pool dans <code>onApplicationShutdown</code> (après la fermeture du serveur)",
+      "Les deux dans un handler <code>process.on('SIGTERM')</code>, puisque les hooks Nest s’exécutent après la sortie du process"
+    ],
+    "explain": "Mesuré sur Nest 12.3.2 avec les deux adaptateurs : <code>onModuleDestroy</code> et <code>beforeApplicationShutdown</code> se sont exécutés alors qu’une nouvelle connexion recevait encore 200, puis le serveur s’est fermé, puis <code>onApplicationShutdown</code> s’est exécuté. Fermer le pool avant que le serveur se soit vidé casse les requêtes encore en cours."
+  },
+  "m06.q30": {
+    "q": "Avec <code>StandardSchemaValidationPipe</code> enregistré globalement, un client envoie en POST <code>{\"sku\":\"A\",\"quantity\":2,\"extra\":1}</code>. Que reçoit le handler ?",
+    "options": [
+      "Le corps brut, <code>extra</code> compris, puisque le pipe ne fait que valider",
+      "Une erreur 400, parce que <code>extra</code> n’est pas dans le schéma",
+      "<code>{ sku: 'A', quantity: 2 }</code> : la sortie du schéma, sans la clé inconnue",
+      "Une instance d’une classe DTO générée"
+    ],
+    "explain": "Mesuré sur Nest 12.3.2 : le handler a reçu <code>{\"sku\":\"A\",\"quantity\":2}</code> sous forme d’objet simple. Le pipe passe la sortie du schéma par défaut (<code>transform: true</code>), et les objets Zod retirent les clés inconnues ; un 400 demanderait <code>z.strictObject</code>."
+  }
+}

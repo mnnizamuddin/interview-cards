@@ -1,0 +1,471 @@
+{
+  "js-destructuring": {
+    "topic": "Déstructuration",
+    "question": "Qu’est-ce que la déstructuration, et comment l’utilisez-vous avec les objets et les tableaux ?",
+    "answer": "La déstructuration extrait des valeurs d’un objet ou d’un tableau vers des variables en une seule instruction. Sur un objet, je prends les propriétés par nom, `const { id, status } = order`, et je peux renommer, imbriquer et récupérer le reste avec `...rest`. Sur un tableau, c’est la position qui compte : `const [first, second] = items`, ce qui marche sur n’importe quel itérable et permet d’échanger deux variables. Une valeur par défaut, comme `status = 'pending_payment'`, ne s’applique que si la valeur vaut `undefined`, pas `null`. Je l’utilise partout pour les paramètres de fonction et les props React, avec des valeurs par défaut.",
+    "keyPoints": [
+      "Extrait les propriétés d’un objet par nom et les éléments d’un tableau par position",
+      "Permet de renommer, d’imbriquer et de récupérer le reste avec `...rest`",
+      "Les valeurs par défaut ne s’appliquent qu’à `undefined`, pas à `null`",
+      "Courant dans les paramètres de fonction et les props React"
+    ],
+    "explanation": "C’est une question d’échauffement : les recruteurs attendent de la précision plutôt qu’une définition. La règle `undefined` contre `null` pour les valeurs par défaut et la TypeError quand on déstructure `null` distinguent celui qui l’a déjà débogué de celui qui l’a seulement lu.",
+    "example": "Dans le back-office, le détail de commande plantait avec « Cannot read properties of null (reading 'name') » sur les commandes invité, car l’API Orders renvoyait `customer: null` et le composant le déstructurait dans ses paramètres. Une valeur par défaut n’aidait pas, puisqu’elle ne remplace que `undefined`. Le correctif a transformé `null` en client « Invité » dans le BFF, pour que le composant reçoive toujours un objet.",
+    "mistakes": [
+      "Croire qu’une valeur par défaut remplace `null` : elle ne remplace que `undefined`",
+      "Déstructurer une propriété imbriquée d’une valeur qui peut manquer, ce qui lève une TypeError",
+      "Confondre `{ status: label }` (renommage en `label`) avec une valeur par défaut"
+    ],
+    "followUps": [
+      {
+        "question": "Comment déstructurez-vous une propriété imbriquée qui peut manquer sans planter ?",
+        "answer": "Je donne une valeur par défaut au parent, `{ customer: { name } = {} }`, ou je lis avec le chaînage optionnel, `order.customer?.name`, plus clair quand la valeur peut aussi être `null`."
+      },
+      {
+        "question": "Peut-on utiliser la déstructuration de tableau sur autre chose qu’un tableau ?",
+        "answer": "Oui, sur n’importe quel itérable : une chaîne, une `Map`, un `Set` ou un générateur. `for (const [key, value] of map)` est une déstructuration de tableau de chaque entrée."
+      },
+      {
+        "question": "Comment déstructurez-vous une propriété imbriquée en une seule instruction ?",
+        "answer": "`const { customer: { address: { city } } } = order` lit `order.customer.address.city` dans `city`. Seul `city` devient une variable, pas `customer` ni `address`. Si un niveau peut manquer, je lui donne une valeur par défaut ou je le lis avec `?.`, car déstructurer `undefined` lève une erreur."
+      },
+      {
+        "question": "Comment échangez-vous deux variables avec la déstructuration ?",
+        "answer": "`[a, b] = [b, a]` : la partie droite construit un tableau avec les valeurs actuelles, puis le motif les réaffecte inversées. Un piège : si la ligne précédente n’a pas de point-virgule, le `[` la prolonge et ça casse ; dans ce style, je commence la ligne par un point-virgule."
+      },
+      {
+        "question": "Comment fonctionne un élément rest dans une déstructuration de tableau, comme `const [first, ...rest] = items` ?",
+        "answer": "`first` reçoit le premier élément, et `rest` un nouveau vrai tableau avec tous les éléments restants, vide s’il n’y en a pas. L’élément rest doit être le dernier, sans virgule après. Ça marche sur tout itérable : `const [head, ...tail] = 'abc'` donne « a » et `['b', 'c']`."
+      },
+      {
+        "question": "Comment feriez-vous une copie profonde d’un objet en toute sécurité ?",
+        "answer": "Spread et rest ne copient qu’un niveau, donc pour une copie profonde j’utilise `structuredClone(order)` : il garde les Dates, Maps, Sets et les cycles. Il lève une erreur sur les fonctions et transforme les instances de classe en objets simples, qui demandent leur propre logique de copie. J’évite l’aller-retour JSON, qui change les Dates en chaînes et supprime `undefined`."
+      },
+      {
+        "question": "Spread d’un tableau ou `concat()` ?",
+        "answer": "Les deux créent un nouveau tableau superficiel. `concat` aplatit d’un niveau les tableaux passés et ajoute tout le reste comme un seul élément : `items.concat(set)` ajoute le Set lui-même. Spread développe n’importe quel itérable : `[...items, ...set]` ajoute ses valeurs, et se lit pareil pour tableaux, Sets et chaînes. J’utilise spread par défaut."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`const { total = 0 } = { total: null }` donne à `total` la valeur 0.",
+        "why": "Les valeurs par défaut ne s’appliquent que si la valeur vaut `undefined`, donc `total` reste `null`.",
+        "twin": {
+          "statement": "`const { total = 0 } = { total: null }` laisse `total` égal à `null`.",
+          "why": "Les valeurs par défaut ne s’appliquent que si la valeur vaut `undefined`, et `null` est une vraie valeur."
+        }
+      },
+      {
+        "statement": "`const { a } = null` lève une TypeError.",
+        "why": "Déstructurer `null` ou `undefined` lève une erreur, car il n’y a pas d’objet où lire la propriété.",
+        "twin": {
+          "statement": "`const { a } = null` donne à `a` la valeur `undefined`.",
+          "why": "Déstructurer `null` ou `undefined` lève une TypeError, car il n’y a pas d’objet où lire la propriété."
+        }
+      },
+      {
+        "statement": "`[x, y] = [y, x]` échange les valeurs de deux variables `let`.",
+        "why": "La partie droite construit d’abord un nouveau tableau avec les valeurs actuelles, puis la partie gauche les réaffecte dans l’ordre inverse.",
+        "twin": {
+          "statement": "`[x, y] = [y, x]` donne aux deux variables l’ancienne valeur de `y`.",
+          "why": "La partie droite construit un nouveau tableau avec les deux valeurs actuelles avant toute affectation, donc les valeurs sont bien échangées."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "La déstructuration extrait en une instruction les propriétés d’un objet par nom et les éléments d’un tableau par position. On la trouve partout dans les paramètres de fonction et les props React.",
+      "points": [
+        "La déstructuration extrait des valeurs vers des variables en une instruction. Un motif objet prend les propriétés par nom, `const { id, status } = order` ; un motif tableau prend les éléments par position, `const [first] = items`.",
+        "Un motif objet peut renommer, imbriquer et récupérer le reste : `{ status: label, customer: { name }, ...rest }`. Les deux-points renomment (ici en `label`) ; le signe égal définit une valeur par défaut.",
+        "Une valeur par défaut, comme dans `{ status = 'pending_payment' }`, ne s’applique que si la valeur vaut `undefined`. Une valeur `null` reste `null`.",
+        "Déstructurer `null` ou `undefined` lève une TypeError, tout comme un motif imbriqué dont le parent manque. Un défaut sur le parent, `{ customer: { name } = {} }`, ne couvre que `undefined` ; pour `null`, utilise `?.`.",
+        "Les motifs tableau marchent sur tout itérable : chaînes, Maps, Sets, générateurs. `[a, b] = [b, a]` échange deux variables, et `for (const [key, value] of map)` déstructure chaque entrée de la Map."
+      ],
+      "takeaways": [
+        {
+          "term": "Motif objet",
+          "detail": "`const { id, status } = order` prend les propriétés par nom."
+        },
+        {
+          "term": "Motif tableau",
+          "detail": "`const [first] = items` prend par position et marche sur tout itérable."
+        },
+        {
+          "term": "Renommer, imbriquer, rest",
+          "detail": "Les deux-points renomment, l’imbrication atteint les objets internes, et `...rest` récupère les propriétés restantes."
+        },
+        {
+          "term": "Valeur par défaut",
+          "detail": "Ne s’applique que si la valeur vaut `undefined` ; une valeur `null` reste `null`."
+        },
+        {
+          "term": "Parent manquant",
+          "detail": "Déstructurer `null` ou `undefined` lève une TypeError, motifs imbriqués compris."
+        },
+        {
+          "term": "Échange",
+          "detail": "`[a, b] = [b, a]` échange deux variables."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’API Orders lit `const { status = 'pending_payment' } = row` sur des lignes PostgreSQL, et pourtant certaines commandes arrivent au client avec `status: null`. Pourquoi la valeur par défaut ne s’est-elle pas appliquée ?",
+        "bridge": "Les valeurs par défaut de la déstructuration ne s’appliquent qu’à `undefined`. Un NULL SQL arrive en `null`, qui est une vraie valeur, donc le défaut est ignoré."
+      },
+      {
+        "question": "Expliquez à un junior ce que fait `const { id, customer: { email }, ...rest } = order`.",
+        "bridge": "Cette ligne combine la déstructuration d’objet par nom, un motif imbriqué et `...rest` pour récupérer les propriétés restantes."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux affichent le libellé d’une commande ; pour les commandes invité, l’API Orders envoie `customer: null`. Laquelle marche pour les invités ?",
+        "why": "Une valeur par défaut de déstructuration ne s’applique qu’à `undefined`, donc `= {}` ne fait rien quand `customer` vaut `null`, et le motif imbriqué lève une TypeError (« Cannot destructure property 'name'… ») sur chaque commande invité. Le chaînage optionnel s’arrête aussi bien sur `null` que sur `undefined`, donc les invités obtiennent « Guest »."
+      }
+    ]
+  },
+  "js-spread-rest": {
+    "topic": "Spread et rest",
+    "question": "Qu’est-ce que la syntaxe spread, et en quoi diffère-t-elle des paramètres rest ?",
+    "answer": "Ce sont les mêmes trois points pour deux rôles opposés. Spread développe : `[...items, newItem]` copie un tableau, `{ ...order, status: 'shipped' }` copie un objet en écrasant un champ, et `Math.max(...prices)` passe les éléments du tableau en arguments. Rest regroupe : `function log(label, ...values)` rassemble les arguments restants dans un vrai tableau, et `const { id, ...rest } = order` rassemble les propriétés restantes. Un paramètre rest doit être le dernier. Le point clé de spread, c’est que la copie est superficielle : les objets imbriqués restent partagés avec l’original.",
+    "keyPoints": [
+      "Même syntaxe : spread développe, rest regroupe",
+      "Spread copie tableaux et objets ; les dernières propriétés l’emportent",
+      "Les paramètres rest donnent un vrai tableau et doivent être en dernier",
+      "Spread fait une copie superficielle : les objets imbriqués sont partagés"
+    ],
+    "explanation": "Les recruteurs vérifient que tu distingues les deux selon l’endroit où apparaissent les points, puis creusent la copie superficielle, source de vrais bugs dans les mises à jour de state React. Une réponse senior mentionne `structuredClone` pour les copies profondes et les méthodes de tableau ES2023 qui copient.",
+    "example": "Dans le back-office, modifier le montant du remboursement sur une ligne de commande changeait aussi la commande d’origine affichée à côté. Le brouillon était créé avec `{ ...order }`, donc `draft.lines` était le même tableau que `order.lines`. Le correctif a aussi copié le niveau imbriqué, `lines: order.lines.with(index, { ...line, refundCents })`, et l’original est resté intact.",
+    "mistakes": [
+      "Croire que `{ ...order }` est une copie profonde : objets et tableaux imbriqués sont partagés",
+      "Mettre la surcharge avant le spread, `{ status: 'shipped', ...order }`, si bien que l’ancienne valeur l’emporte",
+      "Utiliser `arguments` au lieu d’un paramètre rest : ce n’est pas un vrai tableau et il n’existe pas dans les fonctions fléchées"
+    ],
+    "followUps": [
+      {
+        "question": "Comment faites-vous une copie profonde, et quelles sont ses limites ?",
+        "answer": "`structuredClone` copie en profondeur les Dates, Maps, Sets et les cycles. Il lève une erreur sur les fonctions et renvoie les instances de classe en objets simples, sans leurs méthodes ni leurs champs privés."
+      },
+      {
+        "question": "Que se passe-t-il quand on fait un spread de `null` ?",
+        "answer": "Dans un littéral objet, `{ ...null }` est autorisé et n’ajoute rien, pratique pour les champs optionnels. Dans un tableau, `[...null]` lève une TypeError car `null` n’est pas itérable."
+      },
+      {
+        "question": "Pourquoi la copie superficielle de spread cause-t-elle des bugs, et comment copiez-vous en profondeur à la place ?",
+        "answer": "Les objets imbriqués restent partagés : modifier `draft.lines[0]` modifie aussi la commande d’origine, et en React un objet imbriqué muté garde sa référence, donc les enfants mémoïsés ratent le changement. Je copie chaque niveau que je modifie, ou j’utilise `structuredClone` quand il me faut une vraie copie profonde."
+      },
+      {
+        "question": "Comment fonctionne un motif rest quand on déstructure les paramètres d’une fonction ?",
+        "answer": "`function updateOrder({ id, ...changes })` extrait `id` et rassemble toutes les autres propriétés propres dans un nouvel objet `changes`. En React, `function Button({ variant, ...props })` lit sa propre prop et transmet le reste au `<button>`."
+      },
+      {
+        "question": "Comment fusionnez-vous deux objets pour que le second l’emporte en cas de conflit ?",
+        "answer": "`const merged = { ...defaults, ...overrides }` : les propriétés sont copiées de gauche à droite, donc le dernier objet l’emporte. `Object.assign({}, defaults, overrides)` fait pareil. Les deux sont superficiels : un objet `shipping` imbriqué est remplacé en entier, pas fusionné, donc les niveaux imbriqués demandent leur propre spread."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`{ ...order }` crée un nouvel objet dont l’objet imbriqué `customer` est le même objet que dans `order`.",
+        "why": "Spread copie un seul niveau : l’objet imbriqué est partagé par référence.",
+        "twin": {
+          "statement": "`{ ...order }` crée aussi une nouvelle copie de l’objet imbriqué `customer`.",
+          "why": "Spread copie un seul niveau : l’objet imbriqué est partagé par référence."
+        }
+      },
+      {
+        "statement": "Une fonction peut déclarer un paramètre rest suivi d’un autre paramètre, comme `function f(...a, b)`.",
+        "why": "C’est une SyntaxError : le paramètre rest doit être le dernier.",
+        "twin": {
+          "statement": "`function f(...a, b)` est une SyntaxError.",
+          "why": "Un paramètre rest doit être le dernier paramètre de la fonction."
+        }
+      },
+      {
+        "statement": "`[...{ a: 1 }]` crée un tableau contenant 1.",
+        "why": "Le spread de tableau exige un itérable, et les objets simples ne sont pas itérables, donc il lève une TypeError.",
+        "twin": {
+          "statement": "`[...{ a: 1 }]` lève une TypeError.",
+          "why": "Le spread de tableau exige un itérable, et les objets simples ne sont pas itérables."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les mêmes trois points font deux choses opposées : spread développe un tableau ou un objet, rest regroupe ce qui reste. Ce sont des outils quotidiens pour les mises à jour immuables et les signatures de fonction souples.",
+      "points": [
+        "Les mêmes trois points font deux choses opposées. Spread développe un itérable ou un objet dans un nouveau littéral ou en arguments ; rest regroupe ce qui reste dans un nouveau tableau ou objet.",
+        "Spread : `[...items, newItem]` copie un tableau, `{ ...order, status: 'shipped' }` copie un objet en écrasant un champ, `Math.max(...prices)` passe les éléments en arguments. Les dernières propriétés l’emportent.",
+        "Rest : `function log(label, ...values)` rassemble les arguments restants dans un vrai tableau et doit être le dernier paramètre. Préfère-le à `arguments`, qui n’est pas un vrai tableau et que les fonctions fléchées n’ont pas.",
+        "Spread est superficiel : objets et tableaux imbriqués restent partagés avec l’original. Copie chaque niveau que tu modifies, comme `lines: order.lines.with(i, newLine)`, ou utilise `structuredClone` pour une copie profonde.",
+        "Le spread de tableau exige un itérable : `[...null]` et `[...{ a: 1 }]` lèvent une TypeError. Le spread d’objet accepte tout : `{ ...null }` n’ajoute rien, pratique pour les champs optionnels."
+      ],
+      "takeaways": [
+        {
+          "term": "Spread",
+          "detail": "Développe dans un littéral ou en arguments : `[...items, newItem]`, `Math.max(...prices)`."
+        },
+        {
+          "term": "Spread d’objet",
+          "detail": "`{ ...order, status: 'shipped' }` copie et écrase : les dernières propriétés l’emportent."
+        },
+        {
+          "term": "Paramètre rest",
+          "detail": "Rassemble les arguments restants dans un vrai tableau et doit être le dernier paramètre."
+        },
+        {
+          "term": "`arguments`",
+          "detail": "Pas un vrai tableau, et absent des fonctions fléchées : préfère un paramètre rest."
+        },
+        {
+          "term": "Copie superficielle",
+          "detail": "Objets et tableaux imbriqués restent partagés avec l’original : copie chaque niveau que tu modifies."
+        },
+        {
+          "term": "Spread de `null`",
+          "detail": "`[...null]` lève une TypeError ; `{ ...null }` n’ajoute rien, pratique pour les champs optionnels."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, `const draft = { ...order }; draft.customer.email = newEmail;` change l’e-mail affiché dans la liste des commandes avant que l’agent n’enregistre. Pourquoi ?",
+        "bridge": "Spread copie un seul niveau : `draft.customer` est le même objet que `order.customer`, donc le modifier modifie l’original."
+      },
+      {
+        "question": "Un collègue écrit `function log(...values, level)` pour que le niveau soit en dernier. Que se passe-t-il, et en quoi rest et spread diffèrent-ils ?",
+        "bridge": "Rest regroupe et doit être le dernier paramètre, donc cette ligne est une SyntaxError. Spread est la même syntaxe, utilisée pour développer."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux passent une commande payée en expédiée avec son numéro de suivi. Laquelle renvoie la commande expédiée ?",
+        "why": "Les propriétés sont copiées de gauche à droite et les dernières l’emportent. Avec le spread en premier, les nouveaux `status` et `trackingId` écrasent ceux de la commande. Avec le spread en dernier, les `status: 'paid'` et `trackingId: null` de la commande les écrasent : la fonction renvoie une copie inchangée et la commande n’apparaît jamais comme expédiée."
+      }
+    ]
+  },
+  "js-event-delegation": {
+    "topic": "Délégation d’événements",
+    "question": "Qu’est-ce que la délégation d’événements, et pourquoi est-ce utile ?",
+    "answer": "La délégation d’événements, c’est mettre un seul listener sur un conteneur au lieu d’un par enfant, en s’appuyant sur la propagation. Un clic descend par la phase de capture, atteint la cible, puis remonte : le listener du conteneur voit donc les clics sur tous ses enfants. Dedans, j’utilise `event.target.closest('button[data-action]')` pour trouver l’élément qui compte et je vérifie qu’il appartient au conteneur. Ça économise des listeners et ça couvre les éléments ajoutés plus tard, comme les cartes chargées au scroll. React le fait déjà : il attache ses listeners au conteneur racine.",
+    "keyPoints": [
+      "Un listener sur un conteneur au lieu d’un par enfant",
+      "S’appuie sur la propagation : capture, cible, puis remontée",
+      "Trouver l’élément avec `event.target.closest()`",
+      "Marche pour les éléments ajoutés après le listener"
+    ],
+    "explanation": "Cette question vérifie que tu sais comment les événements circulent dans le DOM, pas seulement comment appeler `addEventListener`. Une réponse senior couvre `target` contre `currentTarget`, les événements qui ne remontent pas, et le fait que React délègue pour toi.",
+    "example": "La grille « Vous aimerez aussi » de la boutique attachait un listener de clic à chaque bouton Ajouter au panier, et les cartes chargées au scroll n’en avaient aucun : leurs boutons ne faisaient rien. Un seul listener délégué sur la grille, qui utilise `closest()` pour trouver le bouton et son `data-product-id`, a géré toutes les cartes, y compris celles insérées plus tard.",
+    "mistakes": [
+      "Utiliser `event.target` directement : un clic sur une icône dans le bouton cible l’icône, donc utilise `closest()`",
+      "Déléguer `focus`, qui ne remonte pas : utilise plutôt `focusin`",
+      "Appeler `stopPropagation()` dans un listener global, ce qui casse en silence tous les handlers délégués"
+    ],
+    "followUps": [
+      {
+        "question": "Quelle est la différence entre `event.target` et `event.currentTarget` ?",
+        "answer": "`target` est l’élément où l’événement a démarré, par exemple l’icône cliquée. `currentTarget` est l’élément dont le listener s’exécute, le conteneur en délégation."
+      },
+      {
+        "question": "React utilise-t-il la délégation d’événements ?",
+        "answer": "Oui : React DOM attache ses listeners au conteneur racine et distribue lui-même vers vos props `onClick`, donc en React on délègue rarement à la main."
+      },
+      {
+        "question": "En quoi la remontée diffère-t-elle de la capture, et quand utiliseriez-vous la phase de capture ?",
+        "answer": "La capture passe en premier, de la window vers la cible ; la remontée vient après, de la cible vers le haut. Avec `{ capture: true }`, un conteneur entend l’événement avant ses enfants, ce qui convient pour fermer un menu déroulant sur tout clic extérieur, même si un enfant appelle `stopPropagation()`."
+      },
+      {
+        "question": "Comment empêchez-vous un événement de remonter, et quand est-ce nécessaire ?",
+        "answer": "`event.stopPropagation()` l’empêche d’atteindre les listeners suivants ; `stopImmediatePropagation()` saute aussi les autres listeners du même élément. J’en ai rarement besoin : le cas classique est une icône de suppression dans une ligne de commande cliquable, mais vérifier `closest()` dans le handler de la ligne évite de casser d’autres listeners."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`addEventListener` écoute pendant la phase de remontée par défaut.",
+        "why": "La phase de capture demande `{ capture: true }` ; sans ça, le listener s’exécute quand l’événement remonte.",
+        "twin": {
+          "statement": "`addEventListener` écoute pendant la phase de capture par défaut.",
+          "why": "Sans `{ capture: true }`, le listener s’exécute quand l’événement remonte."
+        }
+      },
+      {
+        "statement": "Un listener délégué sur une liste ne gère pas les éléments ajoutés à la liste après son enregistrement.",
+        "why": "Le listener est sur le conteneur, donc les clics sur les nouveaux éléments remontent jusqu’à lui comme les autres.",
+        "twin": {
+          "statement": "Un listener délégué sur une liste gère aussi les éléments ajoutés à la liste après son enregistrement.",
+          "why": "Le listener est sur le conteneur, donc les clics sur les nouveaux éléments remontent jusqu’à lui comme les autres."
+        }
+      },
+      {
+        "statement": "L’événement `focus` remonte, donc un listener sur un formulaire le reçoit de chaque champ.",
+        "why": "`focus` ne remonte pas ; `focusin` si, donc on délègue le focus avec `focusin`.",
+        "twin": {
+          "statement": "L’événement `focus` ne remonte pas, donc la gestion déléguée du focus écoute `focusin`.",
+          "why": "`focusin` est la version qui remonte, donc un listener sur le formulaire la reçoit de chaque champ."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "La délégation d’événements met un seul listener sur un conteneur au lieu d’un par enfant, en s’appuyant sur la propagation. Elle économise des listeners et couvre les éléments ajoutés plus tard.",
+      "points": [
+        "Un événement DOM passe par trois phases : la capture, de la window vers la cible ; la cible ; puis la remontée à travers chaque ancêtre. `addEventListener` écoute la remontée, sauf si on lui passe `{ capture: true }`.",
+        "La délégation met un seul listener sur un conteneur au lieu d’un sur chaque enfant. Les événements de n’importe quel enfant remontent jusqu’à lui, y compris ceux ajoutés plus tard, comme les cartes produit chargées au scroll.",
+        "`event.target` est l’endroit où l’événement a démarré, parfois une icône dans le bouton ; `event.currentTarget` est l’élément dont le listener s’exécute. Utilise `event.target.closest()` pour trouver l’élément qui compte.",
+        "Certains événements ne remontent pas, comme `focus` et `blur` : délègue plutôt `focusin` et `focusout`. Un appel à `stopPropagation()` sous le conteneur bloque en silence tous les handlers délégués au-dessus.",
+        "React DOM délègue déjà : il attache ses listeners au conteneur racine et distribue lui-même vers tes props `onClick`, donc en React on délègue rarement à la main."
+      ],
+      "takeaways": [
+        {
+          "term": "Trois phases",
+          "detail": "Capture (de la window vers la cible), cible, puis remontée à travers chaque ancêtre."
+        },
+        {
+          "term": "`addEventListener`",
+          "detail": "Écoute la remontée, sauf si on lui passe `{ capture: true }`."
+        },
+        {
+          "term": "`target` vs `currentTarget`",
+          "detail": "`target` est l’endroit où l’événement a démarré ; `currentTarget` est l’élément dont le listener s’exécute."
+        },
+        {
+          "term": "`closest()`",
+          "detail": "`event.target.closest('button[data-action]')` trouve l’élément qui compte."
+        },
+        {
+          "term": "Événements sans remontée",
+          "detail": "`focus` et `blur` ne remontent pas : délègue `focusin` et `focusout`."
+        },
+        {
+          "term": "React",
+          "detail": "React DOM délègue déjà : il attache ses listeners au conteneur racine."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La grille produits de la boutique charge des cartes au fil du scroll du client. « Ajouter au panier » marche sur les 24 premières cartes mais pas sur celles chargées ensuite. Les listeners ont été attachés au chargement de la page. Comment corrigez-vous ?",
+        "bridge": "Délégation d’événements : un seul listener sur la grille capte les clics qui remontent de chaque carte, y compris celles ajoutées après son enregistrement."
+      },
+      {
+        "question": "Pourquoi un listener sur un `<ul>` entend-il un clic sur un `<li>` qu’il contient ? Décrivez les phases d’un événement DOM et comment vous les utiliseriez.",
+        "bridge": "C’est la remontée, sur laquelle repose la délégation : la capture descend, l’événement atteint la cible, puis il remonte."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux gèrent Ajouter au panier pour chaque carte de la grille ; chaque bouton contient une icône panier. Laquelle marche quand on clique sur l’icône ?",
+        "why": "`event.target` est l’élément où le clic a démarré. Un clic sur l’icône cible l’icône, qui n’a pas de `data-product-id`, donc la seconde version n’ajoute rien, en silence. `closest()` remonte de la cible jusqu’au bouton qui porte l’id : un clic sur l’icône ou sur le libellé marche."
+      }
+    ]
+  },
+  "js-array-methods": {
+    "topic": "map, forEach, filter et reduce",
+    "question": "Quelles sont les différences entre `map()`, `forEach()`, `filter()` et `reduce()` ?",
+    "answer": "Les quatre parcourent un tableau et appellent un callback pour chaque élément, mais renvoient des choses différentes. `forEach` renvoie `undefined` : c’est pour les effets de bord, et un `return` dans son callback n’arrête pas la boucle. `map` renvoie un nouveau tableau de même longueur, chaque élément transformé. `filter` renvoie un nouveau tableau des éléments pour lesquels le callback a renvoyé une valeur truthy. `reduce` réduit le tableau à une seule valeur via un accumulateur, comme un total. Aucune ne modifie le tableau d’origine. Je choisis selon le résultat voulu, et j’utilise `for...of` quand il me faut `await` ou `break`.",
+    "keyPoints": [
+      "`forEach` renvoie `undefined` : effets de bord uniquement",
+      "`map` : un nouveau tableau de même longueur, éléments transformés",
+      "`filter` : un nouveau tableau des éléments dont le callback est truthy",
+      "`reduce` : réduit le tableau à une valeur avec un accumulateur",
+      "Aucune ne mute ; `for...of` quand il faut `await` ou `break`"
+    ],
+    "explanation": "C’est un échauffement qui vérifie que tu choisis selon la valeur de retour, pas par habitude. Une réponse senior ajoute les pièges : `forEach` ignore les callbacks async et ne peut pas être arrêté, `reduce` sans valeur initiale lève une erreur sur un tableau vide, et une chaîne de méthodes fait plusieurs passes sur les données.",
+    "example": "Dans le back-office, le tableau des commandes calculait le total de son pied avec `orders.filter(isPaid).map(toCents).reduce(sum, 0)` sur 50 000 lignes à chaque frappe : trois passes et deux tableaux jetables. Un seul `reduce` qui saute les commandes impayées et ajoute le montant en une passe, mémoïsé sur les lignes filtrées, a fait sortir le pied de tableau du profil de performance.",
+    "mistakes": [
+      "Utiliser `map` uniquement pour ses effets de bord en ignorant le tableau qu’il construit : utilise `forEach` ou `for...of`",
+      "Appeler `reduce` sans valeur initiale, ce qui lève une TypeError sur un tableau vide",
+      "Passer un callback `async` à `forEach` en attendant que la boucle l’attende"
+    ],
+    "followUps": [
+      {
+        "question": "Comment implémenteriez-vous `map()` avec `reduce()` ?",
+        "answer": "`const map = (arr, fn) => arr.reduce((acc, item, i) => { acc.push(fn(item, i, arr)); return acc; }, []);`. Le tableau vide est l’accumulateur initial. Écrire `[...acc, fn(item)]` marche aussi mais copie le tableau à chaque étape, ce qui le rend quadratique."
+      },
+      {
+        "question": "Quelle considération de complexité y a-t-il quand on chaîne plusieurs méthodes de tableau ?",
+        "answer": "Chaque méthode est une passe en O(n), donc une chaîne de trois reste en O(n), mais elle fait trois passes et construit un tableau intermédiaire à chaque étape. Ça va pour quelques centaines d’éléments. Sur des dizaines de milliers dans un chemin critique, je fusionne les étapes en une boucle ou un `reduce`, ou j’utilise les iterator helpers paresseux, après avoir mesuré."
+      },
+      {
+        "question": "Pourquoi `['1', '2', '3'].map(parseInt)` renvoie-t-il `[1, NaN, NaN]` ?",
+        "answer": "`map` passe l’index en deuxième argument, et `parseInt` le lit comme la base : la base 1 est invalide, et « 3 » n’est pas un chiffre en base 2. J’écris `map((s) => parseInt(s, 10))` ou `map(Number)`."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`forEach` renvoie un nouveau tableau.",
+        "why": "Il renvoie toujours `undefined` ; c’est `map` qui renvoie un nouveau tableau.",
+        "twin": {
+          "statement": "`forEach` renvoie toujours `undefined`.",
+          "why": "Il sert aux effets de bord ; c’est `map` qui renvoie un nouveau tableau."
+        }
+      },
+      {
+        "statement": "`[].reduce((sum, n) => sum + n)` lève une TypeError.",
+        "why": "Sans valeur initiale ni élément, il n’y a rien pour démarrer l’accumulateur.",
+        "twin": {
+          "statement": "`[].reduce((sum, n) => sum + n)` renvoie 0.",
+          "why": "Sans valeur initiale ni élément, il n’y a rien pour démarrer l’accumulateur, donc il lève une TypeError."
+        }
+      },
+      {
+        "statement": "Un `return` dans un callback de `forEach` arrête la boucle.",
+        "why": "Il termine seulement cet appel du callback ; `forEach` continue avec l’élément suivant.",
+        "twin": {
+          "statement": "Un `return` dans un callback de `forEach` termine seulement cet appel ; la boucle continue.",
+          "why": "`forEach` passe à l’élément suivant ; utilise `for...of` avec `break` pour sortir plus tôt."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "`forEach`, `map`, `filter` et `reduce` parcourent tous un tableau avec un callback, mais chacun renvoie autre chose. Choisis selon le résultat dont tu as besoin.",
+      "points": [
+        "Les quatre appellent un callback pour chaque élément, de gauche à droite : `forEach`, `map` et `filter` passent `(item, index, array)`, et `reduce` passe d’abord l’accumulateur. Aucune ne modifie le tableau d’origine.",
+        "`forEach` renvoie `undefined` : utilise-le pour les effets de bord. Un `return` dans son callback termine seulement cet appel, et il ignore les promesses renvoyées, donc un `await` à l’intérieur ne fait pas attendre la boucle.",
+        "`map` renvoie un nouveau tableau de même longueur, chaque élément transformé. `filter` renvoie un nouveau tableau des éléments pour lesquels le callback a renvoyé une valeur truthy.",
+        "`reduce(fn, initial)` réduit le tableau à une valeur : chaque appel reçoit l’accumulateur et un élément, et renvoie l’accumulateur suivant. Sans `initial`, un tableau vide lève une TypeError.",
+        "Chaque méthode est une passe en O(n) ; une chaîne fait plusieurs passes et construit des tableaux intermédiaires. Fusionne les étapes dans un chemin critique, et utilise `for...of` quand il te faut `break` ou `await`."
+      ],
+      "takeaways": [
+        {
+          "term": "`forEach`",
+          "detail": "Renvoie `undefined` : effets de bord uniquement. Un `return` termine un appel, pas la boucle, et il n’attend pas les promesses."
+        },
+        {
+          "term": "`map`",
+          "detail": "Un nouveau tableau de même longueur, chaque élément transformé."
+        },
+        {
+          "term": "`filter`",
+          "detail": "Un nouveau tableau des éléments dont le callback a renvoyé une valeur truthy."
+        },
+        {
+          "term": "`reduce(fn, initial)`",
+          "detail": "Réduit le tableau à une valeur. Sans `initial`, un tableau vide lève une TypeError."
+        },
+        {
+          "term": "Pas de mutation",
+          "detail": "Aucune des quatre ne modifie le tableau d’origine."
+        },
+        {
+          "term": "`for...of`",
+          "detail": "À utiliser quand il te faut `break` ou `await`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans l’API Orders, `orders.forEach(async (order) => { await sendReceipt(order); })` est suivi de `log('all sent')`, qui s’affiche alors que les reçus sont encore en cours d’envoi. Pourquoi, et qu’utilisez-vous à la place ?",
+        "bridge": "`forEach` renvoie `undefined` et ignore ce que renvoie son callback, promesses comprises, donc rien n’attend. `for...of` avec `await`, si."
+      },
+      {
+        "question": "Quand choisiriez-vous `reduce` plutôt que `map` ou `filter`, et pourquoi `forEach` est-il le mauvais outil pour construire un nouveau tableau ?",
+        "bridge": "On choisit chaque méthode selon son résultat : `map` et `filter` renvoient de nouveaux tableaux, `reduce` réduit à une valeur, `forEach` renvoie `undefined`."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux totalisent les commandes payées pour le pied de tableau du back-office. Laquelle marche quand aucune commande de la page n’est payée ?",
+        "why": "Avec la valeur initiale 0, `reduce` renvoie 0 pour un tableau vide. Sans elle, `reduce` prend le premier élément comme accumulateur, et un tableau vide n’en a pas : il lève « TypeError: Reduce of empty array with no initial value », donc une page sans commande payée fait planter le pied de tableau."
+      }
+    ]
+  }
+}

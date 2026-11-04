@@ -1,0 +1,1199 @@
+{
+  "react-nested-components": {
+    "topic": "Composants déclarés dans des composants",
+    "question": "Pourquoi ne faut-il jamais déclarer un composant à l’intérieur d’un autre composant ?",
+    "answer": "Pour React, le type d’un élément, c’est la fonction du composant elle-même, comparée par identité. Si je déclare `NoteEditor` dans `NotesPanel`, chaque rendu du panneau crée une nouvelle fonction, donc à la même position React voit un type différent. Il détruit alors l’ancien sous-arbre et en monte un nouveau : l’enfant perd son state, ses nœuds DOM et le focus. La correction, c’est de déclarer chaque composant une seule fois, au niveau du module, et de lui passer ce dont il a besoin en props, ce qui rend aussi ses dépendances visibles.",
+    "keyPoints": [
+      "Le type d’élément est la fonction du composant, comparée par identité",
+      "Chaque rendu du parent crée une nouvelle fonction, donc un nouveau type",
+      "Un nouveau type remonte le sous-arbre : state, DOM et focus perdus",
+      "Déclarer les composants au niveau du module et passer des props"
+    ],
+    "explanation": "Les recruteurs s’en servent pour vérifier que tu raisonnes à partir du modèle de réconciliation, position et type, plutôt que d’une règle apprise par cœur. Une réponse senior nomme le symptôme (focus perdu à chaque frappe), explique le remontage et refuse le contournement par `useCallback`.",
+    "example": "Dans le back-office, l’éditeur de notes internes perdait le focus et refermait son panneau « Plus d’options » après chaque lettre tapée par un agent. L’éditeur avait été déclaré dans `NotesPanel` pour lire `draft` depuis la closure. Le déplacer au niveau du module avec les props `draft` et `onDraftChange` a corrigé les deux bugs d’un coup.",
+    "mistakes": [
+      "Accuser l’input contrôlé : un input contrôlé seul garde son focus et son state",
+      "Envelopper le composant interne dans `useCallback`, ce qui cache le bug jusqu’à ce qu’une dépendance change",
+      "Ajouter une `key` constante, ce qui n’aide pas puisque le type change toujours"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi un `useCallback` autour du composant interne ne corrige-t-il pas vraiment le problème ?",
+        "answer": "Il garde la même fonction seulement tant que ses dépendances ne changent pas. L’éditeur interne lit `draft`, donc `draft` est une dépendance, et chaque frappe recrée une fonction et le remonte. Même avec des dépendances stables, ça cache un problème de conception que les props rendent explicite."
+      },
+      {
+        "question": "Mettre un state à la valeur qu’il a déjà re-rend-il les enfants ?",
+        "answer": "Non. React compare le nouveau state avec `Object.is` et abandonne la mise à jour quand il est identique. Il peut quand même rappeler le composant lui-même une fois de plus, mais il ne re-rend jamais ses enfants pour cette mise à jour."
+      },
+      {
+        "question": "Quand peut-on définir une fonction qui renvoie du JSX à l’intérieur d’un composant ?",
+        "answer": "Quand je l’appelle comme une simple fonction, `{renderRow(order)}`, pas comme `<Row />`. Elle fait alors juste partie du rendu du parent, sans type propre ni state. Dès qu’elle a besoin de hooks, elle devient un vrai composant au niveau du module."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un composant déclaré dans un autre est remonté à chaque rendu du composant externe.",
+        "why": "Chaque rendu crée une nouvelle fonction, que React traite comme un nouveau type d’élément à cette position, donc il détruit et recrée le sous-arbre.",
+        "twin": {
+          "statement": "Un composant déclaré dans un autre garde son state quand le composant externe se rend à nouveau.",
+          "why": "Chaque rendu externe crée une nouvelle fonction, que React traite comme un nouveau type d’élément à cette position, donc il remonte le sous-arbre et le state est perdu."
+        }
+      },
+      {
+        "statement": "Ajouter une `key` constante au composant imbriqué lui fait garder son state entre les rendus.",
+        "why": "Une key ne distingue que des éléments du même type ; le type est toujours une nouvelle fonction à chaque rendu, donc React le remonte quand même.",
+        "twin": {
+          "statement": "Même avec une `key` constante, un composant déclaré dans un autre perd son state quand le composant externe se rend.",
+          "why": "Une key ne distingue que des éléments du même type ; la fonction imbriquée est un nouveau type à chaque rendu, donc React la remonte quand même."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "React ne garde le state d’un composant que tant que le même type reste à la même position. Un composant déclaré dans un autre reçoit un nouveau type à chaque rendu, donc son sous-arbre est détruit et remonté à chaque fois.",
+      "points": [
+        "React décide de garder ou non le state d’un composant en regardant sa position dans l’arbre et son type. Le type de `<NoteEditor />` est la fonction `NoteEditor` elle-même, comparée par identité.",
+        "Un composant déclaré dans un autre est recréé à chaque rendu du composant externe. React voit un type différent à la même position et détruit l’ancien sous-arbre : state, nœuds DOM et focus sont perdus.",
+        "Le symptôme classique : un input dans le composant imbriqué perd le focus après chaque frappe, car chaque frappe rend le parent et remonte l’enfant.",
+        "La correction : déclarer chaque composant une seule fois au niveau du module et lui passer les données nécessaires en props. `useCallback` ou une `key` constante ne font que cacher le problème."
+      ],
+      "takeaways": [
+        {
+          "term": "Type d’élément",
+          "detail": "La fonction du composant elle-même, comparée par identité, avec la position dans l’arbre."
+        },
+        {
+          "term": "Déclaration imbriquée",
+          "detail": "Chaque rendu du parent crée une nouvelle fonction, donc React voit un type différent à la même position."
+        },
+        {
+          "term": "Remontage",
+          "detail": "L’ancien sous-arbre est détruit : state, nœuds DOM et focus sont perdus."
+        },
+        {
+          "term": "Symptôme",
+          "detail": "Un input dans le composant imbriqué perd le focus après chaque frappe."
+        },
+        {
+          "term": "Correction",
+          "detail": "Déclarer chaque composant une seule fois au niveau du module et passer ce dont il a besoin en props."
+        },
+        {
+          "term": "`useCallback` ou `key` fixe",
+          "detail": "Ils ne font que cacher le problème ; ils ne le corrigent pas."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le détail de commande du back-office, le champ de note interne perd le focus après chaque frappe et son brouillon se réinitialise à chaque re-render du parent. L’input lui-même n’a pas de bug. Que cherchez-vous ?",
+        "bridge": "Un composant déclaré dans son parent est une nouvelle fonction, donc un nouveau type, à chaque rendu : React le remonte, et state, DOM et focus sont perdus."
+      },
+      {
+        "question": "En code review, un collègue définit un petit composant `OrderRow` dans `OrdersTable` « pour le garder près de là où il sert ». Que répondez-vous ?",
+        "bridge": "Le même sujet sous forme de commentaire de review : une déclaration imbriquée crée un nouveau type de composant à chaque rendu ; déclarez-le au niveau du module et passez des props."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux rendent l’éditeur de notes internes d’une commande. Lequel garde le focus pendant que l’agent tape ?",
+        "why": "Déclaré une seule fois au niveau du module, `NoteEditor` est le même type à chaque rendu, donc React garde le même input. Déclaré dans `NotesPanel`, c’est une nouvelle fonction à chaque rendu : chaque frappe met à jour `draft`, React voit un nouveau type, remplace l’input, et l’agent perd le focus après chaque lettre."
+      }
+    ]
+  },
+  "react-conditional-rendering": {
+    "topic": "Pièges du rendu conditionnel",
+    "question": "Quels pièges connaissez-vous dans le rendu conditionnel avec `&&` et les ternaires en React ?",
+    "answer": "Le premier piège, c’est un nombre à gauche de `&&`. `a && b` renvoie `a` lui-même quand il est falsy, et React ne rend rien pour `false`, `null` et `undefined`, mais rend les nombres sous forme de texte. Donc `count && <Badge />` affiche 0, et un taux 0 / 0 affiche NaN. J’écris plutôt un booléen : `count > 0 &&`, ou un ternaire avec `null`. Le second piège, c’est le state : deux branches d’un ternaire qui rendent le même composant à une même position partagent son state, alors que deux emplacements `&&` séparés montent et démontent. Je choisis exprès, et j’utilise des keys différentes quand chaque branche doit repartir de zéro.",
+    "keyPoints": [
+      "`&&` renvoie la valeur falsy de gauche, et React rend 0 et NaN",
+      "Faire de la condition un booléen : `length > 0` ou un ternaire avec `null`",
+      "Même composant à une même position dans les deux branches : le state est gardé",
+      "Des emplacements séparés ou des keys différentes réinitialisent le state"
+    ],
+    "explanation": "Ça ressemble à une question de junior, mais le bug du 0 part souvent en production et la partie state teste le modèle position et type. Les seniors expliquent pourquoi chaque cas se produit, pas seulement la correction.",
+    "example": "Dans le back-office, l’en-tête de commande affichait « Commande 1042 0 » sur chaque commande sans litige ouvert, à cause de `order.openDisputes.length && <DisputeBadge />`. Passer à `length > 0` a corrigé le problème, et une règle de review signale désormais les nombres à gauche de `&&`. Sur l’adresse de livraison, l’équipe a gardé exprès un ternaire entre les modes édition et lecture pour que le brouillon de l’agent survive au changement.",
+    "mistakes": [
+      "Croire que `0 && <Badge />` ne rend rien : il rend le texte 0",
+      "Penser que l’optional chaining règle le problème : `list?.length` vaut toujours 0 pour une liste vide",
+      "Supposer qu’un ternaire réinitialise toujours le state : même type à la même position, il est gardé"
+    ],
+    "followUps": [
+      {
+        "question": "Comment forcez-vous chaque branche d’un ternaire à démarrer avec un state neuf ?",
+        "answer": "Je donne à chaque branche une `key` différente, par exemple `key=\"edit\"` et `key=\"view\"`. Des keys différentes à la même position disent à React que ce sont des composants différents, donc basculer démonte l’un et monte l’autre avec un state neuf."
+      },
+      {
+        "question": "Que rend React pour des enfants `true`, `false`, `null` et `undefined` ?",
+        "answer": "Rien pour les quatre. Les chaînes et les nombres se rendent en texte, 0 et NaN compris. C’est cette asymétrie qui fait qu’un nombre à gauche de `&&` fuit dans la page alors qu’un booléen non."
+      },
+      {
+        "question": "Quand feriez-vous un return anticipé dans un composant plutôt qu’un `&&` dans le JSX ?",
+        "answer": "Quand tout le rendu dépend de la condition, comme un état de chargement ou vide : `if (orders.length === 0) { return <EmptyState />; }` se lit mieux que des conditions imbriquées. Je garde quand même tous les appels de hooks au-dessus du return anticipé."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`{orders.length && <OrdersTable />}` ne rend rien quand la liste est vide.",
+        "why": "`0 && x` vaut 0, et React rend les nombres en texte, donc la page affiche 0.",
+        "twin": {
+          "statement": "`{orders.length && <OrdersTable />}` rend 0 quand la liste est vide.",
+          "why": "`0 && x` vaut 0, et React rend les nombres en texte, donc la page affiche 0."
+        }
+      },
+      {
+        "statement": "Dans `{isEditing ? <AddressForm /> : <AddressForm />}`, le formulaire garde son state quand `isEditing` change.",
+        "why": "Les deux branches mettent le même type de composant à la même position, donc React garde la même instance et son state.",
+        "twin": {
+          "statement": "Dans `{isEditing ? <AddressForm /> : <AddressForm />}`, le formulaire perd son state quand `isEditing` change.",
+          "why": "Les deux branches mettent le même type de composant à la même position, donc React garde la même instance et son state."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le rendu conditionnel a l’air trivial mais cache deux pièges : un nombre à gauche de `&&` fuit dans la page, et des branches qui rendent le même composant peuvent partager ou perdre leur state selon la façon dont elles sont écrites.",
+      "points": [
+        "En JavaScript, `a && b` renvoie `a` lui-même quand `a` est falsy. React ne rend rien pour `false`, `true`, `null` et `undefined`, mais rend les nombres en texte, 0 et NaN compris.",
+        "Donc un nombre à gauche de `&&` fuit dans la page. Écris une condition booléenne, `count > 0 && ...`, ou un ternaire qui renvoie `null`.",
+        "React garde le state par position et type. Deux branches d’un même ternaire qui rendent le même composant partagent son state d’une bascule à l’autre.",
+        "Deux emplacements `&&` séparés, ou des branches avec des valeurs de `key` différentes, sont des composants différents : basculer démonte l’un et monte l’autre avec un state neuf."
+      ],
+      "takeaways": [
+        {
+          "term": "`a && b`",
+          "detail": "Renvoie `a` lui-même quand il est falsy, pas `false`."
+        },
+        {
+          "term": "Ce que React rend",
+          "detail": "Rien pour `false`, `true`, `null` et `undefined` ; les nombres en texte, 0 et NaN compris."
+        },
+        {
+          "term": "Condition booléenne",
+          "detail": "Écris `count > 0 && ...` ou un ternaire qui renvoie `null`, pour que 0 ne s’affiche jamais."
+        },
+        {
+          "term": "Ternaire, même composant",
+          "detail": "Même type à une même position : les deux branches partagent son state d’une bascule à l’autre."
+        },
+        {
+          "term": "Emplacements ou keys séparés",
+          "detail": "Deux emplacements `&&` ou des valeurs de `key` différentes démontent l’un et montent l’autre avec un state neuf."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’en-tête du back-office affiche un « 0 » parasite à côté de l’icône de la boîte de réception quand aucune demande de remboursement n’attend, et la carte du taux de remboursement d’un nouvel agent affiche « NaN ». Personne n’affiche ces valeurs exprès. Que soupçonnez-vous ?",
+        "bridge": "`&&` renvoie sa valeur falsy de gauche, et React rend les nombres, 0 et NaN compris, en texte. La condition doit être un booléen."
+      },
+      {
+        "question": "Basculer le formulaire d’adresse du checkout entre lecture et édition garde les valeurs tapées avant, alors que vous attendiez un formulaire neuf. Pourquoi, et comment choisissez-vous entre garder et réinitialiser le state ?",
+        "bridge": "Le même composant à la même position dans les deux branches d’un ternaire garde son state ; des emplacements `&&` séparés ou des keys différentes le réinitialisent."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux affichent le badge de litige dans l’en-tête de commande. Lequel n’affiche rien de plus quand la commande n’a pas de litige ouvert ?",
+        "why": "`length > 0` est un booléen, et React ne rend rien pour `false`. `0 && <DisputeBadge />` vaut le nombre 0, que React rend en texte : chaque commande sans litige affiche un 0 parasite après son numéro, « Commande 10420 » pour la commande 1042."
+      }
+    ]
+  },
+  "react-strict-mode": {
+    "topic": "StrictMode et double rendu",
+    "question": "Que fait `<StrictMode>`, et pourquoi mes composants et mes effets s’exécutent-ils deux fois en développement ?",
+    "answer": "StrictMode est un vérificateur réservé au développement que je place à la racine de l’app. Pour exposer le code impur, il appelle deux fois les fonctions de la phase de rendu : le corps des composants, les initialiseurs passés à `useState`, `useMemo` et `useReducer`, et les fonctions updater. Il exécute aussi un cycle setup et cleanup supplémentaire pour chaque effet et chaque callback ref, pour prouver que le cleanup fonctionne. Un composant pur donne le même résultat les deux fois, donc le double appel est invisible ; une différence signale un bug que la production rencontrera plus tard. Rien de tout ça n’arrive dans un build de production, donc la réponse est de corriger le code, jamais de retirer StrictMode.",
+    "keyPoints": [
+      "Développement seulement : pas de double appel dans un build de production",
+      "Appelle deux fois le corps des composants, les initialiseurs et les updaters",
+      "Ajoute un cycle setup et cleanup pour les effets et les callback refs",
+      "Une différence révèle du code impur : le corriger, garder StrictMode"
+    ],
+    "explanation": "Les recruteurs la posent parce que « désactiver StrictMode » est la mauvaise réponse qu’ils entendent le plus. Un senior liste précisément ce qui est appelé deux fois, précise que les event handlers ne le sont pas, et traite une différence visible comme un bug de pureté ou de cleanup.",
+    "example": "Quand l’équipe du back-office a activé StrictMode, la colonne du total cumulé affichait 24,00 au lieu de 12,00 en développement : la ligne modifiait une variable qui survivait au rendu. Le même bug apparaissait en production après un rafraîchissement, il était juste plus difficile à voir. Calculer le total dans une variable créée pendant le rendu a corrigé les deux, et StrictMode est resté actif.",
+    "mistakes": [
+      "Désactiver StrictMode pour faire taire des logs ou un fetch en double",
+      "Penser que les event handlers sont appelés deux fois : ils ne le sont pas",
+      "Croire que StrictMode affecte le build de production"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi une WebSocket se connecte-t-elle deux fois en développement sous StrictMode ?",
+        "answer": "StrictMode monte, exécute le cleanup, puis exécute à nouveau le setup. Si je vois deux connexions ouvertes, l’effet n’a pas de cleanup qui ferme la première. Avec `return () => socket.close()`, il ne reste qu’une connexion active après le cycle."
+      },
+      {
+        "question": "Peut-on activer StrictMode sur une partie seulement de l’app ?",
+        "answer": "Oui. `<StrictMode>` peut entourer n’importe quel sous-arbre, donc une équipe qui l’adopte sur une app legacy peut commencer par un écran, corriger ce qu’il révèle, puis le remonter jusqu’à la racine."
+      },
+      {
+        "question": "Avec React DevTools installé, comment distinguez-vous les deux logs ?",
+        "answer": "React DevTools grise par défaut les logs du second appel, donc je vois lesquels viennent du double rendu de StrictMode."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Sous StrictMode en développement, React appelle deux fois les handlers `onClick`.",
+        "why": "Seul le code de la phase de rendu est appelé deux fois : corps des composants, initialiseurs et updaters. Les event handlers s’exécutent une fois.",
+        "twin": {
+          "statement": "Sous StrictMode en développement, React appelle un handler `onClick` une fois par clic.",
+          "why": "Seul le code de la phase de rendu est appelé deux fois : corps des composants, initialiseurs et updaters. Les event handlers s’exécutent une fois."
+        }
+      },
+      {
+        "statement": "Les vérifications de StrictMode ne tournent qu’en développement, jamais dans un build de production.",
+        "why": "react.dev indique que les doubles appels et le cycle d’effet supplémentaire sont des vérifications réservées au développement.",
+        "twin": {
+          "statement": "Les doubles appels et le cycle d’effet supplémentaire de StrictMode tournent aussi dans un build de production.",
+          "why": "react.dev indique que les doubles appels et le cycle d’effet supplémentaire sont des vérifications réservées au développement."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "StrictMode est un vérificateur réservé au développement qui exécute une fois de plus le code de rendu et les effets, pour exposer les composants impurs et les cleanups manquants avant que la production ne le fasse.",
+      "points": [
+        "StrictMode est un vérificateur réservé au développement dont tu entoures l’app, ou n’importe quel sous-arbre, avec `<StrictMode>`. Il ne change rien dans un build de production.",
+        "Il appelle deux fois le code de la phase de rendu : le corps des composants, les fonctions passées à `useState`, `useMemo` et `useReducer`, et les fonctions updater comme `setCount((c) => c + 1)`.",
+        "Il exécute aussi un cycle setup et cleanup supplémentaire pour chaque effet et callback ref au montage d’un composant. Un cleanup manquant se voit sous forme de connexion ou de listener en double.",
+        "Un composant pur renvoie le même résultat aux deux appels. Une différence révèle du code impur, que la production rencontrera plus tard : corrige le code et garde StrictMode actif."
+      ],
+      "takeaways": [
+        {
+          "term": "`<StrictMode>`",
+          "detail": "Entoure l’app ou n’importe quel sous-arbre. Développement seulement : un build de production ne change pas."
+        },
+        {
+          "term": "Doubles appels de rendu",
+          "detail": "Le corps des composants, les initialiseurs de `useState`, `useMemo` et `useReducer`, et les fonctions updater s’exécutent deux fois."
+        },
+        {
+          "term": "Cycle d’effet en plus",
+          "detail": "Un setup et un cleanup de plus par effet et callback ref au montage ; un cleanup manquant se voit comme une connexion en double."
+        },
+        {
+          "term": "Composant pur",
+          "detail": "Renvoie le même résultat aux deux appels, donc le double appel est invisible."
+        },
+        {
+          "term": "Une différence apparaît",
+          "detail": "Elle révèle du code impur que la production rencontrera plus tard : corrige le code, garde StrictMode actif."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "En développement, le back-office logue « orders rendered » deux fois par rendu et le setup comme le cleanup d’un effet s’exécutent au montage, alors que la production ne montre rien de tel. Un collègue veut retirer un wrapper à la racine. Que lui dites-vous ?",
+        "bridge": "StrictMode appelle deux fois le code de rendu et exécute un setup et un cleanup d’effet en plus, en développement seulement, pour exposer le code impur : corrigez le code, gardez la vérification."
+      },
+      {
+        "question": "Un junior demande pourquoi son initialiseur `useState(() => loadDraft())` s’exécute deux fois sur sa machine. Comment expliquez-vous ce que vérifie `<StrictMode>` et pourquoi la production n’est pas touchée ?",
+        "bridge": "Les initialiseurs sont du code de phase de rendu que StrictMode appelle deux fois en développement ; un initialiseur pur donne le même résultat, et un build de production l’appelle une fois."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux ouvrent la socket des mises à jour de commandes en direct dans le back-office. Lequel laisse une seule connexion sous StrictMode ?",
+        "why": "En développement, StrictMode exécute setup, cleanup, puis à nouveau setup au montage. Avec le cleanup, la première socket se ferme et une seule reste ouverte. Sans lui, deux sockets restent ouvertes, donc chaque mise à jour arrive deux fois, et en production une socket fuit à chaque démontage du composant."
+      }
+    ]
+  },
+  "react-effect-loops": {
+    "topic": "Effets qui ne s’arrêtent jamais",
+    "question": "Un effet se relance sans arrêt et envoie des requêtes en boucle. Qu’est-ce qui le cause, et comment le corrigez-vous ?",
+    "answer": "React compare les dépendances d’un effet avec `Object.is`, donc un objet ou un tableau créé pendant le rendu est une nouvelle valeur à chaque rendu. Si l’effet met aussi à jour du state, j’ai un cycle : le rendu crée un nouvel objet, l’effet voit un changement et fait un fetch, la réponse met à jour le state, ce qui relance un rendu. Une boucle de setState synchrone ne fait que loguer « Maximum update depth exceeded », donc elle peut partir en production sans qu’on la remarque. Je corrige en déplaçant l’objet dans l’effet et en dépendant de primitives, en mémoïsant un objet qui vient d’une prop, en retirant les effets qui stockent du state dérivé, et sans jamais faire taire la règle exhaustive-deps.",
+    "keyPoints": [
+      "Les dépendances sont comparées avec `Object.is`",
+      "Un objet créé pendant le rendu est nouveau à chaque fois",
+      "Effet plus setState sur une dépendance qui change : boucle infinie",
+      "Dépendre de primitives ; construire les objets dans l’effet",
+      "Ne jamais désactiver exhaustive-deps ; restructurer à la place"
+    ],
+    "explanation": "Elle vérifie que tu sais comment les dépendances sont comparées et que tu débogues depuis l’onglet réseau, pas au hasard. Les seniors disent aussi pourquoi faire taire la règle de lint ne fait que déplacer le bug.",
+    "example": "Dans le back-office, l’onglet réseau montrait `GET /orders?status=paid` qui partait sans arrêt alors que l’écran restait inactif. Le tableau des commandes construisait `params = { status, limit: 50 }` pendant le rendu et le listait comme dépendance. Construire l’objet dans l’effet et dépendre de la chaîne `status` a ramené à une requête par changement de filtre.",
+    "mistakes": [
+      "Retirer la dépendance ou désactiver la règle de lint, ce qui crée des valeurs périmées à la place",
+      "S’attendre à un crash : une boucle d’effet logue en général un avertissement et continue",
+      "Garder un effet qui copie des données dérivées dans le state au lieu de les calculer pendant le rendu"
+    ],
+    "followUps": [
+      {
+        "question": "L’objet vient d’une prop du parent. Que pouvez-vous faire ?",
+        "answer": "Dépendre de ses champs primitifs, comme `filters.status`, dans l’effet. Ou mémoïser l’objet là où il est créé, avec `useMemo` dans le parent ou en laissant le React Compiler le faire, pour que son identité ne change que quand son contenu change."
+      },
+      {
+        "question": "Comment repéreriez-vous une boucle de requêtes avant les clients ?",
+        "answer": "En développement, l’onglet réseau et l’avertissement exhaustive-deps. En production, je surveille les requêtes par minute et par écran sur le BFF : une boucle apparaît comme un pic soudain venant de quelques sessions."
+      },
+      {
+        "question": "Comment `useEffectEvent` aide-t-il quand un effet a besoin d’une valeur à laquelle il ne doit pas réagir ?",
+        "answer": "Il enveloppe une logique qui lit les derniers props et state sans devenir une dépendance. L’effet ne se relance que pour les valeurs avec lesquelles il se synchronise vraiment, et je n’ai pas à mentir à la règle de lint."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un objet littéral listé dans les dépendances d’un effet fait s’exécuter l’effet après chaque rendu.",
+        "why": "Un nouvel objet est créé à chaque rendu, et `Object.is` compare par identité, donc la dépendance semble toujours avoir changé.",
+        "twin": {
+          "statement": "Un objet littéral listé dans les dépendances d’un effet est comparé par contenu, donc l’effet ne s’exécute que quand un de ses champs change.",
+          "why": "`Object.is` compare par identité et un nouvel objet est créé à chaque rendu, donc la dépendance semble toujours avoir changé et l’effet s’exécute après chaque rendu."
+        }
+      },
+      {
+        "statement": "Un effet qui appelle setState avec une valeur qui change toujours lève une erreur et arrête l’app.",
+        "why": "React logue « Maximum update depth exceeded » dans la console, mais la boucle peut continuer sans crash.",
+        "twin": {
+          "statement": "Un effet qui appelle setState avec une valeur qui change toujours peut boucler sans faire planter l’app.",
+          "why": "React logue « Maximum update depth exceeded » dans la console, mais la boucle peut continuer."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un effet qui met à jour du state et dépend d’une valeur recréée à chaque rendu ne s’arrête jamais. Savoir comment React compare les dépendances permet de repérer et de casser la boucle.",
+      "points": [
+        "React compare chaque dépendance d’effet à la précédente avec `Object.is`. Pour les objets et les tableaux, c’est l’identité : un nouvel objet est un changement, même avec le même contenu.",
+        "Un objet construit pendant le rendu est nouveau à chaque rendu. Si l’effet met à jour du state, le cycle ne finit jamais : rendu, effet, setState, nouveau rendu.",
+        "Une boucle de setState synchrone logue « Maximum update depth exceeded » dans la console mais ne plante pas forcément, donc une boucle peut partir en production sans qu’on la remarque.",
+        "Corrige en construisant l’objet dans l’effet et en dépendant de primitives, en mémoïsant les objets qui viennent des props, et en calculant les données dérivées pendant le rendu.",
+        "Ne fais jamais taire exhaustive-deps : quand la liste semble fausse, restructure le code."
+      ],
+      "takeaways": [
+        {
+          "term": "`Object.is`",
+          "detail": "La façon dont React compare chaque dépendance. Pour les objets et les tableaux, c’est l’identité, pas le contenu."
+        },
+        {
+          "term": "Objet construit au rendu",
+          "detail": "Une nouvelle valeur à chaque rendu, donc l’effet voit un changement à chaque fois."
+        },
+        {
+          "term": "La boucle",
+          "detail": "Rendu, effet, setState, nouveau rendu, sans fin."
+        },
+        {
+          "term": "« Maximum update depth exceeded »",
+          "detail": "Logué par une boucle de setState synchrone, qui ne plante pas forcément et peut partir en production sans qu’on la remarque."
+        },
+        {
+          "term": "Corrections",
+          "detail": "Construire les objets dans l’effet, dépendre de primitives, mémoïser les objets de props, dériver les données au rendu."
+        },
+        {
+          "term": "exhaustive-deps",
+          "detail": "Ne jamais la faire taire : quand la liste semble fausse, restructurer le code."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Après une release, la page des commandes du back-office envoie `GET /orders?status=paid` des dizaines de fois par seconde, alors que personne ne touche aux filtres. L’effet dépend d’un objet `filters` construit dans le corps du composant. Que se passe-t-il ?",
+        "bridge": "L’objet est nouveau à chaque rendu et les dépendances sont comparées avec `Object.is`, donc l’effet s’exécute, met à jour le state, provoque un rendu, et s’exécute à nouveau."
+      },
+      {
+        "question": "Un collègue désactive `react-hooks/exhaustive-deps` sur une ligne pour empêcher un effet de se relancer. Pourquoi est-ce la mauvaise correction, et que faites-vous à la place ?",
+        "bridge": "Faire taire la règle cache la vraie cause ; restructurez : dépendre de primitives, construire les objets dans l’effet, mémoïser les objets venant des props."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux chargent les commandes quand le filtre de statut change. Lequel envoie une requête par changement de filtre ?",
+        "why": "Les dépendances sont comparées avec `Object.is`. La chaîne `status` est égale d’un rendu à l’autre, donc l’effet s’exécute une fois par changement. `params` est un nouvel objet à chaque rendu, donc chaque réponse provoque un rendu, l’effet voit une dépendance « changée » et refait un fetch : plus de 5 000 appels en 300 ms dans un test, sans aucune erreur levée."
+      }
+    ]
+  },
+  "react-external-store": {
+    "topic": "useSyncExternalStore",
+    "question": "À quoi sert `useSyncExternalStore`, et quelles règles le store doit-il respecter ?",
+    "answer": "C’est le hook intégré de React pour lire une valeur qui vit hors de React et change dans le temps : un store partagé ou une API du navigateur. Je passe `subscribe`, qui enregistre un callback et renvoie une fonction de désabonnement, et `getSnapshot`, qui renvoie la valeur courante. React garde alors tous les composants sur la même version du store et évite le tearing, deux composants qui affichent des versions différentes. Deux règles : `getSnapshot` doit renvoyer la même valeur tant que rien n’a changé, sinon React boucle, et `subscribe` doit être stable. Pour le rendu serveur, je passe aussi `getServerSnapshot`.",
+    "keyPoints": [
+      "Lit un store ou une API du navigateur qui vit hors de React",
+      "`subscribe` renvoie un désabonnement ; `getSnapshot` renvoie la valeur",
+      "Évite le tearing : tous les composants voient la même version",
+      "Snapshot mis en cache et subscribe stable, sinon boucle ou réabonnement",
+      "`getServerSnapshot` pour les composants rendus côté serveur"
+    ],
+    "explanation": "Elle sépare les candidats qui savent comment Zustand ou Redux se branchent à React de ceux qui copient des valeurs dans le state via des effets. Un senior parle du tearing, de la règle du snapshot mis en cache et du snapshot serveur.",
+    "example": "Dans le back-office, le tableau des commandes, le badge et la barre de stats copiaient chacun le flux de commandes en direct dans leur propre state et n’étaient parfois pas d’accord. L’équipe a déplacé les commandes en direct dans un seul store hors de React, lu avec `useSyncExternalStore`. Les désaccords ont cessé, et le même hook fait maintenant tourner le bandeau en ligne/hors ligne.",
+    "mistakes": [
+      "Renvoyer un nouvel objet depuis `getSnapshot` à chaque appel, ce qui fait boucler",
+      "Déclarer `subscribe` dans le composant, si bien que React se réabonne à chaque rendu",
+      "S’en servir pour du state qui appartient au composant, où `useState` est plus simple"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi ne pas simplement copier la valeur externe dans le state avec `useEffect` ?",
+        "answer": "La copie a un rendu de retard, et rien ne garantit que deux composants affichent la même version : c’est le tearing. Pendant une transition, React doit aussi détecter un changement du store et relancer le rendu, ce que le hook gère pour moi."
+      },
+      {
+        "question": "Comment liriez-vous l’état du réseau avec ?",
+        "answer": "Je m’abonne aux événements `online` et `offline` de window et je renvoie `navigator.onLine` comme snapshot. Côté serveur, il n’y a pas d’état réseau, donc je passe `() => true` comme `getServerSnapshot`."
+      },
+      {
+        "question": "Zustand et Redux l’utilisent-ils ?",
+        "answer": "Leurs bindings React reposent sur ce même contrat subscribe et snapshot, c’est pourquoi j’appelle rarement le hook moi-même. Je m’en sers directement pour de petits stores maison et pour les API du navigateur."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`getSnapshot` peut renvoyer un nouvel objet à chaque appel tant que son contenu est le même.",
+        "why": "React compare les snapshots par identité ; un nouvel objet à chaque appel ressemble à un changement et provoque une boucle de mises à jour infinie.",
+        "twin": {
+          "statement": "`getSnapshot` doit renvoyer le même objet à chaque appel tant que le store n’a pas changé.",
+          "why": "React compare les snapshots par identité ; un nouvel objet à chaque appel ressemble à un changement et provoque une boucle de mises à jour infinie."
+        }
+      },
+      {
+        "statement": "Sans `getServerSnapshot`, le rendu serveur d’un composant qui utilise `useSyncExternalStore` échoue.",
+        "why": "React a besoin d’une valeur pour le rendu serveur et l’hydratation ; quand elle manque, il lève une erreur indiquant que `getServerSnapshot` est requis.",
+        "twin": {
+          "statement": "Le rendu serveur d’un composant qui utilise `useSyncExternalStore` fonctionne sans `getServerSnapshot`.",
+          "why": "React a besoin d’une valeur pour le rendu serveur et l’hydratation ; quand elle manque, il lève une erreur indiquant que `getServerSnapshot` est requis."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "`useSyncExternalStore` est le hook intégré de React pour lire une valeur qui vit hors de React, comme un store partagé ou une API du navigateur, et refaire un rendu cohérent quand elle change.",
+      "points": [
+        "`useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot?)` lit une valeur qui vit hors de React, comme un store partagé ou une API du navigateur, et refait un rendu quand elle change.",
+        "`subscribe` enregistre un callback et renvoie une fonction de désabonnement. `getSnapshot` renvoie la valeur courante.",
+        "React garde tous les composants sur la même version du store. Afficher deux versions à la fois s’appelle le tearing, et copier des valeurs dans le state avec un effet peut le provoquer.",
+        "`getSnapshot` doit renvoyer la même valeur tant que rien n’a changé, sinon React boucle. `subscribe` doit être stable, déclaré hors du composant, sinon React se réabonne à chaque rendu.",
+        "Passe `getServerSnapshot` dès que le composant peut être rendu côté serveur."
+      ],
+      "takeaways": [
+        {
+          "term": "`subscribe`",
+          "detail": "Enregistre un callback et renvoie une fonction de désabonnement. Garde-le stable, déclaré hors du composant."
+        },
+        {
+          "term": "`getSnapshot`",
+          "detail": "Renvoie la valeur courante, et doit renvoyer la même valeur tant que rien n’a changé, sinon React boucle."
+        },
+        {
+          "term": "`getServerSnapshot`",
+          "detail": "Troisième argument, nécessaire dès que le composant peut être rendu côté serveur."
+        },
+        {
+          "term": "Tearing",
+          "detail": "Deux composants qui affichent des versions différentes du store ; le hook l’empêche."
+        },
+        {
+          "term": "Copier dans le state",
+          "detail": "Copier les valeurs du store dans le state avec un effet peut provoquer du tearing."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le back-office garde le nombre de demandes de remboursement ouvertes dans un petit store hors de React, lu par l’en-tête et la barre latérale. Pendant un rendu lent, les deux affichent brièvement des nombres différents. Quel hook corrige ça, et que doit respecter le store ?",
+        "bridge": "`useSyncExternalStore` garde tous les composants sur la même version du store, ce qui évite le tearing, à condition que le snapshot soit mis en cache et que `subscribe` soit stable."
+      },
+      {
+        "question": "Le composant d’un collègue construit sur `useSyncExternalStore` fige l’onglet dans une boucle de mises à jour. Son `getSnapshot` renvoie `{ count, updatedAt }` construit à chaque appel. Qu’est-ce qui ne va pas ?",
+        "bridge": "`getSnapshot` doit renvoyer la même valeur tant que rien n’a changé ; un nouvel objet à chaque appel ressemble à un changement, donc React boucle."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux lisent les compteurs de commandes en direct depuis un store hors de React. Quel `getSnapshot` est sûr ?",
+        "why": "React appelle souvent `getSnapshot` et compare les résultats avec `Object.is`. Renvoyer l’objet stocké donne la même valeur tant que rien n’a changé. Une copie neuve à chaque appel paraît toujours nouvelle : React avertit « The result of getSnapshot should be cached to avoid an infinite loop », puis lève « Maximum update depth exceeded »."
+      }
+    ]
+  },
+  "react-portals": {
+    "topic": "Portals",
+    "question": "Qu’est-ce qu’un portal en React, et comment se comportent les événements et le context à l’intérieur ?",
+    "answer": "Un portal, `createPortal(children, domNode)`, rend des enfants dans un autre nœud DOM, en général `document.body`, tout en les gardant à la même place dans l’arbre React. Je m’en sers pour les modales, tooltips et menus qui doivent échapper à l’`overflow` ou au contexte d’empilement d’un parent. Le piège, c’est que les événements remontent par l’arbre React, pas par l’arbre DOM : un clic dans une modale rendue depuis une ligne de tableau atteint quand même le `onClick` de la ligne. Le context circule de la même façon. J’arrête la propagation dans la modale ou je la rends depuis plus haut, et pour les modales en 2026 j’envisage aussi un `<dialog>` natif avec `showModal()`.",
+    "keyPoints": [
+      "Rend dans un autre nœud DOM, garde la position React",
+      "Sert à échapper à `overflow` et aux contextes d’empilement",
+      "Les événements remontent par l’arbre React, pas l’arbre DOM",
+      "Le context circule toujours dans le portal"
+    ],
+    "explanation": "La définition est facile ; c’est le comportement de propagation que les recruteurs attendent, parce qu’il surprend en production. Mentionner le dialog natif et sa top layer montre que tu connais les pratiques actuelles.",
+    "example": "Dans le back-office, la modale de confirmation de remboursement était rendue par la ligne de commande : elle apparaissait sous l’en-tête sticky du tableau, et cliquer sur « Confirmer le remboursement » ouvrait aussi le panneau de détail de la ligne. Un portal vers `document.body` a corrigé l’empilement, et un `stopPropagation` sur le wrapper du dialog a empêché la ligne de réagir. L’équipe a ensuite remonté la modale au niveau de la page, ce qui a rendu le portal inutile.",
+    "mistakes": [
+      "Supposer qu’un portal déplace aussi le composant dans l’arbre React",
+      "S’attendre à une propagation selon le DOM, puis être surpris quand le `onClick` du parent se déclenche",
+      "Augmenter le `z-index` au lieu de sortir du contexte d’empilement"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi un `z-index` élevé ne peut-il pas faire passer une modale au-dessus de l’en-tête quand elle est dans la ligne ?",
+        "answer": "La ligne crée son propre contexte d’empilement, par exemple avec un `transform` ou un `z-index` sur un élément positionné. Les enfants sont empilés à l’intérieur, donc aucune valeur à l’intérieur ne peut passer au-dessus des éléments extérieurs. La correction, c’est de sortir le nœud DOM, avec un portal ou la top layer."
+      },
+      {
+        "question": "Comment un `<dialog>` natif se compare-t-il à un portal pour une modale ?",
+        "answer": "Ouvert avec `showModal()`, il passe dans la top layer du navigateur, au-dessus de tous les contextes d’empilement, rend le reste de la page inerte et y déplace le focus. Il n’a pas besoin de portal, mais rendu dans la ligne, ses clics atteignent quand même la ligne, donc je le rends depuis la page."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un clic dans un portal rendu dans `document.body` atteint le `onClick` de son parent React.",
+        "why": "Les événements d’un portal remontent par l’arbre React, donc le handler du parent React se déclenche même si le nœud DOM est ailleurs.",
+        "twin": {
+          "statement": "Un clic dans un portal rendu dans `document.body` n’atteint pas le `onClick` de son parent React.",
+          "why": "Les événements d’un portal remontent par l’arbre React, donc le handler du parent React se déclenche même si le nœud DOM est ailleurs."
+        }
+      },
+      {
+        "statement": "Les composants dans un portal ne peuvent pas lire le context de leurs parents React.",
+        "why": "Un portal garde sa place dans l’arbre React, donc les providers de context au-dessus s’appliquent toujours.",
+        "twin": {
+          "statement": "Les composants dans un portal peuvent lire le context de leurs parents React.",
+          "why": "Un portal garde sa place dans l’arbre React, donc les providers de context au-dessus s’appliquent toujours."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un portal rend une partie d’un composant dans un autre nœud DOM tout en la gardant à la même place dans l’arbre React. Il permet aux modales, tooltips et menus d’échapper à un parent qui les coupe ou les empile mal.",
+      "points": [
+        "`createPortal(children, domNode)` de `react-dom` rend des enfants dans un autre nœud DOM, en général `document.body`, alors qu’ils restent à la même place dans l’arbre React.",
+        "On s’en sert pour les modales, tooltips et menus qui doivent échapper à l’`overflow: hidden` d’un parent ou à son contexte d’empilement, le groupe dans lequel les valeurs de `z-index` sont comparées.",
+        "Les événements d’un portal remontent par l’arbre React, pas l’arbre DOM : un clic dans une modale atteint le `onClick` du parent React. Le context circule de la même façon.",
+        "Arrête la propagation dans la modale, ou rends-la depuis plus haut. Un `<dialog>` natif ouvert avec `showModal()` atteint la top layer sans portal."
+      ],
+      "takeaways": [
+        {
+          "term": "`createPortal(children, domNode)`",
+          "detail": "Vient de `react-dom` ; rend dans un autre nœud DOM, en général `document.body`."
+        },
+        {
+          "term": "Cas d’usage",
+          "detail": "Échapper à l’`overflow: hidden` d’un parent ou à son contexte d’empilement, où les valeurs de `z-index` sont comparées."
+        },
+        {
+          "term": "Propagation des événements",
+          "detail": "Suit l’arbre React, pas l’arbre DOM : un clic dans la modale atteint le `onClick` du parent React."
+        },
+        {
+          "term": "Context",
+          "detail": "Circule dans le portal comme dans n’importe quel enfant."
+        },
+        {
+          "term": "Corriger la propagation",
+          "detail": "Arrête la propagation dans la modale, ou rends-la depuis plus haut."
+        },
+        {
+          "term": "`<dialog>` + `showModal()`",
+          "detail": "Atteint la top layer sans portal."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, cliquer sur « Confirmer » dans une modale de remboursement ouvre aussi la ligne de commande depuis laquelle la modale a été lancée. La modale est rendue dans `document.body`, loin du tableau dans le DOM. Pourquoi la ligne réagit-elle ?",
+        "bridge": "Les événements d’un portal remontent par l’arbre React, pas l’arbre DOM, donc le `onClick` de la ligne reçoit quand même le clic."
+      },
+      {
+        "question": "Un tooltip de guide des tailles sur la page produit est coupé par une carte en `overflow: hidden`. Comment le laissez-vous en sortir, et le context du thème l’atteindra-t-il encore ?",
+        "bridge": "Un portal rend dans un autre nœud DOM pour échapper à `overflow` et aux contextes d’empilement, tout en gardant sa position React, donc le context circule toujours."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux rendent la confirmation de remboursement depuis une ligne de commande dans `document.body`. Lequel empêche le clic d’ouvrir la ligne ?",
+        "why": "Les événements d’un portal remontent par l’arbre React, pas l’arbre DOM. Le nœud DOM de la modale est dans `body`, mais son parent React est la ligne, donc sans `stopPropagation`, un clic sur « Confirmer le remboursement » exécute aussi le `onClick` de la ligne et ouvre le détail de la commande."
+      }
+    ]
+  },
+  "react-transitions": {
+    "topic": "useTransition et useDeferredValue",
+    "question": "Comment `useTransition` et `useDeferredValue` gardent-ils la saisie réactive, et pourquoi envelopper un calcul coûteux dans `startTransition` fige-t-il quand même l’input ?",
+    "answer": "Les deux marquent du travail comme une transition : un rendu basse priorité que React fait par tranches, en rendant la main au navigateur entre les composants pour qu’une frappe puisse être affichée, et qu’il abandonne quand une saisie plus récente arrive. J’utilise `useTransition` quand je possède le setter, et `useDeferredValue` quand je reçois la valeur, avec `memo` sur l’enfant lent. Mais `startTransition` appelle son callback immédiatement et ne diffère que les mises à jour de state qu’il contient, donc un calcul placé là s’exécute dans le handler de la frappe. Et React rend la main entre les composants, jamais à l’intérieur d’un composant. Donc je réduis le travail lent, je le découpe ou je le déplace dans un Web Worker.",
+    "keyPoints": [
+      "Les transitions rendent par tranches interruptibles, entre les composants",
+      "`useTransition` pour ses setters ; `useDeferredValue` pour les valeurs reçues",
+      "`startTransition` exécute son callback tout de suite ; seul le state est différé",
+      "Un composant lent reste un seul bloc : réduire, découper ou utiliser un worker"
+    ],
+    "explanation": "Beaucoup de candidats décrivent les transitions comme « rendre les choses plus rapides ». Les recruteurs attendent la limite précise : les transitions réordonnent le travail de rendu, elles ne rendent pas le calcul moins cher.",
+    "example": "Dans le back-office, un champ « classer par risque de remboursement » notait 5 000 commandes dans `startTransition`, et la saisie se figeait environ 150 ms par touche. Passer la notation dans un rendu différé et mémoïsé n’a aidé qu’une fois le travail découpé par ligne. L’équipe a fini par ne noter que la page visible et précalculer le reste à l’arrivée des commandes.",
+    "mistakes": [
+      "Mettre un calcul lourd dans le callback de `startTransition`",
+      "Utiliser `useDeferredValue` sans `memo` sur l’enfant lent, qui se rend alors deux fois",
+      "Mettre la valeur d’un input texte lui-même dans une transition, ce qui fait ramer la saisie"
+    ],
+    "followUps": [
+      {
+        "question": "En quoi `useDeferredValue` diffère-t-il d’un debounce ?",
+        "answer": "Un debounce attend un délai fixe ; une valeur différée commence le rendu tout de suite et est interrompue par une saisie plus récente, donc sur une machine rapide le résultat suit presque immédiatement. Je garde un debounce pour le travail qui n’est pas du rendu, comme appeler l’API de recherche."
+      },
+      {
+        "question": "Pourquoi une transition ne peut-elle pas piloter la valeur d’un input texte ?",
+        "answer": "L’input doit se mettre à jour de façon synchrone à chaque frappe. Donc je garde deux states : la valeur de l’input, urgente, et la requête utilisée par le tableau, mise à jour dans une transition ou lue via `useDeferredValue`."
+      },
+      {
+        "question": "Qu’est-ce que `isPending` vous apporte ?",
+        "answer": "Il vaut true tant que le rendu de la transition est en cours, donc je peux griser les anciens résultats ou afficher un petit spinner sans cacher le contenu. `useDeferredValue` donne le même signal en comparant la valeur à sa copie différée."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`startTransition(fn)` planifie `fn` pour plus tard, quand le navigateur est inactif.",
+        "why": "React appelle `fn` immédiatement ; seules les mises à jour de state faites pendant cet appel sont marquées comme transition.",
+        "twin": {
+          "statement": "`startTransition(fn)` appelle `fn` immédiatement et marque seulement les mises à jour de state faites dedans comme transition.",
+          "why": "Rien n’est planifié pour plus tard : React exécute `fn` tout de suite, et seules les mises à jour faites pendant cet appel reçoivent une basse priorité."
+        }
+      },
+      {
+        "statement": "Un seul composant qui calcule pendant 150 ms dans un rendu différé peut quand même retarder les frappes.",
+        "why": "React ne peut rendre la main qu’entre les composants, donc un composant de 150 ms est un seul bloc de travail sur le main thread.",
+        "twin": {
+          "statement": "Dans un rendu différé, React peut faire une pause au milieu d’un composant lent pour traiter une frappe.",
+          "why": "React ne peut rendre la main qu’entre les composants, donc un composant de 150 ms est un seul bloc de travail sur le main thread."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les transitions permettent à React de garder la saisie réactive en rendant les mises à jour basse priorité par tranches interruptibles. Elles rendent l’attente interruptible, pas le travail lent moins cher.",
+      "points": [
+        "React sépare les mises à jour urgentes, comme le texte d’un input, des transitions, qui peuvent prendre du retard. Il rend une transition par tranches, rend la main au navigateur entre les composants, et l’abandonne quand une saisie plus récente arrive.",
+        "`useTransition` renvoie `[isPending, startTransition]` pour les mises à jour de state que tu possèdes. `useDeferredValue(value)` donne une copie en retard d’une valeur que tu reçois ; enveloppe l’enfant lent dans `memo`.",
+        "`startTransition` appelle son callback immédiatement. Seules les mises à jour de state dedans sont différées ; tout calcul placé là s’exécute dans le handler de la frappe.",
+        "React ne rend jamais la main à l’intérieur d’un composant. Les transitions rendent l’attente interruptible, pas le travail moins cher : réduis le travail, découpe-le, ou déplace-le dans un Web Worker."
+      ],
+      "takeaways": [
+        {
+          "term": "Transition",
+          "detail": "Un rendu basse priorité fait par tranches, qui rend la main entre les composants et est abandonné quand une saisie plus récente arrive."
+        },
+        {
+          "term": "`useTransition`",
+          "detail": "Renvoie `[isPending, startTransition]`, pour les mises à jour de state que tu possèdes."
+        },
+        {
+          "term": "`useDeferredValue(value)`",
+          "detail": "Une copie en retard d’une valeur que tu reçois ; enveloppe l’enfant lent dans `memo`."
+        },
+        {
+          "term": "Callback de `startTransition`",
+          "detail": "S’exécute immédiatement ; seules les mises à jour de state dedans sont différées, tout calcul s’exécute dans le handler."
+        },
+        {
+          "term": "Points de pause",
+          "detail": "React ne rend jamais la main dans un composant : un composant lent reste un seul bloc."
+        },
+        {
+          "term": "Travail lent",
+          "detail": "Réduis-le, découpe-le, ou déplace-le dans un Web Worker."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La recherche du back-office filtre 5 000 commandes à chaque frappe. Vous avez enveloppé l’appel de filtrage dans `startTransition`, pourtant l’input rame toujours. Pourquoi, et qu’est-ce qui aiderait vraiment ?",
+        "bridge": "`startTransition` exécute son callback tout de suite et ne diffère que les mises à jour de state ; le filtrage tourne toujours dans le handler de la frappe. Réduisez-le, découpez-le ou utilisez un worker."
+      },
+      {
+        "question": "Quand choisissez-vous `useDeferredValue` plutôt que `useTransition`, et que font les deux pendant que l’utilisateur continue de taper ?",
+        "bridge": "Les deux marquent un rendu basse priorité qui rend la main entre les composants et est abandonné au profit d’une saisie plus récente ; l’un enveloppe votre propre setter, l’autre une valeur que vous recevez."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux filtrent le tableau de 5 000 commandes pendant que l’agent tape dans le champ de recherche. Lequel garde la saisie réactive ?",
+        "why": "L’input doit se mettre à jour de façon synchrone à chaque frappe, donc sa propre valeur reste urgente et seule la requête du tableau passe dans la transition. react.dev indique qu’une transition ne peut pas piloter un input contrôlé : les transitions ne sont pas bloquantes, donc le texte tapé peut prendre du retard pendant le rendu du tableau."
+      }
+    ]
+  },
+  "react-url-state": {
+    "topic": "Filtres dans l’URL",
+    "question": "Où gardez-vous les filtres, le tri et la pagination d’un tableau, et pourquoi ?",
+    "answer": "Tout ce qu’un rechargement, un lien partagé ou le bouton Retour doivent conserver va dans la query string, et l’URL devient l’unique source de vérité. Le composant lit les filtres depuis l’URL à chaque rendu et écrit les changements via le router : `useSearchParams` dans React Router, ou les hooks de navigation dans Next.js. Trois détails comptent. Je valide les paramètres, parce que l’URL est une saisie utilisateur. Je réinitialise le curseur de page quand un filtre change. Et j’utilise `replace` pour les ajustements de filtre, pour ne pas remplir l’historique. Je ne copie jamais l’URL dans `useState`, ce qui crée deux vérités.",
+    "keyPoints": [
+      "Filtres, tri, curseur et recherche vont dans la query string",
+      "Lire depuis l’URL à chaque rendu ; écrire via le router",
+      "Valider les paramètres : l’URL est une saisie utilisateur",
+      "Réinitialiser le curseur au changement de filtre ; `replace` pour les petits ajustements"
+    ],
+    "explanation": "Elle teste si tu classes le state selon qui le possède avant de sortir une bibliothèque. Un senior parle de liens partageables, de validation et du comportement de l’historique, et refuse de dupliquer l’URL dans du state local.",
+    "example": "Les agents du support filtraient les commandes sur `refunded` dans le back-office, allaient en page 3, rechargeaient, et tombaient sur la première page non filtrée ; les liens collés dans le chat du support avaient le même bug. L’équipe a passé le statut et le curseur dans la query string avec un hook `useOrderFilters` qui valide le statut. Les liens partagés ouvrent maintenant exactement la vue que le collègue voyait.",
+    "mistakes": [
+      "Garder les filtres dans `useState`, si bien qu’un rechargement ou un lien partagé les perd",
+      "Copier l’URL dans du state local « par commodité », ce qui crée deux sources de vérité",
+      "Faire confiance aux paramètres bruts, ou garder un curseur qui appartient à un autre filtre"
+    ],
+    "followUps": [
+      {
+        "question": "Quand utilisez-vous `push` et quand `replace` pour mettre à jour l’URL ?",
+        "answer": "`replace` pour les ajustements comme un filtre ou un tri, pour que le bouton Retour quitte la page au lieu d’annuler chaque clic. `push` pour les changements que l’utilisateur perçoit comme une navigation, comme ouvrir un détail de commande ou passer à la page suivante, si le produit veut que Retour y ramène."
+      },
+      {
+        "question": "Pourquoi réinitialiser le curseur quand le filtre change ?",
+        "answer": "Un curseur pointe dans une liste filtrée et triée précise. Appliqué à un autre filtre, il saute ou répète des lignes, donc un nouveau filtre doit repartir de la première page."
+      },
+      {
+        "question": "Un coéquipier demande un store Zustand qui contient les commandes pour que chaque écran les ait. Que répondez-vous ?",
+        "answer": "Non : les commandes sont du server state. Un store client serait une deuxième copie, sans gestion de péremption ni d’invalidation. Elles vont dans le cache de TanStack Query, les filtres dans l’URL, et seul le vrai state client, comme un panneau ouvert, dans un store."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Copier les paramètres de recherche dans `useState` au montage est une bonne façon de garder les filtres synchronisés avec l’URL.",
+        "why": "Ça crée deux sources de vérité qui divergent ; lis plutôt depuis l’URL à chaque rendu.",
+        "twin": {
+          "statement": "Copier les paramètres de recherche dans `useState` au montage crée une deuxième source de vérité qui diverge de l’URL.",
+          "why": "La copie ne suit plus l’URL ; lis plutôt les filtres depuis l’URL à chaque rendu."
+        }
+      },
+      {
+        "statement": "Mettre à jour l’URL avec `replace` n’ajoute pas de nouvelle entrée à l’historique du navigateur.",
+        "why": "`replace` réécrit l’entrée courante, donc les clics sur les filtres ne s’empilent pas derrière le bouton Retour.",
+        "twin": {
+          "statement": "Mettre à jour l’URL avec `replace` ajoute une nouvelle entrée à l’historique du navigateur.",
+          "why": "`replace` réécrit l’entrée courante, donc les clics sur les filtres ne s’empilent pas derrière le bouton Retour."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les filtres, le tri et la pagination qu’un rechargement, un lien partagé ou le bouton Retour doivent conserver vont dans la query string, avec l’URL comme unique source de vérité.",
+      "points": [
+        "Le state qu’un rechargement, un lien partagé ou le bouton Retour doivent conserver va dans la query string, la partie de l’URL après `?`. L’URL est alors l’unique source de vérité.",
+        "Lis les filtres depuis l’URL à chaque rendu et écris les changements via le router, comme `useSearchParams` dans React Router. Parser quelques paramètres ne coûte rien.",
+        "L’URL est une saisie utilisateur : valide chaque paramètre par rapport aux valeurs autorisées. Quand un filtre change, supprime le curseur de page, qui n’avait de sens que dans l’ancienne liste.",
+        "Utilise `replace` pour les ajustements de filtre, pour que l’historique ne grossisse pas à chaque clic. Ne copie jamais l’URL dans `useState`."
+      ],
+      "takeaways": [
+        {
+          "term": "Ce qui va dans l’URL",
+          "detail": "Filtres, tri, curseur de page et recherche : tout ce qu’un rechargement ou un lien partagé doit conserver."
+        },
+        {
+          "term": "Lecture",
+          "detail": "Parse les filtres depuis l’URL à chaque rendu ; ça ne coûte rien."
+        },
+        {
+          "term": "Écriture",
+          "detail": "Via le router, comme `useSearchParams` dans React Router."
+        },
+        {
+          "term": "Validation",
+          "detail": "L’URL est une saisie utilisateur : vérifie chaque paramètre par rapport aux valeurs autorisées."
+        },
+        {
+          "term": "Curseur de page",
+          "detail": "Supprime-le quand un filtre change ; il n’avait de sens que dans l’ancienne liste."
+        },
+        {
+          "term": "`replace`",
+          "detail": "Pour les ajustements de filtre, pour que l’historique ne grossisse pas à chaque clic. Ne copie jamais l’URL dans `useState`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Les agents du support se plaignent qu’un lien vers le tableau des commandes filtré s’ouvre sans filtre chez un collègue, et que le bouton Retour perd leurs filtres. Où doit vivre l’état des filtres ?",
+        "bridge": "Tout ce qu’un rechargement, un lien partagé ou le bouton Retour doivent conserver va dans la query string, lue depuis l’URL à chaque rendu."
+      },
+      {
+        "question": "Après avoir passé les filtres des commandes dans l’URL, un agent doit appuyer quinze fois sur Retour pour quitter la page. Qu’est-ce qui a mal tourné, et quels autres détails comptent ?",
+        "bridge": "Chaque ajustement a poussé une entrée d’historique ; `replace` réécrit l’entrée courante. Les autres détails : valider les paramètres et réinitialiser le curseur au changement de filtre."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux mettent le filtre de statut dans l’URL du tableau paginé des commandes. Lequel affiche la nouvelle liste depuis son début ?",
+        "why": "Un curseur pointe dans une liste filtrée et triée précise, donc un nouveau filtre doit repartir de la première page. Conservé, le curseur de la liste `paid` s’applique aux commandes `refunded` : l’agent atterrit quelque part au milieu, avec des lignes sautées ou répétées."
+      }
+    ]
+  },
+  "react-complex-forms": {
+    "topic": "React Hook Form et Zod",
+    "question": "Comment construisez-vous un formulaire complexe avec validation en React, et quand une bibliothèque en vaut-elle la peine ?",
+    "answer": "Pour un formulaire court, comme le checkout, j’utilise des champs natifs et une Action React 19. Quand un formulaire grossit, avec beaucoup de champs, des règles entre champs ou des listes dynamiques, j’utilise React Hook Form avec un schéma Zod. React Hook Form enregistre des inputs non contrôlés via des refs, donc la saisie ne re-rend pas tout le formulaire. Les règles vivent dans un seul schéma Zod, branché avec `zodResolver`, et le backend valide la requête avec le même schéma. Par défaut, la validation tourne à la soumission, puis à chaque changement une fois qu’une soumission a échoué, et les erreurs s’affichent à côté de chaque champ.",
+    "keyPoints": [
+      "Formulaires courts : champs natifs et une Action",
+      "React Hook Form garde les inputs non contrôlés : moins de re-renders",
+      "Les règles dans un seul schéma Zod via `zodResolver`",
+      "Réutiliser le schéma côté serveur pour revalider"
+    ],
+    "explanation": "Les recruteurs veulent entendre un choix selon la taille du formulaire et une source unique pour les règles de validation, pas un nom de bibliothèque. Un senior dit aussi que la validation client sert l’utilisateur et que le serveur doit revalider.",
+    "example": "Le formulaire de remboursement du back-office demandait un montant pas plus élevé que ce qui restait remboursable et une note obligatoire seulement pour les remboursements commerciaux. L’équipe a écrit un schéma Zod construit par commande, l’a branché avec `zodResolver`, et l’a réutilisé dans le BFF avant d’appeler l’API Orders. Les agents voyaient les deux erreurs à la fois à côté des champs, et les remboursements invalides n’atteignaient plus l’API.",
+    "mistakes": [
+      "Rendre chaque champ contrôlé dans un gros formulaire, si bien que chaque frappe re-rend tout",
+      "Dupliquer les règles entre le formulaire et le serveur, qui finissent par diverger",
+      "Se fier uniquement à la validation client"
+    ],
+    "followUps": [
+      {
+        "question": "Comment exprimez-vous « la note est obligatoire quand le motif est commercial » en Zod ?",
+        "answer": "Avec un `refine` sur l’objet : la vérification renvoie true quand le motif n’est pas commercial ou que la note n’est pas vide, et `path: ['note']` rattache l’erreur au champ note pour que le formulaire l’affiche là."
+      },
+      {
+        "question": "Comment utilisez-vous un composant UI contrôlé, comme un date picker, avec React Hook Form ?",
+        "answer": "Je l’enveloppe dans le `Controller` de RHF, qui passe `value` et `onChange` au composant et garde l’état du formulaire synchronisé. `register` fonctionne pour les inputs natifs ; `Controller` sert aux composants qui n’offrent qu’une API contrôlée."
+      },
+      {
+        "question": "Pourquoi faut-il `Math.round` pour convertir un montant en euros en centimes ?",
+        "answer": "À cause des flottants : `19.99 * 100` donne `1998.9999999999998` en JavaScript. Arrondir donne 1999 centimes, l’entier qu’attend l’API."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Par défaut, React Hook Form valide chaque champ à chaque frappe dès le premier rendu.",
+        "why": "Le mode par défaut est `onSubmit` ; après une soumission échouée, les champs sont revalidés à chaque changement.",
+        "twin": {
+          "statement": "Par défaut, React Hook Form ne valide pas les champs avant la première soumission.",
+          "why": "Le mode par défaut est `onSubmit` ; après une soumission échouée, les champs sont revalidés à chaque changement."
+        }
+      },
+      {
+        "statement": "Un schéma Zod partagé par le formulaire et le backend garde les règles en un seul endroit.",
+        "why": "Le même schéma valide le formulaire côté client et la requête côté serveur, donc les deux ne peuvent pas diverger.",
+        "twin": {
+          "statement": "Quand le formulaire et le backend gardent chacun leur propre copie des règles de validation, les deux ne peuvent pas diverger.",
+          "why": "Deux copies divergent ; un seul schéma Zod utilisé côté client et côté serveur garde les règles en un seul endroit."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Les gros formulaires avec beaucoup de champs, des règles entre champs ou des listes dynamiques demandent plus que des inputs natifs. React Hook Form avec un schéma Zod garde la saisie rapide et les règles en un seul endroit, partagé avec le serveur.",
+      "points": [
+        "Un input contrôlé tire sa valeur du state React et se re-rend à chaque frappe. Dans un gros formulaire, ça veut dire que tout le formulaire se re-rend pendant que l’utilisateur tape.",
+        "React Hook Form enregistre les inputs comme non contrôlés via des refs, donc la saisie ne re-rend pas tout le formulaire. Par défaut, la validation tourne à la soumission, puis à chaque changement après une soumission échouée.",
+        "Zod décrit les règles dans un seul schéma, y compris les règles entre champs avec `refine`. `zodResolver` de `@hookform/resolvers` le branche au formulaire.",
+        "Réutilise le schéma côté serveur : la validation client aide l’utilisateur, la validation serveur protège les données. Les formulaires courts restent natifs, avec une Action."
+      ],
+      "takeaways": [
+        {
+          "term": "Formulaire court",
+          "detail": "Des champs natifs et une Action React 19 suffisent."
+        },
+        {
+          "term": "Input contrôlé",
+          "detail": "Tire sa valeur du state et se re-rend à chaque frappe ; dans un gros formulaire, tout le formulaire se re-rend."
+        },
+        {
+          "term": "React Hook Form",
+          "detail": "Enregistre les inputs comme non contrôlés via des refs, donc la saisie ne re-rend pas tout le formulaire."
+        },
+        {
+          "term": "Moment de la validation",
+          "detail": "À la soumission par défaut, puis à chaque changement après une soumission échouée."
+        },
+        {
+          "term": "Zod + `zodResolver`",
+          "detail": "Un seul schéma porte les règles, celles entre champs via `refine` ; `@hookform/resolvers` le branche."
+        },
+        {
+          "term": "Serveur",
+          "detail": "Revalide avec le même schéma : les vérifications client aident l’utilisateur, celles du serveur protègent les données."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’éditeur de produits du back-office a 40 champs, une liste de variantes et une règle qui veut que le prix soldé soit inférieur au prix catalogue. Taper dans n’importe quel champ re-rend tout le formulaire. Comment le reconstruiriez-vous ?",
+        "bridge": "Les gros formulaires conviennent à React Hook Form, qui garde les inputs non contrôlés, avec les règles entre champs dans un seul schéma Zod que le serveur réutilise."
+      },
+      {
+        "question": "Ajouteriez-vous une bibliothèque de formulaires au checkout de la boutique, qui a cinq champs ? Quand en vaut-elle la peine ?",
+        "bridge": "Les formulaires courts restent en champs natifs avec une Action ; une bibliothèque devient rentable avec beaucoup de champs, des règles entre champs ou des listes dynamiques."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux rendent la note obligatoire pour les remboursements commerciaux dans le schéma Zod du formulaire. Lequel affiche l’erreur sous le champ note ?",
+        "why": "`path: ['note']` rattache l’erreur au champ note, donc `zodResolver` la remonte en `errors.note` et le formulaire l’affiche à côté de la note. Sans path, l’erreur appartient à l’objet entier : `errors.note` reste vide et l’agent ne voit aucun message là où la note manque."
+      }
+    ]
+  },
+  "next-route-handlers": {
+    "topic": "Route Handlers et BFF dans Next.js",
+    "question": "Dans l’App Router de Next.js, quand écrivez-vous un Route Handler plutôt qu’une Server Action, et où vivent les secrets ?",
+    "answer": "Un Route Handler est un fichier `route.ts` qui exporte des fonctions nommées d’après les méthodes HTTP et travaille avec les `Request` et `Response` standard. Je m’en sers pour les appelants autres que ma propre UI React : polling, webhooks, une autre app, téléchargements. Les Server Actions servent aux mutations depuis mes propres formulaires. Le serveur Next.js joue alors le rôle de backend-for-frontend : le navigateur ne détient qu’un cookie de session `HttpOnly`, et le serveur détient les tokens et appelle l’API. Les secrets sont des variables d’environnement sans préfixe lues dans des modules réservés au serveur ; tout ce qui est préfixé `NEXT_PUBLIC_` est inliné dans le bundle navigateur au moment du build.",
+    "keyPoints": [
+      "`route.ts` exporte `GET`, `POST`... avec les Request et Response Web",
+      "Route Handlers pour les autres appelants ; Server Actions pour ses formulaires",
+      "BFF : le navigateur a un cookie de session, le serveur détient les tokens",
+      "Les valeurs `NEXT_PUBLIC_` sont publiques et figées au build"
+    ],
+    "explanation": "Elle vérifie que tu vois le serveur Next.js comme une partie de ton backend, avec ses responsabilités de sécurité. Les seniors expliquent le choix selon l’appelant et connaissent le piège de l’inlining au build.",
+    "example": "La page « mes commandes » de la boutique interroge en polling `GET /api/orders/[id]/status`, un Route Handler qui vérifie la session, appelle `GET /orders/:id` avec un token côté serveur et ne renvoie que le statut. Quand le back-office a eu besoin de rafraîchir une page produit après une modification, l’équipe a ajouté `POST /api/revalidate` avec un secret partagé au lieu d’exposer une Server Action à une autre app.",
+    "mistakes": [
+      "Mettre un secret d’API dans une variable `NEXT_PUBLIC_` pour qu’un Client Component puisse appeler l’API",
+      "Utiliser une Server Action comme endpoint pour une autre app : son id dépend du build",
+      "Renvoyer toute la commande depuis un handler quand la page n’a besoin que d’un champ"
+    ],
+    "followUps": [
+      {
+        "question": "La CI construit une seule image avec une clé de paiement sandbox dans `NEXT_PUBLIC_PAYMENT_ENV`, et la production la met sur live. Que lit le navigateur ?",
+        "answer": "La valeur sandbox : les variables `NEXT_PUBLIC_` sont inlinées dans le JavaScript pendant `next build` et figées. Les valeurs qui changent selon l’environnement doivent être lues côté serveur au moment de la requête et transmises en dessous."
+      },
+      {
+        "question": "Comment vous assurez-vous qu’un module qui lit des secrets ne finit jamais dans un Client Component ?",
+        "answer": "Je le commence par `import 'server-only'`. L’importer depuis un Client Component fait alors échouer le build, au lieu de livrer en silence du code qui lit une variable vide dans le navigateur."
+      },
+      {
+        "question": "Les Route Handlers `GET` sont-ils mis en cache ?",
+        "answer": "Pas par défaut depuis Next.js 15, qui a fait passer les handlers `GET` de statiques à dynamiques. J’active le cache explicitement quand la réponse peut être partagée."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un `route.ts` et un `page.tsx` peuvent vivre dans le même dossier de route.",
+        "why": "Next.js n’autorise pas un Route Handler au même segment qu’une page ; mets le handler sous son propre chemin, comme `app/api/...`.",
+        "twin": {
+          "statement": "Un `route.ts` et un `page.tsx` ne peuvent pas vivre dans le même segment de route.",
+          "why": "Next.js n’autorise pas un Route Handler au même segment qu’une page ; mets le handler sous son propre chemin, comme `app/api/...`."
+        }
+      },
+      {
+        "statement": "Changer une variable `NEXT_PUBLIC_` au runtime ne change pas la valeur vue par un bundle navigateur déjà construit.",
+        "why": "Les variables publiques sont inlinées dans le JavaScript au build, donc le bundle garde la valeur du build.",
+        "twin": {
+          "statement": "Changer une variable `NEXT_PUBLIC_` au runtime met à jour la valeur vue par un bundle navigateur déjà construit.",
+          "why": "Les variables publiques sont inlinées dans le JavaScript au build, donc le bundle garde la valeur du build."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un Route Handler est un endpoint HTTP dans une app Next.js. Avec lui, le serveur Next.js joue le rôle de backend-for-frontend : il détient les tokens et le navigateur ne garde qu’un cookie de session.",
+      "points": [
+        "Un Route Handler est un fichier `app/.../route.ts` qui exporte des fonctions nommées d’après les méthodes HTTP, `GET`, `POST` et ainsi de suite, avec les `Request` et `Response` Web. Dans les route handlers, `params` est une promesse.",
+        "Utilise-en un pour les appelants autres que ta propre UI React : polling, webhooks, autres apps, téléchargements de fichiers. Utilise une Server Action pour les mutations depuis tes propres formulaires.",
+        "Le serveur Next.js est le backend-for-frontend (BFF) : le navigateur détient un cookie de session `HttpOnly`, le serveur détient les tokens d’API et renvoie un JSON minimal.",
+        "Les variables d’environnement sont réservées au serveur, sauf celles préfixées `NEXT_PUBLIC_`, inlinées dans le bundle navigateur au build. Marque les modules qui lisent des secrets avec `import 'server-only'`."
+      ],
+      "takeaways": [
+        {
+          "term": "`route.ts`",
+          "detail": "Exporte `GET`, `POST`... avec les `Request` et `Response` Web ; `params` est une promesse."
+        },
+        {
+          "term": "Route Handler ou Action",
+          "detail": "Handlers pour les autres appelants (polling, webhooks, téléchargements) ; Server Actions pour tes propres formulaires."
+        },
+        {
+          "term": "BFF",
+          "detail": "Le navigateur détient un cookie de session `HttpOnly` ; le serveur détient les tokens d’API et renvoie un JSON minimal."
+        },
+        {
+          "term": "`NEXT_PUBLIC_`",
+          "detail": "Les variables avec ce préfixe sont inlinées dans le bundle navigateur au build ; les autres restent côté serveur."
+        },
+        {
+          "term": "`import 'server-only'`",
+          "detail": "Marque les modules qui lisent des secrets."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La boutique a besoin d’un endpoint que l’app mobile peut interroger en polling pour le statut de commande, et d’un téléchargement de facture PDF. Un collègue propose des Server Actions pour les deux. Que suggérez-vous ?",
+        "bridge": "Les Server Actions servent aux mutations depuis vos propres formulaires ; les autres appelants, le polling et les téléchargements demandent un Route Handler qui exporte des fonctions par méthode HTTP."
+      },
+      {
+        "question": "Un développeur a stocké le token de l’API Orders dans `NEXT_PUBLIC_ORDERS_TOKEN` pour que le code client puisse appeler l’API directement. Qu’est-ce qui ne va pas, et où devrait-il vivre ?",
+        "bridge": "Les valeurs `NEXT_PUBLIC_` sont inlinées dans le bundle navigateur ; les secrets restent sans préfixe dans des modules réservés au serveur, avec le serveur Next.js en BFF."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux sont le module que la boutique utilise pour appeler l’API Orders. Lequel garde le token d’API secret ?",
+        "why": "Une variable sans préfixe n’est lue que côté serveur, et `server-only` fait échouer le build si un Client Component importe le module. Une variable `NEXT_PUBLIC_` est inlinée dans le JavaScript au build : dès qu’un Client Component importe ce fichier, le token part dans le bundle navigateur."
+      }
+    ]
+  },
+  "next-errors": {
+    "topic": "Erreurs et not-found dans l’App Router",
+    "question": "Comment gérez-vous les erreurs et les pages manquantes dans l’App Router de Next.js ?",
+    "answer": "Je sépare les erreurs en trois sortes. Les erreurs attendues, comme un formulaire invalide, sont des valeurs de retour que l’UI affiche. Les erreurs inattendues remontent jusqu’au `error.tsx` le plus proche, un Client Component qui entoure la page de son dossier et les layouts imbriqués d’une error boundary, logue l’erreur et propose `retry()`. Il n’attrape pas le layout de son propre dossier ; le layout racine tombe sur `global-error.tsx`, qui rend ses propres html et body. Les ressources manquantes appellent `notFound()`, qui rend `not-found.tsx` avec une balise `noindex`. Appelé avant le début du streaming, il renvoie un vrai 404 ; dans une boundary streamée, le statut reste 200.",
+    "keyPoints": [
+      "Les erreurs attendues sont des valeurs de retour, pas des exceptions",
+      "`error.tsx` est une boundary Client Component, pas pour son propre layout",
+      "`global-error.tsx` pour le layout racine, avec ses propres html et body",
+      "`notFound()` avant le streaming donne un vrai 404"
+    ],
+    "explanation": "Les recruteurs vérifient que tu connais les conventions de fichiers et leurs limites, pas seulement que `error.tsx` existe. Le détail 200 contre 404 et le message masqué en production montrent une vraie expérience de la production.",
+    "example": "Quand l’API Orders est tombée deux minutes, les pages produit de la boutique affichaient un écran d’erreur vide ; un `error.tsx` par route affiche maintenant « temporairement indisponible » avec un bouton pour réessayer et remonte le digest. Un produit supprimé répondait aussi 200 avec un texte « introuvable » et restait dans Google ; déplacer la vérification `notFound()` avant la première boundary Suspense en a fait un vrai 404.",
+    "mistakes": [
+      "S’attendre à ce que `error.tsx` attrape les erreurs du `layout.tsx` voisin",
+      "Afficher `error.message` venant d’un Server Component et attendre le vrai message en production",
+      "Appeler `notFound()` dans une boundary streamée et attendre un statut 404"
+    ],
+    "followUps": [
+      {
+        "question": "Que contient `error.message` en production pour une erreur levée dans un Server Component ?",
+        "answer": "Un message générique, pour éviter de divulguer des détails, plus `error.digest`, un hash que je rapproche des logs serveur. Le message d’origine n’atteint le navigateur qu’en développement, donc le composant doit afficher une phrase fixe."
+      },
+      {
+        "question": "Quelle est la différence entre `retry()` et `reset()` dans `error.tsx` ?",
+        "answer": "`retry()`, stable depuis Next.js 16.3, refait les requêtes et re-rend le segment, ce que je veux pour un échec temporaire. `reset()` ne fait qu’effacer l’état d’erreur et re-rendre sans refaire les requêtes."
+      },
+      {
+        "question": "Pourquoi `notFound()` dans un `try/catch` peut-il ne pas afficher la page not-found ?",
+        "answer": "Il fonctionne en levant une exception, donc un `catch` autour avale le signal et rien ne rend l’UI not-found. Je garde l’appel hors du try, ou j’utilise `unstable_rethrow` dans le catch pour laisser passer les signaux de Next.js."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`app/products/[slug]/error.tsx` attrape les erreurs levées par `app/products/[slug]/layout.tsx`.",
+        "why": "Un `error.tsx` n’entoure pas le layout de son propre segment ; cette erreur va à la boundary parente.",
+        "twin": {
+          "statement": "Une erreur levée par `app/products/[slug]/layout.tsx` est gérée par l’error boundary du segment parent, pas par `app/products/[slug]/error.tsx`.",
+          "why": "Un `error.tsx` n’entoure pas le layout de son propre segment, donc cette erreur remonte à la boundary parente."
+        }
+      },
+      {
+        "statement": "`error.tsx` doit être un Client Component.",
+        "why": "Les error boundaries sont des fonctionnalités React côté client, donc le fichier commence par `'use client'`.",
+        "twin": {
+          "statement": "`error.tsx` peut être un Server Component.",
+          "why": "Les error boundaries sont des fonctionnalités React côté client, donc le fichier doit commencer par `'use client'`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’App Router sépare les échecs attendus, les erreurs inattendues et les ressources manquantes, chacun avec sa convention de fichier. Savoir quelle boundary attrape quoi décide de ce que voient les utilisateurs et du code de statut envoyé.",
+      "points": [
+        "Les échecs attendus, comme un formulaire invalide, sont des valeurs de retour que l’UI affiche. Les inattendus remontent jusqu’au `error.tsx` le plus proche.",
+        "`error.tsx` est un Client Component qui entoure d’une error boundary la page, le loading, le not-found et les layouts imbriqués de son dossier. Il n’entoure pas le layout de son propre dossier.",
+        "Les erreurs du layout racine vont à `global-error.tsx`, qui remplace le layout racine et doit rendre ses propres `<html>` et `<body>`.",
+        "En production, les erreurs des Server Components arrivent au navigateur avec un message générique et un `digest` à rapprocher des logs serveur.",
+        "`notFound()` lève une exception, rend `not-found.tsx` et ajoute `noindex`. Avant le début du streaming, il renvoie un 404 ; dans une boundary streamée, le statut reste 200."
+      ],
+      "takeaways": [
+        {
+          "term": "Erreurs attendues",
+          "detail": "Des valeurs de retour que l’UI affiche, comme un formulaire invalide, pas des exceptions."
+        },
+        {
+          "term": "`error.tsx`",
+          "detail": "Une boundary Client Component autour de la page et des layouts imbriqués de son dossier, pas du layout de son propre dossier."
+        },
+        {
+          "term": "`global-error.tsx`",
+          "detail": "Attrape le layout racine, le remplace, et doit rendre ses propres `<html>` et `<body>`."
+        },
+        {
+          "term": "`digest`",
+          "detail": "En production, les erreurs des Server Components arrivent au navigateur avec un message générique et un digest pour les logs."
+        },
+        {
+          "term": "`notFound()`",
+          "detail": "Lève une exception, rend `not-found.tsx` et ajoute `noindex`."
+        },
+        {
+          "term": "404 ou 200",
+          "detail": "Avant le début du streaming, le statut est 404 ; dans une boundary streamée, il reste 200."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La page d’un produit supprimé répond avec un statut 200 et un message d’erreur, et Google la garde indexée. Comment l’App Router devrait-il gérer un produit manquant ?",
+        "bridge": "Les ressources manquantes appellent `notFound()`, qui rend `not-found.tsx` avec `noindex` et, appelé avant le streaming, un vrai 404."
+      },
+      {
+        "question": "Un collègue lève une exception quand un code promo est invalide au checkout, si bien que les clients atterrissent sur la page d’erreur. Comment séparez-vous les types d’erreurs ?",
+        "bridge": "Les erreurs attendues sont des valeurs de retour que le formulaire affiche ; seules les inattendues remontent à `error.tsx`, et les ressources manquantes utilisent `notFound()`."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux rendent une page produit de la boutique. Laquelle répond à un produit supprimé avec la page not-found ?",
+        "why": "`notFound()` fonctionne en levant un signal que Next.js transforme en `not-found.tsx` avec un 404. Dans le `try`, le `catch` avale ce signal : un produit supprimé affiche « temporairement indisponible » avec un statut 200 et reste dans les résultats de recherche. Les erreurs inattendues ont leur place dans `error.tsx`."
+      }
+    ]
+  },
+  "next-pages-migration": {
+    "topic": "Migration Pages Router vers App Router",
+    "question": "Comment migreriez-vous une app Next.js du Pages Router vers l’App Router sans tout réécrire d’un coup ?",
+    "answer": "Les dossiers `app` et `pages` tournent côte à côte, donc je migre route par route. Naviguer entre les deux routers provoque un rechargement complet de la page, donc je déplace ensemble les routes entre lesquelles les clients passent souvent. Pour chaque page, la première étape sûre est de déplacer l’ancien composant tel quel dans un fichier `'use client'`, rendu par un nouveau Server Component `page.tsx` qui récupère les données et les passe en props. Ensuite je descends `'use client'`, feuille par feuille, en mesurant le bundle. En chemin, `getServerSideProps` devient un Server Component async, `getStaticPaths` devient `generateStaticParams`, et `pages/api` devient des Route Handlers.",
+    "keyPoints": [
+      "`app` et `pages` coexistent : migrer route par route",
+      "Passer d’un router à l’autre recharge la page : regrouper les routes liées",
+      "Envelopper l’ancienne page dans un Client Component nourri par un Server Component",
+      "Convertir les fonctions de données : composants async, `generateStaticParams`"
+    ],
+    "explanation": "Les recruteurs veulent un plan incrémental avec les risques nommés, pas une liste de nouvelles API. Un senior connaît le coût de la navigation complète, les API de requête async, et quand ne pas migrer un écran du tout.",
+    "example": "Les pages compte de la boutique tournaient sur `getServerSideProps` et les anciennes pages produit sur `getStaticProps`. L’équipe a migré ensemble la page produit et le panier, en enveloppant d’abord chaque ancien composant dans un Client Component sous une page Server Component, puis en déplaçant les parties statiques côté serveur. Le bundle de la page produit a diminué release après release, et chaque étape restait livrable.",
+    "mistakes": [
+      "Prévoir une réécriture complète au lieu d’une migration route par route",
+      "Oublier que `params`, `cookies()` et `headers()` sont async et doivent être attendus",
+      "Marquer des pages entières `'use client'` pour toujours au lieu de descendre la frontière"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qui remplace `getStaticPaths` avec `fallback` ?",
+        "answer": "`generateStaticParams` liste les chemins à prérendre, et `dynamicParams` décide du sort des slugs non listés : rendus à la demande s’il vaut true, 404 s’il vaut false."
+      },
+      {
+        "question": "Quels écrans ne migreriez-vous pas vers les Server Components ?",
+        "answer": "Un écran connecté, très interactif et sans enjeu SEO, comme le tableau des commandes du back-office, y gagne peu : il tourne bien en SPA Vite avec TanStack Query. Les Server Components sont rentables là où le SEO, le premier affichage et l’accès aux données côté serveur comptent."
+      },
+      {
+        "question": "Que sont devenus `middleware.ts` et `next/router` ?",
+        "answer": "`middleware.ts` est devenu `proxy.ts` dans Next.js 16, sur le runtime Node.js. Dans l’App Router, `useRouter`, `usePathname` et `useSearchParams` viennent de `next/navigation` et s’utilisent dans les Client Components."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Les dossiers `app` et `pages` peuvent être utilisés dans le même projet Next.js pendant une migration.",
+        "why": "Les deux routers fonctionnent côte à côte, c’est ce qui rend possible une migration route par route.",
+        "twin": {
+          "statement": "Un projet Next.js doit utiliser soit le dossier `app`, soit le dossier `pages`, jamais les deux à la fois.",
+          "why": "Les deux routers fonctionnent côte à côte, c’est ce qui rend possible une migration route par route."
+        }
+      },
+      {
+        "statement": "Naviguer d’une page du Pages Router vers une page de l’App Router est une transition côté client sans rechargement complet.",
+        "why": "Passer d’un router à l’autre est une navigation complète, un rechargement de la page, et les liens ne font pas de prefetch entre eux.",
+        "twin": {
+          "statement": "Naviguer d’une page du Pages Router vers une page de l’App Router provoque un rechargement complet de la page.",
+          "why": "Passer d’un router à l’autre est une navigation complète, et les liens ne font pas de prefetch entre eux."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’App Router et le Pages Router tournent côte à côte, donc une app Next.js migre une route à la fois. La voie sûre enveloppe chaque ancienne page sans la modifier, puis sort le code du client étape par étape.",
+      "points": [
+        "Les dossiers `app` et `pages` fonctionnent côte à côte, donc tu migres une route à la fois. Passer d’une page d’un router à une page de l’autre recharge entièrement la page.",
+        "Première étape par page : déplacer l’ancien composant tel quel dans un fichier `'use client'`, le rendre depuis un nouveau Server Component `page.tsx` qui récupère les données et passe des props, puis descendre `'use client'`.",
+        "`getServerSideProps` devient un Server Component async ; `getStaticPaths` devient `generateStaticParams` avec `dynamicParams` ; `pages/api` devient des Route Handlers ; `_app` et `_document` deviennent le layout racine.",
+        "Depuis Next.js 15, `params`, `searchParams`, `cookies()` et `headers()` sont async, et Next.js 16 a supprimé l’accès synchrone. `middleware.ts` s’appelle `proxy.ts` depuis Next.js 16."
+      ],
+      "takeaways": [
+        {
+          "term": "`app` et `pages`",
+          "detail": "Coexistent ; migrer route par route. Changer de router recharge la page, donc déplacer ensemble les routes liées."
+        },
+        {
+          "term": "Première étape par page",
+          "detail": "L’ancien composant tel quel dans un fichier `'use client'`, rendu par un Server Component `page.tsx` qui passe des props."
+        },
+        {
+          "term": "`getServerSideProps`",
+          "detail": "Devient un Server Component async."
+        },
+        {
+          "term": "`getStaticPaths`",
+          "detail": "Devient `generateStaticParams` avec `dynamicParams`."
+        },
+        {
+          "term": "`pages/api`, `_app`, `_document`",
+          "detail": "Deviennent des Route Handlers et le layout racine."
+        },
+        {
+          "term": "API de requête async",
+          "detail": "`params`, `searchParams`, `cookies()`, `headers()` sont async depuis Next.js 15 ; `middleware.ts` est `proxy.ts` en 16."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La boutique tourne encore sur le Pages Router. L’équipe veut les Server Components, mais geler les features trois mois pour une réécriture est hors de question. Comment planifiez-vous la migration ?",
+        "bridge": "`app` et `pages` coexistent, donc on migre route par route, en enveloppant d’abord chaque ancienne page dans un Client Component nourri par un Server Component."
+      },
+      {
+        "question": "Après avoir migré les pages produit vers `app` en laissant le panier dans `pages`, les clients voient un rechargement complet entre les deux. Pourquoi, et dans quel ordre faut-il migrer ?",
+        "bridge": "Passer d’un router à l’autre est une navigation complète, donc les routes entre lesquelles les clients passent souvent doivent migrer ensemble."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux lisent le slug dans une page produit migrée de `getServerSideProps` vers l’App Router. Laquelle fonctionne avec Next.js 16 ?",
+        "why": "`params` est une promesse depuis Next.js 15, et Next.js 16 a supprimé l’accès synchrone gardé pour la migration. L’attendre donne le slug. Déstructurer la promesse elle-même donne `slug` undefined, donc la page demande le produit `undefined` ; typer `params` comme une promesse permet à TypeScript de l’attraper."
+      }
+    ]
+  }
+}

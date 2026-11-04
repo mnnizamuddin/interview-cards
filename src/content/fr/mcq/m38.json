@@ -1,0 +1,302 @@
+{
+  "m38.q1": {
+    "q": "L’épreuve React de 60 minutes sur le tableau des commandes commence. Quelle est la meilleure façon d’utiliser les cinq premières minutes ?",
+    "options": [
+      "Commencer tout de suite à taper le composant, et expliquer la conception plus tard s’il reste du temps",
+      "Reformuler la tâche, poser deux ou trois questions et annoncer le plan : d’abord une version qui marche",
+      "Mettre d’abord en place un store global et un design system, pour que le code passe à l’échelle avec les fonctionnalités",
+      "Écrire toute la suite de tests avant le moindre code de composant, comme l’exigerait un TDD strict"
+    ],
+    "explain": "La grille d’évaluation note d’abord la clarification et la planification, puis un plan qui aboutit tôt à du code qui marche. Commencer tout de suite est la réponse tentante, mais elle cache ton raisonnement et construit souvent la mauvaise chose. Un store ou une suite de tests complète d’emblée consacre l’épreuve à la mise en place plutôt qu’à une fonctionnalité qui marche."
+  },
+  "m38.q2": {
+    "q": "Pourquoi <code>promiseAll</code> stocke-t-il chaque résultat avec <code>results[index] = result</code> plutôt qu’avec <code>results.push(result)</code> ?",
+    "options": [
+      "Parce que push est plus lent que l’affectation par index dès que le tableau dépasse quelques éléments",
+      "Parce que push lève une erreur sur un tableau créé avec new Array(n) qui a des cases vides",
+      "Parce que push suit l’ordre de fin, et le résultat doit suivre l’ordre des entrées",
+      "Parce que TypeScript ne peut pas inférer le type des éléments quand push est appelé sur un tableau générique"
+    ],
+    "explain": "Promise.all se résout avec les résultats dans l’ordre des entrées, quel que soit leur ordre de fin. push ajoute dans l’ordre de fin, donc une première promesse lente se retrouve en dernier. push fonctionne très bien sur un tel tableau et n’est pas sensiblement plus lent ; le problème, c’est l’ordre."
+  },
+  "m38.q3": {
+    "q": "Dans l’<code>Emitter</code> de la section 3, pourquoi <code>emit</code> ne copie-t-il pas le tableau des listeners avant de le parcourir ?",
+    "options": [
+      "Parce que on, once et off remplacent le tableau au lieu de le muter, donc emit tient un instantané",
+      "Parce que for...of prend une copie du tableau avant la première itération, donc les changements sont sans risque",
+      "Parce qu’un listener ne peut pas appeler off pendant qu’un emit est en cours, donc le tableau ne peut pas changer",
+      "Parce que les champs privés de classe sont gelés pendant toute la durée d’un appel de méthode sur l’instance"
+    ],
+    "explain": "off utilise toSpliced et on un spread, qui créent tous deux de nouveaux tableaux, donc la boucle continue de parcourir l’ancien. for...of ne copie pas : il lit le tableau vivant, c’est pourquoi une implémentation qui mute a besoin d’une copie. Les listeners peuvent appeler off pendant un emit, et le font, c’est exactement le cas que gère cette conception."
+  },
+  "m38.q4": {
+    "q": "Un champ de recherche utilise <code>debounce(search, 300)</code>. L’utilisateur tape « r », « re » et « red » en moins de 200 ms, puis s’arrête. Que se passe-t-il ?",
+    "options": [
+      "Trois recherches, une par frappe, chacune 300 ms après sa frappe",
+      "Une recherche pour « r », car le premier appel l’emporte",
+      "Une recherche pour « red », 300 ms après la première frappe",
+      "Une recherche pour « red », 300 ms après la dernière frappe"
+    ],
+    "explain": "Chaque appel efface le timer en attente et en démarre un nouveau avec les derniers arguments, donc seul le dernier appel survit, 300 ms après lui. Compter depuis la première frappe est l’erreur tentante : ce serait plutôt un throttle avec un appel final. Le test de la section 4 vérifie exactement cela avec des timers mockés."
+  },
+  "m38.q5": {
+    "q": "Pourquoi les workers de <code>mapWithLimit</code> partagent-ils un seul itérateur <code>items.entries()</code> ?",
+    "options": [
+      "Parce qu’un itérateur exécute chacun de ses éléments sur un thread séparé, ce qui donne un vrai parallélisme",
+      "Parce que chaque next() distribue un élément et son index une seule fois, donc aucun élément n’est pris deux fois",
+      "Parce que Promise.all n’accepte que des itérateurs, et qu’un tableau le ferait s’exécuter séquentiellement",
+      "Parce qu’un itérateur partagé renvoie les résultats dans l’ordre de fin, ce qui est plus rapide"
+    ],
+    "explain": "L’itérateur partagé est la file : le worker libre prend l’élément suivant, et l’index lui dit où stocker le résultat, ce qui conserve l’ordre des entrées. Les itérateurs ne créent pas de threads ; JavaScript exécute un worker à la fois et ils s’entrelacent à chaque await."
+  },
+  "m38.q6": {
+    "q": "Le recruteur demande un <code>deepClone</code> d’une commande qui contient une Date, une Map et une référence à elle-même. Quelle est la meilleure première réponse ?",
+    "options": [
+      "Citer structuredClone, qui conserve Date, Map et cycles, puis l’écrire à la main seulement si on le demande",
+      "Utiliser JSON.parse(JSON.stringify(order)), qui conserve intacts les Dates, les Maps et les objets imbriqués",
+      "Utiliser l’opérateur spread, qui copie les objets imbriqués et les Maps en plus du premier niveau",
+      "Utiliser Object.assign({}, order), qui suit l’auto-référence et la copie une seule fois, sans risque"
+    ],
+    "explain": "Mesuré sur Node 24, structuredClone a conservé la Date, la Map et le cycle, et a levé DataCloneError sur une fonction. Un aller-retour JSON transforme la Date en chaîne, supprime undefined et lève une erreur sur un cycle. Spread et Object.assign ne copient que le premier niveau."
+  },
+  "m38.q7": {
+    "q": "Pourquoi <code>OrdersTable</code> calcule-t-il ses lignes avec <code>selectOrders</code> pendant le rendu plutôt que de les stocker dans le state depuis un effet ?",
+    "options": [
+      "Parce qu’un effet n’a pas le droit d’appeler setState, donc les lignes ne pourraient jamais y être stockées",
+      "Parce que useState ne peut pas contenir de tableaux de plus de quelques centaines d’éléments sans ralentir",
+      "Parce que les props restent la source de vérité unique : pas de copie périmée ni de rendu en plus",
+      "Parce que React 19 déplace automatiquement dans un worker le code qui s’exécute pendant le rendu"
+    ],
+    "explain": "Les données dérivées ont leur place dans le rendu : une copie dans le state peut se désynchroniser des props et arrive avec un rendu de retard. Les effets peuvent appeler setState, et c’est justement le pattern qui cause le rendu en plus. Le rendu s’exécute sur le thread principal comme tout le reste."
+  },
+  "m38.q8": {
+    "q": "Qu’apporte <code>dialog.showModal()</code> qu’un <code>div</code> avec <code>role=\"dialog\"</code> n’apporte pas ?",
+    "options": [
+      "Seulement un style par défaut plus joli et un fond ; le focus et le clavier restent à ta charge",
+      "Un piège à focus et la gestion d’Échap, mais le focus ne revient pas au déclencheur après la fermeture",
+      "Le rendu côté serveur du contenu du dialog, pour qu’il apparaisse avant le chargement du JavaScript",
+      "Focus déplacé à l’intérieur, page derrière inerte, Échap pour fermer, focus rendu au déclencheur"
+    ],
+    "explain": "Mesuré dans Chromium, showModal a donné le focus au premier bouton, a tenu Tab et les clics à l’écart de la page derrière, s’est fermé sur Échap et a rendu le focus au bouton Refund. Un div avec un rôle ne fait que s’annoncer comme dialog ; tout ce comportement serait à écrire toi-même."
+  },
+  "m38.q9": {
+    "q": "Quels états le test à la maison « récupérer et afficher » doit-il gérer avant que les reviewers l’ouvrent ?",
+    "options": [
+      "Seulement les données, car l’API est fiable dans l’exercice",
+      "Chargement, erreur avec un moyen de réessayer, vide, et données",
+      "Chargement et données ; les erreurs vont dans la console",
+      "Les données et une page 404"
+    ],
+    "explain": "Les reviewers vérifient d’abord les cas défavorables : ce que voit l’utilisateur pendant l’attente, quand la requête échoue et quand il n’y a rien à afficher. Logger les erreurs dans la console laisse l’utilisateur devant un écran vide ou figé, sans moyen de réessayer."
+  },
+  "m38.q10": {
+    "q": "Dans l’<code>OrderNotes</code> relu, la liste s’affiche dans le bon ordre. Pourquoi <code>notes.sort(...)</code> est-il quand même un bug ?",
+    "options": [
+      "sort réordonne le tableau sur place, et ce tableau appartient au parent ou au cache de requêtes",
+      "sort renvoie undefined, donc le state passe à undefined et la liste n’affiche rien",
+      "sort ne sait pas comparer des dates ISO en chaîne avec localeCompare, donc l’ordre n’est qu’approximatif",
+      "sort s’exécute de façon asynchrone sur les grands tableaux et peut finir après que React a rendu la liste"
+    ],
+    "explain": "Array.prototype.sort mute et renvoie le même tableau, donc le composant modifie des données qui ne lui appartiennent pas ; la reproduction a montré le tableau du parent réordonné. sort renvoie bien le tableau, c’est pourquoi le bug semble anodin. toSorted renvoie une copie triée."
+  },
+  "m38.q11": {
+    "q": "Le bouton Payer ne fait rien au clic et la console est vide. Que t’apprend <code>document.elementFromPoint(x, y)</code> à la position du bouton ?",
+    "options": [
+      "Si le bouton a un listener de clic attaché, et quelle fonction ce listener appelle",
+      "La liste des règles CSS qui s’appliquent au bouton, y compris celles qui ont été écrasées",
+      "Quel élément reçoit réellement un clic à cet endroit, par exemple un overlay invisible",
+      "Si le bouton est désactivé, par son propre attribut ou par un fieldset parent"
+    ],
+    "explain": "elementFromPoint renvoie l’élément le plus haut que le hit-testing trouve à cette position. Dans la reproduction, il a renvoyé une zone de toasts transparente qui couvrait la page, c’est pourquoi le clic n’atteignait jamais le bouton. Les listeners et les styles s’inspectent dans les DevTools, pas avec cet appel."
+  },
+  "m38.q12": {
+    "q": "Dans l’épreuve où l’IA est autorisée, l’assistant écrit la liste de suggestions avec des éléments <code>&lt;div onClick&gt;</code>. Que fais-tu ?",
+    "options": [
+      "L’accepter tel quel, puisque les tests existants passent et que le recruteur veut voir de la vitesse",
+      "Demander à l’assistant d’ajouter un commentaire qui explique pourquoi un div a été utilisé plutôt qu’un bouton",
+      "Supprimer le code généré et tout réécrire à la main, sans expliquer la décision",
+      "Dire pourquoi ça échoue au clavier, demander le pattern de l’APG, le relire, ajouter un test clavier"
+    ],
+    "explain": "La note porte sur la façon dont tu diriges et vérifies l’assistant : nommer le défaut, lui donner le bon contexte, relire sa sortie à voix haute et prouver le comportement par un test. Des tests qui passent ne prouvent pas l’accessibilité s’ils n’utilisent jamais le clavier. Réécrire en silence cache la compétence évaluée."
+  },
+  "m38.q13": {
+    "q": "Un candidat écrit ce <code>Promise.all</code>. Qu’affiche la dernière ligne ?",
+    "options": [
+      "[ 'price', 'stock' ]",
+      "[ 'stock' ]",
+      "[ 'stock', 'price' ]",
+      "Rien : la promesse ne se résout jamais"
+    ],
+    "explain": "push enregistre les résultats dans l’ordre de fin : « stock » est prêt tout de suite, « price » après 20 ms. Exécuté sur Node 24, il a affiché [ 'stock', 'price' ], alors que le Promise.all natif affichait [ 'price', 'stock' ]. Stocker par index corrige le problème."
+  },
+  "m38.q14": {
+    "q": "Une autre version stocke les résultats par index et se résout quand un compteur atteint 0, mais ne vérifie pas la liste vide. Que se passe-t-il avec <code>await promiseAll([])</code> ?",
+    "options": [
+      "Elle ne se termine jamais : forEach n’exécute aucun callback, donc rien n’appelle jamais resolve",
+      "Elle se résout avec un tableau vide, exactement comme le Promise.all natif pour une liste vide",
+      "Elle est rejetée avec une TypeError, car le compteur part de zéro et passe en dessous",
+      "Elle se résout avec undefined, car le tableau de résultats ne reçoit jamais d’élément"
+    ],
+    "explain": "Le compteur n’est vérifié que dans les callbacks then, et une liste vide n’en a aucun. Exécutée sur Node 24, cette version était encore en attente après 100 ms, alors que Promise.all([]) se résolvait avec []. Le retour anticipé pour une liste vide fait partie de la réponse."
+  },
+  "m38.q15": {
+    "q": "Qu’affiche ce code dans un navigateur ?",
+    "options": [
+      "['first', 'second', 'dup', 'dup']",
+      "['first', 'second', 'dup']",
+      "['first', 'dup', 'dup']",
+      "['first', 'dup']"
+    ],
+    "explain": "Mesuré dans Chromium : un EventTarget du DOM saute un listener retiré pendant le dispatch, et ignore un second enregistrement de la même fonction. La première option est ce que donne l’EventEmitter de Node avec le code équivalent (mesuré aussi), c’est pourquoi tu annonces la sémantique de ton emitter."
+  },
+  "m38.q16": {
+    "q": "Quel est le bug de ce <code>once</code>, sachant que <code>off</code> retire par identité ?",
+    "options": [
+      "Le wrapper s’exécute deux fois au premier emit, car off est appelé pendant que la boucle tourne",
+      "off compare avec showToast, mais la liste contient le wrapper, donc le toast s’affiche encore une fois",
+      "La fonction fléchée perd this, donc this.off lève une TypeError au premier emit",
+      "once doit renvoyer une promesse résolue au premier événement, sinon le listener fuit"
+    ],
+    "explain": "La fonction enregistrée est le wrapper, donc off(event, showToast) ne trouve rien ; exécuté sur Node 24, le listener s’est encore déclenché une fois. Stocke la fonction d’origine à côté d’un flag once, comme le fait la section 3, ou garde une map de l’originale vers le wrapper. Les fonctions fléchées conservent le this de once, donc this.off fonctionne."
+  },
+  "m38.q17": {
+    "q": "Combien de fois ce composant appelle-t-il <code>searchProducts</code> quand l’utilisateur tape « red » ?",
+    "options": [
+      "Trois fois, pour « r », « re » et « red » : chaque rendu crée une nouvelle fonction debouncée",
+      "Une fois, pour « red », 300 ms après la dernière frappe, c’est le rôle du debounce",
+      "Une fois, pour « r », car le premier appel debouncé l’emporte et les suivants sont abandonnés",
+      "Jamais, car chaque mise à jour du state refait le rendu du composant, ce qui annule le timer"
+    ],
+    "explain": "Chaque frappe provoque un re-render, et chaque rendu construit un nouveau debounce dont personne n’efface le timer. Mesuré avec React 19.3.1 et user-event : trois appels. Créer la fonction debouncée une seule fois (un initialiseur de useState ou une ref) a donné un appel pour « red ». Rien dans React n’annule un timer à ta place."
+  },
+  "m38.q18": {
+    "q": "Avec le <code>debounce</code> de la section 4, que contient <code>saved</code> à la fin de ce test ?",
+    "options": [
+      "['a', 'b', 'c', 'd']",
+      "['c', 'd']",
+      "['c']",
+      "['a', 'c']"
+    ],
+    "explain": "« a » et « b » sont chacun remplacés avant que 300 ms s’écoulent ; « c » obtient ses 300 ms complètes et s’exécute ; « d » n’a attendu que 100 ms quand le test se termine. Exécuté avec node:test sur Node 24, saved valait ['c']. Répondre ['a', 'c'] confond debounce et throttle avec appel initial."
+  },
+  "m38.q19": {
+    "q": "Pour rembourser les commandes 3 par 3, un collègue découpe la liste en paquets de 3 et attend un <code>Promise.all</code> par paquet. Les tâches prennent 100, 10, 10, 10, 10 et 10 ms. Par rapport à <code>mapWithLimit(items, 3, task)</code>, que se passe-t-il ?",
+    "options": [
+      "Les deux prennent le même temps, environ 100 ms, car les deux gardent exactement 3 tâches en cours en permanence",
+      "Les paquets sont plus rapides, environ 60 ms, car un Promise.all par paquet coûte moins qu’un pool de workers",
+      "Les paquets lancent les 6 tâches d’un coup, car Promise.all est appelé avant que la boucle attende",
+      "Chaque paquet attend sa tâche la plus lente (120 ms au total, mesuré) ; le pool remplit les places libérées et a pris 101 ms"
+    ],
+    "explain": "Avec les paquets, les tâches de 10 ms du second paquet attendent la tâche de 100 ms du premier. Mesuré sur Node 24 : environ 120 ms pour les paquets, 101 ms pour le pool. Les deux respectent la limite, c’est pourquoi ils semblent équivalents, mais seul le pool remplit une place dès qu’elle se libère."
+  },
+  "m38.q20": {
+    "q": "Retire la garde sur <code>limit</code> de <code>mapWithLimit</code>, puis appelle-la avec trois commandes et une limite de 0. Que se passe-t-il ?",
+    "options": [
+      "Elle exécute les tâches une par une, car Math.min se rabat sur un seul worker",
+      "Elle se résout avec un tableau de 3 cases vides, sans appeler la tâche une seule fois",
+      "Elle ne se termine jamais, car aucun worker n’est jamais lancé pour vider l’itérateur partagé",
+      "Elle lève une RangeError depuis Array.from, car une longueur de 0 n’y est pas autorisée"
+    ],
+    "explain": "Math.min(0, 3) lance zéro worker, Promise.all([]) se résout immédiatement, et le tableau de résultats pré-dimensionné revient avec 3 trous (vérifié sur Node 24). Ce succès silencieux est pire qu’une erreur, c’est pourquoi la fonction valide d’abord la limite."
+  },
+  "m38.q21": {
+    "q": "Ton <code>curry</code> appelle la fonction dès qu’il a reçu <code>fn.length</code> arguments. Le recruteur curryfie <code>function orderTotal(amount, shipping = 499, discount) {…}</code>. Que fait <code>curry(orderTotal)(4500)</code> ?",
+    "options": [
+      "Il appelle orderTotal immédiatement avec le seul montant, car orderTotal.length vaut 1",
+      "Il renvoie une fonction qui attend les arguments shipping et discount, un par un",
+      "Il lève une TypeError, car curry ne peut pas lire la longueur d’une fonction avec des valeurs par défaut",
+      "Il appelle orderTotal avec shipping à 499 et discount à 0 par défaut"
+    ],
+    "explain": "La length d’une fonction compte les paramètres situés avant le premier qui a une valeur par défaut ou avant un paramètre rest ; sur Node 24, ((a, b = 1) => 0).length vaut 1. La fonction curryfiée a donc tout ce qu’elle attend après un seul argument. Une bonne réponse le dit et propose un paramètre d’arité explicite."
+  },
+  "m38.q22": {
+    "q": "Une pull request sur le tableau des commandes contient ceci. Quelle modification livreriez-vous ?",
+    "options": [
+      "Passer à useLayoutEffect, pour que les lignes triées soient posées avant que le navigateur peigne le tableau",
+      "Ajouter byTotal au tableau de dépendances, pour que l’effet se relance aussi quand le comparateur change",
+      "Supprimer le state et l’effet, et calculer orders.toSorted(byTotal) pendant le rendu",
+      "Cloner profondément orders avec JSON avant le tri, pour que le tableau du parent ne soit jamais muté"
+    ],
+    "explain": "Les données dérivées se calculent dans le rendu : pas de copie périmée, pas de rendu en plus, et toSorted laisse le tableau du parent intact. useLayoutEffect masque le flash mais garde le second rendu, la copie dans le state et la mutation. Un clone JSON ne corrige que la mutation, avec un coût, et casse des types comme Date."
+  },
+  "m38.q23": {
+    "q": "Le handler du filtre de statut est <code>setQuery({ ...query, status })</code>, sans <code>page: 0</code>. Un agent en page 3 sur 45 commandes filtre sur « paid », qui en retient 15. Que voit-il ?",
+    "options": [
+      "Page 1 sur 1 avec 15 commandes, car React réinitialise le state au changement",
+      "Page 3 sur 3 avec les mêmes lignes",
+      "Une erreur levée par slice",
+      "« Page 3 of 1 » et un tableau vide"
+    ],
+    "explain": "L’index de page reste à 2 alors qu’il n’existe qu’une page, donc slice(40, 60) ne renvoie rien. Reproduit sous jsdom avec Testing Library : « Page 3 of 1 » et zéro ligne. Réinitialise la page dans le même handler que celui qui change le filtre ; React ne réinitialise jamais le state à ta place, et slice ne lève pas d’erreur au-delà de la fin."
+  },
+  "m38.q24": {
+    "q": "Le dialog de remboursement est ouvert avec <code>showModal()</code> et contient Cancel et Confirm. Le focus est sur Confirm, et l’utilisateur appuie sur Tab. Que se passe-t-il dans Chromium ?",
+    "options": [
+      "Le focus passe au premier lien de la page derrière le dialog, comme dans l’ordre normal du document",
+      "Le focus quitte les boutons pour le document lui-même, puis le Tab suivant revient sur Cancel",
+      "Rien : le navigateur désactive la touche Tab tant qu’un dialog modal est ouvert",
+      "Le dialog se ferme, car un focus qui quitte son dernier élément compte comme un light dismiss"
+    ],
+    "explain": "Mesuré dans Chromium avec Playwright : Tab depuis Confirm est allé au document, puis est revenu sur Cancel, et jamais sur les liens derrière, qui sont inertes. La première option, tentante, est ce qui se passe avec un div stylé en modale sans gestion du focus."
+  },
+  "m38.q25": {
+    "q": "Après Confirm, le parent met <code>open</code> à false et l’effet du <code>Modal</code> appelle <code>dialog.close()</code>. La prop <code>onClose</code> s’exécute-t-elle ?",
+    "options": [
+      "Oui : close se déclenche à chaque fermeture, Échap ou dialog.close(), donc garde onClose idempotent",
+      "Non : l’événement close ne se déclenche que quand l’utilisateur ferme le dialog avec la touche Échap",
+      "Non : React ne dispatche pas les événements déclenchés par du code qui s’exécute dans un effet",
+      "Oui, mais seulement en développement, car StrictMode exécute l’effet une seconde fois"
+    ],
+    "explain": "Mesuré dans Chromium : onClose s’est exécuté une fois après Échap et une fois après que le parent a fermé le dialog via l’effet. Remettre le state à false est donc sans danger, mais un effet de bord comme un événement analytics dans onClose se déclencherait dans les deux cas."
+  },
+  "m38.q26": {
+    "q": "Pour la case « tout sélectionner », un candidat écrit <code>&lt;input type=\"checkbox\" checked={allSelected} indeterminate={someSelected} onChange={toggleAll} /&gt;</code>. Que se passe-t-il avec React 19.3.1 ?",
+    "options": [
+      "La case affiche l’état mixte dès que certaines commandes sont sélectionnées, et l’état coché quand toutes le sont",
+      "React écrit un attribut indeterminate dans le DOM, et le navigateur le lit pour dessiner l’état mixte",
+      "TypeScript accepte la prop, et React pose la propriété après l’hydratation, donc ça ne marche que côté client",
+      "React avertit et la propriété reste à false ; pose input.indeterminate dans un ref callback"
+    ],
+    "explain": "indeterminate est une propriété DOM sans attribut HTML. Sous jsdom avec React 19.3.1, la prop a produit un avertissement et la propriété est restée à false, et TypeScript rejette la prop. Un ref callback qui pose input.indeterminate a passé la propriété à true."
+  },
+  "m38.q27": {
+    "q": "Ton test MSW de l’état d’erreur atteint son timeout, alors que le composant affiche l’erreur dans le navigateur au bout de quelques secondes. Quelle est la cause la plus probable ?",
+    "options": [
+      "MSW ne peut pas renvoyer un statut 503 depuis un handler, donc la requête reste bloquée jusqu’au timeout du test",
+      "findByRole n’attend pas les mises à jour asynchrones, donc il échoue avant que l’état d’erreur apparaisse",
+      "Le client de test garde les 3 retries par défaut avec backoff exponentiel avant que l’erreur s’affiche",
+      "fetch est rejeté sur un statut 503, donc l’erreur est levée hors de React et n’atteint jamais le composant"
+    ],
+    "explain": "La documentation de TanStack Query indique 3 retries avec backoff exponentiel par défaut ; un client de test avec retry: false affiche l’erreur immédiatement. fetch n’est pas rejeté sur un 503 (seulement sur une panne réseau), c’est pourquoi fetchOrders vérifie response.ok. findByRole attend bien, mais seulement une seconde environ par défaut."
+  },
+  "m38.q28": {
+    "q": "Il te reste 5 minutes dans la review d’<code>OrderNotes</code> et tu as trouvé tous les problèmes. Dans quel ordre les présentes-tu ?",
+    "options": [
+      "La key manquante d’abord, car c’est le seul problème que React signale lui-même dans la console",
+      "Le texte utilisateur rendu en HTML d’abord, comme bloquant ; puis accessibilité et justesse ; l’effet en dernier",
+      "Le style et le nommage d’abord, pour créer un climat de confiance, puis les bugs dans l’ordre où tu les as trouvés",
+      "Dans l’ordre où ils apparaissent dans le fichier, pour que l’auteur puisse suivre ligne par ligne"
+    ],
+    "explain": "C’est la gravité qui décide : du texte utilisateur rendu en HTML, c’est de l’injection de script dans la session d’un agent, donc ça bloque le merge. Les problèmes d’accessibilité et de justesse suivent, et le rendu en plus est une suggestion. Commencer par l’avertissement de la console ou suivre l’ordre du fichier enterre la remarque la plus importante."
+  },
+  "m38.q29": {
+    "q": "Sur la boutique, <code>elementFromPoint</code> à l’emplacement du bouton Payer renvoie <code>div.toast-region</code>, un conteneur vide fixé sur toute la page avec un z-index élevé. Quel correctif livreriez-vous ?",
+    "options": [
+      "Donner pointer-events: none à la zone, et pointer-events: auto aux toasts qu’elle contient",
+      "Monter le z-index du bouton Payer au-dessus de la zone de toasts, pour qu’il repasse au premier plan",
+      "Ajouter sur la zone de toasts un handler de clic qui transmet le clic à la fonction de paiement",
+      "Retirer aria-live de la zone, car les live regions capturent les événements de pointeur dans Chromium"
+    ],
+    "explain": "Mesuré dans Chromium : avec pointer-events: none sur la zone, le même clic de souris a atteint le bouton. Monter le z-index d’un bouton ne corrige que ce bouton et laisse tous les autres contrôles couverts ; transmettre les clics est un bricolage. aria-live n’a aucun effet sur le hit-testing."
+  },
+  "m38.q30": {
+    "q": "Une fois ton tableau des commandes fonctionnel, le recruteur demande : « Pourquoi ne pas avoir simplement utilisé une bibliothèque de tableaux ? » Quelle est la meilleure réponse ?",
+    "options": [
+      "Les bibliothèques sont toujours plus lentes que du code écrit à la main, donc je les évite pour tout ce qui est critique comme un tableau",
+      "Les entreprises sérieuses n’autorisent pas les bibliothèques d’UI tierces en production à cause du risque supply chain",
+      "Je préfère maîtriser tout le code que je livre, donc j’écrirais et maintiendrais aussi notre propre tableau au travail",
+      "L’épreuve me demandait de le construire ; au travail, j’utiliserais une bibliothèque de tableaux headless et un tri côté serveur pour les gros volumes"
+    ],
+    "explain": "Un senior distingue l’exercice du métier : le construire à la main montre la compétence, et choisir une bibliothèque maintenue au travail montre le jugement. Les autres réponses énoncent des préférences ou de fausses généralisations au lieu de compromis, et appellent une question de relance impossible à gagner."
+  }
+}

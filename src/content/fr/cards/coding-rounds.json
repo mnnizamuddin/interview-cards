@@ -1,0 +1,1023 @@
+{
+  "code-round-grading": {
+    "topic": "Comment est noté un exercice de code frontend",
+    "question": "Comment est noté un exercice de live coding frontend, et comment utilisez-vous les cinq premières minutes ?",
+    "answer": "Le recruteur note des réflexes, pas seulement une fonctionnalité finie : clarifier, planifier, du code qui marche d’abord, les cas limites, les tests, l’accessibilité et la communication. Donc dans les cinq premières minutes, je reformule l’énoncé, je pose deux ou trois questions, comme le nombre de commandes et si le tri se fait côté serveur, et j’écris les réponses en commentaires. Puis j’annonce mon plan à voix haute : la forme des données, une version qui marche à mi-parcours, puis les cas limites, un test et l’accessibilité. Je pense à voix haute et je nomme chaque compromis. À dix minutes de la fin, j’arrête d’ajouter des fonctionnalités, j’écris le test du parcours principal et je liste ce que je ferais ensuite.",
+    "keyPoints": [
+      "Clarifier d’abord : reformuler, poser deux ou trois questions",
+      "Annoncer le plan ; quelque chose qui marche à mi-parcours",
+      "Nommer les cas limites, écrire un test, utiliser les éléments natifs",
+      "Penser à voix haute : compromis et prochaines étapes"
+    ],
+    "explanation": "Beaucoup de candidats croient que c’est la vitesse qui est notée ; la grille liste clarifier, planifier, cas limites, tests, accessibilité et communication. Un exercice avec du code inachevé mais un raisonnement clair peut passer, et du code qui marche mais que personne n’a pu suivre peut échouer.",
+    "example": "Dans un exercice de 60 minutes pour construire la table des commandes du back-office, le candidat a demandé s’il fallait s’attendre à 200 ou 50 000 commandes, a entendu 200, et a choisi un tri côté client avec un commentaire disant côté serveur au-delà. La table marchait à la minute 30, et les dix dernières minutes sont allées à un test Testing Library du filtre de statut et à une liste des vérifications d’accessibilité restantes.",
+    "mistakes": [
+      "Taper dès la première seconde sans demander la taille des données ni le comportement attendu",
+      "Coder en silence, si bien que le recruteur ne peut ni suivre ni aider",
+      "Construire des abstractions trop tôt et n’avoir rien qui marche à mi-parcours"
+    ],
+    "followUps": [
+      {
+        "question": "Il vous reste dix minutes et deux fonctionnalités manquent. Que faites-vous ?",
+        "answer": "J’arrête d’ajouter des fonctionnalités. Je m’assure que le parcours principal marche, j’écris un test qui le prouve, puis je dis à voix haute les fonctionnalités manquantes, les cas limites et les vérifications d’accessibilité que je ferais ensuite, par ordre de priorité. Une liste claire de ce qui reste rapporte plus que du code à moitié construit."
+      },
+      {
+        "question": "Quels formats les processus frontend utilisent-ils en plus du live coding ?",
+        "answer": "Un test technique à la maison suivi d’un débrief, un exercice de code review où je relis un composant comme une pull request, et un exercice de débogage sur une app cassée. Certains processus autorisent aussi un assistant IA dans un exercice et notent comment je le dirige et le vérifie."
+      },
+      {
+        "question": "Comment montrez-vous l’accessibilité quand le temps manque ?",
+        "answer": "J’utilise les éléments natifs dès le départ, ce qui ne coûte rien : un `button` pour chaque action, un `label` pour chaque champ, un `dialog` pour les modales. Puis je dis ce que je vérifierais avec plus de temps : l’usage au clavier seul, le focus, et un passage au lecteur d’écran sur les widgets clés."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans un exercice de code frontend, du code inachevé signifie toujours un échec.",
+        "why": "La grille note aussi clarifier, planifier, cas limites, tests et communication ; un raisonnement clair avec du code inachevé peut passer.",
+        "twin": {
+          "statement": "Dans un exercice de code frontend, un raisonnement clair avec du code inachevé peut quand même passer.",
+          "why": "La grille note aussi clarifier, planifier, cas limites, tests et communication, pas seulement une fonctionnalité finie."
+        }
+      },
+      {
+        "statement": "Demander la taille des données avant de coder fait partie de ce que note le recruteur.",
+        "why": "Clarifier les entrées et le comportement attendu est le premier critère, et cela décide de choix comme un tri côté client ou côté serveur.",
+        "twin": {
+          "statement": "Demander la taille des données avant de coder fait perdre un temps que le recruteur ne note pas.",
+          "why": "Clarifier les entrées est le premier critère, et cela décide de choix comme un tri côté client ou côté serveur."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un exercice de code frontend note ta façon de travailler, pas seulement la fonctionnalité finie. Clarifier, planifier à voix haute et garder du temps pour les cas limites et un test comptent autant que le code.",
+      "points": [
+        "La plupart des processus frontend incluent du live coding, aussi appelé machine coding : construire une petite UI qui marche, en temps limité, sous le regard d’un ingénieur. D’autres ajoutent un test technique à la maison, un exercice de code review ou de débogage.",
+        "La grille note des réflexes : clarifier, planifier, du code qui marche d’abord, cas limites, tests, accessibilité et communication. La vitesse seule n’y figure pas.",
+        "Clarifie en reformulant l’énoncé et en posant deux ou trois questions, comme le nombre de commandes ou un tri serveur ou client. Écris les réponses en commentaires.",
+        "Planifie à voix haute : la forme des données, puis une version simple qui marche à mi-parcours, puis cas limites, un test et accessibilité. Évite les abstractions précoces.",
+        "À dix minutes de la fin, arrête d’ajouter des fonctionnalités : écris le test du parcours principal et liste ce que tu ferais ensuite. Pense à voix haute tout du long."
+      ],
+      "takeaways": [
+        {
+          "term": "Grille",
+          "detail": "Clarifier, planifier, du code qui marche d’abord, cas limites, tests, accessibilité, communication. La vitesse seule n’y figure pas."
+        },
+        {
+          "term": "Clarifier",
+          "detail": "Reformule l’énoncé, pose deux ou trois questions, écris les réponses en commentaires."
+        },
+        {
+          "term": "Planifier à voix haute",
+          "detail": "Forme des données, puis une version simple qui marche à mi-parcours. Évite les abstractions précoces."
+        },
+        {
+          "term": "Ensuite",
+          "detail": "Cas limites, un test et accessibilité, avec les éléments natifs."
+        },
+        {
+          "term": "Dix minutes restantes",
+          "detail": "Arrête d’ajouter des fonctionnalités : écris le test du parcours principal et liste ce que tu ferais ensuite."
+        },
+        {
+          "term": "Penser à voix haute",
+          "detail": "Nomme chaque compromis au moment où tu le fais."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Vous avez 45 minutes pour construire une liste de commandes filtrable, et le recruteur dit « commencez quand vous voulez ». Que faites-vous avant d’écrire la moindre ligne de code, et pourquoi ?",
+        "bridge": "L’exercice note des réflexes : reformuler, quelques questions de clarification et un plan énoncé rapportent des points avant la fonctionnalité elle-même."
+      },
+      {
+        "question": "Dix minutes avant la fin, votre liste de commandes trie mais n’a pas encore de pagination. Comment utilisez-vous le temps restant ?",
+        "bridge": "Du code inachevé n’est pas un échec automatique : arrête d’ajouter des fonctionnalités, teste le parcours principal et dis ce que tu ferais ensuite."
+      }
+    ]
+  },
+  "code-promise-all": {
+    "topic": "Promise.all de zéro",
+    "question": "Implémentez `Promise.all` de zéro. Quels cas limites doit-il gérer ?",
+    "answer": "Je renvoie une nouvelle promesse, avec un tableau de résultats de la taille de l’entrée et un compteur d’entrées en attente. Chaque entrée passe par `Promise.resolve`, donc les valeurs simples et les thenables marchent aussi. Dans son `then`, je stocke le résultat à son index, pas avec `push`, pour que l’ordre soit celui de l’entrée et non celui de complétion, et je résous quand le compteur atteint zéro. Le premier rejet appelle `reject` ; les suivants sont ignorés parce qu’une promesse ne se règle qu’une fois. Une liste vide doit se résoudre tout de suite, puisqu’aucun callback ne s’exécuterait jamais. Je le prouve avec des tests qui contrôlent l’ordre de complétion.",
+    "keyPoints": [
+      "Résultats stockés par index : ordre d’entrée, pas de complétion",
+      "Un compteur d’attente décide quand résoudre",
+      "`Promise.resolve` enveloppe les valeurs ; une liste vide se résout aussitôt",
+      "Le premier rejet gagne ; les autres opérations continuent"
+    ],
+    "explanation": "C’est la question d’utilitaire asynchrone la plus signalée. Les recruteurs creusent l’ordre des résultats, la règle de rejet et le cas vide ; les seniors ajoutent des tests qui décident quelle entrée finit en premier au lieu de faire des pauses.",
+    "example": "Un vieux helper de la boutique qui chargeait le prix, le stock et les avis collectait les résultats avec `push`, donc la page produit affichait le stock à la place du prix chaque fois que le service de stock répondait en premier. Le helper a été remplacé par le `Promise.all` natif, et un test avec `Promise.withResolvers` qui résout le stock avant le prix protège désormais l’ordre.",
+    "mistakes": [
+      "Utiliser `push`, qui donne l’ordre de complétion au lieu de l’ordre d’entrée",
+      "Oublier la liste vide, si bien que la promesse renvoyée ne se règle jamais",
+      "Vérifier `results.length` pour savoir quand tout est fini : `new Array(n)` a une longueur n dès le départ"
+    ],
+    "followUps": [
+      {
+        "question": "Quand une entrée est rejetée, les autres requêtes sont-elles annulées ?",
+        "answer": "Non. La promesse renvoyée arrête d’attendre, mais les autres opérations continuent et leurs résultats sont ignorés. Pour vraiment les arrêter, je passe un même `AbortSignal` issu d’un `AbortController` à chaque requête et je l’annule au premier échec."
+      },
+      {
+        "question": "Comment le testez-vous sans timers ?",
+        "answer": "Avec `Promise.withResolvers` (ES2024) : il renvoie une promesse avec son `resolve` et son `reject` à l’extérieur, donc le test résout la deuxième entrée avant la première et vérifie que les résultats restent dans l’ordre d’entrée. Pas de pauses, rien de lié à l’horloge."
+      },
+      {
+        "question": "Comment le transformeriez-vous en `Promise.allSettled` ?",
+        "answer": "Même squelette, mais il ne rejette jamais : chaque entrée stocke `{ status: 'fulfilled', value }` ou `{ status: 'rejected', reason }` à son index et décrémente le compteur dans les deux cas. La promesse se résout quand le compteur atteint zéro."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`Promise.all([])` est tenue avec un tableau vide.",
+        "why": "Sans rien à attendre, elle est tenue avec `[]` ; une version écrite à la main doit gérer ce cas explicitement.",
+        "twin": {
+          "statement": "`Promise.all([])` ne se règle jamais, parce qu’aucune entrée n’est jamais tenue.",
+          "why": "Sans rien à attendre, elle est tenue avec `[]` tout de suite ; une version écrite à la main doit gérer ce cas explicitement."
+        }
+      },
+      {
+        "statement": "Les résultats de `Promise.all` sont dans l’ordre dans lequel les promesses se sont réglées.",
+        "why": "Ils sont dans l’ordre d’entrée, quel que soit l’ordre dans lequel les entrées se règlent.",
+        "twin": {
+          "statement": "Les résultats de `Promise.all` suivent l’ordre d’entrée, quel que soit l’ordre dans lequel les promesses se règlent.",
+          "why": "Chaque résultat est stocké à l’index de son entrée, pas dans l’ordre de règlement."
+        }
+      },
+      {
+        "statement": "Une valeur simple dans l’entrée de `Promise.all` la fait rejeter avec une TypeError.",
+        "why": "Une valeur simple est traitée comme une promesse déjà tenue et apparaît telle quelle dans les résultats.",
+        "twin": {
+          "statement": "Une valeur simple dans l’entrée de `Promise.all` apparaît telle quelle dans les résultats.",
+          "why": "Une valeur simple est traitée comme une promesse déjà tenue."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Écrire `Promise.all` à la main vérifie que tu comprends l’ordre, le règlement et les cas limites des promesses. Le résultat doit garder l’ordre d’entrée et se régler exactement une fois.",
+      "points": [
+        "`Promise.all` prend des valeurs ou des promesses et renvoie une seule promesse. Elle est tenue avec tous les résultats dans l’ordre d’entrée, ou rejetée avec le premier rejet.",
+        "Stocke chaque résultat à son index, pas avec `push`, qui donnerait l’ordre de complétion. Un compteur d’attente, pas `results.length`, indique quand tout est fini.",
+        "Enveloppe chaque entrée dans `Promise.resolve`, pour que les valeurs simples et les thenables marchent. Une entrée vide doit se résoudre tout de suite, car aucun callback ne s’exécuterait jamais.",
+        "Appeler `reject` deux fois est sans effet : une promesse ne se règle qu’une fois. Après un rejet, les autres opérations continuent ; seul un `AbortSignal` les arrête.",
+        "Teste avec `Promise.withResolvers` (ES2024), qui te donne `resolve` et `reject`, pour que le test choisisse quelle entrée finit en premier. Pas de pauses."
+      ],
+      "takeaways": [
+        {
+          "term": "Contrat",
+          "detail": "Tenue avec tous les résultats dans l’ordre d’entrée, ou rejetée avec le premier rejet."
+        },
+        {
+          "term": "Stocker par index",
+          "detail": "`results[i] = value`, pas `push`, qui donnerait l’ordre de complétion."
+        },
+        {
+          "term": "Compteur d’attente",
+          "detail": "Résous quand il atteint zéro ; `results.length` ne peut pas te le dire."
+        },
+        {
+          "term": "`Promise.resolve(input)`",
+          "detail": "Enveloppe les valeurs simples et les thenables. Une entrée vide doit se résoudre tout de suite."
+        },
+        {
+          "term": "Premier rejet",
+          "detail": "Il gagne ; une promesse ne se règle qu’une fois. Les autres opérations continuent ; seul un `AbortSignal` les arrête."
+        },
+        {
+          "term": "`Promise.withResolvers`",
+          "detail": "ES2024 : permet au test de choisir quelle entrée finit en premier, sans pauses."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Votre `Promise.all` écrit à la main passe le test nominal, mais il ne se règle jamais quand le panier est vide, et des prix apparaissent parfois à côté des mauvais produits. Qu’avez-vous oublié ?",
+        "bridge": "Une liste vide doit se résoudre tout de suite, et les résultats doivent être stockés par index, pas ajoutés avec push, pour garder l’ordre d’entrée."
+      },
+      {
+        "question": "Le recruteur demande : une des trois entrées est rejetée. Que renvoie votre `Promise.all`, et qu’arrive-t-il aux deux autres opérations ?",
+        "bridge": "Le premier rejet règle la promesse et les suivants sont ignorés ; les autres opérations continuent."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux collectent les résultats dans un `promiseAll` écrit à la main. Lequel les renvoie dans l’ordre d’entrée ?",
+        "why": "Stocker à `index` garde l’ordre d’entrée quel que soit l’ordre dans lequel les promesses se règlent. `push` stocke dans l’ordre de complétion : quand le service de stock répond avant le service de prix, `[price, stock]` revient sous la forme `[stock, price]` et la page produit affiche le stock à la place du prix."
+      }
+    ]
+  },
+  "code-event-emitter": {
+    "topic": "Event emitter de zéro",
+    "question": "Écrivez un event emitter avec `on`, `off`, `once` et `emit`. Quels sont les pièges ?",
+    "answer": "Je garde une map de chaque nom d’événement vers un tableau d’entrées, chacune contenant le listener et un flag `once`, et `on` renvoie une fonction de désabonnement. Le premier piège, c’est `once` : s’il stockait un wrapper, `off` avec la fonction d’origine ne le trouverait pas, donc je stocke l’original. Le second, c’est la suppression pendant un emit : je ne mute jamais les tableaux, `on` et `off` les remplacent, donc `emit` itère sur un instantané. Une entrée once est retirée avant son appel, pour qu’un emit imbriqué ne puisse pas l’exécuter deux fois. En TypeScript, je type chaque événement avec ses arguments, et je dis quelle sémantique j’ai choisie.",
+    "keyPoints": [
+      "Stocker les listeners once avec la fonction d’origine, pour que `off` marche",
+      "Remplacer les tableaux au lieu de les muter : emit itère sur un instantané",
+      "Retirer une entrée once avant de l’appeler",
+      "Nommer la sémantique : Node et le DOM diffèrent"
+    ],
+    "explanation": "Cela teste des choix de structure de données face à de petits cas limites précis. Les seniors disent quelle sémantique ils ont choisie, parce que l’`EventEmitter` de Node et l’`EventTarget` du DOM se comportent différemment, et typent les événements pour qu’un mauvais payload ne compile pas.",
+    "example": "Le back-office utilisait un petit emitter pour signaler à la table des commandes que `order:paid` était arrivé sur le canal de mises à jour en direct. Une première version enveloppait les listeners `once`, donc le nettoyage du détail de commande appelait `off` avec la fonction d’origine et rien n’était retiré : les panneaux fermés continuaient à se mettre à jour. Stocker la fonction d’origine avec un flag a corrigé la fuite, et un test la verrouille.",
+    "mistakes": [
+      "Envelopper les listeners `once`, si bien que `off(event, listener)` ne peut pas les trouver",
+      "Faire un splice du tableau pendant `emit`, ce qui fait sauter le listener suivant à la boucle",
+      "Ne pas dire si un listener retiré pendant un emit s’exécute encore pour cet emit"
+    ],
+    "followUps": [
+      {
+        "question": "Que font Node et le DOM quand un listener en retire un autre pendant un emit ?",
+        "answer": "Dans l’`EventEmitter` de Node, le listener retiré s’exécute quand même pour cet emit, et la même fonction ajoutée deux fois s’exécute deux fois. L’`EventTarget` du DOM fait l’inverse : un listener retiré pendant le dispatch est sauté, et ajouter deux fois la même fonction ne l’enregistre qu’une fois."
+      },
+      {
+        "question": "Comment le typez-vous en TypeScript ?",
+        "answer": "La classe prend une map des noms d’événements vers des tuples d’arguments, comme `Emitter<{ 'order:paid': [orderId: string] }>`. `on` et `emit` sont génériques sur la clé d’événement, donc les paramètres du listener et les arguments émis sont vérifiés : un argument manquant ne compile pas."
+      },
+      {
+        "question": "Que se passe-t-il quand un listener lève une erreur ?",
+        "answer": "Dans ma version, comme dans Node, l’erreur arrête l’emit et les listeners suivants ne s’exécutent pas. Si un mauvais listener ne doit pas casser les autres, j’enveloppe chaque appel dans un `try`/`catch` et je remonte l’erreur. Dans les deux cas, je dis quel choix j’ai fait."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Si `once` stocke une fonction wrapper, `off` avec le listener d’origine le retire quand même.",
+        "why": "Le tableau contient le wrapper, donc une recherche par la fonction d’origine ne trouve rien, sauf si l’original est stocké aussi.",
+        "twin": {
+          "statement": "Si `once` ne stocke qu’une fonction wrapper, `off` avec le listener d’origine ne le retire pas.",
+          "why": "Le tableau contient le wrapper, donc une recherche par la fonction d’origine ne trouve rien, sauf si l’original est stocké aussi."
+        }
+      },
+      {
+        "statement": "Dans l’`EventEmitter` de Node, un listener retiré par un listener précédent pendant un emit s’exécute quand même pour cet emit.",
+        "why": "Node itère sur une copie du tableau de listeners prise au début de l’emit.",
+        "twin": {
+          "statement": "Dans l’`EventEmitter` de Node, un listener retiré par un listener précédent pendant un emit est sauté pour cet emit.",
+          "why": "Node itère sur une copie du tableau de listeners prise au début de l’emit, donc le listener retiré s’exécute quand même cette fois-là."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un event emitter permet à du code de s’abonner à des événements nommés et à d’autre code de les émettre. L’entretien porte sur les cas limites : `once`, le désabonnement pendant un emit, et nommer la sémantique choisie.",
+      "points": [
+        "Un event emitter permet à du code de s’abonner à des événements nommés avec `on` et à d’autre code de les `emit` avec des arguments. `off` désabonne, et `once` écoute une seule fois.",
+        "Stocke les listeners `once` sous forme de fonction d’origine plus un flag. Une fonction wrapper ferait que `off(event, listener)` les rate.",
+        "Ne mute jamais les tableaux de listeners : `on` et `off` les remplacent, donc `emit` itère sur un instantané même quand un listener en désabonne un autre.",
+        "Retire une entrée once avant de l’appeler, pour qu’un emit imbriqué du même événement ne puisse pas l’exécuter deux fois.",
+        "Nomme ta sémantique. L’`EventEmitter` de Node exécute quand même un listener retiré pendant un emit et exécute les doublons deux fois ; l’`EventTarget` du DOM ne fait ni l’un ni l’autre."
+      ],
+      "takeaways": [
+        {
+          "term": "`on` / `off` / `emit`",
+          "detail": "S’abonner, se désabonner, et appeler les listeners avec des arguments ; `on` renvoie une fonction de désabonnement."
+        },
+        {
+          "term": "Stockage de `once`",
+          "detail": "Stocke la fonction d’origine plus un flag ; un wrapper fait que `off(event, listener)` le rate."
+        },
+        {
+          "term": "Itération sur un instantané",
+          "detail": "Ne mute jamais les tableaux : `on` et `off` les remplacent, donc `emit` itère sur un instantané."
+        },
+        {
+          "term": "Once avant l’appel",
+          "detail": "Retire l’entrée avant de l’appeler, pour qu’un emit imbriqué ne puisse pas l’exécuter deux fois."
+        },
+        {
+          "term": "Node vs DOM",
+          "detail": "`EventEmitter` exécute un listener retiré en cours d’emit et exécute les doublons deux fois ; `EventTarget` ne fait ni l’un ni l’autre."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un composant du back-office s’abonne à `order.paid` avec votre `once`, puis se démonte et appelle `off(handler)` avant tout paiement. Le handler s’exécute quand même plus tard. Qu’est-ce qui ne va pas dans l’emitter ?",
+        "bridge": "Si `once` stocke un wrapper, `off` avec la fonction d’origine ne peut pas le trouver ; stocke l’original avec un flag once."
+      },
+      {
+        "question": "Pendant un emit, un listener en retire un autre. Le listener retiré doit-il encore s’exécuter pour cet emit, et comment rendez-vous votre emitter prévisible ?",
+        "bridge": "Remplace les tableaux au lieu de les muter pour qu’emit itère sur un instantané, et nomme la sémantique choisie : Node et le DOM diffèrent."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux ajoutent `once` à un emitter dont `off(event, fn)` retire les entrées par fonction. Lequel un appelant peut-il retirer avec `off` ?",
+        "why": "Stocker la `fn` d’origine avec un flag `once` permet à `off(event, fn)` de la trouver. La version wrapper stocke `wrapper`, donc `off('order:paid', fn)` ne retire rien et le listener s’exécute encore au prochain emit : un panneau de commande fermé continue à se mettre à jour, c’est une fuite."
+      }
+    ]
+  },
+  "code-debounce-throttle": {
+    "topic": "Écrire debounce et throttle",
+    "question": "Vous avez dix minutes : écrivez `debounce`, puis `throttle`. Quels cas limites gérez-vous ?",
+    "answer": "Pour debounce, je garde un seul timer dans une closure. Chaque appel l’efface et en démarre un nouveau, donc la fonction s’exécute une fois que les appels s’arrêtent pendant le délai, avec les arguments du dernier appel. Je renvoie une `function` classique et j’appelle `fn.apply(this, args)` pour que le `this` de l’appelant survive, et j’ajoute `cancel()` pour qu’un composant démonté ne soit jamais appelé plus tard. Pour throttle, je dis d’abord quelle variante je construis : leading, trailing ou les deux, et quels arguments l’appel trailing utilise. Je teste les deux avec des timers mockés, comme `t.mock.timers` dans `node:test`, pour qu’aucun test n’attende en temps réel.",
+    "keyPoints": [
+      "Un seul timer dans une closure, effacé et relancé à chaque appel",
+      "Les derniers arguments gagnent ; `apply` garde `this`",
+      "Exposer `cancel()` pour le démontage",
+      "Throttle : préciser leading, trailing ou les deux ; tester avec des timers mockés"
+    ],
+    "explanation": "Debounce est l’utilitaire le plus signalé. Le recruteur sait déjà que tu peux le définir ; ici, il regarde les détails : `this`, les derniers arguments, cancel, et un test qui ne fait pas de pause. Les seniors nomment aussi le piège React de le créer dans le corps du rendu.",
+    "example": "Le champ de recherche de la boutique applique un debounce de 300 ms à la recherche de produits. Son test avec `t.mock.timers` tape « r » et « re », puis « red » 299 ms plus tard, et vérifie un seul appel avec « red » une fois 300 ms écoulées après lui. Un ancien bug : la fonction debouncée était créée dans le corps du composant, donc taper « red » envoyait trois recherches ; la créer une seule fois et l’annuler au démontage a corrigé ça.",
+    "mistakes": [
+      "Appeler `fn(...args)` au lieu de `fn.apply(this, args)`, ce qui perd le `this` de l’appelant",
+      "Oublier `cancel`, si bien qu’une recherche part après le démontage du composant",
+      "Tester avec de vraies attentes, ce qui rend les tests lents et flaky"
+    ],
+    "followUps": [
+      {
+        "question": "Que fait un throttle leading et trailing avec les arguments ?",
+        "answer": "L’appel leading s’exécute tout de suite avec les premiers arguments. Les appels suivants pendant l’intervalle ne font que stocker leurs arguments, et l’appel trailing s’exécute à la fin de l’intervalle avec les derniers, donc la position de scroll finale n’est jamais perdue."
+      },
+      {
+        "question": "Comment testez-vous debounce sans attendre ?",
+        "answer": "Avec des timers mockés : dans `node:test`, `t.mock.timers.enable({ apis: ['setTimeout'] })` remplace `setTimeout` et `tick(ms)` fait avancer le temps. Je l’appelle trois fois, j’avance de 299 ms, je vérifie que rien ne s’est exécuté, j’avance d'1 ms de plus et je vérifie un seul appel avec les derniers arguments."
+      },
+      {
+        "question": "Pourquoi une recherche debouncée part-elle trois fois dans un composant React ?",
+        "answer": "Elle était créée dans le corps du composant : chaque rendu crée une nouvelle fonction avec son propre timer, donc chaque frappe a son propre appel différé. Je la crée une seule fois, avec un initialiseur `useState`, `useMemo` ou une ref, et j’appelle `cancel()` dans le cleanup d’un effet."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une fonction debouncée appelée trois fois pendant le délai s’exécute avec les arguments du premier appel.",
+        "why": "Chaque appel relance le timer, donc elle s’exécute une fois avec les arguments du dernier appel.",
+        "twin": {
+          "statement": "Une fonction debouncée appelée trois fois pendant le délai s’exécute une fois, avec les arguments du dernier appel.",
+          "why": "Chaque appel relance le timer, donc seuls les arguments du dernier appel atteignent la fonction."
+        }
+      },
+      {
+        "statement": "Appeler `fn(...args)` dans le timer transmet le `this` de l’appelant à `fn`.",
+        "why": "Un appel simple s’exécute avec `this` undefined en mode strict ; `fn.apply(this, args)` depuis une fonction classique le conserve.",
+        "twin": {
+          "statement": "Appeler `fn(...args)` dans le timer perd le `this` de l’appelant.",
+          "why": "Un appel simple s’exécute avec `this` undefined en mode strict ; `fn.apply(this, args)` depuis une fonction classique le conserve."
+        }
+      },
+      {
+        "statement": "Les timers mockés permettent à un test de debounce de vérifier un délai de 300 ms sans attendre 300 ms.",
+        "why": "Ils remplacent `setTimeout`, et le test fait avancer le temps à la main avec `tick`.",
+        "twin": {
+          "statement": "Un test de debounce d’un délai de 300 ms doit attendre 300 ms en temps réel.",
+          "why": "Les timers mockés remplacent `setTimeout`, et le test fait avancer le temps à la main avec `tick`."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Debounce et throttle limitent la fréquence d’exécution d’une fonction, pour les champs de recherche, le scroll et le resize. Les écrire teste les closures, `this`, le nettoyage et les tests avec un temps simulé.",
+      "points": [
+        "Une fonction debouncée s’exécute une fois que les appels s’arrêtent pendant un délai, avec les arguments du dernier appel. Chaque appel efface le timer en attente et en démarre un nouveau.",
+        "Garde `this` : renvoie une `function` classique et appelle `fn.apply(this, args)`. Un simple appel `fn(...args)` s’exécute avec `this` undefined.",
+        "Ajoute `cancel()`, qui efface le timer, pour qu’un composant démonté ne soit jamais appelé plus tard.",
+        "Une fonction throttlée s’exécute au plus une fois par intervalle. Précise d’abord la variante : leading (le premier appel s’exécute tout de suite), trailing (le dernier appel s’exécute à la fin, avec ses arguments) ou les deux.",
+        "Teste avec des timers mockés, comme `t.mock.timers` dans `node:test`, et fais avancer le temps à la main. Pas de vraies attentes, rien de lié à l’horloge."
+      ],
+      "takeaways": [
+        {
+          "term": "Debounce",
+          "detail": "S’exécute une fois que les appels s’arrêtent pendant le délai, avec les derniers arguments : chaque appel efface et relance un seul timer."
+        },
+        {
+          "term": "`fn.apply(this, args)`",
+          "detail": "Renvoie une `function` classique pour garder le `this` de l’appelant ; `fn(...args)` s’exécute avec `this` undefined."
+        },
+        {
+          "term": "`cancel()`",
+          "detail": "Efface le timer pour qu’un composant démonté ne soit jamais appelé plus tard."
+        },
+        {
+          "term": "Throttle",
+          "detail": "Au plus une fois par intervalle."
+        },
+        {
+          "term": "Leading / trailing",
+          "detail": "Précise d’abord la variante : premier appel tout de suite, dernier appel à la fin avec ses arguments, ou les deux."
+        },
+        {
+          "term": "`t.mock.timers`",
+          "detail": "Timers mockés dans `node:test` : fais avancer le temps à la main, sans vraies attentes."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’autocomplétion de la boutique cherche la première lettre tapée au lieu du mot complet, et après avoir quitté la page un callback tardif met à jour un composant démonté. Qu’est-ce qui ne va pas dans le helper `debounce` ?",
+        "bridge": "Debounce relance un seul timer à chaque appel pour que les derniers arguments gagnent, et il lui faut `cancel()` pour que rien ne s’exécute après le démontage."
+      },
+      {
+        "question": "Après votre `debounce`, le recruteur demande `throttle`. Que clarifiez-vous avant de l’écrire, et comment testez-vous les deux sans attendre ?",
+        "bridge": "Throttle a des variantes leading, trailing ou les deux, à choisir ; les timers mockés font avancer le temps à la main, donc aucun test n’attend."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux appliquent un debounce à la méthode `searchBox.search` de la boutique, qui définit `this.lastTerm`. Laquelle fonctionne ?",
+        "why": "La fonction fléchée voit le `this` de la fonction classique renvoyée, et `apply` le transmet, donc `search` s’exécute sur `searchBox`. `fn(...args)` l’appelle avec `this` undefined en mode strict : quand le timer se déclenche, la recherche lève « Cannot set properties of undefined (setting 'lastTerm') »."
+      }
+    ]
+  },
+  "code-concurrency-limit": {
+    "topic": "Limite de concurrence asynchrone",
+    "question": "Le back-office doit rembourser 200 commandes, mais le prestataire de paiement accepte 4 appels à la fois. Écrivez une limite de concurrence.",
+    "answer": "`Promise.all` lancerait les 200 appels d’un coup, donc j’écris `mapWithLimit(items, limit, task)`. Elle lance N workers, de petites boucles asynchrones qui prennent chacune l’élément suivant, attendent sa tâche, et en prennent un autre jusqu’à ce que la liste soit vide. Ils partagent un seul itérateur issu de `items.entries()`, donc chaque élément est distribué une seule fois avec son index, et je stocke chaque résultat par index pour garder l’ordre d’entrée. Je valide la limite, parce qu’avec 0 aucun worker ne démarre et la fonction renvoie des cases vides. Et je décide de la règle d’échec : rejeter avec la première erreur et ne lancer aucune nouvelle tâche.",
+    "keyPoints": [
+      "N workers qui partagent un seul itérateur sur les éléments",
+      "Résultats stockés par index : ordre d’entrée",
+      "Valider la limite : 0 n’exécuterait rien",
+      "Règle d’échec : rejeter et ne lancer aucune nouvelle tâche"
+    ],
+    "explanation": "C’est l’utilitaire qu’on donne aux seniors, parce qu’il combine promesses, itération et politique d’échec. Les recruteurs vérifient que la limite tient et que l’ordre est gardé, et que le candidat décide de ce qui se passe après une erreur au lieu de laisser les autres workers continuer.",
+    "example": "Un remboursement en masse dans le back-office envoyait 200 appels de remboursement d’un coup, et le prestataire de paiement répondait par des erreurs 429. Les faire passer par 4 workers a gardé chaque appel dans la limite du prestataire. Un test avec de fausses tâches de délais différents vérifie que jamais plus de 4 ne tournent à la fois et que les résultats reviennent dans l’ordre d’entrée.",
+    "mistakes": [
+      "Découper en lots de 4 et attendre chaque lot, ce qui attend l’appel le plus lent à chaque fois",
+      "Collecter les résultats avec `push`, qui donne l’ordre de complétion",
+      "Laisser les autres workers continuer à lancer des tâches après l’échec de l’une d’elles"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi pas des lots de 4 avec `Promise.all` ?",
+        "answer": "Chaque lot attend son appel le plus lent, donc les autres emplacements restent inactifs. Les workers prennent l’élément suivant dès que leur tâche se termine, donc 4 appels restent en cours en permanence."
+      },
+      {
+        "question": "Qu’y a-t-il d’autre sur la liste des utilitaires classiques, et comment abordez-vous chacun ?",
+        "answer": "Memoize, curry, deep clone, polyfills de `map` et `reduce`, once, flatten. Je nomme d’abord le built-in quand il existe, comme `structuredClone` ou `Array.prototype.flat`, puis le cas limite où une version écrite à la main casse."
+      },
+      {
+        "question": "Qu’est-ce qui casse dans un `curry` écrit à la main ?",
+        "answer": "Il s’appuie sur `fn.length`, qui arrête de compter au premier paramètre par défaut ou rest : `((a, b = 1) => 0).length` vaut 1, et avec seulement un paramètre rest il vaut 0. Donc la fonction curryfiée appelle trop tôt."
+      },
+      {
+        "question": "Deep clone : `structuredClone` ou JSON ?",
+        "answer": "`structuredClone` garde `Date`, `Map` et les cycles, et lève une `DataCloneError` sur une fonction. Un aller-retour JSON transforme une `Date` en chaîne et supprime les valeurs `undefined`, donc je le garde pour des données JSON simples."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Des workers qui partagent un seul itérateur `items.entries()` peuvent prendre deux fois le même élément.",
+        "why": "Chaque appel à `next()` de l’itérateur distribue l’élément suivant exactement une fois, quel que soit le worker qui demande.",
+        "twin": {
+          "statement": "Des workers qui partagent un seul itérateur `items.entries()` ne prennent jamais deux fois le même élément.",
+          "why": "Chaque appel à `next()` de l’itérateur distribue l’élément suivant exactement une fois, quel que soit le worker qui demande."
+        }
+      },
+      {
+        "statement": "Mémoïser une fonction asynchrone en mettant sa promesse en cache met aussi en cache un rejet.",
+        "why": "La promesse échouée reste dans le cache et est renvoyée à nouveau sans retry, sauf si tu la supprimes en cas d’échec.",
+        "twin": {
+          "statement": "Mémoïser une fonction asynchrone en mettant sa promesse en cache réessaie automatiquement après un rejet.",
+          "why": "La promesse échouée reste dans le cache et est renvoyée à nouveau sans retry, sauf si tu la supprimes en cas d’échec."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une limite de concurrence exécute une tâche asynchrone sur de nombreux éléments avec au plus N en cours, au lieu de tous les lancer d’un coup. C’est une question de code classique construite sur un petit pool de workers.",
+      "points": [
+        "Une limite de concurrence exécute une tâche asynchrone sur de nombreux éléments avec au plus N en cours. `Promise.all` sur 200 appels les lance tous les 200 d’un coup.",
+        "Lance N workers : des boucles asynchrones qui prennent l’élément suivant, attendent sa tâche, puis en prennent un autre. Ils partagent un seul itérateur issu de `items.entries()`, donc chaque élément est distribué une fois.",
+        "Stocke chaque résultat à son index pour garder l’ordre d’entrée. Valide la limite : avec 0, aucun worker ne démarre et tu renvoies un tableau de cases vides.",
+        "Décide de la règle d’échec. Ci-dessous, un rejet rejette tout l’appel, mais les autres workers continuent à prendre des éléments sauf si un flag `failed` les arrête.",
+        "Pour memoize, curry, deep clone ou flatten, nomme d’abord le built-in (`structuredClone`, `flat`), puis le cas limite où une version écrite à la main casse."
+      ],
+      "takeaways": [
+        {
+          "term": "`Promise.all` sur 200 appels",
+          "detail": "Les lance tous les 200 d’un coup."
+        },
+        {
+          "term": "Workers",
+          "detail": "N boucles asynchrones qui prennent l’élément suivant, attendent sa tâche, puis en prennent un autre."
+        },
+        {
+          "term": "`items.entries()`",
+          "detail": "Un seul itérateur partagé : chaque élément est distribué une fois, avec son index."
+        },
+        {
+          "term": "Stocker par index",
+          "detail": "Garde l’ordre d’entrée des résultats."
+        },
+        {
+          "term": "Valider la limite",
+          "detail": "Avec 0, aucun worker ne démarre et le résultat est un tableau de cases vides."
+        },
+        {
+          "term": "Règle d’échec",
+          "detail": "Rejeter à la première erreur et arrêter les nouvelles tâches, par exemple avec un flag `failed`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le job de remboursement nocturne fait un `Promise.all` sur 200 remboursements, et le prestataire de paiement, qui accepte 4 appels à la fois, en rejette la plupart. Comment corrigez-vous le job ?",
+        "bridge": "`Promise.all` lance tout d’un coup ; N workers qui partagent un seul itérateur gardent au plus N appels en cours."
+      },
+      {
+        "question": "Votre `mapWithLimit` renvoie un tableau de cases vides dans un test et des résultats dans l’ordre de complétion dans un autre. Quels deux détails avez-vous ratés ?",
+        "bridge": "Une limite de 0 ne lance aucun worker, donc valide-la, et stocke chaque résultat à son index pour garder l’ordre d’entrée."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux remboursent de nombreuses commandes avec au plus 4 appels au prestataire de paiement à la fois. Lequel finit le plus tôt ?",
+        "why": "Chaque worker prend la commande suivante dès que son appel se termine, donc 4 appels restent en cours jusqu’à ce que la liste soit vide. Un lot attend son appel le plus lent pendant que les autres emplacements restent inactifs : avec 12 appels et un appel lent sur 4, les lots ont pris environ 620 ms et les workers environ 270 ms dans un test."
+      }
+    ]
+  },
+  "code-data-table": {
+    "topic": "Machine coding : une table de commandes",
+    "question": "Machine coding : construisez la table des commandes du back-office avec tri, filtre par statut et pagination. Comment la structurez-vous ?",
+    "answer": "Je garde un seul state, la requête : le filtre de statut, la clé et le sens du tri, et la page. Les lignes visibles sont dérivées pendant le rendu par une fonction pure, `selectOrders`, qui filtre, trie avec `toSorted` pour ne jamais muter le tableau du parent, et découpe une page. Copier les lignes dans le state avec un effet ajouterait une seconde source de vérité, en retard d’un rendu. Chaque handler qui change le filtre ou le tri remet aussi la page à zéro. Les en-têtes triables sont de vrais boutons dans les `th`, avec `aria-sort` sur la colonne triée, et les lignes ont pour key l’id de commande. Je teste unitairement la fonction pure et je teste le composant par rôle.",
+    "keyPoints": [
+      "Une seule requête dans le state ; lignes dérivées pendant le rendu",
+      "Une fonction pure filtre, trie avec `toSorted`, découpe une page",
+      "Remettre la page à zéro quand le filtre ou le tri change",
+      "Boutons dans les en-têtes, `aria-sort`, keys par id de commande"
+    ],
+    "explanation": "C’est l’exercice d’UI le plus signalé. Les recruteurs regardent où vit le state et si la page survit à un changement de filtre ; les seniors disent aussi ce qui change à 50 000 commandes et qu’au travail ils utiliseraient une bibliothèque de tables.",
+    "example": "Dans le back-office, un agent en page 3 a filtré sur les 15 commandes payées et a vu « Page 3 sur 1 » au-dessus d’une table vide, parce que le handler du filtre gardait la page. Remettre `page: 0` dans le même handler a corrigé le problème, et un test Testing Library clique maintenant sur Suivant, change le filtre et vérifie que la première page s’affiche.",
+    "mistakes": [
+      "Copier les lignes filtrées dans le state avec un `useEffect` : une seconde source de vérité, en retard d’un rendu",
+      "Trier avec `sort`, qui mute le tableau qui appartient au parent",
+      "Rendre les en-têtes cliquables avec `onClick` sur le `th` au lieu d’un bouton à l’intérieur"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qui change avec 50 000 commandes ?",
+        "answer": "Le tri, le filtrage et la pagination passent côté serveur avec des paramètres de requête, la requête vit dans l’URL pour qu’une vue puisse être partagée, et les longues listes sont virtualisées. Le client ne garde que la page courante."
+      },
+      {
+        "question": "Pourquoi n’avez-vous pas simplement utilisé une bibliothèque de tables ?",
+        "answer": "Parce que l’exercice me demandait de la construire. Au travail, j’utiliserais une bibliothèque de tables headless pour les fonctionnalités de colonnes et un tri côté serveur pour les gros volumes ; la construire ici montre que je comprends ce qu’une telle bibliothèque fait pour moi."
+      },
+      {
+        "question": "Comment ajoutez-vous une case « tout sélectionner » avec un état mixte ?",
+        "answer": "L’état mixte, c’est la propriété `indeterminate`, qui n’existe que sur l’élément DOM, pas comme attribut HTML. La passer en prop JSX ne la définit pas, donc je la définis dans un ref callback : `input.indeterminate = selected > 0 && selected < total`."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Copier les lignes filtrées dans le state avec un effet les garde synchronisées dans le même rendu.",
+        "why": "L’effet s’exécute après le rendu, donc ce rendu affiche les anciennes lignes ; dérive-les plutôt pendant le rendu.",
+        "twin": {
+          "statement": "Des lignes copiées dans le state par un effet apparaissent avec un rendu de retard.",
+          "why": "L’effet s’exécute après le rendu, donc ce rendu affiche les anciennes lignes ; dérive-les plutôt pendant le rendu."
+        }
+      },
+      {
+        "statement": "`toSorted` renvoie un nouveau tableau trié et laisse l’original intact.",
+        "why": "C’est la version qui copie de `sort`, qui trie sur place.",
+        "twin": {
+          "statement": "`toSorted` trie le tableau d’origine sur place.",
+          "why": "C’est la version qui copie de `sort` : elle renvoie un nouveau tableau trié et laisse l’original intact."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "La table des commandes est un exercice de machine coding courant : filtrer, trier et paginer une liste. La décision clé : un seul state, et les lignes visibles dérivées pendant le rendu.",
+      "points": [
+        "Garde un seul state, la requête (statut, tri, page), et dérive les lignes visibles pendant le rendu. Des lignes copiées dans le state par un effet sont une seconde source de vérité, en retard d’un rendu.",
+        "Mets la logique de données dans une fonction pure qui filtre, trie avec `toSorted`, qui renvoie un nouveau tableau, et découpe une page. Elle se teste sans React et ne mute jamais les commandes du parent.",
+        "Remets la page à zéro dans le même handler qui change le filtre ou le tri, sinon un agent en page 3 voit un « Page 3 sur 1 » vide.",
+        "Les en-têtes triables sont des éléments `button` dans les `th`, avec `aria-sort` sur la colonne triée. Utilise l’id de commande comme key des lignes, jamais l’index.",
+        "À 50 000 commandes, passe le tri, le filtrage et la pagination côté serveur avec des paramètres de requête, garde la requête dans l’URL, et virtualise les longues listes."
+      ],
+      "takeaways": [
+        {
+          "term": "State de requête",
+          "detail": "Un seul state : filtre de statut, clé et sens du tri, page."
+        },
+        {
+          "term": "Lignes dérivées",
+          "detail": "Calculées pendant le rendu ; les copier dans le state avec un effet crée une seconde vérité, en retard d’un rendu."
+        },
+        {
+          "term": "`selectOrders`",
+          "detail": "Une fonction pure qui filtre, trie avec `toSorted`, découpe une page ; testable sans React."
+        },
+        {
+          "term": "Remise à zéro de la page",
+          "detail": "Dans le même handler qui change le filtre ou le tri, sinon « Page 3 sur 1 » s’affiche vide."
+        },
+        {
+          "term": "En-têtes et keys",
+          "detail": "`button` dans les `th`, `aria-sort` sur la colonne triée, lignes avec l’id de commande comme key."
+        },
+        {
+          "term": "À 50 000 commandes",
+          "detail": "Passe le tri, le filtrage et la pagination côté serveur, garde la requête dans l’URL, virtualise."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans votre table des commandes, changer le filtre de statut en page 7 affiche une table vide, et la liste de commandes du parent se retrouve triée ailleurs. Quels sont les deux bugs ?",
+        "bridge": "Changer un filtre doit remettre la page à zéro, et `sort` mute le tableau du parent ; `toSorted` renvoie une copie triée."
+      },
+      {
+        "question": "Le recruteur demande pourquoi vous n’avez pas gardé les lignes visibles dans le state, mises à jour par un effet. Que répondez-vous ?",
+        "bridge": "Des lignes copiées dans le state sont une seconde source de vérité, en retard d’un rendu ; une fonction pure les dérive pendant le rendu."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux changent le filtre de statut de la table des commandes. Lequel affiche des lignes à un agent qui était en page 3 ?",
+        "why": "Un nouveau filtre produit une nouvelle liste, donc la page repart à 0. Garder `page: 2` sur les 15 commandes payées découpe les lignes 40 à 59 d’une liste de 15 : l’agent voit une table vide sous « Page 3 sur 1 »."
+      }
+    ]
+  },
+  "code-modal": {
+    "topic": "Machine coding : une modale accessible",
+    "question": "Machine coding : un bouton Rembourser ouvre une boîte de dialogue de confirmation qui doit être accessible. Comment la construisez-vous en React ?",
+    "answer": "Une modale accessible doit déplacer le focus en elle à l’ouverture, tenir les utilisateurs clavier et souris à l’écart de la page derrière, se fermer sur Échap, et rendre le focus au bouton qui l’a ouverte. L’élément natif `dialog` ouvert avec `showModal()` fait les quatre, donc je l’utilise au lieu de reconstruire un piège à focus avec des listeners `keydown`. Mon composant prend une prop `open`, et un effet appelle `showModal()` ou `close()` pour garder l’élément synchronisé. Je nomme la modale avec `aria-labelledby` qui pointe sur son titre, et je garde `onClose` idempotent, parce que l’événement `close` se déclenche à chaque fermeture. Je la teste dans un vrai navigateur.",
+    "keyPoints": [
+      "Focus dedans, page inerte, Échap ferme, focus rendu",
+      "Le `dialog` natif avec `showModal()` fait les quatre",
+      "Un effet synchronise l’élément avec la prop `open`",
+      "Nommée par `aria-labelledby` ; `onClose` idempotent"
+    ],
+    "explanation": "La plupart des modales écrites à la main gèrent mal le focus, donc le recruteur attend les quatre exigences avant tout code. Choisir l’élément natif est la réponse senior ; le pattern des WAI-ARIA Authoring Practices est le repli pour les widgets sans élément natif.",
+    "example": "La modale de remboursement du back-office était une `div` avec un piège à focus écrit à la main : Tab s’échappait vers la table des commandes derrière, et le focus était perdu à la fermeture. Reconstruite sur `dialog` avec `showModal()`, Tab n’atteint jamais la table, Échap la ferme et le focus revient au bouton Rembourser, vérifié avec Playwright dans Chromium.",
+    "mistakes": [
+      "Reconstruire un piège à focus avec des listeners `keydown` au lieu d’utiliser `dialog`",
+      "L’ouvrir avec `show()`, qui n’est pas modal et laisse la page derrière interactive",
+      "Tester le focus uniquement dans jsdom, qui n’implémente pas `showModal`"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi `onClose` s’exécute-t-il même quand votre propre code ferme la modale ?",
+        "answer": "L’événement `close` se déclenche à chaque fermeture, par Échap ou par `dialog.close()` depuis l’effet. Donc `onClose` doit être idempotent : passer un state à false deux fois est sans danger, envoyer deux fois un événement analytics ne l’est pas."
+      },
+      {
+        "question": "Comment construiriez-vous des onglets, qui n’ont pas d’élément natif ?",
+        "answer": "Je suis le pattern des WAI-ARIA Authoring Practices : `role=\"tablist\"`, `tab` et `tabpanel`, `aria-selected` sur l’onglet actif, les flèches pour passer d’un onglet à l’autre, et Tab pour passer de la liste d’onglets au panneau."
+      },
+      {
+        "question": "Comment testez-vous le comportement du focus ?",
+        "answer": "Dans un vrai navigateur avec Playwright, parce que jsdom n’implémente pas `showModal`. J’ouvre la modale, je vérifie que le focus est dedans, j’appuie sur Tab et je vérifie qu’il n’atteint jamais la page derrière, puis j’appuie sur Échap et je vérifie que le focus est revenu sur le bouton Rembourser."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un `dialog` ouvert avec `showModal()` rend le focus à l’élément qui l’a ouvert quand il se ferme.",
+        "why": "Le navigateur restaure le focus sur l’élément qui l’avait avant l’ouverture de la modale, donc aucun code n’est nécessaire.",
+        "twin": {
+          "statement": "Quand un `dialog` ouvert avec `showModal()` se ferme, ton code doit ramener le focus sur le bouton qui l’a ouvert.",
+          "why": "Le navigateur restaure le focus sur l’élément qui l’avait avant l’ouverture de la modale, donc aucun code n’est nécessaire."
+        }
+      },
+      {
+        "statement": "jsdom implémente `showModal`, donc la gestion du focus d’une modale peut être entièrement testée dans Vitest avec jsdom.",
+        "why": "jsdom n’implémente pas `showModal` ; le comportement du focus se teste dans un vrai navigateur, par exemple avec Playwright.",
+        "twin": {
+          "statement": "jsdom n’implémente pas `showModal`, donc la gestion du focus d’une modale demande un vrai navigateur pour être testée.",
+          "why": "Des outils comme Playwright pilotent un vrai navigateur, où `showModal` et son comportement de focus existent."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une modale accessible est un exercice de machine coding fréquent. L’élément natif `dialog` fait le travail difficile sur le focus, donc il s’agit de le piloter depuis React et de le nommer correctement.",
+      "points": [
+        "Une modale accessible fait quatre choses : elle déplace le focus en elle à l’ouverture, tient les utilisateurs à l’écart de la page derrière, se ferme sur Échap, et rend le focus au bouton qui l’a ouverte.",
+        "L’élément natif `dialog` ouvert avec `showModal()` fait les quatre, et rend le reste de la page inerte : impossible d’y mettre le focus ou de cliquer. `show()` l’ouvre sans être modal.",
+        "En React, un effet synchronise l’élément avec une prop `open` : `showModal()` quand elle passe à true, `close()` quand elle passe à false. Nomme la modale avec `aria-labelledby` sur son titre.",
+        "L’événement `close` se déclenche à chaque fermeture, par Échap ou par `close()`, donc garde `onClose` idempotent. jsdom n’a pas `showModal` : teste le focus dans un vrai navigateur.",
+        "Sans élément natif, comme pour les onglets, suis le pattern des WAI-ARIA Authoring Practices : rôles, états comme `aria-selected`, et règles clavier."
+      ],
+      "takeaways": [
+        {
+          "term": "Quatre obligations",
+          "detail": "Focus dedans à l’ouverture, page derrière hors d’atteinte, Échap ferme, focus rendu à l’élément d’origine."
+        },
+        {
+          "term": "`showModal()`",
+          "detail": "Fait les quatre et rend la page inerte ; `show()` l’ouvre sans être modal."
+        },
+        {
+          "term": "Effet sur `open`",
+          "detail": "`showModal()` quand elle passe à true, `close()` à false."
+        },
+        {
+          "term": "`aria-labelledby`",
+          "detail": "Nomme la modale à partir de son titre."
+        },
+        {
+          "term": "Événement `close`",
+          "detail": "Se déclenche à chaque fermeture, Échap ou `close()` : garde `onClose` idempotent."
+        },
+        {
+          "term": "Tests",
+          "detail": "jsdom n’a pas `showModal` : teste le focus dans un vrai navigateur."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Votre modale de remboursement est une `div` avec des listeners `keydown` qui piègent le focus. Le recruteur appuie sur Échap et Tab et trouve des trous. Que construiriez-vous à la place ?",
+        "bridge": "Le `dialog` natif avec `showModal()` déplace le focus dedans, rend la page inerte, se ferme sur Échap et rend le focus, donc aucun listener n’est nécessaire."
+      },
+      {
+        "question": "Le recruteur demande comment vous gardez la modale synchronisée avec le state React, et comment vous testeriez sa gestion du focus.",
+        "bridge": "Un effet appelle `showModal()` ou `close()` selon la prop `open`, `onClose` reste idempotent, et le focus se teste dans un vrai navigateur."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux ouvrent le `dialog` de confirmation de remboursement quand `open` passe à true. Lequel est une vraie modale ?",
+        "why": "`showModal()` place la modale dans le top layer, y déplace le focus, rend la page derrière inerte et se ferme sur Échap. `show()` l’ouvre sans être modal : la table des commandes derrière reste focalisable et cliquable, donc Tab et les clics échappent à la confirmation."
+      }
+    ]
+  },
+  "code-take-home": {
+    "topic": "Test technique à la maison : fetch et affichage",
+    "question": "Test technique à la maison : récupérez les commandes depuis l’API et affichez-les avec une vue détail. Que regardent les relecteurs, et comment préparez-vous le débrief ?",
+    "answer": "Les relecteurs ouvrent d’abord les cas d’échec, donc je conçois les quatre états avant le cas nominal : chargement, erreur avec un retry, vide, et données. Je récupère les données avec TanStack Query plutôt qu’avec `useEffect` plus `fetch`, parce qu’il gère le cache, les retries et les réponses obsolètes, et ma fonction de fetch lève une erreur sur un statut non-2xx, puisque `fetch` ne rejette que sur une panne réseau. Je teste le vrai composant contre MSW, qui simule le réseau, en interrogeant par rôle, avec les retries désactivés dans le client de test. Le README fixe l’ordre du jour du débrief : comment le lancer et le tester, la structure, les compromis, ce que j’ai laissé de côté et ce que je ferais ensuite.",
+    "keyPoints": [
+      "Chargement, erreur avec retry, vide et données, conçus d’abord",
+      "Lever une erreur sur non-2xx : `fetch` ne rejette que sur panne réseau",
+      "Tester le vrai composant avec MSW et des requêtes par rôle",
+      "README : lancement, structure, compromis, ce qui est laissé de côté"
+    ],
+    "explanation": "Un test technique à la maison est lu avant que tu sois dans la salle, donc le code, les tests et le README parlent pour toi. Les seniors montrent leur jugement dans ce qu’ils ont laissé de côté et pourquoi, et préparent les questions du débrief : passage à l’échelle, choix de la bibliothèque de state, accessibilité.",
+    "example": "Pour un test à la maison sur les commandes, le README disait : tri côté client parce que l’énoncé a 200 commandes, côté serveur au-delà ; tests de la vue détail pas encore écrits, listés comme prochaine étape. Au débrief, interrogé sur 50 000 commandes, le candidat a montré cette ligne et expliqué paramètres de requête et virtualisation, ce qui a transformé un manque en discussion sur les compromis.",
+    "mistakes": [
+      "Ne construire que le cas nominal, si bien qu’un 503 affiche un écran blanc",
+      "Traiter un 404 ou un 503 comme un succès parce que `fetch` n’a pas rejeté",
+      "Laisser les retries de TanStack Query activés dans les tests, ce qui ralentit le test d’erreur"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi votre client de test définit-il `retry: false` ?",
+        "answer": "Par défaut, TanStack Query réessaie une requête échouée 3 fois avec un backoff exponentiel. Dans un test de l’état d’erreur, ce délai ralentit le test, donc le client de test désactive les retries et l’erreur s’affiche tout de suite."
+      },
+      {
+        "question": "Pourquoi MSW plutôt qu’un mock de `fetch` ?",
+        "answer": "MSW intercepte les requêtes au niveau réseau, donc le composant et sa fonction de fetch s’exécutent sans modification. Je peux renvoyer un 503 puis un 200, et parcourir le chemin erreur puis retry comme le ferait un utilisateur, au lieu de tester mon propre mock."
+      },
+      {
+        "question": "À quoi vous attendez-vous au débrief, et comment répondez-vous ?",
+        "answer": "Des questions comme « pourquoi cette bibliothèque de state ? », « que se passe-t-il avec 50 000 commandes ? » et « comment avez-vous vérifié l’accessibilité ? ». Je réponds à partir des compromis du README : ce que j’ai choisi, l’alternative, et le point où je changerais."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`fetch` rejette sa promesse quand le serveur répond par un 503.",
+        "why": "Elle est résolue avec `response.ok` à false ; elle n’est rejetée que sur une panne réseau, donc tu vérifies le statut toi-même.",
+        "twin": {
+          "statement": "`fetch` résout sa promesse quand le serveur répond par un 503.",
+          "why": "Elle est résolue avec `response.ok` à false et n’est rejetée que sur une panne réseau, donc tu vérifies le statut toi-même."
+        }
+      },
+      {
+        "statement": "Par défaut, TanStack Query réessaie une requête échouée avant d’afficher l’erreur.",
+        "why": "Il réessaie 3 fois avec un backoff exponentiel, c’est pourquoi les tests désactivent les retries.",
+        "twin": {
+          "statement": "Par défaut, TanStack Query affiche tout de suite l’erreur d’une requête échouée, sans réessayer.",
+          "why": "Il réessaie 3 fois avec un backoff exponentiel, c’est pourquoi les tests désactivent les retries."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un test technique à la maison de type fetch et affichage est lu avant le débrief, et les relecteurs jugent les cas d’échec, les tests et le README autant que le cas nominal.",
+      "points": [
+        "Un test technique à la maison est lu avant le débrief, et les relecteurs ouvrent d’abord les cas d’échec. Conçois chargement, erreur avec un retry, vide, et données avant le cas nominal.",
+        "`fetch` ne rejette que sur une panne réseau ; un 404 ou un 503 est résolu avec `response.ok` à false. Lève une erreur sur un statut non-2xx pour que l’état d’erreur s’affiche.",
+        "Récupère les données avec TanStack Query plutôt qu’avec `useEffect` plus `fetch` : il gère le cache, les retries et les réponses obsolètes. Il réessaie une requête échouée 3 fois par défaut, donc désactive les retries dans les tests.",
+        "Teste le vrai composant avec MSW (Mock Service Worker), qui intercepte les requêtes au niveau réseau, et interroge par rôle comme un utilisateur.",
+        "Le README fixe l’ordre du jour du débrief : une commande pour lancer et une pour tester, la structure, les états gérés, les compromis, ce que tu as laissé de côté et pourquoi."
+      ],
+      "takeaways": [
+        {
+          "term": "Quatre états",
+          "detail": "Chargement, erreur avec un retry, vide, et données, conçus avant le cas nominal."
+        },
+        {
+          "term": "Rejet de `fetch`",
+          "detail": "Uniquement sur panne réseau ; un 404 ou 503 est résolu avec `response.ok` à false, donc lève une erreur sur non-2xx."
+        },
+        {
+          "term": "TanStack Query",
+          "detail": "Gère le cache, les retries et les réponses obsolètes ; réessaie 3 fois par défaut, donc désactive les retries dans les tests."
+        },
+        {
+          "term": "MSW",
+          "detail": "Intercepte les requêtes au niveau réseau : teste le vrai composant, interroge par rôle."
+        },
+        {
+          "term": "README",
+          "detail": "Commandes pour lancer et tester, structure, états gérés, compromis, ce que tu as laissé de côté et pourquoi."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un relecteur fait répondre 503 à l’API pendant que votre test à la maison sur les commandes tourne, et la page affiche « Aucune commande pour l’instant ». Qu’avez-vous raté ?",
+        "bridge": "`fetch` résout sur un statut d’erreur, donc la fonction de fetch doit lever une erreur sur non-2xx, et l’état d’erreur avec un retry doit être conçu en premier."
+      },
+      {
+        "question": "Il vous reste une heure sur le test à la maison des commandes. Que mettez-vous dans le README, et en quoi cela aide-t-il au débrief ?",
+        "bridge": "Le README fixe l’ordre du jour du débrief : comment le lancer et le tester, la structure, les compromis, ce qui est laissé de côté et la suite."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux récupèrent les commandes pour TanStack Query dans le test à la maison. Laquelle affiche l’état d’erreur quand l’API répond 503 ?",
+        "why": "`fetch` ne rejette que sur une panne réseau ; un 503 est résolu avec `response.ok` à false. Lever une erreur en fait une requête échouée, donc l’état d’erreur avec son retry s’affiche. Sans la vérification, le corps du 503 est renvoyé comme données : la requête réussit et la table reçoit `{ error: 'unavailable' }` au lieu de commandes."
+      }
+    ]
+  },
+  "code-review-round": {
+    "topic": "L’exercice de code review React",
+    "question": "Dans un exercice de code review React, on vous donne un court composant avec des bugs cachés. Comment le relisez-vous, et que trouvez-vous en général ?",
+    "answer": "Je le lis une fois pour comprendre ce qu’il fait, puis une fois par risque, du plus grave au moins grave : sécurité, exactitude et données, accessibilité, performance, puis style. Dans les composants React, on trouve en général du texte utilisateur rendu avec `dangerouslySetInnerHTML`, une `div` cliquable au lieu d’un bouton, une `key` manquante, une prop mutée par `sort`, du state dérivé dans un effet, et une promesse ignorée sans gestion des erreurs. Chaque commentaire a un label de gravité, le risque dans cette app et le correctif. Je signale d’abord le bloquant, pour que si le temps manque, le recruteur ait entendu l’essentiel, et je termine par une chose qui est bien.",
+    "keyPoints": [
+      "Par gravité : sécurité, exactitude, accessibilité, perf, style",
+      "Chaque commentaire : label de gravité, risque ici, correctif",
+      "Connaître les trouvailles React habituelles",
+      "Le bloquant d’abord ; finir par ce qui est bien"
+    ],
+    "explanation": "La note porte sur ce que tu trouves et l’ordre dans lequel tu le dis. Les recruteurs cachent une XSS ou un bug d’accessibilité parmi des problèmes de style évidents pour voir si tu fais le tri ; un senior signale le bloquant avant tout détail.",
+    "example": "Une pull request sur les notes de commande du back-office rendait `note.body` avec `dangerouslySetInnerHTML`, donc une note contenant un `img` avec un handler `onerror` exécuterait du script dans la session de l’agent du support. La review commençait par ce bloquant et son correctif, rendre le corps en texte, puis signalait la `div` poubelle cliquable, les keys manquantes et la prop `notes` mutée.",
+    "mistakes": [
+      "Commencer par le nommage et le formatage alors qu’une XSS traîne dans le diff",
+      "Dire « c’est faux » sans le risque dans cette app ni le correctif",
+      "Rater que `notes.sort` mute un tableau qui appartient au parent ou au cache de requêtes"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi une `key` manquante est-elle plus qu’un warning ?",
+        "answer": "Sans keys, React associe les éléments de liste par position. Dès que des lignes portent du state, comme un éditeur ouvert, ou qu’une note est supprimée, ce state se retrouve sur la mauvaise ligne. `key={note.id}` garde chaque ligne liée à sa note."
+      },
+      {
+        "question": "Qu’est-ce qui ne va pas quand on trie dans le state à l’intérieur d’un effet ?",
+        "answer": "Ça stocke deux fois une donnée dérivée. L’effet s’exécute après le rendu, donc le premier rendu affiche une liste vide, et ça coûte un rendu de plus. Je trie pendant le rendu avec `notes.toSorted(...)` et je supprime à la fois le state et l’effet."
+      },
+      {
+        "question": "Et si le texte riche dans les notes est un vrai besoin ?",
+        "answer": "Alors je nettoie le HTML avec un sanitizer maintenu comme DOMPurify avant de le rendre, et je garde une Content Security Policy comme seconde couche. Du HTML utilisateur brut n’est jamais rendu tel quel."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "React échappe le texte rendu avec `{note.body}`, donc le balisage qu’il contient s’affiche comme du texte.",
+        "why": "Seul `dangerouslySetInnerHTML` insère une chaîne en HTML ; les enfants texte sont échappés.",
+        "twin": {
+          "statement": "React rend en HTML le balisage contenu dans `{note.body}`.",
+          "why": "Les enfants texte sont échappés et affichés comme du texte ; seul `dangerouslySetInnerHTML` insère une chaîne en HTML."
+        }
+      },
+      {
+        "statement": "Une `div` avec un `onClick` est atteignable avec la touche Tab, comme un bouton.",
+        "why": "Une `div` n’est pas focalisable et n’a ni rôle ni activation au clavier ; un `button` a les trois.",
+        "twin": {
+          "statement": "Une `div` avec un `onClick` n’est pas atteignable avec la touche Tab.",
+          "why": "Une `div` n’est pas focalisable et n’a ni rôle ni activation au clavier ; un `button` a les trois."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Dans l’exercice de code review, on te donne un court composant avec des bugs cachés et 30 à 45 minutes. Tu es noté sur ce que tu trouves et l’ordre dans lequel tu le signales.",
+      "points": [
+        "Dans l’exercice de review, on te donne un court composant avec des bugs cachés et 30 à 45 minutes. La note porte sur ce que tu trouves et l’ordre dans lequel tu le signales.",
+        "Lis-le une fois pour comprendre ce qu’il fait, puis une fois par risque, le plus grave d’abord : sécurité, exactitude et données, accessibilité, performance, puis style.",
+        "Trouvailles React habituelles : du texte utilisateur dans `dangerouslySetInnerHTML` (XSS), une `div` cliquable, une `key` manquante, une prop mutée, du state dérivé dans un effet, une promesse ignorée.",
+        "Écris chaque commentaire avec un label de gravité comme bloquant, problème ou suggestion, le risque dans cette app, et le correctif. Signale d’abord le bloquant et termine par ce qui est bien."
+      ],
+      "takeaways": [
+        {
+          "term": "Ordre de lecture",
+          "detail": "Une fois pour ce qu’il fait, puis une fois par risque : sécurité, exactitude, accessibilité, performance, style."
+        },
+        {
+          "term": "Trouvailles React habituelles",
+          "detail": "`dangerouslySetInnerHTML` avec du texte utilisateur, `div` cliquable, `key` manquante, prop mutée, state dérivé dans un effet."
+        },
+        {
+          "term": "Promesse ignorée",
+          "detail": "Une promesse sans gestion des erreurs est aussi une trouvaille."
+        },
+        {
+          "term": "Format des commentaires",
+          "detail": "Label de gravité (bloquant, problème, suggestion), le risque dans cette app, le correctif."
+        },
+        {
+          "term": "Ordre de restitution",
+          "detail": "Le bloquant d’abord, pour qu’il soit entendu si le temps manque ; termine par une chose qui est bien."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "On vous donne 20 lignes d’un composant de notes du back-office : il rend `note.body` avec `dangerouslySetInnerHTML`, trie la prop `notes` sur place et utilise une `div` cliquable. Dans quel ordre commentez-vous, et comment ?",
+        "bridge": "Relis par gravité : le bloquant XSS d’abord, puis l’exactitude et l’accessibilité, chacun avec un label, le risque dans cette app et le correctif."
+      },
+      {
+        "question": "Il reste cinq minutes dans un exercice de review et vous avez huit trouvailles. Que dites-vous en premier, et comment concluez-vous ?",
+        "bridge": "Signale d’abord le bloquant pour que l’essentiel soit entendu, et termine par une chose qui est bien."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux rendent une note interne sur une commande du back-office. Laquelle approuverais-tu en review ?",
+        "why": "React échappe les enfants texte, donc le balisage d’une note s’affiche comme du texte. `dangerouslySetInnerHTML` l’insère en HTML : une note contenant un `img` avec un handler `onerror` exécute du script dans la session de l’agent du support. C’est une XSS et un bloquant ; si le texte riche est nécessaire, nettoie-le d’abord avec DOMPurify."
+      }
+    ]
+  },
+  "code-debugging-round": {
+    "topic": "L’exercice de débogage frontend",
+    "question": "Exercice de débogage sur la boutique : les résultats de recherche correspondent parfois à un mot plus ancien, et le bouton Payer ne fait rien en production. Comment travaillez-vous ?",
+    "answer": "J’utilise la même méthode pour les deux : reproduire, lire, énoncer une hypothèse, la vérifier par une observation. Pour la recherche, je tape « re » puis « red » avec le réseau bridé. Mon hypothèse est une race : deux requêtes sont en cours et l’ancienne réponse arrive en dernier, et le hook applique les réponses dans leur ordre d’arrivée. Je donne à chaque exécution de l’effet son propre `AbortController` et je l’annule dans le cleanup, ou j’utilise le terme comme clé d’une requête TanStack. Pour le bouton mort, je regarde la console pour une erreur au démarrage, puis `document.elementFromPoint` sur le bouton pour voir ce qui reçoit vraiment le clic, par exemple un overlay invisible.",
+    "keyPoints": [
+      "Reproduire, une hypothèse, la vérifier par une observation",
+      "Résultats périmés : une race ; annuler l’ancienne requête dans le cleanup",
+      "Clic mort : la console d’abord, puis `elementFromPoint`",
+      "Autres causes : mauvais élément, `disabled` bloqué, type submit"
+    ],
+    "explanation": "L’exercice note la méthode plus que le correctif. Les recruteurs veulent des hypothèses dites à voix haute et vérifiées une par une, et les seniors connaissent les causes frontend classiques : races dans les effets, overlays qui captent les clics, et boutons qui soumettent des formulaires.",
+    "example": "Sur la boutique, `elementFromPoint` sur le bouton Payer renvoyait une zone de toasts vide fixée par-dessus toute la page. Donner `pointer-events: none` à la zone, et `auto` aux toasts eux-mêmes, a permis au clic d’atteindre à nouveau le bouton. Augmenter le z-index du bouton en aurait corrigé un seul et laissé tous les autres contrôles recouverts.",
+    "mistakes": [
+      "Modifier le code avant de reproduire le bug ou d’énoncer une hypothèse",
+      "Corriger une recherche périmée avec un debounce plus long, ce qui ne fait que rendre la race plus rare",
+      "Augmenter le z-index d’un bouton au lieu de corriger l’overlay qui recouvre la page"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi annuler dans le cleanup corrige-t-il la race ?",
+        "answer": "React exécute le cleanup d’un effet avant l’exécution suivante avec le nouveau terme, donc la requête de l’ancien terme est annulée, et la vérification de `signal.aborted` ignore sa réponse tardive. Seul le dernier terme peut définir les résultats."
+      },
+      {
+        "question": "Un bouton dans un formulaire recharge la page au lieu d’exécuter son handler. Pourquoi ?",
+        "answer": "Un `button` dans un formulaire est par défaut `type=\"submit\"`, donc le clic soumet le formulaire. J’ajoute `type=\"button\"` à chaque bouton qui n’est pas censé soumettre."
+      },
+      {
+        "question": "Quelles autres causes citeriez-vous pour un clic qui ne fait rien ?",
+        "answer": "Un handler lié à un autre élément que celui affiché, un état `disabled` jamais réinitialisé, une erreur levée au démarrage si bien qu’aucun handler n’a été attaché, ou un élément au-dessus qui capte le pointeur. Je vérifie chacune par une observation avant de toucher au code."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un `button` dans un formulaire sans attribut `type` soumet le formulaire quand on clique dessus.",
+        "why": "Le type par défaut d’un `button` est `submit`.",
+        "twin": {
+          "statement": "Un `button` dans un formulaire sans attribut `type` ne fait rien quand on clique dessus.",
+          "why": "Le type par défaut d’un `button` est `submit`, donc il soumet le formulaire."
+        }
+      },
+      {
+        "statement": "Appliquer un debounce au champ de recherche supprime la race entre une ancienne et une nouvelle réponse.",
+        "why": "Le debounce envoie moins de requêtes, mais deux peuvent encore être en cours et arriver dans le désordre ; annule l’ancienne ou utilise le terme comme clé de la requête.",
+        "twin": {
+          "statement": "Appliquer un debounce au champ de recherche laisse quand même une ancienne réponse arriver après une nouvelle.",
+          "why": "Le debounce envoie moins de requêtes, mais deux peuvent encore être en cours et arriver dans le désordre ; annule l’ancienne ou utilise le terme comme clé de la requête."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’exercice de débogage vérifie ta méthode : reproduire, formuler une hypothèse, et la confirmer par une observation avant de modifier le code. Les résultats de recherche périmés et les boutons morts sont des cas classiques.",
+      "points": [
+        "La méthode : reproduire, lire le code, énoncer une hypothèse à voix haute, et la vérifier par une observation avant de changer quoi que ce soit.",
+        "Des résultats pour une recherche plus ancienne, c’est une race condition : deux requêtes sont en cours, l’ancienne réponse arrive en dernier, et le code applique les réponses dans leur ordre d’arrivée.",
+        "Corrige-la avec un `AbortController` par exécution de l’effet, annulé dans le cleanup, que React exécute avant l’exécution suivante. TanStack Query avec le terme dans la clé de requête fait la même chose.",
+        "Pour un clic qui ne fait rien, regarde d’abord la console pour une erreur au démarrage, puis `document.elementFromPoint(x, y)` sur le bouton pour voir quel élément reçoit vraiment le clic.",
+        "Un overlay invisible qui capte les clics se corrige avec `pointer-events: none` sur lui. Soupçonne aussi un `disabled` bloqué, ou un bouton de formulaire sans `type=\"button\"`, qui soumet."
+      ],
+      "takeaways": [
+        {
+          "term": "Méthode",
+          "detail": "Reproduire, lire le code, énoncer une hypothèse à voix haute, la vérifier par une observation."
+        },
+        {
+          "term": "Résultats périmés",
+          "detail": "Une race : l’ancienne réponse arrive en dernier et les réponses sont appliquées dans leur ordre d’arrivée."
+        },
+        {
+          "term": "`AbortController` par exécution",
+          "detail": "Annulé dans le cleanup de l’effet, que React exécute avant l’exécution suivante ; ou utilise le terme comme clé de requête."
+        },
+        {
+          "term": "Clic mort",
+          "detail": "Regarde d’abord la console pour une erreur au démarrage."
+        },
+        {
+          "term": "`document.elementFromPoint`",
+          "detail": "Sur le bouton : montre quel élément reçoit vraiment le clic, comme un overlay invisible."
+        },
+        {
+          "term": "Autres suspects",
+          "detail": "Un `disabled` bloqué, ou un bouton de formulaire sans `type=\"button\"`, qui soumet."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Sur la boutique, taper « red » rapidement affiche parfois les résultats pour « re », alors que l’API renvoie les bonnes données pour chaque requête. Quelle est votre hypothèse, et comment la vérifiez-vous et la corrigez-vous ?",
+        "bridge": "Deux requêtes sont en cours et l’ancienne réponse arrive en dernier ; annule-la dans le cleanup de l’effet ou utilise le terme comme clé de la requête."
+      },
+      {
+        "question": "Le support signale que le bouton Payer du checkout « ne fait rien » en production, et aucune erreur n’a été remontée. Expliquez comment vous le déboguez.",
+        "bridge": "Même méthode : reproduire, lire la console, puis `elementFromPoint` pour voir ce qui reçoit le clic, comme un overlay, ou vérifier `disabled` et le type du bouton."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux chargent les résultats de recherche pendant que le client tape « re » puis « red ». Lequel n’affiche jamais les résultats d’un mot plus ancien ?",
+        "why": "React exécute le cleanup avant l’effet du nouveau terme, donc la requête « re » est annulée et sa réponse tardive est ignorée. Sans lui, les deux réponses appellent `setResults` dans leur ordre d’arrivée : quand « re » répond après « red », la page affiche les résultats de « re » sous le mot « red »."
+      }
+    ]
+  }
+}

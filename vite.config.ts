@@ -39,5 +39,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
+    // The on-disk module cache does not notice files added under an `import.meta.glob` pattern
+    // (a new French overlay, a new card file), so tests could check stale content.
+    fsModuleCache: false,
   },
 });

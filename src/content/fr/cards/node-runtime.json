@@ -1,0 +1,818 @@
+{
+  "node-event-loop-lag": {
+    "topic": "Prouver un event loop bloqué",
+    "question": "Toutes les routes de votre API Node ralentissent en même temps. Comment prouvez-vous que l’event loop est bloqué, et comment en trouvez-vous la cause ?",
+    "answer": "Une boucle bloquée, c’est un callback qui monopolise le thread principal pendant que toutes les autres requêtes attendent. Je regarde deux métriques runtime de `node:perf_hooks`, en général exportées par OpenTelemetry ou l’APM : l’event loop delay, le retard avec lequel un timer se déclenche, et l’event loop utilization, la part du temps où la boucle est occupée, de 0 à 1. La signature : ELU proche de 1, delay p99 de plusieurs centaines de millisecondes, toutes les routes lentes ensemble et la latence de la base stable. Ensuite j’enregistre un profil CPU, par exemple avec `node --cpu-prof` sur un réplica, et je l’ouvre en flame graph pour nommer la fonction à corriger.",
+    "keyPoints": [
+      "Event loop delay : le retard avec lequel les timers se déclenchent",
+      "ELU : part du temps où la boucle est occupée, de 0 à 1",
+      "Signature : toutes les routes lentes, latence de la base stable",
+      "Un profil CPU et un flame graph nomment la fonction coûteuse"
+    ],
+    "explanation": "Beaucoup de candidats connaissent l’event loop en théorie ; ici, on vérifie s’ils savent le diagnostiquer en production. Une réponse senior nomme des métriques concrètes, les compare à la baseline du service lui-même, et passe d’une métrique à un profil avant de toucher au code.",
+    "example": "Chaque soir à 18 h, l’API Orders se figeait quelques secondes, `/health` compris, alors que PostgreSQL restait rapide. Les dashboards montraient un ELU à 0,97 et un delay p99 à 450 ms ; un profil CPU d’un réplica a montré l’export CSV qui construisait 200 000 lignes d’un coup. Découper l’export a ramené le delay p99 à ses quelques millisecondes habituelles.",
+    "mistakes": [
+      "Accuser la base avant de vérifier que sa latence a vraiment augmenté",
+      "Lire les valeurs de `monitorEventLoopDelay` comme des millisecondes : elles sont en nanosecondes et incluent l’intervalle d’échantillonnage",
+      "Comparer une métrique à un chiffre lu sur un blog plutôt qu’à la baseline du service"
+    ],
+    "followUps": [
+      {
+        "question": "Quelle différence entre event loop delay et event loop utilization ?",
+        "answer": "Le delay mesure le retard avec lequel la boucle exécute un timer, donc l’attente ressentie par les requêtes. L’ELU mesure à quel point la boucle est occupée, de 0 quand elle ne fait qu’attendre à 1 quand elle n’attend jamais. Un ELU proche de 1 avec un delay p99 élevé veut dire que des callbacks font la queue derrière du travail CPU sur le thread principal."
+      },
+      {
+        "question": "Pourquoi soustraire la résolution aux échantillons de `monitorEventLoopDelay` ?",
+        "answer": "Chaque échantillon est l’écart complet entre deux ticks de son timer interne, donc il inclut l’intervalle d’échantillonnage lui-même. Avec une résolution de 10 ms, une boucle au repos affichait un minimum d’environ 10,5 ms : le vrai retard était d’environ 0,5 ms. Les valeurs de l’histogramme sont en nanosecondes."
+      },
+      {
+        "question": "Comment prendriez-vous un profil CPU en production ?",
+        "answer": "Sur un seul réplica ou un canary, pas sur toute la flotte. `node --cpu-prof` écrit un fichier `.cpuprofile` à la sortie du processus, ou l’inspector en enregistre un à la demande. Chrome DevTools l’ouvre en flame graph, où les frames les plus larges montrent où le thread principal a passé son temps."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un event loop utilization de 0,95 veut dire que le processus utilise 95 % de tous les cœurs CPU.",
+        "why": "L’ELU est la part du temps que l’unique event loop a passée à exécuter des callbacks plutôt qu’à attendre, pas l’usage CPU du processus.",
+        "twin": {
+          "statement": "Un event loop utilization de 0,95 veut dire que l’event loop a passé 95 % de son temps à exécuter des callbacks plutôt qu’à attendre.",
+          "why": "L’ELU est la part d’occupation de l’unique event loop, indépendamment du nombre de cœurs CPU de la machine."
+        }
+      },
+      {
+        "statement": "Quand l’event loop est bloqué, toutes les routes de ce processus ralentissent, health checks compris.",
+        "why": "Toutes les requêtes d’un processus partagent un seul thread principal : tant qu’un callback calcule, aucune autre requête n’est lue ni servie.",
+        "twin": {
+          "statement": "Quand l’event loop est bloqué, les health checks répondent toujours vite parce qu’ils ne font presque rien.",
+          "why": "Un health check attend sur le même thread principal que toutes les autres requêtes, donc il est tout aussi en retard."
+        }
+      },
+      {
+        "statement": "Les valeurs de l’histogramme de `monitorEventLoopDelay()` sont en millisecondes.",
+        "why": "Elles sont en nanosecondes : divise par 1e6, puis soustrais la résolution pour obtenir le vrai retard en millisecondes.",
+        "twin": {
+          "statement": "Les valeurs de l’histogramme de `monitorEventLoopDelay()` sont en nanosecondes.",
+          "why": "Divise-les par 1e6 pour obtenir des millisecondes, puis soustrais la résolution pour obtenir le vrai retard."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un event loop bloqué, c’est un callback qui monopolise le thread principal de Node pendant que chaque requête, timer et health check attend derrière lui. Deux métriques runtime le prouvent, et un profil CPU nomme la fonction à corriger.",
+      "points": [
+        "Un event loop bloqué, c’est un callback qui tourne si longtemps que tous les autres callbacks, nouvelles requêtes, timers et `/health` compris, attendent derrière lui sur le thread principal.",
+        "L’event loop delay, via `monitorEventLoopDelay()` de `node:perf_hooks`, mesure le retard avec lequel un timer se déclenche. Ses valeurs sont en nanosecondes et incluent l’intervalle d’échantillonnage.",
+        "L’event loop utilization (ELU), via `performance.eventLoopUtilization()`, est la part du temps que la boucle a passée à exécuter des callbacks plutôt qu’à attendre, de 0 à 1.",
+        "La signature : ELU proche de 1, delay p99 de plusieurs centaines de millisecondes, toutes les routes lentes à la fois, latence de la base stable. OpenTelemetry et les APM comme Datadog exportent les deux métriques.",
+        "Un profil CPU nomme le coupable : `node --cpu-prof` écrit un fichier `.cpuprofile` à la sortie du processus, et Chrome DevTools l’affiche en flame graph."
+      ],
+      "takeaways": [
+        {
+          "term": "`monitorEventLoopDelay()`",
+          "detail": "De `node:perf_hooks` : le retard avec lequel un timer se déclenche. Valeurs en nanosecondes, intervalle d’échantillonnage inclus."
+        },
+        {
+          "term": "`eventLoopUtilization()`",
+          "detail": "Sur `performance` : la part du temps que la boucle a passée à exécuter des callbacks plutôt qu’à attendre, de 0 à 1."
+        },
+        {
+          "term": "Signature d’une boucle bloquée",
+          "detail": "ELU proche de 1, delay p99 de plusieurs centaines de millisecondes, toutes les routes lentes à la fois, latence de la base stable."
+        },
+        {
+          "term": "`node --cpu-prof`",
+          "detail": "Écrit un fichier `.cpuprofile` à la sortie du processus ; Chrome DevTools l’affiche en flame graph qui nomme la fonction coûteuse."
+        },
+        {
+          "term": "Exporter les métriques",
+          "detail": "OpenTelemetry et les APM comme Datadog exportent l’event loop delay et l’ELU, pour les grapher et alerter dessus."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "À 18 h, toutes les routes de l’API Orders, `/health` compris, prennent plus de 2 secondes, alors que les requêtes PostgreSQL restent à 5 ms. Comment confirmez-vous la cause et trouvez-vous le code responsable ?",
+        "bridge": "Toutes les routes lentes ensemble avec une base rapide, c’est la signature d’un event loop bloqué : confirme-le avec le delay et l’ELU, puis nomme la fonction avec un profil CPU."
+      },
+      {
+        "question": "Un collègue lit un event loop utilization de 0,95 sur un pod à 4 cœurs et dit que le pod va bien car le CPU n’est qu’à 25 %. Que lui répondez-vous, et que vérifieriez-vous ensuite ?",
+        "bridge": "L’ELU mesure l’occupation de l’unique event loop, pas le CPU du pod : proche de 1, un thread est saturé, quoi que fassent les autres cœurs."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux envoient au dashboard le delay p99 de l’event loop en millisecondes. Lequel des deux envoie le bon chiffre ?",
+        "why": "L’histogramme est en nanosecondes et chaque échantillon inclut l’intervalle d’échantillonnage : `better` divise par 1e6 et soustrait la résolution de 10 ms. `worse` envoie les nanosecondes brutes : une boucle au repos mesurée sur Node 24 affichait 23 969 791, soit environ 14 ms une fois converti, donc le panneau et son seuil d’alerte ne veulent rien dire."
+      }
+    ]
+  },
+  "node-task-queues": {
+    "topic": "Ordre des files Node et nextTick",
+    "question": "Dans Node, dans quel ordre s’exécutent `process.nextTick`, les callbacks de promesses, les timers et `setImmediate`, et pourquoi est-ce important ?",
+    "answer": "Après chaque callback, Node vide deux files prioritaires avant de continuer : d’abord la file nextTick, puis les microtâches de promesses, y compris ce qui s’y ajoute pendant qu’il les vide. Ensuite seulement, la boucle passe par ses phases : timers pour `setTimeout`, poll pour les I/O, check pour `setImmediate`. Donc dans un fichier CommonJS, nextTick passe avant un `.then` déjà résolu, et au top level l’ordre de `setTimeout(f, 0)` et `setImmediate` n’est pas fixe ; dans un callback d’I/O, `setImmediate` gagne toujours. Ça compte quand je rends la main pendant un long traitement : `await setImmediate()` laisse entrer les requêtes, `await Promise.resolve()` non.",
+    "keyPoints": [
+      "Après chaque callback : la file nextTick, puis les microtâches de promesses",
+      "Puis les phases : timers, poll (I/O), check (`setImmediate`)",
+      "Dans un callback d’I/O, `setImmediate` passe avant `setTimeout(f, 0)`",
+      "Des nextTick ou microtâches récursifs affament la boucle"
+    ],
+    "explanation": "Les recruteurs utilisent un snippet « qu’est-ce que ça affiche » pour voir si tu connais les deux files prioritaires de Node, pas seulement le modèle du navigateur. Un senior relie l’ordre à une vraie décision, comment rendre la main pendant un long traitement, et sait pourquoi un module ES affiche autre chose au top level.",
+    "example": "Pour garder l’API Orders réactive pendant l’export CSV de 18 h, un collègue a ajouté `await Promise.resolve()` entre des tranches de 1 000 lignes, et l’API est restée figée : la fonction reprenait dans une microtâche avant que la boucle n’atteigne jamais poll. Passer à `await setImmediate()` de `node:timers/promises` a laissé les requêtes en attente et les timers s’exécuter entre les tranches, et `/health` a de nouveau répondu pendant les exports.",
+    "mistakes": [
+      "Dire que `setTimeout(f, 0)` passe toujours avant `setImmediate` : au top level du module principal, l’ordre n’est pas fixe",
+      "Utiliser `await Promise.resolve()` pour rendre la main, ce qui ne laisse jamais passer les I/O ni les timers",
+      "Appeler `process.nextTick` récursivement, ce qui empêche la boucle d’atteindre un jour les I/O"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qui change dans un module ES ?",
+        "answer": "Au top level d’un module ES, les callbacks de promesses passent avant nextTick, parce que le corps du module est lui-même évalué dans un job de promesse : le snippet classique affiche A F D E au lieu de A F E D. Dans n’importe quel callback, comme un handler de requête ou un timer, nextTick passe toujours en premier."
+      },
+      {
+        "question": "Pourquoi l’ordre de `setTimeout(f, 0)` et `setImmediate` n’est-il pas fixe au top level ?",
+        "answer": "`setTimeout(f, 0)` attend en réalité 1 ms, et que cette milliseconde soit écoulée ou non quand la boucle atteint la phase timers pour la première fois dépend de la vitesse de démarrage du processus. Dans un callback d’I/O, la boucle est en poll et check vient juste après, donc `setImmediate` passe toujours en premier."
+      },
+      {
+        "question": "Pourquoi un `process.nextTick` récursif fige-t-il le processus ?",
+        "answer": "Node vide complètement la file nextTick avant de continuer, y compris les callbacks ajoutés entre-temps. Une fonction qui se reprogramme avec nextTick garde la file pleine, donc timers et I/O ne s’exécutent jamais : sur Node 24, un timer dû à 0 ms a attendu 500 ms pendant que des millions de ticks tournaient."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans un fichier CommonJS, un callback `process.nextTick` s’exécute avant le callback `.then` d’une promesse déjà résolue.",
+        "why": "Après le code courant, Node vide d’abord la file nextTick, puis la file des microtâches de promesses.",
+        "twin": {
+          "statement": "Dans un fichier CommonJS, le callback `.then` d’une promesse déjà résolue s’exécute avant un callback `process.nextTick`.",
+          "why": "Node vide d’abord la file nextTick, puis la file des microtâches de promesses, donc le callback nextTick passe en premier."
+        }
+      },
+      {
+        "statement": "`await Promise.resolve()` entre deux tranches de travail CPU permet de traiter les requêtes en attente.",
+        "why": "La fonction reprend dans une microtâche, qui s’exécute avant que la boucle n’atteigne la phase poll, donc aucune requête n’est lue entre-temps.",
+        "twin": {
+          "statement": "`await setImmediate()` de `node:timers/promises` entre deux tranches de travail CPU permet de traiter les requêtes en attente.",
+          "why": "Il reprend dans la phase check, après que la phase poll a lu et distribué les I/O en attente."
+        }
+      },
+      {
+        "statement": "Un `setImmediate` programmé dans un callback `fs.readFile` s’exécute avant un `setTimeout(f, 0)` programmé dans le même callback.",
+        "why": "Le callback tourne dans la phase poll, et la phase check vient juste après, avant que la boucle ne revienne aux timers.",
+        "twin": {
+          "statement": "Un `setTimeout(f, 0)` programmé dans un callback `fs.readFile` s’exécute avant un `setImmediate` programmé dans le même callback.",
+          "why": "Le callback tourne dans la phase poll, et la phase check vient ensuite, donc `setImmediate` passe en premier."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Node exécute les callbacks dans un ordre fixe : deux files prioritaires après chaque callback, puis les phases de l’event loop. Cet ordre explique des séquences de logs surprenantes, et pourquoi certaines façons de rendre la main laissent entrer les requêtes et d’autres non.",
+      "points": [
+        "En plus de ses phases, Node a deux files prioritaires : la file nextTick pour `process.nextTick`, et la file de microtâches pour les callbacks `.then`, le code après `await` et `queueMicrotask`.",
+        "Après chaque callback, Node vide complètement la file nextTick, puis la file de microtâches, y compris les jobs ajoutés entre-temps. Ensuite seulement, la boucle continue.",
+        "Les phases qui comptent : timers (`setTimeout`, `setInterval`), poll (I/O, nouvelles requêtes) et check (`setImmediate`), qui vient juste après poll.",
+        "Pour laisser entrer les requêtes pendant un long traitement, fais `await setImmediate()` de `node:timers/promises`. `await Promise.resolve()` reprend dans une microtâche, avant poll, donc rien d’autre ne s’exécute.",
+        "Piège : au top level d’un module ES, les promesses passent avant nextTick, parce que le corps du module tourne dans un job de promesse. Dans les callbacks, nextTick passe toujours en premier."
+      ],
+      "takeaways": [
+        {
+          "term": "`process.nextTick`",
+          "detail": "Sa file est vidée en premier après chaque callback, y compris les ticks ajoutés pendant qu’on la vide."
+        },
+        {
+          "term": "Microtâches de promesses",
+          "detail": "`.then`, code après `await` et `queueMicrotask`. Vidées juste après la file nextTick, avant que la boucle continue."
+        },
+        {
+          "term": "Phases de la boucle",
+          "detail": "Timers (`setTimeout`, `setInterval`), puis poll (I/O, nouvelles requêtes), puis check (`setImmediate`)."
+        },
+        {
+          "term": "`setTimeout(f, 0)` ou `setImmediate`",
+          "detail": "Leur ordre n’est pas fixe au top level. Dans un callback d’I/O, `setImmediate` passe toujours en premier."
+        },
+        {
+          "term": "`await setImmediate()`",
+          "detail": "De `node:timers/promises` : laisse poll s’exécuter, donc les requêtes entrent. `await Promise.resolve()` reprend avant poll."
+        },
+        {
+          "term": "Top level d’un module ES",
+          "detail": "Les promesses y passent avant nextTick, parce que le corps du module tourne dans un job de promesse."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Pour garder l’API réactive, un collègue met `await Promise.resolve()` entre des tranches d’un recalcul de prix de 2 secondes. Les requêtes se figent quand même 2 secondes. Pourquoi, et que devrait-il utiliser ?",
+        "bridge": "Une promesse résolue reprend dans une microtâche, vidée avant que la boucle n’atteigne la phase poll ; `setImmediate` s’exécute dans la phase check, après la lecture des I/O."
+      },
+      {
+        "question": "Expliquez à un junior pourquoi les callbacks `process.nextTick` passent avant un `.then` résolu dans un fichier CommonJS, et quand un `nextTick` récursif devient un problème.",
+        "bridge": "Node vide la file nextTick, puis les microtâches de promesses, après chaque callback et avant toute phase : des remplissages sans fin affament donc la boucle."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux construisent des lignes CSV et font une pause toutes les 1 000 commandes pour laisser passer les autres requêtes. Lequel des deux les laisse vraiment passer ?",
+        "why": "`await setImmediate()` reprend dans la phase check, après que la boucle est passée par poll, donc les requêtes en attente et les timers s’exécutent entre les tranches. `await Promise.resolve()` reprend dans une microtâche avant que la boucle continue : sur Node 24, un timer de 0 ms ne s’est déclenché qu’à la fin d’un job de 500 ms, donc `/health` reste figé tout pareil."
+      }
+    ]
+  },
+  "node-blocking-fixes": {
+    "topic": "Sortir le CPU du thread principal",
+    "question": "Un endpoint Node fait un travail CPU lourd et ralentit tout le service. Comment le corrigez-vous ?",
+    "answer": "Je vais du moins cher au plus lourd et je m’arrête au premier correctif suffisant. D’abord, faire moins de travail : la plupart des blocages sont un problème d’algorithme, comme un `find` dans une boucle qui devient une lecture dans une `Map`, un filtrage déplacé en SQL, ou un export streamé. Ensuite, découper le travail en tranches avec `await setImmediate()` entre elles, pour que les requêtes passent entre deux ; ça échoue pour un appel indivisible comme un énorme `JSON.parse`. Troisième étape, un pool de worker threads comme Piscina, pour du CPU lourd impossible à découper. Quatrième, une file et un service worker séparé quand le job prend des secondes ou doit survivre à un redémarrage.",
+    "keyPoints": [
+      "D’abord faire moins de travail : algorithme, SQL, streaming",
+      "Des tranches avec `await setImmediate()` entre elles",
+      "Un pool de workers (Piscina) pour le CPU impossible à découper",
+      "Une file et un service worker pour les jobs longs ou durables"
+    ],
+    "explanation": "Ça montre si tu prends le bon outil ou le plus lourd. Un senior nomme le coût de chaque étape : les tranches allongent le job, les workers copient les données et consomment de la mémoire, une file ajoute un composant à exploiter. Il sait aussi qu’augmenter `UV_THREADPOOL_SIZE` n’accélère jamais du JavaScript lent.",
+    "example": "Dans l’API Orders, un endpoint associait 20 000 commandes à 20 000 paiements avec un `find` imbriqué et bloquait la boucle 3 secondes. Indexer les paiements dans une `Map` l’a rendu linéaire et a réglé le problème sans nouveau composant. Les PDF de factures, 800 ms de CPU chacun en un seul appel, sont partis dans un pool Piscina de 4 threads.",
+    "mistakes": [
+      "Sauter aux worker threads ou à un nouveau service avant de vérifier l’algorithme",
+      "Augmenter `UV_THREADPOOL_SIZE` pour du JavaScript lent : le pool libuv n’exécute jamais ton code",
+      "Rendre la fonction `async`, ce qui laisse le travail sur le thread principal"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi ne pas simplement augmenter `UV_THREADPOOL_SIZE` ?",
+        "answer": "Le pool libuv exécute du travail natif : appels au système de fichiers, `dns.lookup`, crypto et zlib asynchrones. Il n’exécute jamais votre JavaScript, donc un rendu PDF de 800 ms reste sur le thread principal quelle que soit la taille du pool. La solution, c’est un pool de workers ou une file."
+      },
+      {
+        "question": "Que coûte un worker thread ?",
+        "answer": "Chaque worker a son propre moteur V8 et son propre event loop, donc il coûte du temps de démarrage et de la mémoire, et les entrées et résultats sont copiés entre threads. Je garde un pool comme Piscina plutôt qu’un worker par tâche, et j’envoie des données compactes, pas un objet de 100 Mo."
+      },
+      {
+        "question": "Quand choisissez-vous une file plutôt qu’un pool de workers ?",
+        "answer": "Quand le job prend plusieurs secondes ou doit survivre au redémarrage d’un pod, comme un gros export. L’API répond `202 Accepted`, pose un job sur BullMQ ou SQS, et un service worker séparé l’exécute. Un pool de workers libérerait la boucle, mais le job mourrait avec le pod et se disputerait son CPU."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Découper en tranches avec `setImmediate` un unique `JSON.parse` de 150 Mo l’empêche de bloquer la boucle.",
+        "why": "`JSON.parse` est un seul appel synchrone indivisible : limite la taille du body, parse dans un worker, ou utilise un parseur en streaming.",
+        "twin": {
+          "statement": "Un unique `JSON.parse` de 150 Mo bloque l’event loop pendant toute sa durée, quoi qu’on programme autour.",
+          "why": "C’est un seul appel synchrone indivisible, donc le découpage n’aide pas ; limite la taille du body, parse dans un worker ou streame-le."
+        }
+      },
+      {
+        "statement": "Avec Piscina, une erreur levée dans le worker devient une promesse rejetée dans le code appelant.",
+        "why": "`pool.run()` renvoie une promesse qui est rejetée quand la tâche du worker lève une erreur.",
+        "twin": {
+          "statement": "Avec Piscina, une erreur levée dans le worker ne peut pas être attrapée par un `try`/`catch` autour de `await pool.run()`.",
+          "why": "`pool.run()` renvoie une promesse qui est rejetée quand la tâche du worker lève une erreur, donc un `try`/`catch` autour du `await` l’attrape."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Quand un endpoint brûle du CPU sur le thread principal, toutes les autres requêtes du processus attendent derrière lui. Les correctifs vont du moins cher au plus lourd, et on s’arrête au premier qui suffit.",
+      "points": [
+        "Essaie les correctifs du moins cher au plus lourd et arrête-toi au premier qui suffit : faire moins de travail, découper en tranches, utiliser des worker threads, déplacer le job dans une file.",
+        "Faire moins de travail : un `find` dans une boucle est quadratique, une lecture dans une `Map` le rend linéaire. Filtre en SQL, pagine ou streame les gros exports.",
+        "Tranches : traite 1 000 lignes, puis `await setImmediate()` pour que requêtes et timers s’exécutent. Le job prend un peu plus de temps, et un appel indivisible comme `JSON.parse` ne peut pas être découpé.",
+        "Chaque worker thread a son propre moteur V8 et son propre event loop. Un pool comme Piscina les réutilise ; les données sont copiées entre threads, donc envoie des entrées compactes.",
+        "Une file (BullMQ, SQS) et un service worker séparé conviennent aux jobs qui prennent des secondes ou doivent survivre à un redémarrage ; l’API répond `202 Accepted`."
+      ],
+      "takeaways": [
+        {
+          "term": "Faire moins de travail",
+          "detail": "Un `find` dans une boucle est quadratique ; une lecture dans une `Map` le rend linéaire. Filtre en SQL, pagine ou streame les gros exports."
+        },
+        {
+          "term": "Tranches",
+          "detail": "Traite 1 000 lignes, puis `await setImmediate()`. Un appel indivisible comme un énorme `JSON.parse` ne peut pas être découpé."
+        },
+        {
+          "term": "Pool de workers (Piscina)",
+          "detail": "Chaque worker thread a son propre moteur V8 et son propre event loop. Les données sont copiées entre threads, donc envoie des entrées compactes."
+        },
+        {
+          "term": "File et service worker",
+          "detail": "BullMQ ou SQS pour les jobs qui prennent des secondes ou doivent survivre à un redémarrage ; l’API répond `202 Accepted`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "`GET /orders/stats` boucle sur 40 000 commandes et appelle `products.find()` pour chacune ; pendant ce temps, le checkout part en timeout. Que changez-vous, et dans quel ordre envisagez-vous les correctifs ?",
+        "bridge": "CPU lourd sur le thread principal : d’abord faire moins de travail, ici une lecture dans une `Map` au lieu d’un `find` imbriqué, puis tranches, pool de workers ou file seulement si c’est encore nécessaire."
+      },
+      {
+        "question": "Quand ne prendriez-vous pas un pool de worker threads pour corriger un endpoint lent, et qu’essaieriez-vous d’abord ?",
+        "bridge": "Les workers sont la troisième étape : un correctif d’algorithme, de SQL ou de streaming et le découpage avec `setImmediate` coûtent moins cher, et les jobs longs ou durables demandent plutôt une file."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux rattachent son paiement à chaque commande, pour 20 000 commandes et 20 000 paiements. Lequel des deux laisse l’event loop libre ?",
+        "why": "La `Map` est construite une fois, puis chaque lecture prend un temps constant : environ 4 ms pour 20 000 commandes sur Node 24. `find` dans `map` reparcourt les paiements pour chaque commande, jusqu’à 400 millions de comparaisons : environ 0,7 s sur la même machine, pendant lesquelles toutes les autres requêtes du processus attendent."
+      }
+    ]
+  },
+  "node-multi-core": {
+    "topic": "Utiliser plus de cœurs avec Node",
+    "question": "Un processus Node utilise un seul cœur pour votre JavaScript. Comment utilisez-vous plus de cœurs : réplicas, `cluster` ou worker threads ?",
+    "answer": "Sur Kubernetes, le défaut, c’est un processus Node par conteneur et plus de réplicas derrière le load balancer : l’orchestrateur redémarre déjà les processus plantés, répartit le trafic et mesure chaque processus. L’état comme les sessions ou le rate limiting part dans Redis ou la base. Les worker threads, souvent via Piscina, servent aux tâches CPU lourdes ponctuelles, comme les PDF ou les images. `cluster` ou le mode cluster de PM2 forke des copies qui partagent un port, ce qui convient à une VM sans orchestrateur ; dans un pod, ça cache à Kubernetes les crashs et la consommation. Je dimensionne avec le CPU du thread principal par requête : 20 ms, c’est environ 50 requêtes par seconde.",
+    "keyPoints": [
+      "En conteneurs : un processus par pod, on scale avec les réplicas",
+      "Worker threads pour les tâches CPU lourdes ponctuelles",
+      "`cluster` ou PM2 seulement sur VM ; ils cachent les crashs à Kubernetes",
+      "Le CPU du thread principal par requête fixe le plafond de chaque processus"
+    ],
+    "explanation": "Ça vérifie que ta connaissance de Node correspond à la façon dont les services tournent en 2026. Une réponse senior part de l’orchestrateur par défaut, explique pourquoi un gestionnaire de processus dans un pod est nuisible, et fait le calcul de capacité à partir du temps CPU mesuré par requête.",
+    "example": "Avant le Black Friday, le profilage a montré que l’API Orders utilisait environ 20 ms de CPU du thread principal par requête, donc un processus plafonnait vers 50 requêtes par seconde. Pour les 400 requêtes par seconde attendues, l’équipe a lancé 12 réplicas mono-processus, 8 plus de la marge, au lieu de PM2 dans les pods, et a déplacé les compteurs de rate limiting dans Redis.",
+    "mistakes": [
+      "Lancer le mode cluster de PM2 dans des pods Kubernetes « pour utiliser tous les cœurs »",
+      "Attendre de réplicas supplémentaires qu’ils corrigent un endpoint bloquant : chaque réplica fige toujours ses propres requêtes",
+      "Garder sessions ou compteurs de rate limiting en mémoire du processus alors qu’il y a plusieurs processus"
+    ],
+    "followUps": [
+      {
+        "question": "Combien de réplicas pour 600 requêtes par seconde à 25 ms de CPU chacune ?",
+        "answer": "Un thread principal donne au maximum 1000 / 25 = 40 requêtes par seconde, donc 600 / 40 = 15 réplicas avant marge. Les connexions ouvertes coûtent peu ; c’est le temps CPU qui limite un processus. J’ajouterais de la marge et je confirmerais avec un test de charge."
+      },
+      {
+        "question": "Quand `cluster` reste-t-il le bon outil ?",
+        "answer": "Sur une VM sans orchestrateur, où il faut bien que quelque chose lance plusieurs processus, partage le port d’écoute et redémarre ceux qui plantent : le primaire forke les workers. On le croise aussi dans des codebases existantes. En conteneurs, je le remplace par un processus par pod et plus de réplicas."
+      },
+      {
+        "question": "Les worker threads aident-ils une API chargée mais qui ne fait pas de CPU lourd ?",
+        "answer": "Non. Attendre PostgreSQL ou un appel HTTP ne coûte aucun thread, donc une API limitée par les I/O ne gagne rien aux workers ; elle a besoin de plus de processus seulement quand le CPU du thread principal par requête est épuisé. Les workers sont rentables pour des tâches lourdes ponctuelles comme le rendu de PDF."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Sur Kubernetes, la façon habituelle d’utiliser plus de cœurs est un processus Node par conteneur et plus de réplicas.",
+        "why": "L’orchestrateur redémarre, équilibre et mesure alors chaque processus ; un gestionnaire de processus dans le pod ferait doublon.",
+        "twin": {
+          "statement": "Sur Kubernetes, la façon habituelle d’utiliser plus de cœurs est le module `cluster` dans chaque pod.",
+          "why": "La façon habituelle est un processus Node par conteneur et plus de réplicas, pour que l’orchestrateur redémarre, équilibre et mesure chacun."
+        }
+      },
+      {
+        "statement": "Lancer le mode cluster de PM2 dans chaque pod donne à Kubernetes une meilleure visibilité sur les processus plantés.",
+        "why": "PM2 redémarre lui-même les processus plantés, donc Kubernetes ne voit jamais le crash, et les métriques et limites par processus se brouillent.",
+        "twin": {
+          "statement": "Lancer le mode cluster de PM2 dans un pod cache les processus plantés à Kubernetes, parce que PM2 les redémarre lui-même.",
+          "why": "Kubernetes ne voit jamais le crash, et les métriques et limites par processus se mélangent."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un processus Node exécute ton JavaScript sur un seul thread principal, donc il n’utilise qu’un cœur pour ça. Utiliser plus de cœurs, c’est choisir entre réplicas, worker threads et `cluster`, selon l’endroit où tourne le service.",
+      "points": [
+        "Un processus Node exécute ton JavaScript sur un seul thread principal, donc le CPU du thread principal par requête fixe son plafond : 20 ms par requête, c’est environ 50 requêtes par seconde.",
+        "Plus de réplicas : un processus par conteneur, mis à l’échelle par Kubernetes derrière un load balancer. C’est le défaut en 2026 ; sessions et rate limiting doivent alors vivre dans Redis ou la base.",
+        "Les worker threads (`worker_threads`, souvent via Piscina) tournent dans un processus, chacun avec son propre moteur V8 et son propre event loop. À utiliser pour les tâches CPU lourdes ponctuelles : PDF, images, parsing.",
+        "`cluster` ou le mode cluster de PM2 forke des copies qui partagent le port d’écoute. Ça convient aux VM sans orchestrateur ; dans un pod, ça cache à Kubernetes les crashs et la consommation de ressources.",
+        "Les réplicas ne corrigent pas un endpoint bloquant : dans chaque réplica, le handler lent fige toujours les autres requêtes de ce processus."
+      ],
+      "takeaways": [
+        {
+          "term": "CPU du thread principal par requête",
+          "detail": "Fixe le plafond de chaque processus : 20 ms par requête, c’est environ 50 requêtes par seconde."
+        },
+        {
+          "term": "Réplicas",
+          "detail": "Le défaut sur Kubernetes : un processus par conteneur. Sessions et rate limiting doivent alors vivre dans Redis ou la base."
+        },
+        {
+          "term": "Worker threads",
+          "detail": "Dans un processus, souvent via Piscina, pour les tâches CPU lourdes ponctuelles : PDF, images, parsing."
+        },
+        {
+          "term": "`cluster` ou mode cluster de PM2",
+          "detail": "Forke des copies qui partagent le port d’écoute. Convient aux VM ; dans un pod, ça cache à Kubernetes les crashs et la consommation de ressources."
+        },
+        {
+          "term": "Endpoint bloquant",
+          "detail": "Les réplicas ne le corrigent pas : dans chaque réplica, le handler lent fige toujours les autres requêtes de ce processus."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’API Orders tourne sur des nœuds à 8 cœurs, mais chaque pod plafonne à un cœur alors que le trafic augmente. Un coéquipier propose d’ajouter le mode cluster de PM2 dans le conteneur. Que recommandez-vous à la place ?",
+        "bridge": "Un processus Node exécute le JavaScript sur un cœur ; sur Kubernetes, plus de cœurs, c’est plus de réplicas, et un gestionnaire de processus dans le pod lui cache les crashs."
+      },
+      {
+        "question": "Comparez les réplicas, le module `cluster` et les worker threads : quand chacun convient-il ?",
+        "bridge": "Trois façons d’utiliser plus de cœurs : réplicas en conteneurs, `cluster` ou PM2 sur une VM sans orchestrateur, worker threads pour les tâches CPU lourdes ponctuelles."
+      }
+    ]
+  },
+  "node-builtins": {
+    "topic": "Ce que Node 24 fait sans packages",
+    "question": "Que peut faire Node 24 sans dépendance supplémentaire, et quels packages cela remplace-t-il ?",
+    "answer": "L’essentiel de l’ancienne chaîne d’outils de développement. `node app.ts` exécute du TypeScript en retirant les types, donc `ts-node` disparaît, mais il ne vérifie jamais les types et refuse la syntaxe qui génère du code, comme `enum` : je garde `tsc --noEmit` en CI. `--env-file=.env` remplace `dotenv` en local, et une variable déjà définie dans l’environnement l’emporte sur le fichier. `--watch` remplace nodemon. `fetch` et `WebSocket` sont globaux, donc plus de `node-fetch`. `node:test` est un test runner intégré, même si la plupart des équipes produit restent sur Vitest. Et `--permission` limite l’accès au système de fichiers et aux processus enfants pour les scripts : une ceinture de sécurité, pas une sandbox.",
+    "keyPoints": [
+      "Le type stripping exécute les fichiers `.ts` mais ne vérifie jamais les types",
+      "`enum` et les parameter properties échouent ; garder `tsc --noEmit` en CI",
+      "`--env-file` et `--watch` remplacent dotenv et nodemon",
+      "`fetch` global, `node:test`, `--permission` comme ceinture de sécurité"
+    ],
+    "explanation": "Les recruteurs vérifient si tu suis l’évolution du runtime ou si tu traînes de vieilles dépendances. Le point senior, c’est le compromis du type stripping : une étape de build en moins, mais pas de vérification de types et pas d’`enum`, d’où les objets `as const` et les types union dans le code moderne.",
+    "example": "En nettoyant l’API Orders, l’équipe a retiré `ts-node`, `dotenv`, `nodemon` et `node-fetch` : le développement local est devenu `node --watch --env-file=.env src/server.ts`. Le premier lancement a échoué avec `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` sur un `enum OrderStatus`, devenu un objet `as const` avec un type union, et `tsc --noEmit` est resté en CI.",
+    "mistakes": [
+      "Croire que `node app.ts` vérifie les types ou lit `tsconfig.json`",
+      "Traiter `--permission` comme une sandbox pour du code non fiable ; dans Node 24, il ne restreint même pas l’accès réseau",
+      "S’attendre à ce que `.env` écrase une variable déjà définie dans l’environnement"
+    ],
+    "followUps": [
+      {
+        "question": "Quelle version de Node feriez-vous tourner en production aujourd’hui ?",
+        "answer": "Node 26 est Active LTS depuis le 28 octobre 2026, et Node 24 est passé en Maintenance LTS le 20 octobre 2026, avec un support jusqu’en avril 2028. La plupart des services tournent en 24 aujourd’hui ; je planifierais le passage en 26 courant 2027."
+      },
+      {
+        "question": "Pourquoi le type stripping refuse-t-il `enum` ?",
+        "answer": "Le stripping ne fait qu’effacer les annotations de type. Un `enum` produit du JavaScript au runtime, il faudrait donc générer du code, et c’est pareil pour les parameter properties des constructeurs. Node échoue avec `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` ; j’utilise à la place des objets `as const` et des types union."
+      },
+      {
+        "question": "Que restreint `--permission` ?",
+        "answer": "Le système de fichiers, les processus enfants, les worker threads, les addons natifs et WASI, sauf autorisation via des flags comme `--allow-fs-read=./data`. Dans Node 24, il ne restreint pas l’accès réseau : un fetch fonctionnait toujours. La doc parle d’une ceinture de sécurité pour du code de confiance, pas d’une sandbox."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Avec `PORT=9000 node --env-file=.env server.ts` et `PORT=3000` dans le fichier, `process.env.PORT` vaut \"9000\".",
+        "why": "Une variable déjà définie dans l’environnement l’emporte sur celle du fichier.",
+        "twin": {
+          "statement": "Avec `PORT=9000 node --env-file=.env server.ts` et `PORT=3000` dans le fichier, `process.env.PORT` vaut \"3000\".",
+          "why": "Une variable déjà définie dans l’environnement l’emporte sur le fichier, donc elle vaut \"9000\"."
+        }
+      },
+      {
+        "statement": "Sur Node 24, `node app.ts` signale les erreurs de type avant d’exécuter le fichier.",
+        "why": "Node ne fait que retirer les types et ne les vérifie jamais ; la vérification revient à `tsc --noEmit` en CI.",
+        "twin": {
+          "statement": "Sur Node 24, `node app.ts` exécute un fichier qui contient des erreurs de type sans les signaler.",
+          "why": "Node ne fait que retirer les types et ne les vérifie jamais ; la vérification revient à `tsc --noEmit` en CI."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Node 24 embarque une bonne partie de l’ancienne chaîne d’outils de développement : il exécute du TypeScript, charge les fichiers `.env`, surveille les fichiers, fait des fetch et des tests. Connaître les limites de chaque outil intégré te dit quels packages tu peux retirer.",
+      "points": [
+        "Type stripping : `node app.ts` exécute du TypeScript en effaçant les types. Il ne vérifie jamais les types, ignore `tsconfig.json`, et refuse `enum` et les parameter properties avec `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`.",
+        "`--env-file=.env` charge les variables avant le démarrage de ton code, et `process.loadEnvFile()` le fait depuis le code. Une variable déjà définie dans le vrai environnement l’emporte sur le fichier.",
+        "`--watch` redémarre sur les changements à la place de nodemon ; `fetch` et `WebSocket` sont globaux ; `node --test` lance le runner intégré `node:test`, même si la plupart des équipes gardent Vitest.",
+        "`--permission` bloque le système de fichiers, les processus enfants, les workers, les addons et WASI sauf autorisation. Il ne restreint pas le réseau dans Node 24 : une ceinture de sécurité, pas une sandbox.",
+        "Node 26 est Active LTS depuis le 28 octobre 2026 ; Node 24 est en Maintenance LTS jusqu’en avril 2028."
+      ],
+      "takeaways": [
+        {
+          "term": "`node app.ts`",
+          "detail": "Le type stripping efface les types. Il ne vérifie jamais les types et ignore `tsconfig.json` : garde `tsc --noEmit` en CI."
+        },
+        {
+          "term": "`ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`",
+          "detail": "Levée pour la syntaxe qui génère du code, comme `enum` et les parameter properties."
+        },
+        {
+          "term": "`--env-file=.env`",
+          "detail": "Remplace dotenv ; `process.loadEnvFile()` le fait depuis le code. Une variable déjà définie dans l’environnement l’emporte."
+        },
+        {
+          "term": "`--watch`",
+          "detail": "Redémarre le processus quand les fichiers changent, à la place de nodemon."
+        },
+        {
+          "term": "Globaux et `node --test`",
+          "detail": "`fetch` et `WebSocket` sont globaux ; `node --test` lance le runner intégré `node:test`, même si la plupart des équipes gardent Vitest."
+        },
+        {
+          "term": "`--permission`",
+          "detail": "Bloque système de fichiers, processus enfants, workers, addons et WASI sauf autorisation ; pas le réseau dans Node 24."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’API Orders tourne avec `node src/server.ts` sur Node 24, et un mauvais type dans `createOrder` est arrivé en production sans aucune erreur. Comment est-ce possible, et qu’ajoutez-vous ?",
+        "bridge": "Node exécute le TypeScript en retirant les types et ne les vérifie jamais, donc la vérification doit tourner à part, avec `tsc --noEmit` en CI."
+      },
+      {
+        "question": "Un nouveau coéquipier installe `ts-node`, `dotenv`, `nodemon` et `node-fetch` dans un service Node 24 tout neuf. Lesquels Node couvre-t-il déjà, et avec quelles limites ?",
+        "bridge": "Les outils intégrés de Node 24 les remplacent : type stripping, `--env-file`, `--watch` et `fetch` global, chacun avec ses limites, comme l’absence de vérification de types."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux déclarent les statuts de commande dans un fichier que le service lance avec `node src/server.ts` sur Node 24. Lequel des deux démarre ?",
+        "why": "Le type stripping ne fait qu’effacer les types, et un objet `as const` avec un type union est du JavaScript pur une fois effacé. Un `enum` génère du code au runtime, donc Node 24 refuse le fichier avec `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`, « TypeScript enum is not supported in strip-only mode », et le service ne démarre jamais."
+      }
+    ]
+  },
+  "node-framework-choice": {
+    "topic": "NestJS, Fastify ou Express",
+    "question": "Comment choisissez-vous entre NestJS, Fastify et Express pour un nouveau service Node en 2026 ?",
+    "answer": "Je commence par distinguer deux types d’outils. Express, Fastify et Hono sont des frameworks HTTP : ils routent les requêtes vers des handlers et exécutent du code commun autour. NestJS est un framework applicatif qui tourne sur Express ou Fastify via un adaptateur : modules, conteneur d’injection de dépendances, et emplacements nommés comme les guards, les pipes et les filters. Le choix dépend donc de la taille et de la structure de l’équipe, pas des benchmarks. Plusieurs squads dans une même codebase : NestJS, pour une structure imposée. Un service léger : Fastify, avec validation par schéma, logs pino et arrêt propre intégrés. Une codebase Express existante reste sur Express 5. Runtimes edge : Hono.",
+    "keyPoints": [
+      "Framework HTTP contre framework applicatif",
+      "NestJS tourne sur Express ou Fastify via un adaptateur",
+      "NestJS quand plusieurs squads partagent une codebase",
+      "Fastify pour les services légers ; Hono pour les runtimes edge"
+    ],
+    "explanation": "Il n’y a pas de bonne réponse unique, donc le recruteur écoute tes critères : taille de l’équipe, besoin d’une structure commune, ce que tu obtiens gratuitement et ce que tu écris toi-même. Un senior nomme aussi le coût de NestJS : décorateurs, étape de build et indirection.",
+    "example": "Quand l’API Orders a débordé d’un fichier Express de 4 000 lignes, trois squads travaillaient dedans : l’équipe a choisi NestJS 12 sur l’adaptateur Fastify, pour une structure de modules que tout le monde suit. Un petit endpoint pour le transporteur, déployé en Cloudflare Worker, a été écrit avec Hono.",
+    "mistakes": [
+      "Choisir sur un benchmark de requêtes par seconde plutôt que sur les besoins de l’équipe et de structure",
+      "Décrire NestJS comme un remplaçant d’Express plutôt qu’une couche qui tourne par-dessus",
+      "Ajouter NestJS à un tout petit service qui ne gagne rien à un conteneur d’injection"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qui a changé dans Express 5 et compte au quotidien ?",
+        "answer": "Depuis la version 5, une promesse rejetée par un handler async atteint l’error handler. Un `await` qui échoue n’a plus besoin d’un `try`/`catch` et d’un `next(error)` dans chaque route pour éviter un rejet non géré."
+      },
+      {
+        "question": "Qu’est-ce que Fastify vous apporte d’emblée ?",
+        "answer": "Des hooks nommés autour de chaque requête, la validation et la sérialisation par JSON Schema, l’encapsulation des plugins, les logs pino, `inject()` pour tester les routes sans réseau, et une séquence de fermeture intégrée pour l’arrêt."
+      },
+      {
+        "question": "Quand n’utiliseriez-vous pas NestJS ?",
+        "answer": "Pour un petit service, une fonction edge, ou une équipe qui préfère un câblage explicite. Nest apporte une structure commune et un conteneur au prix de décorateurs, d’une étape de build et d’indirection ; avec Fastify ou Express, je câble plutôt les dépendances dans une seule composition root."
+      },
+      {
+        "question": "Quelle version de NestJS vous attendez-vous à trouver dans une codebase ?",
+        "answer": "NestJS 12 est sorti en août 2026, donc la plupart des codebases tournent encore en 11. Nest 12.3 a ajouté un `NodeAdapter` qui fait tourner Nest directement sur `node:http`, annoncé comme le défaut de Nest 13, mais cette année on croise surtout les adaptateurs Express et Fastify."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "L’adaptateur HTTP par défaut de NestJS 12 est Fastify.",
+        "why": "Express est le défaut (`@nestjs/platform-express`) ; Fastify est un adaptateur officiel qu’on active explicitement.",
+        "twin": {
+          "statement": "L’adaptateur HTTP par défaut de NestJS 12 est Express.",
+          "why": "Express est le défaut (`@nestjs/platform-express`) ; Fastify est un adaptateur officiel qu’on active explicitement."
+        }
+      },
+      {
+        "statement": "Hono tourne sur Cloudflare Workers et sur Node parce qu’il repose sur les standards Web `Request` et `Response`.",
+        "why": "Il n’utilise que des standards Web, et tourne sur Node via `@hono/node-server`.",
+        "twin": {
+          "statement": "Hono ne peut pas tourner sur Cloudflare Workers parce qu’il dépend d’API propres à Node.",
+          "why": "Hono repose uniquement sur les standards Web `Request` et `Response`, donc il tourne sur Workers, et sur Node via `@hono/node-server`."
+        }
+      },
+      {
+        "statement": "Dans Express 5, une promesse rejetée par un handler de route async atteint l’error handler sans `try`/`catch`.",
+        "why": "Express 5 transmet les rejets des handlers async au middleware de gestion des erreurs.",
+        "twin": {
+          "statement": "Dans Express 5, une promesse rejetée par un handler de route async est perdue si le handler n’a pas son propre `try`/`catch`.",
+          "why": "Express 5 transmet les rejets des handlers async au middleware de gestion des erreurs."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Express, Fastify et Hono routent les requêtes HTTP ; NestJS est un framework applicatif qui tourne par-dessus l’un d’eux. Le bon choix dépend de la taille et de la structure de l’équipe plus que des benchmarks.",
+      "points": [
+        "Un framework HTTP (Express, Fastify, Hono) route chaque requête vers un handler et exécute du code commun autour. Un framework applicatif (NestJS) ajoute des modules, un conteneur d’injection et des emplacements de requête.",
+        "NestJS ne gère pas le HTTP lui-même : il tourne sur Express (le défaut) ou Fastify via un adaptateur. NestJS 12 est sorti en août 2026, donc beaucoup de codebases tournent encore en 11.",
+        "Fastify 5 intègre la validation par JSON Schema, les logs pino, l’encapsulation des plugins, `inject()` pour les tests et une séquence de fermeture. Express 5 envoie les rejets des handlers async à l’error handler.",
+        "Hono repose sur les standards Web `Request` et `Response`, donc il tourne sur Cloudflare Workers, Deno, Bun, AWS Lambda et Node.",
+        "Choisis selon l’équipe et la structure, pas les benchmarks : NestJS pour plusieurs squads dans une codebase, Fastify ou Express avec ton propre câblage pour un petit service, Hono pour l’edge."
+      ],
+      "takeaways": [
+        {
+          "term": "Framework HTTP",
+          "detail": "Express, Fastify, Hono : routent chaque requête vers un handler et exécutent du code commun autour."
+        },
+        {
+          "term": "NestJS",
+          "detail": "Ajoute modules, conteneur d’injection et emplacements de requête. Tourne sur Express (le défaut) ou Fastify via un adaptateur."
+        },
+        {
+          "term": "Fastify 5",
+          "detail": "Intègre validation par JSON Schema, logs pino, encapsulation des plugins, `inject()` pour les tests et une séquence de fermeture."
+        },
+        {
+          "term": "Express 5",
+          "detail": "Envoie les rejets des handlers async à l’error handler. Une codebase Express existante y reste."
+        },
+        {
+          "term": "Hono",
+          "detail": "Repose sur les standards Web `Request` et `Response` : tourne sur Cloudflare Workers, Deno, Bun, AWS Lambda et Node."
+        },
+        {
+          "term": "Choisir",
+          "detail": "NestJS pour plusieurs squads dans une codebase, Fastify pour un service léger, Hono pour les runtimes edge."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La boutique découpe l’API Orders en un service de paiement porté par une équipe et une API back-office partagée par trois squads. Quel framework choisiriez-vous pour chacun, et pourquoi ?",
+        "bridge": "Le choix suit la structure de l’équipe : NestJS donne à plusieurs squads une structure imposée, Fastify convient à un service léger."
+      },
+      {
+        "question": "Un collègue dit que NestJS est plus lent que Fastify, donc qu’il ne faut jamais l’utiliser. Qu’est-ce qui cloche dans cette comparaison ?",
+        "bridge": "NestJS est un framework applicatif qui tourne sur Express ou Fastify via un adaptateur : ce n’est pas un framework HTTP concurrent à benchmarker."
+      }
+    ]
+  },
+  "node-service-layers": {
+    "topic": "Controller, use case, repository",
+    "question": "Comment structurez-vous l’intérieur d’un service Node : que mettez-vous dans le controller, le use case et le repository ?",
+    "answer": "Chaque responsabilité a un seul endroit. Le controller traduit le HTTP : il lit params et body, valide leur forme et choisit le code de statut, sans SQL ni règle métier. Le use case, souvent appelé service, porte la règle, comme « seule une commande payée peut être annulée », et ne connaît ni HTTP ni SQL ; il lève des erreurs métier qu’un seul endroit traduit en réponses. Le repository gère le stockage : requêtes et mapping des lignes en objets. Avec ports et adapters, le use case déclare des interfaces comme `OrderRepository`, que des adapters Postgres ou Stripe implémentent : un controller, un consommateur de file et un test unitaire appellent la même règle.",
+    "keyPoints": [
+      "Controller : entrée et sortie HTTP, validation de forme, codes de statut",
+      "Use case : règles métier, pas de HTTP, pas de SQL",
+      "Repository : requêtes et mapping des lignes uniquement",
+      "Les ports appartiennent au cœur ; les adapters les implémentent"
+    ],
+    "explanation": "Ça révèle si tu as su garder maintenable un service qui grossit. Un senior explique le bénéfice, une seule règle appelée depuis le HTTP, une file et les tests, et aussi quand s’en passer : un CRUD simple sans règles n’a besoin que d’un controller fin au-dessus d’un repository.",
+    "example": "Dans l’API Orders, `POST /orders/:id/cancel` contenait dans un seul handler le SQL, la règle « payée uniquement » et le 409. Quand un consommateur Kafka a dû annuler des commandes lui aussi, la règle est passée dans un use case `cancelOrder` qui n’importe aucun framework ; le controller et le consommateur l’appellent tous les deux, et son test unitaire tourne avec des fakes en mémoire, sans base.",
+    "mistakes": [
+      "Renvoyer des codes de statut HTTP ou lire la requête dans le use case",
+      "Mettre une règle métier dans un guard, ou seulement dans le SQL du repository",
+      "Ajouter un port et une interface par classe sur des chemins CRUD simples sans règles"
+    ],
+    "followUps": [
+      {
+        "question": "D’où vient le 409 pour une commande non annulable ?",
+        "answer": "Le use case lève une erreur métier comme `OrderNotCancellableError`, qui ne porte aucun statut HTTP. Un seul error mapper, appelé depuis un filtre global ou un error handler, la transforme en réponse 409 Problem Details, donc toutes les routes traduisent les erreurs de la même façon."
+      },
+      {
+        "question": "Un port, est-ce la même chose qu’un repository ?",
+        "answer": "Un port est l’interface que le cœur déclare, comme `OrderRepository` avec `findById` et `save`. La classe Postgres qui exécute le SQL est un adapter qui l’implémente. Le cœur n’importe jamais de driver, donc un test peut passer un fake."
+      },
+      {
+        "question": "Découperiez-vous le service en microservices pour imposer ces frontières ?",
+        "answer": "Pas en premier : découper du code emmêlé donne des services emmêlés, plus les pannes réseau. Je construirais un monolithe modulaire où chaque module possède ses tables et expose une petite API, je vérifierais les frontières en CI avec une règle de lint, et j’extrairais un module plus tard pour une raison de scaling, de déploiement ou d’ownership."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un use case ne devrait importer ni le framework HTTP ni le driver de base de données.",
+        "why": "C’est ce qui permet à un controller, à un consommateur de file et à un test unitaire avec des fakes d’appeler la même règle.",
+        "twin": {
+          "statement": "Un use case peut importer directement le driver de base de données, tant qu’il n’importe pas le framework HTTP.",
+          "why": "Un use case n’importe ni l’un ni l’autre : le stockage passe par un repository qu’il déclare, pour qu’un test unitaire puisse passer un fake."
+        }
+      },
+      {
+        "statement": "La règle « seule une commande payée peut être annulée » a sa place dans un guard, pour que le handler ne s’exécute jamais pour les commandes impayées.",
+        "why": "Les guards servent à l’authentification et à l’autorisation ; les règles métier vont dans le use case pour que chaque appelant les applique.",
+        "twin": {
+          "statement": "La règle « seule une commande payée peut être annulée » a sa place dans le use case, pour que chaque appelant l’applique.",
+          "why": "Les guards servent à l’authentification et à l’autorisation ; une règle métier dans le use case couvre aussi bien le HTTP que les consommateurs de file et les tests."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Dans un service Node, chaque responsabilité a un seul endroit : le HTTP dans le controller, les règles métier dans le use case, le stockage dans le repository. Ce découpage permet à une route, à un consommateur de file et à un test d’appeler la même règle.",
+      "points": [
+        "Le controller traduit le HTTP en appel et inversement : il lit params et body, valide leur forme et choisit le code de statut. Il ne contient ni SQL ni règle métier.",
+        "Le use case (souvent appelé service) porte la règle métier, comme « seule une commande payée peut être annulée ». Il ne connaît ni HTTP ni SQL et lève des erreurs métier.",
+        "Le repository gère le stockage : requêtes et mapping des lignes en objets. Il ne connaît ni HTTP ni règles métier.",
+        "Ports et adapters : le cœur déclare les interfaces dont il a besoin (les ports, comme `OrderRepository`) ; le code Postgres, Stripe, HTTP ou Kafka (les adapters) les implémente ou les appelle.",
+        "Utilise des ports là où il y a des règles ou des systèmes externes. Un CRUD simple sans règles n’a besoin que d’un controller fin au-dessus d’un repository."
+      ],
+      "takeaways": [
+        {
+          "term": "Controller",
+          "detail": "Lit params et body, valide leur forme, choisit le code de statut. Pas de SQL, pas de règles métier."
+        },
+        {
+          "term": "Use case (service)",
+          "detail": "Porte des règles comme « seule une commande payée peut être annulée » ; ne connaît ni HTTP ni SQL et lève des erreurs métier."
+        },
+        {
+          "term": "Repository",
+          "detail": "Requêtes et mapping des lignes en objets ; ne connaît ni HTTP ni règles métier."
+        },
+        {
+          "term": "Port",
+          "detail": "Une interface que le cœur déclare et possède pour ce dont il a besoin de l’extérieur, comme `OrderRepository`."
+        },
+        {
+          "term": "Adapter",
+          "detail": "Code Postgres, Stripe, HTTP ou Kafka qui implémente ou appelle un port."
+        },
+        {
+          "term": "CRUD simple",
+          "detail": "Pas de règles, pas de ports : un controller fin au-dessus d’un repository suffit."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "La règle « annuler une commande » vit dans le controller HTTP, et le nouveau consommateur de file pour les annulations la contourne, si bien que des commandes expédiées sont annulées. Comment restructurez-vous le code ?",
+        "bridge": "Les règles métier vont dans un use case qui ne connaît ni HTTP ni SQL : le controller, le consommateur et les tests appellent la même règle."
+      },
+      {
+        "question": "Expliquez à un junior ce que veulent dire ports et adapters dans un service Node, avec l’API Orders comme exemple.",
+        "bridge": "Le use case possède des interfaces comme `OrderRepository` ; des adapters Postgres ou Stripe les implémentent, donc le stockage et le HTTP restent hors des règles."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux annulent une commande dans le use case qu’appellent à la fois la route HTTP et un consommateur Kafka. Lequel des deux a sa place dans le use case ?",
+        "why": "`better` lève des erreurs métier qu’un seul error mapper transforme en 404 ou 409 : la route, le consommateur Kafka et un test unitaire avec des fakes appellent la même règle. `worse` a besoin d’une `Response` Express : le consommateur n’en a aucune à passer, donc la règle y est recopiée et les deux copies divergent."
+      }
+    ]
+  },
+  "node-config-validation": {
+    "topic": "Valider la configuration au démarrage",
+    "question": "Comment gérez-vous la configuration d’un service Node pour qu’un mauvais déploiement échoue vite ?",
+    "answer": "Je parse l’environnement une seule fois, au démarrage, en un objet typé, et rien d’autre dans le code ne lit `process.env`. Un schéma Zod décrit chaque variable : `DATABASE_URL` doit être une URL, `PORT` un entier dans une plage valide. Si quelque chose manque ou est mal formé, le processus refuse de démarrer et liste tous les problèmes : le déploiement échoue en quelques secondes, pas à la première commande à 3 h du matin. Les valeurs d’environnement sont des chaînes, donc je surveille deux pièges : `z.coerce.number()` transforme un `PORT` vide en 0, et `z.coerce.boolean()` transforme \"false\" en true. Les secrets viennent d’un gestionnaire de secrets au runtime, jamais de l’image.",
+    "keyPoints": [
+      "Parser l’environnement une fois au démarrage en un objet typé",
+      "Config invalide : lister tous les problèmes et quitter",
+      "Seul le module de config lit `process.env`",
+      "Pièges de coercition : chaîne vide en 0, \"false\" en true"
+    ],
+    "explanation": "Ça teste la maturité opérationnelle : une mauvaise configuration se voit-elle au déploiement ou en incident de production ? Un senior connaît les pièges de coercition des chaînes, garde un seul objet de config typé, et tient les secrets hors de l’image.",
+    "example": "Un déploiement de l’API Orders a oublié `DATABASE_URL` ; les pods ont démarré normalement et la première commande de la nuit a échoué à 3 h du matin. Avec un schéma Zod vérifié au démarrage, la même erreur a fait loguer au processus `Invalid input` pour `DATABASE_URL` et quitter avec le code 1 : le mauvais déploiement suivant a échoué en quelques secondes, avant qu’aucun client ne soit touché.",
+    "mistakes": [
+      "Lire `process.env` partout dans le code, si bien qu’une variable manquante n’échoue que quand son chemin de code s’exécute",
+      "Utiliser `z.coerce.boolean()` pour des flags, qui lit \"false\" comme true ; utilise `z.stringbool()`",
+      "Graver les secrets dans l’image avec une ligne `ENV`, même dans un registry privé"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi `PORT=` (vide) donne-t-il 0 au lieu de la valeur par défaut ?",
+        "answer": "`z.coerce.number()` appelle `Number('')`, qui vaut 0, et `.default` ne s’applique qu’à `undefined`. Mesuré sur Zod 4.6.7, y compris via `@nestjs/config`. Je retire les valeurs vides avant de parser, pour qu’une variable vide compte comme manquante."
+      },
+      {
+        "question": "À quoi ça ressemble dans NestJS ?",
+        "answer": "`ConfigModule.forRoot({ isGlobal: true, validationSchema: EnvSchema })` de `@nestjs/config` 12 prend directement le schéma Zod. Avec une variable manquante, Nest logue `Config validation error` avec une ligne par problème et le processus quitte avec le code 1."
+      },
+      {
+        "question": "D’où viennent les secrets comme la clé Stripe ?",
+        "answer": "D’un gestionnaire de secrets comme AWS Secrets Manager ou Vault, fournis au runtime en variables d’environnement ou en fichiers montés. Jamais d’une ligne `ENV` dans le Dockerfile : elle persiste dans l’image, donc une clé trouvée là a fuité et doit être renouvelée."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`z.coerce.boolean().parse('false')` renvoie `false`.",
+        "why": "La coercition fait `Boolean('false')`, et toute chaîne non vide est truthy, donc ça renvoie `true` ; utilise `z.stringbool()`.",
+        "twin": {
+          "statement": "`z.coerce.boolean().parse('false')` renvoie `true`.",
+          "why": "La coercition fait `Boolean('false')`, et toute chaîne non vide est truthy ; `z.stringbool()` parse \"false\" en false."
+        }
+      },
+      {
+        "statement": "Avec une configuration validée au démarrage, une `DATABASE_URL` manquante arrête le processus avant qu’il ne serve la moindre requête.",
+        "why": "Le schéma est vérifié une fois au boot, et un échec fait quitter le processus au lieu d’attendre la première requête SQL.",
+        "twin": {
+          "statement": "Avec une configuration validée au démarrage, une `DATABASE_URL` manquante n’est remarquée qu’à l’exécution de la première requête SQL.",
+          "why": "Le schéma est vérifié une fois au boot, et un échec fait quitter le processus avant qu’il ne serve la moindre requête."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "La configuration est figée au démarrage du processus, donc valide-la à ce moment-là. Un service qui refuse de démarrer sur une mauvaise config fait échouer le déploiement en quelques secondes, au lieu de faire échouer la première commande des heures plus tard.",
+      "points": [
+        "La configuration est figée au démarrage, donc parse-la une fois en un objet typé. Si quelque chose manque ou est mal formé, quitte en listant tous les problèmes. Rien d’autre ne lit `process.env`.",
+        "Un schéma Zod décrit chaque variable : `z.url()` pour `DATABASE_URL`, `z.coerce.number().int()` pour `PORT`. `safeParse` et `z.prettifyError` donnent un rapport lisible.",
+        "Les valeurs d’environnement sont des chaînes. `z.coerce.number()` transforme un `PORT` vide en 0 et ignore la valeur par défaut ; `z.coerce.boolean()` transforme \"false\" en true. Utilise `z.stringbool()` pour les flags.",
+        "Dans NestJS, `ConfigModule.forRoot({ validationSchema })` de `@nestjs/config` prend le schéma Zod et arrête l’application quand la configuration est invalide.",
+        "Les secrets viennent d’un gestionnaire de secrets au runtime, en variables ou en fichiers montés, jamais de l’image : une ligne `ENV` dans un Dockerfile y persiste."
+      ],
+      "takeaways": [
+        {
+          "term": "Parser une fois au démarrage",
+          "detail": "En un objet typé ; rien d’autre ne lit `process.env`. En cas d’erreur, liste tous les problèmes et quitte."
+        },
+        {
+          "term": "Schéma Zod",
+          "detail": "`z.url()` pour `DATABASE_URL`, `z.coerce.number().int()` pour `PORT` ; `safeParse` et `z.prettifyError` pour le rapport."
+        },
+        {
+          "term": "`z.coerce.number()`",
+          "detail": "Transforme un `PORT` vide en 0 et ignore la valeur par défaut, car les valeurs d’environnement sont des chaînes."
+        },
+        {
+          "term": "`z.coerce.boolean()`",
+          "detail": "Transforme \"false\" en true. Utilise `z.stringbool()` pour les flags."
+        },
+        {
+          "term": "`ConfigModule` de NestJS",
+          "detail": "`ConfigModule.forRoot({ validationSchema })` de `@nestjs/config` prend le schéma et arrête l’application en cas d’échec."
+        },
+        {
+          "term": "Secrets",
+          "detail": "Depuis un gestionnaire de secrets au runtime, en variables ou en fichiers montés. Une ligne `ENV` de Dockerfile persiste dans l’image."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un déploiement de l’API Orders est passé au vert, puis le premier `POST /orders` à 3 h du matin a échoué avec « invalid connection string ». Comment gérer la configuration pour que ça échoue au déploiement ?",
+        "bridge": "Parser et valider tout l’environnement une fois au démarrage en un objet typé, pour qu’une mauvaise valeur arrête le processus avant qu’il ne serve quoi que ce soit."
+      },
+      {
+        "question": "Un collègue écrit `z.coerce.boolean()` pour `ENABLE_REFUNDS` et `z.coerce.number()` pour `PORT`. Qu’est-ce qui peut mal tourner avec des chaînes d’environnement ?",
+        "bridge": "Les valeurs d’environnement sont des chaînes, et la coercition a ses pièges : \"false\" devient true, une chaîne vide devient 0."
+      }
+    ],
+    "codeChoices": [
+      {
+        "prompt": "Les deux lisent le flag `SEND_EMAILS` au démarrage. Lequel des deux coupe les e-mails quand la variable vaut \"false\" ?",
+        "why": "`z.stringbool()` lit \"false\", \"0\", \"no\" ou \"off\" comme false et rejette les valeurs inconnues. `z.coerce.boolean()` appelle `Boolean(value)`, et toute chaîne non vide est truthy : mesuré sur Zod 4.6.7, \"false\" et \"0\" ont tous deux donné `true`, donc le staging continue d’envoyer des e-mails à de vrais clients."
+      }
+    ]
+  }
+}

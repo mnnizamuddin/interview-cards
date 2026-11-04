@@ -1,0 +1,302 @@
+{
+  "m07.q1": {
+    "q": "Dans la boutique, 6 clients ont passé 11 commandes : 2 commandes sont des commandes invité (<code>customer_id</code> vaut <code>NULL</code>) et 2 clients n’ont jamais commandé. Combien de lignes renvoie <code>customers c LEFT JOIN orders o ON o.customer_id = c.id</code> ?",
+    "options": [
+      "9",
+      "11",
+      "13",
+      "6"
+    ],
+    "explain": "Mesuré : 11. Les 9 commandes qui ont un client donnent 9 paires, et la jointure gauche ajoute Dana et Farid avec des colonnes de commande à <code>NULL</code>. Les commandes invité n’ont aucune ligne client à laquelle se rattacher, donc seul un <code>FULL JOIN</code> les garde (13)."
+  },
+  "m07.q2": {
+    "q": "Ada a 4 commandes payées avec 500 de frais de port chacune, et l’une d’elles a deux articles. Que renvoie <code>sum(o.shipping_cents)</code> pour Ada quand la requête joint <code>orders</code> puis <code>order_items</code> ?",
+    "options": [
+      "2500",
+      "2000",
+      "4000",
+      "Une erreur : <code>shipping_cents</code> n’est pas groupé"
+    ],
+    "explain": "Mesuré : 2500. Joindre les articles répète chaque commande une fois par article, donc la commande à deux articles compte ses frais de port deux fois : c’est le fan-out. Sans la jointure sur les articles, la somme vaut 2000 ; le correctif est d’agréger les articles par commande avant de joindre."
+  },
+  "m07.q3": {
+    "q": "Où mettez-vous la condition « clients avec au moins 2 commandes payées » ?",
+    "options": [
+      "<code>WHERE count(*) &gt;= 2</code>",
+      "Dans la clause <code>ON</code> de la jointure",
+      "<code>HAVING count(*) &gt;= 2</code>",
+      "Dans <code>ORDER BY</code>, avant <code>LIMIT</code>"
+    ],
+    "explain": "<code>HAVING</code> filtre les groupes après <code>GROUP BY</code>, donc il peut utiliser des agrégats. La version <code>WHERE</code> échoue avec <code>42803: aggregate functions are not allowed in WHERE</code>, parce que <code>WHERE</code> s’exécute avant que les lignes soient groupées."
+  },
+  "m07.q4": {
+    "q": "Après <code>customers c LEFT JOIN orders o ON o.customer_id = c.id</code> et <code>GROUP BY c.id</code>, que valent <code>count(*)</code> et <code>count(o.id)</code> pour Dana, qui n’a aucune commande ?",
+    "options": [
+      "0 et 0",
+      "1 et 1",
+      "0 et <code>NULL</code>",
+      "1 et 0"
+    ],
+    "explain": "Mesuré : 1 et 0. La jointure gauche garde une ligne pour Dana avec des colonnes de commande à <code>NULL</code> ; <code>count(*)</code> compte cette ligne, et <code>count(o.id)</code> ignore le <code>NULL</code>. C’est pourquoi on compte une colonne de la table jointe après une jointure gauche."
+  },
+  "m07.q5": {
+    "q": "Clients : 2 à Paris, 2 à Lyon, 2 avec <code>city</code> à <code>NULL</code>. Combien de lignes renvoie <code>WHERE city &lt;&gt; 'Paris'</code> ?",
+    "options": [
+      "4",
+      "6",
+      "2",
+      "Une erreur, parce que <code>city</code> accepte NULL"
+    ],
+    "explain": "Mesuré : 2, les clients de Lyon. <code>NULL &lt;&gt; 'Paris'</code> est inconnu, et <code>WHERE</code> ne garde que les lignes où la condition est vraie. <code>city IS DISTINCT FROM 'Paris'</code> traite <code>NULL</code> comme une valeur et a renvoyé 4."
+  },
+  "m07.q6": {
+    "q": "Deux clients n’ont jamais commandé, et deux commandes ont un <code>customer_id</code> à <code>NULL</code>. Que renvoie cette requête ?",
+    "options": [
+      "Les deux clients qui n’ont jamais commandé",
+      "Une erreur : la sous-requête renvoie <code>NULL</code>",
+      "Les deux clients, plus une ligne <code>NULL</code>",
+      "Aucune ligne"
+    ],
+    "explain": "Mesuré : 0 ligne. <code>id NOT IN (…, NULL)</code> se développe en <code>… AND id &lt;&gt; NULL</code>, qui est inconnu, donc la condition n’est jamais vraie. <code>NOT EXISTS</code> a renvoyé les deux clients attendus."
+  },
+  "m07.q7": {
+    "q": "Sur PostgreSQL 18, que devient une CTE non récursive, sans effet de bord, que la requête principale référence une seule fois ?",
+    "options": [
+      "Elle est intégrée (inlined) dans la requête principale, donc les filtres extérieurs peuvent atteindre la table",
+      "Elle est toujours calculée d’abord et stockée, comme une barrière d’optimisation",
+      "Elle est calculée une fois par ligne de la requête principale",
+      "Elle est mise en cache entre les exécutions de la même requête"
+    ],
+    "explain": "Depuis PostgreSQL 12, une telle CTE est fusionnée dans la requête principale ; <code>EXPLAIN</code> a montré un index scan sur <code>orders</code> avec le filtre extérieur <code>id = 101</code>. Le comportement de barrière, c’est ce qu’on obtient en ajoutant <code>MATERIALIZED</code>, ou par défaut quand la CTE est référencée deux fois."
+  },
+  "m07.q8": {
+    "q": "« Dernière commande payée par client » utilise une sous-requête <code>LATERAL</code> avec <code>LIMIT 1</code>. Quelle est la différence entre <code>CROSS JOIN LATERAL (…)</code> et <code>LEFT JOIN LATERAL (…) ON true</code> ?",
+    "options": [
+      "Aucune : <code>LATERAL</code> garde toujours toutes les lignes extérieures, avec ou sans <code>LEFT</code>",
+      "La forme <code>LEFT JOIN</code> garde les clients pour lesquels la sous-requête ne renvoie aucune ligne, avec des colonnes <code>NULL</code>",
+      "La forme <code>CROSS JOIN</code> exécute la sous-requête une seule fois au lieu d’une fois par client",
+      "Seule la forme <code>LEFT JOIN</code> peut faire référence aux colonnes de <code>customers</code> dans la sous-requête"
+    ],
+    "explain": "Mesuré : <code>CROSS JOIN LATERAL</code> a renvoyé Ada, Brendan et Chen ; <code>LEFT JOIN LATERAL … ON true</code> a aussi gardé Dana, Eve et Farid avec des <code>NULL</code>. Les deux formes exécutent la sous-requête par ligne extérieure et peuvent toutes deux faire référence aux colonnes extérieures : c’est le sens de <code>LATERAL</code>."
+  },
+  "m07.q9": {
+    "q": "Totaux des commandes payées, du plus élevé au plus bas : 20000, 6000, 5000, 4000, 3000, 3000, 3000, 3000, 500. Que donnent <code>rank()</code> et <code>dense_rank()</code> à la commande de 500 ?",
+    "options": [
+      "6 et 6",
+      "9 et 9",
+      "9 et 6",
+      "6 et 9"
+    ],
+    "explain": "Mesuré : <code>rank</code> 9, parce que les quatre commandes à égalité partagent le rang 5 et le rang suivant saute à 9 ; <code>dense_rank</code> 6, parce qu’il ne laisse pas de trous. <code>row_number</code> donne aussi 9 mais numérote les lignes à égalité de 5 à 8 dans un ordre arbitraire."
+  },
+  "m07.q10": {
+    "q": "Quel est le frame par défaut de <code>sum(x) OVER (ORDER BY d)</code> ?",
+    "options": [
+      "<code>RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>, qui inclut les pairs de la ligne courante",
+      "<code>ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>, une ligne physique à la fois",
+      "Toute la partition, comme sans <code>ORDER BY</code>",
+      "<code>ROWS BETWEEN 1 PRECEDING AND CURRENT ROW</code>"
+    ],
+    "explain": "La doc PostgreSQL indique que le défaut est <code>RANGE UNBOUNDED PRECEDING</code>, c’est-à-dire jusqu’au dernier pair de la ligne courante. Mesuré : triées par mois, les trois commandes de janvier affichaient toutes 8500 ; avec un frame <code>ROWS</code> explicite, elles affichaient 5000, 8000, 8500."
+  },
+  "m07.q11": {
+    "q": "<code>MS-01</code> existe déjà. Que renvoie <code>INSERT INTO products (sku, name, price_cents) VALUES ('MS-01', 'Mouse', 3000) ON CONFLICT (sku) DO NOTHING RETURNING id</code> ?",
+    "options": [
+      "L’id de la souris existante",
+      "Une erreur de violation d’unicité",
+      "Une ligne avec un id <code>NULL</code>",
+      "Aucune ligne"
+    ],
+    "explain": "Mesuré : 0 ligne. <code>RETURNING</code> ne rapporte que les lignes que l’instruction a insérées ou modifiées, et <code>DO NOTHING</code> n’en a touché aucune. Le code qui a besoin de l’id existant doit le lire avec un <code>SELECT</code> séparé, ou utiliser <code>DO UPDATE</code>."
+  },
+  "m07.q12": {
+    "q": "Dans <code>INSERT … ON CONFLICT (sku) DO UPDATE SET price_cents = EXCLUDED.price_cents</code>, que contient <code>EXCLUDED</code> ?",
+    "options": [
+      "La ligne déjà stockée dans <code>products</code>, avant la mise à jour",
+      "Les valeurs que l’instruction a tenté d’insérer pour la ligne en conflit",
+      "Les lignes que la vérification de conflit a retirées du résultat",
+      "L’ancien prix, tel que <code>RETURNING old</code> le rapporte"
+    ],
+    "explain": "<code>EXCLUDED</code> est la ligne proposée à l’insertion, donc le <code>SET</code> copie le prix du flux sur la ligne existante : mesuré, la souris est passée de 3000 à 3100 et a gardé son id. La ligne existante se lit via le nom de la table, <code>products.price_cents</code>, comme dans le <code>WHERE … IS DISTINCT FROM</code> de la leçon."
+  },
+  "m07.q13": {
+    "q": "Une liste du back-office doit montrer chaque client avec son nombre de commandes payées, 0 compris. Elle n’affiche qu’Ada, Brendan et Chen. Quel correctif livreriez-vous ?",
+    "options": [
+      "Déplacer <code>o.status = 'paid'</code> dans la clause <code>ON</code>",
+      "Remplacer <code>LEFT JOIN</code> par <code>FULL JOIN</code>",
+      "Remplacer <code>count(o.id)</code> par <code>count(*)</code>",
+      "Changer le filtre en <code>WHERE o.status = 'paid' OR o.status IS NULL</code>"
+    ],
+    "explain": "Mesuré : avec la condition dans <code>ON</code>, les 6 clients sont revenus, Dana, Eve et Farid avec 0. Le patch <code>OR o.status IS NULL</code> est tentant mais a renvoyé 5 lignes : Eve a disparu, parce que sa ligne jointe porte un statut annulé, pas <code>NULL</code>."
+  },
+  "m07.q14": {
+    "q": "Un rapport de chiffre d’affaires joint <code>customers</code>, <code>orders</code> et <code>order_items</code>, puis somme <code>o.shipping_cents</code> et les montants des articles par client. Le total des frais de port est trop élevé pour les clients dont les commandes ont plusieurs articles. Quel changement est correct ?",
+    "options": [
+      "Utiliser <code>sum(DISTINCT o.shipping_cents)</code>",
+      "Agréger <code>order_items</code> en une ligne par commande dans une CTE, puis la joindre à <code>orders</code>",
+      "Utiliser <code>count(DISTINCT o.id)</code> à côté de la somme",
+      "Ajouter <code>i.product_id</code> au <code>GROUP BY</code>"
+    ],
+    "explain": "Agréger d’abord l’enfant par parent fait que chaque commande rencontre le client sous forme d’une seule ligne ; mesuré, les frais de port d’Ada sont revenus de 2500 à 2000. <code>sum(DISTINCT …)</code> retire les montants égaux, pas les commandes en double : il a donné 500 pour les quatre commandes d’Ada à 500."
+  },
+  "m07.q15": {
+    "q": "Eve a une commande annulée et aucune payée. Que reçoit l’API dans <code>shipping_paid</code> pour elle ?",
+    "options": [
+      "0, comme le nombre de commandes payées",
+      "500, les frais de port de sa commande annulée",
+      "<code>NULL</code>",
+      "Une erreur : <code>FILTER</code> ne peut pas s’utiliser avec <code>sum</code>"
+    ],
+    "explain": "Mesuré : <code>paid</code> 0 et <code>shipping_paid</code> <code>NULL</code>. <code>count</code> sur zéro ligne vaut 0, mais <code>sum</code> sur zéro ligne vaut <code>NULL</code>, et <code>FILTER</code> n’a laissé aucune ligne à la somme. Enveloppe-la dans <code>coalesce(…, 0)</code> si le contrat d’API dit nombre."
+  },
+  "m07.q16": {
+    "q": "En code review, un collègue affirme que cette requête va échouer parce que <code>c.name</code> et <code>c.city</code> ne sont pas dans le <code>GROUP BY</code>. Que répondez-vous ?",
+    "options": [
+      "Il a raison : chaque colonne sélectionnée doit figurer dans <code>GROUP BY</code>",
+      "Elle s’exécute, mais choisit un nom arbitraire par groupe",
+      "Elle ne s’exécute que si <code>name</code> et <code>city</code> sont <code>NOT NULL</code>",
+      "Elle s’exécute : <code>c.id</code> est la clé primaire, donc les autres colonnes de <code>customers</code> en dépendent"
+    ],
+    "explain": "Mesuré : la requête s’exécute et a renvoyé 4 lignes. Grouper par la clé primaire d’une table permet de sélectionner les autres colonnes de cette table, parce que chaque groupe a exactement une valeur pour elles. Rien n’est arbitraire : chaque groupe est un client, donc il a exactement un nom et une ville."
+  },
+  "m07.q17": {
+    "q": "Un endpoint de profil évite les écritures sans effet avec cette instruction. Un utilisateur dont la <code>city</code> est <code>NULL</code> la passe à Lyon. Que se passe-t-il ?",
+    "options": [
+      "Rien n’est mis à jour : <code>NULL &lt;&gt; 'Lyon'</code> est inconnu, donc la ligne est filtrée",
+      "La ligne est mise à jour, parce que <code>NULL</code> diffère de toute valeur",
+      "L’instruction échoue parce que <code>city</code> accepte NULL",
+      "La ligne est mise à jour, mais une clause <code>RETURNING city</code> afficherait <code>NULL</code> pour elle"
+    ],
+    "explain": "Mesuré : 0 ligne mise à jour pour Chen. Avec <code>city IS DISTINCT FROM $1</code>, la mise à jour est passée, et <code>RETURNING old.city, new.city</code> a montré <code>NULL</code> puis Lyon. Une comparaison avec <code>NULL</code> n’est jamais vraie, quoi qu’en dise l’intuition."
+  },
+  "m07.q18": {
+    "q": "« Produits jamais vendus » : <code>NOT IN (SELECT product_id FROM order_items)</code> et <code>NOT EXISTS (…)</code> renvoient tous deux le dock aujourd’hui, et <code>order_items.product_id</code> est <code>NOT NULL</code>. Pourquoi livreriez-vous quand même <code>NOT EXISTS</code> ?",
+    "options": [
+      "<code>NOT IN</code> avec une sous-requête est déprécié depuis PostgreSQL 18 et logge un avertissement",
+      "Il reste correct si la sous-requête produit un jour un <code>NULL</code>, et le planner l’exécute en anti-jointure",
+      "<code>NOT IN</code> ne peut pas utiliser de sous-requête sur une autre table",
+      "<code>NOT EXISTS</code> renvoie les lignes dans l’ordre de la clé primaire, ce qui garde les réponses d’API stables"
+    ],
+    "explain": "Le résultat de <code>NOT IN</code> dépend du fait que la sous-requête ne contienne jamais de <code>NULL</code>, ce qu’un changement ultérieur peut casser en silence. Sur ces données, <code>EXPLAIN</code> a montré un <code>Hash Right Anti Join</code> pour <code>NOT EXISTS</code> et un filtre sur un subplan haché pour <code>NOT IN</code>. <code>NOT IN</code> n’est pas déprécié ; il est juste fragile."
+  },
+  "m07.q19": {
+    "q": "Cet endpoint marchait en développement, où chaque client avait une commande. Que se passe-t-il en production ?",
+    "options": [
+      "Il renvoie une ligne par commande, comme une jointure",
+      "Il renvoie la première commande de chaque client",
+      "Il échoue avec <code>21000: more than one row returned by a subquery used as an expression</code>",
+      "Il renvoie <code>NULL</code> pour les clients qui ont plusieurs commandes"
+    ],
+    "explain": "Mesuré : la requête échoue dès qu’un client a deux commandes. Une sous-requête scalaire doit renvoyer au plus une ligne ; elle ne multiplie jamais les lignes comme une jointure, et sans <code>ORDER BY … LIMIT 1</code> il n’y a pas de « première ». Utilise une sous-requête <code>LATERAL</code> ou un agrégat pour dire quelle commande tu veux."
+  },
+  "m07.q20": {
+    "q": "Une requête joint une CTE <code>paid</code> à elle-même (<code>FROM paid a JOIN paid b …</code>). Sans mot-clé après <code>AS</code>, que fait PostgreSQL 18 ?",
+    "options": [
+      "Il intègre les deux références, comme pour toute CTE non récursive",
+      "Il rejette la requête : une CTE ne peut être référencée qu’une fois",
+      "Il calcule la CTE deux fois, une par référence",
+      "Il calcule la CTE une fois, la stocke, et parcourt deux fois le résultat stocké"
+    ],
+    "explain": "Mesuré avec <code>EXPLAIN</code> : un nœud <code>CTE paid</code> avec deux <code>CTE Scan</code>. La doc dit que la fusion n’a lieu par défaut que quand la CTE est référencée une fois ; <code>NOT MATERIALIZED</code> a forcé l’intégration, et le plan a alors montré deux index scans sur <code>orders</code>."
+  },
+  "m07.q21": {
+    "q": "Qu’est-ce qui ne va pas dans cette requête ?",
+    "options": [
+      "Une sous-requête dans <code>FROM</code> ne peut pas voir <code>c</code> sans <code>LATERAL</code> : elle échoue avec <code>42P01</code>",
+      "Elle s’exécute, mais ne renvoie que la dernière commande toutes confondues",
+      "Une sous-requête dans <code>FROM</code> ne peut pas utiliser <code>LIMIT</code>",
+      "Elle s’exécute, mais renvoie tous les clients, Dana comprise"
+    ],
+    "explain": "Mesuré : <code>42P01: invalid reference to FROM-clause entry for table \"c\"</code>. Ajouter <code>LATERAL</code> avant la sous-requête la fait s’exécuter une fois par client. Même corrigée, la forme avec virgule se comporte comme <code>CROSS JOIN LATERAL</code> et écarte les clients sans commande, donc Dana n’apparaîtrait pas."
+  },
+  "m07.q22": {
+    "q": "Un endpoint de classement pagine les commandes avec <code>row_number() OVER (ORDER BY total_cents DESC)</code>. Ses tests échouent de temps en temps : la même commande apparaît sur deux pages. Quel est le correctif ?",
+    "options": [
+      "Remplacer <code>row_number</code> par <code>rank</code>",
+      "Ajouter un critère de départage unique : <code>ORDER BY total_cents DESC, id</code>",
+      "Ajouter <code>PARTITION BY total_cents</code>",
+      "Envelopper la requête dans une CTE marquée <code>MATERIALIZED</code>"
+    ],
+    "explain": "Les totaux à égalité n’ont pas d’ordre défini : mesuré, les quatre commandes à 3000 sont sorties en 104, 103, 102, 110, un ordre que personne n’a choisi. Une dernière colonne unique rend la numérotation déterministe. <code>rank</code> donnerait le même numéro aux lignes à égalité, ce qui casse la pagination autrement."
+  },
+  "m07.q23": {
+    "q": "Janvier compte trois commandes payées : 101 (5000), 103 (3000) et 108 (500), une ligne chacune dans la CTE <code>january_order_totals</code>. Qu’affiche cette requête pour la commande 101 ?",
+    "options": [
+      "5000",
+      "8500",
+      "3000",
+      "47500"
+    ],
+    "explain": "Mesuré : 8500 sur les trois lignes. Le frame par défaut est <code>RANGE … CURRENT ROW</code>, et les trois commandes partagent le même mois, donc elles sont pairs et chacune voit tout le mois. Avec <code>ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>, la colonne affichait 5000, 8000, 8500."
+  },
+  "m07.q24": {
+    "q": "Un rapport de chiffre d’affaires mensuel calcule <code>revenue - lag(revenue) OVER (ORDER BY month)</code> à partir de <code>GROUP BY month</code>. Mars n’a eu aucune commande payée, et avril affiche une variation de -13000. Qu’est-ce qui ne va pas ?",
+    "options": [
+      "<code>lag</code> a besoin de <code>PARTITION BY month</code>, sinon il lit à travers tous les mois du rapport",
+      "Le frame <code>RANGE</code> par défaut inclut les pairs, donc avril est sommé avec février",
+      "<code>lag</code> lit la ligne précédente, février, parce que mars n’a pas de ligne ; générer les mois avec <code>generate_series</code> et faire une jointure gauche sur le chiffre d’affaires",
+      "<code>date_trunc</code> renvoie un timestamp, donc les mois sont triés comme du texte et pas dans l’ordre du calendrier"
+    ],
+    "explain": "Mesuré : le résultat groupé n’avait de lignes que pour janvier, février et avril, donc avril était comparé à février (13000 - 26000). Après avoir construit les quatre mois avec <code>generate_series</code> et <code>coalesce(revenue, 0)</code>, mars affichait -26000 et avril +13000. Les frames n’affectent pas <code>lag</code>."
+  },
+  "m07.q25": {
+    "q": "Pour l’écran CRM, un collègue écrit cette requête pour obtenir la dernière commande payée de chaque client. Que se passe-t-il ?",
+    "options": [
+      "Elle renvoie une fois la dernière commande payée de toute la boutique",
+      "Elle renvoie une commande payée arbitraire par client",
+      "Elle renvoie toutes les commandes payées, de la plus récente à la plus ancienne",
+      "Elle échoue avec <code>42P10</code> : les colonnes de <code>DISTINCT ON</code> doivent commencer l’<code>ORDER BY</code>"
+    ],
+    "explain": "Mesuré : <code>42P10: SELECT DISTINCT ON expressions must match initial ORDER BY expressions</code>. <code>DISTINCT ON</code> garde la première ligne de chaque groupe dans l’ordre de tri, donc le tri doit commencer par le groupe : <code>ORDER BY customer_id, placed_on DESC, id DESC</code> a renvoyé 102, 107 et 108. PostgreSQL rejette la requête avant de lire une ligne, donc elle ne renvoie ni une commande arbitraire ni une dernière commande globale."
+  },
+  "m07.q26": {
+    "q": "« Les 2 dernières commandes de chaque client » sur 1 000 clients et 100 000 commandes, avec un index sur <code>orders (customer_id, placed_on DESC, id DESC)</code>. Quel pattern lit le moins de lignes ?",
+    "options": [
+      "<code>CROSS JOIN LATERAL</code> avec <code>ORDER BY … LIMIT 2</code>",
+      "<code>row_number()</code> dans une CTE, filtré sur <code>&lt;= 2</code>",
+      "<code>DISTINCT ON (customer_id)</code> exécuté deux fois",
+      "<code>ORDER BY placed_on DESC LIMIT 2000</code>"
+    ],
+    "explain": "Mesuré sur PGlite : le plan LATERAL a lu 2 000 lignes d’index (2 par client, 1 000 recherches d’index), alors que <code>row_number</code> a lu les 100 000 malgré sa <code>Run Condition</code>. Un <code>LIMIT 2000</code> global ne donne pas 2 par client, et <code>DISTINCT ON</code> renvoie une ligne par groupe."
+  },
+  "m07.q27": {
+    "q": "Les commandes payées d’Ada totalisent 5000, 3000, 3000 et 3000. Le produit demande « ses 3 meilleures commandes » et tu utilises <code>rank() OVER (PARTITION BY customer_id ORDER BY total_cents DESC) &lt;= 3</code>. Combien de lignes obtient Ada ?",
+    "options": [
+      "3",
+      "2",
+      "4",
+      "1"
+    ],
+    "explain": "Mesuré : 4. Les trois commandes à 3000 ont toutes le rang 2, qui est dans les 3. <code>row_number</code> renverrait exactement 3 et couperait une égalité arbitrairement, sauf si on ajoute un critère de départage. Demande au produit lequel il veut dire : cette question est tout l’intérêt de l’exercice."
+  },
+  "m07.q28": {
+    "q": "Un import de catalogue fait l’upsert de 500 lignes en un seul <code>INSERT … ON CONFLICT (sku) DO UPDATE</code>. Une nuit, il échoue avec <code>21000: ON CONFLICT DO UPDATE command cannot affect row a second time</code>. Que s’est-il passé, et quel est le correctif ?",
+    "options": [
+      "Une autre transaction a modifié les mêmes lignes ; rejouer l’instruction",
+      "La table n’a pas d’index unique sur <code>sku</code> ; en ajouter un",
+      "Le flux contient deux fois le même SKU ; dédupliquer le lot avant l’upsert",
+      "Le lot est trop gros ; le découper en morceaux de 100"
+    ],
+    "explain": "Mesuré : deux lignes avec le même SKU dans une instruction lèvent exactement cette erreur, et son hint dit de s’assurer qu’aucune valeur contrainte n’est en double dans les lignes proposées. Un index unique manquant donne une autre erreur (<code>42P10: there is no unique or exclusion constraint matching the ON CONFLICT specification</code>), et découper n’aide que si les doublons tombent dans des morceaux différents, ce qui relève de la chance."
+  },
+  "m07.q29": {
+    "q": "Un webhook de paiement doit insérer un paiement par son id chez le prestataire, ou le mettre à jour s’il existe déjà, et le prestataire peut livrer le même événement deux fois en même temps. Quelle instruction livreriez-vous ?",
+    "options": [
+      "<code>MERGE</code>, parce que c’est le standard SQL",
+      "Un <code>SELECT</code> puis un <code>INSERT</code> ou un <code>UPDATE</code> depuis Node",
+      "<code>UPDATE</code>, puis <code>INSERT</code> si aucune ligne n’a été mise à jour",
+      "<code>INSERT … ON CONFLICT (provider_id) DO UPDATE</code>"
+    ],
+    "explain": "La doc PostgreSQL de MERGE renvoie vers <code>INSERT … ON CONFLICT</code> parce qu’il peut encore exécuter son <code>UPDATE</code> quand une transaction concurrente insère la même clé ; le chapitre Transaction Isolation indique que <code>MERGE</code> lève une violation d’unicité dans ce cas. Les versions lecture-puis-écriture ont la même race condition (M09)."
+  },
+  "m07.q30": {
+    "q": "Un rapport de churn affiche le nombre de jours depuis la commande payée précédente de chaque client. La première commande de Brendan (2026-02-14) affiche -56. Quel est le bug ?",
+    "options": [
+      "La fenêtre n’a pas de <code>PARTITION BY customer_id</code>, donc la première commande de Brendan est comparée à la dernière d’Ada",
+      "Le frame <code>RANGE</code> par défaut inclut les pairs, donc <code>lag</code> lit une commande passée le même jour",
+      "<code>lag</code> a besoin d’un frame explicite <code>ROWS BETWEEN 1 PRECEDING AND CURRENT ROW</code>",
+      "Les lignes sont d’abord triées par <code>customer_id</code>, donc <code>lag</code> lit la commande suivante au lieu de la précédente"
+    ],
+    "explain": "Mesuré : sans partition, la fenêtre est tout le résultat, donc la première commande de Brendan a été comparée à la dernière d’Ada (2026-04-11) : -56 jours. Avec <code>PARTITION BY customer_id ORDER BY placed_on, id</code>, la première commande de chaque client a eu <code>NULL</code> et la seconde de Brendan 47. Les frames n’affectent pas <code>lag</code> : il lit toujours la ligne précédente de sa partition."
+  }
+}

@@ -10,6 +10,8 @@ export type Topic = {
   unit: string;
   /** The topic's short name, as listed on the home screen. */
   topic: string;
+  /** The same name in French, from the card's French overlay; absent while it has none. */
+  topicFr?: string;
   /** The card file in `src/content/cards/` that declares the card, without `.ts`. */
   file: string;
   /** The track modules whose quiz questions follow this card, as `m05`. */

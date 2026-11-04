@@ -197,3 +197,18 @@ Use the pnpm at `%LOCALAPPDATA%\pnpm\bin\pnpm` (`/c/Users/mohamed.nizamuddin/App
 in Git Bash). The test "every unit has at least one card" fails until all units are written; ignore it.
 The test about track sections fails until `pnpm import-mcq` is rerun by the main session, and the topic list test until `pnpm topics` is; ignore them too.
 Every other test must pass for your cards.
+
+## French translation
+
+The app shows cards in English or French. French text lives in overlays, never in the card files:
+`src/content/fr/cards/<card file>.json` maps each card id to its prose (type `CardText` in
+`src/content/translation.ts`), and `src/content/fr/mcq/<module>.json` does the same for track
+questions (`McqText`). Ids, `isTrue`, `answer`, code and every other field come from the English
+card, so progress and grading never depend on the language.
+
+When you add or change a card, update its French overlay too, then run `pnpm topics` (the home
+screen reads French topic names from it). `src/content/french.test.ts` fails when a card or
+question has no French text, when a list changes length, or when inline code differs from the
+English. French rules: same facts and code; questions with « vous », spoken answers in the first
+person, other prose neutral or with « tu »; no-break spaces before `? ! : ;` and `%`, typographic
+apostrophes, outside code; about 25% over the English length limits at most.

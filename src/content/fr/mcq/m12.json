@@ -1,0 +1,302 @@
+{
+  "m12.q1": {
+    "q": "Un client connecté remplace <code>GET /orders/ord_a1</code> par <code>GET /orders/ord_b1</code> et reçoit la commande d’un autre client. De quel risque OWASP API s’agit-il ?",
+    "options": [
+      "API2 Broken Authentication",
+      "API1 Broken Object Level Authorization",
+      "API5 Broken Function Level Authorization",
+      "API8 Security Misconfiguration"
+    ],
+    "explain": "L’appelant est correctement authentifié, donc ce n’est pas API2 ; ce qui manque, c’est la vérification que cet objet précis lui appartient : c’est du BOLA. API5 concerne des fonctions entières, comme un client qui atteint une route d’admin, pas un objet parmi d’autres du même type."
+  },
+  "m12.q2": {
+    "q": "<code>PATCH /me</code> accepte <code>{\"displayName\": \"Ana\", \"role\": \"admin\"}</code> et le client devient administrateur. De quel risque OWASP API s’agit-il ?",
+    "options": [
+      "API1 Broken Object Level Authorization",
+      "API5 Broken Function Level Authorization",
+      "API3 Broken Object Property Level Authorization",
+      "API4 Unrestricted Resource Consumption"
+    ],
+    "explain": "L’appelant modifie son propre objet, ce qu’il a le droit de faire, mais il définit une propriété qu’il ne doit pas écrire : c’est du mass assignment, que l’édition 2023 a fusionné avec l’exposition excessive de données dans API3. Ce n’est pas API1 car l’objet est le sien, ni API5 car la route elle-même est autorisée."
+  },
+  "m12.q3": {
+    "q": "Dans le flux authorization code avec PKCE, un attaquant vole le <code>code</code> d’autorisation dans la redirection. Pourquoi ne peut-il pas l’échanger contre des tokens ?",
+    "options": [
+      "Le token endpoint exige aussi le <code>code_verifier</code>, que seul le client qui a lancé le flux détient",
+      "Le code est chiffré avec la clé privée de l’IdP",
+      "Le code est lié à l’adresse IP de l’attaquant et rejeté",
+      "Le code expire avant qu’un attaquant puisse l’utiliser"
+    ],
+    "explain": "Le client n’a envoyé que le hash du verifier (le challenge) dans l’URL d’autorisation ; au token endpoint, il doit présenter le verifier lui-même, et l’IdP vérifie que son SHA-256 correspond. Les codes ont une durée de vie courte, mais cela seul n’arrête pas un attaquant qui utilise le code immédiatement."
+  },
+  "m12.q4": {
+    "q": "Avec des passkeys implémentées via SimpleWebAuthn, que stocke l’API Orders pour chaque credential ?",
+    "options": [
+      "Un hash Argon2id salé de la passkey",
+      "La clé privée, chiffrée avec un secret serveur",
+      "Un secret partagé que l’appareil et le serveur utilisent tous deux pour signer",
+      "L’id du credential, la clé publique et un compteur de signatures"
+    ],
+    "explain": "L’appareil garde la clé privée ; le serveur garde l’id du credential, la clé publique pour vérifier les signatures et le compteur qu’il met à jour après chaque connexion (documentation de SimpleWebAuthn). Il n’y a pas de secret partagé : c’est pourquoi une fuite de la base ne révèle rien qui permette à un attaquant de se connecter."
+  },
+  "m12.q5": {
+    "q": "Quel réglage fait partie des minimums de l’OWASP Password Storage Cheat Sheet pour Argon2id ?",
+    "options": [
+      "<code>m=19456</code> (19 Mio), <code>t=2</code>, <code>p=1</code>",
+      "<code>m=1024</code> (1 Mio), <code>t=1</code>, <code>p=1</code>",
+      "<code>m=19456</code> (19 Mio), <code>t=1</code>, <code>p=4</code>",
+      "<code>N=2^17</code>, <code>r=8</code>, <code>p=1</code>"
+    ],
+    "explain": "L’OWASP liste cinq réglages Argon2id équivalents, dont 19 Mio avec deux passes et un parallélisme de 1, et 46 Mio avec une passe. <code>N=2^17, r=8, p=1</code> existe aussi, mais c’est le réglage scrypt, pas un réglage Argon2id."
+  },
+  "m12.q6": {
+    "q": "Le handler de connexion renvoie 401 immédiatement quand l’e-mail est inconnu, et lance une vérification Argon2id de 65 ms quand il existe. Quel est le problème ?",
+    "options": [
+      "Aucun, tant que les deux cas renvoient le même code de statut",
+      "Le chemin de l’e-mail inconnu ne gaspille pas de CPU, ce qui est le comportement voulu",
+      "Le temps de réponse révèle quels e-mails ont un compte ; vérifier contre un hash factice pour que les deux chemins coûtent autant",
+      "Le 401 devrait être un 404 pour les e-mails inconnus"
+    ],
+    "explain": "Des codes de statut identiques ne suffisent pas quand le temps diffère d’un hash entier : un attaquant peut énumérer les comptes en mesurant. Vérifier le mot de passe contre un hash factice créé avec les mêmes réglages fait coûter autant aux deux chemins, et le corps reste identique."
+  },
+  "m12.q7": {
+    "q": "Contre quoi l’attribut <code>HttpOnly</code> du cookie de session du BFF protège-t-il ?",
+    "options": [
+      "Le navigateur qui joint le cookie aux requêtes envoyées depuis un autre site",
+      "Un script injecté dans ta page (XSS) qui lit le cookie et l’envoie à un attaquant",
+      "L’envoi du cookie en HTTP non chiffré",
+      "Un sous-domaine voisin qui écrase le cookie"
+    ],
+    "explain": "MDN : <code>HttpOnly</code> interdit l’accès JavaScript via <code>document.cookie</code>, mais le navigateur envoie toujours le cookie avec les requêtes. Empêcher l’envoi cross-site, c’est <code>SameSite</code> ; HTTPS uniquement, c’est <code>Secure</code> ; et l’écrasement par un sous-domaine est bloqué par le préfixe <code>__Host-</code>."
+  },
+  "m12.q8": {
+    "q": "Une requête avec <code>Origin: https://evil.example</code> atteint l’API Orders (Fastify), qui n’a aucun plugin CORS. Qu’a-t-on observé en le mesurant ?",
+    "options": [
+      "Fastify l’a rejetée avec 403",
+      "Fastify a répondu 204 à un preflight et bloqué la requête",
+      "Le navigateur a refusé d’envoyer la requête",
+      "Fastify a répondu un 200 normal sans aucun en-tête <code>Access-Control-*</code> ; seul un navigateur cacherait la réponse au script"
+    ],
+    "explain": "CORS est appliqué par les navigateurs sur ce qu’un script peut lire, pas par le serveur sur ce qu’il accepte : le handler s’est exécuté et a renvoyé 200. C’est pourquoi CORS n’est pas un contrôle d’accès, et pourquoi les requêtes qui modifient l’état ont besoin de leur propre protection CSRF et de leur propre autorisation."
+  },
+  "m12.q9": {
+    "q": "Un service attend du HS256 et appelle <code>jwtVerify(token, secret, { issuer, audience })</code> sans <code>algorithms</code>. Un token signé en HS512 avec le même secret arrive. Qu’a fait jose 6.2.12 ?",
+    "options": [
+      "Il l’a rejeté avec <code>JOSEAlgNotAllowed</code>",
+      "Il l’a accepté",
+      "Il l’a rejeté avec <code>JWSSignatureVerificationFailed</code>",
+      "Il a levé une <code>TypeError</code> sur la longueur de la clé"
+    ],
+    "explain": "Mesuré : accepté, avec <code>protectedHeader.alg</code> égal à HS512. Avec <code>algorithms: ['HS256']</code>, il a été rejeté avec <code>JOSEAlgNotAllowed</code>. La signature est valide pour l’algorithme que le token indique : c’est justement pourquoi c’est le vérificateur, et non le token, qui doit choisir l’algorithme."
+  },
+  "m12.q10": {
+    "q": "Les refresh tokens de l’app mobile tournent à chaque utilisation. Le serveur reçoit un refresh token déjà échangé il y a une heure. Que doit-il faire ?",
+    "options": [
+      "Le considérer comme volé : révoquer toute la famille de tokens et exiger une nouvelle connexion",
+      "Émettre de nouveaux tokens, puisque le token est encore dans sa durée de vie",
+      "Ignorer la requête et renvoyer les tokens émis il y a une heure",
+      "Renvoyer 429 pour que le client ralentisse"
+    ],
+    "explain": "Avec la rotation, un client légitime ne présente jamais un ancien refresh token, donc une réutilisation signifie que quelqu’un l’a copié ; révoquer la famille coupe à la fois l’attaquant et la chaîne copiée. Émettre de nouveaux tokens donnerait à l’attaquant une session neuve."
+  },
+  "m12.q11": {
+    "q": "Pourquoi mettre <code>AND customer_id = $2</code> dans la requête plutôt que charger la commande par id et vérifier le propriétaire dans le handler ?",
+    "options": [
+      "La base vérifie la propriété plus vite que JavaScript",
+      "Cela évite de vérifier le token d’accès",
+      "Une vérification oubliée ne renvoie rien au lieu des données d’un autre client, et « pas à toi » ressemble exactement à « introuvable »",
+      "PostgreSQL refuse les requêtes sur la table orders sans cette condition"
+    ],
+    "explain": "Exécuté sur PostgreSQL 18, le client A qui demande la commande du client B a obtenu un résultat vide, donc la route a répondu le même 404 que pour un id inexistant. L’intérêt est la sûreté structurelle, pas la vitesse ; l’id de l’appelant vient toujours d’une session ou d’un token vérifié."
+  },
+  "m12.q12": {
+    "q": "Avec Zod 4, que renvoie <code>z.object({ displayName: z.string() }).parse({ displayName: 'Ana', role: 'admin' })</code> ?",
+    "options": [
+      "Il lève une ZodError avec le code <code>unrecognized_keys</code>",
+      "<code>{ displayName: 'Ana', role: 'admin' }</code>",
+      "<code>{ displayName: 'Ana', role: undefined }</code>",
+      "<code>{ displayName: 'Ana' }</code>"
+    ],
+    "explain": "Mesuré avec zod 4.6.7 : un <code>z.object</code> simple retire les clés inconnues sans erreur. L’erreur <code>unrecognized_keys</code> vient de <code>z.strictObject</code>, que tu choisis quand tu veux que les sondages et les bugs client échouent bruyamment."
+  },
+  "m12.q13": {
+    "q": "L’endpoint de connexion, qui tourne sur six réplicas, subit une attaque de credential stuffing : des milliers d’e-mails essayés depuis des milliers d’IP. Quel design de rate limiting livres-tu ?",
+    "options": [
+      "Une limite en mémoire de 5 tentatives par IP sur chaque réplica",
+      "Une limite globale de 100 connexions par minute pour tout le service",
+      "Des limites par compte et par IP, avec des compteurs dans un store partagé comme Redis, qui répondent 429 avec <code>Retry-After</code>",
+      "Verrouiller chaque compte définitivement après 5 échecs"
+    ],
+    "explain": "Le stuffing se répartit sur de nombreux comptes et de nombreuses IP, donc il faut les deux clés, et des compteurs en mémoire sur six réplicas multiplient la limite par six. Une limite globale bloque les vrais clients pendant l’attaque, et les verrouillages définitifs permettent à un attaquant de bloquer n’importe quel compte qu’il désigne."
+  },
+  "m12.q14": {
+    "q": "Un relecteur approuve cette protection SSRF pour les webhooks de mise à jour de commande. Un client professionnel enregistre ensuite l’URL <code>https://hooks.slack.com@169.254.169.254/latest/meta-data/</code>. Que se passe-t-il ?",
+    "options": [
+      "La protection la rejette car la chaîne contient un <code>@</code>",
+      "La protection l’accepte et <code>fetch</code> appelle 169.254.169.254, car tout ce qui précède <code>@</code> est de l’information utilisateur, pas l’hôte",
+      "La protection l’accepte mais <code>fetch</code> refuse les URL avec identifiants",
+      "La protection l’accepte et <code>fetch</code> appelle hooks.slack.com"
+    ],
+    "explain": "Mesuré : <code>new URL('https://hooks.slack.com@169.254.169.254/latest').hostname</code> vaut <code>169.254.169.254</code>. Un test de préfixe sur une chaîne vérifie du texte, pas la destination ; parse avec <code>new URL</code>, compare <code>hostname</code> à une liste d’autorisation, et ajoute <code>redirect: 'error'</code>."
+  },
+  "m12.q15": {
+    "q": "Un outil interne émet des tokens sans claim <code>exp</code>. L’API Orders les vérifie comme ci-dessous. Qu’arrive-t-il à un tel token avec jose 6.2.12 ?",
+    "options": [
+      "Il est accepté, et reste valide pour toujours",
+      "Il est rejeté avec <code>JWTExpired</code>",
+      "Il est rejeté avec <code>JWTClaimValidationFailed</code> : missing required \"exp\" claim",
+      "Il est accepté pour la durée de vie par défaut de 15 minutes"
+    ],
+    "explain": "Mesuré : sans <code>requiredClaims: ['exp']</code>, un token sans expiration a été accepté. L’erreur « missing required exp » n’apparaît qu’une fois <code>exp</code> listé dans <code>requiredClaims</code> ; jose n’a pas de durée de vie par défaut sauf si tu définis <code>maxTokenAge</code>."
+  },
+  "m12.q16": {
+    "q": "Un test émet un token avec <code>exp</code> = T et appelle <code>jwtVerify</code> avec <code>currentDate</code> exactement égal à T et sans tolérance d’horloge. Quelle assertion passe ?",
+    "options": [
+      "Le token est accepté, car il expire après T",
+      "Le token n’est accepté que si <code>iat</code> est antérieur à T",
+      "Le token est rejeté avec <code>JWSSignatureVerificationFailed</code>",
+      "Le token est rejeté avec <code>JWTExpired</code>"
+    ],
+    "explain": "Mesuré : une seconde avant <code>exp</code>, il a été accepté, et exactement à <code>exp</code>, rejeté avec <code>JWTExpired</code> (\"exp\" claim timestamp check failed), donc <code>exp</code> est exclusif. Fige ce genre de limite avec une horloge injectée plutôt qu’avec la vraie."
+  },
+  "m12.q17": {
+    "q": "Pendant une rotation de clé de signature, l’IdP a retiré l’ancienne clé de son JWKS au moment même où il a commencé à signer avec la nouvelle. Les access tokens vivent 15 minutes. Que voit l’API Orders ?",
+    "options": [
+      "Les tokens signés avec l’ancienne clé échouent avec <code>JWKSNoMatchingKey</code> jusqu’à leur expiration, donc les utilisateurs reçoivent des 401 ; l’ancienne clé aurait dû rester publiée au moins pendant la durée de vie des tokens",
+      "Rien : jose se rabat sur la clé la plus récente du set",
+      "Les tokens signés avec la nouvelle clé échouent jusqu’à l’expiration du cache JWKS",
+      "jose lève <code>JWKSMultipleMatchingKeys</code> pour chaque token"
+    ],
+    "explain": "Mesuré avec un JWKS local : une fois l’ancienne clé retirée, ses tokens ont échoué avec <code>JWKSNoMatchingKey</code>. Les tokens de la nouvelle clé passent, car un <code>kid</code> inconnu déclenche un nouveau téléchargement. L’ordre sûr : publier la nouvelle clé, signer avec, et retirer l’ancienne après la plus longue durée de vie de token."
+  },
+  "m12.q18": {
+    "q": "Un collègue veut supprimer la dépendance native et hasher les mots de passe avec le <code>crypto.argon2()</code> intégré à Node (forme callback). Mesuré sur Node 24.11.1, qu’a fait cet appel ?",
+    "options": [
+      "Il s’est exécuté entièrement sur le thread pool de libuv, comme <code>crypto.scrypt</code>",
+      "Il a levé <code>ERR_FEATURE_UNAVAILABLE</code>, car Argon2 n’est pas dans Node 24",
+      "Il n’a rendu la main qu’après environ la durée d’un hash, en bloquant l’event loop ; huit appels en parallèle l’ont figée environ 480 ms",
+      "Il a affiché un avertissement expérimental et s’est rabattu sur scrypt"
+    ],
+    "explain": "Argon2 est dans <code>node:crypto</code> depuis la v24.7.0, mais en 24.11.1 l’appel callback lui-même a pris environ 65 ms à <code>m=19456, t=2</code> avant de rendre la main. @node-rs/argon2 a exécuté huit hashes en 132 ms sans jamais bloquer la boucle plus de 39 ms : c’est donc le choix le plus sûr tant qu’une nouvelle mesure ne montre pas le contraire."
+  },
+  "m12.q19": {
+    "q": "Que se passe-t-il quand ceci s’exécute sur Node 24 (réglage scrypt de l’OWASP, aucune autre option) ?",
+    "options": [
+      "Il affiche 32 après environ un quart de seconde",
+      "Il lève <code>ERR_CRYPTO_INVALID_SCRYPT_PARAMS</code> : limite mémoire dépassée",
+      "Il affiche 32 immédiatement, car N est plafonné silencieusement",
+      "Il lève une erreur car le sel doit être une chaîne"
+    ],
+    "explain": "Mesuré : ce réglage demande environ 128 × N × r = 128 Mio, au-delà du <code>maxmem</code> par défaut de Node, donc il lève une erreur. Avec un <code>maxmem</code> plus grand, cela a fonctionné (environ 380 ms ici), et dans un serveur tu utiliserais de toute façon le <code>scrypt</code> asynchrone."
+  },
+  "m12.q20": {
+    "q": "La single-page app React de la boutique garde actuellement les tokens d’accès et de rafraîchissement dans <code>localStorage</code>. Que recommande la RFC 10017 (OAuth 2.0 for Browser-Based Applications) pour une application métier comme celle-ci ?",
+    "options": [
+      "Déplacer les tokens dans <code>sessionStorage</code>",
+      "Chiffrer les tokens dans <code>localStorage</code> avec une clé fournie par le serveur",
+      "Garder les tokens en mémoire et les rafraîchir à chaque chargement de page",
+      "Un backend-for-frontend qui exécute le flux OAuth, garde les tokens côté serveur et donne au navigateur un cookie de session HttpOnly"
+    ],
+    "explain": "La RFC 10017 classe le BFF comme l’architecture navigateur la plus sûre et le recommande fortement pour les applications métier. Tout stockage lisible par JavaScript, y compris <code>sessionStorage</code> ou une clé de déchiffrement dans la page, est aussi lisible par un script injecté."
+  },
+  "m12.q21": {
+    "q": "Une équipe propose le grant OAuth « resource owner password credentials » pour que l’app mobile de la boutique envoie directement le mot de passe du client au token endpoint. Que dit la RFC 9700 ?",
+    "options": [
+      "Il est autorisé pour les apps mobiles first-party",
+      "Il ne doit pas être utilisé",
+      "Il est autorisé s’il est combiné avec PKCE",
+      "Il est déprécié mais acceptable jusqu’à la publication d’OAuth 2.1"
+    ],
+    "explain": "La RFC 9700, la bonne pratique de sécurité OAuth actuelle, indique que le password grant MUST NOT être utilisé, et le brouillon d’OAuth 2.1 le supprime. L’app doit utiliser le flux authorization code avec PKCE dans le navigateur système, ce qui permet aussi à l’IdP de proposer les passkeys et le SSO."
+  },
+  "m12.q22": {
+    "q": "Le BFF utilise un cookie de session <code>SameSite=Lax</code>. L’auditeur demande une vraie défense CSRF sur <code>POST /orders/:id/cancel</code>. Quelle réponse correspond à la cheat sheet CSRF de l’OWASP ?",
+    "options": [
+      "Ajouter un token CSRF (synchroniser ou double-submit signé) ou rejeter les requêtes cross-site grâce à <code>Sec-Fetch-Site</code>, avec une vérification d’<code>Origin</code> en repli ; SameSite reste en défense en profondeur",
+      "Rien : <code>SameSite=Lax</code> empêche complètement le CSRF",
+      "Ajouter une politique CORS stricte qui ne liste que l’origine de ton front-end",
+      "Marquer le cookie <code>HttpOnly</code>"
+    ],
+    "explain": "L’OWASP qualifie SameSite de défense en profondeur utile qui ne remplace pas une vraie défense CSRF. CORS n’empêche pas l’envoi d’un POST de formulaire, et <code>HttpOnly</code> empêche les scripts de lire le cookie, pas le navigateur de le joindre."
+  },
+  "m12.q23": {
+    "q": "Un attaquant trouve une faille XSS dans une single-page app qui stocke son access token JWT dans <code>localStorage</code>. Que peut-il faire ?",
+    "options": [
+      "Rien, car le token est signé",
+      "Lire les claims mais pas utiliser le token, qui est lié au navigateur",
+      "Lire le token et l’utiliser depuis sa propre machine jusqu’à son expiration",
+      "Modifier les claims, puisque le payload n’est que du base64url"
+    ],
+    "explain": "Un bearer token fonctionne pour quiconque le présente, donc l’attaquant peut le rejouer n’importe où jusqu’à <code>exp</code>. Modifier les claims échoue (mesuré : <code>JWSSignatureVerificationFailed</code>). Seuls des tokens liés à l’émetteur (DPoP) ou des tokens tenus hors de la page (BFF) limitent cela."
+  },
+  "m12.q24": {
+    "q": "Le client A demande <code>GET /orders/ord_77/invoice</code>, et la commande <code>ord_77</code> appartient au client B. Que doit répondre l’API Orders ?",
+    "options": [
+      "403 Forbidden, pour être explicite sur la raison",
+      "401 Unauthorized, pour que le client se reconnecte",
+      "200 avec les montants retirés",
+      "404 Not Found, exactement comme pour un id qui n’existe pas"
+    ],
+    "explain": "Un 403 confirme que la commande existe, ce qui aide un attaquant à énumérer les id. 401 signifie « qui êtes-vous ? », ce qui est faux pour un appelant authentifié. Quand un appelant peut légitimement savoir qu’un objet existe (une ressource partagée dont il a perdu l’accès), 403 peut être le bon choix produit."
+  },
+  "m12.q25": {
+    "q": "La boutique ajoute des comptes professionnels : les acheteurs appartiennent à des équipes, les équipes à un compte entreprise, les commandes à l’entreprise, et une entreprise peut partager son historique de commandes avec son cabinet comptable, dont les collaborateurs voient alors ces commandes. Quel modèle d’autorisation et quel outil conviennent le mieux ?",
+    "options": [
+      "RBAC avec un claim de rôle venant de l’IdP",
+      "ReBAC avec un système de type Zanzibar comme OpenFGA",
+      "ABAC avec une seule règle sur le propriétaire de la commande",
+      "Aucun modèle : vérifier <code>customer_id</code> dans chaque requête"
+    ],
+    "explain": "Ici, l’accès suit des chaînes de relations (acheteur dans une équipe, équipe dans une entreprise, entreprise qui partage avec un cabinet), exactement ce que modélise le contrôle d’accès basé sur les relations. Un rôle ne peut pas exprimer « les commandes de cette entreprise », et une vérification du propriétaire ignore le partage ; OpenFGA est le projet en incubation à la CNCF conçu pour cela."
+  },
+  "m12.q26": {
+    "q": "Quel test automatisé a le plus de chances de détecter une régression BOLA dans l’API Orders avant la production ?",
+    "options": [
+      "Un test qui appelle chaque route sans token et attend 401",
+      "Un test de charge qui vérifie la latence p99 de chaque route",
+      "Pour chaque route qui prend un id, se connecter en tant que client A, demander l’objet du client B, et attendre le même 404 que pour un id inexistant",
+      "Un test unitaire de la fonction de vérification JWT"
+    ],
+    "explain": "Le BOLA touche des appelants authentifiés, donc les tests sans token passent alors que le bug est présent. Seul un test qui franchit la propriété, le client A demandant l’objet du client B, exerce la vérification manquante ; les tests de vérification de token couvrent API2, pas API1."
+  },
+  "m12.q27": {
+    "q": "Que reçoit le client de cette route Fastify 5 ?",
+    "options": [
+      "<code>{\"id\":\"u1\",\"email\":\"a@b.c\"}</code>",
+      "L’objet complet, <code>passwordHash</code> compris",
+      "Une erreur 500, car l’objet a une propriété en trop",
+      "Un objet vide, car le schéma n’a pas de liste <code>required</code>"
+    ],
+    "explain": "Mesuré : Fastify sérialise avec le schéma de réponse et supprime les propriétés qu’il ne liste pas. Le schéma devient ainsi une liste d’autorisation des champs sortants, la moitié sortie d’API3 ; sans schéma de réponse, l’objet entier, hash compris, aurait été envoyé."
+  },
+  "m12.q28": {
+    "q": "Le BFF (Express 5) utilise <code>app.use(express.json())</code> sans options. Un client envoie un corps JSON de 101 Kio. Que se passe-t-il ?",
+    "options": [
+      "Il est parsé normalement ; Express n’a pas de limite par défaut",
+      "413 avec le type d’erreur <code>entity.too.large</code>, car la limite par défaut est de 100 Ko",
+      "La connexion est réinitialisée sans réponse",
+      "400 avec une erreur de syntaxe JSON"
+    ],
+    "explain": "Mesuré : un corps juste sous 100 Kio a renvoyé 200 et un corps de 101 Kio a renvoyé 413 <code>entity.too.large</code>. Le <code>bodyLimit</code> par défaut de Fastify est de 1 Mio (mesuré aussi, avec <code>FST_ERR_CTP_BODY_TOO_LARGE</code>) ; définis la limite dont ton API a réellement besoin."
+  },
+  "m12.q29": {
+    "q": "Le compte du mainteneur d’un paquet populaire est victime de phishing et une version malveillante est publiée à 14 h 00 ; elle est détectée et retirée à 16 h 30. La CI de l’API Orders lance <code>pnpm install</code> à 15 h 00 avec les réglages par défaut de pnpm 12. Qu’est-ce qui la protège ?",
+    "options": [
+      "Le lockfile seul, quelle que soit la plage de versions",
+      "<code>pnpm audit</code>, qui signale la version dès sa publication",
+      "Rien, car la version satisfait la plage semver",
+      "<code>minimumReleaseAge</code> (1 440 minutes par défaut) ignore les versions publiées il y a moins d’un jour, et les scripts d’installation des dépendances sont bloqués sauf autorisation"
+    ],
+    "explain": "La documentation de pnpm indique <code>minimumReleaseAge: 1440</code> et le blocage des builds de dépendances comme valeurs par défaut ; ensemble, ils évitent la plupart des compromissions de quelques heures comme celles de septembre 2025. Un lockfile n’aide que si la CI l’installe en mode figé et que personne ne le met à jour pendant cette fenêtre, et une base d’audit ne connaît une version malveillante qu’une fois que quelqu’un l’a signalée."
+  },
+  "m12.q30": {
+    "q": "Le Dockerfile de l’API Orders contient <code>ARG NPM_TOKEN</code> et <code>RUN npm ci</code> avec le token, et l’image est poussée sur un registre partagé. Qu’est-ce qui ne va pas, et quel est le correctif ?",
+    "options": [
+      "Rien, tant que le registre est privé à l’entreprise",
+      "Le token doit être passé avec <code>ENV</code> au lieu de <code>ARG</code>",
+      "Les arguments de build persistent dans l’image, donc quiconque la récupère peut lire le token ; utiliser un secret de build (<code>RUN --mount=type=secret</code>) et faire tourner le token",
+      "Le token est en sécurité car les registres chiffrent les images au repos"
+    ],
+    "explain": "La documentation de Docker indique que les arguments de build et les variables d’environnement ne conviennent pas aux secrets, car ils persistent dans l’image finale, où quiconque la récupère peut les lire. Les secrets de build ne sont montés que pour l’étape <code>RUN</code>, et un token qui a pu fuiter doit être renouvelé."
+  }
+}

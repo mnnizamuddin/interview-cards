@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CARDS, MCQS, UNITS } from './index.ts';
+import type { CardText } from './translation.ts';
 import { TOPICS } from './catalog.ts';
 import { QUESTION_LISTS } from './lists.ts';
 import type { Card } from './types.ts';
@@ -177,10 +178,13 @@ describe('cards', () => {
         (Object.values(module).filter(Array.isArray).flat() as Card[]).map((card) => [card.id, path.replace('./cards/', '').replace('.ts', '')] as const),
       ),
     );
+    const frenchFiles = import.meta.glob<Record<string, CardText>>('./fr/cards/*.json', { eager: true, import: 'default' });
+    const frenchTopics = new Map(Object.values(frenchFiles).flatMap((overlay) => Object.entries(overlay).map(([id, text]) => [id, text.topic] as const)));
     const expected = CARDS.map((card) => ({
       id: card.id,
       unit: card.unit,
       topic: card.topic,
+      ...(frenchTopics.has(card.id) && { topicFr: frenchTopics.get(card.id) }),
       file: fileOf.get(card.id),
       mcqModules: [...new Set(card.mcqSections.map((section) => section.split('#')[0]!))].toSorted(),
     }));

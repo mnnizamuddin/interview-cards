@@ -1,0 +1,302 @@
+{
+  "m04.q1": {
+    "q": "Avec <code>noUncheckedIndexedAccess</code> activé, quel est le type de <code>first</code> ?",
+    "options": [
+      "<code>Order</code>",
+      "<code>Order | null</code>",
+      "<code>Order | undefined</code>",
+      "<code>Readonly&lt;Order&gt; | undefined</code>"
+    ],
+    "explain": "Le tableau peut être vide, donc lire un index peut donner <code>undefined</code> ; mesuré, l’assigner à une variable non optionnelle échoue avec TS2322. Sans le flag, le type est <code>Order</code>, et c’est précisément ce mensonge que le flag supprime. Rien en JavaScript ne renvoie <code>null</code> pour un index manquant."
+  },
+  "m04.q2": {
+    "q": "<code>types.ts</code> exporte une interface <code>Order</code> et une constante <code>x</code>. Sans <code>verbatimModuleSyntax</code>, <code>main.ts</code> fait <code>import { Order, x } from './types.ts'</code>. Que se passe-t-il avec <code>node main.ts</code> sur Node 24 ?",
+    "options": [
+      "Ça plante au démarrage : le module ne fournit pas d’export nommé <code>Order</code>",
+      "Ça s’exécute, car Node voit que <code>Order</code> n’est utilisé que comme type et le retire",
+      "Ça s’exécute, et <code>Order</code> vaut <code>undefined</code> partout où le code le lit comme une valeur",
+      "Node signale une erreur de type sur <code>Order</code> et quitte avant d’exécuter quoi que ce soit"
+    ],
+    "explain": "Mesuré : <code>SyntaxError: The requested module './types.ts' does not provide an export named 'Order'</code>. Node ne fait que retirer la syntaxe de type ; un import sans <code>type</code> est conservé comme import de valeur, et les interfaces n’existent pas à l’exécution. Node ne vérifie jamais les types, donc il ne peut pas savoir que <code>Order</code> est un type ; <code>verbatimModuleSyntax</code> signale plutôt TS1484 à la compilation."
+  },
+  "m04.q3": {
+    "q": "Lequel de ces fichiers s’exécute avec <code>node file.ts</code> sur Node 24, sans flag supplémentaire ?",
+    "options": [
+      "Un fichier avec <code>enum Status { Draft, Paid }</code> utilisé pour étiqueter les lignes de commandes",
+      "Un fichier avec une classe utilisant <code>constructor(private readonly url: string)</code>",
+      "Un fichier avec <code>namespace Billing { export const vat = 0.2; }</code> pour les taux de TVA",
+      "Un fichier avec un type union, <code>satisfies</code> et un <code>declare namespace</code> purement typé"
+    ],
+    "explain": "Node ne retire que la syntaxe effaçable. Mesuré : les enums, les parameter properties et les namespaces contenant du code échouent tous avec <code>ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX</code> car ils génèrent du JavaScript. Les types, <code>satisfies</code> et un <code>declare namespace</code> purement typé disparaissent entièrement, donc ce fichier s’est exécuté."
+  },
+  "m04.q4": {
+    "q": "Quelle affirmation sur TypeScript 7.0 est correcte en octobre 2026 ?",
+    "options": [
+      "Ce n’est qu’une preview, publiée sous <code>@typescript/native-preview</code> jusqu’à la sortie de la 7.1",
+      "C’est le package stable <code>typescript</code>, lancé via <code>tsc</code>, sans API programmatique pour l’instant",
+      "Il ajoute une commande <code>tsgo</code> qui remplace <code>tsc</code> et accepte toutes les options de la 6.0",
+      "C’est un runtime qui exécute du TypeScript et remplace le type stripping de Node"
+    ],
+    "explain": "TypeScript 7.0 est sorti le 8 juillet 2026 ; npm affiche <code>typescript</code> 7.0.2, et l’annonce précise qu’il « n’est livré avec aucune API », une nouvelle étant prévue pour la 7.1. Le package native preview était le canal de pré-version. Les options dépréciées en 6.0 sont supprimées en 7.0, et c’est un compilateur, pas un runtime."
+  },
+  "m04.q5": {
+    "q": "<code>toResponseBody(order: PublicOrder)</code> renvoie <code>JSON.stringify(order)</code>, où <code>PublicOrder</code> a <code>id</code>, <code>status</code> et <code>totalCents</code>. On l’appelle avec une ligne de la base stockée dans une variable, qui a aussi <code>paymentToken</code>. Que se passe-t-il ?",
+    "options": [
+      "Erreur de compilation : <code>paymentToken</code> n’existe pas dans <code>PublicOrder</code>",
+      "Ça compile et le JSON contient <code>paymentToken</code>",
+      "Ça compile et TypeScript retire <code>paymentToken</code> de la sortie",
+      "Ça compile mais lève une exception à l’exécution"
+    ],
+    "explain": "Le typage structurel n’exige que les champs demandés par le type, et les types n’existent pas à l’exécution pour retirer quoi que ce soit ; mesuré sur Node 24, le token était dans le JSON. L’erreur de propriété en excès (TS2353) ne s’applique qu’à un objet littéral écrit directement à cet endroit, pas à une variable qui contient une ligne."
+  },
+  "m04.q6": {
+    "q": "<code>applyOrderEvent</code> termine son <code>switch (event.type)</code> par <code>default: return assertNever(event);</code>. Un collègue ajoute <code>{ type: 'partial_refund'; at: Date }</code> à <code>OrderEvent</code> mais aucun case. Que se passe-t-il ?",
+    "options": [
+      "Les remboursements partiels tombent dans <code>default</code> et lèvent une exception à l’exécution seulement",
+      "Rien de visible jusqu’à ce que le premier remboursement partiel atteigne le service",
+      "tsc échoue sur <code>assertNever(event)</code> : partial_refund n’est pas assignable à <code>never</code>",
+      "tsc échoue sur la déclaration de <code>OrderEvent</code>, qui a un membre non géré"
+    ],
+    "explain": "Une fois les cas gérés retirés, <code>event</code> contient encore le membre partial_refund, qui ne peut pas aller dans un paramètre <code>never</code> : TS2345 mesuré. L’exception levée à l’exécution dans <code>assertNever</code> n’est qu’un filet de sécurité ; l’intérêt, c’est que le build échoue d’abord. Le type union lui-même est parfaitement valide."
+  },
+  "m04.q7": {
+    "q": "Avec l’<code>EventBus</code> typé de la leçon, et des variables <code>orderId</code>, <code>paymentId</code>, <code>totalCents</code> et <code>amountCents</code> des bons types brandés, quel appel compile ?",
+    "options": [
+      "<code>bus.emit('order.paid', { orderId, totalCents })</code>",
+      "<code>bus.emit('order.payed', { orderId, paymentId })</code>",
+      "<code>bus.on('order.placed', async (event) =&gt; audit.log(event.paymentId))</code>",
+      "<code>bus.emit('order.refunded', { orderId, amountCents })</code>"
+    ],
+    "explain": "Le nom contraint le payload via <code>DomainEvents[E]</code>. Mesuré : le premier appel passe un <code>totalCents</code> qu’un payload <code>order.paid</code> n’a pas (TS2353) et oublie <code>paymentId</code>, le nom mal orthographié n’est pas dans <code>keyof DomainEvents</code> (TS2345), et un payload <code>order.placed</code> n’a pas de <code>paymentId</code> (TS2339). L’événement refunded a exactement les champs requis."
+  },
+  "m04.q8": {
+    "q": "Avec <code>OrderId</code> et <code>PaymentId</code> brandés comme dans la leçon, quelle ligne compile ?",
+    "options": [
+      "<code>const text: string = toOrderId('ord_1');</code>",
+      "<code>loadOrder('ord_' + order.number);</code>",
+      "<code>loadOrder(refund.paymentId);</code>",
+      "<code>const id: OrderId = 'ord_' + crypto.randomUUID();</code>"
+    ],
+    "explain": "Une valeur brandée est une string plus un marqueur de compilation, donc on peut l’utiliser comme une string. L’autre sens est bloqué : mesuré, une string simple ou un <code>PaymentId</code> passé comme <code>OrderId</code> échoue avec TS2345. Seule la fonction de vérification, avec son unique <code>as OrderId</code>, en crée un."
+  },
+  "m04.q9": {
+    "q": "<code>const routes = { home: '/', orders: '/orders' } satisfies Record&lt;string, string&gt;;</code> Quel est le type de <code>routes.orders</code> ?",
+    "options": [
+      "<code>'/orders'</code>",
+      "<code>string</code>",
+      "<code>string | undefined</code>",
+      "<code>Record&lt;string, string&gt;</code>"
+    ],
+    "explain": "Mesuré : assigner <code>routes.orders</code> à une variable <code>'/orders'</code> échoue, donc le littéral s’est élargi en <code>string</code>, car le type cible demande <code>string</code>. Les clés restent connues, donc pas de <code>undefined</code>, contrairement à une annotation avec <code>noUncheckedIndexedAccess</code>. <code>as const satisfies</code> garderait <code>'/orders'</code>."
+  },
+  "m04.q10": {
+    "q": "Un client envoie <code>{ customerId: 'cus_1', items: [...], isAdmin: true }</code> à <code>POST /orders</code>, qui utilise <code>PlaceOrderBody.safeParse(req.body)</code>, construit avec <code>z.object</code> et sans champ <code>isAdmin</code>. Que contient <code>parsed.data</code> ?",
+    "options": [
+      "Tous les champs, <code>isAdmin</code> compris",
+      "Rien : <code>success</code> vaut false à cause de la clé inconnue",
+      "Tous les champs sauf <code>isAdmin</code>",
+      "<code>isAdmin</code> à <code>undefined</code>"
+    ],
+    "explain": "Mesuré avec Zod 4.6.7 : <code>success</code> valait true et <code>isAdmin</code> était absent, car <code>z.object</code> retire les clés inconnues. Ça protège contre le mass assignment. Rejeter la requête, c’est ce que fait <code>z.strictObject</code> (code d’issue <code>unrecognized_keys</code>)."
+  },
+  "m04.q11": {
+    "q": "L’API Orders appelle le prestataire de paiement via un client généré avec openapi-typescript et openapi-fetch. Que garantissent les types générés à l’exécution ?",
+    "options": [
+      "Que les réponses respectent la spec, car openapi-fetch valide chaque corps par rapport à elle",
+      "Que le prestataire ne peut pas changer son contrat sans d’abord casser ton build",
+      "Que les réponses 4xx et 5xx sont levées comme des exceptions typées que tu peux intercepter",
+      "Rien à l’exécution : les réponses sont typées d’après la spec mais jamais vérifiées"
+    ],
+    "explain": "Les types générés n’existent qu’à la compilation ; la doc décrit <code>data</code> et <code>error</code> comme typés d’après la spec, pas validés. Si le prestataire envoie autre chose, ton code le reçoit. Pour une API que tu ne contrôles pas, parse la réponse avec un schéma. openapi-fetch renvoie les erreurs dans <code>error</code> ; il ne les lève pas."
+  },
+  "m04.q12": {
+    "q": "Avec <code>strict</code> activé, que dit tsc à propos de <code>catch (error) { console.log(error.message); }</code> ?",
+    "options": [
+      "<code>'error' is of type 'unknown'</code> (TS18046)",
+      "Rien : <code>error</code> est typé <code>Error</code>",
+      "Rien : <code>error</code> est typé <code>any</code>",
+      "Que <code>catch</code> exige une annotation de type explicite"
+    ],
+    "explain": "<code>strict</code> inclut <code>useUnknownInCatchVariables</code>, car JavaScript peut lever n’importe quelle valeur, une string comprise. Mesuré : TS18046. Affine d’abord avec <code>error instanceof Error</code>. C’était <code>any</code> avant ce flag, ce que du code plus ancien suppose encore."
+  },
+  "m04.q13": {
+    "q": "Ce helper fusionne les options du client HTTP du transporteur. Qu’affiche-t-il, et quel flag aurait refusé l’appel ?",
+    "options": [
+      "<code>{ timeoutMs: 5000, retries: 2 }</code> ; aucun flag nécessaire, le spread ignore les valeurs undefined",
+      "<code>{ timeoutMs: undefined, retries: 2 }</code> ; <code>strictNullChecks</code>",
+      "<code>{ timeoutMs: undefined, retries: 2 }</code> ; <code>exactOptionalPropertyTypes</code>",
+      "<code>{ timeoutMs: 5000, retries: 2 }</code> ; <code>noUncheckedIndexedAccess</code>"
+    ],
+    "explain": "Mesuré : une clé présente avec la valeur <code>undefined</code> écrase la valeur par défaut dans un spread, donc le client se retrouve sans timeout. <code>exactOptionalPropertyTypes</code> fait que <code>timeoutMs?: number</code> signifie « absent ou un nombre » et rejette l’appel (TS2379). <code>strictNullChecks</code> seul l’accepte, car une propriété optionnelle autorise normalement <code>undefined</code>."
+  },
+  "m04.q14": {
+    "q": "Une équipe veut supprimer l’étape de build de son service NestJS et lancer <code>node src/main.ts</code> en production sur Node 24. Son tsconfig a <code>erasableSyntaxOnly</code> et tsc passe. Que lui dis-tu ?",
+    "options": [
+      "Ça marche : <code>erasableSyntaxOnly</code> garantit que Node peut retirer les types du code",
+      "Ça échoue sur les décorateurs, que tsc accepte avec ce flag ; garde un build tsc ou SWC",
+      "Ça marche une fois qu’on ajoute un import <code>reflect-metadata</code> en haut de <code>main.ts</code>",
+      "Ça marche, mais le démarrage est plus lent car Node vérifie d’abord les types"
+    ],
+    "explain": "Mesuré : une classe décorée a compilé sans erreur sous <code>erasableSyntaxOnly</code>, puis a échoué dans Node avec <code>SyntaxError: Invalid or unexpected token</code>. NestJS a aussi besoin d’<code>emitDecoratorMetadata</code> pour l’injection de dépendances, que seul un vrai compilateur (tsc, ou SWC via la CLI Nest) produit. Node ne vérifie jamais les types."
+  },
+  "m04.q15": {
+    "q": "Dans un monorepo pnpm, <code>@acme/contracts</code> exporte <code>./index.ts</code> et l’API Orders l’exécute sans build grâce au type stripping de Node 24. Ça marche en local. Après publication du package sur le registry privé et installation dans un autre repo, le démarrage échoue. Pourquoi ?",
+    "options": [
+      "Node ne retire pas les types sous <code>node_modules</code> ; le lien du workspace pointait en dehors",
+      "Le registry retire les fichiers <code>.ts</code> des packages publiés sauf si <code>files</code> les liste",
+      "pnpm compile les packages du workspace à l’installation, et une installation depuis le registry saute cette étape",
+      "Le repo consommateur n’a pas <code>rewriteRelativeImportExtensions</code> dans son tsconfig"
+    ],
+    "explain": "Mesuré : un package de workspace lié s’est exécuté car Node suit le lien jusqu’au vrai chemin, alors qu’un fichier <code>.ts</code> dans <code>node_modules</code> a échoué avec <code>ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING</code>. Un package publié doit livrer du JavaScript compilé. Les flags du tsconfig ne comptent pas pour Node, qui ignore le tsconfig."
+  },
+  "m04.q16": {
+    "q": "Un service utilise <code>tsx watch</code> en local et un bundle esbuild en production. Une pull request qui passe <code>null</code> à une fonction attendant une <code>string</code> a été mergée et a planté en production. Quel correctif livres-tu ?",
+    "options": [
+      "Remplacer esbuild par tsdown, qui vérifie les types de chaque fichier pendant le bundling",
+      "Passer la boucle de dev de tsx à <code>node --watch src/main.ts</code>, qui vérifie les types",
+      "Ajouter une étape de CI lançant <code>tsc --noEmit</code> qui bloque le merge en cas d’erreur",
+      "Activer <code>strict</code> dans le tsconfig pour qu’esbuild rejette les erreurs de type"
+    ],
+    "explain": "tsx documente qu’il ne vérifie pas les types (mesuré : <code>const s: string = 42</code> s’est exécuté), et esbuild comme tsdown transforment le code sans le vérifier ; le type stripping de Node ne vérifie pas non plus. Seul tsc (6.0 ou 7.0) vérifie les types, donc il doit tourner en CI. Les flags du tsconfig changent ce que tsc signale, pas ce que fait un bundler."
+  },
+  "m04.q17": {
+    "q": "Ton monorepo backend veut la vitesse de TypeScript 7 en CI, mais il utilise des règles de lint type-aware qui appellent l’API TypeScript. Quel plan recommande l’équipe TypeScript ?",
+    "options": [
+      "Attendre la 7.1, car la 7.0 ne peut pas vérifier les types d’un projet qui lance aussi un linter type-aware",
+      "Installer la 7.0 partout et désactiver les règles de lint type-aware jusqu’à leur réécriture",
+      "Rester uniquement en 6.0, car la 7.0 a abandonné <code>module: nodenext</code> en même temps que <code>node10</code>",
+      "Utiliser la 7.0 pour <code>tsc</code> et garder la 6.0 à côté via <code>@typescript/typescript6</code> pour le lint"
+    ],
+    "explain": "L’annonce de la 7.0 dit qu’elle n’est livrée avec aucune API pour l’instant et décrit l’installation de <code>@typescript/typescript6</code> (commande <code>tsc6</code>) à côté de la 7.0 pour les outils qui ont besoin de l’API 6.0. Attendre n’est pas nécessaire : la vérification de types elle-même marche en 7.0. <code>nodenext</code> est pris en charge ; c’est la résolution <code>node10</code> qui a été supprimée."
+  },
+  "m04.q18": {
+    "q": "Quel est le risque dans ce code de webhook ?",
+    "options": [
+      "Le prédicat vérifie une seule clé mais affirme un <code>RefundEvent</code> complet, et le compilateur lui fait confiance",
+      "Ça ne compile pas : l’opérateur <code>in</code> ne peut pas s’utiliser sur une valeur typée <code>unknown</code>",
+      "<code>value is RefundEvent</code> fait insérer par TypeScript une vérification à l’exécution de chaque champ",
+      "Aucun : après <code>typeof value === 'object'</code>, le compilateur a prouvé la forme"
+    ],
+    "explain": "Un prédicat de type est une promesse que le compilateur ne vérifie pas : dès qu’il renvoie true, <code>body</code> est un <code>RefundEvent</code> complet partout. N’importe quel objet avec une clé <code>type</code> passe, donc <code>refund(undefined, undefined)</code> peut s’exécuter. Utilise un schéma (<code>RefundEvent.safeParse</code>) pour tout ce qui dépasse un champ. La vérification <code>in</code> compile bien après les vérifications d’objet et de null."
+  },
+  "m04.q19": {
+    "q": "Avec l’<code>applyOrderEvent</code> de la leçon, que se passe-t-il avec <code>applyOrderEvent(pendingOrder, { type: 'refund', at: new Date() })</code>, où <code>pendingOrder</code> a <code>status: 'pending_payment'</code> ?",
+    "options": [
+      "Ça renvoie une commande remboursée avec <code>refundedAt</code> à la date de l’événement",
+      "Ça renvoie la commande en attente inchangée et ne logge rien",
+      "Ça lève <code>InvalidTransitionError</code> : seules les commandes payées peuvent être remboursées",
+      "Ça ne compile pas : on ne peut pas passer une commande en attente avec un événement de remboursement"
+    ],
+    "explain": "Le case <code>refund</code> ne renvoie que quand <code>order.status === 'paid'</code> ; sinon il sort du switch et atteint le throw. Mesuré sur Node 24 : « Cannot refund an order that is pending_payment ». Les types des paramètres autorisent n’importe quelle paire commande-événement, donc cette règle est vérifiée à l’exécution, à un seul endroit."
+  },
+  "m04.q20": {
+    "q": "Un relecteur propose de remplacer <code>default: return assertNever(event);</code> par <code>default: return order;</code> « par sécurité ». Que réponds-tu ?",
+    "options": [
+      "D’accord : renvoyer la commande inchangée évite les plantages en production",
+      "Refuser : un nouveau type d’événement compilerait alors et serait ignoré en silence",
+      "Ça ne change rien : tsc vérifie de toute façon l’exhaustivité de chaque switch",
+      "D’accord, tant que <code>noFallthroughCasesInSwitch</code> est activé dans le tsconfig"
+    ],
+    "explain": "Avec un default qui renvoie une valeur, <code>event</code> n’est jamais tenu d’être <code>never</code> : mesuré, ajouter un événement <code>partial_refund</code> a alors compilé sans erreur, et ces événements seraient perdus sans laisser de trace. tsc ne vérifie pas l’exhaustivité de lui-même : c’est l’assignation à <code>never</code> qui crée la vérification. <code>noFallthroughCasesInSwitch</code> concerne les cases sans <code>break</code>, pas les cases manquants."
+  },
+  "m04.q21": {
+    "q": "Avec Express 5 et @types/express, que signale tsc pour cette route ?",
+    "options": [
+      "Rien : <code>req.params</code> est un <code>Record&lt;string, string&gt;</code> pour toutes les routes",
+      "Les deux propriétés sont <code>string | undefined</code> sous <code>noUncheckedIndexedAccess</code>",
+      "Une erreur sur <code>orderId</code>, car les paramètres de route doivent être validés avant usage",
+      "TS2339 sur <code>customerId</code> : la chaîne de la route est analysée pour produire le type des params"
+    ],
+    "explain": "Les types d’Express utilisent des template literal types pour lire <code>:orderId</code> dans la chaîne de la route, donc <code>req.params</code> est <code>{ orderId: string }</code>. Mesuré avec @types/express 5.0.6 : TS2339 sur <code>customerId</code> seulement. On aurait un simple type dictionnaire si la route était une variable de type <code>string</code>."
+  },
+  "m04.q22": {
+    "q": "Que vaut <code>AggregateOf&lt;'order.placed' | 'payment.captured'&gt;</code> ?",
+    "options": [
+      "<code>never</code>, car une union n’étend pas le motif",
+      "<code>'order' | 'payment'</code>",
+      "<code>string</code>",
+      "<code>'order.placed' | 'payment.captured'</code>"
+    ],
+    "explain": "Un type conditionnel sur un paramètre de type nu est distributif : il s’exécute une fois par membre de l’union et réunit les résultats. Mesuré : <code>'order'</code> et <code>'payment'</code> sont acceptés et <code>'placed'</code> est rejeté (TS2322). <code>never</code> serait le résultat pour un nom sans point."
+  },
+  "m04.q23": {
+    "q": "Un checkout convertit une chaîne de prix avec <code>Number(price) * 100</code> avant d’enregistrer des centimes entiers. Pour <code>'19.99'</code>, que calcule Node 24, et que changes-tu ?",
+    "options": [
+      "<code>1999</code> ; rien à changer, les doubles sont exacts jusqu’à deux décimales",
+      "<code>1999</code>, car V8 arrondit chaque résultat de multiplication à 15 chiffres significatifs",
+      "<code>1998.9999999999998</code> ; convertir la chaîne décimale en centimes entiers exacts à la frontière",
+      "<code>1998.9999999999998</code> ; le stocker dans une colonne <code>double precision</code> au lieu d’un entier"
+    ],
+    "explain": "Mesuré : <code>19.99 * 100</code> vaut <code>1998.9999999999998</code>, car 19,99 n’a pas de représentation binaire exacte. Le tronquer donne 1998 centimes, un centime perdu par article. Convertis une fois, à la frontière, en entier exact, puis calcule en centimes entiers ; les colonnes à virgule flottante ne font que déplacer le problème."
+  },
+  "m04.q24": {
+    "q": "Un développeur veut <code>enum OrderStatus { PendingPayment = 'pending_payment', Paid = 'paid' }</code> dans l’API Orders, qui tourne avec le type stripping de Node 24 et <code>erasableSyntaxOnly</code>. Que proposes-tu ?",
+    "options": [
+      "Un <code>const enum</code>, car tsc inline ses valeurs et efface la déclaration",
+      "Garder l’enum et démarrer la production avec <code>--experimental-transform-types</code>",
+      "Un <code>namespace OrderStatus</code> contenant une constante exportée par statut",
+      "Un objet <code>as const</code> plus un type union dérivé de ses valeurs"
+    ],
+    "explain": "L’objet <code>as const</code> donne des valeurs à l’exécution, des chaînes lisibles dans le JSON et les logs, et un type union via <code>(typeof OrderStatus)[keyof typeof OrderStatus]</code>, le tout effaçable. Mesuré : un <code>const enum</code> est rejeté aussi, avec TS1294 sous le flag et <code>ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX</code> dans Node. Les namespaces contenant du code échouent de la même façon, et le flag de transformation a affiché un <code>ExperimentalWarning</code> sur Node 24.11 et n’existe plus dans Node 26."
+  },
+  "m04.q25": {
+    "q": "Pourquoi écrire <code>const retryPolicies = { … } satisfies Record&lt;string, RetryPolicy&gt;</code> plutôt que <code>const retryPolicies: Record&lt;string, RetryPolicy&gt; = { … }</code> ?",
+    "options": [
+      "Seul <code>satisfies</code> garde les clés connues, donc <code>retryPolicies.paymentProvider</code> n’est jamais undefined",
+      "Seul <code>satisfies</code> détecte <code>backoff: 'fixd'</code> ; l’annotation accepte n’importe quelle chaîne à cet endroit",
+      "<code>satisfies</code> gèle aussi l’objet à l’exécution, comme <code>Object.freeze</code>",
+      "<code>satisfies</code> rend chaque propriété imbriquée <code>readonly</code>, comme <code>as const</code>"
+    ],
+    "explain": "Les deux formes vérifient la valeur par rapport au type (TS2820 mesuré sur <code>'fixd'</code> avec <code>satisfies</code>). La différence, c’est le type de la variable : l’annotation en fait un <code>Record</code>, donc sous <code>noUncheckedIndexedAccess</code> chaque accès est possiblement undefined (TS18048) ; <code>satisfies</code> garde la forme inférée. C’est un opérateur au niveau des types : rien ne se passe à l’exécution."
+  },
+  "m04.q26": {
+    "q": "Le schéma d’environnement a <code>PORT: z.coerce.number().int().default(3000)</code>, sans <code>.min</code>. Un déploiement définit <code>PORT=</code> (vide). Quelle valeur le service reçoit-il ?",
+    "options": [
+      "<code>3000</code>, car une chaîne vide compte comme absente",
+      "Une erreur de validation : une chaîne vide n’est pas un nombre",
+      "<code>0</code>, car <code>Number('')</code> vaut 0",
+      "<code>NaN</code>, rejeté par <code>.int()</code>"
+    ],
+    "explain": "Mesuré avec Zod 4.6.7 : <code>z.coerce.number()</code> a transformé <code>''</code> en <code>0</code>. La valeur par défaut ne s’applique qu’à <code>undefined</code>, pas à une chaîne vide, et <code>Number('')</code> vaut 0, pas <code>NaN</code>. Écouter sur le port 0 laisse l’OS choisir un port aléatoire, donc le service démarre et personne ne peut le joindre ; ajoute <code>.min(1)</code>."
+  },
+  "m04.q27": {
+    "q": "Ton service valide les entrées des procédures tRPC 11 avec Zod. Une équipe edge veut Valibot 1.5 pour ses bundles plus légers. Qu’est-ce qui change côté tRPC ?",
+    "options": [
+      "Rien de particulier : Valibot implémente Standard Schema, que tRPC accepte",
+      "tRPC a besoin d’un package adaptateur Valibot, comme il en fallait un pour Zod",
+      "Les schémas Valibot doivent d’abord être convertis en Zod par une étape de génération de code en CI",
+      "tRPC n’accepte que les schémas Zod, donc l’équipe edge doit garder Zod"
+    ],
+    "explain": "Standard Schema est une interface partagée : une propriété <code>~standard</code> avec <code>version</code>, <code>vendor</code> et <code>validate</code>. Zod 4.6.7, Valibot 1.5.0 et ArkType 2.2.9 l’implémentent (mesuré), et la doc de tRPC liste Standard Schema parmi les validateurs acceptés. Les adaptateurs étaient nécessaires avant l’existence de cette interface."
+  },
+  "m04.q28": {
+    "q": "L’API Orders est appelée par ton propre back-office React, par le service Java d’un partenaire et par une app Android en Kotlin. Quelle façon de partager les types convient ?",
+    "options": [
+      "tRPC, car il évite d’écrire le moindre schéma",
+      "Un document OpenAPI, avec un client généré par langage",
+      "Un package npm partagé de types TypeScript que chaque client installe",
+      "Une description écrite à la main de chaque endpoint, tenue dans un wiki"
+    ],
+    "explain": "OpenAPI est neutre vis-à-vis du langage, donc chaque client peut générer du code depuis le même contrat, et le document sert aussi de documentation publique. Les types de tRPC passent par des imports TypeScript, qu’un client Java ou Kotlin ne peut pas utiliser. Un package TypeScript partagé a le même problème, et un wiki diverge du code."
+  },
+  "m04.q29": {
+    "q": "Avec <code>strict</code> activé, pourquoi ce code compile-t-il ?",
+    "options": [
+      "<code>strict</code> type chaque raison de rejet comme <code>Error</code>, donc la lecture est vérifiée",
+      "tsc infère le type d’<code>error</code> à partir des erreurs que <code>chargeCard</code> peut lever",
+      "<code>error</code> est <code>unknown</code>, et lire des propriétés imbriquées sur une valeur <code>unknown</code> est autorisé",
+      "Son paramètre est typé <code>any</code> : la règle stricte sur catch ne couvre que les clauses <code>catch</code>"
+    ],
+    "explain": "Le flag ne couvre que les clauses <code>catch</code>. La lib type la raison d’un rejet en <code>any</code>, donc, mesuré, <code>error.whatever.deep</code> a compilé dans <code>.catch</code>, et une erreur réseau sans <code>response</code> ferait planter le handler. Préfère <code>await</code> dans un <code>try</code>/<code>catch</code>, ou annote <code>(error: unknown)</code>. TypeScript n’a pas d’exceptions vérifiées dont il pourrait inférer le type."
+  },
+  "m04.q30": {
+    "q": "<code>chargeCard</code> peut échouer parce que la carte est refusée ou parce que le prestataire de paiement est en timeout. Quelle conception approuverais-tu ?",
+    "options": [
+      "Lever une exception typée pour les deux et les lister dans un commentaire TSDoc <code>@throws</code>",
+      "Renvoyer la carte refusée comme une valeur ; lever une exception sur le timeout avec une <code>cause</code>",
+      "Renvoyer <code>null</code> pour les deux échecs et logger la raison au niveau warning",
+      "Renvoyer un <code>Result</code> pour les deux, et aussi pour chaque échec de base de données et de réseau"
+    ],
+    "explain": "Une carte refusée est un résultat attendu que l’appelant doit gérer (prévenir le client), donc elle a sa place dans le type de retour. Un timeout est un incident : le lever avec <code>cause</code> laisse les retries, le middleware d’erreurs et l’alerting s’en occuper. TypeScript ne peut pas typer les exceptions levées, donc un commentaire n’est pas contraignant ; renvoyer un <code>Result</code> pour chaque échec d’infrastructure encombre chaque point d’appel."
+  }
+}

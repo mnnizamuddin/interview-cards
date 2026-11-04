@@ -1,0 +1,302 @@
+{
+  "m36.q1": {
+    "q": "Pourquoi le Button du design system prend-il <code>variant: 'primary' | 'secondary' | 'danger'</code> plutôt que des booléens <code>primary</code> et <code>danger</code> ?",
+    "options": [
+      "Les booléens ne peuvent pas être passés en props à un composant fonction dans React 19",
+      "Il transforme des combinaisons comme primary plus danger en erreurs de type",
+      "Une union coûte moins cher à comparer que plusieurs booléens à chaque rendu",
+      "Des props booléennes obligeraient le bouton à être un composant contrôlé"
+    ],
+    "explain": "Avec deux booléens, <code>&lt;Btn primary danger&gt;</code> compile et décrit un état qu’aucun designer n’a dessiné. Une seule union n’admet qu’une variante. Les booléens sont des props valides dans toutes les versions de React, et aucun des deux choix n’a de coût de rendu mesurable."
+  },
+  "m36.q2": {
+    "q": "Dans un <code>&lt;form&gt;</code>, un agent clique sur <code>&lt;button&gt;Refund&lt;/button&gt;</code>, qui n’a pas d’attribut <code>type</code>. Que se passe-t-il ?",
+    "options": [
+      "Rien : un bouton sans type ne fait rien tant qu’il n’a pas de onClick",
+      "Le navigateur affiche un avertissement dans la console et ignore le clic",
+      "Le formulaire est soumis, car le type par défaut d’un bouton est submit",
+      "Le formulaire est réinitialisé, car le type par défaut est reset"
+    ],
+    "explain": "Le type par défaut d’un bouton est <code>submit</code> : mesuré dans Chromium, le clic a déclenché l’événement submit du formulaire et <code>button.type</code> valait <code>\"submit\"</code>. C’est pourquoi le Button du design system met <code>type</code> à <code>\"button\"</code> par défaut. Un bouton de réinitialisation demande <code>type=\"reset\"</code> explicitement."
+  },
+  "m36.q3": {
+    "q": "Dans <code>&lt;Tabs.Root&gt;&lt;Tabs.List&gt;&lt;Tabs.Tab /&gt;&lt;/Tabs.List&gt;&lt;Tabs.Panel /&gt;&lt;/Tabs.Root&gt;</code>, comment un <code>Tab</code> sait-il quelle valeur est sélectionnée ?",
+    "options": [
+      "Il lit la valeur sélectionnée dans un contexte que Root fournit",
+      "Root clone chaque élément enfant et injecte la valeur sélectionnée en prop",
+      "Chaque Tab garde son propre state et le synchronise avec un effet",
+      "L’appelant passe selected à chaque Tab à la main"
+    ],
+    "explain": "Root rend un provider de contexte, et chaque partie le lit avec <code>use</code> (ou <code>useContext</code>), quelle que soit sa profondeur. Cloner les enfants n’atteint que les enfants directs, donc ça casse dès qu’un Tab est enveloppé dans une <code>List</code> ou une tooltip. Synchroniser des states locaux avec des effets duplique le state."
+  },
+  "m36.q4": {
+    "q": "Quel usage de Tabs est <b>contrôlé</b> ?",
+    "options": [
+      "<code>&lt;Tabs.Root defaultValue=\"details\"&gt;</code>",
+      "<code>&lt;Tabs.Root defaultValue=\"details\" onValueChange={track}&gt;</code>",
+      "<code>&lt;Tabs.Root&gt;</code> avec chaque Tab marqué comme sélectionné",
+      "<code>&lt;Tabs.Root value={tab} onValueChange={setTab}&gt;</code>"
+    ],
+    "explain": "Un composant est contrôlé quand le parent passe la valeur elle-même et stocke les changements, ici <code>value</code> plus <code>setTab</code>. Un <code>onValueChange</code> à côté de <code>defaultValue</code> ne fait qu’observer les changements : le composant possède toujours son state, donc cet usage est non contrôlé."
+  },
+  "m36.q5": {
+    "q": "Qu’apporte une bibliothèque de composants headless comme Radix, React Aria ou Base UI ?",
+    "options": [
+      "Des composants entièrement stylés dans leur propre langage visuel, prêts à être thémés",
+      "Le comportement et l’accessibilité (ARIA, focus, clavier), sans styles",
+      "Des design tokens et un kit Figma, mais aucun composant",
+      "Des composants qui ne se rendent que côté serveur"
+    ],
+    "explain": "Headless veut dire sans style : Base UI se décrit comme « unstyled UI components for building accessible user interfaces », et les composants Radix « ship without styles ». Ce sont les bibliothèques stylées comme MUI qui apportent un langage visuel."
+  },
+  "m36.q6": {
+    "q": "Dans un système de tokens à deux niveaux, quels tokens le CSS du Button doit-il utiliser ?",
+    "options": [
+      "Des valeurs hexadécimales brutes, pour que le bouton ne dépende jamais d’un thème",
+      "Des tokens primitifs comme <code>--indigo-600</code>",
+      "Des tokens sémantiques comme <code>--color-action</code>",
+      "Le niveau que le designer a utilisé dans la maquette"
+    ],
+    "explain": "Les composants utilisent des tokens sémantiques, qui nomment un rôle, et les thèmes associent ces rôles à des primitives. Un bouton qui utilise directement <code>--indigo-600</code> reste indigo 600 en mode sombre, car le thème change la couche sémantique."
+  },
+  "m36.q7": {
+    "q": "Pourquoi la page react.dev sur <code>useInsertionEffect</code> ne recommande-t-elle pas l’injection de <code>&lt;style&gt;</code> au runtime ?",
+    "options": [
+      "Elle oblige le navigateur à recalculer les styles plus souvent, et peut être très lente",
+      "Les styles injectés sont abandonnés par le navigateur dès que l’hydratation est terminée",
+      "React 19 a retiré la prise en charge des éléments style rendus par des composants",
+      "Les styles injectés ne peuvent pas lire les propriétés CSS personnalisées définies dans les tokens"
+    ],
+    "explain": "La page donne ces deux raisons et recommande des fichiers CSS statiques pour les styles statiques, plus des styles inline pour les valeurs dynamiques. Les styles injectés s’appliquent bien, et React 19 rend toujours les éléments style ; le problème, c’est le coût, pas la justesse."
+  },
+  "m36.q8": {
+    "q": "Qu’est-ce qu’une <b>play function</b> Storybook ?",
+    "options": [
+      "Une fonction qui génère des args aléatoires pour faire du fuzz testing sur le composant",
+      "La fonction qui rend la story sur sa page de documentation",
+      "Un script qui enregistre une vidéo de la story pour les designers",
+      "Une fonction de story qui exécute des interactions après le rendu et fait des assertions"
+    ],
+    "explain": "D’après la doc de Storybook, une play function s’exécute après le rendu de la story : elle peut cliquer, saisir du texte et faire des assertions avec <code>expect</code>, ce qui fait de la story un test d’interaction. Le rendu est assuré par la story et ses args ; la play function ajoute du comportement par-dessus."
+  },
+  "m36.q9": {
+    "q": "La prochaine release de <code>@shop/ui</code> renomme la prop <code>onChange</code> de Tabs en <code>onValueChange</code>. Quelle montée de version est correcte ?",
+    "options": [
+      "Patch, car aucune fonctionnalité n’a été ajoutée",
+      "Minor, car le nouveau nom est un ajout",
+      "Major, car les appelants existants cassent",
+      "Aucune, car les utilisateurs TypeScript verront l’erreur de toute façon"
+    ],
+    "explain": "Semver réserve la version majeure aux changements d’API incompatibles, et une prop renommée casse chaque appelant qui utilise l’ancien nom. La livrer en patch, c’est exactement l’incident de la section 8. Une erreur de compilation est la façon dont les utilisateurs le découvrent, pas une raison de la cacher dans un patch."
+  },
+  "m36.q10": {
+    "q": "Dans le back-office organisé par features, l’écran des remboursements a besoin du total de la commande. Que dit la règle de structure ?",
+    "options": [
+      "Importer <code>OrdersTable</code> depuis <code>features/orders</code> et lire le total dans ses props",
+      "Composer les deux dans la page sous <code>app</code>, ou le récupérer via la couche API",
+      "Déplacer la feature des remboursements dans <code>features/orders</code>",
+      "Copier les types de commande dans <code>features/refunds</code>"
+    ],
+    "explain": "Les features ne s’importent pas entre elles ; la couche app les compose, et les données partagées viennent de la couche API. Un import entre features, c’est exactement ce que la règle de lint interdit, et imbriquer ou copier des features ne fait que déplacer le couplage."
+  },
+  "m36.q11": {
+    "q": "Dans le monorepo, <code>apps/back-office</code> dépend de <code>\"@shop/ui\": \"workspace:*\"</code>, et <code>@shop/ui</code> est en 2.3.0. Que devient cette plage quand un package qui dépend de <code>@shop/ui</code> est publié ?",
+    "options": [
+      "pnpm la remplace par la version exacte, <code>2.3.0</code>",
+      "pnpm la publie telle quelle, et les consommateurs ont besoin de pnpm pour l’installer",
+      "pnpm la remplace par <code>latest</code>",
+      "pnpm refuse de publier un package qui a une dépendance workspace"
+    ],
+    "explain": "La doc de pnpm indique que <code>workspace:*</code> devient la version exacte du package local au moment du packaging ou de la publication (et que <code>workspace:^</code> devient <code>^2.3.0</code>). Les consommateurs hors du monorepo voient donc une plage semver ordinaire."
+  },
+  "m36.q12": {
+    "q": "Pour un déploiement à 10 % du nouveau tableau des commandes, pourquoi évaluer le flag avec l’id de l’agent comme clé de ciblage ?",
+    "options": [
+      "Les services de flags refusent d’évaluer un flag sans id utilisateur associé",
+      "Le service de flags répond plus vite grâce à son cache",
+      "Chaque agent peut changer de tableau depuis sa page de paramètres",
+      "Le même agent obtient le même tableau à chaque visite, donc les groupes sont comparables"
+    ],
+    "explain": "La clé de ciblage identifie le sujet pour lequel le flag est évalué, donc une clé stable garde chaque agent dans un seul groupe : l’expérience est cohérente et les métriques des deux groupes ont un sens. Une décision aléatoire ou à chaque chargement de page ferait basculer les agents d’un tableau à l’autre. La clé sert la cohérence, pas la vitesse ni les permissions."
+  },
+  "m36.q13": {
+    "q": "Un appelant rend <code>&lt;LeakyButton className=\"wide\"&gt;Refund&lt;/LeakyButton&gt;</code>. Quel est l’attribut <code>class</code> du bouton rendu ?",
+    "options": [
+      "<code>\"ui-button wide\"</code>, car React fusionne les valeurs de className qu’il reçoit",
+      "<code>\"ui-button\"</code>, car l’attribut explicite l’emporte",
+      "<code>\"wide\"</code> : le spread vient en dernier et remplace la classe de base",
+      "Les deux classes, dans l’ordre <code>\"wide ui-button\"</code>"
+    ],
+    "explain": "Les props JSX s’appliquent dans l’ordre, et le <code>className</code> venant de <code>rest</code>, plus tardif, écrase le premier : mesuré avec React 19.3.1, le bouton a rendu <code>class=\"wide\"</code> et perdu ses styles de base. React ne fusionne jamais les noms de classe ; déstructure <code>className</code> et joins-le à la classe de base."
+  },
+  "m36.q14": {
+    "q": "Avec React 19.3.1, après ce rendu, que vaut <code>closeRef.current</code> ?",
+    "options": [
+      "<code>null</code> : ref est une simple prop, et IconButton ne l’utilise jamais",
+      "L’élément <code>&lt;button&gt;</code>, car React attache les refs au premier nœud DOM",
+      "L’instance du composant, comme avec les composants de classe",
+      "React lève une erreur, car les composants fonction ont besoin de <code>forwardRef</code>"
+    ],
+    "explain": "Dans React 19, <code>ref</code> arrive à un composant fonction comme une prop, et rien ne l’attache tant que le composant ne la pose pas sur un élément : mesuré, <code>ref.current</code> est resté <code>null</code>. React ne lève plus d’erreur ; <code>forwardRef</code> n’est plus nécessaire, mais la transmission doit toujours être écrite."
+  },
+  "m36.q15": {
+    "q": "Le formulaire de checkout rend <code>&lt;OrderButton type=\"submit\"&gt;Place order&lt;/OrderButton&gt;</code>. Que se passe-t-il au clic ?",
+    "options": [
+      "Le formulaire est soumis, car l’appelant a demandé submit",
+      "React avertit d’une prop en double et soumet le formulaire",
+      "Le formulaire est soumis deux fois, une par attribut type",
+      "Rien : le <code>type=\"button\"</code> placé après écrase celui de l’appelant"
+    ],
+    "explain": "Les props écrites après le spread l’emportent, donc le bouton rendu a <code>type=\"button\"</code> : mesuré, le handler submit du formulaire a été appelé 0 fois. C’est correct pour une valeur par défaut et faux pour une valeur forcée ; mets la valeur par défaut dans la déstructuration (<code>type = 'button'</code>) pour que les appelants puissent la surcharger."
+  },
+  "m36.q16": {
+    "q": "Un coéquipier crée le contexte de Tabs avec un objet par défaut, <code>createContext({ selected: '', select: () =&gt; {} })</code>, pour « éviter les vérifications de null ». Qu’est-ce qui change quand quelqu’un rend <code>&lt;Tabs.Tab&gt;</code> en dehors de <code>&lt;Tabs.Root&gt;</code> ?",
+    "options": [
+      "Rien ne change, car React lève une erreur dans les deux versions de toute façon",
+      "Il s’affiche, les clics ne font rien, et le bug part en production sans bruit",
+      "L’onglet crée silencieusement son propre Root et fonctionne seul",
+      "TypeScript rejette le JSX à la compilation avec une erreur de contexte"
+    ],
+    "explain": "Avec une valeur par défaut, <code>use</code> renvoie cette valeur en dehors d’un provider : mesuré, l’onglet s’est affiché avec <code>aria-selected=\"false\"</code> et cliquer ne changeait rien. Avec <code>null</code> et une garde, la même erreur lève « &lt;Tabs.Tab&gt; must be rendered inside &lt;Tabs.Root&gt; » pendant le développement. TypeScript ne peut pas voir où un composant est rendu."
+  },
+  "m36.q17": {
+    "q": "Les premiers Tabs utilisaient des ids codés en dur : <code>id={'tab-' + value}</code> et <code>aria-controls={'panel-' + value}</code>. La page de détail de commande affiche maintenant des Tabs dans la zone principale et dans un panneau latéral client, tous deux avec un onglet <code>details</code>. Qu’est-ce qui casse, et quel est le correctif ?",
+    "options": [
+      "Rien ne casse : les ids doivent seulement être uniques dans un même arbre de composants",
+      "React détecte les ids en double et renomme automatiquement le second jeu",
+      "Des ids en double font pointer ARIA vers le mauvais panneau ; préfixe-les avec <code>useId</code>",
+      "Les seconds Tabs ne s’affichent pas tant qu’ils n’ont pas leur propre Root séparé"
+    ],
+    "explain": "Les ids doivent être uniques dans tout le document, et les technologies d’assistance suivent <code>aria-controls</code> et <code>aria-labelledby</code> jusqu’à la première correspondance. <code>useId</code> donne à chaque instance son propre préfixe : mesuré, deux instances ont obtenu <code>_r_1_-tab-details</code> et <code>_r_2_-tab-details</code>. React ne réécrit pas les ids."
+  },
+  "m36.q18": {
+    "q": "Un agent clique sur l’onglet Refunds. Que se passe-t-il ?",
+    "options": [
+      "track est appelé avec « refunds », et le panneau Details reste visible",
+      "Le panneau Refunds s’affiche, et track est aussi appelé avec « refunds »",
+      "Le panneau Refunds s’affiche, mais le callback track n’est jamais appelé",
+      "React lève une erreur, car value a besoin d’un useState correspondant"
+    ],
+    "explain": "Passer <code>value</code> rend les Tabs contrôlés, donc ils affichent ce que dit le parent, et ce parent dit toujours « details ». Mesuré : le callback a reçu « refunds » et le panneau Details est resté. Corrige-le en stockant l’onglet dans un state et en le repassant, ou en utilisant <code>defaultValue</code> si le parent ne fait qu’observer."
+  },
+  "m36.q19": {
+    "q": "Le détail de commande rend d’abord <code>&lt;Tabs.Root defaultValue=\"details\"&gt;</code>. Quand la commande se charge et s’avère remboursée, il refait un rendu avec <code>defaultValue=\"refunds\"</code>. Quel panneau s’affiche ?",
+    "options": [
+      "Refunds, car le nouveau defaultValue réinitialise le state",
+      "Refunds, mais seulement après un second rendu déclenché par React",
+      "Aucun : React lève une erreur quand une valeur par défaut change",
+      "Details : defaultValue n’est lu qu’au premier rendu"
+    ],
+    "explain": "<code>defaultValue</code> initialise <code>useState</code>, qui ignore les valeurs initiales suivantes : mesuré, le panneau Details est resté. Pour démarrer sur Refunds, rends les Tabs après le chargement de la commande, donne-leur une <code>key</code> qui change avec la commande, ou contrôle-les avec <code>value</code>."
+  },
+  "m36.q20": {
+    "q": "La page rend d’abord <code>&lt;Tabs.Root value=\"refunds\" defaultValue=\"details\"&gt;</code>, puis refait un rendu sans la prop <code>value</code> (le paramètre <code>?tab</code> a été retiré). Avec le hook <code>useControllableState</code> de la section 3, quel panneau s’affiche ?",
+    "options": [
+      "Refunds, car le hook se souvient de la dernière valeur contrôlée qu’il a vue",
+      "Details : le state interne n’a jamais été mis à jour tant que le composant était contrôlé",
+      "Aucun panneau, car la valeur sélectionnée devient undefined",
+      "Payments, l’onglet suivant dans la liste"
+    ],
+    "explain": "Tant qu’il est contrôlé, le hook n’écrit jamais son state interne, qui contient toujours le <code>\"details\"</code> initial ; dès que <code>value</code> disparaît, il lit ce state. Mesuré avec React 19.3.1 : le panneau Details s’est affiché. C’est pourquoi un composant doit rester contrôlé ou non contrôlé pendant toute sa vie ; pour un <code>&lt;input&gt;</code>, React 19 avertit « A component is changing a controlled input to be uncontrolled » (mesuré)."
+  },
+  "m36.q21": {
+    "q": "La confirmation de remboursement est construite sur le Dialog de Base UI avec les options par défaut. L’agent appuie sur Échap. Que devient le focus ?",
+    "options": [
+      "Le focus reste sur le dernier élément focalisé dans le dialog fermé",
+      "Le focus remonte en haut du document",
+      "Le dialog se ferme et le focus revient sur le bouton Refund",
+      "Échap est ignoré tant que l’agent n’a pas cliqué sur Cancel"
+    ],
+    "explain": "La doc de Base UI indique qu’un dialog modal piège Tab à l’intérieur, se ferme sur Échap et rend par défaut le focus au déclencheur ou à l’élément focalisé précédemment. La restauration du focus est exactement le genre de comportement qu’oublient les dialogs faits main, ce qui est le principal argument pour une primitive headless."
+  },
+  "m36.q22": {
+    "q": "Une équipe écrit <code>&lt;Dialog.Trigger render={&lt;BrandButton /&gt;}&gt;Refund&lt;/Dialog.Trigger&gt;</code>, avec <code>function BrandButton({ children }: { children: ReactNode }) { return &lt;button className=\"brand\"&gt;{children}&lt;/button&gt;; }</code>. Qu’est-ce qui ne va pas ?",
+    "options": [
+      "BrandButton laisse tomber les props et la ref que Base UI lui passe",
+      "Rien : Base UI attache ses handlers au nœud DOM après le rendu",
+      "La prop render n’accepte que des éléments natifs comme button",
+      "Le libellé doit être passé à BrandButton, pas à Dialog.Trigger"
+    ],
+    "explain": "La doc de Base UI indique que le composant personnalisé doit transmettre la ref et étaler toutes les props reçues sur son nœud DOM ; BrandButton les ignore, donc le handler de clic, les attributs ARIA et la ref n’atteignent jamais le bouton. Le Button de la section 1, qui étale <code>rest</code> y compris <code>ref</code>, remplit cette exigence."
+  },
+  "m36.q23": {
+    "q": "Pour assombrir un panneau, un développeur écrit <code>.panel { --gray-900: #f9fafb; }</code>. De quelle couleur est le texte d’un <code>&lt;p&gt;</code> dans le panneau ?",
+    "options": [
+      "<code>#f9fafb</code>, car la déclaration de <code>--gray-900</code> la plus proche l’emporte toujours",
+      "<code>#111827</code> : <code>--color-text</code> a été résolu sur <code>:root</code> puis hérité",
+      "La couleur initiale, car la référence de variable est circulaire",
+      "Ça dépend de la règle qui vient en dernier dans le fichier"
+    ],
+    "explain": "Le <code>var()</code> d’une propriété personnalisée est substitué sur l’élément où elle est déclarée, et les descendants héritent du résultat. Mesuré dans Chromium : le texte est resté <code>rgb(17, 24, 39)</code>. Redéfinis <code>--color-text</code> dans la portée du panneau ou du thème plutôt que la primitive."
+  },
+  "m36.q24": {
+    "q": "Avec le fichier de tokens de la section 5, l’OS d’un agent est en mode sombre et le back-office pose <code>&lt;html data-theme=\"light\"&gt;</code> d’après le choix enregistré de l’agent. Qu’utilise la page ?",
+    "options": [
+      "Les tokens sombres, car la media query est plus spécifique que l’attribut",
+      "Les tokens sombres, jusqu’à ce que l’agent recharge la page",
+      "Un mélange des deux : surface sombre et texte clair",
+      "Les clairs : le bloc sombre ne correspond plus, donc les valeurs de <code>:root</code> s’appliquent"
+    ],
+    "explain": "Le bloc media sombre ne s’applique que quand <code>data-theme</code> n’est pas « light », donc le choix explicite l’emporte. Mesuré dans Chromium avec le mode sombre émulé : le texte est resté <code>rgb(17, 24, 39)</code>. Sans la garde <code>:not()</code>, la media query écraserait le choix enregistré."
+  },
+  "m36.q25": {
+    "q": "L’équipe de la boutique veut que <code>@shop/ui</code> soit stylé avec styled-components et son <code>ThemeProvider</code>, comme leur ancien code. Dans les Server Components de l’App Router de Next.js, quelle affirmation est vraie ?",
+    "options": [
+      "styled-components ne peut pas faire de rendu dans les Server Components, quelle que soit la version",
+      "ThemeProvider fonctionne exactement pareil dans les Server et les Client Components",
+      "Il s’y rend, mais ThemeProvider n’est qu’un passe-plat : pas de contexte",
+      "Next.js convertit automatiquement les thèmes de ThemeProvider en variables CSS"
+    ],
+    "explain": "La doc de styled-components annonce la prise en charge native des React Server Components depuis la 6.3, avec ThemeProvider en passe-plat (« no context in RSC ») et des thèmes déplacés dans des propriétés CSS personnalisées. Next.js documente le contexte React comme non pris en charge dans les Server Components. Les thèmes doivent donc être des variables CSS de toute façon, et le CSS statique est le choix le plus simple pour un package partagé."
+  },
+  "m36.q26": {
+    "q": "Un refactoring de <code>button.module.css</code> fait passer le contour de focus sous un élément voisin. Les tests d’interaction et d’accessibilité passent tous. Quel test l’aurait détecté ?",
+    "options": [
+      "Un test visuel qui compare des captures à des références approuvées",
+      "Une play function qui va au bouton avec Tab et vérifie qu’il a le focus",
+      "L’addon a11y configuré avec <code>test: 'error'</code> dans preview.ts",
+      "Une vérification de types TypeScript sur les props du composant Button"
+    ],
+    "explain": "L’élément reçoit toujours le focus et le markup est toujours valide, donc les vérifications d’interaction et axe passent ; seuls les pixels ont changé. Les tests visuels (Chromatic, dans la doc de Storybook) comparent des captures à des références et signalent le changement pour review. C’est pourquoi chaque niveau de tests couvre un risque différent."
+  },
+  "m36.q27": {
+    "q": "Le portail partenaires a cassé après qu’une release patch a renommé <code>onChange</code> en <code>onValueChange</code>. Quel plan livreriez-vous pour corriger le processus ?",
+    "options": [
+      "Demander à l’agence de figer les versions exactes et d’arrêter de mettre à jour le package",
+      "Rétablir <code>onChange</code> comme déprécié, le retirer dans la prochaine majeure",
+      "Garder le renommage et publier un article de blog qui explique le changement",
+      "Déplacer le portail partenaires dans le monorepo pour qu’il reçoive les changements immédiatement"
+    ],
+    "explain": "Répare le contrat semver : réintroduis l’ancienne prop marquée <code>@deprecated</code> avec un avertissement en développement, puis retire-la dans une majeure dont le changeset explique la migration. Figer les versions pour toujours bloque tous les correctifs, et le dépôt de l’agence n’est pas le tien à déplacer."
+  },
+  "m36.q28": {
+    "q": "La CI échoue sur <code>import { OrdersTable } from '../orders/orders-table'</code> dans <code>src/features/refunds</code>. La page des remboursements doit afficher les lignes de la commande. Quel correctif livreriez-vous ?",
+    "options": [
+      "Ajouter <code>./orders</code> à la liste <code>except</code> de la zone refunds dans la config",
+      "Désactiver la règle pour cette ligne avec un commentaire eslint-disable",
+      "Copier <code>orders-table.tsx</code> dans <code>features/refunds</code> et l’adapter",
+      "Composer les deux features dans la page, ou utiliser le DataTable partagé"
+    ],
+    "explain": "La règle existe pour que les features restent indépendantes ; la couche page est l’endroit où les features se rencontrent, et un tableau générique a sa place dans le design system. Élargir <code>except</code> ou désactiver la règle réintroduit le couplage qui a cassé la page clients, et une copie diverge avec le temps."
+  },
+  "m36.q29": {
+    "q": "L’agence propose Module Federation pour que ses écrans partenaires se chargent dans le back-office au runtime. Une seule équipe back-office livre chaque semaine, et les partenaires utilisent leur propre portail. Que répondez-vous ?",
+    "options": [
+      "Oui : Module Federation est la façon standard de partager un design system",
+      "Oui, et marquer React comme non partagé pour que chaque partie ait sa propre copie",
+      "Non : garder le portail comme une app séparée qui utilise les packages publiés",
+      "Non, car Module Federation ne fonctionne qu’avec des apps Next.js"
+    ],
+    "explain": "Les micro-frontends sont rentables quand plusieurs équipes doivent déployer indépendamment des parties d’une même page ; ici le portail est une app à part, donc un package suffit. Deux copies de React provoquent l’erreur invalid hook call (react.dev), c’est pourquoi un React fédéré doit être un singleton partagé. Module Federation fonctionne avec Webpack et Rspack et liste des intégrations Vite et Next.js."
+  },
+  "m36.q30": {
+    "q": "Quelle conception de flag livreriez-vous pour le nouveau tableau des commandes ?",
+    "options": [
+      "Un flag vérifié dans chaque composant de colonne et de cellule, pour pouvoir déployer chaque partie séparément",
+      "Un seul flag au niveau de la page, <code>false</code> par défaut, indexé sur l’id de l’agent, avec une date de fin",
+      "Un flag lu une fois au build depuis une variable d’environnement",
+      "Un flag par agent, créé à la main dans le service de flags"
+    ],
+    "explain": "Un seul flag au niveau de la page garde deux états testés, la valeur par défaut sûre protège les agents si le service de flags tombe, l’id de l’agent garde les groupes stables, et une date de fin fait supprimer le flag et l’ancien tableau. Des flags par cellule multiplient les combinaisons non testées, et une variable de build ne peut pas faire l’objet d’un rollback sans redéploiement."
+  }
+}

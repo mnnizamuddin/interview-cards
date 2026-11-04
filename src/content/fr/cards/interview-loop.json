@@ -1,0 +1,753 @@
+{
+  "loop-rounds": {
+    "topic": "Le processus senior, étape par étape",
+    "question": "À quoi ressemble un processus d’entretiens senior typique dans une entreprise produit parisienne, et qu’évalue chaque étape ?",
+    "answer": "En général : un premier appel avec le recruteur, un échange avec le hiring manager, des entretiens techniques, un dernier tour avec un CTO, un VP ou un Head of Engineering, et souvent une rencontre avec l’équipe. Ce sont les entretiens techniques qui varient le plus : le live coding évalue comment je clarifie, teste et raisonne à voix haute ; le test technique à la maison, le périmètre et ma capacité à défendre chaque choix ; la code review, ce que je repère en premier et comment je le dis ; le debugging, la méthode sur du code inconnu ; le system design, les compromis ; les entretiens comportementaux, l’ownership et le jugement. Donc je demande au recruteur le format de chaque étape et je prépare chacune spécifiquement.",
+    "keyPoints": [
+      "Recruteur, hiring manager, techniques, direction, souvent l’équipe",
+      "Chaque entretien technique évalue une compétence différente",
+      "Demander au recruteur le format de chaque étape",
+      "Test à la maison défendu en direct ; politique IA explicite, autorisée ou interdite"
+    ],
+    "explanation": "C’est moins une question posée telle quelle que la carte de tout le reste : ne préparer que l’algorithmique laisse sans préparation la majeure partie d’un processus senior. Un senior sait ce que chaque étape cherche à entendre et se prépare aux tendances actuelles : tests à la maison défendus en direct, davantage d’entretiens de debugging et de code review, et une politique IA explicite.",
+    "example": "Invitée au processus d’une scale-up qui gère une API Orders, une candidate a demandé le plan au recruteur et appris qu’il comprenait un live coding de 90 minutes en TDD, un test technique à la maison défendu devant deux ingénieurs, et un entretien de system design. Elle s’est entraînée sur une fonctionnalité d’annulation en commençant par les tests et a rédigé un README avec ses compromis, au lieu de passer trois semaines sur des puzzles algorithmiques.",
+    "mistakes": [
+      "Ne préparer que des puzzles algorithmiques alors que la plupart des étapes évaluent la conception, la review et la communication",
+      "Ne pas demander au recruteur à quoi ressemble chaque étape",
+      "Supposer la politique IA au lieu de demander si un assistant est autorisé"
+    ],
+    "followUps": [
+      {
+        "question": "Comment les tests techniques à la maison ont-ils évolué maintenant qu’une IA peut les écrire ?",
+        "answer": "Ils sont défendus en direct : les relecteurs vous demandent d’expliquer chaque choix. Les entretiens de debugging et de code review sont aussi devenus plus courants, parce qu’ils testent le jugement sur du code qu’on n’a pas écrit."
+      },
+      {
+        "question": "Les entreprises parisiennes font-elles encore des entretiens d’algorithmique ?",
+        "answer": "Les épreuves chronométrées façon LeetCode restent dans la big tech et dans certaines entreprises, comme Datadog Paris ; beaucoup d’entreprises produit préfèrent la construction de fonctionnalités, les tests à la maison et la conception. Je pose la question au recruteur plutôt que de deviner."
+      },
+      {
+        "question": "Qu’évalue le dernier tour avec la direction technique ?",
+        "answer": "L’ownership, le jugement et la communication, surtout à travers des récits de situations réelles ou une présentation de projet. Les questions semblent légères, mais elles décident souvent du niveau auquel on est recruté."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Certaines entreprises autorisent désormais un assistant IA pendant un entretien, tandis que d’autres l’interdisent et sont revenues aux entretiens en présentiel.",
+        "why": "Les deux tendances ont été observées en 2025 et 2026, donc la politique se demande, elle ne se suppose pas.",
+        "twin": {
+          "statement": "Toutes les entreprises traitent désormais les assistants IA de la même façon en entretien, donc inutile de demander.",
+          "why": "Certaines autorisent un assistant tandis que d’autres l’interdisent et sont revenues au présentiel, donc la politique se demande."
+        }
+      },
+      {
+        "statement": "Tous les entretiens techniques d’un processus senior évaluent la même compétence, donc une seule préparation les couvre tous.",
+        "why": "Live coding, test à la maison, review, debugging et conception évaluent chacun autre chose et demandent leur propre préparation.",
+        "twin": {
+          "statement": "Chaque entretien technique d’un processus senior évalue une compétence différente et demande sa propre préparation.",
+          "why": "Le live coding évalue le raisonnement à voix haute, le test à la maison son périmètre et sa défense, la review ce que tu repères, la conception les compromis."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un processus d’entretiens, c’est la suite complète des entretiens pour un poste. Chaque étape évalue une compétence différente, donc connaître le format de chacune te permet de les préparer spécifiquement.",
+      "points": [
+        "Un processus d’entretiens, c’est la suite complète des entretiens pour un poste. Dans les entreprises produit parisiennes, c’est en général : appel recruteur, hiring manager, entretiens techniques, dernier tour avec la direction technique, souvent l’équipe.",
+        "Les entretiens techniques varient le plus : live coding (clarifier, tester, raisonner à voix haute), test à la maison (périmètre, défendre chaque choix), code review (ce que tu repères en premier), debugging (méthode), system design (compromis).",
+        "Les entretiens comportementaux et avec la direction évaluent l’ownership, le jugement et la communication via des récits ou une présentation de projet, et fixent souvent le niveau auquel tu es recruté.",
+        "Tendances : les tests à la maison sont défendus en direct, les entretiens de debugging et de code review sont plus courants, et la politique IA est explicite : certains entretiens autorisent un assistant, d’autres l’interdisent.",
+        "Demande au recruteur la liste et le format de chaque étape, puis prépare chacune spécifiquement."
+      ],
+      "takeaways": [
+        {
+          "term": "Déroulé habituel",
+          "detail": "Appel recruteur, hiring manager, entretiens techniques, direction technique (CTO, VP ou Head), souvent l’équipe."
+        },
+        {
+          "term": "Live coding et test à la maison",
+          "detail": "Le live coding évalue clarification, tests et raisonnement à voix haute ; le test à la maison, le périmètre et la défense de chaque choix."
+        },
+        {
+          "term": "Review, debugging, conception",
+          "detail": "La code review évalue ce que tu repères en premier ; le debugging, la méthode ; le system design, les compromis."
+        },
+        {
+          "term": "Comportemental et direction",
+          "detail": "Évaluent ownership, jugement et communication, et fixent souvent le niveau auquel tu es recruté."
+        },
+        {
+          "term": "Tendances",
+          "detail": "Tests à la maison défendus en direct, plus d’entretiens de debugging et de review, et une politique IA explicite : autorisée ou interdite."
+        },
+        {
+          "term": "Demander au recruteur",
+          "detail": "Obtenir la liste et le format de chaque étape, puis préparer chacune spécifiquement."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le recruteur annonce un processus en cinq étapes sans donner de détails, et vous avez deux semaines pour vous préparer. Que demandez-vous, et pourquoi est-ce important ?",
+        "bridge": "Chaque entretien technique évalue une compétence différente, donc connaître le format de chaque étape décide de ta préparation."
+      },
+      {
+        "question": "Un ami affirme que s’entraîner sur des puzzles algorithmiques couvre n’importe quel processus senior. Que lui répondez-vous ?",
+        "bridge": "L’idée fausse d’une préparation unique : live coding, test à la maison, review, debugging et conception évaluent chacun autre chose."
+      }
+    ]
+  },
+  "loop-recruiter-screen": {
+    "topic": "L’appel avec le recruteur",
+    "question": "Comment gérez-vous le premier appel avec le recruteur : votre pitch, la question du salaire et la logistique ?",
+    "answer": "Je fais un pitch de 60 à 90 secondes : ce que je fais aujourd’hui, un résultat concret, et pourquoi cette entreprise, avec un élément précis sur son produit. Par exemple : je suis responsable du checkout d’une API Orders en Node et TypeScript, et le trimestre dernier j’ai supprimé un blocage en soirée qui ralentissait toutes les routes. Pour le salaire, je donne une fourchette de fixe brut annuel, construite à partir d’annonces qui en affichent une, avec un bas de fourchette que j’accepterais, et je demande en retour la fourchette du poste. Je termine par mon préavis, la politique de télétravail et les étapes du processus, et je demande à quoi ressemble chaque entretien technique.",
+    "keyPoints": [
+      "Un pitch de 60 à 90 secondes : poste, un résultat concret, pourquoi eux",
+      "Une fourchette de fixe brut annuel, documentée",
+      "Demander en retour la fourchette du poste",
+      "Logistique : préavis, télétravail, étapes et formats des entretiens"
+    ],
+    "explanation": "Cet appel décide si des ingénieurs vont passer du temps sur toi, donc un pitch flou ou un chiffre sorti de nulle part peut arrêter le processus tôt. Les recruteurs attendent une histoire précise et une prétention salariale documentée, qui dit clairement ce qu’elle couvre, fixe ou total.",
+    "example": "Un candidat a ouvert avec « Je construis le tableau des commandes du back-office d’une boutique en ligne ; j’ai supprimé ses re-renders à chaque événement live », puis a dit pourquoi le produit de l’entreprise l’intéressait. Interrogé sur ses prétentions, il a donné une fourchette de fixe issue de ses recherches sur des annonces parisiennes, a demandé le budget et appris que les fourchettes se recoupaient, et il est reparti en connaissant le format de chaque entretien technique.",
+    "mistakes": [
+      "Réciter une liste de technologies au lieu d’un résultat concret",
+      "Donner un seul chiffre sans dire s’il s’agit du fixe ou de la rémunération totale",
+      "Choisir une fourchette dont tu n’accepterais pas le bas : un ancrage bas est difficile à remonter ensuite"
+    ],
+    "followUps": [
+      {
+        "question": "Le recruteur insiste pour avoir un seul chiffre. Que répondez-vous ?",
+        "answer": "Je redonne ma fourchette, ancrée sur mes recherches et le niveau du poste, je précise que c’est du fixe brut annuel, variable éventuel en plus, et je demande le budget pour vérifier que les fourchettes se recoupent. Un chiffre unique trop bas est difficile à remonter plus tard dans le processus."
+      },
+      {
+        "question": "Vous êtes dans un autre processus. Le dites-vous ?",
+        "answer": "Oui, simplement. Ça aide le recruteur à planifier les étapes suivantes et leur calendrier."
+      },
+      {
+        "question": "Pourquoi poser des questions sur les entretiens techniques à ce stade ?",
+        "answer": "La réponse, à quoi ressemble chaque entretien et ce que l’équipe y valorise, est l’information la plus utile pour ma préparation, et les recruteurs s’attendent à la question."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "En France, le salaire discuté avec un recruteur est en général le fixe brut annuel, la part variable éventuelle venant en plus.",
+        "why": "C’est le chiffre habituel (brut annuel fixe), donc précise celui dont tu parles.",
+        "twin": {
+          "statement": "En France, le salaire discuté avec un recruteur est en général le total, variable compris.",
+          "why": "Le chiffre habituel est le fixe brut annuel (brut annuel fixe), la part variable éventuelle venant en plus."
+        }
+      },
+      {
+        "statement": "La meilleure réponse à la question du salaire lors du premier appel est de refuser de donner un chiffre.",
+        "why": "Le salaire est abordé lors de cet appel ; une fourchette documentée et une question sur la fourchette du poste font avancer le processus.",
+        "twin": {
+          "statement": "Lors du premier appel, une fourchette de salaire documentée et une question sur la fourchette du poste sont une bonne réponse à la question du salaire.",
+          "why": "Le salaire est abordé lors de cet appel, et une fourchette avec une question en retour fait avancer le processus."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’appel avec le recruteur, souvent d’environ 30 minutes, décide si des ingénieurs vont passer du temps sur toi. Prépare trois choses : le pitch, la réponse sur le salaire et la logistique.",
+      "points": [
+        "L’appel avec le recruteur, souvent d’environ 30 minutes, décide si des ingénieurs vont passer du temps sur toi. Prépare trois choses : le pitch, la réponse sur le salaire et la logistique.",
+        "Pitch de 60 à 90 secondes : ce que tu fais aujourd’hui, un résultat concret dont tu es fier, et pourquoi cette entreprise, avec un élément précis sur son produit ou son engineering.",
+        "En France, le chiffre est en général le fixe brut annuel (brut annuel fixe), variable en plus. Documente les fourchettes sur des annonces qui affichent un salaire, et précise de quel chiffre tu parles.",
+        "Donne une fourchette dont tu accepterais le bas et demande en retour celle du poste ; un chiffre unique trop bas est difficile à remonter ensuite.",
+        "Termine par ton préavis, la politique de télétravail, les étapes et le calendrier du processus, et demande à quoi ressemble chaque entretien technique."
+      ],
+      "takeaways": [
+        {
+          "term": "Pitch",
+          "detail": "60 à 90 secondes : ce que tu fais aujourd’hui, un résultat concret, et pourquoi cette entreprise, avec un élément précis."
+        },
+        {
+          "term": "Le chiffre en France",
+          "detail": "En général le fixe brut annuel (brut annuel fixe), variable en plus. Précise de quel chiffre tu parles."
+        },
+        {
+          "term": "Recherche",
+          "detail": "Base ta fourchette sur des annonces qui affichent un salaire."
+        },
+        {
+          "term": "Donner une fourchette",
+          "detail": "Son bas est un chiffre que tu accepterais ; un chiffre unique trop bas est difficile à remonter ensuite."
+        },
+        {
+          "term": "Demander la leur",
+          "detail": "Demande en retour la fourchette du poste."
+        },
+        {
+          "term": "Logistique",
+          "detail": "Préavis, télétravail, étapes et calendrier du processus, et format de chaque entretien technique."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dix minutes après le début de l’appel, le recruteur demande : « Quelles sont vos prétentions salariales ? » Que répondez-vous exactement ?",
+        "bridge": "Le moment salaire de l’appel : une fourchette documentée de fixe brut annuel, et la fourchette du poste demandée en retour."
+      },
+      {
+        "question": "Le recruteur commence par « Parlez-moi de vous. » Combien de temps parlez-vous, et que dites-vous ?",
+        "bridge": "Cette ouverture, c’est le pitch de l’appel : 60 à 90 secondes avec ton poste actuel, un résultat concret et pourquoi cette entreprise."
+      }
+    ]
+  },
+  "loop-live-coding": {
+    "topic": "L’entretien de live coding",
+    "question": "Comment abordez-vous un live coding, par exemple une fonctionnalité comme « un client peut annuler une commande dans les 30 minutes » ?",
+    "answer": "Je passe les cinq premières minutes à clarifier à voix haute et je note les réponses en commentaires : la 30e minute est-elle incluse, quels statuts sont annulables, une commande payée demande-t-elle un remboursement, que répond l’API sinon, et d’où vient « maintenant ». Ce dernier point façonne le design : la fonction prend l’instant courant en paramètre, donc les tests le figent. Ensuite je travaille en TDD, un test qui échoue, le minimum de code pour passer, un refactor, en commençant par les bornes : exactement 30 minutes, puis une milliseconde après. Je commente mes décisions, pas mes frappes, et j’écris du TypeScript idiomatique : unions de littéraux, données readonly, un type résultat, un switch exhaustif.",
+    "keyPoints": [
+      "Clarifier bornes, statuts, erreurs et source du temps",
+      "TDD : red, green, refactor, tests aux bornes d’abord",
+      "Passer `now` en paramètre ; jamais l’horloge réelle en test",
+      "Commenter ses décisions ; montrer du TypeScript idiomatique"
+    ],
+    "explanation": "Le code est en général facile ; l’entretien évalue comment tu y arrives. Les recruteurs guettent des questions qui fixent les bornes, des tests qui montrent le plan avant le code, et des commentaires qui expliquent le pourquoi : c’est ce qui distingue un senior de quelqu’un qui tape simplement vite.",
+    "example": "Lors d’un live coding de 90 minutes sur une API Orders, une candidate a demandé si les 30 minutes étaient incluses, a écrit d’abord les tests « exactement 30 minutes » et « une milliseconde après » avec un instant figé, et a renvoyé `{ ok: false, reason: 'window-closed' }` au lieu de lever une exception. Quand le recruteur a ajouté un statut `refunded`, le `switch` exhaustif a cessé de compiler sur sa ligne `never`, ce qu’elle a montré comme la raison d’être du pattern.",
+    "mistakes": [
+      "Coder tout de suite et découvrir les règles aux bornes au fil des questions du recruteur",
+      "Appeler `new Date()` dans la fonction, si bien que les tests dépendent de l’horloge réelle",
+      "Taper en silence, puis tout expliquer à la fin"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi renvoyer un résultat plutôt que lever une exception ?",
+        "answer": "Une fenêtre fermée est une réponse attendue, pas une erreur. Un résultat discriminé comme `{ ok: false, reason: 'window-closed' }` oblige l’appelant à traiter chaque cas, et TypeScript le vérifie ; les exceptions restent pour l’inattendu."
+      },
+      {
+        "question": "Qu’est-ce qu’un switch exhaustif, et pourquoi en utiliser un ?",
+        "answer": "Un `switch` sur une union dont le `default` affecte la valeur à une variable de type `never`. Quand quelqu’un ajoute un statut, le build échoue sur cette ligne tant que le nouveau cas n’est pas traité, donc le compilateur trouve chaque endroit à mettre à jour."
+      },
+      {
+        "question": "Certaines équipes donnent plutôt une tâche d’intégration : appeler une API REST et gérer ses erreurs. Qu’est-ce qui change ?",
+        "answer": "La méthode reste la même : clarifier, tester d’abord, commenter. J’ajoute un délai maximal sur l’appel, je parse le JSON sans lui faire confiance, et j’associe chaque type d’erreur à une réponse."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Pour une règle de fenêtre de temps, ce sont les cas aux bornes (exactement à la limite, et juste après) que les recruteurs sondent le plus.",
+        "why": "Les erreurs off-by-one se logent à la borne, donc ces tests viennent en premier.",
+        "twin": {
+          "statement": "Pour une règle de fenêtre de temps, ce sont les cas loin de la limite que les recruteurs sondent le plus.",
+          "why": "Les erreurs off-by-one se logent à la borne, donc on teste d’abord exactement à la limite et juste après."
+        }
+      },
+      {
+        "statement": "Lire l’heure courante dans la fonction métier la rend plus facile à tester.",
+        "why": "Les tests dépendent alors de l’horloge réelle ; passe l’instant en paramètre et fige-le dans les tests.",
+        "twin": {
+          "statement": "Passer l’heure courante en paramètre de la fonction métier la rend plus facile à tester.",
+          "why": "Les tests figent alors l’instant au lieu de dépendre de l’horloge réelle."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Le live coding évalue ta façon de travailler plus que le code : clarifier, tester et raisonner à voix haute. Certaines équipes demandent du TDD avec du TypeScript idiomatique.",
+      "points": [
+        "Le live coding évalue ta façon de travailler plus que le code : clarifier, tester et raisonner à voix haute. Certaines équipes demandent du TDD avec du TypeScript idiomatique.",
+        "Consacre les premières minutes aux questions dont la réponse change le code : bornes incluses ou non, statuts concernés, réponse en cas d’erreur, et origine de l’heure courante.",
+        "TDD (test-driven development) : écris un test qui échoue (red), le minimum de code qui le fait passer (green), nettoie (refactor), recommence. Commence par les bornes, comme exactement 30 minutes, puis juste après.",
+        "Passe l’instant courant en paramètre pour que les tests le figent et ne lisent jamais l’horloge réelle. Renvoie un type résultat pour les refus attendus au lieu de lever une exception.",
+        "TypeScript idiomatique : unions de littéraux de chaîne plutôt qu’`enum`, données `readonly`, un résultat discriminé, et un `switch` exhaustif dont le `default` affecte à `never`."
+      ],
+      "takeaways": [
+        {
+          "term": "Clarifier d’abord",
+          "detail": "Demander ce qui change le code : bornes incluses ou non, statuts concernés, réponse d’erreur, source du temps."
+        },
+        {
+          "term": "TDD",
+          "detail": "Red : un test qui échoue. Green : le minimum de code qui passe. Refactor. Recommencer."
+        },
+        {
+          "term": "Tests aux bornes d’abord",
+          "detail": "Commencer à la limite, comme exactement 30 minutes, puis une milliseconde après."
+        },
+        {
+          "term": "Passer `now` en paramètre",
+          "detail": "Prendre l’instant courant en paramètre pour que les tests le figent et ne lisent jamais l’horloge réelle."
+        },
+        {
+          "term": "Type résultat",
+          "detail": "Renvoyer un résultat pour les refus attendus au lieu de lever une exception."
+        },
+        {
+          "term": "TypeScript idiomatique",
+          "detail": "Unions de littéraux plutôt qu’`enum`, données `readonly`, un `switch` exhaustif dont le `default` affecte à `never`."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le recruteur dit « Allez-y » et vous commencez aussitôt à taper la fonction. Dix minutes plus tard, il demande si la 30e minute compte. Qu’est-ce qui n’a pas marché, et à quoi devraient ressembler les premières minutes ?",
+        "bridge": "Le début d’un live coding : clarifier d’abord à voix haute, bornes, statuts, erreurs et source du temps, et noter les réponses."
+      },
+      {
+        "question": "Votre premier test de la règle d’annulation échoue de temps en temps en CI, et la fonction appelle `Date.now()`. Que changez-vous, et pourquoi est-ce important pendant l’entretien ?",
+        "bridge": "Un test lié à l’horloge réelle : passer l’instant courant en paramètre rend une règle temporelle testable et montre le design par les tests."
+      }
+    ]
+  },
+  "loop-take-home": {
+    "topic": "Le test technique à la maison et sa défense",
+    "question": "Comment abordez-vous un test technique à la maison et sa revue en direct ?",
+    "answer": "Je cadre d’abord le périmètre : je demande le temps attendu et je fais bien le parcours principal plutôt que tout à moitié, c’est-à-dire la validation, la règle principale, les réponses d’erreur, les tests et une seule commande pour lancer le projet. J’écris ce que je laisse de côté. Le README est ma déclaration d’ouverture : comment le lancer, les compromis avec leur coût, et ce que je ferais avec une journée de plus, pour que les relecteurs choisissent leurs questions sur un terrain que j’ai choisi. Pendant la défense, j’explique chaque ligne, y compris la concurrence de mon propre code, et si un relecteur trouve une faiblesse, je le reconnais et je dis comment je la corrigerais.",
+    "keyPoints": [
+      "Limiter le périmètre au parcours principal bien fait ; demander le temps attendu",
+      "README : commande de lancement, compromis et coûts, étapes suivantes",
+      "Expliquer chaque ligne, concurrence comprise",
+      "Reconnaître un choix faible et dire comment le corriger"
+    ],
+    "explanation": "Comme une IA aurait pu écrire le code, c’est la revue qui tranche, et elle vérifie que tu comprends et assumes chaque choix. Un senior fixe l’ordre du jour avec le README, répond aux questions de concurrence à partir du code lui-même, et considère comme une force le fait de changer d’avis pour une raison énoncée.",
+    "example": "Pour un test à la maison `POST /orders` qui réserve du stock, une candidate a pris le stock avec un seul `UPDATE … WHERE quantity >= $2` conditionnel en vérifiant le nombre de lignes affectées, et a listé dans le README « pas d’étape de paiement : hors périmètre » et « Idempotency-Key avec une journée de plus ». À la question « deux clients achètent la dernière unité en même temps ? », elle a répondu à partir de cette ligne : une seule mise à jour correspond, l’autre requête reçoit un 409.",
+    "mistakes": [
+      "Construire à moitié chaque fonctionnalité optionnelle et livrer un projet qui ne démarre pas",
+      "Omettre le README, si bien que les relecteurs choisissent toutes les questions",
+      "Défendre un choix faible jusqu’au bout au lieu de le reconnaître et de proposer la correction"
+    ],
+    "followUps": [
+      {
+        "question": "Deux clients achètent la dernière unité en même temps. Que fait votre code ?",
+        "answer": "Avec le niveau par défaut de PostgreSQL, Read Committed, un `SELECT` puis un `UPDATE` laisse les deux voir une unité restante et survendre. Un seul `UPDATE … WHERE quantity >= $2` conditionnel dont je vérifie le nombre de lignes affectées n’en laisse passer qu’un ; l’autre reçoit un 409."
+      },
+      {
+        "question": "Que vérifient les relecteurs au-delà du code lui-même ?",
+        "answer": "Que le projet tourne avec la commande documentée, que les tests couvrent la règle et pas seulement le cas nominal, que les erreurs correspondent aux bons codes de statut, et que l’historique des commits montre les étapes."
+      },
+      {
+        "question": "Que feriez-vous avec une journée de plus ?",
+        "answer": "Je réponds à partir de la liste du README, par ordre de risque : pour le service de commandes, une `Idempotency-Key` sur `POST /orders`, des logs structurés et un test de charge de la règle de stock."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Une fonctionnalité manquante que le README déclare hors périmètre se lit comme une décision, pas comme un échec.",
+        "why": "Le cadrage fait partie de l’évaluation ; l’échec, c’est un projet qui ne démarre pas.",
+        "twin": {
+          "statement": "Une fonctionnalité manquante compte comme un échec même quand le README la déclare hors périmètre.",
+          "why": "Le cadrage fait partie de l’évaluation, donc une omission annoncée se lit comme une décision ; l’échec, c’est un projet qui ne démarre pas."
+        }
+      },
+      {
+        "statement": "Avec le niveau d’isolation par défaut de PostgreSQL, un SELECT suivi d’un UPDATE empêche deux acheteurs de prendre la dernière unité.",
+        "why": "En Read Committed, les deux peuvent lire une unité restante ; un UPDATE conditionnel dont tu vérifies le nombre de lignes n’en laisse passer qu’un.",
+        "twin": {
+          "statement": "Avec le niveau d’isolation par défaut de PostgreSQL, un SELECT suivi d’un UPDATE peut laisser deux acheteurs prendre la dernière unité.",
+          "why": "En Read Committed, les deux peuvent lire une unité restante ; un UPDATE conditionnel dont tu vérifies le nombre de lignes n’en laisse passer qu’un."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un test technique à la maison se gagne à la revue : comme une IA aurait pu écrire le code, les relecteurs vérifient que tu sais expliquer chaque ligne et chaque choix.",
+      "points": [
+        "Un test technique à la maison se gagne à la revue : comme une IA aurait pu écrire le code, les relecteurs vérifient que tu sais expliquer chaque ligne et chaque choix.",
+        "Cadre d’abord le périmètre : demande le temps attendu, fais bien le parcours principal (validation, règle principale, réponses d’erreur, tests, une commande de lancement), et écris ce que tu laisses de côté.",
+        "Le README est ta déclaration d’ouverture : comment lancer le projet, chaque compromis avec son coût, et ce que tu ferais avec une journée de plus. Les relecteurs y piochent leurs questions.",
+        "Attends-toi à des questions de concurrence sur ton propre code. En Read Committed, un SELECT puis un UPDATE peut survendre ; un seul UPDATE conditionnel dont tu vérifies le nombre de lignes, non.",
+        "Reconnais un choix faible pour une raison énoncée et nomme la correction et le test qui la prouverait : changer d’avis sur des preuves est un signal senior."
+      ],
+      "takeaways": [
+        {
+          "term": "Périmètre",
+          "detail": "Demander le temps attendu et bien faire le parcours principal plutôt que tout à moitié. Écrire ce qu’on laisse de côté."
+        },
+        {
+          "term": "Parcours principal",
+          "detail": "Validation, règle principale, réponses d’erreur, tests et une commande pour lancer le projet."
+        },
+        {
+          "term": "README",
+          "detail": "Ta déclaration d’ouverture : comment lancer, chaque compromis avec son coût, ce que tu ferais avec une journée de plus."
+        },
+        {
+          "term": "Questions de concurrence",
+          "detail": "En Read Committed, SELECT puis UPDATE peut survendre ; un UPDATE conditionnel avec nombre de lignes vérifié, non."
+        },
+        {
+          "term": "Reconnaître un choix faible",
+          "detail": "Approuver, donner la raison, nommer la correction et le test qui la prouverait : un signal senior."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le test à la maison annonce « environ 4 heures » et liste huit fonctionnalités. Vous pouvez en faire quatre correctement. Que rendez-vous, et que mettez-vous dans le README ?",
+        "bridge": "Le cadrage fait partie de l’évaluation : le parcours principal bien fait, ce qui est laissé de côté écrit, et les compromis avec leur coût dans le README."
+      },
+      {
+        "question": "Pendant la défense, un relecteur montre votre vérification de stock : « Deux acheteurs, une unité restante. Que se passe-t-il ? » Vous voyez le bug. Que dites-vous ?",
+        "bridge": "La revue en direct : expliquer chaque ligne, concurrence comprise, et quand une faiblesse est trouvée, la reconnaître et dire comment la corriger."
+      }
+    ]
+  },
+  "loop-ai-round": {
+    "topic": "L’entretien avec IA et la politique IA",
+    "question": "Comment travaillez-vous dans un entretien assisté par IA, et comment répondez-vous à « Comment l’IA a-t-elle changé votre façon de développer ? »",
+    "answer": "Pendant l’entretien, je travaille de façon visible, en boucle : j’annonce mon plan, je donne à l’assistant le contexte qu’il ne peut pas deviner, les fichiers, les types et des contraintes comme aucune nouvelle dépendance et les tests existants doivent passer, puis je lis sa réponse à voix haute comme un relecteur, je lance les tests, et j’accepte, modifie ou rejette avec une raison. Je vérifie chaque affirmation sur le comportement d’une librairie : un assistant a un jour attrapé un timeout comme `AbortError`, mais `AbortSignal.timeout` rejette avec un `TimeoutError`, donc le retry ne se lançait jamais. Sur la politique, je dis ce que je délègue, comme le boilerplate, le squelette des tests et les premiers jets, comment je le vérifie, et ce bug.",
+    "keyPoints": [
+      "Donner un contexte précis : fichiers, types, contraintes",
+      "Lire chaque ligne à voix haute, lancer les tests, décider visiblement",
+      "Vérifier les affirmations sur les API avec la doc ou un test rapide",
+      "Réponse sur la politique : ce que tu délègues, comment tu vérifies, un bug attrapé"
+    ],
+    "explanation": "Certaines entreprises évaluent comment tu diriges et vérifies un assistant, d’autres l’interdisent, et la question de la politique IA revient désormais dans la plupart des processus. Le recruteur évalue ton jugement, pas le code de l’assistant : coller une longue réponse en silence échoue même quand ça marche, et « je ne l’utilise jamais » comme « il écrit tout » sont des réponses faibles.",
+    "example": "Chargée d’ajouter la navigation au clavier aux suggestions de recherche de la boutique avec un assistant, une candidate lui a donné le composant, le pattern combobox de l’APG et « aucune nouvelle dépendance ». Sa réponse gérait les flèches mais pas Échap, et son propre test ciblait un test id ; elle a ajouté Échap, réécrit le test avec des rôles et des événements utilisateur, et cassé le code exprès pour montrer que le test échouait désormais.",
+    "mistakes": [
+      "Coller une longue suggestion en silence, même quand elle fonctionne",
+      "Croire l’assistant sur le comportement d’une librairie sans vérifier",
+      "Accepter les tests qu’il a écrits pour son propre code, qui confirment ce que fait le code plutôt que le besoin"
+    ],
+    "followUps": [
+      {
+        "question": "Où ne faites-vous pas confiance à un assistant sans vérifier ?",
+        "answer": "Les affirmations sur le comportement et les versions des librairies, la concurrence et les transactions, la sécurité comme les contrôles d’autorisation et le SQL construit par concaténation, l’argent et les arrondis, les fuseaux horaires, et les tests qu’il écrit pour son propre code."
+      },
+      {
+        "question": "Comment vérifiez-vous les tests qu’il a écrits ?",
+        "answer": "Je vérifie qu’ils testent le besoin, pas ce que le code fait par hasard : je casse le code exprès, et un bon test échoue. Pour l’UI, je veux des requêtes par rôle et des événements utilisateur plutôt que des test ids."
+      },
+      {
+        "question": "Et si l’entreprise interdit l’IA en entretien ?",
+        "answer": "Je demande au recruteur ce qui s’applique et je m’entraîne aux deux. Un entretien sans assistant teste si je maîtrise encore mes outils, donc je continue à écrire à la main des choses comme un debounce ou un fetch avec timeout."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un `fetch` interrompu par `AbortSignal.timeout` rejette avec une `DOMException` nommée `TimeoutError`.",
+        "why": "Seul un `abort()` manuel donne une `AbortError`, donc un code qui ne vérifie que `AbortError` rate les timeouts.",
+        "twin": {
+          "statement": "Un `fetch` interrompu par `AbortSignal.timeout` rejette avec une `DOMException` nommée `AbortError`.",
+          "why": "Il rejette avec un `TimeoutError` ; seul un `abort()` manuel donne une `AbortError`."
+        }
+      },
+      {
+        "statement": "Dans un entretien assisté par IA, le recruteur évalue surtout la qualité du code produit par l’assistant.",
+        "why": "Il évalue comment tu le diriges, ce que tu vérifies et comment tu décides ; le code de l’assistant n’est pas la note.",
+        "twin": {
+          "statement": "Dans un entretien assisté par IA, le recruteur évalue surtout comment tu diriges l’assistant, ce que tu vérifies et comment tu décides.",
+          "why": "Le code de l’assistant n’est pas la note ; ton jugement sur ce code, si."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Certains processus autorisent un assistant IA et évaluent comment tu le diriges et le vérifies ; d’autres l’interdisent. Demande au recruteur ce qui s’applique, et entraîne-toi aux deux.",
+      "points": [
+        "Certains processus autorisent un assistant IA et évaluent comment tu le diriges et le vérifies ; d’autres l’interdisent. Demande au recruteur ce qui s’applique, et entraîne-toi aux deux.",
+        "Travaille de façon visible : annonce ton plan, donne le contexte qu’il ne peut pas deviner (fichiers, types, contraintes), lis sa réponse à voix haute comme un relecteur, lance les tests, puis accepte, modifie ou rejette avec une raison.",
+        "Vérifie ses affirmations sur les API. Un `fetch` interrompu par `AbortSignal.timeout` rejette avec un `TimeoutError`, pas un `AbortError`, donc un code qui ne vérifie que `AbortError` rate les timeouts.",
+        "Dans le code frontend qu’il produit, cherche ses erreurs habituelles : un `div` cliquable au lieu d’un bouton, des effets sans cleanup, des clés par index, des états de chargement et d’erreur manquants, des tests par test id.",
+        "Pour la question de politique IA, sois précis : ce que tu délègues, comment tu le vérifies (tests, doc, relecture de chaque diff), et un bug que tu as attrapé."
+      ],
+      "takeaways": [
+        {
+          "term": "Contexte précis",
+          "detail": "Donner ce qu’il ne peut pas deviner : les fichiers, les types, et des contraintes comme aucune nouvelle dépendance."
+        },
+        {
+          "term": "Travailler visiblement",
+          "detail": "Annoncer son plan, lire sa réponse à voix haute comme un relecteur, lancer les tests, puis accepter, modifier ou rejeter avec une raison."
+        },
+        {
+          "term": "Vérifier les API",
+          "detail": "`AbortSignal.timeout` fait rejeter `fetch` avec un `TimeoutError`, pas `AbortError` : vérifier seulement `AbortError` le rate."
+        },
+        {
+          "term": "Erreurs frontend",
+          "detail": "`div` cliquables, effets sans cleanup, clés par index, états de chargement et d’erreur manquants, tests par test id."
+        },
+        {
+          "term": "Réponse sur la politique",
+          "detail": "Ce que tu délègues, comment tu vérifies (tests, doc, chaque diff relu), et un bug que tu as attrapé."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Pendant l’entretien assisté par IA, l’assistant écrit un helper de retry de 40 lignes et les tests passent. Le recruteur demande : « Vous le mergez ? » Que faites-vous avant de répondre ?",
+        "bridge": "Travailler visiblement avec l’assistant : lire son code à voix haute comme un relecteur, vérifier ses affirmations sur les API, puis accepter, modifier ou rejeter avec une raison."
+      },
+      {
+        "question": "Le VP du dernier tour demande : « Comment utilisez-vous les outils d’IA au quotidien, et comment savez-vous que leur résultat est juste ? »",
+        "bridge": "La question de la politique IA : ce que tu délègues, comment tu le vérifies, et un vrai bug attrapé, comme un mauvais nom d’erreur."
+      }
+    ]
+  },
+  "loop-system-design": {
+    "topic": "L’entretien de system design",
+    "question": "Qu’évalue l’entretien de system design dans un processus senior, et comment le menez-vous ?",
+    "answer": "Il évalue les mêmes réflexes que le live coding et la code review, à plus grande échelle. Je clarifie le besoin, j’estime la charge, je propose le design le plus simple qui y répond, et j’approfondis les parties risquées : les règles « ça ne doit jamais arriver », comme ne jamais vendre l’unité 10 001 lors d’une vente flash ou ne jamais débiter deux fois. J’énonce chaque compromis sous la forme « X, qui coûte Y ; si Z comptait davantage, W », et je fais le point avec le recruteur au fil de l’eau. Quand l’entreprise penche vers le domain-driven design, je m’attends à des questions sur les frontières et les agrégats, donc je me prépare à dire où chaque règle est garantie.",
+    "keyPoints": [
+      "Clarifier, estimer, design le plus simple, approfondir les parties risquées",
+      "Approfondir ce qui ne doit jamais arriver : survente, double débit",
+      "Compromis sous la forme « X, qui coûte Y ; si Z comptait davantage, W »",
+      "Entreprises orientées DDD : frontières et agrégats"
+    ],
+    "explanation": "C’est l’entretien où la séniorité se voit le plus, et il vérifie que les réflexes des petits entretiens tiennent à l’échelle. Les recruteurs guettent un besoin qui guide le design et un candidat qui creuse ce qui peut mal tourner plutôt que d’ajouter des boîtes.",
+    "example": "Chargée de concevoir le checkout d’une vente flash, une candidate a d’abord fait valider que l’unité 10 001 ne devait jamais être vendue et que personne ne devait être débité deux fois, puis a consacré l’approfondissement à une mise à jour conditionnelle du stock et à une clé d’idempotence sur `POST /orders`. Interrogée sur une salle d’attente, elle a répondu que ça ne valait la peine que si un test de charge montrait la base saturer, et l’a posé comme condition pour y revenir.",
+    "mistakes": [
+      "Traiter cet entretien comme une compétence à part et oublier de clarifier d’abord, comme en live coding",
+      "Répartir le temps sur toutes les boîtes au lieu d’approfondir les règles « ça ne doit jamais arriver »",
+      "Citer des technologies sans le coût que chacune ajoute"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qui change quand l’entreprise penche vers le DDD ?",
+        "answer": "Je m’attends à des questions sur les frontières et les agrégats : quelle partie du domaine possède une règle, ce qu’une transaction doit garder cohérent, et comment les parties communiquent. Je nomme d’abord la règle, puis la frontière qui la protège."
+      },
+      {
+        "question": "Certains processus combinent conception et code dans un seul entretien. Comment le gérez-vous ?",
+        "answer": "Je garde le même ordre : clarifier, esquisser brièvement le design, se mettre d’accord sur la partie à coder, puis l’implémenter avec des tests en énonçant les compromis au fur et à mesure. L’équipe Poker de Winamax, par exemple, fait passer un entretien de ce type de 2 heures."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "L’entretien de system design évalue les mêmes réflexes que le live coding et la code review, à plus grande échelle.",
+        "why": "Clarifier, rester simple, creuser le risque, nommer les compromis : les réflexes sont les mêmes.",
+        "twin": {
+          "statement": "L’entretien de system design évalue des réflexes sans rapport avec ceux du live coding et de la code review.",
+          "why": "Il évalue les mêmes réflexes à plus grande échelle : clarifier, rester simple, creuser le risque, nommer les compromis."
+        }
+      },
+      {
+        "statement": "La meilleure façon d’utiliser l’approfondissement est de donner le même temps à chaque composant.",
+        "why": "L’approfondissement va aux parties risquées, les règles qui ne doivent jamais casser.",
+        "twin": {
+          "statement": "La meilleure façon d’utiliser l’approfondissement est de le consacrer aux règles qui ne doivent jamais casser.",
+          "why": "Le même temps sur chaque composant laisse superficielles les parties risquées, comme la survente ou le double débit."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "L’entretien de system design te demande de concevoir un service au tableau, comme le checkout d’une vente flash. Il évalue les compromis à l’échelle, avec les mêmes réflexes que le live coding et la review.",
+      "points": [
+        "L’entretien de system design te demande de concevoir un service au tableau, comme le checkout d’une vente flash. Il évalue les compromis à l’échelle.",
+        "Mène-le dans l’ordre : clarifie le besoin, estime, propose le design le plus simple qui y répond, puis approfondis les parties risquées.",
+        "Les parties risquées sont les règles « ça ne doit jamais arriver », comme ne jamais vendre l’unité 10 001 ou ne jamais débiter deux fois. Elles méritent l’essentiel de l’approfondissement.",
+        "Énonce chaque compromis sous la forme « X, qui coûte Y ; si Z comptait davantage, W ». Quand l’entreprise penche vers le DDD, attends-toi à des questions sur les frontières et les agrégats."
+      ],
+      "takeaways": [
+        {
+          "term": "Ordre",
+          "detail": "Clarifier le besoin, estimer la charge, proposer le design le plus simple qui y répond, puis approfondir."
+        },
+        {
+          "term": "Approfondissement",
+          "detail": "Sur les parties risquées : les règles « ça ne doit jamais arriver », comme ne jamais vendre l’unité 10 001 ou débiter deux fois."
+        },
+        {
+          "term": "Formuler un compromis",
+          "detail": "« X, qui coûte Y ; si Z comptait davantage, W »."
+        },
+        {
+          "term": "Faire le point",
+          "detail": "Faire le point avec le recruteur au fil de l’eau."
+        },
+        {
+          "term": "Entreprises orientées DDD",
+          "detail": "S’attendre à des questions sur les frontières et les agrégats : préparer où chaque règle est garantie."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Vingt minutes après le début de l’entretien de conception, vous avez passé autant de temps sur le CDN, la file d’attente et la base de données. Le recruteur demande ce qui pourrait provoquer une survente pendant la vente flash. Qu’est-ce qui n’a pas marché ?",
+        "bridge": "L’approfondissement revient aux parties risquées, les règles qui ne doivent jamais casser, comme ne jamais vendre l’unité 10 001 ou ne jamais débiter deux fois."
+      },
+      {
+        "question": "Le recruteur demande : « En quoi le system design diffère-t-il de l’entretien de code que vous venez de passer ? » Que répondez-vous ?",
+        "bridge": "L’entretien de conception évalue les mêmes réflexes que le live coding et la review à plus grande échelle : clarifier, rester simple, creuser le risque, nommer les compromis."
+      }
+    ]
+  },
+  "loop-questions-to-ask": {
+    "topic": "Les questions à poser aux recruteurs",
+    "question": "« Avez-vous des questions pour nous ? » Que demandez-vous, et pourquoi ?",
+    "answer": "Je pose des questions dont les réponses me serviront à décider, adaptées à la personne. À un ingénieur : à quoi ressemblait leur dernier incident de production et ce qui a changé ensuite, et combien de temps prend un changement entre le merge et la production. Au hiring manager : à quoi ressemble la réussite dans ce poste au bout de six mois, et comment les décisions techniques sont prises et documentées. Au VP ou au CTO : le plus gros risque technique de l’année à venir. À tout le monde : leur politique sur les outils de code IA. Je note les réponses et je les compare d’un entretien à l’autre, et je termine chaque échange en demandant la prochaine étape.",
+    "keyPoints": [
+      "Toujours avoir des questions : ne rien demander passe pour un manque d’intérêt",
+      "Adapter chaque question au rôle de l’interlocuteur",
+      "Demander ce qui servira : incidents, déploiements, réussite, décisions",
+      "Noter les réponses et les comparer d’un entretien à l’autre"
+    ],
+    "explanation": "Un senior sans questions paraît peu intéressé, et les questions elles-mêmes montrent ce qui compte pour toi : incidents, livraison, façon de décider. Les recruteurs remarquent des questions précises adaptées à leur rôle, et les réponses sont ton meilleur indicateur sur l’équipe.",
+    "example": "Pendant le processus d’une scale-up e-commerce, un candidat a interrogé deux ingénieurs sur leur dernier incident ; l’un a décrit une revue et une alerte ajoutée, l’autre a dit que le même bug avait frappé deux fois. En comparant ses notes avant le dernier tour, il a posé la question au VP et appris que l’astreinte était en cours de refonte, ce qui a pesé dans sa décision.",
+    "mistakes": [
+      "Répondre « Non, vous avez tout couvert »",
+      "Ne demander que les avantages, ou ce que le site web dit déjà",
+      "Poser la même question à chaque recruteur quel que soit son rôle"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi comparer les réponses d’un entretien à l’autre ?",
+        "answer": "Des personnes différentes qui répondent sur le même sujet, comme les incidents ou les déploiements, montrent si l’équipe partage la même vision. La cohérence est un signal ; un écart entre ce que disent le manager et les ingénieurs mérite une question."
+      },
+      {
+        "question": "Que vous apprend « Combien de temps entre le merge et la production ? » ?",
+        "answer": "La fréquence de leurs déploiements et la santé de leur CI. Une réponse longue ou floue mérite une question de suivi sur ce qui ralentit les changements."
+      },
+      {
+        "question": "Que demandez-vous tout à la fin d’un échange ?",
+        "answer": "La prochaine étape et quand j’aurai un retour, pour m’organiser avec mes autres processus."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "N’avoir aucune question à la fin d’un entretien est neutre pour un candidat senior.",
+        "why": "Un senior sans questions paraît peu intéressé, et passe à côté des réponses nécessaires pour décider.",
+        "twin": {
+          "statement": "N’avoir aucune question à la fin d’un entretien joue contre un candidat senior.",
+          "why": "Ça passe pour un manque d’intérêt, et le candidat passe à côté des réponses nécessaires pour décider."
+        }
+      },
+      {
+        "statement": "Demander comment les décisions techniques sont prises et documentées peut révéler si une équipe utilise des design reviews ou des ADR.",
+        "why": "La réponse montre des design reviews et des architecture decision records, ou des décisions prises par celui qui parle le plus fort.",
+        "twin": {
+          "statement": "Demander comment les décisions techniques sont prises et documentées ne révèle rien des pratiques de conception d’une équipe.",
+          "why": "La réponse montre si l’équipe utilise des design reviews et des ADR, ou décide selon celui qui parle le plus fort."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Chaque entretien se termine par « Avez-vous des questions pour nous ? ». Un senior qui n’en a aucune paraît peu intéressé, et tu as besoin des réponses pour décider de rejoindre l’entreprise.",
+      "points": [
+        "Chaque entretien se termine par « Avez-vous des questions pour nous ? ». Un senior qui n’en a aucune paraît peu intéressé, et tu as besoin des réponses pour décider.",
+        "Demande à un ingénieur le dernier incident de production et ce qui a changé, et combien de temps prend un changement entre le merge et la production : ça révèle l’astreinte, la fréquence de déploiement et la santé de la CI.",
+        "Demande au hiring manager à quoi ressemble la réussite au bout de six mois et comment les décisions techniques sont prises et documentées, par exemple design reviews ou ADR (architecture decision records).",
+        "Demande au VP ou au CTO le plus gros risque technique de l’année à venir, et à tout le monde leur politique sur les outils de code IA.",
+        "Note les réponses après chaque entretien et compare-les : la cohérence entre les personnes est un signal sur l’équipe. Termine en demandant la prochaine étape."
+      ],
+      "takeaways": [
+        {
+          "term": "Un ingénieur",
+          "detail": "Le dernier incident de production et ce qui a changé, et le délai d’un changement entre le merge et la production."
+        },
+        {
+          "term": "Le hiring manager",
+          "detail": "À quoi ressemble la réussite au bout de six mois, et comment les décisions techniques sont prises et documentées."
+        },
+        {
+          "term": "Le VP ou le CTO",
+          "detail": "Le plus gros risque technique de l’année à venir."
+        },
+        {
+          "term": "Tout le monde",
+          "detail": "Leur politique sur les outils de code IA."
+        },
+        {
+          "term": "Noter les réponses",
+          "detail": "Les comparer d’un entretien à l’autre : la cohérence entre les personnes est un signal sur l’équipe."
+        },
+        {
+          "term": "Conclure",
+          "detail": "Terminer chaque échange en demandant la prochaine étape."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "L’ingénieur qui vous fait passer l’entretien a encore cinq minutes et dit : « À vous. » Que demandez-vous à un ingénieur, par opposition au CTO ?",
+        "bridge": "Des questions adaptées au rôle de l’interlocuteur : incidents et délai entre merge et production pour un ingénieur, le plus gros risque technique pour un CTO."
+      },
+      {
+        "question": "Un ami dit que les questions de fin d’entretien ne sont que de la politesse, et les saute. Que lui répondez-vous ?",
+        "bridge": "L’idée fausse que les questions de fin sont optionnelles : ne pas en avoir passe pour un manque d’intérêt, et les réponses aident à décider."
+      }
+    ]
+  },
+  "loop-seniority": {
+    "topic": "Comment la séniorité se voit dans le processus",
+    "question": "Sur l’ensemble d’un processus d’entretiens, qu’est-ce qui montre que vous êtes senior plutôt que confirmé ?",
+    "answer": "Les mêmes quelques réflexes à chaque étape. Je clarifie avant de construire : les bornes en live coding, le périmètre d’un test à la maison, l’objectif derrière une demande d’une phrase. Je pense production sans qu’on me le demande : délais maximaux sur les appels sortants, idempotence, races entre réplicas, un fournisseur en panne. J’utilise les tests comme outil de design, avec des tests aux bornes et une horloge figée. Je nomme les compromis et je change d’avis pour une raison. Je vérifie les affirmations, y compris celles de l’IA. Et je communique dans le bon ordre : la gravité d’abord en review, le plan d’abord en code, l’action d’abord dans un récit. Quand je ne sais pas, je dis comment je trouverais.",
+    "keyPoints": [
+      "Clarifier avant de construire",
+      "Soulever les sujets de production sans y être invité : délais, idempotence, races",
+      "Les tests comme outil de design ; vérifier les affirmations, y compris de l’IA",
+      "Nommer les compromis, changer d’avis pour une raison, admettre ses lacunes"
+    ],
+    "explanation": "Un candidat confirmé et un senior peuvent tous deux finir l’exercice ; la différence se voit dans la manière. Les recruteurs guettent une réflexion production qu’ils n’ont pas eu à provoquer, des lacunes assumées plutôt que des suppositions assurées, et un candidat qui dit où il en est quand le temps manque.",
+    "example": "À dix minutes de la fin d’un exercice d’annulation, un candidat a dit « la règle et ses tests sont faits ; le mapping vers le 409 est la suite, et voici à quoi il ressemblerait », puis a soulevé de lui-même que deux annulations simultanées pouvaient rembourser deux fois, et a proposé une mise à jour conditionnelle. Le recruteur a passé le temps restant sur cette race plutôt que sur le mapping inachevé.",
+    "mistakes": [
+      "Présenter une supposition comme un fait au lieu de dire « Je ne sais pas ; voici comment je trouverais »",
+      "Taper en silence quand le temps manque au lieu de dire ce qui reste",
+      "Attendre que le recruteur pose des questions sur les pannes, les retries et les races"
+    ],
+    "followUps": [
+      {
+        "question": "À quelles questions de suivi faut-il s’attendre dans tout entretien technique ?",
+        "answer": "« Que feriez-vous avec une journée de plus ? », « Comment le déploieriez-vous sans risque ? » (un feature flag, les métriques à surveiller, un déploiement progressif), « Que surveilleriez-vous ? » et « Comment l’expliqueriez-vous à un junior ? »."
+      },
+      {
+        "question": "Comment répondez-vous à une question dont vous ne connaissez pas la réponse ?",
+        "answer": "Je le dis et j’explique comment je trouverais : la doc, une expérience de deux minutes, ou demander à l’équipe. Une supposition présentée comme un fait coûte plus cher qu’une lacune honnête."
+      },
+      {
+        "question": "Le temps s’arrête au milieu de l’exercice. Que dites-vous ?",
+        "answer": "Où j’en suis et ce qui reste, avec à quoi ça ressemblerait : « la règle et ses tests sont faits ; le mapping vers le 409 est la suite. » Un énoncé clair de ce qui manque vaut plus que dix minutes de frappe silencieuse."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dire « Je ne sais pas, mais voici comment je trouverais » dessert davantage un candidat senior qu’une supposition assurée.",
+        "why": "Une supposition présentée comme un fait coûte plus cher qu’une lacune honnête accompagnée d’un moyen de la combler.",
+        "twin": {
+          "statement": "Dire « Je ne sais pas, mais voici comment je trouverais » sert mieux un candidat senior qu’une supposition assurée.",
+          "why": "Une supposition présentée comme un fait coûte plus cher qu’une lacune honnête accompagnée d’un moyen de la combler."
+        }
+      },
+      {
+        "statement": "Soulever l’idempotence et les races sans qu’on le demande est un signal senior dans un entretien de code.",
+        "why": "Penser production sans y être invité fait partie des réflexes qui distinguent les seniors.",
+        "twin": {
+          "statement": "Dans un entretien de code, mieux vaut laisser l’idempotence et les races de côté jusqu’à ce que le recruteur en parle.",
+          "why": "Les soulever sans y être invité fait partie des réflexes qui distinguent les seniors."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "La séniorité se voit dans les mêmes quelques réflexes à chaque étape, pas dans un exercice plus difficile : un confirmé et un senior peuvent tous deux finir la tâche.",
+      "points": [
+        "La séniorité se voit dans les mêmes réflexes à chaque étape, pas dans un exercice plus difficile : un confirmé et un senior peuvent tous deux finir la tâche.",
+        "Clarifie avant de construire, et pense production sans qu’on te le demande : délais maximaux sur les appels sortants, idempotence, races entre réplicas, pannes de fournisseur.",
+        "Utilise les tests comme outil de design (tests aux bornes, horloge figée), nomme les compromis, et change d’avis pour une raison énoncée. Vérifie les affirmations, y compris celles de l’IA.",
+        "Communique dans le bon ordre : la gravité d’abord en review, le plan d’abord en code, l’action d’abord dans un récit.",
+        "Quand tu ne sais pas, dis-le et dis comment tu trouverais. Quand le temps manque, dis où tu en es et ce qui reste."
+      ],
+      "takeaways": [
+        {
+          "term": "Clarifier avant de construire",
+          "detail": "Les bornes en live coding, le périmètre d’un test à la maison, l’objectif derrière une demande d’une phrase."
+        },
+        {
+          "term": "Penser production, spontanément",
+          "detail": "Délais maximaux sur les appels sortants, idempotence, races entre réplicas, un fournisseur en panne."
+        },
+        {
+          "term": "Les tests comme design",
+          "detail": "Tests aux bornes et horloge figée."
+        },
+        {
+          "term": "Compromis et vérification",
+          "detail": "Nommer les compromis, changer d’avis pour une raison énoncée, et vérifier les affirmations, y compris celles de l’IA."
+        },
+        {
+          "term": "Le bon ordre",
+          "detail": "La gravité d’abord en review, le plan d’abord en code, l’action d’abord dans un récit."
+        },
+        {
+          "term": "Lacunes et temps",
+          "detail": "Dire qu’on ne sait pas et comment on trouverait ; quand le temps manque, dire où on en est et ce qui reste."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "En live coding, le recruteur vous interroge sur un détail d’une librairie dont vous n’êtes pas sûr. Vous pouvez deviner avec assurance ou l’admettre. Que choisissez-vous, et que dites-vous ?",
+        "bridge": "Admettre une lacune avec un moyen de la combler fait partie des réflexes seniors ; une supposition présentée comme un fait coûte plus cher."
+      },
+      {
+        "question": "Le hiring manager demande : « Quelle est la différence entre un ingénieur confirmé et un senior, dans leur façon de travailler ? »",
+        "bridge": "Les mêmes réflexes vus de l’autre côté : clarifier d’abord, sujets de production soulevés spontanément, tests comme design, compromis nommés, affirmations vérifiées."
+      }
+    ]
+  }
+}

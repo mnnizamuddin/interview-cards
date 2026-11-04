@@ -1,0 +1,730 @@
+{
+  "fsd-method": {
+    "topic": "Mener un entretien de design front",
+    "question": "Dans un entretien de system design front-end, comment utilisez-vous les cinq premières minutes, et quel plan suivez-vous ?",
+    "answer": "J’annonce un plan, RADIO : besoins, architecture, modèle de données, interface, puis optimisations et deep dive. Les besoins prennent à peu près les cinq premières minutes d’un créneau de 45 minutes, et je ne pose que des questions dont la réponse change une étape suivante : qui utilise l’écran et sur quel appareil, quelles fonctionnalités sont essentielles, ce que « rapide » veut dire en chiffres, à quel point les données doivent être fraîches, et accessibilité, navigateurs, hors ligne et langues. J’écris les réponses là où le recruteur les voit. Ensuite composants et propriétaires du state, données, API, et je garde environ 40 % du temps pour le deep dive, en faisant un point à chaque étape.",
+    "keyPoints": [
+      "Annoncer le plan : besoins, architecture, données, API, deep dive",
+      "Besoins en 5 minutes environ, écrits là où on les voit",
+      "Ne poser que les questions qui changent une décision suivante",
+      "Garder environ 40 % du temps pour optimisations et deep dive"
+    ],
+    "explanation": "Cet entretien est courant dans les processus front-end senior et évalue les réflexes de l’entretien de design backend, appliqués au client : composants, qui possède quel state, l’API dont l’écran a besoin, et ce que ressent l’utilisateur. Un senior arrive avec un plan, transforme des mots flous comme « rapide » en chiffres, et suit le recruteur quand il réoriente.",
+    "example": "Invité à concevoir le tableau des commandes du back-office, un candidat a d’abord appris que les agents travaillent à un bureau toute la journée et ont besoin de voir un changement de statut à l’écran en moins de 2 secondes. Ces deux réponses ont décidé d’un tableau dense piloté au clavier et d’un flux poussé par le serveur, donc le deep dive est allé droit aux mises à jour en direct plutôt qu’au style.",
+    "mistakes": [
+      "Dessiner des composants avant de demander qui utilise l’écran et sur quel appareil",
+      "Parler de load balancers et de shards : dans cet entretien, le serveur est une boîte noire",
+      "Passer la moitié de l’entretien sur les besoins et ne plus avoir de temps pour le deep dive"
+    ],
+    "followUps": [
+      {
+        "question": "Quelles questions sur les besoins sont propres à un entretien front-end ?",
+        "answer": "Qui utilise l’écran et sur quel appareil, quelles fonctionnalités sont essentielles, ce que « rapide » veut dire en millisecondes ou en Core Web Vitals, à quel point les données doivent être fraîches, et accessibilité, navigateurs, hors ligne et langues. Utilisateurs et appareils décident de la densité et des zones tactiles ; la fraîcheur décide entre cache et flux en direct."
+      },
+      {
+        "question": "Que faites-vous dans les deux dernières minutes ?",
+        "answer": "Je reformule chaque besoin avec la partie du design qui y répond, comme « pas de double commande : une clé d’idempotence par intention », puis je nomme les deux plus gros risques et ce que je construirais en premier."
+      },
+      {
+        "question": "Que mesureriez-vous après le lancement ?",
+        "answer": "Des données terrain liées aux besoins : LCP, INP et CLS au 75e percentile par type de page, collectés sur de vraies sessions avec la bibliothèque `web-vitals`, le temps entre la dernière frappe et les suggestions à l’écran, les taux d’erreur et de retry de `POST /orders`, et les reconnexions du flux par agent."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dans un entretien de system design front-end, le côté serveur est en général traité comme une boîte noire.",
+        "why": "L’étape d’architecture dessine les composants client et qui parle à qui ; le stockage et la montée en charge relèvent de l’entretien backend.",
+        "twin": {
+          "statement": "Dans un entretien de system design front-end, on attend de vous que vous conceviez en détail le stockage et la montée en charge du serveur.",
+          "why": "Le serveur y est en général une boîte noire ; le stockage et la montée en charge relèvent de l’entretien backend."
+        }
+      },
+      {
+        "statement": "L’essentiel d’un entretien de design front-end doit servir à clarifier les besoins.",
+        "why": "La méthode RADIO réserve aux besoins une petite part, autour de 10 à 15 %, et environ 40 % aux optimisations et au deep dive.",
+        "twin": {
+          "statement": "Dans un entretien de design front-end, les besoins doivent prendre une petite part du temps, avec environ 40 % gardés pour les optimisations et le deep dive.",
+          "why": "La méthode RADIO réserve aux besoins une petite part, autour de 10 à 15 %, et environ 40 % aux optimisations et au deep dive."
+        }
+      },
+      {
+        "statement": "Énoncer chaque choix avec son coût, comme « SSE, qui coûte une connexion ouverte par agent », fait partie de ce qui est évalué.",
+        "why": "L’entretien évalue le raisonnement : chaque choix avec son coût et la condition qui le ferait changer.",
+        "twin": {
+          "statement": "Dans un entretien de design front-end, nommer chaque choix suffit ; son coût ne fait pas partie de ce qui est évalué.",
+          "why": "L’entretien évalue le raisonnement : chaque choix avec son coût et la condition qui le ferait changer."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un entretien de system design front-end est une discussion de 45 à 60 minutes où l’on conçoit à voix haute un écran, ses données et son comportement. Il évalue le raisonnement sur le client, pas les serveurs ni les shards.",
+      "points": [
+        "Un entretien de system design front-end est une discussion de 45 à 60 minutes où l’on conçoit à voix haute un écran, ses données et son comportement. Il évalue le raisonnement sur le client, pas les serveurs ni les shards.",
+        "RADIO nomme les étapes : Requirements (besoins), Architecture (composants et qui parle à qui), Data model (entités et où vit chaque morceau de state), Interface (les API), Optimisations et deep dive.",
+        "Parts suggérées : environ 10 à 15 % pour les besoins, 20 % pour l’architecture, 10 % pour les données, 15 à 20 % pour l’interface et 40 % pour les optimisations. Sur 45 minutes, les besoins se terminent vers la 5e minute.",
+        "Chaque question sur les besoins se pose parce que sa réponse change une étape suivante : utilisateurs et appareils, fonctionnalités essentielles, « rapide » en chiffres, fraîcheur des données, accessibilité, navigateurs, hors ligne, langues.",
+        "On énonce chaque choix sous la forme « X, qui coûte Y ; si Z comptait plus, W », on fait un point à chaque étape, et on conclut en reliant chaque besoin à la partie du design qui y répond."
+      ],
+      "takeaways": [
+        {
+          "term": "RADIO",
+          "detail": "Requirements, Architecture, Data model, Interface, Optimisations et deep dive. Annoncer le plan d’abord."
+        },
+        {
+          "term": "Besoins",
+          "detail": "Une petite part, autour de 10 à 15 % : à peu près les 5 premières minutes sur 45. Écrire les réponses là où le recruteur les voit."
+        },
+        {
+          "term": "Questions utiles",
+          "detail": "Seulement celles qui changent une étape suivante : utilisateurs et appareils, fonctionnalités clés, « rapide » en chiffres, fraîcheur, a11y, hors ligne."
+        },
+        {
+          "term": "Architecture et données",
+          "detail": "Composants et qui parle à qui, puis entités et où vit chaque morceau de state."
+        },
+        {
+          "term": "Répartition du temps",
+          "detail": "Environ 20 % architecture, 10 % données, 15 à 20 % interface et 40 % optimisations et deep dive."
+        },
+        {
+          "term": "Conclure",
+          "detail": "Énoncer les choix sous la forme « X, qui coûte Y ; si Z comptait plus, W », et relier chaque besoin à la partie qui y répond."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Au bout de douze minutes d’un entretien de design front-end de 45 minutes, vous posez encore des questions et rien n’est dessiné. Le recruteur regarde l’horloge. Qu’est-ce qui n’a pas marché, et quel plan auriez-vous dû annoncer ?",
+        "bridge": "Les besoins prennent environ cinq minutes, avec seulement les questions qui changent une étape suivante ; puis architecture, données, API, et environ 40 % pour le deep dive."
+      },
+      {
+        "question": "Le recruteur dit : « Concevez l’écran des commandes du back-office. » Que demandez-vous dans les premières minutes, et que gardez-vous pour plus tard ?",
+        "bridge": "Ouvrir un entretien de design front-end : ne demander que ce qui change une décision suivante, comme utilisateurs et appareils, fonctionnalités essentielles, vitesse en chiffres et fraîcheur."
+      }
+    ]
+  },
+  "fsd-autocomplete": {
+    "topic": "Concevoir une autocomplétion de recherche",
+    "question": "Concevez l’autocomplétion de recherche d’une boutique en ligne : composants, state, API, et ce qui se passe quand le client tape vite.",
+    "answer": "Je garde quatre parties : un composant de champ de recherche qui possède le texte tapé, l’état ouvert et l’option active ; un hook `useSuggestions` qui fait un debounce du terme et lit un cache de requêtes indexé par le terme normalisé ; la liste, rendue comme une combobox accessible ; et un client d’API. L’endpoint est un `GET` avec le terme et un `limit` fixe dans l’URL, pour qu’un CDN puisse mettre en cache les préfixes populaires, et il renvoie des plages de correspondance, pas du HTML, donc aucun markup serveur n’arrive dans la page. Indexer les données par terme garantit qu’une ancienne réponse ne s’affiche jamais pour un nouveau terme, et le signal de la requête annule les requêtes périmées.",
+    "keyPoints": [
+      "Le texte tapé est du state UI ; les suggestions, du state serveur en cache",
+      "Un `GET` cacheable avec le terme et un limit fixe dans l’URL",
+      "Plages de correspondance, pas de HTML : le client rend la surbrillance",
+      "Debounce, indexer par terme, annuler les requêtes périmées via le signal"
+    ],
+    "explanation": "L’autocomplétion est l’un des sujets de design front-end les plus rapportés car elle touche toutes les couches : propriété du state, design d’API, courses réseau, cache et accessibilité. Un senior nomme qui possède chaque morceau de state, conçoit le contrat pour le cache, et règle la course en indexant les données, pas avec un timer plus long.",
+    "example": "Une première version de la boutique faisait le fetch dans un effet et stockait les suggestions dans `useState` ; une réponse lente pour « ch » arrivait après « cha » et affichait la mauvaise liste. Passer à `useQuery` indexé par le terme nettoyé et en minuscules, avec un debounce de 250 ms, a envoyé une requête au lieu de cinq pour « chair » tapé vite, et revenir à un terme déjà répondu moins de 60 secondes avant n’en a envoyé aucune.",
+    "mistakes": [
+      "Copier les suggestions dans `useState`, ce qui mélange state serveur et state UI et ramène la course",
+      "Renvoyer depuis le serveur une surbrillance en HTML tout prêt, ce qui ouvre un risque de cross-site scripting",
+      "Utiliser `POST` pour les suggestions, si bien qu’aucun CDN ne peut garder les préfixes populaires"
+    ],
+    "followUps": [
+      {
+        "question": "Annuler la requête économise-t-il du travail côté serveur ?",
+        "answer": "Pas à lui seul. Le serveur a déjà reçu la requête ; annuler économise la bande passante du client et une connexion, et le serveur n’économise du travail que s’il s’arrête quand la connexion se ferme. Le `fetch` annulé est rejeté avec une `AbortError`, que j’ignore."
+      },
+      {
+        "question": "Détaillez-moi le cache.",
+        "answer": "Clé : le terme normalisé, plus la locale. Fraîcheur : un `staleTime` et un `max-age` de 60 secondes. Durée de vie : `gcTime`, 5 minutes par défaut. Invalidation : j’accepte une minute de données périmées. Version : dans l’URL, pour qu’un déploiement ne lise jamais une ancienne forme. Portée : les suggestions personnelles ne vont jamais dans un cache public."
+      },
+      {
+        "question": "`useDeferredValue` est-il un debounce ?",
+        "answer": "Non. Il diffère l’affichage des résultats, pas les requêtes, donc il y a toujours une requête par frappe. Il garde la saisie fluide pendant le rendu d’une liste lente ; le debounce réduit les requêtes. Je peux utiliser les deux."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Avec un debounce en place, les réponses de suggestions ne peuvent plus arriver dans le désordre.",
+        "why": "Le debounce envoie moins de requêtes, mais deux requêtes envoyées peuvent encore finir dans le désordre ; c’est l’indexation des données par terme qui empêche la mauvaise liste.",
+        "twin": {
+          "statement": "Même avec un debounce en place, deux réponses de suggestions peuvent arriver dans le désordre.",
+          "why": "Le debounce envoie moins de requêtes mais ne peut pas les ordonner ; c’est l’indexation des données par terme qui empêche la mauvaise liste."
+        }
+      },
+      {
+        "statement": "Annuler un `fetch` garantit que le serveur ne traite jamais la requête.",
+        "why": "La requête a peut-être déjà atteint le serveur ; il ne s’arrête que s’il remarque la connexion fermée.",
+        "twin": {
+          "statement": "Un `fetch` annulé peut quand même être traité par le serveur.",
+          "why": "La requête a peut-être déjà atteint le serveur ; il ne s’arrête que s’il remarque la connexion fermée."
+        }
+      },
+      {
+        "statement": "Envoyer des plages de correspondance plutôt que du HTML permet au client de styliser la surbrillance sans insérer de markup serveur.",
+        "why": "Le client construit les marques à partir de plages de caractères, donc aucun HTML du serveur n’arrive dans la page.",
+        "twin": {
+          "statement": "Envoyer du HTML plutôt que des plages de correspondance est la façon la plus sûre de laisser le client styliser la surbrillance.",
+          "why": "Avec des plages de correspondance, le client construit lui-même les marques, donc aucun HTML du serveur n’arrive dans la page."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une autocomplétion de recherche a l’air petite mais met à l’épreuve la propriété du state, une API cacheable et ce qui se passe quand les réponses font la course pendant que le client tape vite.",
+      "points": [
+        "On sépare le state par propriétaire : le texte tapé, l’état ouvert et l’option active sont du state UI dans le composant ; les suggestions sont du state serveur, une copie en cache de la réponse pour un terme.",
+        "L’API est un `GET` avec le terme et un `limit` fixe dans l’URL, pour qu’un CDN puisse mettre en cache les préfixes populaires. Elle renvoie des plages de correspondance, pas du HTML, donc aucun markup serveur n’arrive dans la page.",
+        "Le debounce attend une pause dans la saisie (environ 250 ms, une hypothèse à ajuster), donc un mot tapé vite envoie une requête au lieu d’une par lettre.",
+        "Les réponses peuvent arriver dans le désordre. Indexer le cache par le terme normalisé garantit qu’une réponse ne s’affiche que pour son propre terme, et le `signal` de la requête passé à `fetch` annule les requêtes périmées.",
+        "On répond à voix haute aux questions de cache : clé, fraîcheur, durée de vie, invalidation, version et portée. Les suggestions personnelles, comme les recherches récentes, ne vont jamais dans un cache public."
+      ],
+      "takeaways": [
+        {
+          "term": "State UI",
+          "detail": "Le texte tapé, l’état ouvert et l’option active vivent dans le composant du champ de recherche."
+        },
+        {
+          "term": "State serveur",
+          "detail": "Les suggestions sont une copie en cache de la réponse pour un terme, indexée par le terme normalisé."
+        },
+        {
+          "term": "API",
+          "detail": "Un `GET` avec le terme et un `limit` fixe dans l’URL, pour qu’un CDN puisse mettre en cache les préfixes populaires."
+        },
+        {
+          "term": "Plages, pas de HTML",
+          "detail": "Le client rend la surbrillance, donc aucun markup serveur n’arrive dans la page."
+        },
+        {
+          "term": "Debounce",
+          "detail": "Attendre une pause dans la saisie (environ 250 ms, une hypothèse à ajuster) : une requête par mot, pas par lettre."
+        },
+        {
+          "term": "Réponses dans le désordre",
+          "detail": "Indexer par terme n’affiche une réponse que pour son propre terme ; le `signal` de la requête annule les requêtes périmées."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Un client tape « sho » vite dans la recherche de la boutique, et la liste finit parfois par afficher les suggestions de « sh ». L’API est rapide et correcte. Que se passe-t-il, et comment votre design l’empêche-t-il ?",
+        "bridge": "Des réponses qui finissent dans le désordre : indexer les suggestions par le terme normalisé et annuler les requêtes périmées empêche une ancienne réponse de s’afficher."
+      },
+      {
+        "question": "Un collègue propose que l’API de recherche renvoie du HTML tout prêt avec des balises `<mark>` pour la surbrillance. Que répondez-vous ?",
+        "bridge": "Le contrat d’API de l’autocomplétion : des plages de correspondance, pas du HTML, pour que le client rende la surbrillance et qu’aucun markup serveur n’arrive dans la page."
+      }
+    ]
+  },
+  "fsd-live-table": {
+    "topic": "Concevoir un tableau de données en direct",
+    "question": "Concevez un tableau de commandes en direct pour les agents du support : des millions de commandes, des filtres, du tri, et les changements de statut à l’écran en quelques secondes.",
+    "answer": "Avec 2 millions de commandes, les données ne peuvent pas vivre dans le navigateur, donc le serveur filtre et trie, et la vue, c’est-à-dire filtres, tri et recherche, vit dans l’URL, parsée avec un schéma, pour que les agents puissent partager des liens. Je pagine avec un curseur opaque parce que la liste grandit pendant que les agents la lisent, et je virtualise dès que des centaines de lignes sont chargées. Les mises à jour en direct arrivent en Server-Sent Events via le BFF, mais je n’écris jamais chaque événement directement dans le cache : je les bufferise et je les applique toutes les 250 ms, en gardant la version la plus haute par commande, pour qu’un événement périmé ne fasse jamais reculer une ligne plus récente.",
+    "keyPoints": [
+      "Filtrer et trier côté serveur ; garder la vue dans l’URL",
+      "Pagination par curseur pour une liste qui grandit ; virtualiser",
+      "SSE via le BFF ; bufferiser les événements, appliquer par lots",
+      "Appliquer par version : un événement périmé ne fait jamais reculer une ligne"
+    ],
+    "explanation": "Les vues riches en données sont un sujet front-end senior fréquent, et celui-ci teste si tu penses au coût côté navigateur autant qu’aux données. Les recruteurs attendent du filtrage côté serveur, l’URL comme state, un choix de pagination avec son coût, et des mises à jour en direct qui ne déclenchent pas un rendu par événement.",
+    "example": "Dans le back-office, la première version en direct écrivait chaque événement de statut dans le cache de requêtes ; avec 100 événements espacés de 5 ms, le tableau faisait 96 commits. Les bufferiser et les appliquer toutes les 250 ms l’a ramené à 7 commits, et garder la version la plus haute par commande a corrigé une ligne qui revenait à un statut périmé quand un lot se terminait par un vieil événement.",
+    "mistakes": [
+      "Charger toutes les commandes dans le navigateur et trier côté client",
+      "Déplacer des lignes sous le pointeur de l’agent quand une commande se met à correspondre au filtre, au lieu d’afficher un bandeau « 3 nouvelles commandes »",
+      "Tester les mises à jour en direct uniquement avec une rafale, où React les regroupe et où le coût par événement reste caché"
+    ],
+    "followUps": [
+      {
+        "question": "Pagination par offset ou par curseur ici ?",
+        "answer": "Par curseur. Les pages d’offset profondes deviennent lentes, et les lignes glissent d’une page à l’autre quand de nouvelles commandes arrivent. Le curseur est opaque : le client le renvoie tel qu’il l’a reçu. Le coût : pas de saut à la page 30, et le total devient une estimation, ce qui convient pour « environ 18 000 commandes »."
+      },
+      {
+        "question": "Que se passe-t-il après la reconnexion du flux d’événements ?",
+        "answer": "`EventSource` se reconnecte seul et reprend au dernier id d’événement, mais si le serveur ne peut plus rejouer aussi loin, la liste est périmée. La règle sûre : refetch de la liste visible à chaque reconnexion, puis application des nouveaux événements par version."
+      },
+      {
+        "question": "Pourquoi virtualiser si les lignes sont déjà chargées ?",
+        "answer": "Pour le coût du layout. Mesuré dans Chromium, modifier une cellule d’un tableau de 5 000 lignes relançait le layout en 110 à 180 ms, une tâche longue à chaque mise à jour ; avec 50 lignes, moins de 10 ms. Le coût : la recherche du navigateur ne voit pas les lignes non rendues."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Quand 100 événements en direct arrivent en une rafale, React les regroupe en quelques rendus.",
+        "why": "Mesuré avec React 19, une rafale provoquait environ 3 commits ; ce sont les événements étalés dans le temps qui provoquent un rendu par événement.",
+        "twin": {
+          "statement": "Quand 100 événements en direct arrivent en une rafale, React fait un rendu par événement.",
+          "why": "Mesuré avec React 19, une rafale provoquait environ 3 commits ; ce sont les événements étalés dans le temps qui provoquent un rendu par événement."
+        }
+      },
+      {
+        "statement": "La pagination par offset est la mieux adaptée à une liste où de nouvelles commandes arrivent pendant que les agents la lisent.",
+        "why": "Les lignes glissent entre les pages d’offset quand des commandes arrivent, et les pages profondes deviennent lentes ; un curseur convient à une liste qui grandit.",
+        "twin": {
+          "statement": "Pour une liste où de nouvelles commandes arrivent pendant que les agents la lisent, la pagination par curseur convient mieux que celle par offset.",
+          "why": "Les lignes glissent entre les pages d’offset quand des commandes arrivent, et les pages profondes deviennent lentes."
+        }
+      },
+      {
+        "statement": "Le client peut construire lui-même le curseur suivant à partir de l’id de la dernière ligne.",
+        "why": "Le curseur est opaque : le client renvoie exactement ce que le serveur a renvoyé et n’en construit jamais.",
+        "twin": {
+          "statement": "Le client renvoie le curseur exactement tel que le serveur l’a renvoyé et n’en construit jamais lui-même.",
+          "why": "Le curseur est opaque, donc seul le serveur connaît son format."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un tableau en direct sur des millions de commandes ne peut pas garder ses données dans le navigateur. La question de design est de savoir comment le serveur, l’URL et un flux de mises à jour se partagent le travail sans lignes périmées.",
+      "points": [
+        "Avec des millions de lignes, le serveur filtre, trie et pagine. La vue (filtres, tri, recherche) vit dans l’URL, parsée avec un schéma, pour que les agents puissent partager des liens, recharger et utiliser Retour.",
+        "La pagination par curseur renvoie une page plus un curseur opaque pour la suivante ; elle convient à une liste qui grandit pendant qu’on la lit. Les pages d’offset deviennent lentes en profondeur et glissent quand des lignes s’ajoutent.",
+        "La virtualisation ne rend que les lignes visibles et laisse un espace vide pour le reste. Elle garde le layout peu coûteux ; le coût : des hauteurs de ligne fixes ou mesurées et pas de recherche du navigateur sur les lignes cachées.",
+        "Les mises à jour en direct arrivent en Server-Sent Events via le BFF. On les bufferise et on les applique en une passe toutes les quelques centaines de millisecondes, au lieu d’un rendu par événement.",
+        "On donne à chaque ligne une `version` : dans un lot, on garde la plus haute par commande, et on ignore un événement plus vieux que la ligne. Après une reconnexion, on refetch la liste visible."
+      ],
+      "takeaways": [
+        {
+          "term": "Filtre et tri côté serveur",
+          "detail": "Avec des millions de lignes, le serveur filtre, trie et pagine."
+        },
+        {
+          "term": "La vue dans l’URL",
+          "detail": "Filtres, tri et recherche parsés avec un schéma, pour que les agents puissent partager des liens, recharger et utiliser Retour."
+        },
+        {
+          "term": "Pagination par curseur",
+          "detail": "Une page plus un curseur opaque convient à une liste qui grandit ; les pages d’offset ralentissent en profondeur et glissent aux insertions."
+        },
+        {
+          "term": "Virtualisation",
+          "detail": "Ne rendre que les lignes visibles. Coûte des hauteurs de ligne fixes ou mesurées et pas de recherche du navigateur sur les lignes cachées."
+        },
+        {
+          "term": "SSE via le BFF",
+          "detail": "Bufferiser les événements et les appliquer en une passe toutes les quelques centaines de millisecondes, pas un rendu par événement."
+        },
+        {
+          "term": "`version` par ligne",
+          "detail": "Garder la plus haute par commande dans un lot, ignorer les événements plus vieux ; refetch de la liste visible après une reconnexion."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Dans le back-office, la ligne d’une commande repasse un instant de `shipped` à `paid` aux heures chargées, puis affiche de nouveau `shipped` après un rechargement. Qu’est-ce qui ne va pas dans le design du tableau ?",
+        "bridge": "Un événement en direct périmé qui fait reculer une ligne plus récente : bufferiser les événements et les appliquer par version, en gardant la version la plus haute par commande."
+      },
+      {
+        "question": "Un collègue veut charger toutes les commandes dans le navigateur et filtrer là, « parce que c’est plus rapide ». Avec 2 millions de commandes, que répondez-vous ?",
+        "bridge": "Où vivent les données dans un grand tableau : filtrer et trier côté serveur, garder la vue dans l’URL, paginer par curseur et virtualiser les lignes."
+      }
+    ]
+  },
+  "fsd-optimistic-grid": {
+    "topic": "Édition en tableau, clavier, budget",
+    "question": "Une agente s’assigne une commande depuis le tableau : attend-elle le serveur, peut-elle le faire sans souris, et comment savez-vous que le tableau est assez rapide ?",
+    "answer": "Assigner est peu coûteux et réussit presque toujours, donc je le rends optimiste : j’annule les refetchs en cours de la liste, je prends un snapshot, j’écris le nom de l’agent, je reviens en arrière en cas d’erreur et je refetch à la fin. Un remboursement, c’est l’inverse : j’affiche un état en attente et j’attends. Un tableau en lecture seule reste une `<table>` native, mais dès que les cellules contiennent des contrôles, je suis le pattern grid de l’APG : un seul arrêt de tabulation, flèches entre cellules, `aria-sort` sur l’en-tête trié, et `aria-rowcount` avec `aria-rowindex` quand les lignes sont virtualisées. Puis un budget : INP sous 200 ms au p75, aucun flush au-delà de 50 ms, environ 50 lignes dans le DOM.",
+    "keyPoints": [
+      "Optimiste pour les actions peu coûteuses et réversibles ; attente pour les remboursements",
+      "Annuler les refetchs, snapshot, écrire, rollback, refetch à la fin",
+      "Table native en lecture seule ; grid APG dès que les cellules ont des contrôles",
+      "Un budget : INP sous 200 ms au p75, aucune tâche > 50 ms, ~50 lignes"
+    ],
+    "explanation": "Le deep dive vérifie que tu choisis l’optimisme action par action plutôt que partout, que l’accessibilité est conçue dès le départ plutôt qu’ajoutée après, et que « rapide » est un chiffre vérifiable. Un senior nomme le rollback, le modèle clavier du grid et un budget relié à des seuils publiés.",
+    "example": "Dans le back-office, assigner une commande attendait le BFF et les agents cliquaient deux fois. La version optimiste affichait le nom tout de suite ; face à un serveur qui répondait 409, le snapshot revenait et `onSettled` refaisait le fetch de la liste. Les remboursements sont restés pessimistes, avec un état « Remboursement en cours… », parce qu’un remboursement affiché puis retiré tromperait l’agent.",
+    "mistakes": [
+      "Rendre toutes les actions optimistes, y compris des remboursements avec de l’argent réel derrière",
+      "Sauter `cancelQueries`, si bien qu’un refetch déjà en cours écrase l’écriture optimiste",
+      "Utiliser le pattern grid sur un tableau en lecture seule, ce qui ajoute du travail clavier et sort ses liens de l’ordre de tabulation normal"
+    ],
+    "followUps": [
+      {
+        "question": "Qu’est-ce qui change pour l’accessibilité quand le grid est virtualisé ?",
+        "answer": "Les lignes absentes du DOM existent toujours pour l’utilisateur. Je mets `aria-rowcount` sur le grid au total, ou -1 s’il est inconnu, et `aria-rowindex` sur chaque ligne rendue à sa position dans la liste complète."
+      },
+      {
+        "question": "Utiliseriez-vous `useOptimistic` ici ?",
+        "answer": "Pas pour la liste partagée : elle vit dans le cache de requêtes et plusieurs vues la lisent, donc je mets à jour le cache avec le pattern de TanStack Query. Le `useOptimistic` de React 19 convient à un state possédé par un seul composant."
+      },
+      {
+        "question": "Quelles touches le grid prend-il en charge ?",
+        "answer": "Un seul arrêt de tabulation pour entrer dans le grid, puis les flèches entre cellules, Home et End dans une ligne, et Page Up et Page Down d’un nombre de lignes que je choisis. L’en-tête de la colonne triée porte `aria-sort`, sur un seul en-tête à la fois."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Dès que les cellules d’un tableau contiennent des contrôles interactifs, le pattern grid de l’APG fait de tout le grid un seul arrêt de tabulation.",
+        "why": "Tab entre une fois dans le grid ; les flèches se déplacent entre les cellules.",
+        "twin": {
+          "statement": "Dès que les cellules d’un tableau contiennent des contrôles interactifs, le pattern grid de l’APG met chaque cellule dans l’ordre de tabulation.",
+          "why": "Tab entre une fois dans le grid ; les flèches se déplacent entre les cellules."
+        }
+      },
+      {
+        "statement": "Une mise à jour optimiste convient bien pour émettre un remboursement, parce qu’elle rend l’agent plus rapide.",
+        "why": "L’optimisme convient aux actions peu coûteuses et réversibles ; un remboursement a des conséquences réelles, donc on affiche un état en attente et on attend.",
+        "twin": {
+          "statement": "Un remboursement doit afficher un état en attente et attendre le serveur plutôt qu’être mis à jour de façon optimiste.",
+          "why": "L’optimisme convient aux actions peu coûteuses et réversibles ; un remboursement a des conséquences réelles."
+        }
+      },
+      {
+        "statement": "web.dev considère comme bon un INP de 200 ms ou moins au 75e percentile.",
+        "why": "C’est le seuil « good » de web.dev pour l’Interaction to Next Paint.",
+        "twin": {
+          "statement": "web.dev considère comme bon un INP de 300 ms au 75e percentile.",
+          "why": "Le seuil « good » de web.dev pour l’INP est de 200 ms ou moins au 75e percentile."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Éditer depuis un tableau soulève trois questions : l’utilisatrice attend-elle le serveur, peut-elle travailler sans souris, et comment prouver que le tableau est assez rapide.",
+      "points": [
+        "Une mise à jour optimiste affiche le résultat avant que le serveur le confirme et revient en arrière en cas de refus. On l’utilise pour des actions peu coûteuses et réversibles comme assigner une commande ; pour un remboursement, on affiche un état en attente.",
+        "La recette TanStack Query : annuler les requêtes en cours pour la clé, faire un snapshot des données, écrire la valeur attendue, restaurer le snapshot en cas d’erreur, et invalider à la fin.",
+        "Un tableau de données et de liens reste une `<table>` native avec des en-têtes `<th scope=\"col\">`. Dès que les cellules contiennent des contrôles, le pattern grid de l’APG s’applique : un seul arrêt de tabulation, flèches entre cellules.",
+        "Quand les lignes sont virtualisées, on met `aria-rowcount` au total (ou -1 s’il est inconnu) et `aria-rowindex` sur chaque ligne rendue, pour que les technologies d’assistance connaissent la taille complète.",
+        "On énonce un budget vérifiable : INP de 200 ms ou moins au p75 pour trier, filtrer et assigner, aucune tâche du main thread au-delà de 50 ms, et environ 50 lignes dans le DOM."
+      ],
+      "takeaways": [
+        {
+          "term": "Mise à jour optimiste",
+          "detail": "Afficher le résultat avant la confirmation du serveur ; pour les actions peu coûteuses et réversibles comme assigner. Un remboursement affiche une attente."
+        },
+        {
+          "term": "Recette TanStack Query",
+          "detail": "Annuler les requêtes en cours, snapshot, écrire la valeur attendue, restaurer en cas d’erreur, invalider à la fin."
+        },
+        {
+          "term": "`<table>` native",
+          "detail": "Pour des données et des liens, avec des en-têtes `<th scope=\"col\">`."
+        },
+        {
+          "term": "Pattern grid de l’APG",
+          "detail": "Dès que les cellules ont des contrôles : un seul arrêt de tabulation, flèches entre cellules, `aria-sort` sur l’en-tête trié."
+        },
+        {
+          "term": "Lignes virtualisées",
+          "detail": "`aria-rowcount` au total (ou -1 s’il est inconnu) et `aria-rowindex` sur chaque ligne rendue."
+        },
+        {
+          "term": "Budget",
+          "detail": "INP de 200 ms ou moins au p75, aucune tâche du main thread au-delà de 50 ms, environ 50 lignes dans le DOM."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Les agents se plaignent que « M’assigner » dans le tableau des commandes affiche un spinner pendant une seconde avant que leur nom apparaisse, alors que la requête réussit presque toujours. Que changez-vous ?",
+        "bridge": "Une action peu coûteuse et réversible qui attend le serveur : une mise à jour optimiste avec snapshot, rollback en cas d’erreur et refetch à la fin."
+      },
+      {
+        "question": "Une agente qui n’utilise que le clavier doit appuyer des centaines de fois sur Tab pour dépasser le tableau des commandes, dont les cellules contiennent des boutons et des menus. Que manque-t-il ?",
+        "bridge": "Dès que les cellules contiennent des contrôles, le pattern grid de l’APG fait du grid un seul arrêt de tabulation, avec les flèches pour passer d’une cellule à l’autre."
+      }
+    ]
+  },
+  "fsd-product-page": {
+    "topic": "Concevoir une page produit",
+    "question": "Concevez la page produit d’une boutique en ligne en Next.js : comment rendez-vous chaque partie, et comment faites-vous charger vite l’image principale ?",
+    "answer": "Je découpe la page selon la fréquence de changement de chaque partie et à qui elle appartient. Le layout est un shell statique servi par un CDN. Titre, photos, description et prix sont les mêmes pour tous et doivent être dans le HTML pour les moteurs de recherche : je les mets en cache avec `'use cache'` et un tag par produit, revalidé par un webhook du catalogue. Le stock et le panier sont par requête, streamés dans `<Suspense>`. La photo principale est l’élément LCP, donc jamais en lazy loading : `loading=\"eager\"`, `fetchPriority=\"high\"`, et une largeur et une hauteur qui réservent sa place. Objectifs : LCP sous 2,5 s et CLS sous 0,1 au p75.",
+    "keyPoints": [
+      "Découpage par fréquence de changement et propriétaire : partagé et en cache, ou par requête",
+      "Données catalogue en cache avec un tag, revalidées par un webhook",
+      "Stock et panier par requête dans `<Suspense>`",
+      "Photo LCP : eager, haute priorité, dimensionnée ; jamais en lazy loading"
+    ],
+    "explanation": "La page produit est un sujet classique, car les moteurs de recherche et les Core Web Vitals dictent l’architecture. Les recruteurs attendent une décision de rendu par partie plutôt qu’un seul mode pour toute la page, des données personnelles tenues hors des caches partagés, et des corrections concrètes du LCP et du CLS.",
+    "example": "Sur la boutique, la photo principale passait par `next/image`, qui fait du lazy loading par défaut, et c’était l’élément LCP : sur mobile, le LCP restait bien au-dessus de l’objectif. Mettre `loading=\"eager\"` et `fetchPriority=\"high\"` sur cette seule image, et déplacer le badge de stock dans une boundary `<Suspense>` pour que le shell en cache ne l’attende plus, a ramené le LCP sous 2,5 s au p75.",
+    "mistakes": [
+      "Rendre toute la page par requête parce que le stock change, ce qui perd le shell servi par le CDN",
+      "Mettre le nombre d’articles du panier ou le message « Bonjour Léa » dans un cache partagé",
+      "Charger la photo principale en lazy loading, ou utiliser encore la prop `priority`, dépréciée depuis Next.js 16"
+    ],
+    "followUps": [
+      {
+        "question": "Le marketing veut un test A/B sur le bouton Acheter. Où attribuez-vous la variante ?",
+        "answer": "Côté serveur, dans `proxy.ts` (Next.js 16 a renommé `middleware.ts`) : il pose un cookie et fait un rewrite vers la route de la variante. Un échange dans le navigateur après l’affichage clignote et décale la mise en page. La variante entre dans la clé de cache : deux shells, jamais un shell partagé avec le mauvais bouton."
+      },
+      {
+        "question": "Comment envoyez-vous les analytics sans perdre d’événements ?",
+        "answer": "Je les accumule en mémoire et je les envoie avec `navigator.sendBeacon` quand `visibilitychange` signale la page masquée. `unload` ne se déclenche souvent jamais sur mobile et exclut la page du back/forward cache."
+      },
+      {
+        "question": "Le LCP est à 4 secondes. Par où commencez-vous ?",
+        "answer": "Je le découpe comme web.dev : time to first byte, délai de chargement de la ressource, durée de chargement de la ressource et délai de rendu de l’élément, puis je corrige le plus gros. Un shell servi par un CDN réduit le premier ; une photo eager et haute priorité réduit le délai de chargement."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "`next/image` charge les images en lazy loading par défaut.",
+        "why": "C’est pour ça que la photo LCP a besoin de `loading=\"eager\"` et `fetchPriority=\"high\"`.",
+        "twin": {
+          "statement": "`next/image` charge les images en eager par défaut.",
+          "why": "Il les charge en lazy loading par défaut, c’est pour ça que la photo LCP a besoin de `loading=\"eager\"` et `fetchPriority=\"high\"`."
+        }
+      },
+      {
+        "statement": "Avec un cache tagué par produit, un changement de prix doit attendre un minuteur avant que les clients le voient.",
+        "why": "Le webhook du catalogue appelle `revalidateTag`, donc le changement apparaît après un rendu en arrière-plan.",
+        "twin": {
+          "statement": "Avec un cache tagué par produit, un changement de prix apparaît après un rendu en arrière-plan, une fois que le webhook du catalogue a revalidé le tag.",
+          "why": "Le webhook appelle `revalidateTag`, donc aucun minuteur n’est nécessaire."
+        }
+      },
+      {
+        "statement": "web.dev conseille de mettre `fetchpriority=\"high\"` sur chaque image d’une page produit.",
+        "why": "web.dev le conseille sur l’image LCP, sur une ou deux images au plus.",
+        "twin": {
+          "statement": "web.dev conseille de réserver `fetchpriority=\"high\"` à l’image LCP, sur une ou deux images au plus.",
+          "why": "web.dev ne le conseille pas pour chaque image d’une page, seulement pour l’image LCP."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Une page produit se découpe selon la fréquence de changement de chaque partie et à qui elle appartient : les parties partagées sont en cache et servies vite, les parties personnelles sont rendues par requête, et la photo principale doit charger en premier.",
+      "points": [
+        "Découpe la page selon la fréquence de changement et le propriétaire de chaque partie : layout à chaque déploiement, données catalogue quand le catalogue change, stock à chaque vente, panier par client.",
+        "Les Cache Components de Next.js 16 servent les parties en cache comme un shell statique depuis un CDN et y streament les parties par requête derrière des fallbacks `<Suspense>` : c’est le Partial Prerendering.",
+        "Mets les données catalogue en cache avec `'use cache'`, `cacheLife('max')` et un tag par produit ; un webhook du catalogue appelle `revalidateTag`, donc un changement de prix apparaît après un rendu en arrière-plan.",
+        "L’élément LCP, en général la photo principale, ne doit jamais être en lazy loading : donne-lui `loading=\"eager\"` et `fetchPriority=\"high\"`, et fixe largeur et hauteur pour qu’il ne décale pas la page.",
+        "Objectifs web.dev, au 75e percentile : LCP sous 2,5 s et CLS sous 0,1. Les parties personnelles, comme le panier et le message d’accueil, n’entrent jamais dans un cache partagé."
+      ],
+      "takeaways": [
+        {
+          "term": "Découper par changement et propriétaire",
+          "detail": "Layout par déploiement, catalogue quand il change, stock à chaque vente, panier par client."
+        },
+        {
+          "term": "Partial Prerendering",
+          "detail": "Les Cache Components de Next.js 16 servent un shell statique en cache et streament les parties par requête derrière `<Suspense>`."
+        },
+        {
+          "term": "`'use cache'`",
+          "detail": "Données catalogue avec `cacheLife('max')` et un tag par produit ; un webhook appelle `revalidateTag`."
+        },
+        {
+          "term": "Par requête",
+          "detail": "Stock et panier streamés dans `<Suspense>` ; les parties personnelles n’entrent jamais dans un cache partagé."
+        },
+        {
+          "term": "Photo LCP",
+          "detail": "Jamais en lazy loading : `loading=\"eager\"`, `fetchPriority=\"high\"`, et largeur et hauteur pour réserver sa place."
+        },
+        {
+          "term": "Objectifs",
+          "detail": "Selon web.dev, au p75 : LCP sous 2,5 s et CLS sous 0,1."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Sur la page produit de la boutique, la photo principale apparaît tard sur mobile et le LCP est à 4,1 s au p75. La photo utilise `next/image` avec les réglages par défaut. Que soupçonnez-vous, et que changez-vous ?",
+        "bridge": "`next/image` fait du lazy loading par défaut, ce qui retarde la photo LCP : la rendre eager, haute priorité et dimensionnée, jamais en lazy loading."
+      },
+      {
+        "question": "Un collègue veut rendre toute la page produit par requête, « pour que le stock soit toujours juste ». Que lui répondez-vous ?",
+        "bridge": "Découper une page par fréquence de changement : les données catalogue partagées en cache avec un tag, seuls le stock et le panier par requête dans `<Suspense>`."
+      }
+    ]
+  },
+  "fsd-checkout": {
+    "topic": "Front du checkout, une commande par clic",
+    "question": "La cliente clique sur Commander dans un train, le réseau coupe et elle clique à nouveau. Comment votre front de checkout garantit-il qu’elle obtient exactement une commande ?",
+    "answer": "La garantie, c’est une `Idempotency-Key` sur `POST /orders`, créée une fois par intention d’achat avec `crypto.randomUUID()` et réutilisée par chaque retry et chaque second clic : l’API Orders renvoie la première réponse au lieu de créer une autre commande. Je ne crée une nouvelle clé que si la version du panier change. Désactiver le bouton, c’est du confort, pas une protection : après un timeout il se réactive, et le clic suivant poste à nouveau. Derrière, une contrainte d’unicité sur l’id du panier rattrape un rechargement qui a perdu la clé. Ensuite je conçois chaque réponse : 409 retour au panier, 422 sur les champs du formulaire, 5xx relancé avec la même clé.",
+    "keyPoints": [
+      "Une clé d’idempotence par intention d’achat, réutilisée par chaque retry",
+      "Une nouvelle clé seulement quand la version du panier change",
+      "Un bouton désactivé, c’est du confort ; la clé est la garantie",
+      "Un écran par réponse : 201, 409, 422, 5xx ou réseau"
+    ],
+    "explanation": "La question vérifie si un candidat front voit que c’est le client qui crée le doublon et qu’il doit porter la clé, pas seulement le serveur. Les seniors expliquent pourquoi un bouton désactivé ne suffit pas, lient la clé au contenu du panier et conçoivent ce que voit le client pour chaque réponse, hors ligne compris.",
+    "example": "Après une mise en production de la boutique, le support a vu quelques commandes en double venant de clients sur des réseaux mobiles lents qui avaient cliqué deux fois sur Commander. Le bouton se désactivait déjà pendant la requête, mais il se réactivait quand la requête lente tombait en timeout côté client, après que le serveur avait créé la commande. Garder une clé par version du panier dans une ref et l’envoyer à chaque tentative a supprimé les doublons : l’API rejoue désormais la première réponse.",
+    "mistakes": [
+      "Compter sur un bouton désactivé : il se réactive après un timeout, et le clic suivant envoie une seconde commande",
+      "Créer une nouvelle clé à chaque clic, ce qui annule tout l’intérêt",
+      "Garder la même clé après un changement du panier, si bien que le serveur rejoue une réponse pour un autre contenu"
+    ],
+    "followUps": [
+      {
+        "question": "Où vit le panier ?",
+        "answer": "Sur le serveur, derrière un id de panier dans un cookie HTTP-only : il suit le client d’un appareil à l’autre après connexion, et le checkout lit la même vérité. Le compteur du header le lit via une requête ; ajouter un article est une mutation optimiste. Une seconde copie dans un store client global finirait par diverger."
+      },
+      {
+        "question": "Comment validez-vous le formulaire de checkout ?",
+        "answer": "À trois endroits avec un seul schéma : les contraintes du navigateur et les tokens `autocomplete` comme `email` et `postal-code` aident la saisie sur mobile, un schéma Zod partagé entre client et serveur donne les mêmes messages, et le serveur revalide parce qu’un client peut être contourné."
+      },
+      {
+        "question": "Bloquez-vous Commander quand `navigator.onLine` vaut false ?",
+        "answer": "Non, j’affiche un bandeau. MDN prévient qu’un réseau sans accès à internet peut compter comme en ligne, donc ce n’est qu’un indice. TanStack Query met une mutation en pause hors ligne et la reprend à la reconnexion ; pour un checkout, je le décide explicitement, car une commande passée dix minutes plus tard surprend les clients."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un bouton désactivé pendant la requête suffit à empêcher une double commande.",
+        "why": "Quand la requête tombe en timeout après que le serveur a créé la commande, le bouton se réactive et le clic suivant poste à nouveau ; c’est la clé d’idempotence qui empêche la seconde commande.",
+        "twin": {
+          "statement": "Un bouton désactivé pendant la requête peut encore laisser un client passer une seconde commande.",
+          "why": "Quand la requête tombe en timeout après que le serveur a créé la commande, le bouton se réactive et le clic suivant poste à nouveau ; seule la clé d’idempotence l’arrête."
+        }
+      },
+      {
+        "statement": "`crypto.randomUUID()` n’est disponible que dans des contextes sécurisés, comme HTTPS ou `localhost`.",
+        "why": "MDN le réserve aux contextes sécurisés, donc un site de staging en HTTP simple casse la génération de la clé.",
+        "twin": {
+          "statement": "`crypto.randomUUID()` fonctionne sur n’importe quelle page, y compris un site de staging en HTTP simple.",
+          "why": "MDN le réserve aux contextes sécurisés, comme HTTPS ou `localhost`."
+        }
+      },
+      {
+        "statement": "Une réponse 409 parce que le stock est épuisé doit être relancée automatiquement avec la même clé.",
+        "why": "La réponse ne changera pas ; il faut plutôt afficher le panier avec la ligne modifiée. Seules les erreurs 5xx et réseau sont relancées.",
+        "twin": {
+          "statement": "Une réponse 409 parce que le stock est épuisé doit renvoyer le client au panier plutôt qu’être relancée.",
+          "why": "La réponse ne changera pas ; seules les erreurs 5xx et réseau sont relancées avec la même clé."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un checkout doit créer exactement une commande, même quand le réseau coupe et que le client clique à nouveau. La garantie vient d’une clé d’idempotence, pas du bouton.",
+      "points": [
+        "Le panier est un state serveur : un id de panier dans un cookie HTTP-only et le contenu sur le serveur. L’UI le lit via une requête ; ajouter un article est une mutation, qui peut être optimiste.",
+        "Valide le formulaire à trois endroits avec un seul schéma : contraintes du navigateur et tokens `autocomplete`, un schéma Zod partagé côté client, et encore le serveur, car un client peut être contourné.",
+        "Une `Idempotency-Key` sur `POST /orders`, créée une fois par intention d’achat et réutilisée par les retries et les seconds clics, fait renvoyer à l’API la première réponse au lieu d’une seconde commande.",
+        "Un bouton désactivé ne suffit pas : après un timeout il se réactive, même si le serveur a créé la commande, et un clic poste à nouveau. Ne crée une nouvelle clé que si le panier change, et garde une contrainte d’unicité sur l’id du panier.",
+        "Conçois un écran par réponse : 201 mène au paiement, 409 renvoie au panier avec la ligne modifiée, 422 s’affiche sur les champs, et les erreurs 5xx ou réseau sont relancées avec la même clé."
+      ],
+      "takeaways": [
+        {
+          "term": "Panier en state serveur",
+          "detail": "Un id de panier dans un cookie HTTP-only, le contenu sur le serveur, lu via une requête."
+        },
+        {
+          "term": "Validation à trois endroits",
+          "detail": "Contraintes du navigateur et `autocomplete`, un schéma Zod partagé côté client, et encore le serveur."
+        },
+        {
+          "term": "`Idempotency-Key`",
+          "detail": "Créée une fois par intention d’achat avec `crypto.randomUUID()`, réutilisée par chaque retry et chaque second clic."
+        },
+        {
+          "term": "Nouvelle clé",
+          "detail": "Seulement quand la version du panier change."
+        },
+        {
+          "term": "Bouton désactivé",
+          "detail": "Du confort, pas une protection : il se réactive après un timeout et le clic suivant poste à nouveau. Une contrainte d’unicité sur l’id du panier le complète."
+        },
+        {
+          "term": "Un écran par réponse",
+          "detail": "201 vers le paiement, 409 retour au panier, 422 sur les champs, 5xx ou réseau relancé avec la même clé."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Le support trouve deux commandes payées identiques d’un même client, passées à deux secondes d’écart. Le bouton Commander est désactivé pendant la requête. Comment est-ce arrivé, et quelle est la vraie correction ?",
+        "bridge": "Un bouton désactivé, c’est du confort, pas une protection : une clé d’idempotence par intention d’achat, réutilisée par chaque retry, est la garantie."
+      },
+      {
+        "question": "`POST /orders` répond 409 parce qu’un produit est épuisé, et le code d’un collègue le relance automatiquement. Que doit faire le checkout pour chaque type de réponse ?",
+        "bridge": "Concevoir chaque réponse du checkout : 409 retour au panier, 422 sur les champs du formulaire, et seules les erreurs 5xx et réseau relancées avec la même clé."
+      }
+    ]
+  },
+  "fsd-infinite-feed": {
+    "topic": "Concevoir un feed infini",
+    "question": "Concevez un feed infini pour une page d’accueil : comment chargez-vous plus d’éléments, gardez-vous la position de la lectrice et gérez-vous les éléments publiés pendant qu’elle lit ?",
+    "answer": "Je pagine avec un curseur, parce que de nouveaux éléments arrivent en haut pendant qu’elle lit, et je virtualise dès que des centaines d’éléments sont chargés. La page suivante se charge quand une sentinelle invisible après le dernier élément arrive à environ 800 pixels du viewport, signalée par un `IntersectionObserver` plutôt qu’un handler de scroll. Pour restaurer sa position après une page produit et Retour, je garde les pages chargées dans le cache de requêtes et je les rends d’un coup, ou je sauvegarde le premier index visible si c’est virtualisé. Les nouveaux éléments ne sont jamais insérés au-dessus de ce qu’elle lit : j’affiche un bouton « Voir 12 nouveaux éléments » et je les ajoute en tête au clic.",
+    "keyPoints": [
+      "Pagination par curseur ; virtualiser dès que des centaines d’éléments sont chargés",
+      "Une sentinelle avec `IntersectionObserver`, pas un handler de scroll",
+      "Garder les pages chargées en cache pour que Retour restaure la position",
+      "Nouveaux éléments derrière un bouton, jamais insérés au-dessus du lecteur"
+    ],
+    "explanation": "Le fil d’actualité est le sujet de conception front le plus cité, donc les recruteurs attendent une réponse fluide et creusent ce qui casse en production : un observer qui ne se déclenche plus, une position de scroll perdue, un contenu qui saute. Un senior relie le bouton « nouveaux éléments » au CLS et sait ce que chaque choix coûte en mémoire.",
+    "example": "Sur le feed d’accueil de la boutique, un unique observer de longue durée chargeait une page courte puis se taisait alors que la sentinelle était encore visible : le feed s’arrêtait sur les grands écrans. Recréer l’observer après chaque page a corrigé le problème : avec un viewport de 900 px, le feed remplissait l’écran avec 2 pages, puis chargeait environ une page par pas de scroll, en demandant chaque curseur une seule fois.",
+    "mistakes": [
+      "Écouter les événements `scroll` et mesurer des positions au lieu d’utiliser un `IntersectionObserver`",
+      "Ajouter automatiquement les nouveaux éléments en tête, ce qui fait sauter le contenu et pèse sur le CLS",
+      "Jeter les pages chargées à la navigation, si bien que Retour ramène le client en haut"
+    ],
+    "followUps": [
+      {
+        "question": "Pourquoi recréer l’observer après chaque page ?",
+        "answer": "Un observer signale des changements, pas des états. Si la nouvelle page est courte et que la sentinelle reste visible, rien ne change et il ne se déclenche plus. Un nouvel observer signale tout de suite l’état courant, donc il charge la page suivante."
+      },
+      {
+        "question": "Comment limitez-vous la mémoire sur une très longue session ?",
+        "answer": "`maxPages` de TanStack Query, avec `getPreviousPageParam`, ne garde qu’un nombre fixé de pages en cache. Le coût : recharger des pages quand elle remonte ; pendant ce temps, la virtualisation garde le DOM petit."
+      },
+      {
+        "question": "Pourquoi le bouton « nouveaux éléments » ne pénalise-t-il pas le CLS ?",
+        "answer": "web.dev exclut les décalages de mise en page qui surviennent dans les 500 ms suivant un clic, un tap ou une touche : une insertion demandée par le client ne compte pas. La même insertion sans son action compterait."
+      }
+    ],
+    "traps": [
+      {
+        "statement": "Un `IntersectionObserver` continue de se déclencher tant que sa cible reste dans le viewport.",
+        "why": "Il signale des changements d’intersection, pas des états ; une sentinelle qui reste visible n’est signalée qu’une fois.",
+        "twin": {
+          "statement": "Un `IntersectionObserver` signale des changements d’intersection, donc une sentinelle qui reste dans le viewport n’est signalée qu’une fois.",
+          "why": "Il ne continue pas de se déclencher tant que la cible reste visible."
+        }
+      },
+      {
+        "statement": "Les décalages de mise en page dans les 500 ms suivant un clic, un tap ou une touche sont exclus du CLS.",
+        "why": "web.dev les considère comme attendus par l’utilisateur, donc un bouton « nouveaux éléments » qui insère au clic est sans danger.",
+        "twin": {
+          "statement": "Un décalage de mise en page juste après un clic compte dans le CLS comme n’importe quel autre décalage.",
+          "why": "web.dev exclut les décalages dans les 500 ms suivant un clic, un tap ou une touche, car l’utilisateur s’y attend."
+        }
+      },
+      {
+        "statement": "Le navigateur ne peut restaurer la position de scroll après Retour que si la liste est aussi haute qu’avant.",
+        "why": "C’est pour ça que les pages chargées restent dans le cache de requêtes et sont rendues d’un coup au retour.",
+        "twin": {
+          "statement": "Le navigateur peut restaurer la position de scroll après Retour même quand la liste est plus courte qu’avant.",
+          "why": "Il ne peut la restaurer que si la liste est aussi haute qu’avant, c’est pour ça que les pages chargées restent dans le cache de requêtes."
+        }
+      }
+    ],
+    "lesson": {
+      "intro": "Un feed infini doit charger plus d’éléments sans handler de scroll, garder la position du lecteur après Retour, et ne jamais pousser le contenu qu’il est en train de lire.",
+      "points": [
+        "Un feed reprend les choix du tableau : pagination par curseur, parce que des éléments arrivent en haut pendant qu’on lit, et virtualisation dès que des centaines d’éléments sont chargés.",
+        "Charge la page suivante quand une sentinelle invisible après le dernier élément approche du viewport. Un `IntersectionObserver` avec une `rootMargin` le signale sans aucun handler de scroll.",
+        "Un observer signale des changements, pas des états : si la sentinelle reste visible après une page courte, il ne se déclenchera plus. Recrée-le après chaque page.",
+        "Retour ne restaure la position de scroll que si la liste est aussi haute qu’avant : garde les pages chargées en cache (`gcTime`, 5 minutes par défaut) et rends-les d’un coup.",
+        "N’insère jamais de nouveaux éléments au-dessus du lecteur : affiche un bouton « nouveaux éléments ». Les décalages dans les 500 ms après un clic sont exclus du CLS, donc une insertion demandée est sans danger."
+      ],
+      "takeaways": [
+        {
+          "term": "Pagination par curseur",
+          "detail": "Les éléments arrivent en haut pendant la lecture ; virtualiser dès que des centaines d’éléments sont chargés."
+        },
+        {
+          "term": "`IntersectionObserver`",
+          "detail": "Une sentinelle après le dernier élément, avec une `rootMargin` (environ 800 px), déclenche la page suivante, sans handler de scroll."
+        },
+        {
+          "term": "Changements, pas états",
+          "detail": "Si la sentinelle reste visible après une page courte, il ne se déclenchera plus : le recréer après chaque page."
+        },
+        {
+          "term": "Retour restaure la position",
+          "detail": "Seulement si la liste est aussi haute qu’avant : garder les pages en cache (`gcTime`, 5 minutes par défaut), les rendre d’un coup."
+        },
+        {
+          "term": "Nouveaux éléments",
+          "detail": "Derrière un bouton « nouveaux éléments », jamais insérés au-dessus du lecteur."
+        },
+        {
+          "term": "Exclusion du CLS",
+          "detail": "Les décalages dans les 500 ms après un clic sont exclus du CLS, donc une insertion demandée est sans danger."
+        }
+      ]
+    },
+    "questionVariants": [
+      {
+        "question": "Sur le feed d’accueil de la boutique, une cliente ouvre un produit, appuie sur Retour et se retrouve en haut du feed au lieu de là où elle était. Que se passe-t-il, et comment corrigez-vous ?",
+        "bridge": "Le navigateur ne restaure la position de scroll que si la liste est aussi haute qu’avant : garder les pages chargées en cache et les rendre d’un coup au retour."
+      },
+      {
+        "question": "Un collègue charge la page suivante du feed depuis un handler d’événement `scroll` qui vérifie la position. Qu’utiliseriez-vous à la place ?",
+        "bridge": "Le déclencheur de chargement du feed : un `IntersectionObserver` sur une sentinelle après le dernier élément, qui signale quand elle arrive à portée."
+      }
+    ]
+  }
+}
