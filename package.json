@@ -1,5 +1,6 @@
 {
   "name": "interview-cards",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "Duolingo-style daily interview practice for React, TypeScript, JavaScript and Node developers.",

@@ -189,7 +189,7 @@ export function App({ store, now, random }: { store: ProgressStore; now: () => D
   const card = content.cardsById.get(screen.cardId);
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col px-4 pt-[max(1rem,env(safe-area-inset-top))]">
-      {card && <LessonView card={card} unitTitle={UNITS.find((unit) => unit.id === card.unit)?.title ?? ''} actionLabel="Close" onDone={goHome} />}
+      {card && <LessonView card={card} unitTitle={UNITS.find((unit) => unit.id === card.unit)?.title ?? ''} close={{ label: 'Close the lesson', onClose: goHome }} />}
     </div>
   );
 }

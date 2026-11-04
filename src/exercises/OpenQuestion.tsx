@@ -107,14 +107,14 @@ export function OpenQuestion({
           )}
 
           {!followUp && (
-            <div className="flex flex-col divide-y divide-line rounded-3xl border-2 border-b-4 border-line bg-card">
-              <Details title="Why they ask">
+            <>
+              <InfoBlock icon="🎯" title="Why they ask">
                 <Text>{card.explanation}</Text>
-              </Details>
-              <Details title="Real-world example">
+              </InfoBlock>
+              <InfoBlock icon="🛒" title="Real-world example">
                 <Text>{card.example}</Text>
-              </Details>
-              <Details title="Common mistakes">
+              </InfoBlock>
+              <InfoBlock icon="⚠️" title="Common mistakes">
                 <ul className="list-disc space-y-1 pl-5">
                   {card.mistakes.map((mistake) => (
                     <li key={mistake}>
@@ -122,8 +122,8 @@ export function OpenQuestion({
                     </li>
                   ))}
                 </ul>
-              </Details>
-            </div>
+              </InfoBlock>
+            </>
           )}
 
           {onReviewLesson && (
@@ -149,11 +149,15 @@ export function OpenQuestion({
   );
 }
 
-function Details({ title, children }: { title: string; children: ReactNode }) {
+/** One always-visible block of background under a revealed answer. */
+function InfoBlock({ icon, title, children }: { icon: string; title: string; children: ReactNode }) {
   return (
-    <details className="px-4 py-3">
-      <summary className="font-bold">{title}</summary>
-      <div className="pt-2 text-[0.95rem]">{children}</div>
-    </details>
+    <section aria-label={title} className="rounded-3xl border-2 border-b-4 border-line bg-card p-4">
+      <h3 className="mb-1 flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-muted">
+        <span aria-hidden>{icon}</span>
+        {title}
+      </h3>
+      <div className="text-[0.95rem]">{children}</div>
+    </section>
   );
 }

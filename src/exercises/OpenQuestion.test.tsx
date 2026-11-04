@@ -22,5 +22,10 @@ describe('OpenQuestion', () => {
     expect(bridge!.textContent).toBe(variant.bridge.replaceAll('`', ''));
     expect(answer!.textContent).toBe(card.answer.replaceAll('`', ''));
     expect(screen.getAllByRole('checkbox')).toHaveLength(card.keyPoints.length);
+    // Background is shown in open blocks, with no toggle to open.
+    for (const block of ['Why they ask', 'Real-world example', 'Common mistakes']) {
+      expect(screen.getByRole('region', { name: block })).toBeVisible();
+    }
+    expect(screen.getByRole('region', { name: 'Why they ask' })).toHaveTextContent(card.explanation.replaceAll('`', ''));
   });
 });

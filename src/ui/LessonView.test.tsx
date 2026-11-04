@@ -9,7 +9,7 @@ describe('LessonView', () => {
     const user = userEvent.setup();
     const card = CARDS_BY_ID.get('js-scope')!;
     const onDone = vi.fn();
-    render(<LessonView card={card} unitTitle="JavaScript core" actionLabel="Got it, ask me" onDone={onDone} />);
+    render(<LessonView card={card} unitTitle="JavaScript core" start={{ label: 'Got it, ask me', onStart: onDone }} />);
 
     expect(screen.getByRole('heading', { name: card.topic })).toBeInTheDocument();
     expect(screen.getByRole('progressbar', { name: 'Reading progress' })).toBeInTheDocument();
@@ -31,10 +31,21 @@ describe('LessonView', () => {
     expect(onDone).toHaveBeenCalledOnce();
   });
 
+  it('offers a × in the header, and no bottom button, for a lesson opened to look something up', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<LessonView card={CARDS_BY_ID.get('js-scope')!} unitTitle="JavaScript core" close={{ label: 'Back to the question', onClose }} />);
+
+    const header = screen.getByRole('banner');
+    await user.click(within(header).getByRole('button', { name: 'Back to the question' }));
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: 'Got it, ask me' })).not.toBeInTheDocument();
+  });
+
   it('falls back to the lesson points for a card without a takeaways table', () => {
     const card = CARDS_BY_ID.get('js-closures')!;
     const plain = { ...card, lesson: { points: card.lesson!.points, code: card.lesson!.code, codeLang: card.lesson!.codeLang } };
-    render(<LessonView card={plain} unitTitle="JavaScript core" actionLabel="Got it, ask me" onDone={vi.fn()} />);
+    render(<LessonView card={plain} unitTitle="JavaScript core" start={{ label: 'Got it, ask me', onStart: vi.fn() }} />);
     expect(within(screen.getByRole('region', { name: 'Key takeaways' })).getAllByRole('listitem')).toHaveLength(card.lesson!.points.length - 1);
   });
 });

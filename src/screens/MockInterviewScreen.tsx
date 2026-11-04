@@ -68,7 +68,8 @@ export function MockInterviewScreen({
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
-      <header className="flex items-center gap-3 py-2">
+      {/* A lesson opened from the summary has its own header with a ×. */}
+      <header className={`flex items-center gap-3 py-2 ${reviewing ? 'hidden' : ''}`}>
         <button type="button" onClick={onExit} aria-label="Leave the interview" className="p-2 text-2xl leading-none text-muted">
           ×
         </button>
@@ -92,7 +93,7 @@ export function MockInterviewScreen({
             onDone={({ correct }) => answer(current, correct)}
           />
         ) : reviewing ? (
-          <LessonView card={card} unitTitle={UNIT_TITLES.get(card.unit) ?? ''} actionLabel="Back to the summary" onDone={() => setReviewing(false)} />
+          <LessonView card={card} unitTitle={UNIT_TITLES.get(card.unit) ?? ''} close={{ label: 'Back to the summary', onClose: () => setReviewing(false) }} />
         ) : (
           <InterviewSummary
             card={card}

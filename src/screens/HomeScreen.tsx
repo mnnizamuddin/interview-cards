@@ -197,6 +197,9 @@ function BackupSection({
   return (
     <footer className="mt-4 flex flex-col items-center gap-1 border-t-2 border-line pt-4 text-sm">
       <p className="text-center text-muted">Your progress is stored on this device only.</p>
+      <p className="mt-2 text-center text-xs text-muted" aria-label={`Version ${__APP_VERSION__}, build ${__APP_COMMIT__}`}>
+        Version {__APP_VERSION__} · {__APP_COMMIT__}
+      </p>
       <div className="flex gap-2">
         <Button variant="ghost" onClick={exportProgress}>
           Back up

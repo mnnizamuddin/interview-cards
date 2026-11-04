@@ -120,7 +120,8 @@ export function PlayScreen({
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
-      <header className="flex items-center gap-3 py-2">
+      {/* A lesson opened to look something up has its own header with a ×. */}
+      <header className={`flex items-center gap-3 py-2 ${reviewing || reviewedCard ? 'hidden' : ''}`}>
         <button type="button" onClick={onStop} aria-label="Stop playing" className="p-2 text-2xl leading-none text-muted">
           ×
         </button>
@@ -133,7 +134,7 @@ export function PlayScreen({
           <button
             type="button"
             onClick={() => setReviewing(true)}
-            className="rounded-full border-2 border-line px-3 py-1 text-sm font-bold text-sky-500"
+            className="rounded-full border-2 border-line px-3 py-1 text-sm font-bold text-brand-ink"
           >
             Lesson
           </button>
@@ -158,7 +159,7 @@ export function PlayScreen({
           </div>
         ) : series.phase === 'done' ? (
           reviewedCard ? (
-            <LessonView card={reviewedCard} unitTitle={UNIT_TITLES.get(reviewedCard.unit) ?? ''} actionLabel="Back to the summary" onDone={() => setReviewingTopic(null)} />
+            <LessonView card={reviewedCard} unitTitle={UNIT_TITLES.get(reviewedCard.unit) ?? ''} close={{ label: 'Back to the summary', onClose: () => setReviewingTopic(null) }} />
           ) : (
             <SeriesSummary series={series} cardsById={content.cardsById} onReviewLesson={teach ? setReviewingTopic : undefined} onNext={startNextSeries} onExit={onStop} />
           )
@@ -167,7 +168,7 @@ export function PlayScreen({
           card && (
             <>
               {reviewing && current.kind !== 'lesson' && (
-                <LessonView card={card} unitTitle={UNIT_TITLES.get(card.unit) ?? ''} actionLabel="Back to the question" onDone={() => setReviewing(false)} />
+                <LessonView card={card} unitTitle={UNIT_TITLES.get(card.unit) ?? ''} close={{ label: 'Back to the question', onClose: () => setReviewing(false) }} />
               )}
               <div className={reviewing ? 'hidden' : 'flex flex-1 flex-col'}>
                 <ExerciseView
@@ -326,7 +327,7 @@ function ExerciseView({
 }) {
   switch (exercise.kind) {
     case 'lesson':
-      return <LessonView card={card} unitTitle={UNIT_TITLES.get(card.unit) ?? ''} actionLabel="Got it, ask me" onDone={onLessonDone} />;
+      return <LessonView card={card} unitTitle={UNIT_TITLES.get(card.unit) ?? ''} start={{ label: 'Got it, ask me', onStart: onLessonDone }} />;
     case 'open':
       return <OpenQuestion card={card} variantIndex={exercise.variant} onDone={onAnswer} onReviewLesson={onReviewLesson} />;
     case 'followUp':
