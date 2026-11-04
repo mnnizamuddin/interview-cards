@@ -3,6 +3,7 @@ import { TOPICS, UNITS, type Topic } from './content/catalog.ts';
 import { loadContent, type Content } from './content/load.ts';
 import { toDayKey } from './play/day.ts';
 import { emptyProgress, type Progress } from './play/progress.ts';
+import { weakTopicIds } from './play/review.ts';
 import { HomeScreen } from './screens/HomeScreen.tsx';
 import { MockInterviewScreen } from './screens/MockInterviewScreen.tsx';
 import { PlayScreen } from './screens/PlayScreen.tsx';
@@ -19,6 +20,8 @@ type Screen =
   | { name: 'home' }
   | { name: 'play'; unitId?: string }
   | { name: 'mock'; unitId?: string }
+  /** The weak topics are fixed when the review starts, so its content can load. */
+  | { name: 'review'; topicIds: string[] }
   | { name: 'lesson'; cardId: string };
 
 /** The topics a screen plays or shows: one unit, one lesson, or everything. */
@@ -31,6 +34,8 @@ function topicsFor(screen: Screen): readonly Topic[] {
     case 'play':
     case 'mock':
       return screen.unitId ? TOPICS.filter((topic) => topic.unit === screen.unitId) : TOPICS;
+    case 'review':
+      return TOPICS.filter((topic) => screen.topicIds.includes(topic.id));
   }
 }
 
@@ -115,6 +120,7 @@ export function App({ store, now, random }: { store: ProgressStore; now: () => D
         now={now().getTime()}
         onPlay={(unitId) => setScreen({ name: 'play', unitId })}
         onMockInterview={(unitId) => setScreen({ name: 'mock', unitId })}
+        onReview={() => setScreen({ name: 'review', topicIds: weakTopicIds(TOPICS.map((topic) => topic.id), progress, now().getTime()) })}
         onOpenLesson={(cardId) => setScreen({ name: 'lesson', cardId })}
         onImport={setProgress}
         onReset={() => setProgress(emptyProgress())}
@@ -142,6 +148,22 @@ export function App({ store, now, random }: { store: ProgressStore; now: () => D
         content={content}
         title={unit ? unit.title : 'All topics'}
         teach={unit !== undefined}
+        progress={progress}
+        onProgress={setProgress}
+        onStop={goHome}
+        now={() => now().getTime()}
+        random={random}
+      />
+    );
+  }
+
+  if (screen.name === 'review') {
+    return (
+      <PlayScreen
+        content={content}
+        title="Weak spots"
+        teach={false}
+        review
         progress={progress}
         onProgress={setProgress}
         onStop={goHome}

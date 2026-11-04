@@ -1,19 +1,21 @@
 import type { Exercise } from './engine.ts';
 
 /**
- * A series: {@link SERIES_LENGTH} questions from the engine, then the missed ones again, like
- * Duolingo, until each is answered right once. Replays are practice: they never change progress,
+ * A series: {@link SERIES_LENGTH} questions from the engine (fewer in a weak-spots review), then
+ * the missed ones again, like Duolingo, until each is answered right once. Replays are practice: they never change progress,
  * so a topic still has to come back right in a later series to count as handled.
  */
 
-/** Questions per series, lessons not included. */
+/** Questions per series, lessons not included; a weak-spots review can have fewer. */
 export const SERIES_LENGTH = 15;
 
 export type SeriesPhase = 'questions' | 'replays' | 'done';
 
 export type Series = {
   phase: SeriesPhase;
-  /** Questions answered in the first pass, at most {@link SERIES_LENGTH}. */
+  /** Questions in the first pass. */
+  length: number;
+  /** Questions answered in the first pass, at most `length`. */
   asked: number;
   /** First-pass answers that were right. */
   correct: number;
@@ -25,8 +27,8 @@ export type Series = {
   handledTopics: string[];
 };
 
-export function startSeries(): Series {
-  return { phase: 'questions', asked: 0, correct: 0, replays: [], missedTopics: [], handledTopics: [] };
+export function startSeries(length: number = SERIES_LENGTH): Series {
+  return { phase: 'questions', length, asked: 0, correct: 0, replays: [], missedTopics: [], handledTopics: [] };
 }
 
 /** The question to replay now, or `undefined` outside the replay phase. */
@@ -44,7 +46,8 @@ export function recordFirstPass(series: Series, exercise: Exercise, correct: boo
   const missedTopics = correct || series.missedTopics.includes(exercise.cardId) ? series.missedTopics : [...series.missedTopics, exercise.cardId];
   const handledTopics = becameHandled ? [...series.handledTopics, exercise.cardId] : series.handledTopics;
   return {
-    phase: phaseAfterFirstPass(asked, replays),
+    phase: phaseAfterFirstPass(asked, series.length, replays),
+    length: series.length,
     asked,
     correct: series.correct + (correct ? 1 : 0),
     replays,
@@ -53,8 +56,8 @@ export function recordFirstPass(series: Series, exercise: Exercise, correct: boo
   };
 }
 
-function phaseAfterFirstPass(asked: number, replays: Exercise[]): SeriesPhase {
-  if (asked < SERIES_LENGTH) {
+function phaseAfterFirstPass(asked: number, length: number, replays: Exercise[]): SeriesPhase {
+  if (asked < length) {
     return 'questions';
   }
   return replays.length > 0 ? 'replays' : 'done';

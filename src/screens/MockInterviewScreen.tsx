@@ -6,6 +6,7 @@ import { OpenQuestion } from '../exercises/OpenQuestion.tsx';
 import { exerciseKey, type Exercise } from '../play/engine.ts';
 import { pickMockInterview, type MockInterview } from '../play/mock-interview.ts';
 import { recordAnswer, type Progress } from '../play/progress.ts';
+import { trackMissed } from '../play/review.ts';
 import { Button } from '../ui/Button.tsx';
 import { LessonView } from '../ui/LessonView.tsx';
 import { Text } from '../ui/Text.tsx';
@@ -49,7 +50,8 @@ export function MockInterviewScreen({
 
   function answer(question: Exercise, correct: boolean) {
     // Interview questions are all open, so self-checked.
-    onProgress(recordAnswer(progress, question.cardId, exerciseKey(question), { correct, graded: false, at: now() }));
+    const answered = recordAnswer(progress, question.cardId, exerciseKey(question), { correct, graded: false, at: now() });
+    onProgress(trackMissed(answered, question, correct));
     setResults((previous) => [...previous, correct]);
     setIndex((previous) => previous + 1);
   }

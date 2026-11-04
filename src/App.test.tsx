@@ -192,6 +192,27 @@ describe('App', () => {
     localStorage.removeItem(THEME_KEY);
   });
 
+  it('reviews the weak spots: the questions missed last time', async () => {
+    const user = userEvent.setup();
+    const store = memoryStore();
+    render(<App store={store} now={now} random={random} />);
+    expect(await screen.findByRole('button', { name: 'No weak spots yet' })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: 'Start playing' }));
+    await screen.findByLabelText(`Question 1 of ${SERIES_LENGTH}`);
+    await answerOnScreen(user, { right: false, attempt: 0 });
+    await user.click(screen.getByRole('button', { name: 'Stop playing' }));
+
+    await user.click(screen.getByRole('button', { name: 'Review weak spots (1)' }));
+    // The missed main question comes back, alone: the review has one question.
+    expect(await screen.findByRole('heading', { name: /var.*let.*const/ })).toBeInTheDocument();
+    expect(screen.getByLabelText('Question 1 of 1')).toBeInTheDocument();
+    await answerOnScreen(user, { right: true, attempt: 0 });
+
+    expect(screen.getByRole('heading', { name: '1 of 1 right first time' })).toBeInTheDocument();
+    expect(store.saved().missed).toEqual({});
+  });
+
   it('plays the unit the learner picks', async () => {
     const user = userEvent.setup();
     render(<App store={memoryStore()} now={now} random={random} />);

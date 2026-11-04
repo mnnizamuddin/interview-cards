@@ -113,7 +113,7 @@ function pickTopic(cards: readonly Card[], progress: Progress, random: () => num
  * question leads; traps and their twins, follow-ups, track questions, code choices and other
  * phrasings of the main question then alternate.
  */
-function pickQuestion(card: Card, mcqs: readonly Mcq[], progress: Progress): Exercise {
+export function pickQuestion(card: Card, mcqs: readonly Mcq[], progress: Progress): Exercise {
   const traps: Exercise[] = card.traps.flatMap((trap, index): Exercise[] => {
     const original: Exercise = { kind: 'trap', cardId: card.id, index };
     return trap.twin ? [original, { ...original, twin: true }] : [original];

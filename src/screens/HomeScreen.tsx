@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import type { Topic } from '../content/catalog.ts';
 import type { Unit } from '../content/types.ts';
 import { countHandled, HANDLED_FOR_MS, toCurrentProgress, topicStatus, type Progress, type TopicStatus } from '../play/progress.ts';
+import { weakTopicIds } from '../play/review.ts';
 import { Button } from '../ui/Button.tsx';
 import { Text } from '../ui/Text.tsx';
 import { ThemeToggle } from '../ui/ThemeToggle.tsx';
@@ -27,6 +28,7 @@ export function HomeScreen({
   now,
   onPlay,
   onMockInterview,
+  onReview,
   onOpenLesson,
   onImport,
   onReset,
@@ -42,6 +44,8 @@ export function HomeScreen({
   onPlay: (unitId?: string) => void;
   /** Starts a mock interview on a topic from one unit, or from every unit when `unitId` is undefined. */
   onMockInterview: (unitId?: string) => void;
+  /** Starts a series on the questions missed last time, on the weakest topics. */
+  onReview: () => void;
   onOpenLesson: (cardId: string) => void;
   onImport: (progress: Progress) => void;
   /** Deletes all progress on this device, once the learner has confirmed. */
@@ -49,6 +53,11 @@ export function HomeScreen({
 }) {
   const handled = countHandled(topics.map((topic) => topic.id), progress, now);
   const share = percent(handled, topics.length);
+  const weakSpots = weakTopicIds(
+    topics.map((topic) => topic.id),
+    progress,
+    now,
+  ).length;
   const answered = Object.values(progress.topics).reduce((sum, topic) => sum + topic.answered, 0);
   const correct = Object.values(progress.topics).reduce((sum, topic) => sum + topic.correct, 0);
 
@@ -77,6 +86,9 @@ export function HomeScreen({
         </Button>
         <Button block variant="secondary" className="mt-3" onClick={() => onMockInterview()}>
           Mock interview
+        </Button>
+        <Button block variant="secondary" className="mt-3" disabled={weakSpots === 0} onClick={onReview}>
+          {weakSpots === 0 ? 'No weak spots yet' : `Review weak spots (${weakSpots})`}
         </Button>
         <p className="mt-3 text-center text-xs text-muted">A topic counts once your last 3 answers on it are right, at least one of them a true/false, quick check or code choice, and for {HANDLED_FOR_DAYS} days after your last answer.</p>
       </section>

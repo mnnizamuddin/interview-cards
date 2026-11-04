@@ -9,6 +9,7 @@ import { TrapExercise } from '../exercises/TrapExercise.tsx';
 import type { ExerciseResult } from '../exercises/types.ts';
 import { exerciseKey, isGraded, nextExercises, type Exercise } from '../play/engine.ts';
 import { isHandled, recordAnswer, recordLesson, type Progress } from '../play/progress.ts';
+import { pickReview, trackMissed } from '../play/review.ts';
 import { currentReplay, recordFirstPass, recordReplay, SERIES_LENGTH, startSeries, type Series } from '../play/series.ts';
 import { Button } from '../ui/Button.tsx';
 import { LessonView } from '../ui/LessonView.tsx';
@@ -23,11 +24,15 @@ const UNIT_TITLES = new Map(UNITS.map((unit) => [unit.id, unit.title]));
  * With `teach` (unit practice), new topics open with their lesson, a header button shows the
  * current topic's lesson, and a miss offers it. Without it (the main mode), no lesson is ever
  * shown: it is pure recall.
+ *
+ * With `review` (weak-spots review), the series is the questions missed last time on the weakest
+ * topics, possibly fewer than {@link SERIES_LENGTH}; there is no lesson either.
  */
 export function PlayScreen({
   content,
   title,
   teach,
+  review = false,
   progress,
   onProgress,
   onStop,
@@ -38,6 +43,8 @@ export function PlayScreen({
   content: Content;
   title: string;
   teach: boolean;
+  /** A weak-spots review instead of the engine's stream. */
+  review?: boolean;
   progress: Progress;
   onProgress: (progress: Progress) => void;
   onStop: () => void;
@@ -46,8 +53,13 @@ export function PlayScreen({
   random?: () => number;
 }) {
   const { cards } = content;
-  const [queue, setQueue] = useState<Exercise[]>(() => nextExercises(cards, content.mcqsByCard, progress, { now: now(), random, teach }));
-  const [series, setSeries] = useState<Series>(startSeries);
+  /** The first questions of a series: the weak spots in a review, else the engine's next pick. */
+  function planFor(current: Progress): Exercise[] {
+    return review ? pickReview(cards, content.mcqsByCard, current, now()) : nextExercises(cards, content.mcqsByCard, current, { now: now(), random, teach });
+  }
+
+  const [queue, setQueue] = useState<Exercise[]>(() => planFor(progress));
+  const [series, setSeries] = useState<Series>(() => startSeries(review ? queue.length : SERIES_LENGTH));
   const [turn, setTurn] = useState(0);
   const [reviewing, setReviewing] = useState(false);
   const [reviewingTopic, setReviewingTopic] = useState<string | null>(null);
@@ -64,7 +76,8 @@ export function PlayScreen({
 
   function advanceQueue(updated: Progress) {
     const rest = queue.slice(1);
-    setQueue(rest.length > 0 ? rest : nextExercises(cards, content.mcqsByCard, updated, { now: now(), random, teach }));
+    // A review is planned up front; the engine's stream is refilled as it runs out.
+    setQueue(rest.length > 0 || review ? rest : nextExercises(cards, content.mcqsByCard, updated, { now: now(), random, teach }));
   }
 
   function finishLesson(exercise: Exercise) {
@@ -78,7 +91,8 @@ export function PlayScreen({
   function finishQuestion(exercise: Exercise, { correct }: ExerciseResult) {
     const at = now();
     const wasHandled = isHandled(progress.topics[exercise.cardId], at);
-    const updated = recordAnswer(progress, exercise.cardId, exerciseKey(exercise), { correct, graded: isGraded(exercise), at });
+    const answered = recordAnswer(progress, exercise.cardId, exerciseKey(exercise), { correct, graded: isGraded(exercise), at });
+    const updated = trackMissed(answered, exercise, correct);
     const becameHandled = !wasHandled && isHandled(updated.topics[exercise.cardId], at);
     onProgress(updated);
     setSeries((value) => recordFirstPass(value, exercise, correct, becameHandled));
@@ -94,8 +108,9 @@ export function PlayScreen({
   }
 
   function startNextSeries() {
-    setSeries(startSeries());
-    setQueue(nextExercises(cards, content.mcqsByCard, progress, { now: now(), random, teach }));
+    const plan = planFor(progress);
+    setSeries(startSeries(review ? plan.length : SERIES_LENGTH));
+    setQueue(plan);
     setJustHandled(null);
     nextTurn();
   }
@@ -116,9 +131,9 @@ export function PlayScreen({
             aria-label="Series progress"
             aria-valuenow={series.asked}
             aria-valuemin={0}
-            aria-valuemax={SERIES_LENGTH}
+            aria-valuemax={series.length}
           >
-            <div className="h-full rounded-full bg-brand transition-[width] duration-300" style={{ width: `${(series.asked / SERIES_LENGTH) * 100}%` }} />
+            <div className="h-full rounded-full bg-brand transition-[width] duration-300" style={{ width: `${(series.asked / Math.max(1, series.length)) * 100}%` }} />
           </div>
         </div>
         <SeriesCounter series={series} />
@@ -143,7 +158,13 @@ export function PlayScreen({
       )}
 
       <main className="flex flex-1 flex-col pb-4 pt-3">
-        {series.phase === 'done' ? (
+        {series.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+            <p className="text-lg font-bold">No weak spots right now</p>
+            <p className="text-muted">Every topic you started is handled or was answered right last time.</p>
+            <Button onClick={onStop}>Back home</Button>
+          </div>
+        ) : series.phase === 'done' ? (
           reviewedCard ? (
             <LessonView card={reviewedCard} unitTitle={UNIT_TITLES.get(reviewedCard.unit) ?? ''} actionLabel="Back to the summary" onDone={() => setReviewingTopic(null)} />
           ) : (
@@ -179,8 +200,8 @@ export function PlayScreen({
 function SeriesCounter({ series }: { series: Series }) {
   if (series.phase === 'questions') {
     return (
-      <span className="text-sm font-bold text-muted" aria-label={`Question ${series.asked + 1} of ${SERIES_LENGTH}`}>
-        {series.asked + 1}/{SERIES_LENGTH}
+      <span className="text-sm font-bold text-muted" aria-label={`Question ${series.asked + 1} of ${series.length}`}>
+        {series.asked + 1}/{series.length}
       </span>
     );
   }
@@ -213,7 +234,7 @@ function SeriesSummary({
       <div>
         <p className="mb-1 text-sm font-bold uppercase tracking-wider text-brand">Series complete</p>
         <h2 className="text-2xl font-extrabold">
-          {series.correct} of {SERIES_LENGTH} right first time
+          {series.correct} of {series.length} right first time
         </h2>
       </div>
       {series.handledTopics.length > 0 && (

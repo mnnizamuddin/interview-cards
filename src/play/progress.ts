@@ -1,3 +1,5 @@
+import type { Exercise } from './engine.ts';
+
 /**
  * What the app remembers about the learner, stored as one document on the device. Every answer
  * moves a step counter forward, and each topic keeps its last few answers, which decide whether
@@ -30,6 +32,17 @@ export type Progress = {
   topics: Record<string, TopicState>;
   /** The step at which each exercise was last shown, by exercise key. */
   shown: Record<string, number>;
+  /**
+   * Questions whose last answer was wrong, by exercise key, for the weak-spots review. A right
+   * answer removes the question. Absent in documents saved before the review existed.
+   */
+  missed?: Record<string, MissedQuestion>;
+};
+
+export type MissedQuestion = {
+  exercise: Exercise;
+  /** The step of the miss: the most recent misses come first in a review. */
+  step: number;
 };
 
 /** A topic is handled when this many answers in a row on it were right. */
