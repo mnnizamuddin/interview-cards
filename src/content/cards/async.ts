@@ -341,7 +341,7 @@ const fast = await Promise.all([getCustomer(id), getHistory(id)]);`,
 }, [query]);`,
       codeLang: 'ts',
     },
-    mcqSections: ['m24#abort', 'm24#race'],
+    mcqSections: ['m24#abort', 'm24#race', 'm24#search-box'],
     fromLists: ['react-50#17', 'react-50#41'],
   },
   {

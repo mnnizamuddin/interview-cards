@@ -6,7 +6,7 @@
  *
  * Usage: pnpm import-mcq [path to backend-drills/track/modules/en]
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { ALL_CARDS } from '../src/content/cards/index.ts';
@@ -25,6 +25,7 @@ type TrackQuestion = {
 
 const modulesDir = resolve(process.argv[2] ?? join(import.meta.dirname, '../../backend-drills/track/modules/en'));
 const outFile = join(import.meta.dirname, '../src/content/mcq.generated.json');
+const sectionsFile = join(import.meta.dirname, '../src/content/track-sections.generated.json');
 
 /** Runs a track module file, which assigns itself to `window.TRACK_CONTENT.en[id]`. */
 function loadTrackModule(moduleId: string): { quiz: TrackQuestion[] } {
@@ -63,3 +64,22 @@ for (const ref of wanted) {
 
 writeFileSync(outFile, `${JSON.stringify(mcqs, null, 2)}\n`);
 console.log(`Wrote ${mcqs.length} questions from ${moduleIds.join(', ')} to ${outFile}`);
+
+/**
+ * Every track section that has quiz questions, so a test can check that each one has a card
+ * (the track itself is not available on Vercel).
+ */
+function sectionsWithQuestions(): string[] {
+  const allModuleIds = readdirSync(modulesDir)
+    .filter((file) => /^m\d+\.js$/.test(file))
+    .map((file) => file.replace('.js', ''))
+    .toSorted();
+  return allModuleIds.flatMap((moduleId) => {
+    const sections = loadTrackModule(moduleId).quiz.map((question) => `${moduleId}#${question.section}`);
+    return [...new Set(sections)];
+  });
+}
+
+const trackSections = sectionsWithQuestions();
+writeFileSync(sectionsFile, `${JSON.stringify(trackSections, null, 2)}\n`);
+console.log(`Wrote ${trackSections.length} track sections with questions to ${sectionsFile}`);

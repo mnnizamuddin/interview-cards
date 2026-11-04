@@ -602,7 +602,7 @@ Access-Control-Allow-Credentials: true
 Vary: Origin`,
       codeLang: 'http',
     },
-    mcqSections: ['m27#csrf-cors'],
+    mcqSections: ['m27#csrf-cors', 'm25#cors'],
     fromLists: ['fullstack-100#42', 'frontend-100#69'],
   },
   {

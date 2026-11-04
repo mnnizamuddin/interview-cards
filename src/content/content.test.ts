@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CARDS, MCQS, UNITS } from './index.ts';
 import { QUESTION_LISTS } from './lists.ts';
+import TRACK_SECTIONS from './track-sections.generated.json';
 
 /** `list#1` to `list#count`. */
 function listReferences(listId: string, count: number): string[] {
@@ -104,6 +105,12 @@ describe('cards', () => {
         expect(card.fromLists ?? [], reference).toContain(reference.split('.')[0]);
       }
     }
+  });
+
+  it('has a card for every track section that has quiz questions', () => {
+    const linked = new Set(CARDS.flatMap((card) => card.mcqSections));
+    const missing = TRACK_SECTIONS.filter((section) => !linked.has(section));
+    expect(missing).toEqual([]);
   });
 
   it('every unit has at least one card', () => {

@@ -1608,7 +1608,7 @@ npx eslint --prune-suppressions   # after fixes, drop stale entries`,
 });`,
       codeLang: 'ts',
     },
-    mcqSections: ['m15#probes', 'm17#pid1'],
+    mcqSections: ['m15#probes', 'm17#pid1', 'm06#shutdown'],
     fromLists: ['backend-100#86'],
   },
   {
