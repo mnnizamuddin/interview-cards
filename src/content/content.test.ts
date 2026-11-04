@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { CARDS, MCQS, UNITS } from './index.ts';
+import { QUESTION_LISTS } from './lists.ts';
+
+/** `list#1` to `list#count`. */
+function listReferences(listId: string, count: number): string[] {
+  return Array.from({ length: count }, (_, index) => `${listId}#${index + 1}`);
+}
 
 /** Shape rules every card must follow, so a new card cannot silently break a session. */
 describe('cards', () => {
@@ -67,37 +73,35 @@ describe('cards', () => {
     expect(MCQS.every((mcq) => mcq.answer >= 0 && mcq.answer < mcq.options.length)).toBe(true);
   });
 
-  it('use list references at most once each, in the list#number form', () => {
-    const references = CARDS.flatMap((card) => card.fromLists ?? []);
-    expect(new Set(references).size).toBe(references.length);
-    for (const reference of references) {
-      expect(reference).toMatch(/^[a-z]+-\d+#\d+$/);
-    }
-  });
-
-  it('answer every follow-up of the full-stack list exactly once', () => {
-    const references = CARDS.flatMap((card) => card.followUps.flatMap((followUp) => (followUp.fromList ? [followUp.fromList] : [])));
-    expect(new Set(references).size, 'a list follow-up is used twice').toBe(references.length);
-    const missing: string[] = [];
-    for (let question = 1; question <= 100; question += 1) {
-      for (let followUp = 1; followUp <= 3; followUp += 1) {
-        const reference = `fullstack-100#${question}.${followUp}`;
-        if (!references.includes(reference)) {
-          missing.push(reference);
-        }
-      }
-    }
+  it.each(QUESTION_LISTS.map((list) => [list.id, list] as const))('answer every question of %s exactly once', (_, list) => {
+    const references = CARDS.flatMap((card) => card.fromLists ?? []).filter((reference) => reference.startsWith(`${list.id}#`));
+    expect(new Set(references).size, 'a list question is used twice').toBe(references.length);
+    const missing = listReferences(list.id, list.questions).filter((reference) => !references.includes(reference));
     expect(missing).toEqual([]);
   });
 
+  it.each(QUESTION_LISTS.map((list) => [list.id, list] as const))('answer every follow-up of %s exactly once', (_, list) => {
+    const references = CARDS.flatMap((card) => card.followUps.flatMap((followUp) => followUp.fromLists ?? [])).filter((reference) =>
+      reference.startsWith(`${list.id}#`),
+    );
+    expect(new Set(references).size, 'a list follow-up is used twice').toBe(references.length);
+    const expected = listReferences(list.id, list.questions).flatMap((question) =>
+      Array.from({ length: list.followUpsPerQuestion }, (_, index) => `${question}.${index + 1}`),
+    );
+    expect(expected.filter((reference) => !references.includes(reference))).toEqual([]);
+  });
+
   it.each(CARDS.map((card) => [card.id, card] as const))('%s keeps follow-up answers short and their list references well formed', (_, card) => {
-    const questionsOfCard = (card.fromLists ?? []).map((reference) => reference.split('#')[1]);
+    const knownLists = new Set(QUESTION_LISTS.map((list) => list.id));
+    for (const reference of card.fromLists ?? []) {
+      expect(knownLists, reference).toContain(reference.split('#')[0]);
+    }
     for (const followUp of card.followUps) {
       expect(followUp.answer.length, followUp.question).toBeLessThanOrEqual(320);
-      if (followUp.fromList) {
-        expect(followUp.fromList).toMatch(/^fullstack-100#\d+\.[1-3]$/);
-        // A follow-up belongs to the card that answers its main question.
-        expect(questionsOfCard, followUp.fromList).toContain(followUp.fromList.split('#')[1]!.split('.')[0]);
+      for (const reference of followUp.fromLists ?? []) {
+        expect(reference).toMatch(/^[a-z]+-\d+#\d+\.\d$/);
+        // A follow-up belongs to a card that answers its main question.
+        expect(card.fromLists ?? [], reference).toContain(reference.split('.')[0]);
       }
     }
   });

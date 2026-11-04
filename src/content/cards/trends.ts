@@ -43,17 +43,27 @@ export const trendsCards: Card[] = [
       {
         question: 'How do you check that AI-generated code is correct and secure before merging?',
         answer: 'I review it against the requirement, not against its own tests, and add tests for edge cases and error paths myself. CI runs the type checker, linting and dependency audit as for any code, and I check every new package exists and is maintained, plus input validation and authorization.',
-        fromList: 'fullstack-100#95.1',
+        fromLists: ['fullstack-100#95.1', 'backend-100#96.1'],
       },
       {
         question: 'What are the risks of leaning too hard on AI assistants, especially for juniors?',
         answer: 'Merging code nobody on the team understands, which slows every later bug fix, and skills that never form: a junior who never debugs alone cannot judge the next suggestion. I ask juniors to explain each generated change in review and to solve some tasks without the tool.',
-        fromList: 'fullstack-100#95.2',
+        fromLists: ['fullstack-100#95.2', 'backend-100#96.2'],
       },
       {
         question: 'How will full-stack skill requirements keep shifting as these tools mature?',
         answer: 'Less weight on typing syntax, more on framing problems, system design, reading and reviewing code, testing and security. Knowing the whole stack matters more, because judging a change that touches the API, the database and the UI needs it.',
-        fromList: 'fullstack-100#95.3',
+        fromLists: ['fullstack-100#95.3', 'backend-100#96.3'],
+      },
+      {
+        question: 'How do you check that AI-generated front-end code has no security or accessibility issues?',
+        answer: 'Security: I look for risky sinks such as `dangerouslySetInnerHTML`, user URLs in `href` and secrets in client code, and let the CSP, lint and dependency audit run. Accessibility: eslint-plugin-jsx-a11y and axe in tests, then a keyboard and screen reader pass on the new UI, since tools miss focus and labels.',
+        fromLists: ['frontend-100#96.1'],
+      },
+      {
+        question: 'Where do you draw the line between what the AI generates and what you write yourself?',
+        answer: 'It drafts the well-known parts: tests from my cases, boilerplate, migrations of a pattern I already wrote once. I write or rewrite the parts that carry judgement: the data model, authorisation, money and stock rules, and the API contract. Whatever the source, I merge only code I can explain.',
+        fromLists: ['frontend-100#96.2'],
       },
     ],
     traps: [
@@ -78,7 +88,7 @@ export const trendsCards: Card[] = [
       ],
     },
     mcqSections: [],
-    fromLists: ['fullstack-100#95'],
+    fromLists: ['fullstack-100#95', 'frontend-100#96', 'backend-100#96'],
   },
   {
     id: 'trend-edge-functions',
@@ -117,17 +127,17 @@ export const trendsCards: Card[] = [
       {
         question: 'Which workloads suit edge functions, and which do not?',
         answer: 'Suited: short work on the request alone, like redirects by country, A/B assignment, checking a session cookie or rewriting headers. Not suited: anything that queries a single-region database several times, long or CPU-heavy jobs, and code that needs Node APIs or native modules.',
-        fromList: 'fullstack-100#96.1',
+        fromLists: ['fullstack-100#96.1'],
       },
       {
         question: 'An edge function needs the central database. How do you handle the latency?',
         answer: 'I avoid it where I can: the edge only routes, and a function in the database\'s region does the queries. Otherwise I make one call instead of several, cache read-mostly data near users, use read replicas in other regions, and connect through a pooler or an HTTP driver.',
-        fromList: 'fullstack-100#96.2',
+        fromLists: ['fullstack-100#96.2'],
       },
       {
         question: 'Have you used an edge platform, and what did you learn?',
         answer: 'On the storefront, country redirects and the A/B cookie run at the edge and answer in a few milliseconds. We also tried rendering product pages there, but each page queried the database in Paris, so it was slower; the lesson was that latency follows the data.',
-        fromList: 'fullstack-100#96.3',
+        fromLists: ['fullstack-100#96.3'],
       },
     ],
     traps: [
@@ -190,17 +200,17 @@ export const trendsCards: Card[] = [
       {
         question: 'What does Next.js give you over a React app you assemble yourself?',
         answer: 'Routing, server rendering, static generation, streaming, Server Components and Server Functions, image and font optimisation, and a tuned build, all working together. By hand I would pick, wire and upgrade each piece myself, and server rendering is the hardest part to get right.',
-        fromList: 'fullstack-100#97.1',
+        fromLists: ['fullstack-100#97.1'],
       },
       {
         question: 'How does file-based routing work in a meta-framework?',
         answer: 'The folder structure is the URL map. In the Next.js App Router, `app/products/[id]/page.tsx` serves `/products/42`, with `[id]` a dynamic segment passed in `params`; a `layout.tsx` wraps every page below it, and `route.ts` defines an API endpoint.',
-        fromList: 'fullstack-100#97.2',
+        fromLists: ['fullstack-100#97.2'],
       },
       {
         question: 'Have you used Next.js or Remix in production, and how did it go?',
         answer: 'The storefront runs on the Next.js App Router. Moving product pages to Server Components cut their JavaScript and improved mobile LCP. The lessons: caching needs a clear plan per route, and every Server Function checks the session itself, after a review caught one trusting the client.',
-        fromList: 'fullstack-100#97.3',
+        fromLists: ['fullstack-100#97.3'],
       },
     ],
     traps: [
@@ -272,17 +282,22 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       {
         question: 'What are the practical trade-offs between a native Web Component and a React component?',
         answer: 'A Web Component works in any stack and isolates its styles, but you manage rendering and state yourself, attributes are strings, and server rendering needs declarative Shadow DOM. A React component gets React\'s rendering, state and tooling but works only in React apps.',
-        fromList: 'fullstack-100#98.1',
+        fromLists: ['fullstack-100#98.1'],
       },
       {
         question: 'How does Shadow DOM encapsulate a component\'s styles?',
         answer: 'The shadow root is a separate tree: page selectors do not match inside it, and styles inside do not leak out. Inherited properties like `color` and `font` and CSS custom properties still cross the boundary, and `:host` styles the element itself from inside.',
-        fromList: 'fullstack-100#98.2',
+        fromLists: ['fullstack-100#98.2', 'frontend-100#98.1'],
       },
       {
         question: 'Have you worked with Web Components on a real project?',
         answer: 'Yes, the delivery partner\'s `<delivery-tracker>` in the storefront and back office. With React 19 we pass the shipment as a property and listen to its `delivered` event. I learned to theme through its CSS custom properties and to check its accessibility, since we cannot change its markup.',
-        fromList: 'fullstack-100#98.3',
+        fromLists: ['fullstack-100#98.3'],
+      },
+      {
+        question: 'How would you integrate a Web Component into a React app?',
+        answer: 'Load the element\'s definition once, then render its tag in JSX. Since React 19, an object prop is set as a property and `on` props listen to custom events, as with `ondelivered`. I wrap it in a small typed React component so the rest of the app never touches the tag, and declare its props for TypeScript.',
+        fromLists: ['frontend-100#98.2'],
       },
     ],
     traps: [
@@ -316,7 +331,7 @@ customElements.define('delivery-tracker', DeliveryTracker);
       codeLang: 'js',
     },
     mcqSections: [],
-    fromLists: ['fullstack-100#98'],
+    fromLists: ['fullstack-100#98', 'frontend-100#98'],
   },
   {
     id: 'trend-core-web-vitals',
@@ -347,17 +362,22 @@ customElements.define('delivery-tracker', DeliveryTracker);
       {
         question: 'What is the difference between lab and field data?',
         answer: 'Lab data comes from a controlled run like Lighthouse and is good for debugging. Field data comes from real users, like CrUX or your own RUM, and is what the thresholds are judged on; INP needs real interactions.',
-        fromList: 'fullstack-100#99.3',
+        fromLists: ['fullstack-100#99.3'],
       },
       {
         question: 'How do you fix a poor LCP on a product page?',
         answer: 'Make the hero image discoverable in the HTML, give it high fetch priority and do not lazy-load it, serve it in a modern format at the right size, and keep the server response fast.',
-        fromList: 'fullstack-100#99.1',
+        fromLists: ['fullstack-100#99.1', 'frontend-100#59.1'],
       },
       {
         question: 'How do you measure and monitor Core Web Vitals on a live app over time?',
         answer: 'The `web-vitals` library sends LCP, INP and CLS from real visits to our analytics, where a dashboard shows p75 by page type and device and alerts on regressions. Search Console and CrUX confirm the public view, and Lighthouse runs in CI to catch regressions before release.',
-        fromList: 'fullstack-100#99.2',
+        fromLists: ['fullstack-100#99.2'],
+      },
+      {
+        question: 'What commonly causes CLS, and how do you prevent it for web fonts?',
+        answer: 'Images without reserved space, banners injected above content, and web fonts swapping in with other metrics than the fallback. For fonts I preload the file and tune the fallback with `size-adjust` and metric overrides so it takes the same space, as `next/font` does by default, or use `font-display: optional`.',
+        fromLists: ['frontend-100#59.2'],
       },
     ],
     traps: [
@@ -392,7 +412,7 @@ onLCP(sendToAnalytics);`,
       codeLang: 'js',
     },
     mcqSections: ['m26#vitals', 'm26#field-lab', 'm26#inp-fix'],
-    fromLists: ['fullstack-100#99'],
+    fromLists: ['fullstack-100#99', 'frontend-100#59'],
   },
   {
     id: 'trend-staying-current',
@@ -429,17 +449,27 @@ onLCP(sendToAnalytics);`,
       {
         question: 'What tool have you evaluated recently, and how did you decide whether to adopt it?',
         answer: 'The React Compiler for the back office. I enabled it on one folder in a branch, ran the tests and compared the orders table in the Profiler: fewer renders, no regressions. It was stable and solved a real problem, so we rolled it out folder by folder.',
-        fromList: 'fullstack-100#100.1',
+        fromLists: ['fullstack-100#100.1', 'backend-100#100.1'],
       },
       {
         question: 'Which resources do you follow regularly?',
         answer: 'Primary sources first: the react.dev and Next.js blogs, Node.js release notes, and web.dev with Baseline for browser features. Then one weekly newsletter, like JavaScript Weekly, and the changelogs of the libraries we depend on.',
-        fromList: 'fullstack-100#100.2',
+        fromLists: ['fullstack-100#100.2', 'backend-100#100.2'],
       },
       {
         question: 'How do you tell a trend worth deep learning from short-lived hype?',
         answer: 'I look for a stable release, adoption by the official docs or the tools we already use, and a problem we actually have. Standards and platform features, like a new browser API, deserve depth; a new framework gets a small experiment until it proves itself.',
-        fromList: 'fullstack-100#100.3',
+        fromLists: ['fullstack-100#100.3', 'backend-100#100.3'],
+      },
+      {
+        question: 'What recent tool or pattern did you try and decide not to adopt, and why?',
+        answer: 'A signals-based state library for the back office. In a branch it cut renders on the orders table, but the React Compiler gave most of that gain with plain React, and the library would have been one more model for every new hire to learn. We kept our stack and wrote the result down.',
+        fromLists: ['frontend-100#100.1'],
+      },
+      {
+        question: 'How do you decide whether a trend is worth adopting on a production team?',
+        answer: 'It must solve a problem we can measure, be stable and maintained, and be reversible. I run a time-boxed pilot on one small, low-risk part, compare the numbers, and write a short decision record with the migration cost and who maintains it. The team decides together.',
+        fromLists: ['frontend-100#100.2'],
       },
     ],
     traps: [
@@ -464,6 +494,206 @@ onLCP(sendToAnalytics);`,
       ],
     },
     mcqSections: [],
-    fromLists: ['fullstack-100#100'],
+    fromLists: ['fullstack-100#100', 'frontend-100#100', 'backend-100#100'],
+  },
+  {
+    id: 'trend-serverless',
+    unit: 'trends',
+    topic: 'Serverless',
+    level: 'senior',
+    paths: ['backend', 'fullstack'],
+    question: 'What role does serverless play in backend architecture, and what are its trade-offs?',
+    answer:
+      'Serverless means the provider runs and scales the compute, and I pay per request and duration: AWS Lambda, for example, scales to zero. It fits event-driven and spiky work: a nightly export, a queue consumer, a webhook with bursts. The trade-offs are cold starts when a new environment initialises, limits such as 15 minutes per Lambda invocation, one request per environment so each opens its own database connections, and a bill that grows with every request. So the Orders API, with steady traffic and PostgreSQL behind it, stays in containers, while scheduled and event-driven jobs go to functions, with RDS Proxy in front of the database.',
+    keyPoints: [
+      'The provider runs and scales it; pay per request and duration',
+      'Fits spiky, scheduled and event-driven work; scales to zero',
+      'Costs: cold starts, time limits, connections per environment',
+      'Steady high traffic usually favours containers',
+    ],
+    explanation:
+      'Interviewers want you to decide from the workload, not from fashion. Seniors know the concurrency arithmetic, the database connection problem, and the point where per-request pricing loses to containers that stay busy.',
+    example:
+      'The nightly orders CSV export moved from a cron on two VMs to a Lambda started by EventBridge Scheduler: ten minutes of work a day instead of machines paid all day. When someone proposed moving the payment webhook too, the team computed 300 calls per second at 0.2 s, so 60 concurrent environments and 60 database connections, and kept the webhook in the API on Kubernetes.',
+    mistakes: [
+      'Opening database connections from every function environment without a pooler such as RDS Proxy',
+      'Moving a steady, high-traffic API to functions and being surprised by the bill',
+      'Forgetting that event sources deliver at least once, so handlers must be idempotent',
+    ],
+    followUps: [
+      {
+        question: 'How do you mitigate cold starts for a latency-sensitive function?',
+        answer: 'Keep the init phase small: one bundled file, few dependencies, clients created once at module level. Then provisioned concurrency keeps environments initialised in advance, at a fixed cost. If cold starts still hurt after that, the workload probably belongs in a container.',
+        fromLists: ['backend-100#97.1'],
+      },
+      {
+        question: 'Which workloads suit serverless, and which do not?',
+        answer: 'Suited: scheduled jobs, queue and event consumers, webhooks with bursts, glue between managed services, anything idle most of the day. Not suited: jobs longer than the time limit, steady high traffic, work that holds a connection open for long, and code that needs many database connections.',
+        fromLists: ['backend-100#97.2'],
+      },
+      {
+        question: 'How does serverless pricing compare at sustained high traffic?',
+        answer: 'Per-request billing wins when there is idle time. At sustained traffic, a function bills each environment for its whole duration, database waits included, while a container shares its CPU across many concurrent requests. I compare monthly costs at real request rates and durations before choosing.',
+        fromLists: ['backend-100#97.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'Serverless is always cheaper than containers, because you only pay for what you use.',
+        isTrue: false,
+        why: 'At sustained traffic, per-request billing can cost more than containers that stay busy.',
+      },
+      {
+        statement: 'A function\'s concurrency is roughly its requests per second multiplied by its duration in seconds.',
+        isTrue: true,
+        why: 'That is the Lambda docs\' formula: 300 requests per second of 0.2 s need about 60 environments.',
+      },
+      {
+        statement: 'A single AWS Lambda invocation can run for an hour.',
+        isTrue: false,
+        why: 'An invocation stops at 15 minutes; longer jobs belong in a container task.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Serverless functions, such as AWS Lambda, run your handler while the provider manages servers and scaling. You pay per request and per unit of duration, and an idle function costs nothing.',
+        'The first request in a new execution environment runs the init phase, loading your code and its top-level setup: that is the cold start. Warm environments are reused; provisioned concurrency keeps some ready.',
+        'Concurrency is requests per second times duration. A classic Lambda environment serves one request at a time, so 300 calls per second of 0.2 s need about 60 environments, each with its own connections.',
+        'Limits shape the design: an invocation stops at 15 minutes, and a synchronous request or response is capped at 6 MB. Put RDS Proxy in front of PostgreSQL, and make handlers idempotent.',
+        'Choose by workload: scheduled, spiky and event-driven work suits functions; steady high traffic is usually cheaper in containers, which serve many requests at once.',
+      ],
+    },
+    mcqSections: ['m17#lambda', 'm17#platform'],
+    fromLists: ['backend-100#97'],
+  },
+  {
+    id: 'trend-event-driven',
+    unit: 'trends',
+    topic: 'Event-driven architecture',
+    level: 'senior',
+    paths: ['backend', 'fullstack'],
+    question: 'How are event-driven architecture and the modern data stack changing backend design?',
+    answer:
+      'Services increasingly publish facts, like `order.paid`, instead of calling each other: stock, loyalty and analytics react on their own, so the producer does not know them, and an outage delays their work instead of failing the payment. A log such as Kafka keeps events for a retention period, so a new consumer can replay history, and change data capture streams database changes into the warehouse instead of analysts querying production. The consequences for design: events become versioned public contracts, consumers must be idempotent because delivery is at least once, an outbox publishes reliably after the commit, and the system is eventually consistent.',
+    keyPoints: [
+      'Services publish facts; consumers react independently',
+      'A retained log allows replay; CDC feeds the warehouse',
+      'Events are versioned contracts; consumers are idempotent',
+      'Outbox for reliable publishing; eventual consistency',
+    ],
+    explanation:
+      'Interviewers check whether you see the costs as well as the decoupling: duplicates, ordering, schema evolution and harder debugging. Seniors also know when a synchronous call is still the right answer.',
+    example:
+      'The analytics team ran heavy queries on the Orders API\'s primary and slowed the morning peak. The team published `order.paid` to Kafka through a transactional outbox, keyed by order id, and streamed the orders table into the warehouse with Debezium. The heavy queries left the primary, and a fraud service added later replayed the retained events to build its history.',
+    mistakes: [
+      'Publishing the event in application code after the commit, which loses it on a crash, instead of using an outbox',
+      'Assuming exactly-once delivery and writing consumers that are not idempotent',
+      'Turning every call into an event, even when the caller needs the answer now',
+    ],
+    followUps: [
+      {
+        question: 'How do you serve historical events to a consumer that did not exist when they were emitted?',
+        answer: 'From a log like Kafka, the new consumer group starts at the earliest offset and replays what is retained, so retention, or compaction for latest-state topics, is set with that need in mind. Beyond retention, archive events to object storage and backfill from there, or seed from a snapshot and then follow the stream.',
+        fromLists: ['backend-100#98.1'],
+      },
+      {
+        question: 'When do you choose events over synchronous service-to-service calls?',
+        answer: 'A synchronous call fits when the caller needs the answer to continue, like checking stock at checkout, and it is easier to trace. An event fits when others only need to know a fact happened: the producer stays decoupled from their outages, at the cost of eventual consistency, duplicates and harder debugging.',
+        fromLists: ['backend-100#98.2'],
+      },
+      {
+        question: 'How do you evolve event schemas without breaking consumers?',
+        answer: 'Only additive changes in place, like a new optional field. A breaking change gets a new versioned type, such as `order-placed.v2`, published alongside v1 until consumers move. Consumers ignore unknown fields, and a schema registry with `BACKWARD` compatibility rejects unsafe changes.',
+        fromLists: ['backend-100#98.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'With a queue such as SQS, a consumer added today can replay last week\'s messages.',
+        isTrue: false,
+        why: 'A queue deletes processed messages; replay needs a retained log such as Kafka.',
+      },
+      {
+        statement: 'Kafka guarantees ordering within a partition, not across a whole topic.',
+        isTrue: true,
+        why: 'That is why events are keyed by order id: one order\'s events land in one partition.',
+      },
+    ],
+    lesson: {
+      points: [
+        'In event-driven design, a service publishes facts, such as `order.paid`, and other services react on their own. The producer does not know its consumers, so their outage delays their work instead of failing the payment.',
+        'A queue deletes a message once processed; a log such as Kafka keeps events for a retention period, so a new consumer group can replay history. Kafka orders events within a partition, so key them by order id.',
+        'Delivery is at least once, so consumers must be idempotent. The transactional outbox writes the event in the same transaction as the state change, and a relay publishes it after the commit.',
+        'The modern data stack moves analytics off production: change data capture (CDC), such as Debezium reading PostgreSQL\'s write-ahead log, streams every change into a data warehouse.',
+        'Events are public contracts: change them additively, give breaking changes a new versioned type, and let consumers ignore unknown fields. Keep a synchronous call when the caller needs the answer now.',
+      ],
+    },
+    mcqSections: ['m13#events', 'm18#integration-events', 'm18#evolution'],
+    fromLists: ['backend-100#98'],
+  },
+  {
+    id: 'trend-platform-engineering',
+    unit: 'trends',
+    topic: 'Platform engineering',
+    level: 'senior',
+    paths: ['backend', 'fullstack'],
+    question: 'How is platform engineering changing how backend teams work?',
+    answer:
+      'Platform engineering means a team builds an internal developer platform, run as a product, so other teams can ship without becoming experts in Kubernetes, CI or cloud accounts. Its core is golden paths: a template that creates a service with its pipeline, monitoring, secrets and dashboards already wired, often behind a portal like Backstage. For backend teams, effort moves from assembling infrastructure to product work, and services are built, deployed and observed the same way. The risk is a platform nobody wants, so I treat developers as customers, measure adoption and delivery metrics, and keep an escape hatch for teams with real needs.',
+    keyPoints: [
+      'An internal developer platform, run as a product',
+      'Golden paths: templates with CI, monitoring and secrets wired',
+      'Less infrastructure work for product teams, more consistency',
+      'Measure adoption and delivery; keep escape hatches',
+    ],
+    explanation:
+      'Interviewers look for a view beyond the buzzword: what the platform gives product teams and how you would know it works. Seniors talk about platform-as-a-product, adoption that is earned, and the balance between standards and autonomy.',
+    example:
+      'Creating a new service at the shop took about two weeks of tickets to get a pipeline, a namespace and dashboards. The platform team built a Backstage template that creates the repository, a GitHub Actions workflow deploying to AWS through OIDC, the Kubernetes manifests and default alerts. The next service, the delivery tracking API, reached production in two days.',
+    mistakes: [
+      'Calling it DevOps renamed, without the product mindset and self-service',
+      'Forcing a platform on teams without measuring whether it helps them',
+      'Building a portal before making the paths behind it easy',
+    ],
+    followUps: [
+      {
+        question: 'How would you measure whether an internal developer platform succeeds?',
+        answer: 'Adoption first: the share of services on the golden path and the time for a new service to reach production. Then DORA delivery metrics, such as deployment frequency, change lead time, change fail rate and failed deployment recovery time, before and after. And developer surveys: a platform people avoid has failed.',
+        fromLists: ['backend-100#99.1'],
+      },
+      {
+        question: 'What is the difference between platform engineering and SRE?',
+        answer: 'SRE owns the reliability of production services: SLOs, error budgets, incident response and removing toil. Platform engineering builds the self-service tools developers use to build, ship and run services. They meet in the golden path, which bakes in SRE practices such as default alerts and safe rollouts.',
+        fromLists: ['backend-100#99.2'],
+      },
+      {
+        question: 'How do you balance platform standards against team autonomy?',
+        answer: 'Make the golden path the easiest choice, not the only one. A few guardrails are mandatory, such as security scanning, secrets handling and observability. Beyond them, a team may leave the path with a written reason, and the platform team treats frequent exits as feedback on the platform.',
+        fromLists: ['backend-100#99.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'A successful internal platform is one that every team is forced to use.',
+        isTrue: false,
+        why: 'Platform engineering earns adoption by making the golden path the easiest way; forced use hides whether it helps.',
+      },
+      {
+        statement: 'Platform engineering treats the internal platform as a product, with developers as its customers.',
+        isTrue: true,
+        why: 'Their needs and feedback drive the roadmap, and adoption measures success.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Platform engineering: a platform team builds an internal developer platform (IDP), self-service tools that let product teams build, ship and run services without being infrastructure experts.',
+        'Its core is the golden path: a supported way to do a common task, such as a template that creates a service with its pipeline, deployment, secrets, monitoring and alerts wired. Backstage is a common portal for it.',
+        'The platform is run as a product: developers are its customers, adoption is earned rather than imposed, and their feedback drives the roadmap.',
+        'Measure it by adoption, time for a new service to reach production, the DORA delivery metrics (such as deployment frequency and change lead time) and developer satisfaction.',
+        'SRE focuses on the reliability of production; platform engineering on developer self-service. Balance standards with autonomy: a few mandatory guardrails, the rest optional with an escape hatch.',
+      ],
+    },
+    mcqSections: [],
+    fromLists: ['backend-100#99'],
   },
 ];

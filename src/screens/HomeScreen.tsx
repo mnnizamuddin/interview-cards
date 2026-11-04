@@ -96,7 +96,7 @@ export function HomeScreen({
                 </span>
               </summary>
               <div className="grid grid-cols-2 gap-2 px-3 pb-3">
-                <Button variant="secondary" onClick={() => onPlay(unit.id)}>
+                <Button variant="secondary" aria-label={`Play ${unit.title}`} onClick={() => onPlay(unit.id)}>
                   Play this unit
                 </Button>
                 <Button variant="secondary" aria-label={`Mock interview on ${unit.title}`} onClick={() => onMockInterview(unit.id)}>

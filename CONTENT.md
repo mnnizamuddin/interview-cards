@@ -22,18 +22,18 @@ verified, never guessed.
 |---|---|
 | `id` | `<unit-prefix>-<topic>`, kebab case, unique. |
 | `unit`, `level`, `paths` | Given in your brief. `level`: what level of candidate is expected to answer it well. |
-| `question` | The interview question, in your own words, close to the list's wording. One question. |
+| `question` | The interview question, in your own words, close to the list wording. One question. When the card answers several list questions (the same topic asked in two lists), write one question that covers them. |
 | `answer` | The model answer **as it is said aloud** in about a minute: **60 to 110 words**, first person where natural ("I use…", "I would…"). Definition first, then the mechanism, then how you use it or choose. No lists, no code blocks; short inline code is fine. |
 | `keyPoints` | **3 or 4** short points (5 at most) a good answer must contain. Each one is checkable: the learner ticks it if they said it. Under about 70 characters each. |
 | `explanation` | Why interviewers ask it and what they listen for, especially what separates a senior answer. 2 or 3 sentences. |
 | `example` | A production story from **the running example** (below): a concrete problem, what was done, the result. 2 to 4 sentences. |
 | `mistakes` | **2 or 3** common mistakes candidates make, each one sentence, ideally with the correction. |
-| `followUps` | Deeper questions the interviewer asks next, each with a short answer said aloud (1 to 3 sentences, **at most 320 characters**). At least 2 of our own, plus every follow-up of the list question the card answers, marked with `fromList: 'fullstack-100#16.2'` (question 16, follow-up 2). When one of our follow-ups already asks the same thing, add `fromList` to it instead of adding a duplicate. For "have you used X / what was your experience" follow-ups, the answer is a short model answer set in the running example, naming what you did and what you learned. |
+| `followUps` | Deeper questions the interviewer asks next, each with a short answer said aloud (1 to 3 sentences, **at most 320 characters**). Every follow-up of every list question the card answers must be covered: put its reference in the `fromLists` array of one follow-up, for example `fromLists: ['fullstack-100#16.2']`. When one of the card's follow-ups already asks the same thing, add the reference to it instead of adding a duplicate; near-identical follow-ups from two lists (for example "How does Redux Toolkit reduce boilerplate?" in two lists) share one follow-up with both references. A card has at least 2 follow-ups in total. For "have you used X / what was your experience" follow-ups, the answer is a short model answer set in the running example, naming what you did and what you learned. |
 | `traps` | **2 or 3** true/false statements built from common misconceptions, **at least one true and at least one false**, each with a one-sentence `why`. A trap must be unambiguous: true or false without "it depends". |
 | `topic` | The topic's short name for lists, **at most 40 characters**: "Closures", "CORS", "Connection pooling", "Telling a cross-layer bug story". |
 | `lesson` | The bite-sized lesson card (see "Lesson cards" below). |
 | `mcqSections` | Track sections whose quiz questions become extra questions on this topic, as `m05#idempotency` (see "Linking to the track"). `[]` when none fits. The learner never sees the track name. |
-| `fromLists` | The list reference given in your brief, for example `['fullstack-100#36']`. |
+| `fromLists` | The list question references given in your work list, for example `['frontend-100#40', 'react-50#24']`. |
 
 All text is plain strings. Inline code goes between backticks: `` `useEffect` ``. Every opening backtick
 needs its closing one. Use straight apostrophes inside single-quoted strings with `\'`, or use

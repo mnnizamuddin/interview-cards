@@ -42,17 +42,17 @@ export const securityCards: Card[] = [
       {
         question: 'What separates stored, reflected and DOM-based XSS?',
         answer: 'Stored XSS is saved by the server, like a review shown to every agent. Reflected XSS comes back from the request, like a search term echoed into the page. DOM-based XSS never touches the server\'s HTML: front-end code writes untrusted data, such as `location.hash`, into a sink.',
-        fromList: 'fullstack-100#81.1',
+        fromLists: ['fullstack-100#81.1', 'frontend-100#71.1'],
       },
       {
         question: 'How does a Content Security Policy limit the damage of an XSS?',
         answer: 'The browser runs only scripts the policy allows: with `script-src \'nonce-...\' \'strict-dynamic\'`, an injected `<script>` or inline `onerror` handler has no nonce and is blocked. `object-src \'none\'` and `base-uri \'none\'` close other paths, and violation reports show attempts.',
-        fromList: 'fullstack-100#81.2',
+        fromLists: ['fullstack-100#81.2', 'frontend-100#71.2'],
       },
       {
         question: 'Why is a token in an `HttpOnly` cookie safer against XSS than one in `localStorage`?',
         answer: 'Any script on the page can read `localStorage` and send the token to the attacker, who replays it from anywhere until it expires. An `HttpOnly` cookie is invisible to JavaScript, so an XSS can only act inside the open page while it runs; it still needs fixing.',
-        fromList: 'fullstack-100#81.3',
+        fromLists: ['fullstack-100#81.3'],
       },
     ],
     traps: [
@@ -83,7 +83,7 @@ export const securityCards: Card[] = [
       codeLang: 'tsx',
     },
     mcqSections: ['m27#xss', 'm27#sinks', 'm27#sanitise'],
-    fromLists: ['fullstack-100#81'],
+    fromLists: ['fullstack-100#81', 'frontend-100#71'],
   },
   {
     id: 'sec-sql-injection',
@@ -121,17 +121,17 @@ export const securityCards: Card[] = [
       {
         question: 'How do parameterised queries stop SQL injection at a technical level?',
         answer: 'PostgreSQL\'s extended protocol sends the SQL text with `$1` placeholders in one message, and the values separately in a later bind step. The statement is already parsed into a plan when the values arrive, so an input like `\' OR 1=1` is only ever compared as a string.',
-        fromList: 'fullstack-100#82.1',
+        fromLists: ['fullstack-100#82.1', 'backend-100#63.1'],
       },
       {
         question: 'Does an ORM remove the risk of SQL injection completely?',
         answer: 'No. Its normal query methods parameterise, but raw escape hatches such as Prisma\'s `$queryRawUnsafe`, `sql.raw` or a raw string passed to `query()` paste text as is. Dynamic column names in `orderBy` still need an allow-list too.',
-        fromList: 'fullstack-100#82.2',
+        fromLists: ['fullstack-100#82.2', 'backend-100#63.2'],
       },
       {
         question: 'How would you audit an existing codebase for SQL injection?',
         answer: 'Search every raw query call for template literals or concatenation, plus `Unsafe` and `raw` escape hatches, and follow where each input comes from. Then add a Semgrep rule in CI so new cases fail the build, and test risky endpoints with injection payloads.',
-        fromList: 'fullstack-100#82.3',
+        fromLists: ['fullstack-100#82.3', 'backend-100#63.3'],
       },
     ],
     traps: [
@@ -165,7 +165,7 @@ const orderBy = { newest: 'created_at DESC', oldest: 'created_at ASC' }[sort];`,
       codeLang: 'ts',
     },
     mcqSections: ['m11#injection'],
-    fromLists: ['fullstack-100#82'],
+    fromLists: ['fullstack-100#82', 'backend-100#63'],
   },
   {
     id: 'sec-csrf',
@@ -199,17 +199,17 @@ const orderBy = { newest: 'created_at DESC', oldest: 'created_at ASC' }[sort];`,
       {
         question: 'Is an API that takes a bearer token in the `Authorization` header vulnerable to CSRF?',
         answer: 'Not in the classic way: the browser does not attach that header by itself, so another site cannot make it send the token.',
-        fromList: 'fullstack-100#83.2',
+        fromLists: ['fullstack-100#83.2', 'frontend-100#72.2', 'backend-100#67.2'],
       },
       {
         question: 'How does `SameSite` protect against CSRF, and how do `Strict`, `Lax` and `None` differ?',
         answer: 'It tells the browser when to send the cookie on cross-site requests. `Strict` never does; `Lax` does only on top-level `GET` navigations, and browsers like Chrome apply it when the attribute is missing; `None` always does and requires `Secure`.',
-        fromList: 'fullstack-100#83.1',
+        fromLists: ['fullstack-100#83.1', 'frontend-100#72.1', 'backend-100#67.1'],
       },
       {
         question: 'How do you implement CSRF token validation on the front end and the back end?',
         answer: 'The server generates a random token tied to the session and gives it to the page. The front end sends it in a header such as `X-CSRF-Token` on every write, and the server compares it with the session\'s value in constant time, answering 403 on a mismatch.',
-        fromList: 'fullstack-100#83.3',
+        fromLists: ['fullstack-100#83.3', 'backend-100#67.3'],
       },
     ],
     traps: [
@@ -243,7 +243,7 @@ const orderBy = { newest: 'created_at DESC', oldest: 'created_at ASC' }[sort];`,
       codeLang: 'ts',
     },
     mcqSections: ['m12#sessions', 'm27#storage', 'm27#csrf-cors'],
-    fromLists: ['fullstack-100#83'],
+    fromLists: ['fullstack-100#83', 'frontend-100#72', 'backend-100#67'],
   },
   {
     id: 'sec-secrets',
@@ -281,17 +281,17 @@ const orderBy = { newest: 'created_at DESC', oldest: 'created_at ASC' }[sort];`,
       {
         question: 'How do you rotate a compromised credential across every environment and service?',
         answer: 'Revoke or replace it at the provider first, then update it in the secret manager and restart or reload every service that reads it, found from the manager\'s access list. Check the provider\'s logs for use by the attacker, and give each environment its own credential so one leak stays contained.',
-        fromList: 'fullstack-100#84.1',
+        fromLists: ['fullstack-100#84.1', 'backend-100#64.1'],
       },
       {
         question: 'Which tools have you used to manage secrets in production?',
         answer: 'On the Orders API, AWS Secrets Manager, synced into Kubernetes by External Secrets Operator, with one IAM role per service, and GitHub Actions deploying through OIDC. The lesson: an inventory of who reads which secret is what makes a rotation fast.',
-        fromList: 'fullstack-100#84.2',
+        fromLists: ['fullstack-100#84.2', 'backend-100#64.2'],
       },
       {
         question: 'How do you stop secrets from being committed in the first place?',
         answer: 'Keep them out of the working tree: `.env` in `.gitignore` and only a `.env.example` committed. Then scan: a pre-commit hook with gitleaks, GitHub push protection, and a scanner in CI. Short-lived credentials leave fewer secrets to leak.',
-        fromList: 'fullstack-100#84.3',
+        fromLists: ['fullstack-100#84.3', 'backend-100#64.3'],
       },
     ],
     traps: [
@@ -325,7 +325,7 @@ function loadConfig(env: NodeJS.ProcessEnv) {
       codeLang: 'ts',
     },
     mcqSections: ['m12#supply-chain', 'm27#secrets', 'm17#oidc'],
-    fromLists: ['fullstack-100#84'],
+    fromLists: ['fullstack-100#84', 'backend-100#64'],
   },
   {
     id: 'sec-https',
@@ -355,7 +355,7 @@ function loadConfig(env: NodeJS.ProcessEnv) {
       {
         question: 'What does HSTS do, and what is its weakness?',
         answer: 'It tells the browser to use only HTTPS for the host and to refuse certificate errors. It only works after one secure visit, so the first request can be attacked; the preload list closes that gap.',
-        fromList: 'fullstack-100#85.2',
+        fromLists: ['fullstack-100#85.2'],
       },
       {
         question: 'Where do you terminate TLS in a Kubernetes setup?',
@@ -364,12 +364,12 @@ function loadConfig(env: NodeJS.ProcessEnv) {
       {
         question: 'How does the TLS handshake set up a secure connection?',
         answer: 'In TLS 1.3, the client sends its supported ciphers and a key share, the server answers with its own key share, its certificate and a signature proving it holds the private key. Both derive the same session keys by Diffie-Hellman, and the client checks the certificate chain and hostname.',
-        fromList: 'fullstack-100#85.1',
+        fromLists: ['fullstack-100#85.1'],
       },
       {
         question: 'How do you obtain and reliably renew a production TLS certificate?',
         answer: 'Automate it with ACME: cert-manager in Kubernetes with Let\'s Encrypt, or a managed certificate on the cloud load balancer, which renews itself. Then monitor expiry dates and alert weeks ahead, since a failed renewal is silent until the day it expires.',
-        fromList: 'fullstack-100#85.3',
+        fromLists: ['fullstack-100#85.3'],
       },
     ],
     traps: [
@@ -442,17 +442,17 @@ Set-Cookie: __Host-sid=...; Path=/; Secure; HttpOnly; SameSite=Lax`,
       {
         question: 'Which automated security scanners have you used, and what do they catch best?',
         answer: 'On the Orders API: Dependabot and `npm audit` for known-vulnerable packages, Semgrep for injection patterns in code, Trivy for container images, and ZAP against staging for missing headers. They catch known patterns well; none found the order another customer could read.',
-        fromList: 'fullstack-100#86.1',
+        fromLists: ['fullstack-100#86.1', 'backend-100#70.1'],
       },
       {
         question: 'How do you test for broken access control, such as an insecure direct object reference?',
         answer: 'With two real test customers: A creates an order, B asks `GET /orders/:id` with A\'s id and must get 404; then a non-admin calls the refund route and must get 403. I write these as integration tests for every route that takes an id, so CI keeps checking them.',
-        fromList: 'fullstack-100#86.2',
+        fromLists: ['fullstack-100#86.2', 'backend-100#70.3'],
       },
       {
         question: 'How do you prioritise several security issues found at once?',
         answer: 'By risk: how easy it is to exploit, whether it is reachable without login, and what data or money it exposes, with CVSS as a guide, not the answer. An order leak open to any customer comes before a missing header, and each finding gets an owner and a deadline.',
-        fromList: 'fullstack-100#86.3',
+        fromLists: ['fullstack-100#86.3', 'backend-100#70.2'],
       },
     ],
     traps: [
@@ -477,6 +477,392 @@ Set-Cookie: __Host-sid=...; Path=/; Secure; HttpOnly; SameSite=Lax`,
       ],
     },
     mcqSections: ['m12#bola'],
-    fromLists: ['fullstack-100#86'],
+    fromLists: ['fullstack-100#86', 'backend-100#70'],
+  },
+  {
+    id: 'sec-csp',
+    unit: 'security',
+    topic: 'Content Security Policy',
+    level: 'mid',
+    paths: ['frontend', 'fullstack'],
+    question: 'What is a Content Security Policy, and what does it protect against?',
+    answer:
+      'A Content Security Policy is a response header that tells the browser which scripts and other resources a page may load and run. Its main job is limiting XSS: with a strict policy, a `script-src` with a per-response nonce and `\'strict-dynamic\'`, an injected script or inline handler has no nonce, so the browser blocks it. Other directives stop clickjacking with `frame-ancestors`, plugins with `object-src \'none\'` and injected `<base>` tags with `base-uri`. It is defence in depth, not the fix: I still remove the dangerous sink. I roll it out in report-only mode first, read the reports, then enforce.',
+    keyPoints: [
+      'A response header listing what the page may load and run',
+      'Strict policy: a per-response nonce plus `\'strict-dynamic\'`',
+      'Limits XSS; `frame-ancestors` stops clickjacking',
+      'Defence in depth; roll out in report-only mode first',
+    ],
+    explanation:
+      'Interviewers check whether you know a modern strict CSP rather than a long list of allowed hosts, and whether you treat it as a second layer behind fixing the sink. Seniors talk about the rollout: report-only, reading reports, and the cost of nonces for static pages.',
+    example:
+      'After a stored XSS in the back office, the team rolled out a strict CSP on the storefront from `proxy.ts`, first as `Content-Security-Policy-Report-Only`. Two weeks of reports showed an old chat widget injecting inline scripts; it was replaced, and one environment variable switched the policy to enforce. The next pentest payload hidden in a review was blocked by the browser.',
+    mistakes: [
+      'Listing allowed CDN hosts, which serve scripts an attacker can reuse, instead of using nonces',
+      'Adding `\'unsafe-inline\'` without a nonce to silence errors, which lets injected inline scripts run again',
+      'Enforcing a new policy without a report-only phase, and breaking checkout',
+    ],
+    followUps: [
+      {
+        question: 'How would you roll out a CSP safely on a large existing app?',
+        answer: 'Send a strict policy as `Content-Security-Policy-Report-Only`, one group of pages at a time, reporting to one endpoint. Fix what they show: move inline handlers to code, add nonces, replace or sandbox third-party scripts. Enforce once only noise remains, keep reports on, and switch with a flag for an instant rollback.',
+        fromLists: ['frontend-100#73.1'],
+      },
+      {
+        question: 'What are `report-uri` and `report-to` for?',
+        answer: 'They tell the browser where to POST violation reports, for report-only and enforced policies alike. `report-uri` takes a URL and is the older form; `report-to` names an endpoint declared in the `Reporting-Endpoints` header and replaces it. MDN suggests sending both for now.',
+        fromLists: ['frontend-100#73.2'],
+      },
+      {
+        question: 'What do nonces cost in a Next.js app?',
+        answer: 'Each response needs a fresh nonce, so pages must be rendered dynamically: static generation, ISR and CDN caching of the HTML are lost. For static pages, a hash-based policy fits better.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'A `Content-Security-Policy-Report-Only` header blocks violating scripts and reports them.',
+        isTrue: false,
+        why: 'It only reports: the script still runs, which is what makes it safe for a rollout.',
+      },
+      {
+        statement: 'With `\'strict-dynamic\'`, browsers ignore the host allow-list in the same `script-src`.',
+        isTrue: true,
+        why: 'They trust only nonced or hashed scripts and the scripts those load; listed hosts no longer count.',
+      },
+      {
+        statement: 'Once a strict CSP is enforced, user HTML no longer needs sanitising.',
+        isTrue: false,
+        why: 'CSP is defence in depth: a policy can be wrong or bypassed, so the sink is still fixed.',
+      },
+    ],
+    lesson: {
+      points: [
+        'A Content Security Policy (CSP) is a response header that tells the browser which scripts, styles, frames and other resources a page may load and run. The browser blocks anything else.',
+        'A strict CSP puts a random nonce, new on every response, in `script-src` and on each legitimate `<script>`. An injected script or inline `onerror` handler has no nonce, so it does not run.',
+        '`\'strict-dynamic\'` lets nonced scripts load more scripts, such as bundle chunks. Host allow-lists are weak: allowed CDNs host code an attacker can reuse. Add `object-src \'none\'` and `base-uri \'none\'`.',
+        'CSP also stops clickjacking with `frame-ancestors`. It is defence in depth: fix the vulnerable sink first; the policy limits the damage of the next mistake.',
+        'Roll out with `Content-Security-Policy-Report-Only`: nothing is blocked, and violations are POSTed to `report-uri` or a `report-to` endpoint. Read the reports, fix them, then enforce.',
+      ],
+      code: `Content-Security-Policy-Report-Only:
+  script-src 'nonce-r4nd0mBase64' 'strict-dynamic';
+  object-src 'none'; base-uri 'none';
+  report-uri https://www.shop.example/api/csp-reports; report-to csp
+Reporting-Endpoints: csp="https://www.shop.example/api/csp-reports"
+
+<script nonce="r4nd0mBase64" src="/_next/static/chunks/main.js"></script>`,
+      codeLang: 'http',
+    },
+    mcqSections: ['m27#csp'],
+    fromLists: ['frontend-100#73'],
+  },
+  {
+    id: 'sec-frontend-hardening',
+    unit: 'security',
+    topic: 'Frontend hardening',
+    level: 'senior',
+    paths: ['frontend', 'fullstack'],
+    question: 'Beyond XSS and CSRF, how do you secure a frontend application?',
+    answer:
+      'I start from two facts: everything shipped to the browser is public, and every script on the page has its full power. So no secrets in the bundle: `NEXT_PUBLIC_` and `VITE_` variables are published, and privileged calls stay in server code. I keep third-party scripts few and owned, pin versioned ones with Subresource Integrity and let the CSP block the rest. I stop clickjacking with `frame-ancestors`, check `event.origin` on every `postMessage`, send headers like HSTS and `nosniff`, and keep tokens out of JavaScript behind a BFF. npm dependencies are third-party code too: lockfile, audits, delayed updates.',
+    keyPoints: [
+      'The bundle is public: no secrets, privileged calls on the server',
+      'Few, owned third-party scripts; SRI for versioned files',
+      'Clickjacking: `frame-ancestors`; `postMessage`: check the origin',
+      'Security headers, tokens out of JS, dependency hygiene',
+    ],
+    explanation:
+      'The question checks whether your security model ends at XSS. Seniors reason from the attacker\'s view of the browser: what they can read (the bundle), what runs with the page\'s power (third parties, dependencies), and which browser channels need checks.',
+    example:
+      'A review of the storefront found the search provider\'s admin key in the bundle and a polyfill loaded from a public CDN. The team rotated the key and moved indexing into a `server-only` module, self-hosted the polyfill, and pinned the review widget\'s versioned script with SRI. A CI step now searches the build output for key patterns before each deploy.',
+    mistakes: [
+      'Thinking minification or obfuscation hides a key in the bundle',
+      'Loading third-party scripts from a CDN without SRI or an owner who answers for them',
+      'Accepting `postMessage` events without comparing `event.origin` exactly',
+    ],
+    followUps: [
+      {
+        question: 'How would you audit a codebase for exposed secrets?',
+        answer: 'Scan the whole git history, not only the current tree, with gitleaks or TruffleHog, then build the app and search the output bundle for key patterns. List every `NEXT_PUBLIC_` and `VITE_` variable and ask whether it may be public. Anything found is rotated first, then moved to server code.',
+        fromLists: ['frontend-100#76.1'],
+      },
+      {
+        question: 'What is Subresource Integrity, and when should you use it?',
+        answer: 'The `integrity` attribute holds a hash of the expected file, and the browser refuses a file that does not match. Use it for versioned third-party files that never change; a cross-origin script also needs `crossorigin` and CORS from the CDN. A tag manager that changes cannot carry a fixed hash.',
+        fromLists: ['frontend-100#76.2'],
+      },
+      {
+        question: 'What is clickjacking, and how do you stop it?',
+        answer: 'Another site loads your page in an invisible iframe over a bait button, so the user clicks your Refund button unknowingly. The page refuses to be framed with `Content-Security-Policy: frame-ancestors \'self\'`, plus `X-Frame-Options` for older browsers.',
+      },
+    ],
+    traps: [
+      {
+        statement: 'Subresource Integrity can protect a third-party script whose content changes on every request.',
+        isTrue: false,
+        why: 'SRI compares a fixed hash, so it only fits versioned files that never change.',
+      },
+      {
+        statement: 'A cross-origin script with an `integrity` attribute also needs the `crossorigin` attribute to run.',
+        isTrue: true,
+        why: 'Without a CORS request the browser cannot enforce the hash, so it blocks the script.',
+      },
+      {
+        statement: 'A third-party analytics script cannot read what the user types in your checkout form.',
+        isTrue: false,
+        why: 'Any script on the page runs with the page\'s full power, form fields included.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Everything shipped to the browser is public. `NEXT_PUBLIC_` (Next.js) and `VITE_` (Vite) variables are written into the bundle at build time, so secrets and privileged calls stay in server code.',
+        'A third-party script runs with your page\'s full power: it reads the DOM and calls your API as the user. Keep the list short and owned, self-host what you can, and let a strict CSP block the rest.',
+        'Subresource Integrity (SRI): the `integrity` attribute holds a hash of the expected file, and the browser refuses a changed file. A cross-origin script also needs `crossorigin` and CORS from the CDN.',
+        'Clickjacking frames your page invisibly under a bait button: stop it with `frame-ancestors` in the CSP. With `postMessage`, compare `event.origin` exactly and validate the data.',
+        'Also send security headers (HSTS, `X-Content-Type-Options: nosniff`), keep tokens out of JavaScript with a BFF, and treat npm dependencies as third-party code: lockfile, audits, delayed updates.',
+      ],
+      code: `<!-- Pinned: the browser refuses any other content at this URL -->
+<script
+  src="https://cdn.reviews-widget.example/v3.2.1/widget.js"
+  integrity="sha384-…hash of exactly this file…"
+  crossorigin="anonymous"></script>`,
+      codeLang: 'html',
+    },
+    mcqSections: ['m27#secrets', 'm27#third-party', 'm27#framing'],
+    fromLists: ['frontend-100#76'],
+  },
+  {
+    id: 'sec-broken-access-control',
+    unit: 'security',
+    topic: 'Broken access control',
+    level: 'mid',
+    paths: ['backend', 'fullstack'],
+    question: 'What is broken access control, and how do you test for it?',
+    answer:
+      'Broken access control is a user doing something they should not: reading another customer\'s order by changing an id, or a customer calling an admin route the UI hides. It is A01 in the OWASP Top 10. I prevent it with deny by default and a check on every request, on the server: ownership in the query, like `WHERE id = $1 AND customer_id = $2`, and roles from the verified session, never from the request. I test it with two customers and a non-admin per route: B asks for A\'s order and must get 404, and a customer calling the refund route must get 403, in CI.',
+    keyPoints: [
+      'Users acting outside their rights: others\' data or admin actions',
+      'Deny by default; check on the server on every request',
+      'Ownership in the query; role from the verified session',
+      'Test each route with two users and a non-admin, in CI',
+    ],
+    explanation:
+      'It is the most common serious web flaw, and scanners rarely find it because they do not know who owns what. Interviewers listen for a structural fix that a forgotten check cannot defeat, and for a repeatable test rather than a one-off pentest.',
+    example:
+      'An audit found that `GET /orders/:id` returned any order to any logged-in customer, and that `POST /admin/orders/:id/refund` relied on the back office hiding the button. The team made `findOrderForCaller` the only way to load an order, added a role guard on the admin router, and generated tests that call every route as a second customer; both holes now fail the build.',
+    mistakes: [
+      'Hiding a button or a route in the UI and calling it authorisation',
+      'Relying on random UUIDs, which leak through URLs, e-mails and logs',
+      'Taking the user id or role from the request body instead of the verified session',
+    ],
+    followUps: [
+      {
+        question: 'How would you systematically test an API for IDOR?',
+        answer: 'List every route that takes an id from the OpenAPI spec. For each, create the object as customer A, then read, update and delete it as customer B, expecting 404 like a missing id. Generate the tests from the spec so a new route is covered by default, and run them in CI.',
+        fromLists: ['backend-100#65.1'],
+      },
+      {
+        question: 'How would you design a consistent authorisation pattern so that no endpoint misses it?',
+        answer: 'Deny by default: a router-level guard rejects any route that does not declare its policy, so forgetting fails closed. Ownership lives in repository functions that take the caller, so no unscoped query is on offer. Policies sit in one module, and a test lists every route and checks it has one.',
+        fromLists: ['backend-100#65.2'],
+      },
+      {
+        question: 'What is the difference between horizontal and vertical privilege escalation?',
+        answer: 'Horizontal: reaching another user\'s resources at the same level, like customer B reading A\'s order. Vertical: gaining a higher role\'s powers, like a customer calling the refund route. The first needs ownership checks, the second role checks.',
+        fromLists: ['backend-100#65.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'Random UUIDs instead of sequential ids prevent insecure direct object references.',
+        isTrue: false,
+        why: 'Ids leak through URLs, e-mails and logs; only a check on every access prevents it.',
+      },
+      {
+        statement: 'Answering 404 rather than 403 for another customer\'s order avoids confirming that the order exists.',
+        isTrue: true,
+        why: 'A 403 tells an attacker the id is real, which helps them walk through ids.',
+      },
+      {
+        statement: 'A customer calling an admin route is horizontal privilege escalation.',
+        isTrue: false,
+        why: 'Gaining a higher role\'s powers is vertical; horizontal is reaching a peer\'s data.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Broken access control: a user acts outside their permissions, reading or changing someone else\'s data or using a higher role\'s functions. It is A01 in the OWASP Top 10 (2025).',
+        'Horizontal escalation reaches a peer\'s data, such as customer B reading A\'s order: an insecure direct object reference (IDOR). Vertical escalation gains a higher role, such as a customer issuing refunds.',
+        'Deny by default and check every request on the server. Put ownership in the query, with the caller\'s id from the verified session, so a forgotten check returns nothing. A hidden button is not a check.',
+        'Answer 404 for another user\'s object, as for a missing id, so the response does not confirm it exists. Random UUIDs do not help: ids leak through URLs, e-mails and logs.',
+        'Scanners rarely find it. Test every id route with two users and every admin route as a non-admin, and run these tests in CI.',
+      ],
+      code: `/** The only way to load an order: scoped to the caller. */
+export async function findOrderForCaller(db: Pool, caller: Caller, orderId: string) {
+  const result = await db.query(
+    'SELECT id, status, total_cents FROM orders WHERE id = $1 AND customer_id = $2',
+    [orderId, caller.customerId], // customerId comes from the verified session
+  );
+  return result.rows[0]; // undefined for "not yours" and "missing": both give 404
+}`,
+      codeLang: 'ts',
+    },
+    mcqSections: ['m12#bola', 'm12#authz'],
+    fromLists: ['backend-100#65'],
+  },
+  {
+    id: 'sec-passwords',
+    unit: 'security',
+    topic: 'Password storage',
+    level: 'mid',
+    paths: ['backend', 'fullstack'],
+    question: 'How would you implement secure password storage?',
+    answer:
+      'I never store passwords, only a slow, salted hash from a password hashing function: Argon2id first, as OWASP recommends, scrypt when it is not available, bcrypt only on legacy systems. Fast hashes like SHA-256 are wrong, because a GPU tries billions of guesses per second. Each password gets its own random salt, so equal passwords hash differently and must be cracked one by one. The algorithm, parameters and salt sit in the stored string, so I can raise the cost and rehash at the next login. Around it, I cap password length, rate-limit login and give unknown e-mails the same answer and timing.',
+    keyPoints: [
+      'A slow, salted password hash: Argon2id first, never SHA-256',
+      'A random salt per password, stored in the hash string',
+      'Parameters in the string, so the cost can rise at next login',
+      'Rate-limit login; same answer and timing for unknown e-mails',
+    ],
+    explanation:
+      'It checks whether you know why general-purpose hashes are wrong and what a salt really does. A senior answer names the OWASP ordering, plans for the day the table leaks, and covers the login endpoint around the hash: rate limits, account enumeration and credential stuffing.',
+    example:
+      'An audit found the shop\'s `customers` table hashed with plain SHA-256. The team switched to Argon2id at the OWASP setting through a native library, and rehashed each customer at their next successful login, after checking the old hash. A month later, the accounts still on SHA-256 had their passwords reset by e-mail.',
+    mistakes: [
+      'Using SHA-256 or MD5, even salted: they are built to be fast',
+      'Encrypting passwords, which leak together with the key',
+      'Answering unknown e-mails instantly, which tells attackers who has an account',
+    ],
+    followUps: [
+      {
+        question: 'Why is a deliberately slow hash a security feature?',
+        answer: 'An attacker with a leaked table tries guesses offline, as fast as their hardware allows. A function that costs tens of milliseconds and megabytes of memory per guess cuts their guesses per second by orders of magnitude, while one login barely notices it.',
+        fromLists: ['backend-100#66.1'],
+      },
+      {
+        question: 'What is a salt, and why does bcrypt handle it automatically?',
+        answer: 'A salt is a random value per password, so two customers with the same password get different hashes and precomputed tables are useless. bcrypt generates it and writes it into its output string, after the `$2b$` version and the cost, so verifying reads it back. Argon2id libraries do the same.',
+        fromLists: ['backend-100#66.2'],
+      },
+      {
+        question: 'How would you handle a suspected credential-stuffing attack on login?',
+        answer: 'Credential stuffing replays leaked e-mail and password pairs. I rate-limit login per account and per IP in a shared store, challenge risky logins with a CAPTCHA or a second factor, and alert on the failure rate. MFA is the strongest defence per OWASP. Then I reset the accounts that were hit.',
+        fromLists: ['backend-100#66.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'Adding a salt is what makes each password guess slow to compute.',
+        isTrue: false,
+        why: 'The salt makes equal passwords hash differently; the slowness comes from the cost parameters.',
+      },
+      {
+        statement: 'A bcrypt hash string contains its own salt.',
+        isTrue: true,
+        why: 'The output holds the version, the cost, the salt and the hash, so `verify` needs nothing else.',
+      },
+      {
+        statement: 'SHA-256 is a good password hash because it is a secure cryptographic hash.',
+        isTrue: false,
+        why: 'It is secure but fast, so offline guessing is cheap; password hashing must be slow.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Never store passwords, only a password hash. A password hashing function is deliberately slow and memory-hungry, so each guess costs an attacker real time. SHA-256 is built to be fast: the wrong tool.',
+        'OWASP ranks them: Argon2id first, scrypt when it is missing (it is built into `node:crypto`), bcrypt for legacy systems, PBKDF2 when FIPS-140 compliance is required.',
+        'A salt is a random value per password, so equal passwords get different hashes and must be attacked one by one. Libraries generate it and store it in the hash string with the parameters.',
+        'Because the parameters travel in the string, you can raise the cost later: after a successful login, rehash when the stored parameters are weaker than today\'s.',
+        'Protect the login around it: cap password length, rate-limit per account and per IP, give unknown e-mails the same answer and timing, and check new passwords against breached lists.',
+      ],
+      code: `import { hash, verify } from '@node-rs/argon2';
+
+// OWASP minimum for Argon2id: 19 MiB of memory, 2 passes, 1 lane.
+const OPTIONS = { memoryCost: 19_456, timeCost: 2, parallelism: 1 } as const;
+
+// One string holds algorithm, parameters, salt and hash:
+// $argon2id$v=19$m=19456,t=2,p=1$<salt>$<hash>
+const stored = await hash(password, OPTIONS);
+const ok = await verify(stored, attempt); // reads salt and parameters from stored`,
+      codeLang: 'ts',
+    },
+    mcqSections: ['m12#passwords', 'm12#abuse'],
+    fromLists: ['backend-100#66'],
+  },
+  {
+    id: 'sec-jwt',
+    unit: 'security',
+    topic: 'JWT authentication',
+    level: 'senior',
+    paths: ['backend', 'fullstack'],
+    question: 'How would you design JWT authentication, and what are its pitfalls?',
+    answer:
+      'A JWT is signed, not encrypted: anyone can read its claims, and whoever holds it can use it until `exp`. So I keep access tokens short-lived, a few minutes, with a refresh token that rotates on every use. The verifier pins the algorithm, the issuer and the audience and requires `exp`; I prefer asymmetric keys published as a JWKS, with a `kid` for rotation. The pitfalls: trusting the token\'s own `alg`, long-lived tokens nobody can revoke, personal data in the payload, and tokens in `localStorage`. For a first-party web app, a BFF with an `HttpOnly` session cookie is often simpler.',
+    keyPoints: [
+      'Signed, not encrypted: readable, usable until `exp`',
+      'Short access token plus a rotating refresh token',
+      'Pin algorithm, issuer and audience; require `exp`',
+      'Revocation is the weak spot; never in `localStorage`',
+    ],
+    explanation:
+      'Interviewers probe whether you see JWTs as a trade-off rather than a default. Seniors explain why stateless tokens are hard to revoke, how to verify one properly, and when a server session or a BFF is the better design.',
+    example:
+      'The audit of the Orders API found that it checked the JWT signature and nothing else, so a valid token minted for another API was accepted. The team pinned `ES256`, the issuer and the `orders-api` audience in `jwtVerify`, required `exp`, and cut access tokens to 5 minutes with rotating refresh tokens. Tests with hostile tokens now run in CI.',
+    mistakes: [
+      'Letting the token\'s `alg` header choose the verification algorithm',
+      'Issuing access tokens valid for days, with no way to revoke them',
+      'Putting personal data in the payload, believing it is encrypted',
+    ],
+    followUps: [
+      {
+        question: 'How would you implement "log out everywhere" with JWTs?',
+        answer: 'Revoke every refresh token of the user in the store, so no new access token can be issued, and let the short access tokens expire within minutes. If that delay is too long, keep a per-user "valid after" timestamp and reject older tokens, at the cost of one lookup per request.',
+        fromLists: ['backend-100#68.1'],
+      },
+      {
+        question: 'What is a refresh token for, and why is it safer?',
+        answer: 'It gets a new short-lived access token without a new login. The access token, sent on every call, expires fast; the refresh token goes only to the token endpoint and can be revoked. With rotation, a reused old refresh token reveals a theft and revokes the whole family.',
+        fromLists: ['backend-100#68.2'],
+      },
+      {
+        question: 'Where should a JWT be stored on the client, and why does it matter?',
+        answer: 'Not in `localStorage`: any XSS reads it and replays it from anywhere. For a web app, a BFF keeps tokens on the server and gives the browser an `HttpOnly`, `Secure`, `SameSite` cookie. If a single-page app must hold one, keep the access token in memory only, short-lived.',
+        fromLists: ['backend-100#68.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'Anyone holding a JWT can read its payload without the signing key.',
+        isTrue: true,
+        why: 'The payload is only base64url-encoded; the signature protects integrity, not confidentiality.',
+      },
+      {
+        statement: 'Deleting the JWT in the browser at logout makes it invalid on the server.',
+        isTrue: false,
+        why: 'Any copy stays valid until `exp`; revoke the refresh token and keep access tokens short.',
+      },
+    ],
+    lesson: {
+      points: [
+        'A JWT (JSON Web Token) is `header.payload.signature` in base64url. The payload holds claims: `sub` (the user), `iss` (issuer), `aud` (the intended API), `exp` (expiry). It is signed, not encrypted: anyone can read it.',
+        'A bearer token works for whoever holds it until `exp`, and revoking it needs a lookup. So access tokens live minutes, and a refresh token, rotated on each use, obtains new ones.',
+        'The verifier decides, not the token: pin the algorithm, issuer and audience, and require `exp`. Prefer asymmetric keys (ES256, RS256) published as a JWKS, each with a `kid` for rotation.',
+        'Never keep tokens in `localStorage`, where any XSS reads them. A web app is safer with a BFF: tokens stay on the server, and the browser gets an `HttpOnly` session cookie.',
+        'For one first-party web app, a server session is simpler and revokes instantly. JWTs suit mobile apps, third parties and many services behind one identity provider.',
+      ],
+      code: `import { createRemoteJWKSet, jwtVerify } from 'jose';
+
+const jwks = createRemoteJWKSet(new URL('https://id.example.com/realms/shop/protocol/openid-connect/certs'));
+const { payload } = await jwtVerify(token, jwks, {
+  algorithms: ['ES256'],          // never let the token's "alg" choose
+  issuer: 'https://id.example.com/realms/shop',
+  audience: 'orders-api',         // a token for another API is refused
+  requiredClaims: ['exp', 'sub'], // a token without expiry is refused
+});`,
+      codeLang: 'ts',
+    },
+    mcqSections: ['m12#tokens'],
+    fromLists: ['backend-100#68'],
   },
 ];

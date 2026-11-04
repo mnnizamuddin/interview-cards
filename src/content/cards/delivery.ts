@@ -2,9 +2,9 @@ import type { Card } from '../types.ts';
 
 /**
  * Unit "Testing, DevOps and delivery". Examples follow the track's running example: the Orders API,
- * the storefront and the back office. Lessons are in track modules M14 and M35 (testing), M15
- * (observability and rollouts), M17 (Docker, CI/CD, Terraform), M22 (review and debugging rounds)
- * and M26 (web performance).
+ * the storefront and the back office. Lessons are in track modules M14 and M35 (testing), M28
+ * (accessibility testing), M15 (observability, probes, shutdown and rollouts), M16 (estimates),
+ * M17 (Docker, CI/CD, Terraform), M22 (review and debugging rounds) and M26 (web performance).
  */
 export const deliveryCards: Card[] = [
   {
@@ -39,17 +39,37 @@ export const deliveryCards: Card[] = [
       {
         question: 'How do you keep E2E tests from becoming flaky?',
         answer: 'Keep them few and focused on critical journeys, select elements the way users do, wait for conditions instead of sleeping, and give each test its own data.',
-        fromList: 'fullstack-100#71.1',
+        fromLists: ['fullstack-100#71.1'],
       },
       {
         question: 'What is the difference between mocking and stubbing a dependency in a unit test?',
         answer: 'A stub only returns canned answers so the code can run, like a delivery client that always quotes 4.90. A mock also records its calls, and the test asserts on them, with `toHaveBeenCalledWith` for example. In Vitest, `vi.fn()` plays both roles; I prefer asserting outcomes over calls.',
-        fromList: 'fullstack-100#71.2',
+        fromLists: ['fullstack-100#71.2'],
       },
       {
         question: 'How do you decide what needs an integration test rather than unit tests alone?',
         answer: "When the bug I fear lives at a boundary a unit test would mock: SQL, a constraint, a transaction, a route's validation and error mapping, or serialization. A pure rule only needs a unit test; code that talks to PostgreSQL gets tested against a real one.",
-        fromList: 'fullstack-100#71.3',
+        fromLists: ['fullstack-100#71.3', 'backend-100#71.3'],
+      },
+      {
+        question: 'What is the testing trophy, and how does it differ from the pyramid?',
+        answer: "Mike Cohn's pyramid asks for many unit tests, fewer integration tests and very few UI tests, because higher tests are slower and costlier. Kent C. Dodds' trophy adds static analysis at the base and makes integration tests the widest layer, since for UI and glue code they give the most confidence for their cost.",
+        fromLists: ['frontend-100#77.1'],
+      },
+      {
+        question: 'How do you decide what not to test?',
+        answer: 'I skip what a test would only repeat: library and framework behaviour, what the type checker already proves, trivial markup and implementation details. I test behaviour that would cost something if it broke, weighted by risk and how often the code changes, and leave the rest to types, lint and review.',
+        fromLists: ['frontend-100#77.2'],
+      },
+      {
+        question: 'How do you handle flaky integration tests in CI?',
+        answer: 'Make them deterministic: one database per worker, data reset before each test, a frozen clock, seeded randomness, and `ORDER BY` with a tiebreaker. Reproduce with repeated or shuffled runs. Until it is fixed, a flaky test leaves the blocking pipeline with an owner and a deadline, never with blanket retries.',
+        fromLists: ['backend-100#71.1'],
+      },
+      {
+        question: 'Mocking or a real test database in an integration test?',
+        answer: 'A real database: the bugs I want to catch are in SQL, constraints, transactions and migrations, which a mock never runs. Testcontainers gives the production PostgreSQL version in CI, and PGlite gives fast local runs. Mocks belong in tests of the logic above the repository.',
+        fromLists: ['backend-100#71.2'],
       },
     ],
     traps: [
@@ -74,7 +94,7 @@ export const deliveryCards: Card[] = [
       ],
     },
     mcqSections: ['m14#strategy', 'm35#levels'],
-    fromLists: ['fullstack-100#71'],
+    fromLists: ['fullstack-100#71', 'frontend-100#77', 'backend-100#71'],
   },
   {
     id: 'ops-ci-cd',
@@ -112,17 +132,17 @@ export const deliveryCards: Card[] = [
       {
         question: 'What is the difference between continuous delivery and continuous deployment?',
         answer: 'Both keep every change that passes the pipeline releasable. Continuous delivery stops before production for a human decision, such as an approval on the environment; continuous deployment ships every passing change to production with no human step.',
-        fromList: 'fullstack-100#72.1',
+        fromLists: ['fullstack-100#72.1', 'backend-100#79.1'],
       },
       {
         question: 'How would you design a rollback strategy for a bad release found in production?',
         answer: 'Each release is an immutable image tag, so rolling back means redeploying the previous tag, with `kubectl rollout undo` for example, in a minute. Migrations stay backward compatible so the old version runs on the new schema, risky features sit behind flags, and changed data needs a roll-forward fix.',
-        fromList: 'fullstack-100#72.2',
+        fromLists: ['fullstack-100#72.2', 'backend-100#79.2'],
       },
       {
         question: 'What is a blue-green deployment, and how does it reduce deployment risk?',
         answer: 'Two full environments: blue serves traffic while green gets the new version and is tested in place. Then all traffic switches to green; if errors rise, switching back to blue takes seconds because it is still running. The database is shared, so schema changes must work with both.',
-        fromList: 'fullstack-100#72.3',
+        fromLists: ['fullstack-100#72.3', 'backend-100#79.3'],
       },
     ],
     traps: [
@@ -147,7 +167,7 @@ export const deliveryCards: Card[] = [
       ],
     },
     mcqSections: ['m17#ci', 'm17#deploy'],
-    fromLists: ['fullstack-100#72'],
+    fromLists: ['fullstack-100#72', 'backend-100#79'],
   },
   {
     id: 'ops-docker',
@@ -181,17 +201,17 @@ export const deliveryCards: Card[] = [
       {
         question: 'What is a multi-stage build?',
         answer: 'A Dockerfile with several `FROM` stages: one with the compiler and dev dependencies builds the app, and the final stage copies only the built files, so the runtime image stays small.',
-        fromList: 'fullstack-100#73.1',
+        fromLists: ['fullstack-100#73.1', 'backend-100#82.1'],
       },
       {
         question: 'What is the difference between Docker and an orchestration platform like Kubernetes?',
         answer: 'Docker builds images and runs containers on one machine. Kubernetes runs containers across a cluster: it schedules pods on nodes, restarts failed ones, scales replicas, routes traffic through Services and rolls out new versions. Docker makes the package; Kubernetes runs it in production.',
-        fromList: 'fullstack-100#73.2',
+        fromLists: ['fullstack-100#73.2', 'backend-100#82.2'],
       },
       {
         question: 'How do you manage environment-specific configuration and secrets with containers?',
         answer: 'One image runs everywhere, and each environment injects config at runtime as environment variables, from a ConfigMap in Kubernetes. Secrets come from a Secret or a secret manager, never the image; Kubernetes Secrets are stored unencrypted unless encryption at rest is on, so access is restricted.',
-        fromList: 'fullstack-100#73.3',
+        fromLists: ['fullstack-100#73.3', 'backend-100#82.3'],
       },
     ],
     traps: [
@@ -216,7 +236,7 @@ export const deliveryCards: Card[] = [
       ],
     },
     mcqSections: ['m17#dockerfile', 'm17#image'],
-    fromLists: ['fullstack-100#73'],
+    fromLists: ['fullstack-100#73', 'backend-100#82'],
   },
   {
     id: 'ops-test-async-api',
@@ -246,6 +266,7 @@ export const deliveryCards: Card[] = [
       {
         question: 'Why prefer MSW to mocking `fetch` with `vi.fn`?',
         answer: 'MSW intercepts at the network level, so the real request code runs and the test does not depend on how you call `fetch`. The same handlers also work in the browser, so front-end tests can share them.',
+        fromLists: ['frontend-100#79.1'],
       },
       {
         question: 'How do you check that a timeout works without waiting for it?',
@@ -254,17 +275,47 @@ export const deliveryCards: Card[] = [
       {
         question: 'What is the difference between mocking a dependency and using a fake implementation?',
         answer: 'A mock is programmed in each test with answers and expectations, like `vi.fn().mockResolvedValue(...)`. A fake is a small working implementation, such as an in-memory orders repository backed by a `Map`, so tests read naturally and do not break when the call order changes.',
-        fromList: 'fullstack-100#74.1',
+        fromLists: ['fullstack-100#74.1'],
       },
       {
         question: "How would you test a function's behaviour when an awaited promise rejects?",
         answer: 'I make the stub reject with `mockRejectedValueOnce(new HttpError(503))`, then assert the outcome: `await expect(getQuote(client, id)).rejects.toThrow()` if it should fail, or the fallback value if it should recover. Without the `await`, the test ends before the check runs.',
-        fromList: 'fullstack-100#74.2',
+        fromLists: ['fullstack-100#74.2'],
       },
       {
         question: 'Which tools or libraries have you used to mock HTTP requests?',
         answer: "On the Orders API I used MSW in Vitest to intercept calls to the delivery partner, with per-test handlers for 503s and timeouts, and Playwright's `page.route` in the storefront's E2E tests. Lesson learned: make unhandled requests fail, or a missing handler quietly hits the real API.",
-        fromList: 'fullstack-100#74.3',
+        fromLists: ['fullstack-100#74.3'],
+      },
+      {
+        question: 'How do you test the behaviour when the mocked call times out or fails?',
+        answer: 'For a failure, the stub rejects or the MSW handler returns a 503 or `HttpResponse.error()`, and I assert the outcome: the error type, the retry or the fallback. For a timeout, the stub never resolves, fake timers move past the deadline, and the call must reject with my timeout error.',
+        fromLists: ['backend-100#72.1'],
+      },
+      {
+        question: 'How do you verify a mock was called with the exact arguments?',
+        answer: "`expect(client.post).toHaveBeenCalledWith('/quotes', { orderId: 'ord_981' })` compares the arguments deeply. It passes if any call matches, so I add `toHaveBeenCalledTimes(1)` to pin the count. `expect.objectContaining` checks only the fields that matter.",
+        fromLists: ['backend-100#72.2'],
+      },
+      {
+        question: 'When would you test against a real sandbox instead of a mock?',
+        answer: "For the adapter itself, in a separate suite: a provider's sandbox or test mode shows the real formats, errors and webhooks that a mock only guesses. It runs nightly or before a release, not on each pull request, because it is slower and can fail for reasons outside our code.",
+        fromLists: ['backend-100#72.3'],
+      },
+      {
+        question: 'How do you test a loading state, even one that lasts only briefly?',
+        answer: 'I hold the mocked response on a promise the test controls, with `Promise.withResolvers`: click, assert the spinner or the disabled "Paying…" button, then resolve and wait for the result with `findByRole`. No timing is involved, so even a short-lived state is checked reliably.',
+        fromLists: ['frontend-100#79.2', 'react-50#40.2'],
+      },
+      {
+        question: 'Mocking at the network level with MSW, or mocking a module with `vi.mock`?',
+        answer: "MSW intercepts real requests, so the component, its data-fetching hook and the request code all run, and tests survive refactors. `vi.mock('./api')` replaces the module: quicker to write, but it skips that code and ties tests to the file layout. I keep module mocks for things like analytics.",
+        fromLists: ['react-50#40.1'],
+      },
+      {
+        question: 'How do you check that the error message shows when the mocked call fails?',
+        answer: "I override the handler in that test with `server.use(...)` to answer a 402 `card_declined`, click Pay, then `expect(await screen.findByRole('alert')).toHaveTextContent('Payment failed')`, and check that the Pay button is enabled again so the customer can retry.",
+        fromLists: ['react-50#40.3'],
       },
     ],
     traps: [
@@ -298,7 +349,7 @@ expect(client.get).toHaveBeenCalledTimes(2);`,
       codeLang: 'ts',
     },
     mcqSections: ['m14#payments', 'm14#async', 'm35#timers'],
-    fromLists: ['fullstack-100#74'],
+    fromLists: ['fullstack-100#74', 'frontend-100#79', 'backend-100#72', 'react-50#40'],
   },
   {
     id: 'ops-iac',
@@ -336,17 +387,17 @@ expect(client.get).toHaveBeenCalledTimes(2);`,
       {
         question: 'How would you manage secrets securely in an infrastructure-as-code workflow?',
         answer: 'No secret in git: Terraform reads it from a secret manager or generates it there, and `sensitive` hides it from plan output. It still lands in the state, so the state lives in an encrypted remote backend with locking and restricted access, and CI gets cloud access through OIDC, not stored keys.',
-        fromList: 'fullstack-100#75.1',
+        fromLists: ['fullstack-100#75.1', 'backend-100#81.1'],
       },
       {
         question: 'What is configuration drift, and how does infrastructure as code help prevent it?',
         answer: 'Drift is when real infrastructure no longer matches its definition, usually after a manual fix in the console. With IaC, changes go through review and apply, and a scheduled `terraform plan -detailed-exitcode` exits with 2 when reality differs, so the team codes the change or reverts it.',
-        fromList: 'fullstack-100#75.2',
+        fromLists: ['fullstack-100#75.2', 'backend-100#81.2'],
       },
       {
         question: 'Have you used Terraform or a similar tool, and what was your experience?',
         answer: "Yes: I described the shop's staging and production on AWS in Terraform modules, with state in a locked remote backend and plans shown on pull requests. One plan would have replaced the production database after an attribute change, so I learned to read every replace and to set `prevent_destroy`.",
-        fromList: 'fullstack-100#75.3',
+        fromLists: ['fullstack-100#75.3', 'backend-100#81.3'],
       },
     ],
     traps: [
@@ -375,7 +426,7 @@ terraform apply tfplan        # applies exactly that plan`,
       codeLang: 'bash',
     },
     mcqSections: ['m17#terraform', 'm17#tf-safety'],
-    fromLists: ['fullstack-100#75'],
+    fromLists: ['fullstack-100#75', 'backend-100#81'],
   },
   {
     id: 'ops-debug-production',
@@ -413,17 +464,17 @@ terraform apply tfplan        # applies exactly that plan`,
       {
         question: 'How would you add temporary diagnostic logging in production without creating risk for users?',
         answer: 'Behind a flag scoped to the affected customers or a sample of requests, at debug level with the trace id, without personal data and with a size limit. It ships through the normal pipeline with an owner and an expiry date, and I remove it once the cause is found.',
-        fromList: 'fullstack-100#76.1',
+        fromLists: ['fullstack-100#76.1'],
       },
       {
         question: 'Which monitoring or observability tools have you used to investigate a production-only issue?',
         answer: 'On the Orders API: OpenTelemetry traces in Grafana Tempo, logs in Loki filtered by trace id, Prometheus metrics by version, and Sentry with source maps for the storefront. Traces showed every failing checkout came from old imported addresses; I learned to tag every signal with the release.',
-        fromList: 'fullstack-100#76.2',
+        fromLists: ['fullstack-100#76.2'],
       },
       {
         question: 'How would you write a reliable regression test once you have found the root cause?',
         answer: 'I reproduce the failing input, like the address with a `null` postcode, at the lowest level that still exercises the cause, and watch the test fail before the fix. It uses fixed data and a frozen clock, never a production copy, and passes after the fix for the right reason.',
-        fromList: 'fullstack-100#76.3',
+        fromLists: ['fullstack-100#76.3'],
       },
     ],
     traps: [
@@ -486,17 +537,27 @@ terraform apply tfplan        # applies exactly that plan`,
       {
         question: 'How would you design a feature flag system for gradual percentage rollouts?',
         answer: 'Each flag has targeting rules and a percentage; the SDK hashes the flag key with a targeting key such as the customer id into a bucket from 0 to 99, and enables the flag when the bucket is below the percentage. Services cache the rules, refresh them by polling or streaming, and fall back to a safe default.',
-        fromList: 'fullstack-100#77.1',
+        fromLists: ['fullstack-100#77.1'],
       },
       {
         question: 'How do you make sure flags are cleaned up once a feature is fully launched?',
         answer: 'Every flag gets an owner and an expiry date when it is created, with the removal ticket opened at the same time. The flag tool or a CI check lists flags that are stale or have served one value for weeks, and removal deletes the dead code path and its tests too.',
-        fromList: 'fullstack-100#77.2',
+        fromLists: ['fullstack-100#77.2', 'backend-100#52.3'],
       },
       {
         question: 'What testing issues arise from several flag states being active at the same time?',
         answer: "Flags combine: ten booleans give 1,024 states, too many to test. I test each flag's on and off paths, plus the combination running in production and the next one planned, set flag values explicitly in tests with an in-memory provider, and keep flags few and short-lived.",
-        fromList: 'fullstack-100#77.3',
+        fromLists: ['fullstack-100#77.3'],
+      },
+      {
+        question: "How do you keep each instance's flag cache fresh?",
+        answer: 'Each instance evaluates flags locally from rules held in memory, so an evaluation needs no network call. It refreshes them by streaming changes from the flag service, with polling every few seconds as a fallback, and keeps the last known rules when the service is unreachable.',
+        fromLists: ['backend-100#52.1'],
+      },
+      {
+        question: 'How would you disable a flag fleet-wide instantly during an incident?',
+        answer: 'A kill switch is a flag too: one change in the flag service, streamed to every instance within seconds, with no deploy. With polling only, the interval bounds how fast it applies. The switch is named in the runbook, its changes are audited, and it is exercised in drills before the day it is needed.',
+        fromLists: ['backend-100#52.2'],
       },
     ],
     traps: [
@@ -529,7 +590,7 @@ const useNewFlow = await flags.getBooleanValue(
       codeLang: 'ts',
     },
     mcqSections: ['m15#deploys'],
-    fromLists: ['fullstack-100#77'],
+    fromLists: ['fullstack-100#77', 'backend-100#52'],
   },
   {
     id: 'ops-blue-green-canary',
@@ -567,17 +628,17 @@ const useNewFlow = await flags.getBooleanValue(
       {
         question: 'Which infrastructure and tooling does a canary deployment need?',
         answer: 'Weighted traffic splitting, from a service mesh, an ingress controller or a load balancer; metrics labelled by version, such as error rate and p95 latency; and automation that compares canary and stable, then promotes or aborts, like Argo Rollouts or Flagger. Without per-version metrics it is guesswork.',
-        fromList: 'fullstack-100#78.1',
+        fromLists: ['fullstack-100#78.1', 'backend-100#80.1'],
       },
       {
         question: 'How do you choose the first canary percentage, and when is it safe to increase it?',
         answer: 'Small enough to limit harm but large enough to give a signal: at low traffic 1% yields too few requests, so I might start at 5%. I increase only after a set time with enough requests, when error rate and latency match the stable version, ideally checked automatically at each step.',
-        fromList: 'fullstack-100#78.2',
+        fromLists: ['fullstack-100#78.2', 'backend-100#80.2'],
       },
       {
         question: 'How do the costs of a full blue-green setup compare with a canary approach?',
         answer: 'Blue-green doubles capacity during each release, and more if the idle stack stays up. A canary adds only a few pods but costs in tooling: weighted routing, metrics per version and automated analysis. Both need backward-compatible schema changes, the cost teams forget.',
-        fromList: 'fullstack-100#78.3',
+        fromLists: ['fullstack-100#78.3', 'backend-100#80.3'],
       },
     ],
     traps: [
@@ -602,7 +663,7 @@ const useNewFlow = await flags.getBooleanValue(
       ],
     },
     mcqSections: ['m15#deploys', 'm17#deploy'],
-    fromLists: ['fullstack-100#78'],
+    fromLists: ['fullstack-100#78', 'backend-100#80'],
   },
   {
     id: 'ops-code-review',
@@ -640,17 +701,22 @@ const useNewFlow = await flags.getBooleanValue(
       {
         question: 'How would you handle a disagreement with another reviewer about a design decision?',
         answer: 'I move it from the thread to a short call, list the constraints we both care about and compare the options against them, with data or a quick spike if possible. If we still disagree, the code owner or tech lead decides, we write the decision down, and I commit to it.',
-        fromList: 'fullstack-100#79.1',
+        fromLists: ['fullstack-100#79.1', 'frontend-100#94.1', 'backend-100#76.1'],
       },
       {
         question: 'How do you review an unusually large pull request effectively?',
         answer: 'First I ask whether it can be split, for example migration, then API, then UI. If not, I read the description, review commit by commit, start with the risky parts such as data, security and error handling, run the branch locally, and walk through the hardest part with the author on a call.',
-        fromList: 'fullstack-100#79.2',
+        fromLists: ['fullstack-100#79.2', 'backend-100#76.2'],
       },
       {
         question: "What would you do if you saw the same kind of issue again and again in one teammate's pull requests?",
         answer: 'I talk to them privately instead of repeating comments, framed as help: I show the pattern with two examples and offer to pair on it. If others could hit it too, I fix the system with a lint rule, a test helper or a checklist item, so review is not the only safety net.',
-        fromList: 'fullstack-100#79.3',
+        fromLists: ['fullstack-100#79.3', 'backend-100#76.3'],
+      },
+      {
+        question: 'What would you automate away from manual review?',
+        answer: 'Everything a tool can decide: formatting, lint rules, type errors, tests, dependency and secret scans, accessibility lint and, on the front end, bundle-size budgets. CI blocks the merge on them, so reviewers spend their attention on design, data integrity and failure handling.',
+        fromLists: ['frontend-100#94.2'],
       },
     ],
     traps: [
@@ -675,7 +741,7 @@ const useNewFlow = await flags.getBooleanValue(
       ],
     },
     mcqSections: ['m22#code-review'],
-    fromLists: ['fullstack-100#79'],
+    fromLists: ['fullstack-100#79', 'frontend-100#94', 'backend-100#76'],
   },
   {
     id: 'ops-full-stack-performance',
@@ -713,17 +779,17 @@ const useNewFlow = await flags.getBooleanValue(
       {
         question: 'What are the Core Web Vitals, and how would you measure and improve them in a real application?',
         answer: 'LCP for loading, INP for responsiveness and CLS for visual stability. I measure them from real users with the `web-vitals` library or CrUX, at p75, and use Lighthouse to debug. To improve them: load the LCP image early, break up long tasks, and reserve space for images and embeds.',
-        fromList: 'fullstack-100#80.1',
+        fromLists: ['fullstack-100#80.1'],
       },
       {
         question: 'How would you tell whether a slow page load comes from the frontend, the network or the backend?',
         answer: 'I split the load timeline from DevTools or real-user Navigation Timing. Long DNS or connection times point to the network or a missing CDN; a high time to first byte points to the server, and its traces show where; a fast first byte with a late LCP points to front-end code, images or scripts.',
-        fromList: 'fullstack-100#80.2',
+        fromLists: ['fullstack-100#80.2'],
       },
       {
         question: 'Which tools have you used to profile performance on the frontend and the backend?',
         answer: 'On the storefront: the Chrome DevTools Performance panel for long tasks, Lighthouse in CI and `web-vitals` field data. On the Orders API: OpenTelemetry traces, `EXPLAIN ANALYZE` and `node --cpu-prof` for a hot endpoint. Lesson: field data and traces first, profilers once I know where to look.',
-        fromList: 'fullstack-100#80.3',
+        fromLists: ['fullstack-100#80.3'],
       },
     ],
     traps: [
@@ -759,5 +825,920 @@ const [stock, reviews] = await Promise.all([
     },
     mcqSections: ['m26#vitals', 'm26#senior'],
     fromLists: ['fullstack-100#80'],
+  },
+  {
+    id: 'test-snapshots',
+    unit: 'delivery',
+    topic: 'Snapshot testing',
+    level: 'mid',
+    paths: ['frontend', 'react', 'fullstack'],
+    question: 'What is snapshot testing, and what are its pros and cons?',
+    answer:
+      'A snapshot test serialises an output, such as rendered markup or a generated payload, into a file on the first run, and later runs fail when the output differs. It is cheap to write and catches any unexpected change. But it records today\'s output, right or wrong, only for the states the test reaches, and a large DOM snapshot fails on harmless refactors, so people update it with `-u` without reading the diff. I keep small inline snapshots for values that are the specification, like an error message or a CSV header, and test components by asserting their behaviour by role.',
+    keyPoints: [
+      'Serialises an output to a file; later runs compare with it',
+      'Records today\'s output, right or wrong',
+      'Large DOM snapshots fail on refactors and get blindly updated',
+      'Keep small inline snapshots; assert behaviour for components',
+    ],
+    explanation:
+      'Interviewers want to know whether you see a snapshot as a real test or as a change detector. Seniors say most DOM snapshots should go, explain why updating them becomes a reflex, and name what replaces them: role-based assertions, inline snapshots and Playwright aria snapshots.',
+    example:
+      'The back office had DOM snapshots of every orders table cell, and a design-system class rename turned 140 of them red in one pull request. The author ran `vitest -u`, and a broken refund button shipped inside the same update. The team deleted the DOM snapshots, wrote role-based tests for the refund flow, and kept one inline snapshot of the CSV export\'s header row, which the finance team depends on.',
+    mistakes: [
+      'Running `vitest -u` to turn a red build green without reading the diff',
+      'Snapshotting a whole page, so the test fails on any markup change and catches nothing specific',
+      'Treating a passing snapshot as proof that the output is correct',
+    ],
+    followUps: [
+      {
+        question: 'When would you avoid a snapshot and write explicit assertions instead?',
+        answer: 'Whenever I can name the behaviour: the Pay button disabled while paying, an error shown after a 402, a total of 24,97 €. An explicit assertion fails only for that reason and says what broke. I also avoid snapshots of large or unstable output, such as whole pages, dates or generated ids.',
+        fromLists: ['frontend-100#78.1'],
+      },
+      {
+        question: 'How do you keep snapshot tests useful over time?',
+        answer: 'Keep them few, small and inline where reviewers see them, with stable data: a frozen clock and fixed ids. Review snapshot diffs like code, never update them in bulk, and delete obsolete ones. With `CI` set, Vitest fails on a missing snapshot instead of writing it, so new ones are written and reviewed locally.',
+        fromLists: ['frontend-100#78.2'],
+      },
+      {
+        question: 'What is an aria snapshot?',
+        answer: "A Playwright assertion, `toMatchAriaSnapshot`, that compares the page's accessibility tree, its roles, names and states, with a template. It ignores classes and layout, so it checks the structure assistive technology users notice without failing on a CSS refactor.",
+      },
+    ],
+    traps: [
+      {
+        statement: 'A passing snapshot test proves the rendered output is correct.',
+        isTrue: false,
+        why: 'It only proves the output matches what was recorded, which may already have been wrong.',
+      },
+      {
+        statement: '`toMatchInlineSnapshot()` stores the recorded value inside the test file itself.',
+        isTrue: true,
+        why: 'On the first run Vitest writes the serialised value as the argument of the call, where reviewers see it.',
+      },
+      {
+        statement: 'With the `CI` environment variable set, Vitest writes a missing snapshot and passes.',
+        isTrue: false,
+        why: 'In CI it does not write new snapshots: the test fails, so snapshots are created and reviewed locally.',
+      },
+    ],
+    lesson: {
+      points: [
+        'A snapshot test serialises an output, such as rendered HTML or a generated payload, into a file on the first run. Later runs compare with that file and fail on any difference.',
+        'It records what the code produces today, right or wrong, and only for the states the test reaches. A passing snapshot proves "unchanged", not "correct".',
+        'Large DOM snapshots fail on harmless changes such as a renamed CSS class, so teams learn to update them with `vitest -u` without reading. Then they catch nothing.',
+        'Keep small snapshots for values that are the specification, like an error message or a CSV header, and prefer `toMatchInlineSnapshot()`, which writes the value into the test file.',
+        'For components, assert behaviour by role instead. Playwright\'s `toMatchAriaSnapshot` compares the accessibility tree, ignoring classes and layout.',
+      ],
+      code: `it('keeps the CSV export header stable', () => {
+  expect(csvHeader()).toMatchInlineSnapshot(
+    \`"order_id;status;total_cents"\`,
+  );
+});`,
+      codeLang: 'ts',
+    },
+    mcqSections: ['m35#snapshots'],
+    fromLists: ['frontend-100#78'],
+  },
+  {
+    id: 'test-tdd',
+    unit: 'delivery',
+    topic: 'Test-driven development',
+    level: 'mid',
+    paths: ['frontend', 'react', 'fullstack', 'backend'],
+    question: 'What is test-driven development, and have you used it in front-end work?',
+    answer:
+      'TDD means writing a failing test first, then the smallest code that makes it pass, then refactoring with the test still green: red, green, refactor, in short cycles. It makes me design the interface from the caller\'s side and leaves a test for every behaviour. In front-end work I use it where the behaviour is clear before the UI is: pure logic such as cart totals and validation, reducers, custom hooks, and every bug fix, which starts with a test that reproduces the bug. For layout and exploratory UI, I prototype first, then add tests of the behaviour before merging.',
+    keyPoints: [
+      'Red, green, refactor, in short cycles',
+      'Designs the interface from the caller\'s side',
+      'Front end: logic, validation, hooks and bug fixes first',
+      'Prototype exploratory UI, then test its behaviour',
+    ],
+    explanation:
+      'Interviewers check whether you know the cycle and apply it with judgement rather than dogma. A senior answer gives concrete places where TDD paid off, such as reproducing a bug with a failing test, and says honestly where it does not fit.',
+    example:
+      'The storefront cart sometimes showed a total one cent off after a promo code. The fix started with a failing test for three items at 8,33 € with 10% off, which reproduced the bug; computing in integer cents and rounding once made it pass, and five more rounding cases written test first followed. The bug has not come back.',
+    mistakes: [
+      'Writing the tests after the code and calling it TDD',
+      'Skipping the refactor step, so the code passes but stays messy',
+      'Testing implementation details, so every refactor breaks the tests',
+    ],
+    followUps: [
+      {
+        question: 'How do you decide what to TDD and what to test afterwards?',
+        answer: 'I use TDD when I can state the expected behaviour before writing code: business rules, parsers, reducers, hooks, and every bug fix. When I am still discovering the design, like a new layout or a spike, I explore first and add behaviour tests once the shape settles, before merging.',
+        fromLists: ['frontend-100#80.1'],
+      },
+      {
+        question: 'What makes a test brittle, and how do you avoid it?',
+        answer: 'A brittle test fails when the behaviour has not changed: it checks internal state, private functions, the order of mock calls, CSS classes or exact markup. I test through the public interface, query by role and visible text, assert outcomes rather than calls, and freeze the clock and ids.',
+        fromLists: ['frontend-100#80.2'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'In TDD, the new test of each cycle is expected to fail before you write the code.',
+        isTrue: true,
+        why: 'Seeing it fail proves it can detect the missing behaviour; a test that passes at once may check nothing.',
+      },
+      {
+        statement: 'TDD means writing all the tests of a feature before writing any of its code.',
+        isTrue: false,
+        why: 'TDD works one small test at a time: one failing test, just enough code, refactor, repeat.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Test-driven development (TDD) repeats a short cycle: write one failing test (red), write the smallest code that passes it (green), then clean the code with the test still passing (refactor).',
+        'Seeing the test fail first proves it can detect the missing behaviour. A test written after the code may pass for the wrong reason and check nothing.',
+        'Writing the test first makes you design the interface from the caller\'s side, which usually gives small functions with clear inputs and outputs.',
+        'In front-end work it fits pure logic, validation, reducers, custom hooks and bug fixes, which start with a test that reproduces the bug. Exploratory UI is often prototyped first, then tested.',
+        'Test behaviour through the public interface, by role and visible text, never internal state or CSS classes, or every refactor breaks the tests.',
+      ],
+      code: `// red: written before cartTotal knew about promo codes
+it('applies 10% off once, in cents', () => {
+  const lines = [{ priceCents: 833, quantity: 3 }];
+  expect(cartTotal(lines, { percentOff: 10 })).toBe(2249);
+});`,
+      codeLang: 'ts',
+    },
+    mcqSections: [],
+    fromLists: ['frontend-100#80'],
+  },
+  {
+    id: 'test-a11y',
+    unit: 'delivery',
+    topic: 'Testing accessibility',
+    level: 'senior',
+    paths: ['frontend', 'react', 'fullstack'],
+    question: 'How would you include accessibility in your testing strategy?',
+    answer:
+      'I layer it. As I type, `eslint-plugin-jsx-a11y` flags invalid ARIA in JSX. Component tests query by role and accessible name, so a button without a name fails the test. In CI, an axe scan with `@axe-core/playwright` runs on key pages and on their open states, like a dialog or an expanded list. Automated rules only catch what a machine can decide, roughly half of the issues, so I add keyboard tests for focus behaviour, and before a release we do manual keyboard and screen reader passes on critical journeys such as checkout.',
+    keyPoints: [
+      'Lint JSX with `eslint-plugin-jsx-a11y`',
+      'Query by role and accessible name in component tests',
+      'axe scans in CI, on key pages and their open states',
+      'Keyboard tests and manual screen reader passes',
+    ],
+    explanation:
+      'Accessibility is a legal requirement for e-commerce in the EU since June 2025, and interviewers want more than "we run Lighthouse". Seniors know what automation cannot judge, test focus and keyboard behaviour explicitly, and put manual screen reader checks into the release process.',
+    example:
+      'An axe scan of the storefront checkout was green, yet a keyboard-only pass found that the address autocomplete trapped focus and announced nothing. The team rebuilt it on the APG combobox pattern with `aria-activedescendant`, added a Playwright test that presses ArrowDown, Enter and Escape, and now scans the page with the list open too.',
+    mistakes: [
+      'Treating a green axe or Lighthouse score as proof that the page is accessible',
+      'Scanning only the initial page, never open dialogs, menus or error states',
+      'Querying by test id or CSS class, which hides missing accessible names',
+    ],
+    followUps: [
+      {
+        question: 'What do automated accessibility tools consistently miss?',
+        answer: 'Anything that needs judgement or interaction: whether alt text is meaningful, a logical focus order, focus moved into a dialog and back, keyboard traps, announcements that make sense, and reflow at 320 CSS px or 200% zoom. They also see only the states that are rendered during the scan.',
+        fromLists: ['frontend-100#81.1'],
+      },
+      {
+        question: 'How would you keyboard-test a custom dropdown?',
+        answer: 'Keyboard only: Tab reaches it with visible focus; Enter, Space or Down Arrow opens it; arrows move the highlight; Enter selects and closes; Escape closes without changing the value; Tab never gets trapped. I automate it with user-event or Playwright key presses, then check the announcements with a screen reader.',
+        fromLists: ['frontend-100#81.2'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'A page with zero axe violations conforms to WCAG 2.2 AA.',
+        isTrue: false,
+        why: 'axe catches only what a machine can decide, about half of the issues, and only in the states rendered during the scan.',
+      },
+      {
+        statement: "`getByRole('button', { name: 'Pay' })` does not find an icon-only button that has no accessible name.",
+        isTrue: true,
+        why: 'The query matches the computed accessible name, so a missing label makes the test fail.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Automate in layers: `eslint-plugin-jsx-a11y` flags invalid ARIA in JSX, component tests query by role and accessible name, and an axe scan runs on key pages in CI.',
+        'axe-core checks what a machine can decide: missing labels, contrast, invalid ARIA, duplicate ids. Its README claims about 57% of WCAG issues on average, only in rendered states.',
+        'Machines miss judgement: meaningful alt text, a logical focus order, understandable announcements, focus traps, and reflow at 320 CSS px wide or 200% zoom.',
+        'Write keyboard tests for behaviour: Tab order, arrows inside widgets, Escape closing a dialog and focus returning to its trigger. Custom widgets follow the WAI-ARIA Authoring Practices (APG).',
+        'Before release, do a keyboard-only pass and a screen reader pass on critical journeys, for example NVDA on Windows and VoiceOver with Safari on a Mac or iPhone.',
+      ],
+      code: `test('checkout has no detectable violations', async ({ page }) => {
+  await page.goto('/checkout');
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+    .analyze();
+  expect(results.violations).toEqual([]);
+});`,
+      codeLang: 'ts',
+    },
+    mcqSections: ['m28#testing', 'm28#widgets'],
+    fromLists: ['frontend-100#81'],
+  },
+  {
+    id: 'test-doubles',
+    unit: 'delivery',
+    topic: 'Test doubles: mocks, stubs and fakes',
+    level: 'mid',
+    paths: ['fullstack', 'backend', 'frontend'],
+    question: 'What is the difference between mocking and stubbing, and how do you decide what to replace and what to test with real dependencies?',
+    answer:
+      'A test double stands in for a real dependency. A stub returns canned answers so the code can run; a mock also records its calls, and the test asserts on them; a spy watches calls, often to the real code; a fake is a small working implementation, like an in-memory repository. I keep real what I own and can run fast and deterministically, such as my modules and PostgreSQL in a container. I replace what is slow, costly or out of my control: the payment provider, email, the clock. And I assert outcomes, using mocks only when the call itself is the behaviour.',
+    keyPoints: [
+      'Stub: canned answers; mock: the calls are asserted',
+      'Spy watches calls; fake is a simple working version',
+      'Keep real what you own and can run fast, like the database',
+      'Replace what is slow, costly or out of your control',
+    ],
+    explanation:
+      'Interviewers check the vocabulary and, above all, the judgement: over-mocked suites stay green while production breaks. Seniors say "do not mock what you do not own", prefer fakes and state checks for their own ports, and run SQL against a real PostgreSQL.',
+    example:
+      'The Orders API\'s checkout tests mocked the repository and asserted `toHaveBeenCalledWith` on `reserveStock`; a refactor that reserved stock twice per order kept them green, because that matcher passes when any call matches. Integration tests on a real PostgreSQL that assert the remaining stock caught it at once, and they stopped breaking on harmless refactors.',
+    mistakes: [
+      'Mocking your own modules everywhere, so tests check wiring instead of behaviour',
+      'Asserting every call made, which breaks the test on each refactor',
+      'Mocking the database, so the SQL never runs in a test',
+    ],
+    followUps: [
+      {
+        question: 'What is a spy, and how does it differ from a mock?',
+        answer: "A spy wraps a real function and records its calls while still running it by default, as `vi.spyOn(mailer, 'send')` does. A mock replaces the function entirely, and the test programs and checks it. In Vitest both record calls; the difference is whether the real code still runs.",
+        fromLists: ['frontend-100#82.1'],
+      },
+      {
+        question: 'When is a real implementation better than any test double?',
+        answer: 'When it is fast and deterministic and the bug could live in it: SQL on a real PostgreSQL, a validation or date library, my own pure modules. A double of those only tests my belief about how they behave, while the real one keeps tests valid through refactors.',
+        fromLists: ['frontend-100#82.2'],
+      },
+      {
+        question: 'Give an example where over-mocking hid a bug that surfaced in production.',
+        answer: 'On the Orders API, checkout tests mocked the repository, so a stock query using `>` instead of `>=` never ran in a test, and we refused to sell the last unit of products in production. We replaced those mocks with tests on a real PostgreSQL, and that bug now fails the build.',
+        fromLists: ['backend-100#75.1'],
+      },
+      {
+        question: 'When does a test need a real database rather than an in-memory fake?',
+        answer: 'Whenever the behaviour depends on the database: SQL, constraints, transactions, locks or migrations. A fake repository on a `Map` is fine for business rules above the repository, but the repository itself runs against PostgreSQL, with Testcontainers in CI or PGlite for fast local runs.',
+        fromLists: ['backend-100#75.2'],
+      },
+      {
+        question: 'How do you balance test speed against confidence?',
+        answer: 'I look at which tests caught real regressions and what each costs. Unit tests for the many cases of pure rules, integration tests on a real database for glue, kept fast with one database per worker, and a few E2E journeys. A suite of a few minutes that people trust beats a faster one that misses bugs.',
+        fromLists: ['backend-100#75.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: "`vi.spyOn(mailer, 'send')` stops the original `send` from running by default.",
+        isTrue: false,
+        why: 'A spy calls through to the real method unless you give it a mock implementation.',
+      },
+      {
+        statement: '`toHaveBeenCalledWith` passes when at least one of the calls matched the arguments.',
+        isTrue: true,
+        why: 'It checks any call; add `toHaveBeenCalledTimes` or `toHaveBeenNthCalledWith` to pin the count or the order.',
+      },
+    ],
+    lesson: {
+      points: [
+        'A test double is anything that stands in for a real dependency in a test. A stub returns canned answers. A mock records its calls, and the test asserts on them.',
+        "A spy records calls to a real function, by default still running it: `vi.spyOn(mailer, 'send')`. A fake is a small working version, such as an in-memory orders repository on a `Map`.",
+        'Keep real what you own and can run fast and deterministically: your modules and the database, through Testcontainers or PGlite. Replace what is slow, costly or not yours: payments, email, the clock.',
+        '"Do not mock what you do not own": wrap an outside service in your own adapter, test the adapter at the network level with MSW, and fake the adapter in every other test.',
+        'Prefer asserting outcomes, like the stored order, over calls. A mock fits where the call is the behaviour, such as publishing an `order.paid` event.',
+      ],
+      code: `const charge = vi.fn().mockResolvedValue({ id: 'ch_1' }); // stub
+const send = vi.spyOn(mailer, 'send');                      // spy
+const orders = new InMemoryOrders();                        // fake
+await checkout({ charge, orders, mailer }, cart);
+expect(orders.get('ord_1')?.status).toBe('paid');           // outcome
+expect(send).toHaveBeenCalledTimes(1);`,
+      codeLang: 'ts',
+    },
+    mcqSections: ['m14#payments'],
+    fromLists: ['frontend-100#82', 'backend-100#75'],
+  },
+  {
+    id: 'test-contract',
+    unit: 'delivery',
+    topic: 'Contract testing',
+    level: 'senior',
+    paths: ['backend', 'fullstack'],
+    question: 'What is contract testing, and why is it useful with microservices?',
+    answer:
+      'A contract test checks that two services still agree on their API without deploying them together. With consumer-driven contracts in Pact, the consumer, say the Orders API, runs its real client against a Pact mock server and records the requests it sends and the response fields it reads into a pact file. The provider, the payments service, replays that file against its real code in its own pipeline. A broker stores pacts and results, and `can-i-deploy` blocks a release that would break a version already in production. It replaces slow shared staging tests and lets teams deploy independently.',
+    keyPoints: [
+      'Checks two services agree without deploying them together',
+      'Consumer records what it sends and reads; provider replays it',
+      'A broker and `can-i-deploy` gate each release',
+      'Teams release independently, without shared staging',
+    ],
+    explanation:
+      'It shows whether you have worked across team boundaries. Seniors explain why a mock alone encodes a belief nobody checks, know provider states and `can-i-deploy`, and say when an OpenAPI schema check fits better, such as a public API whose consumers are unknown.',
+    example:
+      'The payments team renamed `id` to `chargeId` in their charge response; their tests and the Orders API\'s MSW tests both stayed green, and checkout broke in production. After adopting Pact, a similar rename failed the payments service\'s provider verification, and `can-i-deploy` blocked the release until a compatible version kept both fields.',
+    mistakes: [
+      'Pinning exact values in the contract instead of shapes, so it breaks on harmless data',
+      'Using contract tests to check the provider\'s business rules instead of the API\'s shape',
+      'Publishing pacts without gating deploys on `can-i-deploy`',
+    ],
+    followUps: [
+      {
+        question: 'How does a contract test differ from an integration test in what it runs?',
+        answer: "An integration test runs my code with its real neighbour in one environment. A contract test never runs the two services together: the consumer runs against Pact's mock server, and the provider runs alone against the recorded requests, each in its own pipeline.",
+        fromLists: ['backend-100#73.1'],
+      },
+      {
+        question: 'How do you put contract tests in CI across independent teams?',
+        answer: "The consumer publishes its pact to a broker. A broker webhook triggers the provider's verification build, which publishes results. Each pipeline runs `can-i-deploy` before deploying and `record-deployment` after. Pending pacts keep a new expectation from failing the provider's build.",
+        fromLists: ['backend-100#73.2'],
+      },
+      {
+        question: "What do you do when a provider's contract test fails?",
+        answer: 'Find which interaction failed and why. If the provider broke something a consumer relies on, it reverts or makes the change backward compatible: add the new field, keep the old one until consumers move. If the consumer expects something new, the teams agree on it first, and the pact stays pending meanwhile.',
+        fromLists: ['backend-100#73.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'In consumer-driven contract testing, the provider writes the contract.',
+        isTrue: false,
+        why: "The consumer's tests generate the pact; the provider verifies it against its real code.",
+      },
+      {
+        statement: '`can-i-deploy` asks the broker whether a version is compatible with the versions already deployed in an environment.',
+        isTrue: true,
+        why: 'It checks the verification results stored in the broker, so a pipeline can stop before an incompatible release.',
+      },
+    ],
+    lesson: {
+      points: [
+        "A contract test checks that a consumer and a provider still agree on an API, without running them together. It catches a renamed field that both sides' own tests miss.",
+        'With Pact, the consumer runs its real client against a Pact mock server. The test writes a pact file listing each request and the minimal response the consumer relies on.',
+        'The provider replays the pact against its real code, after setting up each named provider state, such as "customer cus_1 has a valid card". Matchers pin shapes, not exact values.',
+        'A Pact Broker stores pacts and results. `can-i-deploy` tells a pipeline whether a version works with what is deployed in an environment; `record-deployment` records what shipped.',
+        'For a public API with unknown consumers, publish an OpenAPI document and check every change to it for breaking ones instead.',
+      ],
+      code: `pact-broker can-i-deploy --pacticipant orders-api \\
+  --version "$GIT_SHA" --to-environment production
+# then, once the deploy has succeeded
+pact-broker record-deployment --pacticipant orders-api \\
+  --version "$GIT_SHA" --environment production`,
+      codeLang: 'bash',
+    },
+    mcqSections: ['m14#contracts'],
+    fromLists: ['backend-100#73'],
+  },
+  {
+    id: 'test-load',
+    unit: 'delivery',
+    topic: 'Load testing an API',
+    level: 'senior',
+    paths: ['backend', 'fullstack'],
+    question: 'How would you load test an API before a major launch?',
+    answer:
+      'I start from a target: the expected peak requests per second per endpoint, from past traffic and the launch forecast, plus a margin. I script real user journeys with realistic data, in k6 for example, with an arrival-rate executor so the load does not drop when the API slows down. I run it against a production-like environment: ramp up, hold at the target, then push beyond to find the breaking point, with thresholds on p95 latency and error rate that fail the run. Meanwhile I watch traces, database and pool metrics to find the bottleneck, fix it, and run again.',
+    keyPoints: [
+      'Target load from real traffic and the forecast, plus margin',
+      'Realistic journeys and data; arrival-rate (open) model',
+      'Production-like environment; ramp, hold, find the limit',
+      'Thresholds on p95 and errors; fix the bottleneck, rerun',
+    ],
+    explanation:
+      'It checks that you treat a load test as an experiment with a hypothesis, not "run a tool and see". Seniors set the target from data, avoid the closed-model trap where a slow server receives less load, watch percentiles and saturation, and make the environment resemble production.',
+    example:
+      'Before Black Friday, a k6 test of the shop\'s browse and checkout journeys ran at 3 times the previous peak; after a few minutes checkout p95 jumped from 250 ms to 4 s. Traces showed requests waiting for a PostgreSQL connection: a slow stock query held connections far too long. Fixing that query brought p95 back under 400 ms at the same load.',
+    mistakes: [
+      'Hammering one endpoint with identical requests, so caches make everything look fast',
+      'Reporting only the average response time',
+      'Testing against a staging database with a few hundred rows',
+    ],
+    followUps: [
+      {
+        question: 'Which metrics beyond average response time would you watch?',
+        answer: 'Latency percentiles, p95 and p99, per endpoint; the error rate and its kinds, such as timeouts or 503s; the throughput reached against the target; and saturation: CPU, event loop lag, connection pool waits, database locks. And the load generator itself, so it is not the bottleneck.',
+        fromLists: ['backend-100#74.1'],
+      },
+      {
+        question: 'How do you tell an app bottleneck from a database bottleneck during a load test?',
+        answer: 'Traces show where slow requests spend their time: in SQL spans, waiting for a pool connection, or in Node code. Then saturation: high pod CPU or event loop lag with a quiet database points to the app; database CPU, slow queries in `pg_stat_statements`, lock waits or a full pool point to the database.',
+        fromLists: ['backend-100#74.2'],
+      },
+      {
+        question: 'How do you choose a realistic target load?',
+        answer: 'From data: the peak requests per second of past events per endpoint, the business forecast as a multiplier, and the journey mix, such as many product views per checkout. I add a margin, then test beyond it to know where the system breaks and how it fails.',
+        fromLists: ['backend-100#74.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'In a closed-model load test, a slower server receives fewer requests per second.',
+        isTrue: true,
+        why: 'Each virtual user waits for its response before its next iteration, so the arrival rate drops as latency grows.',
+      },
+      {
+        statement: 'A k6 run whose thresholds fail still exits with code 0.',
+        isTrue: false,
+        why: 'k6 exits with a non-zero code when a threshold fails, so CI can fail the build.',
+      },
+    ],
+    lesson: {
+      points: [
+        'A load test checks that a system meets its latency and error targets at a given load. Start from a target: the expected peak requests per second per endpoint, plus a margin.',
+        "A closed model, like k6's `constant-vus`, waits for each response before the next iteration, so a slow server gets less load. Arrival-rate executors start iterations on a schedule instead.",
+        'Use realistic journeys and data in a production-like environment: with a tiny database or one repeated request, caches make everything look fast.',
+        'Ramp up, hold at the target, then push past it to find the breaking point. Thresholds on p95 latency and error rate make k6 exit non-zero, so the run passes or fails.',
+        'While it runs, watch traces and saturation: CPU, event loop lag, pool waits, database locks. Fix the first bottleneck, then run again.',
+      ],
+      code: `export const options = {
+  scenarios: { checkout: {
+    executor: 'ramping-arrival-rate', startRate: 10, timeUnit: '1s',
+    preAllocatedVUs: 200,
+    stages: [{ target: 300, duration: '5m' }, { target: 300, duration: '10m' }],
+  } },
+  thresholds: { http_req_duration: ['p(95)<400'], http_req_failed: ['rate<0.01'] },
+};`,
+      codeLang: 'js',
+    },
+    mcqSections: [],
+    fromLists: ['backend-100#74'],
+  },
+  {
+    id: 'test-legacy',
+    unit: 'delivery',
+    topic: 'Adding tests to legacy code',
+    level: 'senior',
+    paths: ['backend', 'fullstack'],
+    question: 'How would you introduce tests into a legacy backend with little coverage?',
+    answer:
+      'I do not stop delivery to write tests for everything. I start where risk and change meet: code that handles money or orders and that we touch often. Before changing it, I pin its current behaviour with characterization tests, mostly at the HTTP level against a real database, since the code is rarely built for unit tests. Then every bug fix starts with a failing test, and every change adds tests around what it touches. To make more code testable, I break dependencies at seams, such as injecting the clock or the payment client. CI runs the tests on every pull request from day one.',
+    keyPoints: [
+      'Start where risk and change meet, not everywhere',
+      'Characterization tests pin the current behaviour first',
+      'Test from outside first: HTTP and a real database',
+      'Every fix and change adds tests; CI from day one',
+    ],
+    explanation:
+      'It checks pragmatism: legacy code cannot be paused for a testing project. Seniors mention characterization tests, seams to break dependencies, testing what you touch, and measuring coverage of changed code rather than a global target.',
+    example:
+      'The shop\'s first Orders API had almost no tests, and refunds broke on most releases. The team wrote 30 HTTP-level characterization tests for refunds and checkout against a real PostgreSQL, including two odd behaviours they kept on purpose, and required a test with every bug fix. Within a quarter refund incidents stopped, and the refunds module could be refactored safely.',
+    mistakes: [
+      'Proposing a rewrite or a testing freeze instead of incremental tests',
+      'Fixing odd behaviour while writing characterization tests, before checking whether clients rely on it',
+      'Setting a global coverage target, which produces tests of trivial code',
+    ],
+    followUps: [
+      {
+        question: 'What is a characterization test?',
+        answer: 'A test that records what the code does today, not what it should do: I call it with real inputs, observe the output and assert exactly that. It protects behaviour clients may rely on during a refactor; if an output looks wrong, I note it and decide separately whether to fix it.',
+        fromLists: ['backend-100#77.1'],
+      },
+      {
+        question: 'Which parts of a legacy system would you test first?',
+        answer: 'Where a bug costs most and where we change code most: payments, refunds, stock, pricing, and the files with the most commits and incidents. Git history and the incident list show both. Stable code nobody touches can wait, even if it is ugly.',
+        fromLists: ['backend-100#77.2'],
+      },
+      {
+        question: 'How would you get buy-in for incremental testing?',
+        answer: 'With numbers the business cares about: incidents and hotfixes caused by regressions, and time spent on manual checks before each release. I propose a small rule rather than a project, a test with every fix and change, and show results after a few weeks, such as fewer refund incidents.',
+        fromLists: ['backend-100#77.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'A characterization test asserts what the code should do according to the specification.',
+        isTrue: false,
+        why: 'It asserts what the code does today, to protect existing behaviour while you change it.',
+      },
+      {
+        statement: 'HTTP-level tests can cover code that was never designed for unit tests without changing that code.',
+        isTrue: true,
+        why: 'They call the public entry point and check the response and the stored data, so no internal seam is needed.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Legacy code here means code without tests, so every change is a risk. Do not pause delivery for a testing project: add tests where risk and change meet.',
+        'A characterization test records what the code does today, not what it should do: call it, observe the output, assert exactly that. It protects behaviour clients may rely on.',
+        'Code not built for tests is easiest to cover from outside: HTTP requests against a real database. Then break dependencies at seams, such as injecting the clock or the payment client.',
+        'Rules that compound: every bug fix starts with a failing test, every change adds tests around what it touches, and CI runs the suite on every pull request.',
+        'Prioritise with data: git history shows the most-changed files, incidents show the costly ones. Track coverage of changed code, not a global target.',
+      ],
+    },
+    mcqSections: [],
+    fromLists: ['backend-100#77'],
+  },
+  {
+    id: 'ops-code-quality',
+    unit: 'delivery',
+    topic: 'Code quality beyond review',
+    level: 'senior',
+    paths: ['fullstack', 'backend', 'frontend'],
+    question: 'Which coding practices are non-negotiable on your team, and how do you measure and improve code quality beyond review?',
+    answer:
+      'My non-negotiables are automated, so review can focus on design: TypeScript in strict mode, a formatter nobody argues about, lint rules that catch bugs such as floating promises, tests with every change, and small pull requests. In CI, type-check, lint, tests and a dependency audit block the merge. To measure quality I look at outcomes rather than one score: escaped bugs and incidents, change failure rate, flaky tests, time to merge, and hotspots, files that change often and break often. I improve it by turning recurring review comments into rules and paying debt in small steps alongside features.',
+    keyPoints: [
+      'Automate the basics: strict types, formatter, lint, tests',
+      'CI blocks the merge, so review focuses on design',
+      'Measure outcomes: escaped bugs, change failures, hotspots',
+      'Recurring comments become rules; debt paid in small steps',
+    ],
+    explanation:
+      'Interviewers look for standards enforced by tools rather than memory, and for a measurement mindset. Seniors distrust vanity metrics such as raw coverage and tie quality work to delivery: fewer incidents and faster changes.',
+    example:
+      'Reviews of the back office kept flagging floating promises that swallowed errors. The team enabled `@typescript-eslint/no-floating-promises` as an error, suppressed the 230 existing violations with ESLint\'s bulk suppressions, and blocked new ones in CI. The suppressions shrank to zero in two months as people fixed the code they touched, and the comment disappeared from reviews.',
+    mistakes: [
+      'Relying on reviewers to remember patterns a tool could check',
+      'Chasing a coverage percentage as the measure of quality',
+      'Turning on strict rules everywhere at once, so the build breaks and the rule gets disabled',
+    ],
+    followUps: [
+      {
+        question: 'How would you introduce stricter lint rules to a large codebase without breaking everything?',
+        answer: 'Enable the rule as an error and freeze the existing violations: ESLint\'s bulk suppressions record them in `eslint-suppressions.json` with `--suppress-rule`, and `--prune-suppressions` removes the fixed ones. Auto-fix what can be fixed first, then let the file shrink as people touch the code.',
+        fromLists: ['frontend-100#95.1'],
+      },
+      {
+        question: 'How do you handle technical debt in an ongoing project?',
+        answer: 'I make it visible: each item in the backlog with its cost, such as incidents or slower changes. I fix debt in code we are already changing, keep a steady share of each sprint for the worst items, and choose them by hotspots, code that changes and breaks often, not by ugliness.',
+        fromLists: ['frontend-100#95.2'],
+      },
+      {
+        question: 'Which automated quality tools have you used in CI?',
+        answer: 'On the Orders API: `tsc --noEmit` in strict mode, ESLint with type-aware typescript-eslint rules, Prettier in check mode, Vitest with coverage of changed code, a dependency audit with Dependabot, and an image scan. Lesson learned: every check must be fast and trusted, or people find ways around it.',
+        fromLists: ['backend-100#78.1'],
+      },
+      {
+        question: 'What do you do about a quality issue that keeps slipping through review?',
+        answer: 'Stop relying on review for it: turn it into a lint rule, a type, a test helper or a CI check, so it cannot be merged. If no tool fits, add it to the pull request template and explain it once to the team with a real example from an incident.',
+        fromLists: ['backend-100#78.2'],
+      },
+      {
+        question: 'How do you balance quality work against delivery speed?',
+        answer: 'They are linked: poor quality slows delivery through bugs and slow changes. I keep a minimal bar enforced by CI, spend extra effort where code is critical or changes often, accept shortcuts in isolated or throwaway code, and record each shortcut as debt with an owner.',
+        fromLists: ['backend-100#78.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'ESLint bulk suppressions only apply to rules configured as `"error"`.',
+        isTrue: true,
+        why: 'The feature exists to enforce error rules on new code while existing violations are fixed later; warnings are not suppressed.',
+      },
+      {
+        statement: 'High line coverage proves that the tests check the behaviour.',
+        isTrue: false,
+        why: 'Coverage counts executed lines, not assertions; mutation testing shows whether tests catch changes.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Make standards automatic: TypeScript `strict`, a formatter, lint rules that catch bugs such as floating promises, and tests with each change. CI blocks the merge when one fails.',
+        'Review is then for design, naming and risk. A comment that keeps coming back in review should become a lint rule, a type or a test helper.',
+        "To add a strict rule to a large codebase, ESLint's bulk suppressions record the existing violations in `eslint-suppressions.json`, so only new code must comply.",
+        'Measure outcomes, not one score: escaped bugs, change failure rate, flaky tests, time to merge, and hotspots, files that change often and break often.',
+        'Coverage counts executed lines, not checked behaviour. Mutation testing, with Stryker for example, changes the code and reports the changes no test caught.',
+      ],
+      code: `npx eslint --suppress-rule @typescript-eslint/no-floating-promises
+# commits eslint-suppressions.json; new violations still fail
+npx eslint --prune-suppressions   # after fixes, drop stale entries`,
+      codeLang: 'bash',
+    },
+    mcqSections: [],
+    fromLists: ['frontend-100#95', 'backend-100#78'],
+  },
+  {
+    id: 'ops-health-probes',
+    unit: 'delivery',
+    topic: 'Health checks and probes',
+    level: 'senior',
+    paths: ['backend', 'fullstack'],
+    question: 'How would you design health checks and readiness and liveness probes for a service on Kubernetes?',
+    answer:
+      'Each probe answers a different question. Liveness asks whether the process is stuck beyond repair, and a failure restarts the container, so it checks only that the process answers, never the database. Readiness asks whether the pod should get traffic now; a failure removes the pod from the Service without restarting it, so it checks what the pod needs to serve, and it fails while the pod shuts down. A startup probe gives a slow boot time before the others start. Each check has its own short timeout, and the endpoints return ok or fail, never error details.',
+    keyPoints: [
+      'Liveness: is the process stuck? Failure restarts it',
+      'Never put dependencies in the liveness probe',
+      'Readiness: take traffic now? Failure removes it from the Service',
+      'Startup probe for slow boots; short timeout per check',
+    ],
+    explanation:
+      'Wrong probes turn a short database blip into an outage, so interviewers listen for the separation of liveness and readiness. Seniors explain cascading restarts, readiness during shutdown, and how thresholds translate into seconds before Kubernetes acts.',
+    example:
+      'The Orders API ran `SELECT 1` in its liveness probe. During a 40-second PostgreSQL failover every pod failed it, Kubernetes restarted them all, and they reconnected together, so checkout was down for 10 minutes. With the database check moved to readiness, the next failover only took pods out of the Service, and they came back on their own when the database did.',
+    mistakes: [
+      'Checking the database or another service in the liveness probe',
+      'Using one `/health` endpoint for both liveness and readiness',
+      'A readiness check with no timeout, which hangs on a slow dependency',
+    ],
+    followUps: [
+      {
+        question: 'Should a readiness check verify downstream dependencies?',
+        answer: 'Only the ones the pod cannot serve without, such as its own database, cheaply and with a short timeout. Optional ones, like a recommendation service, stay out: the code degrades instead. A shared dependency failing marks every pod unready at once, so keep that list short.',
+        fromLists: ['backend-100#83.1'],
+      },
+      {
+        question: 'How do you stop a readiness check from cascading failures when a dependency blips?',
+        answer: "Act only after several consecutive failures with `failureThreshold`, give each check a short timeout, and cache the dependency's status for a few seconds instead of hitting it on every probe. Keep dependencies out of liveness so a blip never restarts pods, and never chain other services' health checks.",
+        fromLists: ['backend-100#83.2'],
+      },
+      {
+        question: 'How do you tune probe thresholds and intervals?',
+        answer: 'The time before action is about `periodSeconds` times `failureThreshold`: 10 s and 3 by default. I measure the real boot time and size a startup probe for the worst case, keep liveness lenient so it only catches real hangs, let readiness react faster, and keep `timeoutSeconds`, 1 s by default, above the check\'s p99.',
+        fromLists: ['backend-100#83.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'A failing readiness probe makes Kubernetes restart the container.',
+        isTrue: false,
+        why: 'It removes the pod from the Service endpoints; only a failing liveness probe restarts the container.',
+      },
+      {
+        statement: 'While a startup probe is configured and has not yet succeeded, liveness and readiness probes do not run.',
+        isTrue: true,
+        why: 'Kubernetes disables the other probes until the startup probe succeeds, so a slow boot is not killed by liveness.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Kubernetes calls probes, usually HTTP endpoints, at intervals. Liveness asks "is the process stuck?": on failure, the kubelet, the agent on each node, restarts the container.',
+        'Readiness asks "should traffic come here now?": on failure the pod leaves the Service endpoints but keeps running, and returns when the probe passes. It should also fail during shutdown.',
+        'A startup probe covers a slow boot: liveness and readiness wait until it succeeds. Liveness must never check the database, or a database blip restarts every pod at once.',
+        'Defaults: a probe every 10 s (`periodSeconds`), a 1 s timeout, action after 3 consecutive failures (`failureThreshold`). Each check needs its own short timeout so the probe never hangs.',
+        'Probe responses say ok or fail per check, never error text, because the endpoints are often reachable from anywhere inside the cluster.',
+      ],
+    },
+    mcqSections: ['m15#probes'],
+    fromLists: ['backend-100#83'],
+  },
+  {
+    id: 'ops-observability',
+    unit: 'delivery',
+    topic: 'Observability: logs, metrics, traces',
+    level: 'mid',
+    paths: ['backend', 'fullstack'],
+    question: 'What is observability, and how do logs, metrics and traces differ?',
+    answer:
+      'Observability means the data a system emits lets me answer new questions about it, like why only card checkouts are slow, without shipping new code. Metrics are numbers aggregated over time, such as request rate, errors and latency histograms: cheap, ideal for dashboards and alerts, they say how often and since when. Traces follow one request across services as a tree of timed spans and show where the time went. Logs are structured events with the details of what happened. I instrument once with OpenTelemetry and put the trace id on every log line, so I can go from an alert to a trace to its logs.',
+    keyPoints: [
+      'Answer new questions from emitted data, without new code',
+      'Metrics: aggregated numbers, how often; for alerts',
+      "Traces: one request's spans, where the time went",
+      'Logs: the details; a trace id links all three',
+    ],
+    explanation:
+      'Interviewers check whether you have really been on call. Seniors present one workflow held together by ids, alert then trace then logs, say what each signal costs, and avoid answering with a list of product names.',
+    example:
+      'Support reported that checkout was "sometimes slow" while the average latency looked fine. The latency histogram showed a p99 of 2.5 s at the evening peak; traces of slow checkouts all spent their time in the `payment.charge` span, and the logs of those traces showed the provider retrying. A tighter timeout and an alert on that span\'s p99 followed.',
+    mistakes: [
+      'Listing three tools instead of explaining which question each signal answers',
+      'Putting customer or order ids in metric labels',
+      'Logs without a trace id, so nothing connects them to a request',
+    ],
+    followUps: [
+      {
+        question: 'How do you alert on metrics without too many false positives?',
+        answer: 'Page on symptoms users feel, errors and latency against an SLO, not on causes like CPU. Use multi-window burn-rate alerts: a long window proves enough error budget is gone, a short one that it is still happening. Every page links to a runbook, and noisy alerts are fixed or deleted.',
+        fromLists: ['backend-100#84.1'],
+      },
+      {
+        question: 'How does distributed tracing propagate context across services?',
+        answer: 'Inside a process, the OpenTelemetry SDK keeps the active span in `AsyncLocalStorage`, so it survives every `await`. Between services, instrumentation writes the W3C `traceparent` header, with the trace id, the parent span id and a sampled flag, and reads it on the other side. Messages carry it in their headers.',
+        fromLists: ['backend-100#84.2'],
+      },
+      {
+        question: 'What is cardinality, and why does it matter for metric labels?',
+        answer: 'Cardinality is the number of distinct time series: one per combination of label values. A label holding order ids or raw URLs creates a series per value, until Prometheus runs out of memory and queries crawl. Labels take few values, like the route pattern `/orders/:id`; ids go in logs and spans.',
+        fromLists: ['backend-100#84.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'An average latency is enough to show that a few checkouts are slow.',
+        isTrue: false,
+        why: 'With 980 checkouts at 80 ms and 20 at 2.5 s, the mean is 128.4 ms; only a high percentile shows the slow ones.',
+      },
+      {
+        statement: 'The W3C `traceparent` header carries the trace id and the id of the calling span.',
+        isTrue: true,
+        why: 'Its fields are a version, the trace id, the parent span id and flags such as "sampled".',
+      },
+    ],
+    lesson: {
+      points: [
+        'Monitoring watches conditions chosen in advance. Observability means the data a system emits lets you answer new questions, such as "are only card checkouts slow?", without shipping code.',
+        'Metrics are numbers aggregated over time: counters, gauges, histograms. Their cost does not grow with traffic, so they feed dashboards and alerts. For services, track RED: rate, errors, duration.',
+        'A trace is the tree of timed steps, called spans, of one request across services. It shows where the time went, and is usually sampled because its cost grows with traffic.',
+        'Logs are structured events with details. A trace id on every log line links them to the trace, so you can go from an alert to a trace to its logs.',
+        'OpenTelemetry instruments once and exports every signal. Keep metric labels to few values, such as the route pattern: each label combination is a new time series.',
+      ],
+    },
+    mcqSections: ['m15#signals', 'm15#traces', 'm15#metrics'],
+    fromLists: ['backend-100#84'],
+  },
+  {
+    id: 'ops-graceful-shutdown',
+    unit: 'delivery',
+    topic: 'Graceful shutdown',
+    level: 'senior',
+    paths: ['backend', 'fullstack'],
+    question: 'How would you design graceful shutdown so that a deploy never drops in-flight requests?',
+    answer:
+      'On a deploy Kubernetes sends SIGTERM, waits the grace period, 30 seconds by default, then sends SIGKILL. The pod leaves the Service endpoints at about the same time, not before, so new requests can still arrive for a moment. So on SIGTERM my Node service fails readiness, waits a few seconds, stops accepting connections, lets in-flight requests finish with a deadline that closes leftover keep-alive connections, then closes the database pool, flushes telemetry and exits, all within the grace period. The container starts `node` directly, because `npm start` swallows the signal.',
+    keyPoints: [
+      'SIGTERM, grace period (30 s default), then SIGKILL',
+      'Endpoint removal is concurrent: fail readiness, then wait',
+      'Stop accepting, finish in-flight, close keep-alive leftovers',
+      'Close the pool, flush telemetry, exit within the grace period',
+    ],
+    explanation:
+      'It checks that you have seen deploys drop requests and know why. Seniors know the race between SIGTERM and endpoint removal, keep-alive connections that delay the close, the PID 1 signal problem, and that workers and consumers need the same care.',
+    example:
+      'Every deploy of the Orders API cut a few checkouts with 502s: pods exited at once on SIGTERM while the load balancer still sent them traffic. The team added a 5-second drain after failing readiness, then `server.close()` with a deadline that closes the remaining connections. Over the next 50 deploys, no request failed because of a rollout.',
+    mistakes: [
+      'Exiting immediately on SIGTERM',
+      'Starting the app with `npm start`, which does not pass SIGTERM on to Node',
+      'A shutdown longer than the grace period, so SIGKILL cuts it anyway',
+    ],
+    followUps: [
+      {
+        question: 'What happens to a request still running when the grace period ends?',
+        answer: 'The kubelet sends SIGKILL and the process dies at once: the request is cut, the client sees a reset or a 502 from the proxy, and uncommitted work is lost. So long requests need a deadline shorter than the grace period, and writes must be transactional and idempotent so a retry is safe.',
+        fromLists: ['backend-100#86.1'],
+      },
+      {
+        question: 'How does graceful shutdown interact with the readiness probe?',
+        answer: 'On SIGTERM the service makes readiness answer 503 at once, so nothing treats the pod as ready while it drains. Endpoint removal happens in parallel with SIGTERM, not before it, so the service keeps serving for a few seconds before it stops accepting connections.',
+        fromLists: ['backend-100#86.2'],
+      },
+      {
+        question: 'How would you test graceful shutdown before relying on it?',
+        answer: 'In an integration test: start the server, send a slow request, trigger the shutdown, and assert that the request completes, a new connection is refused, and the process exits before the deadline. Then in staging, roll out a deploy during a load test and check for zero errors.',
+        fromLists: ['backend-100#86.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'Kubernetes removes a pod from the Service endpoints before sending it SIGTERM.',
+        isTrue: false,
+        why: 'Both start at about the same time, so new requests can still arrive just after SIGTERM.',
+      },
+      {
+        statement: 'After `server.close()` in Node, a client can still send a request on a keep-alive connection it already had open.',
+        isTrue: true,
+        why: '`close` refuses new connections, but a connection busy at that moment stays open and can be reused, so set a deadline that closes them.',
+      },
+    ],
+    lesson: {
+      points: [
+        'On a deploy, Kubernetes runs any `preStop` hook, sends SIGTERM, waits `terminationGracePeriodSeconds` (30 s by default), then sends SIGKILL to whatever still runs.',
+        'The pod leaves the Service endpoints at about the same time as SIGTERM, not before. So fail readiness and keep serving a few seconds before you stop accepting connections.',
+        'Then `server.close()` refuses new connections and waits for in-flight requests. A keep-alive connection busy at that moment can carry another request, so a deadline closes all connections.',
+        'Last, close the database pool, flush logs and telemetry, and exit, all within the grace period. Requests that can run longer need their own deadline.',
+        "The signal must reach Node: start `node` directly in the Dockerfile's `CMD`, since `npm start` swallows SIGTERM, and handle SIGTERM in the code.",
+      ],
+      code: `process.once('SIGTERM', async () => {
+  shuttingDown = true;                 // /readyz now answers 503
+  await delay(5_000);                  // endpoints update meanwhile
+  const closed = once(server, 'close');
+  server.close();                      // refuse new, wait for in-flight
+  setTimeout(() => server.closeAllConnections(), 20_000).unref();
+  await closed;
+  await pool.end();                    // then flush telemetry and exit
+});`,
+      codeLang: 'ts',
+    },
+    mcqSections: ['m15#probes', 'm17#pid1'],
+    fromLists: ['backend-100#86'],
+  },
+  {
+    id: 'ops-capacity-planning',
+    unit: 'delivery',
+    topic: 'Capacity planning for a traffic spike',
+    level: 'senior',
+    paths: ['backend', 'fullstack'],
+    question: 'How would you plan capacity ahead of an expected traffic spike, such as a big sale?',
+    answer:
+      'I start from numbers: last year\'s peak per endpoint, the marketing forecast and the journey mix give a target requests per second, plus a margin. A load test at that target shows the first bottleneck, often database connections, a slow query or a third party. I fix what I can, then pre-scale before the event rather than trusting autoscaling to react: higher minimum replicas, warm caches, checked cloud quotas and partners\' limits. On the day: a deploy freeze, dashboards on the SLOs, flags to switch off heavy features, and a rehearsed rollback.',
+    keyPoints: [
+      'Target load from past peaks, forecast and journey mix',
+      'Load test to find the first bottleneck',
+      'Pre-scale, warm caches, check quotas and partners',
+      'Freeze, dashboards, kill switches, rehearsed rollback',
+    ],
+    explanation:
+      'It checks operational maturity: planning from data, knowing that autoscaling lags, and preparing for failure as well as success. Seniors mention the database as the part that does not scale out quickly, third-party limits, and graceful degradation.',
+    example:
+      'Before Black Friday the shop expected 4 times its normal peak. A load test showed PostgreSQL connections ran out first, so the team put a connection pooler in front of the database, raised the Orders API minimum from 6 to 20 pods the night before, and agreed a higher rate limit with the delivery partner. On the day traffic reached 3.6 times the usual peak with checkout p95 under 400 ms.',
+    mistakes: [
+      'Relying on autoscaling alone for a spike that starts within seconds',
+      'Scaling the API pods without checking the database and third parties',
+      'Deploying new features on the day of the event',
+    ],
+    followUps: [
+      {
+        question: 'How do you set autoscaling thresholds to react quickly enough?',
+        answer: 'Scale on a signal that rises before users suffer, such as CPU around 60% or requests per pod, not at 90%. The Kubernetes HPA checks every 15 s by default and scales up with no stabilization window, but new pods still need time to start, so for a known spike I raise the minimum replicas beforehand.',
+        fromLists: ['backend-100#87.1'],
+      },
+      {
+        question: 'How do you check a third-party dependency can handle the load?',
+        answer: "Ask the provider for its rate limits and warn it about the event, read its status history, and test against its sandbox if allowed, never production. Then protect the shop: timeouts, retries with backoff within its limits, a circuit breaker, and a fallback such as queuing the call.",
+        fromLists: ['backend-100#87.2'],
+      },
+      {
+        question: 'What is your rollback plan if the system struggles during the event?',
+        answer: 'Decided in advance and rehearsed: a deploy freeze so the running release is known good, flags to switch off heavy features such as recommendations, a waiting room in front of checkout, and the previous image ready. Each action has an owner and a trigger, such as checkout p95 above 1 s for 5 minutes.',
+        fromLists: ['backend-100#87.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'By default, the Kubernetes HPA waits 5 minutes before scaling up.',
+        isTrue: false,
+        why: 'By default it scales up with no stabilization window; the 300-second window applies to scaling down.',
+      },
+      {
+        statement: 'Raising the minimum replicas before a known spike avoids waiting for autoscaling to react.',
+        isTrue: true,
+        why: 'The pods are already running when traffic arrives, instead of starting after the metric has risen.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Capacity planning sets a target load from data: past peaks per endpoint, the business forecast, and the journey mix, such as many product views per checkout, plus a margin.',
+        "A load test at that target shows the first bottleneck. It is often not the stateless API but the database, its connections, a slow query or a third party's rate limit.",
+        'Autoscaling lags: the Kubernetes HPA checks every 15 s by default, and new pods must start. For a known spike, raise minimum replicas, warm caches and check cloud quotas beforehand.',
+        'Plan for degradation: flags to switch off heavy features, a waiting room or rate limits in front of checkout, and timeouts and circuit breakers on third parties.',
+        'On the day: a deploy freeze, dashboards on the SLOs, and a rehearsed rollback with owners and clear triggers.',
+      ],
+    },
+    mcqSections: ['m16#estimates'],
+    fromLists: ['backend-100#87'],
+  },
+  {
+    id: 'ops-incident-response',
+    unit: 'delivery',
+    topic: 'Incident response and postmortems',
+    level: 'senior',
+    paths: ['backend', 'fullstack', 'frontend'],
+    question: 'How would you design an incident response process, from detection to postmortem?',
+    answer:
+      'Detection comes from alerts on user-facing symptoms against SLOs, each with a runbook, routed to an on-call rota. The responder acknowledges, assesses the impact and declares an incident with a severity. For a serious one, an incident commander coordinates, others investigate, and one person updates support and the status page on a fixed cadence. The first goal is to mitigate, by rolling back, turning off a flag or scaling, before finding the root cause. Afterwards, a blameless postmortem records the timeline, impact, contributing causes and actions with owners and dates, which we track to done.',
+    keyPoints: [
+      'Detect with SLO symptom alerts and runbooks; on-call rota',
+      'Declare with a severity; separate commander and comms roles',
+      'Mitigate first: roll back, flag off, scale',
+      'Blameless postmortem; owned actions tracked to done',
+    ],
+    explanation:
+      'It checks whether you have been on call and improved a process, not only fixed bugs. Seniors separate roles so the investigator is not also writing updates, mitigate before diagnosing, and focus postmortems on systems rather than people.',
+    example:
+      'A release made 8% of the Orders API\'s checkouts fail at 9 pm. The burn-rate alert paged on-call within 5 minutes; the incident commander had the release rolled back by minute 14 while support posted updates every 15 minutes. The postmortem found a missing canary step for that service and a test gap; both actions were done within two weeks, each with an owner.',
+    mistakes: [
+      'Hunting for the root cause while customers are still affected',
+      'One person investigating, fixing and answering everyone at once',
+      'Postmortems that name a culprit, or list actions nobody owns',
+    ],
+    followUps: [
+      {
+        question: 'Roll back or fix forward during an incident?',
+        answer: 'Roll back by default when a recent change is the likely cause and rolling back is safe: it is fast and known. Fix forward when rollback is impossible or riskier, such as after a migration that changed data, or when the fix is tiny and well understood. Decide quickly and note why in the timeline.',
+        fromLists: ['backend-100#88.1'],
+      },
+      {
+        question: 'What makes a postmortem blameless, and why does it matter?',
+        answer: 'It assumes people acted reasonably with what they knew, and asks how the system allowed the failure: missing alerts, unsafe defaults, unclear runbooks. It matters because blame makes people hide mistakes and details, and without honest details the same incident comes back.',
+        fromLists: ['backend-100#88.2'],
+      },
+      {
+        question: 'How do you make sure postmortem actions are followed through?',
+        answer: "Few actions, each specific, with one owner, a due date and a ticket in the team's normal backlog, not only in a document. They are prioritised like other work and reviewed in a regular reliability meeting, and the postmortem closes only when they are done or consciously dropped.",
+        fromLists: ['backend-100#88.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'During an incident, mitigating the impact comes before finding the root cause.',
+        isTrue: true,
+        why: 'Restoring service limits the damage, and the evidence stays in logs, traces and metrics for later.',
+      },
+      {
+        statement: 'A blameless postmortem avoids describing what anyone did.',
+        isTrue: false,
+        why: 'It describes actions honestly, but looks for system causes instead of punishing people.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Detection: alerts on symptoms users feel, errors and latency against SLOs, each linked to a runbook and routed to an on-call rota.',
+        'Response: acknowledge, assess impact, declare an incident with a severity. For a serious one, separate roles: a commander coordinates, responders investigate, one person communicates.',
+        'Mitigate before diagnosing: roll back, turn off a flag, scale out or fail over. The evidence stays in logs, traces and metrics for later.',
+        'Communicate on a fixed cadence to support and customers, and keep a timeline of actions and decisions as you go.',
+        'A blameless postmortem covers the timeline, impact, contributing causes and actions. Each action has an owner, a date and a ticket, and is tracked to done.',
+      ],
+    },
+    mcqSections: ['m15#slo'],
+    fromLists: ['backend-100#88'],
   },
 ];

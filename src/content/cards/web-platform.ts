@@ -34,7 +34,7 @@ export const webPlatformCards: Card[] = [
       {
         question: 'What is margin collapsing?',
         answer: 'Vertical margins of adjacent blocks in normal flow merge into the larger of the two instead of adding up. It does not happen between flex or grid items, which is one reason layouts with `gap` are more predictable.',
-        fromList: 'fullstack-100#1.2',
+        fromLists: ['fullstack-100#1.2'],
       },
       {
         question: 'How do you see the box model of an element while debugging?',
@@ -43,12 +43,17 @@ export const webPlatformCards: Card[] = [
       {
         question: 'How do you apply `border-box` sizing to a whole project?',
         answer: 'In the global reset: `*, *::before, *::after { box-sizing: border-box; }`. Some teams set it on `html` and give everything else `box-sizing: inherit`, so a third-party widget can switch its own subtree back to `content-box`.',
-        fromList: 'fullstack-100#1.1',
+        fromLists: ['fullstack-100#1.1'],
       },
       {
         question: 'How does the box model apply to flex and grid children?',
         answer: 'The same way: padding and border count in the item\'s size, and `box-sizing` decides what `width` and `flex-basis` measure. What changes is margins: they never collapse, and `margin-left: auto` absorbs the free space, for example to push the Pay button to the right of a flex row.',
-        fromList: 'fullstack-100#1.3',
+        fromLists: ['fullstack-100#1.3', 'frontend-100#2.2'],
+      },
+      {
+        question: 'How do you prevent margin collapsing?',
+        answer: 'Between siblings, I lay the list out with flex or grid and `gap`, where margins never collapse. Between a parent and its first or last child, padding or a border on the parent separates them, or `display: flow-root`, which creates a new block formatting context that keeps the child\'s margin inside.',
+        fromLists: ['frontend-100#2.1'],
       },
     ],
     traps: [
@@ -82,7 +87,7 @@ export const webPlatformCards: Card[] = [
       codeLang: 'css',
     },
     mcqSections: [],
-    fromLists: ['fullstack-100#1'],
+    fromLists: ['fullstack-100#1', 'frontend-100#2'],
   },
   {
     id: 'web-flexbox-grid',
@@ -112,7 +117,7 @@ export const webPlatformCards: Card[] = [
       {
         question: 'How do you centre an element horizontally and vertically?',
         answer: '`display: grid; place-items: center` on the parent does it in one line. With flex, `justify-content: center` and `align-items: center`.',
-        fromList: 'fullstack-100#2.3',
+        fromLists: ['fullstack-100#2.3'],
       },
       {
         question: 'What are container queries, and how do they relate to these layouts?',
@@ -121,12 +126,22 @@ export const webPlatformCards: Card[] = [
       {
         question: 'How do you build a grid whose number of columns follows the available space, without media queries?',
         answer: '`grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr))` fits as many columns of at least 14rem as the row allows and shares the rest. With `auto-fit`, empty tracks collapse, so a row with only two products stretches them across the full width.',
-        fromList: 'fullstack-100#2.1',
+        fromLists: ['fullstack-100#2.1'],
       },
       {
         question: 'How do `flex-grow`, `flex-shrink` and `flex-basis` work together?',
         answer: '`flex-basis` is the starting size. Free space is shared in proportion to `flex-grow`; when items overflow, they shrink in proportion to `flex-shrink` weighted by their basis. The default is `0 1 auto`, and `flex: 1` means `1 1 0%`, so such items split the row equally.',
-        fromList: 'fullstack-100#2.2',
+        fromLists: ['fullstack-100#2.2'],
+      },
+      {
+        question: 'How would you build a responsive card grid with equal-height cards?',
+        answer: 'A grid with `repeat(auto-fill, minmax(14rem, 1fr))`: grid items stretch to the height of their row by default. Inside, each card is a flex column with `margin-top: auto` on the footer, so every Add to cart button sits at the bottom; `subgrid` can also align titles and prices across cards.',
+        fromLists: ['frontend-100#3.1'],
+      },
+      {
+        question: 'What is the difference between `fr` units and percentages in Grid?',
+        answer: 'A percentage is a share of the container\'s size and ignores `gap`, so four 25% columns with a gap overflow. `fr` shares the space left after gaps and fixed tracks. Note that `1fr` means `minmax(auto, 1fr)`: long content can widen its column, which `minmax(0, 1fr)` prevents.',
+        fromLists: ['frontend-100#3.2'],
       },
     ],
     traps: [
@@ -162,7 +177,7 @@ export const webPlatformCards: Card[] = [
       codeLang: 'css',
     },
     mcqSections: ['m28#layout'],
-    fromLists: ['fullstack-100#2'],
+    fromLists: ['fullstack-100#2', 'frontend-100#3'],
   },
   {
     id: 'web-position',
@@ -192,6 +207,7 @@ export const webPlatformCards: Card[] = [
       {
         question: 'Why does a `fixed` bar scroll with the page inside some components?',
         answer: 'An ancestor with `transform`, `perspective` or `filter` becomes its containing block instead of the viewport. Move the bar out of that ancestor, for example with a React portal, or remove the transform.',
+        fromLists: ['frontend-100#7.2'],
       },
       {
         question: 'Which of these values create a stacking context?',
@@ -200,17 +216,17 @@ export const webPlatformCards: Card[] = [
       {
         question: 'How does `z-index` work with positioned elements, and what creates a stacking context?',
         answer: '`z-index` orders positioned elements, and flex or grid items, only within their stacking context. Besides positioned elements with a `z-index`, `fixed` and `sticky`, a context comes from `opacity` below 1, `transform`, `filter` or `isolation: isolate`. A child at 9999 cannot rise above its parent\'s context.',
-        fromList: 'fullstack-100#3.1',
+        fromLists: ['fullstack-100#3.1'],
       },
       {
         question: 'How would you build a modal overlay with positioning?',
         answer: 'A backdrop with `position: fixed; inset: 0` and a translucent background, the dialog centred in it with grid, rendered at the end of `body` through a React portal so no transformed ancestor traps it. Today I prefer `<dialog>` with `showModal()`: top layer, `::backdrop` and Escape for free.',
-        fromList: 'fullstack-100#3.2',
+        fromLists: ['fullstack-100#3.2'],
       },
       {
         question: 'Why does `position: sticky` sometimes not stick?',
         answer: 'Usually an ancestor has `overflow: hidden`, `auto` or `scroll`, so it becomes the scrolling ancestor, and it never scrolls. Other causes: no `top` threshold, or a parent no taller than the element, since it sticks only within its parent. `overflow: clip` clips without breaking it.',
-        fromList: 'fullstack-100#3.3',
+        fromLists: ['fullstack-100#3.3', 'frontend-100#7.1'],
       },
     ],
     traps: [
@@ -245,7 +261,7 @@ export const webPlatformCards: Card[] = [
       codeLang: 'css',
     },
     mcqSections: ['m28#layout'],
-    fromLists: ['fullstack-100#3'],
+    fromLists: ['fullstack-100#3', 'frontend-100#7'],
   },
   {
     id: 'web-critical-rendering-path',
@@ -275,7 +291,7 @@ export const webPlatformCards: Card[] = [
       {
         question: 'What is the difference between `defer` and `async`?',
         answer: 'Both download in parallel with parsing. `defer` scripts run after parsing, in document order, before `DOMContentLoaded`; `async` scripts run as soon as they arrive, in any order.',
-        fromList: 'fullstack-100#4.1',
+        fromLists: ['fullstack-100#4.1'],
       },
       {
         question: 'What is the preload scanner?',
@@ -284,12 +300,22 @@ export const webPlatformCards: Card[] = [
       {
         question: 'How would you measure and diagnose a slow critical rendering path?',
         answer: 'I start from field data, the Core Web Vitals report or our real-user monitoring, to find the slow pages and devices. Then I record the page in the Performance panel with throttling and read the waterfall: when the HTML arrives, what blocks rendering, and when the LCP image starts.',
-        fromList: 'fullstack-100#4.2',
+        fromLists: ['fullstack-100#4.2'],
       },
       {
         question: 'What is Time to First Byte, and how does it fit into page load?',
         answer: 'TTFB is the time until the first byte of the response arrives: redirects, DNS, connection and TLS, then server time. Nothing renders before it, so it is a floor under FCP and LCP. web.dev calls 0.8 s or less good; CDN-cached HTML is how we cut it on product pages.',
-        fromList: 'fullstack-100#4.3',
+        fromLists: ['fullstack-100#4.3'],
+      },
+      {
+        question: 'What triggers a layout reflow versus a repaint?',
+        answer: 'A reflow happens when geometry changes: `width`, `top`, `font-size`, added content, or reading `offsetHeight` right after a style write. A repaint happens when only the look changes, like `color` or `background-color`. `transform` and `opacity` can skip both and run on the compositor.',
+        fromLists: ['frontend-100#15.1'],
+      },
+      {
+        question: 'How does `will-change` help, and what is the risk of overusing it?',
+        answer: 'It tells the browser a property will change, so it can prepare, for example by putting the element on its own layer before a `transform` animation. MDN calls it a last resort: each layer costs memory, too many slow the page down, and some values create a stacking context up front.',
+        fromLists: ['frontend-100#15.2'],
       },
     ],
     traps: [
@@ -325,7 +351,7 @@ export const webPlatformCards: Card[] = [
       codeLang: 'html',
     },
     mcqSections: ['m25#css', 'm25#scripts', 'm26#lcp'],
-    fromLists: ['fullstack-100#4'],
+    fromLists: ['fullstack-100#4', 'frontend-100#15'],
   },
   {
     id: 'web-semantic-html',
@@ -363,17 +389,22 @@ export const webPlatformCards: Card[] = [
       {
         question: 'How would you make a custom dropdown accessible with ARIA?',
         answer: 'I follow the select-only combobox pattern: `role="combobox"` with `aria-expanded`, `aria-controls` and `aria-activedescendant`, a popup with `role="listbox"` and `role="option"` items, `aria-selected` on the chosen one. Then the keyboard: arrows move, Enter picks, Escape closes.',
-        fromList: 'fullstack-100#5.1',
+        fromLists: ['fullstack-100#5.1'],
       },
       {
         question: 'What is the difference between `<section>` and `<article>`?',
         answer: '`<article>` is self-contained content that makes sense on its own, like a product review or a blog post. `<section>` is a thematic part of a page or article, usually with its own heading, like "Delivery options". When the wrapper is only for styling, it is a `div`.',
-        fromList: 'fullstack-100#5.2',
+        fromLists: ['fullstack-100#5.2', 'frontend-100#5.2'],
       },
       {
         question: 'How does semantic HTML affect SEO?',
         answer: 'Crawlers read the structure: a clear `h1` and heading order, `<title>`, `alt` text, and links as real `<a href>` elements, the only ones Google follows. On product pages we add JSON-LD structured data so search results can show price and stock.',
-        fromList: 'fullstack-100#5.3',
+        fromLists: ['fullstack-100#5.3'],
+      },
+      {
+        question: 'If you truly had to use a `div` as a button, how would you make it accessible?',
+        answer: 'Add `role="button"` and `tabindex="0"`, give it an accessible name, and handle the keys myself: Enter activates on keydown, Space on keyup, with `preventDefault` so Space does not scroll. Add `aria-pressed` for a toggle, `aria-disabled` when disabled, and a visible focus. Then I would still argue for a `button`.',
+        fromLists: ['frontend-100#5.1'],
       },
     ],
     traps: [
@@ -404,7 +435,7 @@ export const webPlatformCards: Card[] = [
       codeLang: 'html',
     },
     mcqSections: ['m28#semantics'],
-    fromLists: ['fullstack-100#5'],
+    fromLists: ['fullstack-100#5', 'frontend-100#5'],
   },
   {
     id: 'web-responsive-design',
@@ -442,17 +473,22 @@ export const webPlatformCards: Card[] = [
       {
         question: 'Mobile first or desktop first for media queries: which do you prefer?',
         answer: 'Mobile first writes base styles for small screens and adds `min-width` queries; desktop first starts wide and undoes layout with `max-width` queries. I prefer mobile first: the small layout is the simplest, and larger screens only add rules instead of overriding them.',
-        fromList: 'fullstack-100#8.1',
+        fromLists: ['fullstack-100#8.1'],
       },
       {
         question: 'How do you keep images sharp on high-density screens?',
         answer: 'I let the browser pick: `srcset` with width descriptors plus `sizes`, so a 2x phone downloads a file twice as wide as the slot, or `1x, 2x` density descriptors for fixed-size images. Icons and logos are SVG, sharp at any density.',
-        fromList: 'fullstack-100#8.2',
+        fromLists: ['fullstack-100#8.2'],
       },
       {
         question: 'What are container queries, and how do they differ from media queries?',
         answer: 'Media queries read the viewport. Container queries, `@container`, read the size of an ancestor declared with `container-type`. So the product card adapts to its slot, wide in the grid and narrow in the cart sidebar; I keep media queries for page-level layout.',
-        fromList: 'fullstack-100#8.3',
+        fromLists: ['fullstack-100#8.3', 'frontend-100#6.1'],
+      },
+      {
+        question: 'How do you handle responsive typography?',
+        answer: 'Sizes in `rem`, so the user\'s font setting applies, and fluid headings with `clamp()`, like `clamp(1.5rem, 1rem + 2vw, 2.5rem)`: they grow with the viewport between a minimum and a maximum. A `vw`-only size ignores zoom, so I always mix it with `rem` and keep the maximum at least twice the minimum.',
+        fromLists: ['frontend-100#6.2'],
       },
     ],
     traps: [
@@ -487,7 +523,7 @@ export const webPlatformCards: Card[] = [
       codeLang: 'html',
     },
     mcqSections: ['m28#layout'],
-    fromLists: ['fullstack-100#8'],
+    fromLists: ['fullstack-100#8', 'frontend-100#6'],
   },
   {
     id: 'web-dom',
@@ -525,17 +561,17 @@ export const webPlatformCards: Card[] = [
       {
         question: 'What is the difference between `innerHTML` and `textContent`, and what is the risk of `innerHTML`?',
         answer: '`textContent` sets plain text that is never parsed. `innerHTML` parses the string as HTML, so a review containing `<img src=x onerror=...>` runs script for every visitor: stored XSS. User data goes through `textContent`, or through a sanitizer such as DOMPurify when HTML is really needed.',
-        fromList: 'fullstack-100#9.1',
+        fromLists: ['fullstack-100#9.1'],
       },
       {
         question: 'What is a document fragment, and how does it help when adding many elements?',
         answer: 'A `DocumentFragment` is a container outside the page. I build 200 order rows in it, then append it once: its children move into the DOM in a single insertion and the fragment is left empty. `list.append(...rows)` gives the same single insertion.',
-        fromList: 'fullstack-100#9.2',
+        fromLists: ['fullstack-100#9.2'],
       },
       {
         question: 'What is the difference between the DOM and the virtual DOM?',
         answer: 'The DOM is the browser\'s real tree. The "virtual DOM" is the tree of plain objects React components return: on each render React compares it with the previous one and applies only the differences. It is not faster than precise manual updates; it lets me describe the UI from state.',
-        fromList: 'fullstack-100#9.3',
+        fromLists: ['fullstack-100#9.3'],
       },
     ],
     traps: [
@@ -605,17 +641,17 @@ list.append(item);
       {
         question: 'Why are `transform` and `opacity` cheaper to animate than `width` or `top`?',
         answer: '`width`, `height`, `top` and `left` change geometry, so every frame reruns layout and paint on the main thread. `transform` and `opacity` change neither, so the compositor can move or fade the already painted layer, often on the GPU, and stay smooth while the main thread is busy.',
-        fromList: 'fullstack-100#10.1',
+        fromLists: ['fullstack-100#10.1'],
       },
       {
         question: 'What is layout thrashing, and how do you avoid it?',
         answer: 'It is alternating style writes and geometry reads in a loop: each read after a write forces a synchronous layout, so 500 cards mean 500 layouts. I read everything first and write after, move writes into `requestAnimationFrame`, or replace the measuring with CSS.',
-        fromList: 'fullstack-100#10.2',
+        fromLists: ['fullstack-100#10.2'],
       },
       {
         question: 'How do you use the devtools to find reflow and repaint problems?',
         answer: 'I record in the Performance panel and look at long tasks: purple Layout and green Paint blocks, with forced reflow warnings that link to the script line. The Rendering tab\'s Paint flashing highlights repainted areas, and Layout Shift Regions shows content that moves.',
-        fromList: 'fullstack-100#10.3',
+        fromLists: ['fullstack-100#10.3'],
       },
     ],
     traps: [
@@ -680,21 +716,27 @@ cards.forEach((card, i) => {
       {
         question: 'What specificity do `:is()`, `:not()` and `:where()` have?',
         answer: '`:is()` and `:not()` take the specificity of their most specific argument. `:where()` always counts zero, which makes it ideal for defaults that are easy to override.',
+        fromLists: ['frontend-100#4.2'],
       },
       {
         question: 'How do cascade layers interact with specificity?',
         answer: 'Layers are compared first: a rule in a later layer wins whatever its specificity. Unlayered styles beat all layered ones, and `!important` reverses the layer order.',
-        fromList: 'fullstack-100#11.3',
+        fromLists: ['fullstack-100#11.3'],
       },
       {
         question: 'How do you calculate the specificity of `.container .item.active`?',
         answer: 'Count each column: no id, three classes, no element type, so (0,3,0). It beats `.container .item` at (0,2,0) and any number of element selectors, but a single id still wins.',
-        fromList: 'fullstack-100#11.1',
+        fromLists: ['fullstack-100#11.1'],
       },
       {
         question: 'Why is `!important` considered an anti-pattern, and when is it justified?',
         answer: 'It jumps over normal specificity, so the only way to beat it is another `!important`: an arms race that makes styles hard to reason about. I accept it in utilities that must always win, like `.visually-hidden`, and to override inline styles from a third-party widget.',
-        fromList: 'fullstack-100#11.2',
+        fromLists: ['fullstack-100#11.2'],
+      },
+      {
+        question: 'How would you refactor a codebase full of `!important`?',
+        answer: 'Gradually. I declare layers, put legacy and vendor CSS in early ones and new components in a later one, so order wins instead of force. Then I flatten selectors to single classes, wrap defaults in `:where()`, and remove each `!important` with a visual regression test, blocking new ones with a Stylelint rule.',
+        fromLists: ['frontend-100#4.1'],
       },
     ],
     traps: [
@@ -728,7 +770,7 @@ cards.forEach((card, i) => {
       codeLang: 'css',
     },
     mcqSections: ['m28#cascade'],
-    fromLists: ['fullstack-100#11'],
+    fromLists: ['fullstack-100#11', 'frontend-100#4'],
   },
   {
     id: 'web-storage',
@@ -766,17 +808,17 @@ cards.forEach((card, i) => {
       {
         question: 'Why is a JWT in `localStorage` easier to steal through XSS than one in an `HttpOnly` cookie?',
         answer: 'Any script on the page can call `localStorage.getItem`, so one XSS in an order note sends the token to the attacker, who uses it from anywhere until it expires. An `HttpOnly` cookie is invisible to scripts: XSS can still send requests from the open page, but the credential never leaves.',
-        fromList: 'fullstack-100#12.1',
+        fromLists: ['fullstack-100#12.1', 'frontend-100#70.1'],
       },
       {
         question: 'What do the `Secure` and `SameSite` cookie attributes protect against?',
         answer: '`Secure` sends the cookie over HTTPS only, so it cannot leak on plain HTTP. `SameSite` limits cross-site sending, against CSRF: `Strict` never sends it from another site, `Lax` only on top-level navigations with a safe method like GET, and `None` always, which requires `Secure`.',
-        fromList: 'fullstack-100#12.2',
+        fromLists: ['fullstack-100#12.2', 'frontend-100#70.2'],
       },
       {
         question: 'How much data can each storage mechanism hold?',
         answer: 'A cookie holds about 4 KB. MDN gives 5 MiB of `localStorage` and 5 MiB of `sessionStorage` per origin. IndexedDB gets a share of the disk set by each browser, far larger, which is why it suits offline data. Writes past the limit throw a `QuotaExceededError`.',
-        fromList: 'fullstack-100#12.3',
+        fromLists: ['fullstack-100#12.3'],
       },
     ],
     traps: [
@@ -812,7 +854,7 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
       codeLang: 'js',
     },
     mcqSections: ['m25#storage', 'm27#storage'],
-    fromLists: ['fullstack-100#12'],
+    fromLists: ['fullstack-100#12', 'frontend-100#70'],
   },
   {
     id: 'web-sass',
@@ -850,17 +892,27 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
       {
         question: 'How does a Sass variable differ from a CSS custom property at runtime?',
         answer: 'A Sass variable exists only at compile time: `$brand` is replaced by its value and gone from the CSS. A custom property, `--brand`, lives in the browser: it inherits, follows the cascade, changes under a `data-theme` attribute or a media query, and JavaScript can read and set it.',
-        fromList: 'fullstack-100#13.1',
+        fromLists: ['fullstack-100#13.1'],
       },
       {
         question: 'What is a mixin, and when would you use one?',
         answer: 'A Sass mixin is a reusable block of declarations, with parameters, copied wherever you `@include` it, like a `focus-ring($color)` used by every button and link. I use one when several components need the same group of rules that a utility class or custom properties cannot express.',
-        fromList: 'fullstack-100#13.2',
+        fromLists: ['fullstack-100#13.2'],
       },
       {
         question: 'How does CSS-in-JS compare with a preprocessor like Sass?',
         answer: 'Sass produces static CSS at build time. Runtime CSS-in-JS, like styled-components, generates styles from JavaScript, allowing styles from props but costing runtime work, and in the Next.js App Router it runs only in Client Components. So I prefer build-time options: CSS Modules, Tailwind or vanilla-extract.',
-        fromList: 'fullstack-100#13.3',
+        fromLists: ['fullstack-100#13.3'],
+      },
+      {
+        question: 'How do fallback values work in `var()`?',
+        answer: '`var(--brand, #0a6e4f)` uses the second argument when `--brand` is not defined. The trap: if `--brand` is defined but invalid for the property, like `20px` for `color`, the fallback is not used and the property behaves as `unset`.',
+        fromLists: ['frontend-100#8.1'],
+      },
+      {
+        question: 'Can you use custom properties inside media queries?',
+        answer: 'Inside the block, yes: a media query can redefine `--gutter` for small screens, and every `var(--gutter)` follows. In the condition, no: `var()` only works in property values, so `@media (min-width: var(--bp))` is invalid. Breakpoints stay literal, or come from Sass variables at build time.',
+        fromLists: ['frontend-100#8.2'],
       },
     ],
     traps: [
@@ -893,7 +945,7 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
       codeLang: 'css',
     },
     mcqSections: [],
-    fromLists: ['fullstack-100#13'],
+    fromLists: ['fullstack-100#13', 'frontend-100#8'],
   },
   {
     id: 'web-accessibility',
@@ -923,7 +975,7 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
       {
         question: 'What must happen to focus when a modal opens and closes?',
         answer: 'Focus moves into the modal, the page behind becomes inert, Escape closes it, and focus returns to the element that opened it. The native `<dialog>` with `showModal()` handles most of this.',
-        fromList: 'fullstack-100#14.3',
+        fromLists: ['fullstack-100#14.3'],
       },
       {
         question: 'What does an automated scan miss?',
@@ -932,12 +984,12 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
       {
         question: 'How do you test accessibility beyond an automated tool like axe?',
         answer: 'I run the key flows, checkout and the refund dialog, with the keyboard only: focus order, visible focus, no traps. Then with a screen reader, NVDA on Windows or VoiceOver on a Mac, I listen to names, roles and announcements. I also zoom to 200% and check the layout at 320 CSS pixels wide.',
-        fromList: 'fullstack-100#14.1',
+        fromLists: ['fullstack-100#14.1'],
       },
       {
         question: 'What is the difference between `aria-label` and `aria-labelledby`?',
         answer: 'Both set an element\'s accessible name. `aria-label` takes a string, for an icon button with no visible text. `aria-labelledby` points at the id of visible elements whose text becomes the name, like a dialog named by its heading, and it wins over `aria-label`. Visible text is better when possible.',
-        fromList: 'fullstack-100#14.2',
+        fromLists: ['fullstack-100#14.2'],
       },
     ],
     traps: [
@@ -999,17 +1051,37 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
       {
         question: 'What is ISR?',
         answer: 'Incremental static regeneration: a page is served as static, then rebuilt in the background after a lifetime or when a tag is revalidated. It suits a catalogue that changes sometimes.',
-        fromList: 'fullstack-100#15.2',
+        fromLists: ['fullstack-100#15.2'],
       },
       {
         question: 'What is hydration, and what goes wrong with it?',
         answer: 'React attaches its event handlers to the server HTML, which requires the first client render to match it. Dates, browser-only data or invalid nesting cause mismatches, and React then re-renders that subtree on the client.',
-        fromList: 'fullstack-100#15.1',
+        fromLists: ['fullstack-100#15.1', 'react-50#35.1'],
+      },
+      {
+        question: 'Why can hydration be slow?',
+        answer: 'Before a page responds, the browser must download, parse and run the JavaScript of every hydrated component, then React renders them all again to attach handlers. On a mid-range phone that is a long main-thread task: the page looks ready but ignores taps, which hurts INP.',
+        fromLists: ['frontend-100#43.1'],
+      },
+      {
+        question: 'What problem do React Server Components solve that SSR does not?',
+        answer: 'SSR still ships and hydrates the code of every component, even static ones. Server Components run only on the server: their code and libraries never reach the browser, and they can read data directly. Only the Client Components, like the Add to cart button, ship JavaScript and hydrate.',
+        fromLists: ['frontend-100#43.2'],
+      },
+      {
+        question: 'SSR versus SSG: when is the HTML generated?',
+        answer: 'With SSG, once at build time, or again on revalidation with ISR, and the same file is served to everyone from the CDN. With SSR, on the server at every request, so it can read cookies and fresh data, at the cost of server work and a slower time to first byte.',
+        fromLists: ['react-50#35.2'],
+      },
+      {
+        question: 'When is an authenticated dashboard better as pure CSR?',
+        answer: 'When there is no SEO to win, users stay long and data changes constantly, like our back office: a Vite SPA served as static files, with data cached on the client. The first load is slower, but every later screen is instant, and no Node server is needed for rendering.',
+        fromLists: ['react-50#35.3'],
       },
       {
         question: 'How do you decide which rendering strategy suits a page?',
         answer: 'I ask who sees it and how fresh it must be. Public pages that need SEO and change rarely, like product pages, are static with revalidation; pages that depend on the request, like search or "my orders", render per request; the back office behind a login can render on the client.',
-        fromList: 'fullstack-100#15.3',
+        fromLists: ['fullstack-100#15.3'],
       },
     ],
     traps: [
@@ -1034,6 +1106,967 @@ console.log(JSON.parse(localStorage.getItem('cart')).items); // 2`,
       ],
     },
     mcqSections: ['m33#rendering', 'm33#caching'],
-    fromLists: ['fullstack-100#15'],
+    fromLists: ['fullstack-100#15', 'frontend-100#43', 'react-50#35'],
+  },
+  {
+    id: 'web-id-class',
+    unit: 'web-platform',
+    topic: 'id and class',
+    level: 'junior',
+    paths: ['frontend', 'fullstack'],
+    question: 'What is the difference between `id` and `class` in HTML and CSS, and when do you use each?',
+    answer:
+      'An `id` names one unique element in the document; a `class` is a reusable label, and an element can carry several. In CSS the difference is specificity: an id selector weighs (1,0,0) and a class (0,1,0), so one id beats any number of classes and is hard to override. So I style with classes only, which keeps specificity flat and components reusable. I use ids where a unique target is needed: `label for`, `aria-labelledby`, fragment links like `#reviews`, and `getElementById`. In React I generate them with `useId`, so two instances of a component never share one.',
+    keyPoints: [
+      'An `id` is unique per document; classes are reusable and combinable',
+      'An id selector outweighs any number of classes',
+      'Style with classes to keep specificity flat',
+      'Ids for references: labels, ARIA, fragment links, `useId`',
+    ],
+    explanation:
+      'It sounds like a junior question, but the answer shows whether you think about specificity and maintainability. A good answer separates styling hooks (classes) from unique references (ids) and knows why duplicated ids in reusable components break accessibility.',
+    example:
+      'In the back office, the refund form was rendered twice on the order detail page, once in a side panel, and both copies used `id="refund-reason"`. Clicking the second label focused the first textarea, and screen readers read the wrong label. Generating the id with `useId` gave each instance its own, and the styles, already on classes, did not change.',
+    mistakes: [
+      'Styling with id selectors, which then need an id or `!important` to override',
+      'Hard-coding an id in a reusable component, so two instances share it',
+      'Thinking enough classes add up to beat an id: the columns never carry over',
+    ],
+    followUps: [
+      {
+        question: 'How is CSS specificity calculated?',
+        answer: 'As three counts compared left to right: ids; then classes, attributes and pseudo-classes; then element types and pseudo-elements. `#cart .item p` is (1,1,1). A higher count in an earlier column wins whatever follows, and if two rules tie, the later one wins.',
+        fromLists: ['frontend-100#1.1'],
+      },
+      {
+        question: 'What is the order between inline styles, ids, classes and elements?',
+        answer: 'An inline `style` attribute beats any selector, then come ids, then classes, attributes and pseudo-classes, then element types. Above all of them sits `!important`, and cascade layers are compared before specificity.',
+        fromLists: ['frontend-100#1.2'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'When two elements share the same `id`, `document.getElementById` returns only the first one.',
+        isTrue: true,
+        why: 'Duplicate ids are invalid, and lookups by id return the first match in document order.',
+      },
+      {
+        statement: 'A selector with eleven classes beats a selector with one id.',
+        isTrue: false,
+        why: 'Specificity is compared column by column, so (1,0,0) beats (0,11,0).',
+      },
+    ],
+    lesson: {
+      points: [
+        'An `id` names a single element and must be unique in the document. A `class` is a reusable label: an element can carry several, and many elements can share one.',
+        'In CSS, an id selector weighs (1,0,0) and a class (0,1,0). The columns are compared left to right, so one id beats any number of classes, and an id rule is hard to override.',
+        'So style with classes, which keeps specificity flat and components reusable. An inline `style` attribute beats both, and element selectors like `p` weigh the least.',
+        'Use ids where a unique target is needed: `<label for>`, `aria-labelledby`, `aria-controls`, fragment links like `#reviews`, and `getElementById`. In React, generate them with `useId`.',
+        'Duplicate ids are invalid and break those references: `getElementById` returns only the first match, so a label can point at the field of another instance of the component.',
+      ],
+      code: `<label for="refund-reason">Reason</label>
+<textarea id="refund-reason" class="field field--large"></textarea>
+<style>
+  .field { padding: 8px; }         /* (0,1,0): easy to override */
+  #refund-reason { padding: 4px; } /* (1,0,0): beats any class rule */
+</style>`,
+      codeLang: 'html',
+    },
+    mcqSections: ['m28#cascade'],
+    fromLists: ['frontend-100#1'],
+  },
+  {
+    id: 'web-cascade',
+    unit: 'web-platform',
+    topic: 'The cascade and inheritance',
+    level: 'mid',
+    paths: ['frontend', 'fullstack'],
+    question: 'How do the CSS cascade and inheritance work together?',
+    answer:
+      'The cascade decides which declaration wins when several set the same property on an element: origin and `!important` first, then inline styles, cascade layers, specificity, and finally source order. Inheritance only applies when no declaration targets that property on the element: then inherited properties, mostly text ones like `color` and `font-family`, take the parent\'s computed value, while the others, like `margin` or `border`, get their initial value. The keywords `inherit`, `initial`, `unset` and `revert` force one behaviour or the other. That is why I set fonts and colour once on `body` and let them flow down.',
+    keyPoints: [
+      'The cascade picks one winning declaration per property',
+      'Order: importance and origin, inline, layers, specificity, order',
+      'Inheritance applies only when no declaration targets the element',
+      'Text properties inherit; box properties take their initial value',
+    ],
+    explanation:
+      'Interviewers check that you see two separate mechanisms: one picks a winner among declarations, the other fills the gaps. A senior answer knows that a parent\'s specificity never competes with a rule on the child, and uses the CSS-wide keywords on purpose.',
+    example:
+      'Support agents noticed that the back office\'s buttons and inputs used a different font from the rest of the app. Browsers give form controls their own font, so they did not inherit the `font-family` set on `body`. One reset rule, `button, input, select, textarea { font: inherit; }`, made every control follow the app\'s typography.',
+    mistakes: [
+      'Thinking every property inherits: `margin`, `padding`, `border` and `background` do not',
+      'Believing a more specific rule on the parent beats a rule on the child: an inherited value loses to any declaration on the element',
+      'Using `all: unset` to restore browser defaults: that is `all: revert`',
+    ],
+    followUps: [
+      {
+        question: 'What do `inherit`, `initial` and `unset` do?',
+        answer: '`inherit` takes the parent\'s computed value, even for a property that does not inherit. `initial` uses the initial value from the specification, so `display: initial` gives `inline`, not `block`. `unset` acts as `inherit` for inherited properties and as `initial` for the others.',
+        fromLists: ['frontend-100#9.1'],
+      },
+      {
+        question: 'How does `all: unset` work?',
+        answer: '`all` sets every property except `direction`, `unicode-bidi` and custom properties. With `unset`, inherited ones like `color` take the parent\'s value and the others their initial value, so a `button` loses its border, padding and background and becomes inline. `all: revert` returns to the browser\'s defaults instead.',
+        fromLists: ['frontend-100#9.2'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'The `color` property is inherited by default.',
+        isTrue: true,
+        why: 'Text properties such as `color` and `font-family` inherit; box properties such as `margin` do not.',
+      },
+      {
+        statement: 'An inherited value beats a rule that targets the child, if the parent\'s rule is more specific.',
+        isTrue: false,
+        why: 'Inheritance only applies when no declaration targets the element; specificity is never compared with an inherited value.',
+      },
+      {
+        statement: '`display: initial` on a `div` gives `display: block`.',
+        isTrue: false,
+        why: 'The initial value of `display` is `inline`; `block` comes from the browser\'s default stylesheet.',
+      },
+    ],
+    lesson: {
+      points: [
+        'The cascade picks one winner when several declarations set the same property on an element. It compares, in order: origin and `!important`, inline styles, cascade layers, specificity, then source order.',
+        'Inheritance fills in only when no declaration targets that property on the element. Inherited properties, mostly text ones like `color`, `font-family` and `line-height`, take the parent\'s computed value.',
+        'Other properties, like `margin`, `border`, `background` and `display`, are not inherited: without a declaration they get their initial value from the specification.',
+        '`inherit` forces the parent\'s value, `initial` the initial value, `unset` acts as `inherit` or `initial` depending on the property, and `revert` returns to the browser\'s default style.',
+        '`all` sets every property at once except `direction`, `unicode-bidi` and custom properties. Browsers give form controls their own font, so resets add `font: inherit` to them.',
+      ],
+      code: `body { font-family: system-ui, sans-serif; color: #1f2937; } /* flows down */
+.order-note { border: 1px solid; } /* not inherited by its children */
+button, input, select, textarea {
+  font: inherit; /* controls have their own font by default */
+}
+.icon-button { all: unset; cursor: pointer; } /* strip native styles */`,
+      codeLang: 'css',
+    },
+    mcqSections: ['m28#cascade'],
+    fromLists: ['frontend-100#9'],
+  },
+  {
+    id: 'web-css-units',
+    unit: 'web-platform',
+    topic: 'CSS units',
+    level: 'junior',
+    paths: ['frontend', 'fullstack'],
+    question: 'What is the difference between `em`, `rem`, `%`, `vw`/`vh` and `px` in CSS?',
+    answer:
+      '`px` is a fixed CSS pixel. `rem` is relative to the root font size, 16 px by default, and follows the user\'s browser font setting. `em` is relative to the element\'s font size, or the parent\'s inside `font-size`, so nested `em` sizes compound. A percentage is relative to the parent, usually the containing block\'s width. `vw` and `vh` are 1% of the viewport; on phones `vh` uses the largest viewport, so `svh` or `dvh` fit better. I use `rem` for text and spacing, `em` for padding that follows a component\'s text, `px` for borders, and `clamp()` for fluid sizes.',
+    keyPoints: [
+      '`px` fixed; `rem` relative to the root font size',
+      '`em` relative to the font size, compounds when nested',
+      '`%` relative to the parent; `vw`/`vh` to the viewport',
+      '`rem` for text so the user\'s font setting applies',
+    ],
+    explanation:
+      'It checks everyday CSS and, for a senior, accessibility: text sized in `px` ignores the user\'s font setting. Mentioning the mobile `vh` problem and `clamp()` shows current practice.',
+    example:
+      'An accessibility audit of the storefront found that raising the browser\'s default font size changed nothing, because the body text was set to `14px`. The team switched to `0.875rem`, and replaced the hero\'s `height: 100vh`, which hid the button under the phone\'s browser bar, with `min-height: 100svh`.',
+    mistakes: [
+      'Nesting `em` font sizes and getting text that grows at every level',
+      'Setting the root font size in `px`, which overrides the user\'s browser setting',
+      'Using `100vh` for full-screen sections on phones, where browser bars cover part of it',
+    ],
+    followUps: [
+      {
+        question: 'How does accessibility zoom interact with `rem` versus `px`?',
+        answer: 'Page zoom enlarges `px`, `rem` and `em` alike, but not viewport units such as `vw`. The browser\'s font size setting is different: it changes the root size, so `rem` and `em` text grows and `px` text does not. Many users with low vision rely on it, so text goes in `rem`.',
+        fromLists: ['frontend-100#10.1'],
+      },
+      {
+        question: 'What is `clamp()`, and how does it help with fluid typography?',
+        answer: '`clamp(min, preferred, max)` returns the preferred value kept between the bounds. `font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem)` grows with the viewport with no breakpoint, never below 1.5rem or above 2.5rem. MDN advises a maximum at least twice the minimum, so text can still reach 200% zoom.',
+        fromLists: ['frontend-100#10.2'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'A `font-size: 1.5em` nested inside another `font-size: 1.5em` gives text 2.25 times the outer size.',
+        isTrue: true,
+        why: 'In `font-size`, `em` is relative to the inherited size, so nested values multiply: 1.5 × 1.5.',
+      },
+      {
+        statement: 'Text sized in `rem` ignores the user\'s default font size setting.',
+        isTrue: false,
+        why: '`rem` follows the root font size, which comes from that setting unless the root is set in `px`.',
+      },
+    ],
+    lesson: {
+      points: [
+        '`px` is a CSS pixel, fixed whatever the context. `rem` is relative to the root element\'s font size, 16px by default, which follows the user\'s browser font setting.',
+        '`em` is relative to the element\'s font size, or to the inherited size inside `font-size` itself, so nested `em` sizes compound: 1.5em inside 1.5em is 2.25 times the outer size.',
+        'A percentage is relative to the parent: for `width`, the containing block\'s width; for `font-size`, the parent\'s font size. `vw` and `vh` are 1% of the viewport\'s width and height.',
+        'On phones, `vh` is based on the largest viewport, with the browser bars hidden. `svh` uses the smallest one, bars shown, and `dvh` follows the bars as they move.',
+        'Page zoom enlarges `px`, `rem` and `em` but not viewport units, and the font size setting scales only `rem` and `em`. So use `rem` for text, `px` for thin borders, and `clamp()` mixing `rem` and `vw` for fluid sizes.',
+      ],
+      code: `html { font-size: 100%; }          /* keep the user's setting */
+.price { font-size: 1.25rem; }     /* 20px at the default 16px */
+.badge { padding: 0.25em 0.5em; }  /* follows the badge's own text */
+.hero { min-height: 100svh; }      /* fits with the browser bars shown */
+h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem); }`,
+      codeLang: 'css',
+    },
+    mcqSections: [],
+    fromLists: ['frontend-100#10'],
+  },
+  {
+    id: 'web-pseudo',
+    unit: 'web-platform',
+    topic: 'Pseudo-classes and pseudo-elements',
+    level: 'junior',
+    paths: ['frontend', 'fullstack'],
+    question: 'What are pseudo-classes and pseudo-elements, and what is the difference?',
+    answer:
+      'A pseudo-class selects an existing element in a particular state or position: `:hover`, `:focus-visible`, `:checked`, `:nth-child()`, `:has()`. It is written with one colon. A pseudo-element targets a part of an element, or content that is not in the DOM: `::before`, `::after`, `::placeholder`, `::first-line`, written with two colons. In specificity, a pseudo-class counts like a class and a pseudo-element like an element type. I use `::before` and `::after` for decoration only, since real text belongs in the HTML, and `:focus-visible` for focus rings, so keyboard users always see where they are.',
+    keyPoints: [
+      'Pseudo-class: an existing element in a state or position',
+      'Pseudo-element: a part of an element or generated content',
+      'One colon versus two colons',
+      'Specificity: class weight versus element weight',
+    ],
+    explanation:
+      'It is a vocabulary check that quickly turns practical: zebra rows, focus rings, generated content. Strong answers state the difference in one sentence, then show judgement, such as keeping content out of `::before` and preferring `:focus-visible`.',
+    example:
+      'Designers asked to remove the focus ring that appeared when agents clicked buttons in the back office, and a first fix set `outline: none` on `:focus`, which left keyboard users lost. The team moved the ring to `:focus-visible`: it no longer shows after a mouse click, but still shows on every Tab press.',
+    mistakes: [
+      'Putting meaningful text in `::before` content, where it cannot be selected or translated with the page',
+      'Removing `:focus` outlines instead of styling `:focus-visible`',
+      'Forgetting the `content` property, so `::before` renders nothing',
+    ],
+    followUps: [
+      {
+        question: 'How would you use `:nth-child()` to style every other table row?',
+        answer: '`tbody tr:nth-child(even)`, or `2n`, selects rows 2, 4, 6; `odd`, or `2n+1`, selects 1, 3, 5. Scoping to `tbody` keeps the header row out of the count. It counts siblings in the DOM, so rows hidden with CSS still count.',
+        fromLists: ['frontend-100#11.1'],
+      },
+      {
+        question: 'What is the difference between `:focus` and `:focus-visible`?',
+        answer: '`:focus` matches whenever an element has focus, including after a mouse click. `:focus-visible` matches only when the browser judges the focus should be shown: keyboard navigation, focus moved by a script, a text field. So I style focus rings with `:focus-visible` and never remove them without a replacement.',
+        fromLists: ['frontend-100#11.2'],
+      },
+    ],
+    traps: [
+      {
+        statement: '`::before` renders nothing unless its `content` property is set.',
+        isTrue: true,
+        why: 'Generated content only exists when `content` has a value, even an empty string.',
+      },
+      {
+        statement: 'A pseudo-element counts like a class in specificity.',
+        isTrue: false,
+        why: 'A pseudo-element counts like an element type; a pseudo-class counts like a class.',
+      },
+    ],
+    lesson: {
+      points: [
+        'A pseudo-class selects an existing element in a given state or position, with one colon: `:hover`, `:focus-visible`, `:checked`, `:disabled`, `:nth-child(2n)`, `:has(img)`.',
+        'A pseudo-element targets a part of an element, or content that is not in the DOM, with two colons: `::before`, `::after`, `::placeholder`, `::first-line`, `::selection`.',
+        '`::before` and `::after` insert generated content and render nothing without the `content` property. They suit decoration; real text belongs in the HTML, where it can be selected and translated.',
+        'In specificity, a pseudo-class counts like a class and a pseudo-element like an element type. `:nth-child()` counts siblings in the DOM, hidden ones included.',
+        '`:focus` matches whenever an element has focus; `:focus-visible` only when the browser judges a ring is needed, as with keyboard navigation. Style focus rings with `:focus-visible`.',
+      ],
+      code: `.orders-table tbody tr:nth-child(even) { background: #f3f4f6; }
+.button:focus-visible { outline: 2px solid #2563eb; }
+.order-status::before { /* decorative dot, no text */
+  content: "";
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}`,
+      codeLang: 'css',
+    },
+    mcqSections: [],
+    fromLists: ['frontend-100#11'],
+  },
+  {
+    id: 'web-centering',
+    unit: 'web-platform',
+    topic: 'Centring in CSS',
+    level: 'junior',
+    paths: ['frontend', 'fullstack'],
+    question: 'How would you centre a `div` horizontally and vertically? Name several approaches.',
+    answer:
+      'My default is grid on the parent: `display: grid; place-items: center`, one declaration, and the child can be any size. Flexbox does the same with `justify-content: center` and `align-items: center`, which I use when the parent is already a flex row. For an element out of the flow, like a toast, `position: absolute` with `inset: 0` and `margin: auto` centres a known size, and `top: 50%; left: 50%; transform: translate(-50%, -50%)` an unknown one. For horizontal only, `margin-inline: auto` on a block with a width. A modal is a `<dialog>`, which the browser centres.',
+    keyPoints: [
+      'Grid: `place-items: center` on the parent',
+      'Flex: `justify-content` plus `align-items`',
+      'Absolute: `inset: 0` with `margin: auto`, or translate -50%',
+      '`margin-inline: auto` for horizontal only',
+    ],
+    explanation:
+      'It is a warm-up, so the interviewer listens for range and judgement: a modern one-liner first, then alternatives with when each fits. Knowing why the translate trick works with unknown sizes, and that vertical centring needs a parent height, shows real experience.',
+    example:
+      'The back office\'s "No orders match these filters" message was pushed down with `margin-top: 40vh`, and it fell off the screen on small laptops. Making the table body a grid with `place-items: center` and a `min-height` centred it at every size, with no magic number.',
+    mistakes: [
+      'Using `vertical-align: middle` on a block: it only applies to inline content and table cells',
+      'Hard-coding negative margins of half the element\'s size, which breaks when the content changes',
+      'Forgetting that the parent needs a height for vertical centring to show',
+    ],
+    followUps: [
+      {
+        question: 'How would you centre it without knowing its height?',
+        answer: 'Grid or flex need no size: the container centres whatever the child measures. Out of the flow, `top: 50%; left: 50%; transform: translate(-50%, -50%)` works, because percentages in `translate` refer to the element\'s own size.',
+        fromLists: ['frontend-100#12.1'],
+      },
+      {
+        question: 'What are the trade-offs between Flexbox and Grid centring?',
+        answer: 'With one child they look the same. Grid\'s `place-items: center` is one declaration and centres each item in its own cell, so several children stack in rows. Flex keeps the children together on one line, centred as a group, which suits an icon beside a label. Both need a parent taller than the child.',
+        fromLists: ['frontend-100#12.2'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'Percentages in `transform: translate()` refer to the element\'s own size.',
+        isTrue: true,
+        why: 'That is why `translate(-50%, -50%)` centres an element of any size after `top: 50%; left: 50%`.',
+      },
+      {
+        statement: '`vertical-align: middle` centres a block element vertically inside its parent.',
+        isTrue: false,
+        why: 'It only applies to inline-level content and table cells.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Grid is the shortest: `display: grid; place-items: center` on the parent centres the child on both axes, whatever its size. `place-items` sets `align-items` and `justify-items` at once.',
+        'Flexbox: `display: flex; justify-content: center; align-items: center`. `justify-content` works along the row, `align-items` across it. Several children stay together on one line.',
+        'Out of the flow, `position: absolute; inset: 0; margin: auto` centres an element of known size. For an unknown size: `top: 50%; left: 50%; transform: translate(-50%, -50%)`.',
+        'Horizontal only: `margin-inline: auto` on a block with a width, or `text-align: center` for inline content. Vertical centring needs a parent taller than the child, from a height or `min-height`.',
+        'A modal `<dialog>` opened with `showModal()` is centred by the browser and sits in the top layer, so it needs none of these techniques.',
+      ],
+      code: `.empty-state { display: grid; place-items: center; min-height: 20rem; }
+.toolbar { display: flex; justify-content: center; align-items: center; }
+.toast {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%); /* % of the toast's own size */
+}
+.page { max-width: 72rem; margin-inline: auto; }`,
+      codeLang: 'css',
+    },
+    mcqSections: ['m28#layout'],
+    fromLists: ['frontend-100#12'],
+  },
+  {
+    id: 'web-css-architecture',
+    unit: 'web-platform',
+    topic: 'BEM and CSS architecture',
+    level: 'mid',
+    paths: ['frontend', 'fullstack'],
+    question: 'What is BEM, and why do teams use CSS naming conventions?',
+    answer:
+      'BEM, Block Element Modifier, names classes by structure: a block like `order-card`, an element inside it like `order-card__title`, and a modifier for a variant like `order-card--refunded`. Teams adopted it because CSS has one global namespace: with a convention, names do not collide, every selector is a single class with flat specificity, and the HTML tells you which styles apply. In 2026, tools often do the scoping instead: CSS Modules rewrite class names per file, and Tailwind replaces most custom class names with utilities. So I use BEM for global CSS, and let the build scope component styles.',
+    keyPoints: [
+      'Block, element, modifier: `block__element--modifier`',
+      'Avoids collisions in CSS\'s global namespace',
+      'Single-class selectors keep specificity flat',
+      'Often replaced today by scoping tools: CSS Modules, Tailwind',
+    ],
+    explanation:
+      'The question is about the problem behind the convention: global names and specificity creep. Seniors explain what BEM solves, compare it with the tools that solve the same problem automatically, and pick per context instead of defending one method.',
+    example:
+      'The back office had a `.title` rule in three different files, and a release that touched the reports page made the refund dialog\'s title 32 px bold. The team moved component styles to CSS Modules, where each file\'s `.title` gets a unique generated name, and kept BEM only for the few global layout classes.',
+    mistakes: [
+      'Chaining elements like `card__body__title`: an element belongs to the block, not to another element',
+      'Using BEM names but styling with descendant selectors, which brings specificity back',
+      'Insisting on BEM when the build already scopes every class',
+    ],
+    followUps: [
+      {
+        question: 'How does BEM compare with utility-first CSS like Tailwind?',
+        answer: 'BEM gives each component a semantic class and its own rules in a stylesheet. Tailwind composes small single-purpose classes in the markup and generates only the utilities you use at build time. Tailwind is quick to build with and the CSS stays small; BEM keeps markup lighter. Both avoid specificity wars.',
+        fromLists: ['frontend-100#13.1'],
+      },
+      {
+        question: 'How would you scope styles in a component framework without BEM?',
+        answer: 'CSS Modules: class names in `button.module.css` are rewritten per file at build time, built into Vite and Next.js. Other options are Vue\'s scoped styles, zero-runtime CSS-in-JS like vanilla-extract, or Shadow DOM for web components. In React I pick CSS Modules or Tailwind, which also work in Server Components.',
+        fromLists: ['frontend-100#13.2'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'In BEM, `order-card--refunded` is a modifier of the `order-card` block.',
+        isTrue: true,
+        why: 'Two dashes mark a modifier, a variant of the block; two underscores mark an element.',
+      },
+      {
+        statement: 'CSS Modules make class names global so that any file can reuse them.',
+        isTrue: false,
+        why: 'They scope class names per file by rewriting them at build time.',
+      },
+    ],
+    lesson: {
+      points: [
+        'BEM, Block Element Modifier, is a naming convention: a block is a standalone component (`order-card`), an element is a part of it (`order-card__title`), and a modifier is a variant (`order-card--refunded`).',
+        'CSS has one global namespace, so two `.title` rules in different files collide. A convention gives every class a unique, readable name, and each selector stays a single class.',
+        'Single-class selectors keep specificity flat at (0,1,0), so source order decides and nothing needs `!important`. Elements belong to the block: `card__title`, never `card__body__title`.',
+        'Tools now scope styles for you. CSS Modules rewrite class names per file at build time, Tailwind composes utility classes in the markup, and zero-runtime CSS-in-JS extracts static CSS.',
+        'In the Next.js App Router, prefer static CSS such as CSS Modules or Tailwind, since runtime CSS-in-JS needs Client Components. Keep BEM for global CSS that no tool scopes.',
+      ],
+      code: `<article class="order-card order-card--refunded">
+  <h2 class="order-card__title">Order 1042</h2>
+  <p class="order-card__status">Refunded</p>
+</article>
+<style>
+  .order-card { border: 1px solid #d1d5db; }
+  .order-card--refunded { opacity: 0.7; }
+  .order-card__title { font-size: 1.125rem; }
+</style>`,
+      codeLang: 'html',
+    },
+    mcqSections: ['m36#styling'],
+    fromLists: ['frontend-100#13'],
+  },
+  {
+    id: 'web-container-queries',
+    unit: 'web-platform',
+    topic: 'Media and container queries',
+    level: 'mid',
+    paths: ['frontend', 'fullstack'],
+    question: 'What are media queries and container queries, and how do they differ?',
+    answer:
+      'Both apply styles under a condition. A media query reads the environment: the viewport width, orientation, or user preferences like `prefers-reduced-motion` and `prefers-color-scheme`. A container query, `@container`, reads the size of an ancestor declared as a container with `container-type`, so a component adapts to the slot it is placed in, wherever that is. I use media queries for the page layout and preferences, and container queries for reusable components, like an order summary that is wide in the main column and narrow in a side panel. Container units like `cqi` then size things relative to that container.',
+    keyPoints: [
+      'Media queries read the viewport and user preferences',
+      'Container queries read an ancestor declared with `container-type`',
+      'Media queries for the page, container queries for components',
+      'Container units like `cqi` are relative to the container',
+    ],
+    explanation:
+      'It checks that your responsive toolbox is current. Seniors explain why viewport-based rules fail for reusable components, know the setup a container needs and its sizing trap, and keep media queries for what really depends on the viewport or the user.',
+    example:
+      'The back office\'s order summary appeared both in the main column of the order detail and in a 320 px side panel, and its media queries could not tell the two apart on a wide screen. Declaring each slot a container and switching to two columns with `@container summary (min-width: 40rem)` made one component work in both places.',
+    mistakes: [
+      'Expecting a container query to style the container itself: it styles its descendants',
+      'Forgetting `container-type`, so `@container` rules never match',
+      'Making a shrink-to-fit element the container, which collapses to zero width',
+    ],
+    followUps: [
+      {
+        question: 'What must you set on a parent for container queries to work?',
+        answer: '`container-type: inline-size` to query its width, or `size` for both axes, often with `container-name` so a query can target it, as in `@container summary (min-width: 40rem)`. That adds size containment, so the parent must get its width from its context, not from its content.',
+        fromLists: ['frontend-100#14.1'],
+      },
+      {
+        question: 'How do container queries interact with container units like `cqw`?',
+        answer: '`cqw` is 1% of the query container\'s width, `cqi` of its inline size, `cqh` and `cqb` of its height and block size. They resolve against the nearest size container, so `font-size: clamp(1rem, 4cqi, 1.5rem)` follows the slot. With no container, they fall back to small viewport units.',
+        fromLists: ['frontend-100#14.2'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'A container query can style the element that carries `container-type` itself.',
+        isTrue: false,
+        why: 'It applies to descendants of the container; the container is styled by queries on its own ancestors.',
+      },
+      {
+        statement: 'With no eligible container, `cqw` falls back to small viewport units.',
+        isTrue: true,
+        why: 'MDN documents the fallback to the `sv*` unit of the same axis.',
+      },
+    ],
+    lesson: {
+      points: [
+        'A media query applies styles based on the environment: viewport width, orientation, or user preferences such as `prefers-reduced-motion` and `prefers-color-scheme`.',
+        'A container query, `@container`, applies styles based on the size of an ancestor declared as a container with `container-type: inline-size` (its width) or `size` (both axes).',
+        'The query styles the container\'s descendants, never the container itself. Containment means the container cannot size from its content, so a shrink-to-fit container collapses to zero width.',
+        'Container units are relative to the query container: `cqi` and `cqw` are 1% of its inline size and width. With no container, they fall back to small viewport units.',
+        'Use media queries for the page layout and user preferences, container queries for components reused in slots of different widths. Both work in every major browser.',
+      ],
+      code: `.summary-slot { container: summary / inline-size; }
+.order-summary { display: grid; gap: 1rem; }
+.order-summary h2 { font-size: clamp(1rem, 4cqi, 1.5rem); }
+@container summary (min-width: 40rem) {
+  .order-summary { grid-template-columns: 1fr 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .order-summary { transition: none; }
+}`,
+      codeLang: 'css',
+    },
+    mcqSections: ['m28#layout'],
+    fromLists: ['frontend-100#14'],
+  },
+  {
+    id: 'web-hydration',
+    unit: 'web-platform',
+    topic: 'Hydration',
+    level: 'mid',
+    paths: ['frontend', 'fullstack', 'react'],
+    question: 'What is hydration in SSR frameworks, and what can go wrong?',
+    answer:
+      'Hydration is the step where the framework, in the browser, makes server-rendered HTML interactive: it loads the components\' JavaScript, renders them again and attaches event handlers to the existing DOM instead of recreating it. Two things go wrong. Mismatches: if the first client render differs from the server HTML, because of a date, `localStorage` or invalid nesting, React 19 reports an error and regenerates that subtree on the client. And cost: until hydration ends, the page looks ready but ignores taps, which hurts INP. So I keep components on the server when I can and hydrate only what is interactive.',
+    keyPoints: [
+      'Attaches handlers to the server HTML instead of recreating it',
+      'The first client render must match the server HTML',
+      'Mismatches: dates, browser-only data, invalid nesting',
+      'Cost: code to download and run before taps work',
+    ],
+    explanation:
+      'Interviewers want the mechanism and both failure modes, correctness and performance. Seniors name concrete mismatch causes and their fixes, and talk about reducing what hydrates: Server Components, selective hydration, islands.',
+    example:
+      'After the storefront launched, Sentry filled with hydration errors from a "Delivered by Tuesday" label computed with `new Date()` in a Client Component: the server ran in UTC, customers in Paris. Moving the estimate to a Server Component with a fixed `Europe/Paris` time zone removed the errors and the flash of changing text.',
+    mistakes: [
+      'Thinking hydration rebuilds the DOM from scratch',
+      'Silencing every mismatch with `suppressHydrationWarning` instead of fixing the cause',
+      'Reading `window` or `localStorage` during render behind a `typeof window` check, which guarantees a mismatch',
+    ],
+    followUps: [
+      {
+        question: 'What is partial or progressive hydration, and why does it matter?',
+        answer: 'Instead of hydrating the whole page in one long task, it is hydrated in pieces. React does it per Suspense boundary: selective hydration starts as each part\'s code arrives and handles first the part the user interacts with. With Server Components, static parts never hydrate, so there is less work.',
+        fromLists: ['frontend-100#44.1'],
+      },
+      {
+        question: 'How do islands architectures like Astro change hydration?',
+        answer: 'Astro renders pages to HTML with no JavaScript by default. Only components marked with a `client:` directive become islands, each hydrated on its own: `client:load` at once, `client:idle` when the browser is idle, `client:visible` when it scrolls into view. A mostly static page ships very little JavaScript.',
+        fromLists: ['frontend-100#44.2'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'During hydration, React reuses the DOM nodes the server rendered instead of creating new ones.',
+        isTrue: true,
+        why: 'It attaches handlers to the existing DOM; it only regenerates a subtree when a mismatch forces it.',
+      },
+      {
+        statement: 'Server Components hydrate in the browser like Client Components.',
+        isTrue: false,
+        why: 'Server Components never run in the browser; only Client Components ship code and hydrate.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Hydration makes server-rendered HTML interactive: in the browser, the framework loads the components\' code, renders them again and attaches event handlers to the existing DOM nodes.',
+        'The first client render must match the server HTML. Dates and time zones, `window` or `localStorage` read during render, and invalid nesting like a `<p>` inside a `<p>` cause mismatches.',
+        'On a mismatch, React 19 reports an error and regenerates that subtree on the client: a cost and a visible flash. Fix the cause; `suppressHydrationWarning` is for one unavoidable leaf.',
+        'Until hydration ends, the page looks ready but ignores taps. React hydrates per Suspense boundary and starts with the part the user interacts with; Server Components never hydrate.',
+        'Islands architectures, like Astro, ship static HTML by default and hydrate only the components marked as interactive, each on its own: at load, when idle or when visible.',
+      ],
+      code: `'use client';
+import { useEffect, useState } from 'react';
+
+export function CartBadge() {
+  const [count, setCount] = useState(0); // same value on server and client
+  useEffect(() => {
+    setCount(Number(localStorage.getItem('cartCount') ?? 0)); // after hydration
+  }, []);
+  return <span className="cart-badge">{count}</span>;
+}`,
+      codeLang: 'tsx',
+    },
+    mcqSections: ['m33#hydration'],
+    fromLists: ['frontend-100#44'],
+  },
+  {
+    id: 'web-spa-mpa',
+    unit: 'web-platform',
+    topic: 'SPA versus multi-page app',
+    level: 'mid',
+    paths: ['frontend', 'fullstack', 'react'],
+    question: 'What is a single-page application, and what are its trade-offs compared with a multi-page app?',
+    answer:
+      'An SPA loads one HTML shell and a JavaScript bundle; after that, a client-side router swaps views and fetches only data, with the History API keeping the URL in sync. A multi-page app asks the server for a new HTML document on every navigation. The SPA gives instant transitions and keeps state between screens, but costs a heavier first load, weaker SEO without server rendering, and work the browser used to do: scroll, focus and titles on navigation. MPAs are simpler and fast to first paint. Our back office is an SPA; the storefront is server rendered, with client navigation on top.',
+    keyPoints: [
+      'SPA: one shell; the router swaps views and fetches data',
+      'MPA: a new HTML document from the server per navigation',
+      'SPA wins: instant transitions, state kept between screens',
+      'SPA costs: first load, SEO, scroll and focus to manage',
+    ],
+    explanation:
+      'Interviewers want trade-offs tied to a product, not a verdict. A senior answer picks per application, knows the costs the router takes over from the browser, and mentions hybrids such as server rendering with client navigation.',
+    example:
+      'The back office SPA shipped one 900 KB bundle, so agents on the VPN waited several seconds before the orders table appeared. Loading the refunds, reports and CSV export routes with `lazy()` cut the first download to about 350 KB, and those screens loaded their own chunk on first visit.',
+    mistakes: [
+      'Saying search engines cannot index SPAs at all: they can, but server rendering is more reliable',
+      'Forgetting the server fallback, so refreshing a deep link like `/orders/1042` returns a 404',
+      'Not moving focus on route changes, so screen reader users miss that the page changed',
+    ],
+    followUps: [
+      {
+        question: 'How would you implement route-based code splitting?',
+        answer: 'Each route\'s component is loaded with a dynamic `import()`, in React through `lazy()` inside a `<Suspense>` boundary, so the bundler emits one chunk per route, downloaded on first visit. React Router can lazy-load routes too, and Next.js splits per route automatically. I prefetch a likely next route on hover.',
+        fromLists: ['frontend-100#50.1'],
+      },
+      {
+        question: 'What client-side routing challenges come with SPAs, like the back button?',
+        answer: 'The router must add a history entry with `pushState` for each view and render from the URL on `popstate`, or Back leaves the app. Then what the browser did for free: restore scroll on Back, move focus to the new heading, update the title, and serve the shell for every deep link.',
+        fromLists: ['frontend-100#50.2'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'Calling `history.pushState()` fires a `popstate` event.',
+        isTrue: false,
+        why: '`popstate` fires on history traversal, such as Back or Forward, not on `pushState` itself.',
+      },
+      {
+        statement: 'With `React.lazy`, a route\'s code is downloaded only when that route first renders.',
+        isTrue: true,
+        why: 'The dynamic `import()` runs on the first render of the lazy component, while Suspense shows the fallback.',
+      },
+    ],
+    lesson: {
+      points: [
+        'A single-page application (SPA) loads one HTML shell and a JavaScript bundle. Then a client-side router swaps views and fetches only data, without loading a new document.',
+        'A multi-page application (MPA) asks the server for a new HTML document on each navigation. It is simpler, fast to first paint and easy to index, but every navigation reloads the page.',
+        'The router keeps the URL in sync with the History API: `pushState` adds an entry without reloading, and Back fires `popstate`, which the router answers by rendering the matching view.',
+        'The browser no longer handles navigation for you: restore scroll, move focus to the new heading, set the title, and make the server answer every deep link with the shell.',
+        'Route-based code splitting keeps the first load small: each route is a dynamic `import()`, through `lazy()` in React, downloaded on its first visit.',
+      ],
+      code: `import { lazy, Suspense } from 'react';
+const OrderDetail = lazy(() => import('./routes/order-detail.tsx'));
+
+export function OrderRoute() {
+  return (
+    <Suspense fallback={<p>Loading order…</p>}>
+      <OrderDetail />
+    </Suspense>
+  );
+}`,
+      codeLang: 'tsx',
+    },
+    mcqSections: [],
+    fromLists: ['frontend-100#50'],
+  },
+  {
+    id: 'web-http2-http3',
+    unit: 'web-platform',
+    topic: 'HTTP/2 and HTTP/3',
+    level: 'senior',
+    paths: ['frontend', 'fullstack'],
+    question: 'How do HTTP/2 and HTTP/3 change frontend performance compared with HTTP/1.1?',
+    answer:
+      'With HTTP/1.1, a connection carries one request at a time, so browsers open about six connections per host, and we used to bundle, sprite and shard domains. HTTP/2 multiplexes many requests as streams over one TCP connection, with binary framing and compressed headers, so many small files become cheap and sharding hurts. But one lost TCP packet still stalls every stream. HTTP/3 runs on QUIC over UDP: streams are independent, and the TLS 1.3 handshake is built in, so most new connections are ready in one round trip. In practice I make sure the CDN serves HTTP/3, cut hostnames, and drop HTTP/1.1 workarounds.',
+    keyPoints: [
+      'HTTP/1.1: one request at a time, about six connections per host',
+      'HTTP/2: multiplexed streams over one TCP connection',
+      'A lost TCP packet still stalls every HTTP/2 stream',
+      'HTTP/3 on QUIC: independent streams, faster handshake',
+    ],
+    explanation:
+      'It checks whether your performance habits match today\'s protocols. Seniors explain which HTTP/1.1 tricks became harmful, where head-of-line blocking really sits, and what replaced server push.',
+    example:
+      'The storefront still split its images across `img1` and `img2` subdomains, an HTTP/1.1 trick that cost two extra DNS lookups and connections on every first visit. The team served everything from the main CDN hostname with HTTP/3 enabled, and real-user data read through `nextHopProtocol` confirmed most visits used `h3`.',
+    mistakes: [
+      'Keeping domain sharding, which adds DNS lookups and connections under HTTP/2',
+      'Saying HTTP/2 removed head-of-line blocking entirely: TCP still has it',
+      'Relying on server push, which Chrome has disabled',
+    ],
+    followUps: [
+      {
+        question: 'What is head-of-line blocking, and how does HTTP/3 (QUIC) address it?',
+        answer: 'It is one stalled item holding up everything queued behind it. HTTP/1.1 has it per connection. HTTP/2 removes it between requests, but TCP delivers bytes in order, so one lost packet stalls all streams. QUIC handles loss per stream, so only the stream that lost the packet waits.',
+        fromLists: ['frontend-100#74.1'],
+      },
+      {
+        question: 'How did server push differ from preloading, and why was it dropped?',
+        answer: 'Push sent resources before the browser asked, even ones already in its cache. Preload only tells the browser to fetch early, and it checks its cache first. Push rarely helped and often hurt, so Chrome disabled it in version 106. 103 Early Hints replaced it: hints, not bodies.',
+        fromLists: ['frontend-100#74.2'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'With HTTP/2, one lost TCP packet can stall every stream on the connection.',
+        isTrue: true,
+        why: 'TCP delivers bytes in order, so all streams wait for the retransmission.',
+      },
+      {
+        statement: 'HTTP/3 runs over TCP with TLS 1.3.',
+        isTrue: false,
+        why: 'HTTP/3 runs over QUIC, which uses UDP and carries the TLS 1.3 handshake itself.',
+      },
+    ],
+    lesson: {
+      points: [
+        'HTTP/1.1 sends one request at a time per connection, so browsers open about six connections per host. Workarounds followed: bundling, image sprites and domain sharding.',
+        'HTTP/2 multiplexes many requests as streams over one TCP connection, with binary framing and compressed headers. Many small files become cheap, and sharding now only adds connections.',
+        'TCP delivers bytes in order, so with HTTP/2 one lost packet stalls every stream until it is resent: head-of-line blocking moved down to the transport.',
+        'HTTP/3 runs on QUIC over UDP. A loss stalls only its own stream, and QUIC includes the TLS 1.3 handshake, so most new connections are set up and secured in one round trip.',
+        'Server push is gone: Chrome disabled it in version 106. Use `<link rel="preload">` or 103 Early Hints. `nextHopProtocol` in Navigation Timing shows `h2` or `h3` on real visits.',
+      ],
+      code: `HTTP/1.1 103 Early Hints
+Link: </styles/main.css>; rel=preload; as=style
+
+HTTP/1.1 200 OK
+Content-Type: text/html
+Link: </styles/main.css>; rel=preload; as=style`,
+      codeLang: 'http',
+    },
+    mcqSections: ['m25#navigation'],
+    fromLists: ['frontend-100#74'],
+  },
+  {
+    id: 'web-service-workers',
+    unit: 'web-platform',
+    topic: 'Service workers',
+    level: 'mid',
+    paths: ['frontend', 'fullstack'],
+    question: 'What is a service worker, and what can it be used for?',
+    answer:
+      'A service worker is a script the site registers that runs apart from the pages, as a programmable network proxy: it receives a `fetch` event for every request of the pages in its scope and decides how to answer, from the Cache API, the network, or both. It needs HTTPS. I use it for offline support and fast repeat visits, for example cache-first for hashed assets and network-first for HTML with an offline fallback. It also handles push notifications and background sync. The hard part is the update lifecycle, so I version caches and plan how a new release reaches open tabs from the first deploy.',
+    keyPoints: [
+      'A script running apart from the pages, acting as a proxy',
+      'Intercepts `fetch` for pages in its scope; HTTPS only',
+      'Uses: offline, caching strategies, push, background sync',
+      'Plan the update lifecycle and versioned caches',
+    ],
+    explanation:
+      'Interviewers check that you know what it is good for and where it bites. Strong answers pick a caching strategy per resource type and explain the waiting phase, the most common source of "users still see the old version" bugs.',
+    example:
+      'The storefront\'s first service worker cached product pages cache-first, so after a release some customers kept seeing old prices for days. The team switched navigations to network-first with the cached page as an offline fallback, renamed the caches with the release number, and deleted the old ones in the `activate` event.',
+    mistakes: [
+      'Caching HTML cache-first, so users stay on an old release',
+      'Forgetting that a new worker waits until every tab using the old one closes',
+      'Thinking a service worker can touch the DOM: it has no `document`',
+    ],
+    followUps: [
+      {
+        question: 'Cache-first, network-first or stale-while-revalidate: when do you use each?',
+        answer: 'Cache-first for files that never change at a given URL, like hashed scripts and fonts. Network-first for HTML and data that must be fresh, with the cache as offline fallback. Stale-while-revalidate answers from the cache and refreshes it in the background, where slightly old is fine, like product images.',
+        fromLists: ['frontend-100#75.1'],
+      },
+      {
+        question: 'How do you force an update after shipping a new service worker?',
+        answer: 'The browser checks for a new script on navigation, ignoring the HTTP cache by default. The new worker installs, then waits; `skipWaiting()` activates it at once and `clients.claim()` takes over open pages. I show a "new version, reload" prompt, and call `registration.update()` in long-lived tabs.',
+        fromLists: ['frontend-100#75.2'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'A new service worker activates right after installing, even while open tabs still use the old one.',
+        isTrue: false,
+        why: 'It waits until no client uses the old worker, unless it calls `skipWaiting()`.',
+      },
+      {
+        statement: 'A service worker cannot access the DOM directly.',
+        isTrue: true,
+        why: 'It runs in its own worker context; it talks to pages through messages and controls their requests.',
+      },
+    ],
+    lesson: {
+      points: [
+        'A service worker is a script a site registers that runs apart from its pages, with no access to the DOM. It acts as a proxy: it gets a `fetch` event for every request of the pages in its scope.',
+        'It answers from the Cache API, the network, or both, which enables offline pages and instant repeat visits. It also handles push notifications and background sync, and requires HTTPS or `localhost`.',
+        'Strategies: cache-first for hashed assets that never change, network-first for HTML and fresh data with a cached fallback, and stale-while-revalidate where slightly old content is fine.',
+        'A changed worker installs in the background, then waits until no tab uses the old one. `skipWaiting()` activates it at once; `clients.claim()` takes control of pages already open.',
+        'The browser checks for a new worker script on navigation, ignoring the HTTP cache by default. Version your cache names, and delete the old caches in the `activate` event.',
+      ],
+      code: `const KEEP = ['assets-v43', 'pages-v43'];
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    const names = await caches.keys();
+    await Promise.all(names.filter((name) => !KEEP.includes(name)).map((name) => caches.delete(name)));
+    await self.clients.claim();
+  })());
+});`,
+      codeLang: 'js',
+    },
+    mcqSections: ['m25#caching'],
+    fromLists: ['frontend-100#75'],
+  },
+  {
+    id: 'web-wcag',
+    unit: 'web-platform',
+    topic: 'WCAG and its principles',
+    level: 'mid',
+    paths: ['frontend', 'fullstack', 'react'],
+    question: 'What is WCAG, and what are its core principles?',
+    answer:
+      'WCAG, the Web Content Accessibility Guidelines from the W3C, is the reference standard for web accessibility, and laws and contracts rely on it. Version 2.2 is organised under four principles, POUR. Perceivable: users can perceive the content, with text alternatives, captions and contrast. Operable: everything works with a keyboard, with enough time and visible focus. Understandable: clear text, predictable behaviour, help with errors. Robust: markup that assistive technology can interpret, with correct names, roles and states. Each guideline has testable success criteria at levels A, AA and AAA, and we target 2.2 AA.',
+    keyPoints: [
+      'W3C standard that laws and contracts refer to',
+      'Four principles: perceivable, operable, understandable, robust',
+      'Testable success criteria at levels A, AA and AAA',
+      'Target WCAG 2.2 level AA',
+    ],
+    explanation:
+      'It checks that you know the framework behind accessibility work, not only a few attributes. A strong answer names the four principles with an example each, explains the levels, and says which one you target and why.',
+    example:
+      'A client\'s procurement team asked for a WCAG conformance statement for the checkout. Auditing it against 2.2 AA, the team found most failures under Operable: the fixed pay bar hid the focused field and the quantity buttons were 16 px wide. Both were fixed before the declaration was published.',
+    mistakes: [
+      'Targeting AAA for the whole site, which the W3C advises against as a general policy',
+      'Treating WCAG as a list of HTML attributes instead of outcomes for users',
+      'Targeting 2.0 or 2.1 in a new project: 2.2 AA covers 2.1 AA and adds criteria',
+    ],
+    followUps: [
+      {
+        question: 'Which conformance level do most organisations target, and why?',
+        answer: 'AA. Level A alone leaves major barriers, such as low contrast, and the W3C advises against requiring AAA for whole sites, because some content cannot meet every AAA criterion. Laws ask for AA: the European Accessibility Act relies on WCAG 2.1 AA through EN 301 549, which 2.2 AA covers.',
+        fromLists: ['frontend-100#91.1'],
+      },
+      {
+        question: 'Give an example of a failure of the Robust principle.',
+        answer: 'A custom toggle made of a `div` with a click handler: assistive technology gets no role, no name and no on or off state, which fails 4.1.2 Name, Role, Value. A `button` with `aria-pressed` fixes it. Another is a cart update shown only visually, which fails 4.1.3 Status Messages.',
+        fromLists: ['frontend-100#91.2'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'Conforming to level AA means meeting every level A and level AA success criterion.',
+        isTrue: true,
+        why: 'Each level includes the levels below it.',
+      },
+      {
+        statement: 'Most laws and contracts require WCAG level AAA.',
+        isTrue: false,
+        why: 'They require AA; the W3C does not recommend AAA as a general policy for whole sites.',
+      },
+    ],
+    lesson: {
+      points: [
+        'WCAG, the Web Content Accessibility Guidelines, is the W3C standard for web accessibility. Version 2.2 became a W3C Recommendation on 5 October 2023; laws and contracts reference WCAG.',
+        'It rests on four principles, POUR. Perceivable: text alternatives, captions, contrast. Operable: keyboard access, enough time, visible focus, nothing that flashes enough to cause seizures.',
+        'Understandable: readable text, predictable behaviour, help with input errors. Robust: markup that assistive technology can interpret, with correct names, roles, states and status messages.',
+        'Each principle has guidelines with testable success criteria at three levels: A, AA and AAA. Conforming at AA means meeting every A and AA criterion.',
+        'Organisations target AA; the W3C advises against requiring AAA site-wide. 2.2 adds criteria such as 2.5.8 Target Size and removes the obsolete 4.1.1 Parsing, so 2.2 AA covers 2.1 AA.',
+      ],
+    },
+    mcqSections: ['m28#law'],
+    fromLists: ['frontend-100#91'],
+  },
+  {
+    id: 'web-accessible-combobox',
+    unit: 'web-platform',
+    topic: 'Accessible custom dropdown',
+    level: 'senior',
+    paths: ['frontend', 'fullstack', 'react'],
+    question: 'How would you make a custom dropdown or select accessible?',
+    answer:
+      'First I check whether a styled native `select` will do. If not, I follow the WAI-ARIA Authoring Practices combobox pattern. The trigger gets `role="combobox"`, a label, `aria-expanded`, and `aria-controls` pointing to a popup with `role="listbox"` and `role="option"` items, with `aria-selected` on the current one. DOM focus stays on the combobox, and `aria-activedescendant` names the highlighted option. Keyboard: Down Arrow opens and moves, Enter accepts, Escape closes without changing the value, Tab leaves. I scroll the active option into view and test with screen readers. In production I take a tested headless library.',
+    keyPoints: [
+      'Prefer a native `select` when it fits',
+      'APG roles: `combobox`, `listbox`, `option`, `aria-expanded`',
+      'Focus stays on the combobox; `aria-activedescendant` names the option',
+      'Full keyboard support, tested with screen readers',
+    ],
+    explanation:
+      'It is a senior accessibility question because roles alone are not enough. Interviewers listen for the APG pattern, focus handling with `aria-activedescendant`, the keyboard contract, and the judgement to avoid building one when a native element or a library exists.',
+    example:
+      'The storefront\'s shoe size picker was a styled `div` list: VoiceOver read it as a clickable group with no value, and the keyboard could not open it. The team replaced it with a headless library\'s select, styled with the shop\'s tokens; it is now announced with its label and value, and works with arrows, Enter and Escape.',
+    mistakes: [
+      'Moving DOM focus into the options of an editable combobox, so the user can no longer type',
+      'Adding roles without implementing the keyboard behaviour',
+      'Building one from scratch when a native `select` or a tested library would do',
+    ],
+    followUps: [
+      {
+        question: 'Why reach for a native `select` or a headless UI library instead of building it?',
+        answer: 'A native `select` is accessible by default, works with every screen reader and opens the phone\'s own picker. A custom one means roles, states, keyboard, scrolling and screen reader quirks to test across browsers. A headless library, like React Aria or Radix, ships that tested behaviour and leaves me the styling.',
+        fromLists: ['frontend-100#92.1'],
+      },
+      {
+        question: 'How would you test it with a screen reader?',
+        answer: 'Keyboard only first. Then NVDA with Firefox or Chrome on Windows, and VoiceOver with Safari on macOS and iOS: is it announced as a combobox with its label and value, are expanded and collapsed read, is each highlighted option announced, and is the choice confirmed? Automated tests then guard the ARIA attributes.',
+        fromLists: ['frontend-100#92.2'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'In the APG combobox pattern with a listbox popup, DOM focus stays on the combobox while options are highlighted.',
+        isTrue: true,
+        why: 'The highlighted option is exposed through `aria-activedescendant`, so typing can continue.',
+      },
+      {
+        statement: 'Adding `role="listbox"` to a `ul` makes the arrow keys move between its options.',
+        isTrue: false,
+        why: 'ARIA only changes what assistive technology is told; you must implement every key yourself.',
+      },
+    ],
+    lesson: {
+      points: [
+        'First choice: a native `select`, accessible by default and shown with the phone\'s own picker. Build a custom one only when the design truly needs it, ideally from a tested headless library.',
+        'The WAI-ARIA Authoring Practices Guide (APG) defines the combobox: `role="combobox"`, a label, `aria-expanded`, and `aria-controls` pointing to a `role="listbox"` popup of `role="option"` items.',
+        'DOM focus stays on the combobox. `aria-activedescendant` holds the id of the highlighted option, so screen readers announce it, and `aria-selected="true"` marks the chosen value.',
+        'Keyboard: Down Arrow opens the list and moves through options, Enter accepts, Escape closes without changing the value, Alt+Down opens without moving. Scroll the active option into view yourself.',
+        'A select-only combobox, like a size picker, accepts no typing and behaves like a native `select`. ARIA adds no behaviour: every key is yours to implement and test.',
+      ],
+      code: `<span id="size-label">Size</span>
+<div role="combobox" tabindex="0" aria-labelledby="size-label"
+     aria-expanded="true" aria-controls="size-options"
+     aria-activedescendant="size-42">EU 42</div>
+<ul id="size-options" role="listbox" aria-labelledby="size-label">
+  <li id="size-41" role="option" aria-selected="false">EU 41</li>
+  <li id="size-42" role="option" aria-selected="true">EU 42</li>
+</ul>`,
+      codeLang: 'html',
+    },
+    mcqSections: ['m28#widgets', 'm37#combobox'],
+    fromLists: ['frontend-100#92'],
+  },
+  {
+    id: 'web-aria-live',
+    unit: 'web-platform',
+    topic: 'Live regions',
+    level: 'mid',
+    paths: ['frontend', 'fullstack', 'react'],
+    question: 'What is `aria-live`, and when would you use it?',
+    answer:
+      '`aria-live` turns an element into a live region: when its content changes, screen readers announce the change without moving focus. `polite` waits until the user is idle, `assertive` interrupts, and `off` is the default. I use it for updates that happen away from focus: "Added to cart", a search result count, an order status turning `paid`. The roles `status` and `alert` are live regions with built-in politeness. Two rules matter: the region must be in the page before its text changes, so I render it empty from the start, and messages stay short, polite by default, assertive only for errors that block the user.',
+    keyPoints: [
+      'Announces content changes without moving focus',
+      '`polite` waits for idle; `assertive` interrupts',
+      'The region must exist before its content changes',
+      'Short messages, polite by default',
+    ],
+    explanation:
+      'It checks whether you can make dynamic interfaces usable without sight. Seniors know the roles that imply live regions, the "region must already exist" trap, and the restraint to keep `assertive` for real emergencies.',
+    example:
+      'A support agent using a screen reader started a CSV export of 20,000 orders in the back office and never knew when it was ready. A visually hidden `role="status"` region, rendered empty with the page, now announces "Export ready" while focus stays in the orders table, and a visible toast carries the download link.',
+    mistakes: [
+      'Inserting the region together with its message, which may not be announced',
+      'Using `assertive` or `role="alert"` for routine updates',
+      'Moving focus to the message, which pulls the user away from their task',
+    ],
+    followUps: [
+      {
+        question: 'What is the difference between `aria-live`, `role="alert"` and `role="status"`?',
+        answer: '`role="status"` is a polite live region with `aria-atomic="true"`, for advisory messages like "Cart: 3 items". `role="alert"` equals `aria-live="assertive"` with `aria-atomic="true"`, for urgent ones like "Payment refused". Plain `aria-live` sets only the politeness, when no role fits.',
+        fromLists: ['frontend-100#93.1'],
+      },
+      {
+        question: 'How would you announce a background operation completing without stealing focus?',
+        answer: 'With a visually hidden `role="status"` region rendered empty from the first paint. When the export finishes, I set its text to "Export ready, 20,000 orders"; the screen reader reads it when the user is idle, and focus stays where they were working.',
+        fromLists: ['frontend-100#93.2'],
+      },
+    ],
+    traps: [
+      {
+        statement: '`role="status"` has an implicit `aria-live` value of `polite`.',
+        isTrue: true,
+        why: 'MDN documents `polite` and `aria-atomic="true"` as its implicit values.',
+      },
+      {
+        statement: 'A live region always announces its message, even when it is inserted into the page together with that message.',
+        isTrue: false,
+        why: 'The region should exist before its content changes; one added with its text may not be announced.',
+      },
+    ],
+    lesson: {
+      points: [
+        'A live region is an element whose content changes are read by screen readers without moving focus. `aria-live="polite"` waits until the user is idle, `"assertive"` interrupts, and `"off"` is the default.',
+        '`role="status"` is a polite live region and `role="alert"` an assertive one. Both imply `aria-atomic="true"`, so the whole region is read, not just the part that changed.',
+        'The region must be in the page before its content changes: render it empty from the start and change only its text. A region added together with its message may not be announced.',
+        'Use live regions for changes away from focus: an item added to the cart, a result count, an order status, a finished export. Keep messages short and polite; keep `alert` for what blocks the user.',
+        'To repeat an identical message, clear the region first, since the same text is not a change. Hide the region with a visually-hidden class, never `display: none`.',
+      ],
+      code: `/** Always mounted, so every new message is announced. */
+export function ExportAnnouncer({ message }: { message: string }) {
+  return (
+    <p role="status" className="visually-hidden">
+      {message}
+    </p>
+  );
+}
+// When the export ends: setMessage('Export ready, 20,000 orders')`,
+      codeLang: 'tsx',
+    },
+    mcqSections: ['m28#live'],
+    fromLists: ['frontend-100#93'],
   },
 ];

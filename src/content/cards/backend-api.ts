@@ -38,17 +38,22 @@ export const backendApiCards: Card[] = [
       {
         question: 'What is the N+1 problem in GraphQL, and how do you fix it?',
         answer: 'A list of 50 orders whose `customer` resolver runs one query per order makes 51 queries. A DataLoader created per request collects the ids requested in one tick and loads them in one batched query.',
-        fromList: 'fullstack-100#36.1',
+        fromLists: ['fullstack-100#36.1', 'backend-100#15.1'],
       },
       {
         question: 'How do you cache a GraphQL API when it does not use HTTP `GET` caching?',
         answer: 'In layers: a normalised cache in the client, such as Apollo Client\'s, a per-request DataLoader cache on the server, and Redis for expensive resolvers. For a CDN, I send trusted persisted queries by id over `GET`, so public queries like product pages get cacheable URLs.',
-        fromList: 'fullstack-100#36.2',
+        fromLists: ['fullstack-100#36.2', 'backend-100#15.2'],
       },
       {
         question: 'When would you still pick REST over GraphQL for a new project?',
         answer: 'When the API is public or for partners, when HTTP and CDN caching matter, or when one frontend needs simple resource views. REST also keeps status codes, rate limits and monitoring straightforward. The Orders API stays REST for the delivery partner for those reasons.',
-        fromList: 'fullstack-100#36.3',
+        fromLists: ['fullstack-100#36.3'],
+      },
+      {
+        question: "Which GraphQL security concerns apply, such as query depth limits?",
+        answer: "Query cost first: limit depth, aliases, batch size and estimated cost during validation, before any resolver runs, and accept only trusted documents from your own clients. Then authorization per object and field in the business layer. Turning off introspection and suggestions helps a little, never alone.",
+        fromLists: ['backend-100#15.3'],
       },
     ],
     traps: [
@@ -83,7 +88,7 @@ Content-Type: application/json
       codeLang: 'http',
     },
     mcqSections: ['m05#senior', 'm20#errors'],
-    fromLists: ['fullstack-100#36'],
+    fromLists: ['fullstack-100#36', 'backend-100#15'],
   },
   {
     id: 'api-401-vs-403',
@@ -113,7 +118,7 @@ Content-Type: application/json
       {
         question: 'Which code do you return for an expired access token?',
         answer: '401, with a `WWW-Authenticate: Bearer` header; RFC 6750 adds `error="invalid_token"`. The client then uses its refresh token, or sends the user to log in.',
-        fromList: 'fullstack-100#37.2',
+        fromLists: ['fullstack-100#37.2'],
       },
       {
         question: 'Where should the 401 and 403 decisions live in the code?',
@@ -122,12 +127,12 @@ Content-Type: application/json
       {
         question: 'Which code do you return for a missing resource, and for one the user may not access?',
         answer: '404 when the order does not exist. For a route the caller\'s role forbids, like a customer calling refunds, 403. For another customer\'s order I also answer 404, since RFC 9110 allows it and a 403 would confirm the id exists.',
-        fromList: 'fullstack-100#37.1',
+        fromLists: ['fullstack-100#37.1'],
       },
       {
         question: 'What is the difference between authentication and authorisation?',
         answer: 'Authentication proves who the caller is, through a session or a verified token; failing it gives 401. Authorisation decides whether that caller may do this action on this object, like refunding order 1042; failing it gives 403, or 404 to hide the object.',
-        fromList: 'fullstack-100#37.3',
+        fromLists: ['fullstack-100#37.3'],
       },
     ],
     traps: [
@@ -196,17 +201,27 @@ WWW-Authenticate: Bearer error="invalid_token", error_description="The access to
       {
         question: 'Would you paginate the orders list with offsets or cursors?',
         answer: 'Offsets are simple and allow jumping to page 40, but deep pages get slow and new orders shift rows between pages. A cursor encodes the last `(created_at, id)` seen, uses an index and stays stable, but only moves next or back. I use cursors for feeds and offsets for small admin tables.',
-        fromList: 'fullstack-100#38.1',
+        fromLists: ['fullstack-100#38.1'],
       },
       {
         question: 'How do you model a nested resource, such as the refunds of an order?',
         answer: 'Nest one level where the child only exists in its parent: `GET /orders/:id/refunds` and `POST /orders/:id/refunds`. A refund with its own id can also live at `/refunds/:id`. I avoid deep chains like `/customers/:id/orders/:id/refunds`, and still check that the parent belongs to the caller.',
-        fromList: 'fullstack-100#38.2',
+        fromLists: ['fullstack-100#38.2', 'backend-100#13.1'],
       },
       {
         question: 'How would you serve old and new clients through a breaking change?',
         answer: 'Avoid it with additive changes first. If it must break, ship `/v2/orders`, keep v1 running by translating it onto the same code at the edge, announce retirement with `Deprecation` and `Sunset` headers, and remove v1 once its logged usage reaches zero.',
-        fromList: 'fullstack-100#38.3',
+        fromLists: ['fullstack-100#38.3'],
+      },
+      {
+        question: "How would you model actions that do not fit CRUD, like \"publish\"?",
+        answer: "Turn the action into a resource you create: `POST /orders/:id/cancellation` or `POST /articles/:id/publication`, which can carry its own status and history. A plain state change can be a `PATCH` of `status` with validated transitions. Google's API guide also allows custom methods such as `POST /articles/42:publish`.",
+        fromLists: ['backend-100#13.2'],
+      },
+      {
+        question: "What is HATEOAS, and how often is it used?",
+        answer: "Hypermedia as the engine of application state: responses carry links to what the client may do next, such as a `cancel` link only while the order can be cancelled. It is part of Fielding's definition of REST, but most JSON APIs skip it and rely on OpenAPI docs, keeping at most `next` links for pagination.",
+        fromLists: ['backend-100#13.3'],
       },
     ],
     traps: [
@@ -240,7 +255,7 @@ Location: /orders/1042`,
       codeLang: 'http',
     },
     mcqSections: ['m05#resources', 'm05#idempotency', 'm05#pagination'],
-    fromLists: ['fullstack-100#38'],
+    fromLists: ['fullstack-100#38', 'backend-100#13'],
   },
   {
     id: 'api-middleware',
@@ -278,17 +293,17 @@ Location: /orders/1042`,
       {
         question: 'How would you write middleware that verifies a JWT and attaches the user to the request?',
         answer: 'It reads the `Authorization: Bearer` header, verifies the token with a library such as `jose`, pinning the algorithm, issuer and audience, then sets `req.user` from the claims and calls `next()`. A missing or invalid token ends with 401 and a `WWW-Authenticate` header.',
-        fromList: 'fullstack-100#39.1',
+        fromLists: ['fullstack-100#39.1'],
       },
       {
         question: 'How does Express error-handling middleware differ in syntax from normal middleware?',
         answer: 'It declares four parameters, `(err, req, res, next)`, and Express recognises it by that count, so you cannot drop `next` even if unused. It is registered after the routes and runs only when something calls `next(err)`, throws, or, since Express 5, rejects.',
-        fromList: 'fullstack-100#39.2',
+        fromLists: ['fullstack-100#39.2'],
       },
       {
         question: 'How do you apply middleware to only some routes?',
         answer: 'In Express, mount it on a path, `app.use(\'/admin\', requireAdmin)`, on a `Router`, or list it in one route: `app.post(\'/orders/:id/refunds\', requireAdmin, handler)`. In NestJS, `consumer.apply(...).forRoutes(...)`, with `exclude()` to skip some.',
-        fromList: 'fullstack-100#39.3',
+        fromLists: ['fullstack-100#39.3'],
       },
     ],
     traps: [
@@ -362,17 +377,32 @@ app.use((err, req, res, next) => {       // four parameters: the error handler
       {
         question: 'How does one thread handle many concurrent I/O operations in Node?',
         answer: 'Node starts each operation and does not wait: the OS notifies libuv when a socket is ready, through epoll, kqueue or IOCP, and the event loop runs the matching callback. Waiting costs no thread, so one process can hold thousands of open database and HTTP calls.',
-        fromList: 'fullstack-100#40.1',
+        fromLists: ['fullstack-100#40.1'],
       },
       {
         question: 'What can still block the event loop even with async I/O?',
         answer: 'Any long JavaScript run: `*Sync` APIs, big `JSON.parse` or `stringify` calls, sorting huge arrays, and regexes with catastrophic backtracking. On Node 24, `/^(a+)+$/` on 26 `a`s and a `b` blocked for over 2 seconds; parsing 30 MB of JSON took about 150 ms.',
-        fromList: 'fullstack-100#40.2',
+        fromLists: ['fullstack-100#40.2'],
       },
       {
         question: 'How do you run a CPU-heavy task without blocking the event loop?',
         answer: 'Move it to `worker_threads`, each with its own event loop, through a pool such as Piscina so threads are reused. On Node 24, a 600,000-iteration `pbkdf2Sync` in a worker delayed a 10 ms timer by only 8 ms. For long jobs, a queue and a separate worker service.',
-        fromList: 'fullstack-100#40.3',
+        fromLists: ['fullstack-100#40.3'],
+      },
+      {
+        question: "How would you size a worker pool for a synchronous framework?",
+        answer: "In a thread-per-request server each request holds a thread while it waits, so by Little's law busy threads ≈ requests per second × latency: 200 requests per second at 250 ms keep about 50 busy. Add headroom, cap by memory and database connections, and load test. Gunicorn suggests starting at (2 × cores) + 1 workers.",
+        fromLists: ['backend-100#5.1'],
+      },
+      {
+        question: "What happens when an async server runs CPU-bound work in a handler?",
+        answer: "The event loop is busy for the whole computation, so every other request on that process waits, timers fire late, and health checks can time out until the pod is restarted. Latency rises for all users, not only the one who triggered the work. The fix is a worker thread, a job queue or a separate service.",
+        fromLists: ['backend-100#5.2'],
+      },
+      {
+        question: "How do CPU-bound and I/O-bound workloads differ in this trade-off?",
+        answer: "I/O-bound work spends its time waiting, so async I/O serves thousands of requests on one thread, which is where Node shines. CPU-bound work needs a core for its whole duration, so async gains nothing: throughput is set by the number of cores, and you scale with worker threads or processes.",
+        fromLists: ['backend-100#5.3'],
       },
     ],
     traps: [
@@ -407,7 +437,7 @@ pbkdf2Sync('secret', 'salt', 600_000, 64, 'sha512');
       codeLang: 'ts',
     },
     mcqSections: ['m01#model', 'm01#blocking', 'm01#pool'],
-    fromLists: ['fullstack-100#40'],
+    fromLists: ['fullstack-100#40', 'backend-100#5'],
   },
   {
     id: 'api-authentication',
@@ -445,17 +475,17 @@ pbkdf2Sync('secret', 'salt', 600_000, 64, 'sha512');
       {
         question: 'How do sessions and JWTs compare for scaling and revocation?',
         answer: 'A session is an id pointing to server state, so every replica reads a shared store like Redis, and deleting the row revokes it at once. A JWT is verified without a lookup, which scales easily, but stays valid until `exp`. So I keep JWTs short and revoke through refresh tokens.',
-        fromList: 'fullstack-100#41.1',
+        fromLists: ['fullstack-100#41.1'],
       },
       {
         question: 'How do you implement "log out everywhere" when JWTs are stateless?',
         answer: 'Revoke every refresh token of the customer in the database, so no device gets a new access token; existing access tokens die within their few minutes. For an immediate effect, store a per-customer cut-off time and reject tokens whose `iat` is older, at the cost of a lookup.',
-        fromList: 'fullstack-100#41.2',
+        fromLists: ['fullstack-100#41.2'],
       },
       {
         question: 'What is a refresh token for, and why is it safer than one long-lived access token?',
         answer: 'It gets new short-lived access tokens without a new login. The access token travels on every request, so if it leaks it works only minutes. The refresh token goes only to the IdP, is rotated on each use, and a replayed old one revokes the whole family.',
-        fromList: 'fullstack-100#41.3',
+        fromLists: ['fullstack-100#41.3'],
       },
     ],
     traps: [
@@ -518,7 +548,7 @@ const challenge = createHash('sha256').update(verifier).digest('base64url');
       {
         question: 'Can you use `Access-Control-Allow-Origin: *` with credentials?',
         answer: 'No. Browsers refuse to expose a credentialed response when the allowed origin is the wildcard; you must name the exact origin.',
-        fromList: 'fullstack-100#42.2',
+        fromLists: ['fullstack-100#42.2'],
       },
       {
         question: 'How do you reduce the cost of preflights?',
@@ -527,12 +557,17 @@ const challenge = createHash('sha256').update(verifier).digest('base64url');
       {
         question: 'What is a CORS preflight, and when does the browser send one?',
         answer: 'An `OPTIONS` request the browser sends before a cross-origin request that is not simple: a method like `PUT` or `DELETE`, a custom header such as `Authorization`, or a `Content-Type` like `application/json`. The real request only follows if the answer allows that origin, method and headers.',
-        fromList: 'fullstack-100#42.1',
+        fromLists: ['fullstack-100#42.1', 'frontend-100#69.1'],
       },
       {
         question: 'How do you allow several specific origins?',
         answer: 'The header holds one origin, so I keep an allow-list, compare the request\'s `Origin` exactly, echo it back only on a match, and add `Vary: Origin` so caches keep answers apart. The `cors` package for Express accepts an array of origins and does this.',
-        fromList: 'fullstack-100#42.3',
+        fromLists: ['fullstack-100#42.3'],
+      },
+      {
+        question: "How does CORS interact with cookies and credentials?",
+        answer: "A cross-origin `fetch` sends cookies only with `credentials: 'include'`. The browser then exposes the response only if the server names the exact origin, never `*`, and sends `Access-Control-Allow-Credentials: true`. The cookie still obeys its `SameSite` rule, and third-party cookie blocking can drop it.",
+        fromLists: ['frontend-100#69.2'],
       },
     ],
     traps: [
@@ -568,7 +603,7 @@ Vary: Origin`,
       codeLang: 'http',
     },
     mcqSections: ['m27#csrf-cors'],
-    fromLists: ['fullstack-100#42'],
+    fromLists: ['fullstack-100#42', 'frontend-100#69'],
   },
   {
     id: 'api-file-uploads',
@@ -606,17 +641,17 @@ Vary: Origin`,
       {
         question: 'How do you restrict file types and sizes on the client and the server?',
         answer: 'The client checks `file.type` and `file.size` and sets `accept="image/*"`, only for a fast message. The server is the real gate: an allow-list of content types and a size cap when signing, a size range in the upload policy, then the file\'s magic bytes checked after upload.',
-        fromList: 'fullstack-100#43.1',
+        fromLists: ['fullstack-100#43.1'],
       },
       {
         question: 'How do you generate a presigned URL and use it to upload straight to storage?',
         answer: 'The API checks the user, picks the key, and signs a `PutObjectCommand` with `getSignedUrl` from `@aws-sdk/s3-request-presigner`, valid five minutes. The browser `PUT`s the file to that URL with the agreed `Content-Type`, then calls the API to confirm the upload.',
-        fromList: 'fullstack-100#43.2',
+        fromLists: ['fullstack-100#43.2'],
       },
       {
         question: 'How do you produce several image sizes, such as a thumbnail and a full view?',
         answer: 'A worker triggered by the confirmed upload resizes the original with a library such as sharp, into 128 px and 512 px WebP versions under derived keys, and the CDN serves them. Keeping the original lets me add a size later; an image CDN that resizes on request is the alternative.',
-        fromList: 'fullstack-100#43.3',
+        fromLists: ['fullstack-100#43.3'],
       },
     ],
     traps: [
@@ -681,6 +716,7 @@ Content-Type: application/json
       {
         question: 'What is the weakness of a fixed window?',
         answer: 'A client can spend its full quota at the end of one window and again at the start of the next. With 100 per minute, 200 requests can pass in about one second; sliding windows or a token bucket smooth this.',
+        fromLists: ['backend-100#19.1'],
       },
       {
         question: 'Is a request count enough for a GraphQL endpoint or an expensive export?',
@@ -689,17 +725,22 @@ Content-Type: application/json
       {
         question: 'How do you keep rate limits consistent across several replicas?',
         answer: 'Counters live in one shared store, usually Redis, updated atomically with `INCR` and an expiry or a small Lua script, so all six Orders API replicas see the same count. The limiter must also read the real client IP from headers our own proxy sets.',
-        fromList: 'fullstack-100#44.1',
+        fromLists: ['fullstack-100#44.1'],
       },
       {
         question: 'How do the token bucket and the sliding window log differ?',
         answer: 'A token bucket keeps two numbers per key, tokens and last refill, and allows bursts up to its capacity at a steady average. A sliding window log stores the timestamp of every request in the window and counts them: exact, but memory grows with traffic.',
-        fromList: 'fullstack-100#44.2',
+        fromLists: ['fullstack-100#44.2'],
       },
       {
         question: 'How do you tell API clients about their rate limit status?',
         answer: 'Over the limit, 429 with `Retry-After`. On every response, the remaining quota: many APIs use vendor headers like `X-RateLimit-Remaining`, while the IETF `RateLimit` fields are still an Internet-Draft. And I document the limits so partners can pace themselves.',
-        fromList: 'fullstack-100#44.3',
+        fromLists: ['fullstack-100#44.3', 'backend-100#19.2'],
+      },
+      {
+        question: "Rate limiting per user or per IP: how do you choose?",
+        answer: "Per user or API key is fair and precise, but only after authentication. Per IP covers anonymous routes, but many customers share one IP behind a mobile carrier or office NAT, and attackers rotate IPs. So per user on authenticated routes, per IP on anonymous ones, and both on login.",
+        fromLists: ['backend-100#19.3'],
       },
     ],
     traps: [
@@ -735,7 +776,7 @@ Content-Type: application/json
       codeLang: 'ts',
     },
     mcqSections: ['m12#abuse'],
-    fromLists: ['fullstack-100#44'],
+    fromLists: ['fullstack-100#44', 'backend-100#19'],
   },
   {
     id: 'api-errors-logging',
@@ -773,17 +814,27 @@ Content-Type: application/json
       {
         question: 'Which errors do you handle gracefully, and which should crash or alert?',
         answer: 'Expected domain errors, like a shipped order or a declined card, get a clear 4xx and no alert. Transient failures, like a delivery partner timeout, get retries. Bugs and unknown state, such as an uncaught exception, crash the process, are logged, and count toward an alert.',
-        fromList: 'fullstack-100#45.1',
+        fromLists: ['fullstack-100#45.1'],
       },
       {
         question: 'What do you put in a structured log entry for later debugging?',
         answer: 'Time, level, a message, the service and its version, the request id and trace id, the route, status and duration, business ids like `orderId`, and the error with its stack under `err`. Never passwords, tokens or card data, and customer emails redacted.',
-        fromList: 'fullstack-100#45.2',
+        fromLists: ['fullstack-100#45.2'],
       },
       {
         question: 'How would you alert on a spike in error rates?',
         answer: 'Export a request counter labelled by route and status, alert on the share of 5xx over a window, such as above 2% for 5 minutes, or better on SLO burn rate, and route it to on-call with a link to the dashboard. Alerting on single log lines only makes noise.',
-        fromList: 'fullstack-100#45.3',
+        fromLists: ['fullstack-100#45.3', 'backend-100#12.2'],
+      },
+      {
+        question: "How do you log enough to debug without logging sensitive data?",
+        answer: "Log ids and context, not content: `orderId`, `customerId`, route, status, duration, and the error with its stack. Never passwords, tokens, card data or whole bodies. pino's `redact` option censors paths such as `req.headers.authorization` before writing, and a test checks the list.",
+        fromLists: ['backend-100#12.1'],
+      },
+      {
+        question: "What message should a client see for an unexpected 500?",
+        answer: "A generic Problem Details body, such as \"An unexpected error occurred\", with status 500 and a request id in `instance` that support can search for. No stack trace, SQL message or host name. The client shows a friendly message, a retry option and that id.",
+        fromLists: ['backend-100#12.3'],
       },
     ],
     traps: [
@@ -818,7 +869,7 @@ function toProblem(err: unknown, reqId: string) {
       codeLang: 'ts',
     },
     mcqSections: ['m06#errors', 'm15#logs', 'm01#crashes'],
-    fromLists: ['fullstack-100#45'],
+    fromLists: ['fullstack-100#45', 'backend-100#12'],
   },
   {
     id: 'api-dependency-injection',
@@ -856,17 +907,17 @@ function toProblem(err: unknown, reqId: string) {
       {
         question: 'How does dependency injection make unit tests easier?',
         answer: 'The test passes in fakes instead of mocking imports: an in-memory `OrderRepository`, a payment gateway that records refunds, a clock fixed at one date. Tests run fast, never touch the network, and give the same result on every run.',
-        fromList: 'fullstack-100#46.1',
+        fromLists: ['fullstack-100#46.1'],
       },
       {
         question: 'How does constructor injection differ from other forms of injection?',
         answer: 'Constructor injection makes every required dependency explicit and ready before the object is used. Property or setter injection fills fields afterwards; NestJS supports property injection with `@Inject()`, but its docs prefer the constructor unless a base class makes passing through `super()` awkward.',
-        fromList: 'fullstack-100#46.2',
+        fromLists: ['fullstack-100#46.2'],
       },
       {
         question: 'How does a DI container work under the hood?',
         answer: 'It keeps a registry from tokens to providers. In NestJS, `emitDecoratorMetadata` records each constructor\'s parameter types; at startup the container walks the module graph, resolves each dependency first, and caches singletons, so it fails at boot on a missing provider.',
-        fromList: 'fullstack-100#46.3',
+        fromLists: ['fullstack-100#46.3'],
       },
     ],
     traps: [
@@ -930,9 +981,9 @@ export function makeCancelOrder({ orders, payments, now }: Deps) {
     ],
     followUps: [
       {
-        question: 'Polling, SSE or a webhook: how do you choose?',
-        answer: 'Polling is simplest and fine for a few clients. SSE pushes one-way updates to a browser over plain HTTP. A webhook suits server-to-server integrations, with signatures and retries.',
-        fromList: 'fullstack-100#47.2',
+        question: 'Polling, SSE, WebSockets or a webhook: how do you choose?',
+        answer: 'Polling is simplest and fine for a few clients. SSE pushes one-way updates to a browser over plain HTTP; WebSockets only when the browser must also send, like a chat. A webhook suits server-to-server integrations, with signatures and retries.',
+        fromLists: ['fullstack-100#47.2', 'backend-100#20.2'],
       },
       {
         question: 'What happens if the worker crashes halfway?',
@@ -941,12 +992,12 @@ export function makeCancelOrder({ orders, payments, now }: Deps) {
       {
         question: 'How would you design the status endpoint and report progress?',
         answer: '`GET /exports/:id` returns the job row: status, `processed` and `total` rows, timestamps, and once done a short-lived download link. The worker updates progress every few thousand rows, not per row, and the endpoint checks that the export belongs to the agent asking.',
-        fromList: 'fullstack-100#47.1',
+        fromLists: ['fullstack-100#47.1', 'backend-100#20.1'],
       },
       {
         question: 'How do you handle a failed background job and tell the client?',
         answer: 'After the last retry the worker marks the job `failed` with an error code and a safe message, never a stack trace, and the status endpoint returns them, so the back office shows "Export failed, try a shorter range" with a retry button. The failure also feeds an alert.',
-        fromList: 'fullstack-100#47.3',
+        fromLists: ['fullstack-100#47.3', 'backend-100#20.3'],
       },
     ],
     traps: [
@@ -980,7 +1031,7 @@ Retry-After: 5`,
       codeLang: 'http',
     },
     mcqSections: ['m13#brokers', 'm20#transport'],
-    fromLists: ['fullstack-100#47'],
+    fromLists: ['fullstack-100#47', 'backend-100#20'],
   },
   {
     id: 'api-versioning',
@@ -1018,17 +1069,17 @@ Retry-After: 5`,
       {
         question: 'What are the trade-offs between URL and header versioning?',
         answer: 'A URL version like `/v2/orders` is visible in logs, easy to route, test in a browser and cache. A header keeps URLs stable and allows fine-grained or dated versions, but it is easy to forget, harder to debug, and shared caches need `Vary` on that header.',
-        fromList: 'fullstack-100#48.1',
+        fromLists: ['fullstack-100#48.1', 'backend-100#17.1'],
       },
       {
         question: 'How do you deprecate and then retire an old version responsibly?',
         answer: 'Announce a date in the changelog and to known clients, add `Deprecation` and `Sunset` headers with a link to the migration guide, and log calls per version and client. I contact the last callers directly, and remove the version only when usage reaches zero or the date passes.',
-        fromList: 'fullstack-100#48.2',
+        fromLists: ['fullstack-100#48.2', 'backend-100#17.2'],
       },
       {
         question: 'How does evolving a GraphQL schema differ from versioning a REST API?',
         answer: 'GraphQL keeps one schema with no version: clients only get fields they ask for, so adding fields breaks nobody. Old fields are marked `@deprecated`, their usage is tracked per field, and they are removed at zero, with a schema diff in CI catching breaking changes.',
-        fromList: 'fullstack-100#48.3',
+        fromLists: ['fullstack-100#48.3', 'backend-100#17.3'],
       },
     ],
     traps: [
@@ -1059,6 +1110,871 @@ Content-Type: application/json`,
       codeLang: 'http',
     },
     mcqSections: ['m05#evolution'],
-    fromLists: ['fullstack-100#48'],
+    fromLists: ['fullstack-100#48', 'backend-100#17'],
+  },
+  {
+    id: 'api-http-lifecycle',
+    unit: 'backend-api',
+    topic: 'An HTTP request, end to end',
+    level: 'mid',
+    paths: ['backend', 'fullstack', 'frontend'],
+    question: 'What happens between sending an HTTP request and receiving the response?',
+    answer:
+      'First the client resolves the host name through DNS, usually from a cache. Then it opens a TCP connection with a handshake and, for HTTPS, a TLS handshake that checks the certificate and agrees on keys, one round trip in TLS 1.3. The request goes out: method, path, headers, maybe a body. A load balancer forwards it, the framework parses it, runs middleware and the handler, which queries the database, and writes status, headers and body back. The connection then stays open, so the next request skips DNS and both handshakes. HTTP/2 goes further and multiplexes many requests on that one connection.',
+    keyPoints: [
+      'DNS lookup, then the TCP handshake, then the TLS handshake',
+      'Method, path, headers, body; middleware and handler on the server',
+      'Status, headers and body come back on the same connection',
+      'Keep-alive reuses the connection; HTTP/2 multiplexes on it',
+    ],
+    explanation:
+      'It is a warm-up that shows how deep you go. A senior answer counts round trips, knows where latency hides (DNS, handshakes, the proxy hop, the database) and knows that connection reuse makes later requests much cheaper than the first.',
+    example:
+      'The Orders API called the delivery partner with a new HTTPS connection per request, because an old client library turned keep-alive off. Each call paid DNS, TCP and TLS before sending a byte, about 120 ms of a 180 ms call. Reusing connections through a keep-alive agent brought the median call down to about 60 ms.',
+    mistakes: [
+      'Forgetting the TLS handshake, which costs a round trip before any HTTP byte is sent',
+      'Thinking every request opens a new connection, when HTTP/1.1 connections are persistent by default',
+      'Saying HTTP/2 removes all head-of-line blocking: over TCP, one lost packet still stalls every stream',
+    ],
+    followUps: [
+      {
+        question: 'How do TCP and UDP differ, and why does HTTP use TCP?',
+        answer: 'TCP is a connection that delivers bytes in order, retransmits lost packets and controls congestion. UDP sends independent datagrams with no delivery or order guarantee. HTTP/1.1 and HTTP/2 need a reliable ordered stream, so they use TCP; HTTP/3 uses QUIC, which rebuilds reliability on top of UDP.',
+        fromLists: ['backend-100#1.1'],
+      },
+      {
+        question: 'What changes on later requests to the same server?',
+        answer: 'The DNS answer is cached for its TTL, and the connection stays open: HTTP/1.1 is persistent by default, so the next request skips the TCP and TLS handshakes. A new connection can still shorten TLS with session resumption. In Node 24 the default HTTP agent keeps connections alive.',
+        fromLists: ['backend-100#1.2'],
+      },
+      {
+        question: 'How does HTTP/2 change this flow?',
+        answer: 'The semantics stay, but messages become binary frames, so many requests run in parallel as streams on one TCP connection, with headers compressed by HPACK. Browsers no longer need six connections per host. A lost TCP packet still stalls every stream, which HTTP/3 over QUIC fixes.',
+        fromLists: ['backend-100#1.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'An HTTP/1.1 connection stays open for further requests unless one side asks to close it.',
+        isTrue: true,
+        why: 'Persistent connections are the default in HTTP/1.1; `Connection: close` ends them.',
+      },
+      {
+        statement: 'HTTP/3 runs over TCP, like HTTP/2.',
+        isTrue: false,
+        why: 'HTTP/3 runs over QUIC, a transport built on UDP that handles loss per stream.',
+      },
+    ],
+    lesson: {
+      points: [
+        'DNS turns the host name into an IP address, usually from a cache. Then TCP opens a connection with a three-way handshake (SYN, SYN-ACK, ACK): one round trip before data flows.',
+        'For HTTPS, a TLS handshake checks the server certificate and agrees on encryption keys. TLS 1.3 needs one round trip for a new connection; TLS 1.2 needed two.',
+        'The request is a method, a path, headers and an optional body. A load balancer forwards it; the framework parses it, runs middleware and the handler, and sends status, headers and body back.',
+        'Connections are reused: HTTP/1.1 keeps them open by default, and Node 24\'s default HTTP agent uses keep-alive, so later requests skip DNS and both handshakes.',
+        'HTTP/2 multiplexes many requests as streams over one TCP connection, with compressed headers. HTTP/3 does the same over QUIC, on UDP, so one lost packet no longer stalls every stream.',
+      ],
+    },
+    mcqSections: [],
+    fromLists: ['backend-100#1'],
+  },
+  {
+    id: 'api-status-codes',
+    unit: 'backend-api',
+    topic: 'HTTP status codes',
+    level: 'junior',
+    paths: ['backend', 'fullstack'],
+    question: 'What do the HTTP status code classes, 1xx to 5xx, mean, and how do you pick a code?',
+    answer:
+      'The first digit is the class. 1xx is informational, like 101 to switch to WebSocket. 2xx is success: 200, 201 Created with a `Location`, 202 Accepted for queued work, 204 with no body. 3xx redirects, or says 304 Not Modified. 4xx means the client must change something: 400 malformed, 401 not authenticated, 403 not allowed, 404, 409 for a state conflict, 422 for valid JSON with invalid content, 429 over quota. 5xx means the server failed, so a retry may work: 500, 502 and 504 from a gateway, 503 overloaded. Monitoring reads only the code, so I never answer 200 with an error inside.',
+    keyPoints: [
+      '1xx info, 2xx success, 3xx redirect, 4xx client, 5xx server',
+      '201 with `Location`, 202 for queued work, 204 with no body',
+      '4xx: the client must change the request; 5xx: a retry may work',
+      'Never a 200 with an error in the body',
+    ],
+    explanation:
+      'Status codes are what load balancers, retry logic, caches and alerts read, so wrong codes break real systems. Seniors choose precise codes (409, 422, 429, 503) and say what the client should do with each one.',
+    example:
+      'Orders API v1 answered `POST /orders` with 200 and `{ "error": "out of stock" }`, so dashboards showed no errors while checkouts failed. v2 answers 409 with a Problem Details body for stock conflicts and 422 for invalid input, and the 4xx rate per route now shows checkout problems within minutes.',
+    mistakes: [
+      'Answering 200 with an error in the body, which hides failures from monitoring and retries',
+      'Answering 500 for invalid input, which pages the on-call engineer for a client mistake',
+      'Answering 503 to one client over its quota, which tells every client the service is down',
+    ],
+    followUps: [
+      {
+        question: 'When should 422 be used instead of 400?',
+        answer: '400 when the request cannot be parsed: broken JSON, a malformed header. 422 Unprocessable Content when the syntax is fine but the content is wrong, like a negative quantity or an unknown currency. What matters most is one rule applied on every endpoint.',
+        fromLists: ['backend-100#2.1'],
+      },
+      {
+        question: 'Which code fits a resource the user may not know exists?',
+        answer: '404. If customer A asks for customer B\'s order, a 403 would confirm that the order exists, and RFC 9110 lets a server answer 404 to hide it. So resources scoped to a customer answer 404 for both "missing" and "not yours".',
+        fromLists: ['backend-100#2.2'],
+      },
+      {
+        question: 'How should clients react to 429 and to 503?',
+        answer: '429 says this client went over its quota: it waits for `Retry-After` and slows down, and other clients are unaffected. 503 says the service is overloaded or in maintenance: every client backs off with exponential backoff and jitter, honouring `Retry-After` when present. Neither should trigger an instant retry loop.',
+        fromLists: ['backend-100#2.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: '401 Unauthorized means the caller is logged in but lacks permission.',
+        isTrue: false,
+        why: 'That is 403; 401 means the request has no valid credentials.',
+      },
+      {
+        statement: 'A client that receives an unknown status code such as 299 should treat it like the 200 of its class.',
+        isTrue: true,
+        why: 'RFC 9110 says a client must understand the class of any code and treat an unknown one as the x00 code of that class.',
+      },
+    ],
+    lesson: {
+      points: [
+        'The first digit is the class: 1xx informational, 2xx success, 3xx redirection, 4xx client error, 5xx server error. A client treats an unknown code as the x00 of its class.',
+        'Success codes say what happened: 200 OK, 201 Created with a `Location` header, 202 Accepted for work queued but not done, 204 No Content.',
+        '4xx means the client must change something: 400 malformed, 401 no valid credentials, 403 forbidden, 404 not found, 409 conflict with the current state, 422 valid syntax but invalid content.',
+        '429 means one client exceeded its quota; 503 means the service is overloaded. Both can carry `Retry-After`. 502 and 504 come from a gateway whose upstream failed or timed out.',
+        'Load balancers, retries, caches and alerts read only the code. A 200 with an error in the body looks like a success to all of them.',
+      ],
+      code: `POST /orders HTTP/1.1
+Content-Type: application/json
+
+{"items":[{"productId":"p_12","quantity":-2}]}
+
+HTTP/1.1 422 Unprocessable Content
+Content-Type: application/problem+json
+
+{"type":"https://api.shop.example/problems/validation-error","title":"Invalid order","status":422}`,
+      codeLang: 'http',
+    },
+    mcqSections: ['m05#status'],
+    fromLists: ['backend-100#2'],
+  },
+  {
+    id: 'api-stateless',
+    unit: 'backend-api',
+    topic: 'Stateless vs stateful backends',
+    level: 'mid',
+    paths: ['backend', 'fullstack'],
+    question: 'What is the difference between a stateless and a stateful backend, and why does it matter?',
+    answer:
+      'A stateless server keeps nothing about a client in its own memory between requests: each request carries what is needed, a token or a session id, and the rest lives in shared stores like PostgreSQL or Redis. A stateful server keeps sessions, carts or subscriptions in process memory, so the client must come back to the same instance, and a restart loses them. Stateless replicas are interchangeable: the load balancer sends any request anywhere, and Kubernetes adds or kills pods freely. So I keep API pods stateless and move state to stores. When some state must stay, like open WebSockets, I plan for it with pub/sub and reconnection.',
+    keyPoints: [
+      'Stateless: no client state in process memory between requests',
+      'State moves to shared stores: database, Redis, or the token',
+      'Any replica serves any request; pods can come and go',
+      'Unavoidable state (WebSockets) needs pub/sub and reconnection',
+    ],
+    explanation:
+      'It checks whether you design for horizontal scaling and failure. Seniors say that state never disappears, it moves, and they name the cost: a lookup per request, or tokens that cannot be revoked at once.',
+    example:
+      'The first back office BFF kept sessions in an in-memory map behind sticky sessions, and every deploy logged all support agents out. The team moved sessions to Redis with a 12-hour expiry; the BFF pods became interchangeable, deploys stopped logging anyone out, and autoscaling from 2 to 6 pods at peak became safe.',
+    mistakes: [
+      'Calling JWTs "stateless" without saying that revocation needs state again',
+      'Relying on sticky sessions, which lose users on every restart and unbalance load',
+      'Keeping caches or rate-limit counters in process memory and expecting replicas to share them',
+    ],
+    followUps: [
+      {
+        question: 'How would you migrate a session-based app to stateless servers?',
+        answer: 'First move the session store out of process memory into Redis, keyed by the existing cookie, so users notice nothing. Then remove sticky sessions and hunt the other in-memory state: caches, counters, files on local disk. Only move to tokens if a client needs them.',
+        fromLists: ['backend-100#3.1'],
+      },
+      {
+        question: 'What are the trade-offs between Redis sessions and JWTs?',
+        answer: 'A Redis session is an opaque id: one lookup per request, but instant revocation and data kept on the server. A JWT is verified without a lookup and scales easily, but stays valid until `exp`, exposes its claims and grows every request. For browsers I use sessions behind a BFF; JWTs between services.',
+        fromLists: ['backend-100#3.2'],
+      },
+      {
+        question: 'How does statelessness affect horizontal scaling?',
+        answer: 'With no state in the pods, the load balancer can use any replica, autoscaling adds or removes pods without moving data, and a crashed pod loses nothing. The shared stores become the limit, so Redis and PostgreSQL need their own capacity planning.',
+        fromLists: ['backend-100#3.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'Pods that keep sessions in memory can scale horizontally without sticky sessions or a shared store.',
+        isTrue: false,
+        why: 'A request reaching another pod would find no session, so the user would appear logged out.',
+      },
+      {
+        statement: 'API pods that keep sessions in Redis are stateless, even though the system as a whole has state.',
+        isTrue: true,
+        why: 'Stateless describes the server process; the state lives in a store every replica can read.',
+      },
+    ],
+    lesson: {
+      points: [
+        'A stateless server keeps nothing about a client in its memory between requests. Each request carries what is needed, such as a token or a session id, and the server looks up the rest.',
+        'A stateful server keeps sessions, carts or subscriptions in process memory, so a client must return to the same instance. A restart or a deploy loses that state.',
+        'Statelessness does not remove state, it moves it to shared stores: PostgreSQL, Redis, object storage, or the signed token itself.',
+        'Stateless replicas are interchangeable: the load balancer sends any request to any pod, and autoscaling adds or kills pods freely. The shared stores become the part to scale.',
+        'Some state stays in processes, such as open WebSocket connections. Broadcast through Redis pub/sub, and let clients reconnect to any pod.',
+      ],
+    },
+    mcqSections: [],
+    fromLists: ['backend-100#3'],
+  },
+  {
+    id: 'api-idempotency',
+    unit: 'backend-api',
+    topic: 'Idempotency',
+    level: 'senior',
+    paths: ['backend', 'fullstack'],
+    question: 'What is idempotency in API design, and how would you make an order or payment endpoint idempotent?',
+    answer:
+      'An operation is idempotent when repeating it has the same effect as doing it once. `GET`, `PUT` and `DELETE` are idempotent by definition; `POST` is not, so a retry after a lost response can create a second order or charge twice. I fix that with an idempotency key: the client generates a UUID per intended order and sends it on every retry. The server reserves the key atomically, with a fingerprint of the request, before doing the work, and stores the response in the same transaction as the order. A retry gets the stored response, a concurrent one gets 409, and the same key with another body gets 422.',
+    keyPoints: [
+      'Repeating the request has the same effect as doing it once',
+      '`POST` is not idempotent: a lost response plus a retry duplicates',
+      'The client sends one key per intent and reuses it on retries',
+      'Reserve the key atomically before the work; replay the response',
+    ],
+    explanation:
+      'Networks lose responses, so clients retry and every payment flow needs this. A senior answer reserves the key before the work, handles a concurrent retry, scopes keys per account and passes a key downstream to the payment provider.',
+    example:
+      'During a payment provider slowdown, checkout calls timed out and the storefront retried, and some customers were charged twice in one evening. The Orders API now reserves the `Idempotency-Key` per customer with `INSERT … ON CONFLICT DO NOTHING`, stores the response with the order in one transaction, and sends `checkout:<orderId>` as the key to the provider. Double charges stopped.',
+    mistakes: [
+      'Saving the key after the work instead of reserving it first, so two simultaneous retries both create an order',
+      'Keeping no request fingerprint, so a key reused with another basket replays the wrong order',
+      'Confusing idempotent with "same response": a second `DELETE` may return 404 and still be idempotent',
+    ],
+    followUps: [
+      {
+        question: 'How would you implement idempotency keys on the server?',
+        answer: 'A table keyed by account and key holds a fingerprint of the request, a status and the stored response. `INSERT … ON CONFLICT DO NOTHING` reserves the key: one row back means do the work; none means replay it, 409 if still running, or 422 if the fingerprint differs. The order and the response commit together.',
+        fromLists: ['backend-100#4.1'],
+      },
+      {
+        question: 'Does a 404 on a repeated `DELETE` break idempotency?',
+        answer: 'No. Idempotency is about the effect on the server, not the response: after the first `DELETE` the order is gone, and the second changes nothing more. RFC 9110 defines it by intended effect, so 204 then 404 is fine; some APIs answer 204 again to keep clients simple.',
+        fromLists: ['backend-100#4.2'],
+      },
+      {
+        question: 'How does idempotency relate to at-least-once and exactly-once delivery?',
+        answer: 'Over a network a sender that is unsure retries, so delivery is at-least-once and duplicates happen. Exactly-once effects come from at-least-once delivery plus an idempotent receiver that deduplicates by key or event id. Idempotency keys and idempotent consumers are that receiver.',
+        fromLists: ['backend-100#4.3'],
+      },
+      {
+        question: 'How long should idempotency keys be kept?',
+        answer: 'At least as long as clients may retry, plus a margin. Stripe documents that keys can be pruned once they are at least 24 hours old. I publish the period, store `created_at`, and a scheduled job deletes expired keys; after that the same key counts as new.',
+        fromLists: ['backend-100#18.1'],
+      },
+      {
+        question: 'What if a retry arrives while the original request is still running?',
+        answer: 'The first request holds the key as `in_progress`, so the retry finds it and gets 409 Conflict, meaning "try again later"; the work never runs twice. A lease on the reservation lets a later request take the key over if the pod holding it crashed.',
+        fromLists: ['backend-100#18.2'],
+      },
+      {
+        question: 'How would you extend idempotency across distributed services?',
+        answer: 'Pass a key downstream: the Orders API sends a key derived from the order, like `checkout:ord_1042`, to the payment provider, so its own retries cannot charge twice. Events carry an id that consumers store under a unique constraint, and an outbox publishes events in the same transaction as the change.',
+        fromLists: ['backend-100#18.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'Sending the same `PUT` twice leaves the resource in the same state as sending it once.',
+        isTrue: true,
+        why: '`PUT` replaces the resource with the same representation each time, so it is idempotent.',
+      },
+      {
+        statement: 'An idempotency key saved only after the order is created protects against two retries arriving at the same moment.',
+        isTrue: false,
+        why: 'Both retries see an unknown key and both create an order; the key must be reserved atomically before the work.',
+      },
+    ],
+    lesson: {
+      points: [
+        'An operation is idempotent when doing it twice has the same effect as doing it once. `GET`, `PUT` and `DELETE` are idempotent by definition; `POST` and `PATCH` are not.',
+        'A client cannot tell "never arrived" from "succeeded, response lost", so it retries. Without protection, a retried `POST /orders` creates a second order or charges twice.',
+        'An idempotency key is a unique value, such as a UUID, generated once per intended operation and sent on every retry. The `Idempotency-Key` header is still an IETF draft; Stripe\'s API is the usual model.',
+        'Reserve the key atomically before the work, with a fingerprint of the request. Same key, finished: replay the stored response. Still running: 409. Different body: 422.',
+        'Exactly-once delivery does not exist over a network. At-least-once delivery plus an idempotent receiver gives exactly-once effects, for webhooks and queue consumers too.',
+      ],
+      code: `INSERT INTO idempotency_keys (account_id, key, fingerprint)
+VALUES ($1, $2, $3)
+ON CONFLICT (account_id, key) DO NOTHING
+RETURNING key;
+-- 1 row: this request owns the key, create the order
+-- 0 rows: the key exists; replay, 409 or 422`,
+      codeLang: 'sql',
+    },
+    mcqSections: ['m05#idempotency', 'm16#idempotency', 'm13#consumers'],
+    fromLists: ['backend-100#4', 'backend-100#18'],
+  },
+  {
+    id: 'api-get-post',
+    unit: 'backend-api',
+    topic: 'GET vs POST',
+    level: 'junior',
+    paths: ['backend', 'fullstack', 'frontend'],
+    question: 'What is the difference between GET and POST, and when do you use each?',
+    answer:
+      '`GET` reads a resource. It is safe, meaning it asks for no state change, and idempotent, so caches, prefetchers and retry logic may call it freely. Its parameters go in the URL, which ends up in logs and browser history. `POST` sends a body the server processes, usually to create something or start an action; it is neither safe nor idempotent, so it is not retried blindly and is not cached in practice. I use `GET` for every read, with filters in the query string, and `POST` for creates and actions, with an idempotency key where duplicates hurt. A search too big for a URL becomes `POST /orders/search`.',
+    keyPoints: [
+      '`GET`: safe and idempotent, parameters in the URL, cacheable',
+      '`POST`: a body the server processes, neither safe nor idempotent',
+      'URLs land in logs and history: no secrets in query strings',
+      'Never change state on a `GET`',
+    ],
+    explanation:
+      'It sounds basic, but it tests whether you know what generic software does with each method: caches, crawlers, prefetchers and retries. Seniors connect it to CSRF, URL logging and retry safety.',
+    example:
+      'A "resend confirmation email" link in the storefront was a `GET /orders/:id/resend-email`, and corporate email scanners that open every link made some customers receive the email three times. The team turned it into `POST /orders/:id/confirmation-emails` behind a button, and the duplicates stopped.',
+    mistakes: [
+      'Changing state behind a `GET`, which crawlers, link scanners and prefetchers trigger',
+      'Calling `POST` more secure because the body is "hidden": with HTTPS both are encrypted, without it neither is',
+      'Putting tokens or personal data in query strings, where access logs and history keep them',
+    ],
+    followUps: [
+      {
+        question: 'Why should a `GET` never have side effects?',
+        answer: 'Because generic software assumes it is safe: browsers prefetch links, crawlers and email scanners follow them, caches replay them, and HTTP clients retry them after a network error. A `GET` that cancels an order will one day cancel orders nobody meant to cancel.',
+        fromLists: ['backend-100#9.1'],
+      },
+      {
+        question: 'How do query strings and `POST` bodies differ in size and security?',
+        answer: 'RFC 9110 only recommends supporting URIs of at least 8,000 octets, and servers and proxies set their own limits, while a body is limited only by your server. With HTTPS both are encrypted on the wire, but URLs are written to access logs and history, so secrets go in the body or a header.',
+        fromLists: ['backend-100#9.2'],
+      },
+      {
+        question: 'How do CSRF risks differ between `GET` and `POST` endpoints?',
+        answer: 'Another site can trigger a `GET` with a link, and `SameSite=Lax` cookies are still sent on a top-level `GET` navigation, so a state-changing `GET` is open to CSRF. A cross-site `POST` does not carry `Lax` cookies, and I add a CSRF token or a `Sec-Fetch-Site` check on top.',
+        fromLists: ['backend-100#9.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'A `GET` with a JSON body is a portable way to send a complex search.',
+        isTrue: false,
+        why: 'RFC 9110 gives a `GET` body no defined meaning, and `fetch` refuses to send one.',
+      },
+      {
+        statement: 'Browsers send `SameSite=Lax` cookies on a top-level cross-site navigation that uses `GET`.',
+        isTrue: true,
+        why: 'Lax withholds cookies only on cross-site subrequests and unsafe methods such as `POST`, so a state-changing `GET` stays exposed.',
+      },
+    ],
+    lesson: {
+      points: [
+        'A safe method asks for no state change; an idempotent one has the same effect when repeated. `GET` is both; `POST` is neither.',
+        '`GET` puts its parameters in the URL, and generic software caches, prefetches and retries it. `POST` sends a body the server processes, and clients do not retry it blindly.',
+        'Use `GET` for reads, with filters in the query string, and `POST` to create resources or start actions. Never change state on a `GET`: crawlers and link scanners call it.',
+        'With HTTPS, the URL and the body are both encrypted on the wire. But URLs stay in access logs and browser history, so secrets never go in query strings.',
+        'A search too big for a URL becomes `POST /orders/search`, or the new `QUERY` method, which is safe and has a body. `GET` with a body has no defined meaning, and `fetch` refuses it.',
+      ],
+    },
+    mcqSections: ['m05#resources'],
+    fromLists: ['backend-100#9'],
+  },
+  {
+    id: 'api-backpressure',
+    unit: 'backend-api',
+    topic: 'Backpressure and load shedding',
+    level: 'senior',
+    paths: ['backend', 'fullstack'],
+    question: 'What is backpressure, and how would you handle it in a backend?',
+    answer:
+      'Backpressure is the signal from a slow consumer to a fast producer to slow down, so work does not pile up in memory until something crashes. In Node streams it is built in: `write()` returns `false`, and `pipeline` pauses the source. Between services I make it explicit: bounded queues and concurrency limits, a timeout on every call, and when the API is saturated it rejects early with 503 and `Retry-After`, or 429 for one client, instead of queueing forever. A circuit breaker fails fast while a dependency is down. With a message broker, consumers pull at their own pace, the queue absorbs bursts, and I watch its lag.',
+    keyPoints: [
+      'A slow consumer tells a fast producer to wait',
+      'Bounded queues and concurrency limits, never unbounded buffers',
+      'Shed load early: 503 or 429 with `Retry-After`',
+      'A circuit breaker for failing dependencies; watch queue lag',
+    ],
+    explanation:
+      'It separates engineers who have run systems under load from those who have not. Seniors know that an unbounded queue turns overload into latency and memory crashes, and that rejecting fast is often kinder than accepting everything.',
+    example:
+      'The CSV export wrote rows to the response without checking `write()`, and slow clients made a pod buffer a whole 300 MB export until it was killed for memory. Switching to `pipeline` kept the buffer at a few kilobytes. During the next sale, the API answered 503 with `Retry-After` when event loop delay passed 200 ms, and checkout latency stayed stable instead of collapsing.',
+    mistakes: [
+      'Adding an unbounded in-memory queue, which hides overload until memory runs out',
+      'Retrying at every layer, which multiplies the load on a struggling dependency',
+      'Ignoring the return value of `write()` on a Node stream',
+    ],
+    followUps: [
+      {
+        question: 'How does a circuit breaker work, and what are its states?',
+        answer: 'It wraps calls to a dependency and counts failures. Closed: calls pass through. After a threshold of failures it opens and fails every call at once, without touching the network, for a while. Then it goes half-open and lets a trial call through: success closes it, failure opens it again.',
+        fromLists: ['backend-100#11.1'],
+      },
+      {
+        question: 'When should you shed load instead of queueing?',
+        answer: 'When the work would finish too late to be useful. A checkout waiting 30 seconds in a queue is a lost customer anyway, so reject early with 503 and `Retry-After`. Queue only work nobody waits for, such as emails or exports, in a durable broker with bounded consumers.',
+        fromLists: ['backend-100#11.2'],
+      },
+      {
+        question: 'How does backpressure differ between synchronous APIs and async messaging?',
+        answer: 'In a synchronous API the caller waits, so backpressure means timeouts, concurrency limits and rejecting with 429 or 503. With messaging, the broker buffers and consumers pull at their own pace; the risk becomes a growing backlog, so I alert on consumer lag and scale consumers.',
+        fromLists: ['backend-100#11.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'In Node, `writable.write()` returning `false` means the chunk was dropped.',
+        isTrue: false,
+        why: 'The chunk is queued; `false` asks the producer to stop until the `drain` event.',
+      },
+      {
+        statement: 'An open circuit breaker fails calls immediately without contacting the dependency.',
+        isTrue: true,
+        why: 'That is the point of the open state: fail in microseconds and give the dependency room to recover.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Backpressure is the signal a slow consumer sends to a fast producer to say "wait". Without it, work piles up in buffers and queues until memory runs out or latency explodes.',
+        'Node streams have it built in: `write()` returns `false` when the buffer is full, and `pipeline` or `for await` pause the source until the consumer catches up.',
+        'Between services, bound everything: queue sizes, concurrency, timeouts. When saturated, reject early with 503 and `Retry-After`, or 429 for one client over its quota.',
+        'A circuit breaker counts failures. Closed lets calls through; open fails them at once; half-open lets one trial call test whether the dependency has recovered.',
+        'With a message broker, consumers pull at their own pace and the queue absorbs bursts. The pressure shows up as a growing backlog, so watch consumer lag.',
+      ],
+      code: `import { pipeline } from 'node:stream/promises';
+
+// rows: a Readable of orders; toCsv: a Transform; res: the HTTP response.
+// pipeline pauses rows whenever res cannot take more, and destroys all on error.
+await pipeline(rows, toCsv, res);`,
+      codeLang: 'ts',
+    },
+    mcqSections: ['m03#backpressure', 'm02#overload'],
+    fromLists: ['backend-100#11'],
+  },
+  {
+    id: 'api-pagination',
+    unit: 'backend-api',
+    topic: 'Paginating large collections',
+    level: 'mid',
+    paths: ['backend', 'fullstack'],
+    question: 'How would you paginate a very large collection, such as millions of orders?',
+    answer:
+      'I use cursor pagination, also called keyset. The client gets a page and an opaque `nextCursor`; the server decodes it into the sort key of the last row, `(created_at, id)`, and asks for the rows after it with `WHERE (created_at, id) < ($1, $2)`, ordered the same way, limit 21. With a matching index every page costs the same at any depth, and new orders do not shift rows between pages. The extra row tells me whether a next page exists. I cap the page size and validate the cursor. Offset pagination stays fine for small admin tables where people jump to page 7.',
+    keyPoints: [
+      'Keyset: continue after the last row seen, not skip N rows',
+      'A total sort order with an id tie-breaker, matched by an index',
+      'An opaque, validated cursor; one extra row for "has more"',
+      'Offsets only for small tables that need page jumps',
+    ],
+    explanation:
+      'Every large list hits this, and the interviewer checks that you know why offsets fail at scale. Seniors mention the tie-breaker, the index, cursor validation, and what keyset gives up: page jumps and cheap totals.',
+    example:
+      'The nightly sync to the warehouse walked 4 million orders with `OFFSET`, and the last pages took several seconds each, so the job ran for hours. A keyset cursor on `(created_at, id)` with a matching index made every page take a few milliseconds, and the sync now finishes in minutes.',
+    mistakes: [
+      'Sorting by `created_at` alone, so rows with the same timestamp are skipped or repeated',
+      'Trusting a decoded cursor without validating it: base64 is an encoding, not a check',
+      'Running `COUNT(*)` over millions of rows on every page request',
+    ],
+    followUps: [
+      {
+        question: 'Why does offset pagination slow down on deep pages?',
+        answer: 'The database cannot jump to row 50,000: `OFFSET 50000` walks and discards 50,000 rows to return 20. Measured on PostgreSQL with 100,000 orders, that page read 50,020 index entries, while a keyset condition seeks straight to the position and reads 21.',
+        fromLists: ['backend-100#14.1'],
+      },
+      {
+        question: 'How do you make cursors opaque and tamper-resistant?',
+        answer: 'Encode the position as base64url JSON so clients treat it as a token, validate it with a schema when decoding, and sign it with an HMAC keyed by a server secret, rejecting any cursor whose signature fails. Put the filters in the cursor too. Encrypt it only if its content must stay hidden.',
+        fromLists: ['backend-100#14.2'],
+      },
+      {
+        question: 'How do you report total counts with cursor pagination?',
+        answer: 'Separately, and only if the screen needs it. Return `hasMore` from the extra row, serve an exact count from a separate cached `COUNT`, or show an estimate, such as the PostgreSQL planner\'s row estimate, as "about 4 million". Many feeds simply drop the total.',
+        fromLists: ['backend-100#14.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'Keyset pagination lets a client jump straight to page 40.',
+        isTrue: false,
+        why: 'A cursor only knows where the last page ended, so it moves page by page.',
+      },
+      {
+        statement: 'With offset pagination, an order inserted at the top while a user pages can make one order appear on two pages.',
+        isTrue: true,
+        why: 'The new row shifts every row down by one, so the next offset starts one row too early.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Offset pagination (`LIMIT 20 OFFSET 40`) skips rows by counting them. It slows down with depth, because the database walks every skipped row, and rows shift when data changes.',
+        'Keyset (cursor) pagination remembers where the last page ended and asks for the rows after it. With an index on the sort key, each page costs the same at any depth.',
+        'The sort must be total: add the id as a tie-breaker, `ORDER BY created_at DESC, id DESC`, or rows sharing a timestamp are skipped or repeated.',
+        'The API returns an opaque cursor that the client sends back unchanged. Opaque is not secret: base64 decodes easily, so validate it, and sign it with an HMAC to stop tampering.',
+        'Keyset gives up page jumps and cheap totals. Fetch one extra row to know whether a next page exists, and keep offsets for small admin tables.',
+      ],
+      code: `-- $1, $2 = created_at and id of the last order on the previous page
+SELECT id, customer_id, amount_cents, created_at
+FROM orders
+WHERE (created_at, id) < ($1, $2)
+ORDER BY created_at DESC, id DESC
+LIMIT 21;  -- page size + 1: the extra row says whether a next page exists`,
+      codeLang: 'sql',
+    },
+    mcqSections: ['m05#pagination'],
+    fromLists: ['backend-100#14'],
+  },
+  {
+    id: 'api-grpc',
+    unit: 'backend-api',
+    topic: 'gRPC',
+    level: 'mid',
+    paths: ['backend', 'fullstack'],
+    question: 'What is gRPC, and when would you choose it over REST or GraphQL?',
+    answer:
+      'gRPC is an RPC framework: I define services and messages in a `.proto` file, generate typed clients and servers in many languages, and calls travel as Protocol Buffers, a compact binary format, over HTTP/2. It supports plain request-response calls and three kinds of streaming, with deadlines and cancellation built in. I choose it for internal service-to-service calls, where several languages meet, payload size and latency matter, or streaming fits. I stay with REST for public and partner APIs, and GraphQL for flexible frontend reads, because browsers cannot call gRPC directly: they need gRPC-Web through a proxy. Binary traffic also needs dedicated debugging tools.',
+    keyPoints: [
+      'A contract in a `.proto` file, with generated clients and servers',
+      'Protocol Buffers, a binary format, over HTTP/2',
+      'Unary calls plus three kinds of streaming; deadlines',
+      'For internal services; browsers need gRPC-Web and a proxy',
+    ],
+    explanation:
+      'Interviewers check that you see gRPC as a trade-off for internal traffic, not a REST replacement. Seniors mention the browser limitation, schema evolution through field numbers, deadlines, and load balancing of long-lived HTTP/2 connections.',
+    example:
+      'The stock service, written in Go, was called by the Orders API about 3,000 times per second during sales, with JSON over REST and hand-written types on both sides. The teams moved that internal call to gRPC with a shared `.proto`, generated clients and a 300 ms deadline; payloads shrank, and type drift between the two teams disappeared. The public Orders API stayed REST.',
+    mistakes: [
+      'Proposing gRPC for a browser-facing API without mentioning gRPC-Web and its proxy',
+      'Reusing or renumbering field numbers in a `.proto`, which corrupts data for old clients',
+      'Balancing gRPC by connection, so one long-lived HTTP/2 connection pins every call to one pod',
+    ],
+    followUps: [
+      {
+        question: 'How do Protocol Buffers compare to JSON in size and parsing?',
+        answer: 'Protobuf sends field numbers and compact varints instead of field names and text, so messages are smaller: an order with an id, an amount and a status encodes to 19 bytes, against 52 in JSON. Decoding needs the schema. Parsing speed depends on the language and library, so I measure rather than assume.',
+        fromLists: ['backend-100#16.1'],
+      },
+      {
+        question: 'How do you version a `.proto` schema without breaking clients?',
+        answer: 'Add fields with new numbers only, never change or reuse a number, and mark a removed field\'s number and name `reserved`. Old code ignores fields it does not know, so additions are safe. A real break gets a new package, such as `orders.v2`, and a breaking-change check like `buf breaking` runs in CI.',
+        fromLists: ['backend-100#16.2'],
+      },
+      {
+        question: 'Which use cases does gRPC streaming handle well?',
+        answer: 'Server streaming pushes a series of results, such as stock updates or a large export in chunks. Client streaming suits uploads or batches of telemetry. Bidirectional streaming fits long conversations, such as a live price feed with subscriptions. All share one HTTP/2 connection with flow control.',
+        fromLists: ['backend-100#16.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'Renaming a protobuf field breaks old clients that use the binary format.',
+        isTrue: false,
+        why: 'The binary format carries field numbers, not names; a rename only matters for JSON and text encodings.',
+      },
+      {
+        statement: 'In proto3, field numbers 1 to 15 take one byte to encode with their wire type.',
+        isTrue: true,
+        why: 'The protobuf guide says so and recommends them for the most frequently set fields.',
+      },
+    ],
+    lesson: {
+      points: [
+        'gRPC is an RPC (remote procedure call) framework: you describe services and messages in a `.proto` file, and tools generate typed clients and servers for many languages.',
+        'Messages are Protocol Buffers, a binary format that sends field numbers instead of field names. They travel over HTTP/2, so many calls share one connection.',
+        'A method is unary (one request, one response) or streaming: from the server, from the client, or both ways. Clients set deadlines; an expired call fails with `DEADLINE_EXCEEDED`.',
+        'Field numbers are the contract. Add fields with new numbers, never change or reuse one, and mark removed numbers `reserved`. Old code ignores fields it does not know.',
+        'gRPC fits internal service calls. Browsers need gRPC-Web through a proxy, and partners expect REST, which is easier to debug and cache.',
+      ],
+    },
+    mcqSections: [],
+    fromLists: ['backend-100#16'],
+  },
+  {
+    id: 'api-authorization',
+    unit: 'backend-api',
+    topic: 'Authorization and access control',
+    level: 'senior',
+    paths: ['backend', 'fullstack'],
+    question: 'What is the difference between authentication and authorization, and how would you design fine-grained access control for a large application?',
+    answer:
+      'Authentication proves who the caller is; authorization decides whether that caller may do this action on this object. I keep authentication at the edge, with an identity provider and one middleware, and treat authorization as code close to the data. I start with RBAC: roles map to permissions like `order:refund`, checked by one policy module, never by testing role names in handlers. Ownership goes into the query itself, so a customer can only load their own orders. When rules depend on attributes, like an amount or a country, I add ABAC rules with a policy library. Routes deny by default, and tests call each one as a second user.',
+    keyPoints: [
+      'Authentication: who you are (401); authorization: may you (403/404)',
+      'Roles map to permissions, checked in one policy module',
+      'Ownership enforced per object, inside the query',
+      'ABAC for attribute rules; deny by default and test every route',
+    ],
+    explanation:
+      'Broken object level authorization is the first risk of the OWASP API Security Top 10, so interviewers dig here. Seniors separate route-level from object-level checks, centralise policy, deny by default and prove it with tests.',
+    example:
+      'A pentest found that any logged-in customer could read another customer\'s order by changing the id in `GET /orders/:id`. The team made a repository function with `customer_id` in the `WHERE` the only way to load an order, added a global guard that rejects routes without a declared permission, and generated a test calling every id route as a second customer. The next pentest found no object-level issue.',
+    mistakes: [
+      'Hiding a button in the UI and calling it authorization',
+      'Scattering role-name checks across handlers instead of checking permissions in one place',
+      'Checking the role but not that the object belongs to the caller',
+    ],
+    followUps: [
+      {
+        question: 'RBAC or ABAC: what is the difference, and when do you choose ABAC?',
+        answer: 'RBAC grants permissions through roles: simple to reason about and audit. ABAC decides from attributes of the caller, the object and the context, like amount, country or time. I start with RBAC and add ABAC when roles start encoding conditions, such as agents refunding orders under 200 € in their own country.',
+        fromLists: ['backend-100#21.1', 'backend-100#69.3'],
+      },
+      {
+        question: 'How would you structure authorization checks to avoid duplication?',
+        answer: 'Authentication in one middleware; each route declares its permission, checked by one guard; object rules in a policy module, such as CASL, called by the use cases; ownership in the repository queries. Handlers never compare role names, so a rule changes in one place.',
+        fromLists: ['backend-100#21.2'],
+      },
+      {
+        question: 'How would you test for broken access control?',
+        answer: 'For every route, call it anonymously, as a customer without the role, and as a second customer asking for the first one\'s objects, expecting 401, 403 and 404. Generate these tests from the route list so a new route cannot skip them, and keep access control in the pentest scope.',
+        fromLists: ['backend-100#21.3'],
+      },
+      {
+        question: 'How do you support permissions that vary per resource?',
+        answer: 'Store grants on the resource, such as membership of a business account or a share with a colleague, and check relationships rather than global roles. That is ReBAC; OpenFGA, based on Google\'s Zanzibar, stores the relationships and answers "may user X refund order Y". Simple cases fit an owner column in the query.',
+        fromLists: ['backend-100#69.1'],
+      },
+      {
+        question: 'How do you audit that every sensitive endpoint has a check?',
+        answer: 'Deny by default: a global guard rejects any route without a declared permission or an explicit public marker. A test lists every registered route and fails if one has no policy, the generated access tests cover each route, and logs record denied and sensitive actions.',
+        fromLists: ['backend-100#69.2'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'Using random UUIDs instead of sequential ids prevents broken object level authorization.',
+        isTrue: false,
+        why: 'Ids leak through URLs, emails and logs; only a check on every access prevents it.',
+      },
+      {
+        statement: 'An admin route that the UI hides from customers still needs a server-side role check.',
+        isTrue: true,
+        why: 'Anyone can call the route by hand; hiding a button is not authorization.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Authentication proves who the caller is (401 when it fails). Authorization decides whether that caller may do this action on this object (403, or 404 to hide the object).',
+        'Route-level checks ask whether the role may call the route, such as refunds. Object-level checks ask whether this order belongs to the caller; OWASP ranks missing ones as API risk number one.',
+        'RBAC (role-based) grants permissions through roles. ABAC (attribute-based) decides from attributes of caller, object and context. ReBAC decides from relationships, like account membership.',
+        'Put ownership into the query, `WHERE id = $1 AND customer_id = $2`, so a forgotten check returns nothing. Keep the other rules in one policy module, not in handlers.',
+        'Deny by default, and test every id route as a second customer and every admin route as a customer, expecting 404 and 403.',
+      ],
+      code: `const grants: Record<Role, Permission[]> = {
+  customer: ['order:read-own'],
+  agent: ['order:read-any', 'order:refund'],
+};
+
+/** The only place that knows which role grants what. */
+export function can(user: User, permission: Permission): boolean {
+  return user.roles.some((role) => grants[role].includes(permission));
+}`,
+      codeLang: 'ts',
+    },
+    mcqSections: ['m12#bola', 'm12#authz'],
+    fromLists: ['backend-100#21', 'backend-100#69'],
+  },
+  {
+    id: 'api-error-format',
+    unit: 'backend-api',
+    topic: 'API error format',
+    level: 'mid',
+    paths: ['backend', 'fullstack'],
+    question: 'How would you design a consistent, useful error format for an API?',
+    answer:
+      'I use Problem Details, RFC 9457, for every error: `application/problem+json` with a `type` URI that clients branch on, a stable `title`, the same `status` as the response, a human `detail`, and an `instance` such as a request id. Data a program needs goes into extension members, for example an `errors` array with a JSON pointer per invalid field, all reported at once. One global error handler produces it, so validation failures, 404s and framework errors share the format. A 500 only says something went wrong, with the request id; the stack goes to the logs. Each problem type is documented in the OpenAPI document.',
+    keyPoints: [
+      'One format everywhere: Problem Details, `application/problem+json`',
+      'Clients branch on `type`; `detail` is for humans',
+      'Extension members for field errors, all reported at once',
+      'No internals in a 5xx; a request id to find the logs',
+    ],
+    explanation:
+      'API consumers spend much of their time on errors, and inconsistent ones cost them parsers and support tickets. Seniors use the standard, separate machine-readable types from human text, and think about leaks and documentation.',
+    example:
+      'Orders API v1 had three error shapes written by three teams, and the mobile team had to write three parsers. v2 sends Problem Details from one error handler, with documented types such as `out-of-stock` carrying the `productId`. The app now shows the right message per type, and support finds any 500 from its `instance` request id.',
+    mistakes: [
+      'Making clients parse `title` or `detail` text instead of a stable `type`',
+      'Putting a different status in the body than in the response line',
+      'Returning only the first validation error, so users fix fields one round trip at a time',
+    ],
+    followUps: [
+      {
+        question: 'How would you localize error messages?',
+        answer: 'Keep `type` stable and let the client map it to its own translated text. If the server translates, it reads `Accept-Language`, localises `title` and `detail`, and sends `Content-Language`; RFC 9457 lets `title` change only for localisation. Codes and field pointers are never translated.',
+        fromLists: ['backend-100#22.1'],
+      },
+      {
+        question: 'How do you avoid leaking internals while staying useful?',
+        answer: 'Clients get a documented `type`, a safe `detail` and a request id. Stack traces, SQL errors, host names and library versions go only to the logs, as RFC 9457 advises. Forbidden objects answer 404, and a login error never reveals whether the email has an account.',
+        fromLists: ['backend-100#22.2'],
+      },
+      {
+        question: 'How would you document the error format?',
+        answer: 'Each `type` URI resolves to a page that explains the problem and how to fix it. In OpenAPI, every operation lists its error responses with a shared `Problem` schema plus the extension fields of each type, with examples, and a linter checks that every 4xx and 5xx uses `application/problem+json`.',
+        fromLists: ['backend-100#22.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'In Problem Details, clients should branch on the `type` member rather than parse `detail`.',
+        isTrue: true,
+        why: 'RFC 9457 makes `type` the primary identifier and says clients should not parse `detail`.',
+      },
+      {
+        statement: 'RFC 9457 replaced RFC 7807 with an incompatible new error format.',
+        isTrue: false,
+        why: 'It keeps the same format and adds a registry of common types and guidance for several problems.',
+      },
+    ],
+    lesson: {
+      points: [
+        'Problem Details (RFC 9457) is the standard error body for HTTP APIs: a JSON object served as `application/problem+json`. It obsoletes RFC 7807 and keeps the same format.',
+        '`type` is a URI that identifies the kind of problem, and clients branch on it. `title` is a short summary that stays stable; `detail` explains this occurrence to a human.',
+        '`status` repeats the response code and must match it. `instance` identifies this occurrence, such as a request id that support can search the logs for.',
+        'Extension members carry what a program needs, like `productId` or an `errors` array with a JSON pointer per invalid field. Report every invalid field at once.',
+        'One global handler maps every error to this format. A 500 hides internals: no stack trace or SQL, just a generic message and the request id.',
+      ],
+      code: `HTTP/1.1 422 Unprocessable Content
+Content-Type: application/problem+json
+
+{"type":"https://api.shop.example/problems/validation-error",
+ "title":"The request body is not valid",
+ "status":422,
+ "instance":"urn:request:7f3a9c",
+ "errors":[{"detail":"must be a positive integer","pointer":"#/items/0/quantity"}]}`,
+      codeLang: 'http',
+    },
+    mcqSections: ['m05#errors', 'm06#errors'],
+    fromLists: ['backend-100#22'],
+  },
+  {
+    id: 'api-put-patch',
+    unit: 'backend-api',
+    topic: 'PUT vs PATCH',
+    level: 'mid',
+    paths: ['backend', 'fullstack'],
+    question: 'What is the difference between PUT and PATCH, and which patch format would you use?',
+    answer:
+      '`PUT` replaces the whole resource with the representation I send: a field I leave out is reset or removed, and repeating it has the same effect, so it is idempotent. `PATCH` applies a set of changes, in a format named by the content type. For JSON APIs I use JSON Merge Patch, RFC 7396: send only the fields to change, and `null` to remove one. When I need array operations or a precondition, JSON Patch, RFC 6902, sends a list of operations applied atomically. `PATCH` is not idempotent by definition, so for concurrent edits I add `If-Match` with the `ETag`.',
+    keyPoints: [
+      '`PUT` replaces the whole resource and is idempotent',
+      '`PATCH` sends changes in a named format; not idempotent by definition',
+      'Merge Patch: only the fields to change, `null` deletes',
+      'JSON Patch: ordered operations applied atomically',
+    ],
+    explanation:
+      'It checks HTTP semantics and practical API design. Seniors name the formats and their limits (a merge patch replaces arrays and cannot set `null`), know that idempotency depends on the patch, and handle concurrent edits.',
+    example:
+      'The back office saved a new shipping address with `PUT /orders/:id`, sending the whole order from its stale screen state, and erased a delivery note another agent had just added. The team switched to `PATCH` with a merge patch of the changed fields and `If-Match`, and a stale save now gets 412 instead of overwriting.',
+    mistakes: [
+      'Sending a partial body with `PUT`, which should reset the missing fields',
+      'Using a merge patch to change one item of an array, when it replaces the whole array',
+      'Silently ignoring unknown fields in a patch, so a client typo looks like a success',
+    ],
+    followUps: [
+      {
+        question: 'What is the difference between JSON Merge Patch and JSON Patch?',
+        answer: 'Merge Patch (`application/merge-patch+json`) is a partial document: fields replace, `null` deletes, arrays are replaced whole, and no value can be set to null. JSON Patch (`application/json-patch+json`) is a list of operations, `add`, `remove`, `replace`, `move`, `copy` and `test`, with array paths, applied atomically.',
+        fromLists: ['backend-100#23.1'],
+      },
+      {
+        question: 'Is `PATCH` idempotent, and does it depend on the format?',
+        answer: 'RFC 5789 says `PATCH` is not idempotent, but a given patch can be. A merge patch that sets fields has the same effect when repeated; a JSON Patch `add` to `/items/-` appends again on each retry. When retries matter I use `If-Match`, a `test` operation or an idempotency key.',
+        fromLists: ['backend-100#23.2'],
+      },
+      {
+        question: 'How should a `PATCH` on a nonexistent field be handled?',
+        answer: 'In JSON Patch, `replace` or `remove` on a missing path fails, and the whole patch is rejected. With a merge patch it is my schema\'s choice: I validate the body strictly and answer 422 for unknown fields rather than ignore them, since RFC 5789 maps an unprocessable patch to 422.',
+        fromLists: ['backend-100#23.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'A JSON Merge Patch can set a field\'s value to `null`.',
+        isTrue: false,
+        why: '`null` in a merge patch means "remove this field", so a null value cannot be expressed.',
+      },
+      {
+        statement: 'If one operation of a JSON Patch document fails, none of its operations are applied.',
+        isTrue: true,
+        why: 'RFC 6902 says the whole patch then fails, and an HTTP `PATCH` is applied atomically.',
+      },
+    ],
+    lesson: {
+      points: [
+        '`PUT` sends the complete new representation of a resource: a field left out is reset or removed. Sending the same `PUT` twice has the same effect, so it is idempotent.',
+        '`PATCH` sends only changes, in a format named by `Content-Type`. RFC 5789 defines it as neither safe nor idempotent, though a given patch can be idempotent.',
+        'JSON Merge Patch (RFC 7396) is a partial document: listed fields replace, nested objects merge, `null` removes a field, and arrays are replaced whole.',
+        'JSON Patch (RFC 6902) is a list of operations (`add`, `remove`, `replace`, `move`, `copy`, `test`) applied in order and atomically. `replace` and `remove` need the target to exist.',
+        'RFC 5789 errors: 415 for an unsupported patch format, with `Accept-Patch`; 422 for a patch that cannot be applied; 409 or 412 for conflicts. `If-Match` prevents lost updates.',
+      ],
+      code: `PATCH /orders/1042 HTTP/1.1
+Content-Type: application/merge-patch+json
+If-Match: "7"
+
+{"shippingAddress":{"city":"Lyon"},"deliveryNote":null}
+
+PATCH /orders/1042 HTTP/1.1
+Content-Type: application/json-patch+json
+
+[{"op":"test","path":"/status","value":"paid"},{"op":"remove","path":"/deliveryNote"}]`,
+      codeLang: 'http',
+    },
+    mcqSections: ['m05#resources'],
+    fromLists: ['backend-100#23'],
+  },
+  {
+    id: 'api-service-contracts',
+    unit: 'backend-api',
+    topic: 'Internal service contracts',
+    level: 'senior',
+    paths: ['backend', 'fullstack'],
+    question: 'How would you design contracts between internal services to minimize breaking changes?',
+    answer:
+      'I treat every internal API and event as a published contract with an owner, described by a schema: OpenAPI, a `.proto` file, or a JSON or Avro schema for events. Changes are additive by default, new optional fields, endpoints or event types, and consumers are tolerant readers that ignore unknown fields. A breaking change goes through expand and contract: add the new shape next to the old, migrate consumers, remove the old one once usage is zero. CI catches breaks with a schema diff, and consumer-driven contract tests with Pact check that the provider still gives each consumer what it reads, with `can-i-deploy` gating releases.',
+    keyPoints: [
+      'An explicit schema per contract, owned by the provider',
+      'Additive changes and tolerant readers by default',
+      'Expand, migrate, contract for breaking changes',
+      'Schema diffs and consumer contract tests in CI',
+    ],
+    explanation:
+      'With many services, breaking changes are a main source of outages between teams. Seniors talk about compatibility rules, deploy order, testing contracts without a shared staging environment, and removing old fields only on evidence.',
+    example:
+      'The payments team renamed `id` to `chargeId` in a response; both teams\' tests passed, and checkout broke in production. They adopted Pact: the Orders API now publishes what it reads, the payments pipeline verifies it, and `can-i-deploy` blocked the next rename until the Orders API read both fields.',
+    mistakes: [
+      'Treating internal APIs as free to change because "we own both sides"',
+      'Renaming a field in one step instead of adding the new one, migrating, then removing the old',
+      'Counting on a shared staging environment to catch contract breaks',
+    ],
+    followUps: [
+      {
+        question: 'How does contract testing differ from an integration test?',
+        answer: 'An integration test runs both services together through a flow, which is slow and needs both deployed. A contract test checks each side alone against a recorded agreement: the consumer against a mock that records what it sends and reads, the provider by replaying those interactions, each in its own pipeline.',
+        fromLists: ['backend-100#24.1'],
+      },
+      {
+        question: 'How would you roll out a breaking change across dependent services?',
+        answer: 'Expand and contract. The provider adds the new shape next to the old one, consumers move one by one while usage is logged per field or version, and the old shape goes once nobody uses it. For events, deploy readers of both versions first. Never one big coordinated deploy.',
+        fromLists: ['backend-100#24.2'],
+      },
+      {
+        question: 'How does a schema registry help event-driven compatibility?',
+        answer: 'It stores every version of each event schema and checks a new version against a compatibility rule before producers can use it. With Confluent\'s default, `BACKWARD`, consumers on the new schema can read data written with the previous one, so consumers deploy first. Incompatible changes are rejected up front.',
+        fromLists: ['backend-100#24.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'Adding a new optional field to an event breaks consumers that are tolerant readers.',
+        isTrue: false,
+        why: 'Tolerant readers ignore fields they do not know, so an additive change is safe for them.',
+      },
+      {
+        statement: 'With Confluent Schema Registry\'s default `BACKWARD` compatibility, you upgrade consumers before producers start using the new schema.',
+        isTrue: true,
+        why: 'New-schema consumers can read old data, so they go first; old consumers may not read new data.',
+      },
+    ],
+    lesson: {
+      points: [
+        'A contract is the schema of what a service accepts and returns, or of an event it publishes: OpenAPI, a `.proto` file, an Avro or JSON schema. The provider owns it and changes it on purpose.',
+        'Additive changes are safe when consumers are tolerant readers that ignore unknown fields. Removing, renaming or retyping a field, or adding a required one, is breaking.',
+        'Expand and contract: add the new field or version next to the old one, migrate every consumer while measuring usage, then remove the old one.',
+        'Consumer-driven contract tests, such as Pact, record what each consumer reads; the provider replays them in its own pipeline, and `can-i-deploy` blocks an incompatible release.',
+        'For events, a schema registry rejects incompatible versions. With `BACKWARD` compatibility, consumers on the new schema read old data, so consumers deploy first.',
+      ],
+    },
+    mcqSections: ['m14#contracts', 'm18#evolution', 'm05#contract'],
+    fromLists: ['backend-100#24'],
   },
 ];

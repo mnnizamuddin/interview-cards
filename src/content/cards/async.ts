@@ -40,17 +40,27 @@ export const asyncCards: Card[] = [
       {
         question: 'What separates the microtask queue from the task queue, and which one wins?',
         answer: 'Tasks, also called macrotasks, are timers, I/O and events; microtasks are promise callbacks, code after `await` and `queueMicrotask`. Microtasks have priority: after each task the loop drains the whole microtask queue, new ones included, before the next task or a render.',
-        fromList: 'fullstack-100#6.1',
+        fromLists: ['fullstack-100#6.1', 'frontend-100#18.1'],
       },
       {
         question: 'Walk me through the output of a snippet mixing sync code, promises and `setTimeout`.',
         answer: 'First all synchronous logs, top to bottom. Then the microtasks in the order they were queued, including any `.then` queued by another microtask. Last, the `setTimeout` callbacks, each as a separate task, even a timeout scheduled from inside a `.then`.',
-        fromList: 'fullstack-100#6.2',
+        fromLists: ['fullstack-100#6.2'],
       },
       {
         question: 'How does `async`/`await` map onto the event loop?',
         answer: 'An async function runs synchronously up to its first `await`, then returns a pending promise to the caller. When the awaited value settles, the rest of the function is queued as a microtask, so it resumes before any pending timer, but never in the middle of the current code.',
-        fromList: 'fullstack-100#6.3',
+        fromLists: ['fullstack-100#6.3', 'frontend-100#18.2'],
+      },
+      {
+        question: 'When would you reach for a Web Worker?',
+        answer: 'When CPU work cannot be made small enough to stay under 50 ms, like parsing a large CSV export or filtering 50,000 orders on each keystroke. A worker runs on another thread, has no DOM, and talks through `postMessage`. I do not use one for network calls: those already wait without blocking.',
+        fromLists: ['frontend-100#30.1'],
+      },
+      {
+        question: 'How does Node handle async I/O differently from the browser?',
+        answer: 'In Node, libuv uses the operating system\'s non-blocking APIs for network sockets, and runs file system calls, `dns.lookup`, async crypto and zlib on its thread pool, 4 threads by default. Callbacks return to the one JavaScript thread. In the browser, the browser does the I/O; the page sees only callbacks and promises.',
+        fromLists: ['frontend-100#30.2'],
       },
     ],
     traps: [
@@ -81,7 +91,7 @@ console.log('sync');
       codeLang: 'js',
     },
     mcqSections: ['m24#loop', 'm24#order'],
-    fromLists: ['fullstack-100#6'],
+    fromLists: ['fullstack-100#6', 'frontend-100#18', 'frontend-100#30'],
   },
   {
     id: 'async-promises',
@@ -111,6 +121,7 @@ console.log('sync');
       {
         question: 'How would you implement `Promise.all`?',
         answer: 'Return a new promise. Keep a results array and a counter; for each input, `Promise.resolve(input).then` stores the value at its index and resolves when the counter reaches the length. Reject on the first error, and resolve at once with `[]` for an empty input.',
+        fromLists: ['frontend-100#22.2'],
       },
       {
         question: 'What happens to a rejected promise that nobody handles?',
@@ -119,17 +130,22 @@ console.log('sync');
       {
         question: 'Give a real use for each of `all`, `allSettled`, `race` and `any`.',
         answer: '`all` when every result is required, like a cart and its prices. `allSettled` for optional blocks, like reviews and recommendations on the product page. `race` to put a timeout on a call to the delivery partner. `any` to take the first image mirror that answers.',
-        fromList: 'fullstack-100#20.1',
+        fromLists: ['fullstack-100#20.1'],
       },
       {
         question: 'How do `async` and `await` relate to promises?',
         answer: 'They are syntax over promises: an async function always returns a promise, `return` fulfils it and `throw` rejects it. `await` pauses the function until a promise settles and resumes it as a microtask, so `try`/`catch` replaces `.catch` and the code reads top to bottom.',
-        fromList: 'fullstack-100#20.2',
+        fromLists: ['fullstack-100#20.2'],
       },
       {
         question: 'An error is thrown halfway through a `.then` chain. What happens, and how do you handle it?',
         answer: 'The returned promise rejects, so the next `.then` callbacks are skipped until the first `.catch`. That `.catch` can rethrow, or return a fallback value, and the chain continues fulfilled from there. I put a `.catch` where I can really recover, and one at the end to report.',
-        fromList: 'fullstack-100#20.3',
+        fromLists: ['fullstack-100#20.3'],
+      },
+      {
+        question: '`Promise.all` vs `Promise.allSettled`?',
+        answer: '`Promise.all` rejects on the first rejection, and I lose the other results. `Promise.allSettled` never rejects: it waits for all and gives `{ status: \'fulfilled\', value }` or `{ status: \'rejected\', reason }` for each. I use `all` when every result is required, `allSettled` when partial results are still useful.',
+        fromLists: ['frontend-100#22.1'],
       },
     ],
     traps: [
@@ -161,7 +177,7 @@ if (recommendations.status === 'rejected') hideRecommendations();`,
       codeLang: 'ts',
     },
     mcqSections: ['m24#promises'],
-    fromLists: ['fullstack-100#20'],
+    fromLists: ['fullstack-100#20', 'frontend-100#22'],
   },
   {
     id: 'async-await',
@@ -196,6 +212,16 @@ if (recommendations.status === 'rejected') hideRecommendations();`,
         question: 'How do you run at most 5 requests at a time?',
         answer: 'Use a pool: start 5 workers that each take the next item from a shared list until it is empty, or use a small library like `p-limit`.',
       },
+      {
+        question: 'How would you run three async calls in parallel instead of sequentially?',
+        answer: 'Start all three, then `await Promise.all([getCustomer(id), getHistory(id), getInvoices(id)])`: the total is the slowest call, not the sum. Storing the promises and awaiting each one also overlaps them, but a rejection that lands before its `await` is unhandled, and Node exits. `Promise.all` avoids that.',
+        fromLists: ['frontend-100#23.1'],
+      },
+      {
+        question: 'What happens if you forget to await an async call?',
+        answer: 'I get a pending promise instead of the value, so `order.status` reads `undefined`, and the next lines run before the work is done. A rejection escapes my `try`/`catch` and becomes an unhandled rejection, which crashes a Node process. typescript-eslint\'s `no-floating-promises` rule catches it.',
+        fromLists: ['frontend-100#23.2'],
+      },
     ],
     traps: [
       {
@@ -224,6 +250,7 @@ const fast = await Promise.all([getCustomer(id), getHistory(id)]);`,
       codeLang: 'ts',
     },
     mcqSections: ['m02#floating'],
+    fromLists: ['frontend-100#23'],
   },
   {
     id: 'async-abort',
@@ -258,6 +285,31 @@ const fast = await Promise.all([getCustomer(id), getHistory(id)]);`,
         question: 'Does aborting a `fetch` stop the work on the server?',
         answer: 'Not by itself. The browser closes the request, but the server only stops if it notices the closed connection and cancels its own work.',
       },
+      {
+        question: 'How do you cancel a stale or unmounted fetch with an AbortController in an effect?',
+        answer: 'I create the controller inside the effect, pass `controller.signal` to `fetch`, and return `() => controller.abort()`. React runs that cleanup before the effect runs again with a new value and when the component unmounts, so the old request is cancelled in both cases. In the `catch`, I ignore the `AbortError`.',
+        fromLists: ['react-50#17.1', 'react-50#41.1'],
+      },
+      {
+        question: 'How do React Query or SWR handle this race?',
+        answer: 'They store each response under its key, such as `[\'search\', query]`, and the component reads only the current key, so a late answer for an old key fills that key\'s cache entry, not the screen. TanStack Query also passes an `AbortSignal` to the query function, which I forward to `fetch`.',
+        fromLists: ['react-50#17.2'],
+      },
+      {
+        question: 'How would you test that the race fix works?',
+        answer: 'I mock the API with responses I resolve by hand, or with MSW and different delays. The test types "sho", then "shoes", resolves "shoes" first and "sho" last, and asserts the list still shows the "shoes" results. Without the fix this test fails, which proves it covers the race.',
+        fromLists: ['react-50#17.3'],
+      },
+      {
+        question: 'Why is cancelling the operation cleaner than an `isMounted` flag?',
+        answer: 'The flag only hides the `setState`: the request still runs, using bandwidth and server time, and the flag is extra state to get right. Aborting stops the request itself. React 18 also removed the unmounted-component warning, because it mostly fired where setting state was harmless.',
+        fromLists: ['react-50#41.2'],
+      },
+      {
+        question: 'How does the same issue look with `setTimeout` or `setInterval`?',
+        answer: 'A timer started in an effect keeps firing after unmount, calling `setState` and keeping alive whatever its closure holds. The fix is the same: keep the id and clear it in the cleanup, `return () => clearInterval(id)`. Listeners and subscriptions follow the same rule.',
+        fromLists: ['react-50#41.3'],
+      },
     ],
     traps: [
       {
@@ -290,6 +342,7 @@ const fast = await Promise.all([getCustomer(id), getHistory(id)]);`,
       codeLang: 'ts',
     },
     mcqSections: ['m24#abort', 'm24#race'],
+    fromLists: ['react-50#17', 'react-50#41'],
   },
   {
     id: 'async-debounce',
@@ -319,10 +372,31 @@ const fast = await Promise.all([getCustomer(id), getHistory(id)]);`,
       {
         question: 'Write a basic debounce.',
         answer: '`function debounce(fn, ms) { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); }; }`',
+        fromLists: ['frontend-100#29.1'],
       },
       {
         question: 'What are leading and trailing calls?',
         answer: 'A leading call runs on the first event of a burst; a trailing call runs after the last one. Debounce is usually trailing; throttle often does both, so the final position is not lost.',
+      },
+      {
+        question: 'How do you clean up debounce or throttle in a React `useEffect`?',
+        answer: 'The effect starts the timer and its cleanup clears it: `const id = setTimeout(() => search(query), 300); return () => clearTimeout(id);`. The cleanup runs before the next run and on unmount, so a stale call never fires. With a library debounce such as lodash\'s, I call its `cancel()` in the cleanup.',
+        fromLists: ['frontend-100#29.2'],
+      },
+      {
+        question: 'How do you keep a stable debounced function across re-renders?',
+        answer: 'I create it once and keep it in a ref, so every render reuses the same timer. To avoid a stale closure, it calls the latest callback through a second ref that an effect updates. Created in the render body, it would get a new timer on every render and debounce nothing.',
+        fromLists: ['react-50#34.1'],
+      },
+      {
+        question: 'Debounce vs throttle in practice?',
+        answer: 'Debounce when only the final value matters: search suggestions, auto-saving a note, validating after typing. Throttle when I need regular updates during the burst: scroll position, dragging, loading the next page. For work tied to painting, like following the pointer, `requestAnimationFrame` is often better.',
+        fromLists: ['react-50#34.2'],
+      },
+      {
+        question: 'How would you write a `useDebounce` hook?',
+        answer: 'I debounce the value: `const debounced = useDebouncedValue(query, 300)`. Inside, a state holds the debounced value, and an effect on `[value, delay]` runs `setTimeout(() => setDebounced(value), delay)` and returns `() => clearTimeout(id)`. Each change cancels the previous timer.',
+        fromLists: ['react-50#34.3'],
       },
     ],
     traps: [
@@ -356,6 +430,7 @@ const suggest = debounce((query) => fetchSuggestions(query), 300);`,
       codeLang: 'js',
     },
     mcqSections: ['m24#debounce', 'm24#throttle'],
+    fromLists: ['frontend-100#29', 'react-50#34'],
   },
   {
     id: 'async-long-tasks',

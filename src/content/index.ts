@@ -25,6 +25,21 @@ export const UNITS: Unit[] = [
     description: 'Rendering, hooks, forms, memoization, lists and testing components.',
   },
   {
+    id: 'web-performance',
+    title: 'Web performance',
+    description: 'Code splitting, lazy loading, images, bundles, resource hints, jank and workers.',
+  },
+  {
+    id: 'frontend-architecture',
+    title: 'Frontend architecture',
+    description: 'Large apps across teams: design systems, micro-frontends, monorepos and migrations.',
+  },
+  {
+    id: 'frameworks',
+    title: 'Other frameworks',
+    description: 'Vue, Angular, signals and islands: what a React developer should know about them.',
+  },
+  {
     id: 'backend-api',
     title: 'Backend and API design',
     description: 'REST and GraphQL, HTTP, middleware, auth, CORS, rate limits and long-running jobs.',
@@ -38,6 +53,11 @@ export const UNITS: Unit[] = [
     id: 'system-design',
     title: 'System design',
     description: 'Designing services end to end: scaling, caching, real-time, uploads and checkout.',
+  },
+  {
+    id: 'messaging',
+    title: 'Queues, events and caches',
+    description: 'Message queues, Kafka, dead letters, outbox, event sourcing, ordering and cache patterns.',
   },
   {
     id: 'delivery',

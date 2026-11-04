@@ -13,10 +13,11 @@ export type FollowUp = {
   question: string;
   answer: string;
   /**
-   * The list follow-up this answers, as `list#question.followUp`: `fullstack-100#16.2` is the
-   * second follow-up of question 16. Only the question is shared with the list.
+   * The list follow-ups this answers, as `list#question.followUp`: `fullstack-100#16.2` is the
+   * second follow-up of question 16. Several lists often ask the same follow-up, so one of ours
+   * can answer several. Only the questions are shared with the lists.
    */
-  fromList?: string;
+  fromLists?: string[];
 };
 
 /** A true-or-false statement built from a common mistake. */

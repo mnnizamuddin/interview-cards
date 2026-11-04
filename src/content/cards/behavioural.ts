@@ -42,17 +42,17 @@ export const behaviouralCards: Card[] = [
       {
         question: 'How did you agree the API contract between the frontend and the backend before starting?',
         answer: 'I wrote the event format as a TypeScript type in a shared package, with an example payload for each status and the reconnect rule, and reviewed it with the app developer in a short call. They built the timeline against a fake stream replaying those examples while I built the endpoint.',
-        fromList: 'fullstack-100#87.1',
+        fromLists: ['fullstack-100#87.1'],
       },
       {
         question: 'What was the hardest cross-layer bug in that project, and how did you solve it?',
         answer: 'After a reconnect, some customers saw a status twice. The API replayed from the last event id included instead of strictly after it, and the client appended without checking. I fixed the query, made the client ignore event ids it already had, and added a test with a dropped connection.',
-        fromList: 'fullstack-100#87.2',
+        fromLists: ['fullstack-100#87.2'],
       },
       {
         question: 'How did you decide where the business logic lived, frontend or backend?',
         answer: 'Rules that decide something live on the backend; the frontend renders. The Orders API decided which statuses exist and when they change, and the timeline only displayed what the stream sent, so adding `refunded` later needed only a label in the app.',
-        fromList: 'fullstack-100#87.3',
+        fromLists: ['fullstack-100#87.3'],
       },
     ],
     traps: [
@@ -115,17 +115,17 @@ export const behaviouralCards: Card[] = [
       {
         question: 'Which tools did you use at each layer to narrow it down?',
         answer: 'On the storefront, the browser\'s network panel showed the API really returned `pending_payment`. In the API, traces and logs searched by order id showed the webhook arriving before the order was visible on the replica, and the replica\'s replication lag metric spiked at those exact times.',
-        fromList: 'fullstack-100#88.1',
+        fromLists: ['fullstack-100#88.1'],
       },
       {
         question: 'How did you confirm you had fixed the root cause and not just a symptom?',
         answer: 'The reproduction failed before the fix and passed after it, and the fix removed the race itself, by reading from the primary, instead of adding a delay or a retry around it. Then stuck paid orders stayed at zero for weeks through the same evening peaks.',
-        fromList: 'fullstack-100#88.2',
+        fromLists: ['fullstack-100#88.2'],
       },
       {
         question: 'What did you change in your process afterwards to catch similar issues earlier?',
         answer: 'I added an integration test that delays replication, a review rule that handlers acting on payments read from the primary, and the alert on orders paid at the provider but still `pending_payment` after five minutes. I also presented the bug at our incident review.',
-        fromList: 'fullstack-100#88.3',
+        fromLists: ['fullstack-100#88.3'],
       },
     ],
     traps: [
@@ -184,17 +184,27 @@ export const behaviouralCards: Card[] = [
       {
         question: 'When would you put a rule only in the frontend?',
         answer: 'When breaking it harms nobody but the user\'s own experience, such as the order of steps in a form or a display preference.',
-        fromList: 'fullstack-100#89.1',
+        fromLists: ['fullstack-100#89.1'],
       },
       {
         question: 'How do you keep frontend and backend validation consistent as the app evolves?',
         answer: 'One Zod schema per request in a shared package, used by the API and the React form, so a rule changes in one place. The API\'s errors name the field, so a rule the form does not know yet still shows next to the right input, and the server stays the last word.',
-        fromList: 'fullstack-100#89.2',
+        fromLists: ['fullstack-100#89.2'],
       },
       {
         question: 'How does this change in a server-rendered app compared with a single-page app?',
         answer: 'In the Next.js storefront, Server Components and Server Functions run on the server, so logic can leave the browser, but Server Functions are public endpoints that still validate and authorise. In the back office SPA, everything in the browser is untrusted, so rules sit in the BFF and the Orders API.',
-        fromList: 'fullstack-100#89.3',
+        fromLists: ['fullstack-100#89.3'],
+      },
+      {
+        question: 'Where do you compute a discount: on the client, on the server, or both?',
+        answer: 'The server computes the discount that is charged, from the code and the cart it loads itself. The client may show a preview from the same shared function, but `POST /orders` ignores any total or discount the browser sends.',
+        fromLists: ['frontend-100#90.1'],
+      },
+      {
+        question: 'How do you stop users from manipulating logic that runs only on the client?',
+        answer: 'You cannot: the browser is theirs, so they can edit the code, the requests and the state. Anything that matters, such as prices, limits, roles or a refund, is checked again on the server, and the client logic is only for comfort.',
+        fromLists: ['frontend-100#90.2'],
       },
     ],
     traps: [
@@ -219,7 +229,7 @@ export const behaviouralCards: Card[] = [
       ],
     },
     mcqSections: ['m33#actions'],
-    fromLists: ['fullstack-100#89'],
+    fromLists: ['fullstack-100#89', 'frontend-100#90'],
   },
   {
     id: 'story-learn-fast',
@@ -257,17 +267,17 @@ export const behaviouralCards: Card[] = [
       {
         question: 'How do you decide what to learn first when time is short?',
         answer: 'What the feature needs, in order of risk. For the partner\'s GraphQL API, I learned authentication, how errors come back and how to create a shipment first, then pagination; anything our code did not call could wait.',
-        fromList: 'fullstack-100#90.1',
+        fromLists: ['fullstack-100#90.1', 'backend-100#94.1'],
       },
       {
         question: 'Which resources do you turn to first when learning something new?',
         answer: 'The official docs and their getting-started guide, then the provider\'s own examples or sandbox, and the changelog for recent changes. Blog posts and AI answers come after, checked against the docs. When I am stuck, I ask a precise question to someone who has used it.',
-        fromList: 'fullstack-100#90.2',
+        fromLists: ['fullstack-100#90.2', 'backend-100#94.2'],
       },
       {
         question: 'How do you judge whether a new technology is production-ready?',
         answer: 'I look at who maintains it and how often it is released, open issues on the cases I need, the docs, the licence, and whether we can monitor and debug it. Then a prototype in our setup and a first use on a small, reversible part, as we did with TanStack Table on one small back-office table.',
-        fromList: 'fullstack-100#90.3',
+        fromLists: ['fullstack-100#90.3', 'backend-100#94.3'],
       },
     ],
     traps: [
@@ -292,7 +302,7 @@ export const behaviouralCards: Card[] = [
       ],
     },
     mcqSections: ['m22#behavioural'],
-    fromLists: ['fullstack-100#90'],
+    fromLists: ['fullstack-100#90', 'backend-100#94'],
   },
   {
     id: 'story-disagreement',
@@ -322,7 +332,7 @@ export const behaviouralCards: Card[] = [
       {
         question: 'What if the decision had gone against you?',
         answer: 'Say you would commit to it fully, make sure the risk you saw is monitored, and bring data back if it materialised.',
-        fromList: 'fullstack-100#91.3',
+        fromLists: ['fullstack-100#91.3', 'backend-100#91.3'],
       },
       {
         question: 'Was there a decision you disagreed with and accepted?',
@@ -331,12 +341,12 @@ export const behaviouralCards: Card[] = [
       {
         question: 'How did you know it was time to stop pushing your position and commit?',
         answer: 'Once the load test answered the question we had agreed to test, the debate was over; arguing further would only have been about pride. I had said before the test that I would back their option if the numbers favoured it.',
-        fromList: 'fullstack-100#91.1',
+        fromLists: ['fullstack-100#91.1', 'backend-100#91.1'],
       },
       {
         question: 'What would you have done if that decision had later turned out badly?',
         answer: 'Owned it with my colleague, since we chose it together: stop the impact first by raising replicas or rolling back, then rerun the comparison with the new data. No blame, and I would write down what our load test had missed.',
-        fromList: 'fullstack-100#91.2',
+        fromLists: ['fullstack-100#91.2', 'backend-100#91.2'],
       },
     ],
     traps: [
@@ -361,7 +371,7 @@ export const behaviouralCards: Card[] = [
       ],
     },
     mcqSections: ['m22#behavioural'],
-    fromLists: ['fullstack-100#91'],
+    fromLists: ['fullstack-100#91', 'backend-100#91'],
   },
   {
     id: 'story-new-codebase',
@@ -395,17 +405,17 @@ export const behaviouralCards: Card[] = [
       {
         question: 'What do you do when the code has no documentation?',
         answer: 'Read the tests and the git history of the main files, ask the owners, and write down what you learn where the next person will find it.',
-        fromList: 'fullstack-100#92.1',
+        fromLists: ['fullstack-100#92.1'],
       },
       {
         question: 'How do you balance becoming productive quickly against breaking something you do not yet understand?',
         answer: 'I start with small, reversible changes in well-tested areas, behind a flag when they touch checkout, and ask the code\'s owner to review. Before changing code I do not understand, I add a test that pins its current behaviour, so the change shows what it really alters.',
-        fromList: 'fullstack-100#92.2',
+        fromLists: ['fullstack-100#92.2'],
       },
       {
         question: 'Which questions would you ask teammates first during onboarding?',
         answer: 'Which flows are critical and what breaks most often, who owns each part, how code reaches production and how we roll back, which parts are fragile or about to change, and what they wish they had known in their first month. The answers tell me where to be careful and whom to ask.',
-        fromList: 'fullstack-100#92.3',
+        fromLists: ['fullstack-100#92.3'],
       },
     ],
     traps: [
@@ -460,7 +470,7 @@ export const behaviouralCards: Card[] = [
       {
         question: 'How do you make sure deferred debt is actually paid back?',
         answer: 'It goes into the backlog with its cost and an owner, and a date or a trigger is agreed with the product manager; I bring it back at the planning that follows.',
-        fromList: 'fullstack-100#93.2',
+        fromLists: ['fullstack-100#93.2', 'backend-100#93.2'],
       },
       {
         question: 'When do you accept new debt on purpose?',
@@ -469,12 +479,12 @@ export const behaviouralCards: Card[] = [
       {
         question: 'How do you decide which corners can be cut under deadline pressure, and which never can?',
         answer: 'Scope and polish can be cut, like partial gift-card use. Never: correct money and stock, security, the timeouts and retries that keep checkout up, tests on the paths that charge customers, and anything that could lose data. Those are the corners whose cost lands on customers.',
-        fromList: 'fullstack-100#93.1',
+        fromLists: ['fullstack-100#93.1', 'backend-100#93.1'],
       },
       {
         question: 'How do you explain such a trade-off to a non-technical stakeholder?',
         answer: 'In their units: the frozen checkout had blocked orders for 20 minutes, which at peak means thousands of lost orders, against a few days of work. I gave the product manager two options with their cost and risk, and we chose together.',
-        fromList: 'fullstack-100#93.3',
+        fromLists: ['fullstack-100#93.3', 'backend-100#93.3'],
       },
     ],
     traps: [
@@ -499,7 +509,7 @@ export const behaviouralCards: Card[] = [
       ],
     },
     mcqSections: ['m22#behavioural'],
-    fromLists: ['fullstack-100#93'],
+    fromLists: ['fullstack-100#93', 'backend-100#93'],
   },
   {
     id: 'story-organized',
@@ -537,17 +547,17 @@ export const behaviouralCards: Card[] = [
       {
         question: 'How do you handle a new urgent request that threatens work you already committed to?',
         answer: 'I check how urgent it really is, then tell my lead what it would push back and by how much, so the trade is a decision, not a surprise. When the export bug arrived, we agreed it came first, and I announced the refund dialog\'s two-day delay that same morning.',
-        fromList: 'fullstack-100#94.1',
+        fromLists: ['fullstack-100#94.1'],
       },
       {
         question: 'Which tools or systems have you used to track and prioritise your own work?',
         answer: 'The team tracker for anything others depend on, ordered with my lead, a short daily list of my top three tasks, and a note per branch saying where I stopped. The tool matters less than having one ordered list and keeping it current.',
-        fromList: 'fullstack-100#94.2',
+        fromLists: ['fullstack-100#94.2'],
       },
       {
         question: 'How do you limit the cost of switching between frontend and backend work in a day?',
         answer: 'I group work by layer in blocks of a few hours instead of alternating, and leave a note with the next step before switching. Working in thin vertical slices also helps: one slice\'s API and UI are the same problem, so moving between them costs little.',
-        fromList: 'fullstack-100#94.3',
+        fromLists: ['fullstack-100#94.3'],
       },
     ],
     traps: [
@@ -573,5 +583,200 @@ export const behaviouralCards: Card[] = [
     },
     mcqSections: [],
     fromLists: ['fullstack-100#94'],
+  },
+  {
+    id: 'story-incident',
+    unit: 'behavioural',
+    topic: 'Diagnosing a production incident',
+    level: 'mid',
+    paths: ['backend', 'fullstack'],
+    question: 'Tell me about a time you diagnosed a production incident under time pressure.',
+    answer:
+      'During a Friday evening sale, checkout started failing: about 30% of `POST /orders` returned 500, and it was growing. I was on call, so I led the response. I rolled back that afternoon\'s deploy first; nothing changed, so the cause was elsewhere. Traces showed requests waiting for database connections, and `pg_stat_activity` showed the pool full of sessions idle in transaction, from a new export that opened a transaction and then streamed to S3. I ended those sessions and turned the export off with its feature flag; errors fell to zero within ten minutes. Lesson: stop the bleeding first, then find the cause.',
+    keyPoints: [
+      'The impact and your role, in one sentence each',
+      'Mitigation first: rollback or flag, then the root cause',
+      'The evidence that led you to the cause',
+      'Time to recovery, and what changed afterwards',
+    ],
+    explanation:
+      'The interviewer is assessing calm under pressure, a method rather than luck, and ownership: mitigating before diagnosing, following evidence, keeping people informed, and making sure it cannot recur. Seniors also show how they coordinated others.',
+    example:
+      'Another story: the payment webhook started timing out after the provider doubled its retries during an outage. You saw the retries pile up in the logs, added API replicas to absorb the load, then changed the webhook to answer as soon as the event was stored and process it asynchronously; the timeouts stopped and no payment was lost.',
+    mistakes: [
+      'Telling the debugging and skipping how you limited the impact first',
+      'Saying "we" throughout, so the interviewer cannot see your actions',
+      'Ending at the fix, without the postmortem and what changed',
+    ],
+    followUps: [
+      {
+        question: 'How did you communicate status to non-technical stakeholders during the incident?',
+        answer: 'I asked the engineering manager to handle stakeholders while I worked, and gave them a plain update every 15 minutes: what customers see, what we are doing, when the next update comes. No guessed causes. Afterwards, a short summary with the number of failed orders and the fix.',
+        fromLists: ['backend-100#89.1'],
+      },
+      {
+        question: 'What would you have done with even less time?',
+        answer: 'Skip the investigation at first: turn off every feature shipped that day behind a flag, then look for the cause once checkout is healthy. Mitigation does not need the root cause; it needs a reversible action that reduces the impact.',
+        fromLists: ['backend-100#89.2'],
+      },
+      {
+        question: 'Which process change came out of the postmortem?',
+        answer: 'The blameless postmortem led to three changes, each with an owner: an `idle_in_transaction_session_timeout` on the export\'s database role, an alert on pool wait time, and a review rule that no transaction stays open across a network call.',
+        fromLists: ['backend-100#89.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'During an incident, finding the root cause comes before reducing the impact.',
+        isTrue: false,
+        why: 'Mitigate first with a rollback, a flag or more capacity; diagnose once customers are safe.',
+      },
+      {
+        statement: 'A blameless postmortem looks at what in the system allowed the error, not at who made it.',
+        isTrue: true,
+        why: 'Blame makes people hide details; system fixes stop the next person making the same mistake.',
+      },
+    ],
+    lesson: {
+      points: [
+        'The interviewer assesses calm under pressure, a method rather than luck, ownership and communication. Tell it in STAR: situation, task, action, result.',
+        'Show the order of work: limit the impact first with a reversible action (rollback, feature flag, more capacity), then find the root cause with evidence such as traces, metrics and database views.',
+        'Say what you did, with "I": the hypothesis you tested, what ruled it out, and the evidence that pointed at the cause.',
+        'Give a measured result, such as minutes to recovery or failed orders, and say how you kept stakeholders informed during the incident.',
+        'End with the blameless postmortem: the changes that stop it recurring, each with an owner. Traps: skipping the mitigation, saying "we" throughout, stopping at the fix.',
+      ],
+    },
+    mcqSections: ['m22#behavioural'],
+    fromLists: ['backend-100#89'],
+  },
+  {
+    id: 'story-tradeoff',
+    unit: 'behavioural',
+    topic: 'An architectural trade-off',
+    level: 'senior',
+    paths: ['backend', 'fullstack'],
+    question: 'Describe a significant architectural trade-off you made, such as consistency against availability.',
+    answer:
+      'Checkout called the inventory service synchronously, so when it was slow during sales, checkout failed. I owned the checkout flow, and the choice was strict consistency, never selling stock we lack, against availability. I measured that oversells would be rare, since few products ran out, and each could be refunded. I proposed accepting the order when inventory did not answer within 300 ms, reserving stock asynchronously and refunding the rare oversell, except for limited editions, which kept the strict check. The product manager agreed. At the next sale, checkout errors fell to near zero, with 4 oversells refunded. Lesson: let the business choose the risk.',
+    keyPoints: [
+      'The two options and what each one cost',
+      'Data behind the choice, in business terms',
+      'Who decided with you, and the exceptions you kept',
+      'The measured result and what you kept watching',
+    ],
+    explanation:
+      'The interviewer is assessing whether you reason in trade-offs rather than best practices, quantify the consequences, and involve the business in a decision that is really about risk. Seniors name what they gave up and the conditions that would change their mind.',
+    example:
+      'Another story: the back office orders table read from a read replica to spare the primary, so agents could see a status a second late. You kept the replica for lists but read the order detail from the primary right after a refund, so agents never saw their own refund missing.',
+    mistakes: [
+      'Presenting the choice as obviously right, with no cost on the other side',
+      'Deciding alone a trade-off whose risk the business carries',
+      'Using CAP vocabulary without a concrete consequence for users',
+    ],
+    followUps: [
+      {
+        question: 'What would have changed your decision with different business requirements?',
+        answer: 'If we sold mostly limited stock, or an oversell could not be refunded, as with event tickets, I would have kept the strict check and made the inventory service faster instead. The decision rested on oversells being rare and cheap to fix.',
+        fromLists: ['backend-100#90.1'],
+      },
+      {
+        question: 'How did you explain the trade-off to non-technical stakeholders?',
+        answer: 'Without the words consistency and availability. I said: either checkout fails when the stock system is slow, about 2% of orders at the last sale, or we take those orders and refund the handful that turn out to be out of stock. Then I asked which they preferred.',
+        fromLists: ['backend-100#90.2'],
+      },
+      {
+        question: 'Would you make the same choice again?',
+        answer: 'Yes for this shop, but I would add from day one what we added later: a dashboard of oversells per sale, so the assumption that they stay rare is checked every time instead of trusted.',
+        fromLists: ['backend-100#90.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'A strong trade-off story says what you gave up, not only what you gained.',
+        isTrue: true,
+        why: 'A trade-off without a cost is not a trade-off; naming the cost shows judgement.',
+      },
+      {
+        statement: 'The best answer presents the chosen option as having no real downside.',
+        isTrue: false,
+        why: 'It suggests you did not see the alternatives; interviewers then probe until the cost appears.',
+      },
+    ],
+    lesson: {
+      points: [
+        'The interviewer assesses whether you reason in trade-offs: two real options, each with a cost, and a choice made with data rather than by habit.',
+        'Translate the trade-off into business terms: failed orders against refunded oversells, a second of staleness against load on the primary. Let the person who carries the risk decide with you.',
+        'Name what you gave up and the exceptions you kept, such as a strict stock check for limited editions.',
+        'Give the measured result, and say what would change your decision: different requirements, volumes or costs.',
+        'Traps: a choice with no downside, CAP vocabulary with no consequence for users, and a risk decided alone.',
+      ],
+    },
+    mcqSections: ['m22#behavioural'],
+    fromLists: ['backend-100#90'],
+  },
+  {
+    id: 'story-push-back',
+    unit: 'behavioural',
+    topic: 'Pushing back on a risky feature',
+    level: 'senior',
+    paths: ['backend', 'fullstack'],
+    question: 'A product manager asks for a feature with a serious security or scalability risk. What do you do?',
+    answer:
+      'I first make sure I understand the goal, then explain the risk in their terms and offer options. Our product manager once wanted support agents to export every customer with their address to a spreadsheet, in one click from the back office. I explained that one stolen agent session would leak all our customers\' personal data, and that the export would load the database for minutes at peak. I proposed exports limited to the agent\'s current cases, generated asynchronously, logged, with a link that expires. They agreed; agents got what they needed within the sprint, and the full export never existed. I never just say no.',
+    keyPoints: [
+      'Understand the goal behind the request first',
+      'Explain the risk in business terms: impact and likelihood',
+      'Offer alternatives that meet the goal safely',
+      'Document or escalate if they still want to proceed',
+    ],
+    explanation:
+      'The interviewer is assessing whether you protect the product without blocking the business: listening, translating technical risk, offering options, and knowing when to escalate. Refusing outright and silently complying are both weak answers.',
+    example:
+      'Another story: product wanted live stock counts on every product page, refreshed every second for every visitor. You showed the load that would put on the Orders API at peak, tens of thousands of requests per second, and proposed an "only 3 left" badge cached for 30 seconds; it shipped, and the API load did not move.',
+    mistakes: [
+      'Saying no without understanding the need or offering an alternative',
+      'Describing the risk in jargon, so the product manager cannot weigh it',
+      'Building it anyway without writing down the risk and who accepted it',
+    ],
+    followUps: [
+      {
+        question: 'What if they still want to proceed despite your concern?',
+        answer: 'If the risk is one the business may accept, I write it down with who accepted it and the mitigations, and build the safest version. If it breaks the law or our security policy, like exposing personal data, I escalate to my manager and the security lead rather than ship it.',
+        fromLists: ['backend-100#95.1'],
+      },
+      {
+        question: 'How do you explain a technical risk so that a non-technical person can weigh it?',
+        answer: 'As what could happen, how likely it is and what it would cost: "one stolen agent login would leak every customer address, a breach we must report to the CNIL within 72 hours". Then I give options with their cost and delay, and let them choose.',
+        fromLists: ['backend-100#95.2'],
+      },
+      {
+        question: 'Describe a time this conversation did not go as hoped, and what you learned.',
+        answer: 'I argued against a flash-sale countdown polling the API every second, with load numbers only, and the product manager went ahead. During the sale it did slow the API. I learned to bring a cheaper alternative with the warning; the next time, we cached the countdown at the CDN.',
+        fromLists: ['backend-100#95.3'],
+      },
+    ],
+    traps: [
+      {
+        statement: 'A senior engineer should refuse any feature that carries a security risk.',
+        isTrue: false,
+        why: 'Most risks can be reduced with a safer design; refuse or escalate only what the business may not accept.',
+      },
+      {
+        statement: 'Explaining a risk as impact and likelihood helps a non-technical person weigh it.',
+        isTrue: true,
+        why: 'It turns a technical worry into a business decision they can make.',
+      },
+    ],
+    lesson: {
+      points: [
+        'The interviewer assesses whether you protect the product without blocking the business: you listen, explain the risk, offer options and know when to escalate.',
+        'Start from the goal behind the request; a safer feature often meets it, such as a filtered, asynchronous export instead of a one-click dump of every customer.',
+        'Explain the risk in business terms: what could happen, how likely it is, what it would cost. Then give options with their cost and delay, and let the product manager choose.',
+        'If they still proceed, write down the risk and who accepted it. If it breaks the law or the security policy, escalate to your manager and the security lead.',
+        'Anchor the answer in a real story with a result. Traps: a flat no, jargon, and building it silently.',
+      ],
+    },
+    mcqSections: ['m22#behavioural'],
+    fromLists: ['backend-100#95'],
   },
 ];

@@ -41,17 +41,22 @@ export const javascriptCards: Card[] = [
       {
         question: 'What is the temporal dead zone, and how does it apply to `let` and `const`?',
         answer: 'It is the stretch from the start of the scope to the declaration line. The `let` or `const` name already exists there but is uninitialized, so any read or write throws a ReferenceError, even `typeof`. It turns a silent `undefined` into an error on the exact line.',
-        fromList: 'fullstack-100#17.1',
+        fromLists: ['fullstack-100#17.1', 'frontend-100#16.1', 'frontend-100#27.1'],
       },
       {
         question: 'How do you make an object truly immutable, not just its variable?',
         answer: '`Object.freeze(order)` makes its own properties read-only and blocks adding or deleting any: in strict mode, assigning one throws a TypeError. It is shallow, so nested objects stay mutable unless I freeze them too. In TypeScript, `readonly` and `as const` give the same guarantee at compile time only.',
-        fromList: 'fullstack-100#17.2',
+        fromLists: ['fullstack-100#17.2', 'frontend-100#16.2'],
       },
       {
         question: 'Why is `var` considered outdated?',
         answer: 'It ignores blocks, so it leaks out of `if` and loop bodies and is shared by loop callbacks. It reads as `undefined` before its line instead of throwing, and at the top level of a classic script it becomes a property of `window`. `let` and `const` fix all three, so we ban `var` with `no-var`.',
-        fromList: 'fullstack-100#17.3',
+        fromLists: ['fullstack-100#17.3'],
+      },
+      {
+        question: 'Are class declarations hoisted like function declarations?',
+        answer: 'No. A class declaration is hoisted like `let`: the name exists from the start of the scope but stays uninitialized, so `new Order()` above the `class Order` line throws a ReferenceError. A function declaration is hoisted with its body and can be called above its line.',
+        fromLists: ['frontend-100#27.2'],
       },
     ],
     traps: [
@@ -89,7 +94,7 @@ items.push('mug');                 // allowed: mutation, not reassignment`,
       codeLang: 'js',
     },
     mcqSections: ['m23#scope'],
-    fromLists: ['fullstack-100#17'],
+    fromLists: ['fullstack-100#17', 'frontend-100#16', 'frontend-100#27'],
   },
   {
     id: 'js-closures',
@@ -123,17 +128,22 @@ items.push('mug');                 // allowed: mutation, not reassignment`,
       {
         question: 'Can closures cause memory leaks?',
         answer: 'Yes, when a long-lived function, like a global listener or a cached callback, captures a large object. The object stays reachable as long as the function is.',
-        fromList: 'fullstack-100#16.2',
+        fromLists: ['fullstack-100#16.2', 'frontend-100#17.2'],
       },
       {
         question: 'Why does `var` in a loop with an async callback behave differently from `let`?',
         answer: '`var` creates one variable for the whole function, so every callback closes over the same variable and reads its final value when it runs. `let` in the loop header creates a new binding for each iteration, so each callback closes over its own value.',
-        fromList: 'fullstack-100#16.1',
+        fromLists: ['fullstack-100#16.1'],
       },
       {
         question: 'Can you write a simple memoization function with a closure?',
         answer: '`function memoize(fn) { const cache = new Map(); return (arg) => { if (!cache.has(arg)) { cache.set(arg, fn(arg)); } return cache.get(arg); }; }`. The `cache` lives in the closure, private to the returned function. In real code I bound its size so it cannot grow forever.',
-        fromList: 'fullstack-100#16.3',
+        fromLists: ['fullstack-100#16.3'],
+      },
+      {
+        question: 'How do closures relate to the module pattern?',
+        answer: 'The module pattern is a function, often run at once, that keeps private variables and returns functions closing over them: only they can reach the state. ES modules now give each file its own scope, so a top-level variable is private unless exported, but a factory with private state is the same closure idea.',
+        fromLists: ['frontend-100#17.1'],
       },
     ],
     traps: [
@@ -168,7 +178,7 @@ console.log(a(), b()); // 3 1: each call made its own count`,
       codeLang: 'js',
     },
     mcqSections: ['m23#closures'],
-    fromLists: ['fullstack-100#16'],
+    fromLists: ['fullstack-100#16', 'frontend-100#17'],
   },
   {
     id: 'js-this',
@@ -206,17 +216,22 @@ console.log(a(), b()); // 3 1: each call made its own count`,
       {
         question: 'How does `this` behave in an arrow function compared with a regular function?',
         answer: 'A regular function gets `this` from each call: the receiver, `undefined` in a plain strict call, the new object with `new`. An arrow function has no `this` of its own: it uses the `this` of the scope where it was written, `call`, `apply` and `bind` cannot change it, and it cannot be called with `new`.',
-        fromList: 'fullstack-100#19.1',
+        fromLists: ['fullstack-100#19.1'],
       },
       {
         question: 'What is the difference between `call`, `apply` and `bind`?',
         answer: '`call` and `apply` run the function at once with the `this` you give: `call` takes the arguments one by one, `apply` as an array. `bind` runs nothing: it returns a new function with `this`, and optionally the first arguments, fixed for good. Today `fn.call(obj, ...args)` mostly replaces `apply`.',
-        fromList: 'fullstack-100#19.2',
+        fromLists: ['fullstack-100#19.2', 'frontend-100#21.1'],
       },
       {
         question: 'How do you fix a lost `this` in a class method used as an event handler?',
         answer: 'Bind it once in the constructor, `this.onClick = this.onClick.bind(this)`, declare it as an arrow function field, or wrap it where it is passed, `() => this.onClick()`. I keep a reference to the function I passed, because `removeEventListener` needs that same function.',
-        fromList: 'fullstack-100#19.3',
+        fromLists: ['fullstack-100#19.3'],
+      },
+      {
+        question: 'Why don\'t arrow functions work well as object methods?',
+        answer: 'An arrow function takes `this` from the scope where the object literal is written, not from the object it is called on. In an ES module that outer `this` is `undefined`, so `cart.count()` written as an arrow cannot read `this.lines`. I use the method shorthand, `count() { ... }`, which gets the object from the call.',
+        fromLists: ['frontend-100#21.2'],
       },
     ],
     traps: [
@@ -251,7 +266,7 @@ console.log(detached.call(cart)); // 1`,
       codeLang: 'js',
     },
     mcqSections: ['m23#this'],
-    fromLists: ['fullstack-100#19'],
+    fromLists: ['fullstack-100#19', 'frontend-100#21'],
   },
   {
     id: 'js-prototypes',
@@ -281,21 +296,22 @@ console.log(detached.call(cart)); // 1`,
       {
         question: 'What is the difference between `prototype` and `__proto__`?',
         answer: '`prototype` is a property of constructor functions and classes: the object new instances will link to. `__proto__`, better read with `Object.getPrototypeOf`, is an object\'s actual link to its prototype.',
+        fromLists: ['frontend-100#20.2'],
       },
       {
         question: 'How does `instanceof` work?',
         answer: 'It checks whether `Class.prototype` appears anywhere in the object\'s prototype chain. It can fail across realms like iframes, which is why `Array.isArray` exists.',
-        fromList: 'fullstack-100#24.3',
+        fromLists: ['fullstack-100#24.3'],
       },
       {
         question: 'How would you implement inheritance without the `class` syntax?',
         answer: 'With constructor functions: the child calls the parent, `Base.call(this, code)`, and I link the prototypes with `Child.prototype = Object.create(Base.prototype)`, then restore `Child.prototype.constructor`. For plain objects, `Object.create(base)` is enough. `extends` does this linking for me, so I use classes.',
-        fromList: 'fullstack-100#24.1',
+        fromLists: ['fullstack-100#24.1'],
       },
       {
         question: 'What does `Object.create()` do, and how does it relate to the prototype chain?',
         answer: '`Object.create(proto)` returns a new empty object whose prototype is `proto`, without running any constructor, so lookups that miss on it continue on `proto`. `Object.create(null)` makes an object with no prototype at all: a dictionary with no inherited keys such as `toString`.',
-        fromList: 'fullstack-100#24.2',
+        fromLists: ['fullstack-100#24.2', 'frontend-100#20.1'],
       },
     ],
     traps: [
@@ -330,7 +346,7 @@ try { PaymentError('x'); } catch (e) { console.log(e.name); }        // TypeErro
       codeLang: 'js',
     },
     mcqSections: ['m23#classes'],
-    fromLists: ['fullstack-100#24'],
+    fromLists: ['fullstack-100#24', 'frontend-100#20'],
   },
   {
     id: 'js-equality',
@@ -364,32 +380,42 @@ try { PaymentError('x'); } catch (e) { console.log(e.name); }        // TypeErro
       {
         question: 'How does `Object.is` differ from `===`?',
         answer: 'It treats `NaN` as equal to itself and tells `+0` from `-0`; otherwise it behaves like `===`. React uses it to decide whether state changed.',
-        fromList: 'fullstack-100#18.3',
+        fromLists: ['fullstack-100#18.3', 'frontend-100#19.2'],
       },
       {
         question: 'What do `typeof undefined` and `typeof null` return, and why is the second one odd?',
         answer: '`typeof undefined` is "undefined", but `typeof null` is "object". It is a bug from the first implementation of the language, kept because fixing it would break existing code. So to test for an object I write `value !== null && typeof value === \'object\'`.',
-        fromList: 'fullstack-100#7.1',
+        fromLists: ['fullstack-100#7.1', 'frontend-100#31.1'],
       },
       {
         question: 'How do you check in one expression that a value is `null` or `undefined`?',
         answer: '`value == null` is true for exactly those two and never for 0, an empty string or `false`. It is the one loose comparison I allow. When I only need a fallback, `value ?? fallback` applies the same test.',
-        fromList: 'fullstack-100#7.2',
+        fromLists: ['fullstack-100#7.2'],
       },
       {
         question: 'Which do you use by default, `==` or `===`, and why?',
         answer: '`===`, because it compares without converting, so the result depends only on the two values. `==` first converts the operands to a common type, and those rules surprise people. My only exception is `== null`.',
-        fromList: 'fullstack-100#7.3',
+        fromLists: ['fullstack-100#7.3'],
       },
       {
         question: 'Can you give a few surprising results of `==`?',
         answer: '`\'\' == 0`, `\'0\' == 0`, `\'0\' == false` and `[] == false` are all true, yet `\'\' == \'0\'` is false, so `==` is not even transitive. `null == 0` is false because `null` only equals `undefined`, and `NaN == NaN` is false.',
-        fromList: 'fullstack-100#18.1',
+        fromLists: ['fullstack-100#18.1'],
       },
       {
         question: 'Why do style guides and lint rules recommend `===`?',
         answer: 'Its result is predictable and the reader sees the intended types; `==` hides bugs behind coercion. ESLint\'s `eqeqeq` rule enforces it, and its `{ "null": "ignore" }` option keeps the `== null` check allowed.',
-        fromList: 'fullstack-100#18.2',
+        fromLists: ['fullstack-100#18.2'],
+      },
+      {
+        question: 'How would you check if a value is `NaN`?',
+        answer: '`Number.isNaN(value)`, which is true only for the `NaN` value itself. The global `isNaN` converts first, so `isNaN(\'abc\')` is true for a plain string. `Object.is(value, NaN)` also works, and `value !== value` is the old trick, since `NaN` is the only value not equal to itself.',
+        fromLists: ['frontend-100#19.1'],
+      },
+      {
+        question: 'How does optional chaining interact with `null` and `undefined`?',
+        answer: '`a?.b` stops and returns `undefined` when `a` is `null` or `undefined`, and only then: 0 or an empty string go on. It returns `undefined` even when `a` was `null`. It guards one step, so `a?.b.c` still throws if `b` is missing. I pair it with `??`: `order.customer?.name ?? \'Guest\'`.',
+        fromLists: ['frontend-100#31.2'],
       },
     ],
     traps: [
@@ -426,7 +452,7 @@ console.log(NaN === NaN, Object.is(NaN, NaN));    // false true`,
       codeLang: 'js',
     },
     mcqSections: ['m23#coercion'],
-    fromLists: ['fullstack-100#7', 'fullstack-100#18'],
+    fromLists: ['fullstack-100#7', 'fullstack-100#18', 'frontend-100#19', 'frontend-100#31'],
   },
   {
     id: 'js-modules',
@@ -461,6 +487,16 @@ console.log(NaN === NaN, Object.is(NaN, NaN));    // false true`,
         question: 'What does `"type": "module"` in `package.json` change?',
         answer: 'The `.js` files of that package are treated as ES modules. Without it they are CommonJS, and ES modules need the `.mjs` extension.',
       },
+      {
+        question: 'What is tree shaking and how does it work?',
+        answer: 'The bundler follows the static `import` and `export` statements to see which exports are really used, and leaves the rest out of the bundle. It needs ES modules, since `require` can be dynamic, and code without side effects: `"sideEffects": false` in `package.json` tells webpack a whole unused file can be dropped.',
+        fromLists: ['frontend-100#28.1'],
+      },
+      {
+        question: 'How do circular imports behave in ESM vs CommonJS?',
+        answer: 'In CommonJS, `require` in a cycle returns the other module\'s `exports` as filled so far, so missing values are silently `undefined`. In ES modules, bindings are live: hoisted function declarations already work, but reading a `const` or `class` export before its line throws a ReferenceError.',
+        fromLists: ['frontend-100#28.2'],
+      },
     ],
     traps: [
       {
@@ -494,6 +530,7 @@ console.log(count); // 1: a live binding, not a copy
       codeLang: 'js',
     },
     mcqSections: ['m23#modules'],
+    fromLists: ['frontend-100#28'],
   },
   {
     id: 'js-generators',
@@ -531,17 +568,27 @@ console.log(count); // 1: a live binding, not a copy
       {
         question: 'How do you make your own object iterable with a generator?',
         answer: 'I write `[Symbol.iterator]` as a generator method: `*[Symbol.iterator]() { for (const line of this.lines) yield line; }`. Each `for...of` or spread calls it and gets a fresh generator, so the cart can be iterated many times, unlike a single generator object.',
-        fromList: 'fullstack-100#23.1',
+        fromLists: ['fullstack-100#23.1'],
       },
       {
         question: 'How do generators relate to `async`/`await`?',
         answer: 'An async function behaves like a generator that yields promises: it pauses at each `await`, and a driver resumes it with the resolved value. TypeScript still compiles `async` functions that way for an ES2015 target: a generator plus an `__awaiter` helper.',
-        fromList: 'fullstack-100#23.2',
+        fromLists: ['fullstack-100#23.2'],
       },
       {
         question: 'Can you write a generator that produces an infinite sequence?',
         answer: '`function* ids() { let id = 1; while (true) { yield id++; } }`. It never hangs, because each value is computed only when `next()` asks for it. I take what I need with `ids().take(5)` or a `break`, and never spread it, which would loop forever.',
-        fromList: 'fullstack-100#23.3',
+        fromLists: ['fullstack-100#23.3'],
+      },
+      {
+        question: 'How do async generators differ from regular generators?',
+        answer: 'An `async function*` can `await` between yields, and its `next()` returns a promise of `{ value, done }` instead of the object itself. It implements `Symbol.asyncIterator`, not `Symbol.iterator`, so I read it with `for await...of`, for example to fetch orders one page at a time.',
+        fromLists: ['frontend-100#34.1'],
+      },
+      {
+        question: 'How does `for...of` use the iterator protocol?',
+        answer: 'It calls `obj[Symbol.iterator]()` once to get an iterator, then calls `next()` before each turn and stops when `done` is true, giving `value` to the loop variable. If I leave early with `break`, `return` or a throw, it calls the iterator\'s `return()` so the source can clean up.',
+        fromLists: ['frontend-100#34.2'],
       },
     ],
     traps: [
@@ -582,7 +629,7 @@ for (const id of ids) {
       codeLang: 'js',
     },
     mcqSections: ['m23#iterators'],
-    fromLists: ['fullstack-100#23'],
+    fromLists: ['fullstack-100#23', 'frontend-100#34'],
   },
   {
     id: 'js-copying',
@@ -612,10 +659,16 @@ for (const id of ids) {
       {
         question: 'What can `structuredClone` not copy?',
         answer: 'Functions and DOM nodes make it throw a DataCloneError. Class instances are copied as plain objects: their prototype and methods are lost.',
+        fromLists: ['frontend-100#33.1'],
       },
       {
         question: 'Why does React need a new object to re-render after a state change?',
         answer: 'React compares the old and new state with `Object.is`. Mutating the same object keeps the same reference, so React sees no change.',
+      },
+      {
+        question: 'How would you deep clone an object containing functions?',
+        answer: '`structuredClone` throws on functions, and JSON drops them. Functions are behaviour, not data, so I keep them shared: a small recursive clone copies plain objects and arrays and reuses functions as they are. Better still, I separate the data, clone it with `structuredClone`, and rebuild the class instance from it.',
+        fromLists: ['frontend-100#33.2'],
       },
     ],
     traps: [
@@ -653,6 +706,7 @@ console.log(typeof JSON.parse(JSON.stringify(order)).at);         // string`,
       codeLang: 'js',
     },
     mcqSections: ['m23#copying'],
+    fromLists: ['frontend-100#33'],
   },
   {
     id: 'js-memory',
@@ -681,11 +735,22 @@ console.log(typeof JSON.parse(JSON.stringify(order)).at);         // string`,
     followUps: [
       {
         question: 'When would you use a `WeakMap`?',
-        answer: 'To attach data to objects you do not own, like DOM nodes, without keeping them alive: when the key object is collected, its entry goes too. Keys must be objects, and a WeakMap cannot be iterated.',
+        answer: 'To attach data to objects you do not own, like DOM nodes, without keeping them alive: when the key object is collected, its entry goes too. Keys must be objects, and a WeakMap cannot be iterated. A `WeakSet` does the same for membership, like marking which nodes were already set up.',
+        fromLists: ['frontend-100#32.2'],
       },
       {
         question: 'How do you confirm a memory leak in a Node service?',
         answer: 'Watch heap usage over time in your metrics, then take heap snapshots, for example with the `--heapsnapshot-signal` flag or the inspector, and compare which objects keep growing.',
+      },
+      {
+        question: 'How do you find a memory leak with Chrome DevTools?',
+        answer: 'In the Memory panel I take a heap snapshot, which runs garbage collection first, then repeat the action and its reverse a few times, like opening and closing an order, and take another. The Comparison view shows what was added; I select a growing object and read its Retainers to find the code still holding it.',
+        fromLists: ['frontend-100#32.1', 'frontend-100#35.1'],
+      },
+      {
+        question: 'What is a detached DOM node and why does it still use memory?',
+        answer: 'It is an element removed from the document but still referenced from JavaScript: a variable, a cache, or a listener\'s closure. Being reachable, it cannot be collected, and it keeps its whole subtree alive. A heap snapshot can filter on objects retained by detached nodes.',
+        fromLists: ['frontend-100#35.2'],
       },
     ],
     traps: [
@@ -716,5 +781,6 @@ console.log(typeof JSON.parse(JSON.stringify(order)).at);         // string`,
       codeLang: 'tsx',
     },
     mcqSections: ['m23#memory'],
+    fromLists: ['frontend-100#32', 'frontend-100#35'],
   },
 ];

@@ -41,17 +41,27 @@ export const javascriptMoreCards: Card[] = [
       {
         question: 'How do you destructure a nested property in one statement?',
         answer: '`const { customer: { address: { city } } } = order` reads `order.customer.address.city` into `city`. Only `city` becomes a variable, not `customer` or `address`. If a level can be missing, I give it a default or read it with `?.`, because destructuring `undefined` throws.',
-        fromList: 'fullstack-100#21.1',
+        fromLists: ['fullstack-100#21.1'],
       },
       {
         question: 'How do you swap two variables with destructuring?',
         answer: '`[a, b] = [b, a]`: the right side builds an array from the current values, then the pattern assigns them back reversed. One trap: if the previous line has no semicolon, the `[` continues that line and it breaks, so start the line with a semicolon in that style.',
-        fromList: 'fullstack-100#21.2',
+        fromLists: ['fullstack-100#21.2'],
       },
       {
         question: 'How does a rest element work in array destructuring, as in `const [first, ...rest] = items`?',
         answer: '`first` gets the first item, and `rest` gets a new real array of all remaining items, empty when there are none. The rest element must come last, with no trailing comma after it. It works on any iterable: `const [head, ...tail] = \'abc\'` gives "a" and `[\'b\', \'c\']`.',
-        fromList: 'fullstack-100#21.3',
+        fromLists: ['fullstack-100#21.3'],
+      },
+      {
+        question: 'How would you deep clone an object safely?',
+        answer: 'Spread and rest copy only one level, so for a deep copy I use `structuredClone(order)`: it keeps Dates, Maps, Sets and cycles. It throws on functions and turns class instances into plain objects, so those need their own copy logic. I avoid the JSON round trip, which turns Dates into strings and drops `undefined`.',
+        fromLists: ['frontend-100#26.1'],
+      },
+      {
+        question: 'Spreading an array vs `concat()`?',
+        answer: 'Both build a new, shallow array. `concat` flattens array arguments one level and adds anything else as a single item, so `items.concat(set)` adds the Set itself. Spread expands any iterable, so `[...items, ...set]` adds its values, and it reads the same for arrays, Sets and strings. I use spread by default.',
+        fromLists: ['frontend-100#26.2'],
       },
     ],
     traps: [
@@ -91,7 +101,7 @@ console.log(order.customer?.name); // undefined`,
       codeLang: 'js',
     },
     mcqSections: [],
-    fromLists: ['fullstack-100#21'],
+    fromLists: ['fullstack-100#21', 'frontend-100#26'],
   },
   {
     id: 'js-spread-rest',
@@ -129,17 +139,17 @@ console.log(order.customer?.name); // undefined`,
       {
         question: 'Why does the shallow copy of spread cause bugs, and how do you copy deeply instead?',
         answer: 'Nested objects stay shared, so editing `draft.lines[0]` also edits the original order, and in React a mutated nested object keeps its reference, so memoized children miss the change. I copy each level I change, or use `structuredClone` when I need a full deep copy.',
-        fromList: 'fullstack-100#22.1',
+        fromLists: ['fullstack-100#22.1'],
       },
       {
         question: 'How does a rest pattern work when destructuring function parameters?',
         answer: '`function updateOrder({ id, ...changes })` takes `id` out and gathers every other own property into a new `changes` object. In React, `function Button({ variant, ...props })` reads its own prop and passes the rest on to the `<button>`.',
-        fromList: 'fullstack-100#22.2',
+        fromLists: ['fullstack-100#22.2'],
       },
       {
         question: 'How do you merge two objects so that the second one wins on conflicts?',
         answer: '`const merged = { ...defaults, ...overrides }`: properties are copied left to right, so the later object wins. `Object.assign({}, defaults, overrides)` does the same. Both are shallow: a nested `shipping` object is replaced whole, not merged, so nested levels need their own spread.',
-        fromList: 'fullstack-100#22.3',
+        fromLists: ['fullstack-100#22.3'],
       },
     ],
     traps: [
@@ -209,7 +219,7 @@ console.log({ ...null });                            // {}`,
       {
         question: 'What is the difference between `event.target` and `event.currentTarget`?',
         answer: '`target` is the element where the event started, such as the icon that was clicked. `currentTarget` is the element whose listener is running, the container in delegation.',
-        fromList: 'fullstack-100#25.2',
+        fromLists: ['fullstack-100#25.2'],
       },
       {
         question: 'Does React use event delegation?',
@@ -218,12 +228,12 @@ console.log({ ...null });                            // {}`,
       {
         question: 'How does bubbling differ from capturing, and when would you use the capture phase?',
         answer: 'Capture runs first, from the window down to the target; bubbling runs after, from the target back up. With `{ capture: true }`, a container hears the event before its children, which suits closing a dropdown on any outside click even if a child calls `stopPropagation()`.',
-        fromList: 'fullstack-100#25.1',
+        fromLists: ['fullstack-100#25.1', 'frontend-100#24.1'],
       },
       {
         question: 'How do you stop an event from bubbling, and when is it needed?',
         answer: '`event.stopPropagation()` stops it from reaching listeners further along; `stopImmediatePropagation()` also skips other listeners on the same element. I rarely need it: a delete icon inside a clickable order row is the classic case, though checking `closest()` in the row handler avoids breaking other listeners.',
-        fromList: 'fullstack-100#25.3',
+        fromLists: ['fullstack-100#25.3', 'frontend-100#24.2'],
       },
     ],
     traps: [
@@ -262,6 +272,84 @@ grid.addEventListener('click', (event) => {
       codeLang: 'js',
     },
     mcqSections: ['m25#events'],
-    fromLists: ['fullstack-100#25'],
+    fromLists: ['fullstack-100#25', 'frontend-100#24'],
+  },
+  {
+    id: 'js-array-methods',
+    unit: 'js-core',
+    topic: 'map, forEach, filter and reduce',
+    level: 'junior',
+    paths: ['frontend', 'fullstack', 'backend'],
+    question: 'What are the differences between `map()`, `forEach()`, `filter()` and `reduce()`?',
+    answer:
+      'All four walk an array and call a callback for each item, but they return different things. `forEach` returns `undefined`: it is for side effects, and a `return` in its callback does not stop the loop. `map` returns a new array of the same length with each item transformed. `filter` returns a new array of the items whose callback returned a truthy value. `reduce` folds the array into one value through an accumulator, such as a total. None of them changes the original array. I choose by the result I need, and use `for...of` when I need `await` or `break`.',
+    keyPoints: [
+      '`forEach` returns `undefined`: side effects only',
+      '`map`: a new array of the same length, items transformed',
+      '`filter`: a new array of the items whose callback is truthy',
+      '`reduce`: folds the array into one value with an accumulator',
+      'None mutates; `for...of` when you need `await` or `break`',
+    ],
+    explanation:
+      'It is a warm-up that checks you choose by the return value, not by habit. A senior answer adds the traps: `forEach` ignores async callbacks and cannot be stopped, `reduce` without an initial value throws on an empty array, and a chain of methods makes several passes over the data.',
+    example:
+      'The back office orders table computed its footer total with `orders.filter(isPaid).map(toCents).reduce(sum, 0)` on 50,000 rows at every keystroke: three passes and two throwaway arrays. One `reduce` that skips unpaid orders and adds the amount in a single pass, memoized on the filtered rows, took the footer out of the performance profile.',
+    mistakes: [
+      'Using `map` only for its side effects and ignoring the array it builds: use `forEach` or `for...of`',
+      'Calling `reduce` without an initial value, which throws a TypeError on an empty array',
+      'Passing an `async` callback to `forEach` and expecting the loop to wait for it',
+    ],
+    followUps: [
+      {
+        question: 'How would you implement `map()` using `reduce()`?',
+        answer: '`const map = (arr, fn) => arr.reduce((acc, item, i) => { acc.push(fn(item, i, arr)); return acc; }, []);`. The empty array is the initial accumulator. Writing `[...acc, fn(item)]` also works but copies the array at each step, which makes it quadratic.',
+        fromLists: ['frontend-100#25.1'],
+      },
+      {
+        question: 'What\'s the time complexity consideration when chaining several array methods?',
+        answer: 'Each method is one O(n) pass, so a chain of three is still O(n), but it makes three passes and builds an intermediate array at each step. That is fine for a few hundred items. On tens of thousands in a hot path, I merge the steps into one loop or `reduce`, or use lazy iterator helpers, after measuring.',
+        fromLists: ['frontend-100#25.2'],
+      },
+      {
+        question: 'Why does `[\'1\', \'2\', \'3\'].map(parseInt)` return `[1, NaN, NaN]`?',
+        answer: '`map` passes the index as the second argument, and `parseInt` reads it as the radix: radix 1 is invalid, and "3" is not a digit in base 2. Write `map((s) => parseInt(s, 10))` or `map(Number)`.',
+      },
+    ],
+    traps: [
+      {
+        statement: '`forEach` returns a new array.',
+        isTrue: false,
+        why: 'It always returns `undefined`; `map` is the one that returns a new array.',
+      },
+      {
+        statement: '`[].reduce((sum, n) => sum + n)` throws a TypeError.',
+        isTrue: true,
+        why: 'With no initial value and no items, there is nothing to start the accumulator with.',
+      },
+      {
+        statement: 'A `return` inside a `forEach` callback stops the loop.',
+        isTrue: false,
+        why: 'It only ends that call of the callback; `forEach` goes on with the next item.',
+      },
+    ],
+    lesson: {
+      points: [
+        'All four call a callback with `(item, index, array)` for each item, left to right. They differ in what they return, and none of them changes the original array.',
+        '`forEach` returns `undefined`: use it for side effects. A `return` in its callback only ends that call, and it ignores returned promises, so an `await` inside does not make the loop wait.',
+        '`map` returns a new array of the same length with each item transformed. `filter` returns a new array of the items for which the callback returned a truthy value.',
+        '`reduce(fn, initial)` folds the array into one value: each call gets the accumulator and an item and returns the next accumulator. Without `initial`, an empty array throws a TypeError.',
+        'Each method is one O(n) pass; a chain makes several passes and builds intermediate arrays. Merge the steps in a hot path, and use `for...of` when you need `break` or `await`.',
+      ],
+      code: `const orders = [{ status: 'paid', cents: 1200 }, { status: 'pending_payment', cents: 500 }, { status: 'paid', cents: 800 }];
+console.log(orders.forEach((o) => o.cents));            // undefined
+console.log(orders.map((o) => o.cents));                // [ 1200, 500, 800 ]
+const paid = orders.filter((o) => o.status === 'paid');
+console.log(paid.length);                               // 2
+console.log(paid.reduce((sum, o) => sum + o.cents, 0)); // 2000
+try { [].reduce((sum, n) => sum + n); } catch (e) { console.log(e.name); } // TypeError`,
+      codeLang: 'js',
+    },
+    mcqSections: [],
+    fromLists: ['frontend-100#25'],
   },
 ];

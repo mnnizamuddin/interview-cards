@@ -50,7 +50,7 @@ describe('App', () => {
     render(<App store={memoryStore()} now={now} random={random} />);
 
     await user.click(await screen.findByText('JavaScript core'));
-    await user.click(screen.getAllByRole('button', { name: 'Play this unit' })[0]!);
+    await user.click(screen.getByRole('button', { name: 'Play JavaScript core' }));
     expect(screen.getByText(/^Lesson ·/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Got it, ask me' }));
 
@@ -100,9 +100,7 @@ describe('App', () => {
     render(<App store={memoryStore()} now={now} random={random} />);
 
     await user.click(await screen.findByText('Behavioural and scenarios'));
-    const playButtons = screen.getAllByRole('button', { name: 'Play this unit' });
-    // Units are listed in order; behavioural is the tenth of eleven.
-    await user.click(playButtons[9]!);
+    await user.click(screen.getByRole('button', { name: 'Play Behavioural and scenarios' }));
     await user.click(screen.getByRole('button', { name: 'Got it, ask me' }));
 
     expect(screen.getByRole('heading', { name: /worked across the whole stack/ })).toBeInTheDocument();
