@@ -21,7 +21,7 @@ export function Feedback({
   return (
     <div
       role="status"
-      className={`slide-up sticky bottom-0 -mx-4 rounded-t-3xl border-t-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 ${
+      className={`slide-up sticky bottom-0 -mx-4 border-t-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 ${
         correct ? 'border-success bg-success-soft' : 'border-danger bg-danger-soft'
       }`}
     >
