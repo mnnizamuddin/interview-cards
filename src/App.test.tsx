@@ -40,6 +40,7 @@ async function answerOnScreen(user: ReturnType<typeof userEvent.setup>, { right,
   } else {
     const options = screen.getAllByRole('listitem').map((item) => item.querySelector('button')!);
     await user.click(options[attempt % options.length]!);
+    await user.click(screen.getByRole('button', { name: 'Check answer' }));
   }
   await user.click(screen.getByRole('button', { name: 'Continue' }));
 }

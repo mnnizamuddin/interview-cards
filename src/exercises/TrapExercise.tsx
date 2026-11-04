@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Trap } from '../content/types.ts';
 import { Button } from '../ui/Button.tsx';
 import { Feedback } from '../ui/Feedback.tsx';
+import { Kicker } from '../ui/Kicker.tsx';
 import { Text } from '../ui/Text.tsx';
 import type { ExerciseResult } from './types.ts';
 
@@ -21,10 +22,10 @@ export function TrapExercise({
   return (
     <div className="flex flex-1 flex-col gap-6">
       <div>
-        <p className="mb-2 text-sm font-bold uppercase tracking-wider text-gold">Spot the trap</p>
-        <h2 className="text-xl font-bold">True or false?</h2>
+        <Kicker>Spot the trap</Kicker>
+        <h2 className="mt-3 text-xl font-bold">True or false?</h2>
       </div>
-      <p className="rounded-2xl border-2 border-line p-4 text-lg">
+      <p className="rounded-3xl border border-line bg-card p-5 text-lg shadow-sm">
         <Text>{trap.statement}</Text>
       </p>
       <div className="mt-auto flex flex-col gap-3">

@@ -10,7 +10,7 @@ import { ThemeToggle } from '../ui/ThemeToggle.tsx';
 const STATUS_STYLES: Record<TopicStatus, { label: string; dot: string }> = {
   new: { label: 'New', dot: 'bg-line' },
   learning: { label: 'Learning', dot: 'bg-gold' },
-  handled: { label: 'Handled', dot: 'bg-brand' },
+  handled: { label: 'Handled', dot: 'bg-success' },
   stale: { label: 'Needs a check', dot: 'bg-sky-500' },
 };
 
@@ -68,7 +68,7 @@ export function HomeScreen({
         <ThemeToggle />
       </header>
 
-      <section className="rounded-3xl border-2 border-line p-5">
+      <section className="rounded-3xl border border-line bg-card p-5 shadow-sm">
         <p className="text-sm font-bold uppercase tracking-wider text-muted">Topics you handle</p>
         <p className="mb-2 text-4xl font-extrabold">
           {share}
@@ -100,7 +100,7 @@ export function HomeScreen({
           const unitHandled = countHandled(unitTopics.map((topic) => topic.id), progress, now);
           const unitShare = percent(unitHandled, unitTopics.length);
           return (
-            <details key={unit.id} className="unit rounded-2xl border-2 border-line">
+            <details key={unit.id} className="unit rounded-3xl border border-line bg-card shadow-sm">
               <summary className="flex flex-col gap-2 p-4">
                 <span className="flex items-baseline justify-between gap-3 pr-6">
                   <span className="font-extrabold">{unit.title}</span>

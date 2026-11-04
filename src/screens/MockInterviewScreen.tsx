@@ -73,8 +73,8 @@ export function MockInterviewScreen({
         </button>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold">Mock interview · {card.topic}</p>
-          <div className="h-2 overflow-hidden rounded-full bg-surface" role="progressbar" aria-label="Interview progress" aria-valuenow={index} aria-valuemin={0} aria-valuemax={total}>
-            <div className="h-full rounded-full bg-gold transition-[width] duration-300" style={{ width: `${(index / total) * 100}%` }} />
+          <div className="h-2.5 overflow-hidden rounded-full bg-surface" role="progressbar" aria-label="Interview progress" aria-valuenow={index} aria-valuemin={0} aria-valuemax={total}>
+            <div className="h-full rounded-full bg-brand transition-[width] duration-300" style={{ width: `${(index / total) * 100}%` }} />
           </div>
         </div>
         {current && (
@@ -140,8 +140,8 @@ function InterviewSummary({
       </div>
       <ol className="flex flex-col gap-2">
         {questions.map((question, index) => (
-          <li key={index} className="flex gap-3 rounded-2xl bg-surface p-3">
-            <span className={`font-extrabold ${results[index] ? 'text-brand' : 'text-danger'}`} aria-label={results[index] ? 'Had it' : 'Missed it'}>
+          <li key={index} className="flex gap-3 rounded-2xl border border-line bg-card p-3">
+            <span className={`font-extrabold ${results[index] ? 'text-success' : 'text-danger'}`} aria-label={results[index] ? 'Had it' : 'Missed it'}>
               {results[index] ? '✓' : '✗'}
             </span>
             <span className="text-[0.95rem]">

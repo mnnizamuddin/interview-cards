@@ -126,7 +126,7 @@ export function PlayScreen({
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold">{title}</p>
           <div
-            className="h-2 overflow-hidden rounded-full bg-surface"
+            className="h-2.5 overflow-hidden rounded-full bg-surface"
             role="progressbar"
             aria-label="Series progress"
             aria-valuenow={series.asked}
@@ -149,7 +149,7 @@ export function PlayScreen({
       </header>
 
       {justHandled && series.phase !== 'done' && (
-        <p role="status" className="mt-2 rounded-xl bg-brand-soft px-3 py-2 text-sm font-bold text-brand">
+        <p role="status" className="mt-2 rounded-2xl bg-success-soft px-3 py-2 text-sm font-bold text-success">
           ✓ You now handle {justHandled}
         </p>
       )}
@@ -242,7 +242,7 @@ function SeriesSummary({
           <h3 className="mb-2 font-extrabold">You now handle</h3>
           <ul className="flex flex-col gap-2">
             {series.handledTopics.map((cardId) => (
-              <li key={cardId} className="rounded-2xl bg-brand-soft px-4 py-3 font-semibold text-brand">
+              <li key={cardId} className="rounded-2xl bg-success-soft px-4 py-3 font-semibold text-success">
                 ✓ {cardsById.get(cardId)?.topic}
               </li>
             ))}
@@ -254,7 +254,7 @@ function SeriesSummary({
           <h3 className="mb-2 font-extrabold">Missed this time</h3>
           <ul className="flex flex-col gap-2">
             {series.missedTopics.map((cardId) => (
-              <li key={cardId} className="flex items-center gap-3 rounded-2xl bg-surface px-4 py-3">
+              <li key={cardId} className="flex items-center gap-3 rounded-2xl border border-line bg-card px-4 py-3">
                 <span className="flex-1 font-semibold">{cardsById.get(cardId)?.topic}</span>
                 {onReviewLesson && (
                   <Button variant="ghost" className="shrink-0 text-sky-500" onClick={() => onReviewLesson(cardId)} aria-label={`Lesson on ${cardsById.get(cardId)?.topic}`}>

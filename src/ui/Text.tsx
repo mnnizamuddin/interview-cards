@@ -22,11 +22,3 @@ export function Text({ children }: { children: string }) {
 export function TrackHtml({ html, className }: { html: string; className?: string }) {
   return <span className={className} dangerouslySetInnerHTML={{ __html: html }} />;
 }
-
-export function CodeBlock({ code }: { code: string }) {
-  return (
-    <pre className="code-block">
-      <code>{code}</code>
-    </pre>
-  );
-}

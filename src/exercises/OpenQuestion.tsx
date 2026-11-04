@@ -48,7 +48,7 @@ export function OpenQuestion({
     <div className="flex flex-1 flex-col gap-5">
       <div className="flex items-center gap-2">
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${LEVEL_STYLES[card.level]}`}>{card.level}</span>
-        <span className="text-sm font-bold uppercase tracking-wider text-gold">
+        <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand">
           {followUp ? 'The interviewer digs deeper' : 'Say it out loud'}
         </span>
       </div>
@@ -66,7 +66,7 @@ export function OpenQuestion({
         </div>
       ) : (
         <>
-          <section className="rounded-2xl bg-surface p-4">
+          <section className="rounded-3xl border border-line bg-card p-5 shadow-sm">
             <h3 className="mb-1 text-sm font-bold uppercase tracking-wider text-muted">Model answer</h3>
             {variant && (
               <p className="mb-2 font-semibold">
@@ -85,7 +85,7 @@ export function OpenQuestion({
                 {keyPoints.map((point, index) => (
                   <li key={point}>
                     <label
-                      className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 p-3 ${said[index] ? 'border-brand bg-brand-soft' : 'border-line'}`}
+                      className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3 ${said[index] ? 'border-brand bg-brand-soft' : 'border-line bg-card'}`}
                     >
                       <input
                         type="checkbox"
@@ -107,7 +107,7 @@ export function OpenQuestion({
           )}
 
           {!followUp && (
-            <div className="flex flex-col divide-y divide-line rounded-2xl border-2 border-line">
+            <div className="flex flex-col divide-y divide-line rounded-3xl border border-line bg-card">
               <Details title="Why they ask">
                 <Text>{card.explanation}</Text>
               </Details>
@@ -132,7 +132,7 @@ export function OpenQuestion({
             </Button>
           )}
 
-          <section className="sticky bottom-0 -mx-4 mt-auto border-t-2 border-line bg-page px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+          <section className="sticky bottom-0 -mx-4 mt-auto border-t border-line bg-page/95 px-4 backdrop-blur pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
             <h3 className="mb-2 text-center text-sm font-bold text-muted">Did you have it?</h3>
             <div className="grid grid-cols-2 gap-3">
               <Button variant={suggestHadIt ? 'secondary' : 'danger'} onClick={() => onDone({ correct: false })}>

@@ -21,10 +21,16 @@ describe('McqExercise', () => {
     // Always 0: the order becomes [1, 2, 3, 0], so the right answer is shown first.
     render(<McqExercise mcq={MCQ} onDone={onDone} random={() => 0} />);
 
+    // Each option shows a letter, A to D in the shown order, then its text.
     const options = screen.getAllByRole('listitem').map((item) => item.textContent);
-    expect(options).toEqual(['[3, 3, 3]', '[undefined]', '[2, 2, 2]', '[0, 1, 2]']);
+    expect(options).toEqual(['A[3, 3, 3]', 'B[undefined]', 'C[2, 2, 2]', 'D[0, 1, 2]']);
 
+    // Selecting is not answering: nothing is graded before the check.
+    expect(screen.getByRole('button', { name: 'Check answer' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: '[0, 1, 2]' }));
     await user.click(screen.getByRole('button', { name: '[3, 3, 3]' }));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Check answer' }));
     expect(screen.getByRole('status')).toHaveTextContent('Correct!');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
     expect(onDone).toHaveBeenCalledWith({ correct: true });
@@ -34,6 +40,7 @@ describe('McqExercise', () => {
     const user = userEvent.setup();
     render(<McqExercise mcq={MCQ} onDone={vi.fn()} random={() => 0} />);
     await user.click(screen.getByRole('button', { name: '[0, 1, 2]' }));
+    await user.click(screen.getByRole('button', { name: 'Check answer' }));
     expect(screen.getByRole('status')).toHaveTextContent('Not quite');
   });
 });
